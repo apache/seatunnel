@@ -17,42 +17,62 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
+import org.apache.seatunnel.engine.client.deployment.SeatunnelClientProvider;
+import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
+import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.ApiException;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Deploys a suspended owner Job, localizes configuration, then starts its control plane. */
-final class KubernetesApplicationClusterDescriptor implements ApplicationClusterDescriptor {
+final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
 
     private final KubernetesClient api;
+    private final ReadonlyConfig options;
 
     KubernetesApplicationClusterDescriptor(KubernetesClient api) {
+        this(api, Collections.emptyMap());
+    }
+
+    KubernetesApplicationClusterDescriptor(KubernetesClient api, Map<String, String> options) {
         this.api = api;
+        this.options = ReadonlyConfig.fromMap(new HashMap<>(options));
+    }
+
+    private void validateApplicationId(String applicationId) {
+        if (applicationId == null || applicationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Kubernetes Job name must not be empty");
+        }
     }
 
     /**
      * Creates and starts one isolated application, rolling back all partial startup resources.
      *
      * @param specification resolved job content and fixed resource requirements
-     * @return handle sharing this deployer's SDK connection; closing it does not cancel the job
+     * @return the native Kubernetes Job name
      * @throws Exception on invalid options, admission errors or configuration localization failures
      */
     @Override
-    public ApplicationClient deploy(ApplicationSpecification specification) throws Exception {
+    public String deployApplication(ApplicationSpecification specification) throws Exception {
         if (specification.getDeployType() != DeployType.KUBERNETES) {
             throw new IllegalArgumentException("Expected Kubernetes specification");
         }
@@ -71,11 +91,8 @@ final class KubernetesApplicationClusterDescriptor implements ApplicationCluster
             api.createSecret(KubernetesResourceFactory.secret(job, specification));
             api.createService(KubernetesResourceFactory.service(job, parameters));
             api.startJob(id);
-            KubernetesApplicationClient client =
-                    new KubernetesApplicationClient(
-                            api, new ApplicationId(DeployType.KUBERNETES, id));
-            awaitMaster(client, specification.getStartupTimeoutMillis());
-            return client;
+            awaitDeployment(id, specification.getStartupTimeoutMillis());
+            return id;
         } catch (Exception failure) {
             if (ownerCreated
                     || !(failure instanceof ApiException)
@@ -103,42 +120,87 @@ final class KubernetesApplicationClusterDescriptor implements ApplicationCluster
         }
     }
 
-    private void awaitMaster(KubernetesApplicationClient client, long timeoutMillis)
-            throws Exception {
+    private String awaitMaster(String id, long timeoutMillis) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         while (true) {
-            ApplicationStatus status = client.getStatus();
-            if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
-                return;
-            }
-            if (status == ApplicationStatus.FAILED || status == ApplicationStatus.CANCELED) {
+            KubernetesJob job = api.getJob(id);
+            if (job.isFailed() || job.isComplete()) {
                 throw new IllegalStateException(
-                        "Application master failed before startup: "
-                                + client.getApplicationId().getId());
+                        "Kubernetes application "
+                                + id
+                                + " has no live master: "
+                                + job.getFailureReason());
+            }
+            for (KubernetesPod pod :
+                    api.listPods(
+                            KubernetesResourceFactory.selector(id)
+                                    + ","
+                                    + KubernetesResourceFactory.ROLE_LABEL
+                                    + "=master")) {
+                if (pod.isRunning() && !pod.isTerminating()) {
+                    String host = pod.getInternalResource().getStatus().getPodIP();
+                    if (host != null && !host.isEmpty()) {
+                        return host;
+                    }
+                }
             }
             long remaining = deadline - System.nanoTime();
             if (remaining <= 0) {
                 throw new TimeoutException(
-                        "Timed out waiting for Kubernetes application master "
-                                + client.getApplicationId().getId());
+                        "Timed out waiting for Kubernetes application master " + id);
             }
             TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(200)));
         }
     }
 
-    /**
-     * Creates a status/cancel handle without connecting to the application's master.
-     *
-     * @param applicationId Kubernetes Job name and deployment target
-     * @param options deployment options; the connection and namespace were selected by the factory
-     * @return handle sharing this deployer's SDK connection
-     */
+    /** Discovers the running master Pod without creating an Engine client. */
     @Override
-    public ApplicationClient retrieve(ApplicationId applicationId, Map<String, String> options) {
-        if (applicationId.getDeployType() != DeployType.KUBERNETES) {
-            throw new IllegalArgumentException("Expected Kubernetes application id");
+    public SeatunnelClientProvider retrieve(String applicationId) throws Exception {
+        validateApplicationId(applicationId);
+        long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
+        String host = awaitMaster(applicationId, timeout);
+        String address =
+                (host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host)
+                        + ":"
+                        + options.get(ApplicationOptions.MASTER_PORT);
+        ClientConfig config = ConfigProvider.locateAndGetClientConfig();
+        config.setClusterName(ApplicationClusterConfig.clusterName(applicationId));
+        config.getNetworkConfig().setAddresses(Collections.singletonList(address));
+        config.getConnectionStrategyConfig()
+                .getConnectionRetryConfig()
+                .setClusterConnectTimeoutMillis(timeout);
+        return () -> new SeaTunnelClient(config);
+    }
+
+    @Override
+    public ApplicationStatus getApplicationStatus(String applicationId) throws Exception {
+        return new KubernetesApplicationClient(api, applicationId).getStatus();
+    }
+
+    @Override
+    public void cancelApplication(String applicationId) throws Exception {
+        validateApplicationId(applicationId);
+        api.deleteApplication(applicationId);
+    }
+
+    private void awaitDeployment(String applicationId, long timeoutMillis) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (true) {
+            ApplicationStatus status = getApplicationStatus(applicationId);
+            if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
+                return;
+            }
+            if (status.isTerminal()) {
+                throw new IllegalStateException(
+                        "Kubernetes application " + applicationId + " failed to start: " + status);
+            }
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                throw new TimeoutException(
+                        "Timed out waiting for Kubernetes application master " + applicationId);
+            }
+            TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(200)));
         }
-        return new KubernetesApplicationClient(api, applicationId);
     }
 
     /** Releases the SDK connection without canceling or deleting any application. */

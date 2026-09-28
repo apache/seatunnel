@@ -18,45 +18,37 @@
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
 
-public class YarnResourceManager extends ApplicationResourceManager
-        implements ThirdPartyResourceManager {
+public class YarnResourceManager<WorkerType extends ResourceIDRetrievable>
+        extends ApplicationResourceManager<WorkerType>
+        implements ThirdPartyResourceManager<WorkerType> {
     public YarnResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            ApplicationId applicationId,
+            String applicationId,
             ApplicationSpecification specification,
-            String clusterName,
             Address masterAddress,
-            ResourceManagerDriver driver) {
-        super(
-                nodeEngine,
-                engineConfig,
-                applicationId,
-                specification,
-                clusterName,
-                masterAddress,
-                driver);
+            ResourceManagerDriver<WorkerType> driver) {
+        super(nodeEngine, engineConfig, applicationId, specification, masterAddress, driver);
     }
 
     @Override
-    public CompletableFuture<WorkerRegistration> requestWorker(WorkerSpecification specification) {
+    public CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification) {
         return getDriver().requestWorker(specification);
     }
 
     @Override
-    public CompletableFuture<Void> releaseWorker(WorkerRegistration worker) {
+    public CompletableFuture<Void> releaseWorker(WorkerType worker) {
         return getDriver().releaseWorker(worker);
     }
 }

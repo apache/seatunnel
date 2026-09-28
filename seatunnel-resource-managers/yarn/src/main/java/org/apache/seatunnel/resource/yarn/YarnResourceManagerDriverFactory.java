@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriverFactory;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
@@ -32,12 +32,14 @@ import com.google.auto.service.AutoService;
 public final class YarnResourceManagerDriverFactory implements ResourceManagerDriverFactory {
 
     @Override
-    public ResourceManagerDriver create(ApplicationSpecification specification) throws Exception {
+    public ResourceManagerDriver<YarnWorkerNode> create(
+            ApplicationSpecification specification, String clusterName) throws Exception {
         YarnApplicationConfiguration configuration =
                 YarnApplicationConfiguration.forApplicationMaster(specification);
         return new YarnResourceManagerDriver(
                 YarnConfigurationUtils.loadLocalized(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME),
                 YarnStagingDirectory.fromEnvironment(),
+                clusterName,
                 configuration.getWorkerNodeLabel());
     }
 }

@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import com.google.auto.service.AutoService;
@@ -31,7 +32,12 @@ import java.util.Map;
 /** Discovers YARN submission support through the platform deployment SPI. */
 @AutoService(ApplicationClusterDescriptorFactory.class)
 public final class YarnApplicationClusterDescriptorFactory
-        implements ApplicationClusterDescriptorFactory {
+        implements ApplicationClusterDescriptorFactory<ApplicationId> {
+
+    @Override
+    public ApplicationId parseApplicationId(String applicationId) {
+        return ApplicationId.fromString(applicationId);
+    }
 
     @Override
     public DeployType getDeployType() {
@@ -39,8 +45,8 @@ public final class YarnApplicationClusterDescriptorFactory
     }
 
     @Override
-    public ApplicationClusterDescriptor create(Map<String, String> options) throws Exception {
+    public ClusterDescriptor<ApplicationId> create(Map<String, String> options) throws Exception {
         YarnConfiguration configuration = YarnConfigurationUtils.load(options);
-        return new YarnApplicationClusterDescriptor(configuration);
+        return new YarnApplicationClusterDescriptor(configuration, options);
     }
 }

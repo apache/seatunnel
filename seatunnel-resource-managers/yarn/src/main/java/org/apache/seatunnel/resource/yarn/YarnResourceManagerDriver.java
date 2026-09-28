@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 
@@ -51,7 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /** Fixed worker allocation: a lost container fails the application, without replacement or HA. */
-final class YarnResourceManagerDriver implements ResourceManagerDriver {
+public final class YarnResourceManagerDriver implements ResourceManagerDriver<YarnWorkerNode> {
     /** Allocation priority shared by all fixed-capacity workers in one application. */
     private static final int WORKER_PRIORITY = 0;
 
@@ -63,6 +63,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
 
     private final Configuration configuration;
     private final Path staging;
+    private final String clusterName;
     private final AMRMClient<AMRMClient.ContainerRequest> resourceManager;
     private final NMClient nodeManager;
     private final String workerNodeLabel;
@@ -75,10 +76,12 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     private boolean finished;
     private boolean nodeManagerInitialized;
 
-    YarnResourceManagerDriver(Configuration configuration, Path staging, String workerNodeLabel) {
+    YarnResourceManagerDriver(
+            Configuration configuration, Path staging, String clusterName, String workerNodeLabel) {
         this(
                 configuration,
                 staging,
+                clusterName,
                 workerNodeLabel,
                 new DefaultYarnResourceManagerClientFactory().create(),
                 new DefaultYarnNodeManagerClientFactory().create());
@@ -87,11 +90,13 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     YarnResourceManagerDriver(
             Configuration configuration,
             Path staging,
+            String clusterName,
             String workerNodeLabel,
             AMRMClient<AMRMClient.ContainerRequest> resourceManager,
             NMClient nodeManager) {
         this.configuration = YarnConfigurationUtils.withBoundedRpc(configuration);
         this.staging = staging;
+        this.clusterName = clusterName;
         this.workerNodeLabel = workerNodeLabel;
         this.resourceManager = resourceManager;
         this.nodeManager = nodeManager;
@@ -126,9 +131,9 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     }
 
     @Override
-    public synchronized CompletableFuture<WorkerRegistration> requestWorker(
+    public synchronized CompletableFuture<YarnWorkerNode> requestWorker(
             WorkerSpecification specification) {
-        CompletableFuture<WorkerRegistration> result = new CompletableFuture<>();
+        CompletableFuture<YarnWorkerNode> result = new CompletableFuture<>();
         if (!active) {
             result.completeExceptionally(
                     new IllegalStateException("YARN resource manager is not active"));
@@ -172,7 +177,8 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                 }
             }
             for (Container container : response.getAllocatedContainers()) {
-                YarnWorkerNode workerNode = new YarnWorkerNode(container);
+                YarnWorkerNode workerNode =
+                        new YarnWorkerNode(container, new ResourceID(container.getId().toString()));
                 PendingWorker worker;
                 synchronized (this) {
                     worker = active ? pending.poll() : null;
@@ -191,17 +197,20 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                             YarnContainerLaunchContextFactory.worker(
                                     configuration,
                                     staging,
-                                    context.getClusterName(),
+                                    clusterName,
                                     context.getMasterAddress(),
                                     worker.specification));
                     synchronized (this) {
-                        if (active && workers.containsKey(workerNode.getWorkerId())) {
-                            worker.result.complete(
-                                    new WorkerRegistration(workerNode.getWorkerId()));
+                        if (active
+                                && workers.containsKey(workerNode.getWorkerId())
+                                && worker.result.complete(workerNode)) {
                             continue;
                         }
                     }
                     // A launch can finish after shutdown removed its allocation record.
+                    synchronized (this) {
+                        workers.remove(workerNode.getWorkerId());
+                    }
                     try {
                         nodeManager.stopContainer(
                                 workerNode.getContainerId(), workerNode.getNodeId());
@@ -235,7 +244,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     }
 
     @Override
-    public CompletableFuture<Void> releaseWorker(WorkerRegistration registration) {
+    public CompletableFuture<Void> releaseWorker(YarnWorkerNode registration) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         YarnWorkerNode worker;
         synchronized (this) {
@@ -281,7 +290,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     @Override
     public void stopWorkers() throws Exception {
         List<PendingWorker> waiting;
-        List<String> allocated;
+        List<YarnWorkerNode> allocated;
         synchronized (this) {
             active = false;
             if (heartbeats != null) {
@@ -289,7 +298,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
             }
             waiting = new ArrayList<>(pending);
             pending.clear();
-            allocated = new ArrayList<>(workers.keySet());
+            allocated = new ArrayList<>(workers.values());
         }
         Exception failure = null;
         for (PendingWorker worker : waiting) {
@@ -314,11 +323,11 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
             List<Future<?>> stopping = new ArrayList<>();
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             try {
-                for (String worker : allocated) {
+                for (YarnWorkerNode worker : allocated) {
                     stopping.add(
                             releases.submit(
                                     () -> {
-                                        releaseWorker(new WorkerRegistration(worker)).get();
+                                        releaseWorker(worker).get();
                                         return null;
                                     }));
                 }
@@ -385,12 +394,12 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     private static final class PendingWorker {
         private final AMRMClient.ContainerRequest request;
         private final WorkerSpecification specification;
-        private final CompletableFuture<WorkerRegistration> result;
+        private final CompletableFuture<YarnWorkerNode> result;
 
         private PendingWorker(
                 AMRMClient.ContainerRequest request,
                 WorkerSpecification specification,
-                CompletableFuture<WorkerRegistration> result) {
+                CompletableFuture<YarnWorkerNode> result) {
             this.request = request;
             this.specification = specification;
             this.result = result;

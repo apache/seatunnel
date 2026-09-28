@@ -17,28 +17,16 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-
 /**
  * Application-owned context supplied once when an external worker driver is initialized.
  *
- * <p>The context identifies a single application and exposes its master endpoint after the master
- * has bound its listener. Drivers may retain this context until close. Accessors return immutable
- * application metadata; failure callbacks are thread-safe and may be invoked by allocation,
+ * <p>The context exposes the master endpoint after its listener is bound, plus runtime failure
+ * callbacks. Fixed deployment settings belong to the driver constructor. Drivers may retain this
+ * context until close. Failure callbacks are thread-safe and may be invoked by allocation,
  * heartbeat, or watch threads. Only the first unexpected failure is retained. Callbacks received
  * after application cleanup begins are ignored because expected worker exits are part of cleanup.
  */
 public interface ResourceManagerContext {
-    /** @return the platform-specific identity of the application owning these workers */
-    ApplicationId getApplicationId();
-
-    /** @return the immutable deployment and fixed worker resource specification */
-    ApplicationSpecification getSpecification();
-
-    /** @return the unique Hazelcast cluster name shared only by this application's processes */
-    String getClusterName();
-
     /**
      * @return the reachable, bound Hazelcast master endpoint as host:port, including IPv6 brackets
      */

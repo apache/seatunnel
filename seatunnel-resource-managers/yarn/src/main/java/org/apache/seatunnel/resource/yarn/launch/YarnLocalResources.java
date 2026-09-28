@@ -26,6 +26,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -67,8 +68,8 @@ final class YarnLocalResources {
         return new YarnLocalResourceDescriptor(resources, home);
     }
 
-    private static LocalResource resource(FileSystem fileSystem, Path path, LocalResourceType type)
-            throws Exception {
+    static LocalResource resource(FileSystem fileSystem, Path path, LocalResourceType type)
+            throws IOException {
         FileStatus status = fileSystem.getFileStatus(path);
         return LocalResource.newInstance(
                 ConverterUtils.getYarnUrlFromPath(fileSystem.makeQualified(path)),

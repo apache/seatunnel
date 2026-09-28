@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
@@ -40,11 +40,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
-final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
+public final class KubernetesResourceManagerDriver
+        implements ResourceManagerDriver<KubernetesWorkerNode> {
     private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
 
     private final KubernetesClient api;
     private final KubernetesApplicationParameters parameters;
+    private final String applicationId;
+    private final String clusterName;
     private final Set<String> workers = new HashSet<>();
     private final Set<String> releasing = new HashSet<>();
     private final ExecutorService launches =
@@ -54,7 +57,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                         thread.setDaemon(true);
                         return thread;
                     });
-    private final Map<String, CompletableFuture<WorkerRegistration>> pending = new HashMap<>();
+    private final Map<String, CompletableFuture<KubernetesWorkerNode>> pending = new HashMap<>();
     private ResourceManagerContext context;
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
@@ -63,16 +66,25 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
     private boolean closed;
     private boolean workersStopped;
 
-    KubernetesResourceManagerDriver(
-            KubernetesClient api, KubernetesApplicationParameters parameters) {
+    /**
+     * Takes ownership of the client and fixed application identity/cluster name; initialize starts
+     * observation and close releases the client.
+     */
+    public KubernetesResourceManagerDriver(
+            KubernetesClient api,
+            KubernetesApplicationParameters parameters,
+            String applicationId,
+            String clusterName) {
         this.api = api;
         this.parameters = parameters;
+        this.applicationId = applicationId;
+        this.clusterName = clusterName;
     }
 
     /**
      * Resolves the owner Job and starts asynchronous observation before admitting workers.
      *
-     * @param context native runtime callbacks and the isolated application identity
+     * @param context the bound master endpoint and runtime failure callbacks
      * @throws Exception if the owner cannot be read or the driver is already initialized
      */
     @Override
@@ -82,7 +94,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                     "Kubernetes driver has already been initialized or closed");
         }
         this.context = context;
-        this.job = api.getJob(context.getApplicationId().getId());
+        this.job = api.getJob(applicationId);
         this.running = true;
         this.workerWatch =
                 api.watchPods(
@@ -99,9 +111,9 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
      * @return allocation future; completion means the Pod was created, not registered with Zeta
      */
     @Override
-    public synchronized CompletableFuture<WorkerRegistration> requestWorker(
+    public synchronized CompletableFuture<KubernetesWorkerNode> requestWorker(
             WorkerSpecification resources) {
-        CompletableFuture<WorkerRegistration> future = new CompletableFuture<>();
+        CompletableFuture<KubernetesWorkerNode> future = new CompletableFuture<>();
         if (!running) {
             future.completeExceptionally(
                     new IllegalStateException("Kubernetes driver is not running"));
@@ -118,7 +130,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
     private void launchWorker(
             String name,
             WorkerSpecification resources,
-            CompletableFuture<WorkerRegistration> future) {
+            CompletableFuture<KubernetesWorkerNode> future) {
         synchronized (this) {
             if (!running) {
                 future.completeExceptionally(new CancellationException("Application is stopping"));
@@ -132,12 +144,11 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                             name,
                             parameters,
                             resources,
-                            context.getClusterName(),
+                            clusterName,
                             context.getMasterAddress()));
             synchronized (this) {
-                if (running) {
+                if (running && future.complete(new KubernetesWorkerNode(new ResourceID(name)))) {
                     pending.remove(name);
-                    future.complete(new WorkerRegistration(name));
                     return;
                 }
             }
@@ -157,10 +168,13 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
      * @return completion of the Pod deletion; close will retry workers whose deletion fails
      */
     @Override
-    public CompletableFuture<Void> releaseWorker(WorkerRegistration worker) {
+    public CompletableFuture<Void> releaseWorker(KubernetesWorkerNode worker) {
         CompletableFuture<Void> result = new CompletableFuture<>();
-        String name = worker.getWorkerId();
+        String name = worker.getResourceID().getResourceIdString();
         synchronized (this) {
+            if (!workers.contains(name)) {
+                return CompletableFuture.completedFuture(null);
+            }
             releasing.add(name);
         }
         try {
@@ -256,7 +270,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
             }
             workersStopped = true;
             running = false;
-            for (CompletableFuture<WorkerRegistration> future : pending.values()) {
+            for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
                 future.completeExceptionally(new CancellationException("Application is stopping"));
             }
         }

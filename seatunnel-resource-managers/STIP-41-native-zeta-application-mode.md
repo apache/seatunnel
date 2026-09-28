@@ -1,402 +1,698 @@
 # STIP-41: Native Zeta Application Mode on YARN and Kubernetes
 
-## Motivation
+Design discussion: https://github.com/apache/seatunnel/issues/12457
 
-### What problem does this solve?
+This proposal introduces a native Application Mode for Zeta. One submission creates one isolated Zeta cluster for one SeaTunnel job: one master coordinates a fixed number of workers, submits the job after worker registration, and releases application-owned resources when execution ends.
 
-SeaTunnel currently supports submitting jobs to a long-running Zeta cluster. That model is efficient when many jobs share one managed cluster, but it also couples their resource capacity, dependencies, lifecycle, and failure boundary.
+This STIP turns the umbrella discussion in #11857 into a concrete design. It specifies both YARN and Kubernetes in full. It is a design and acceptance contract, not a claim that the implementation in #12460 is complete, approved, or passing CI.
 
-Many organizations already use YARN or Kubernetes as the control plane for compute workloads. They expect one submitted data job to create one isolated application, request its own workers, expose its status through the platform, and release resources when it terminates. Running Zeta in that model currently requires users to build platform-specific wrappers around SeaTunnel startup scripts and Hazelcast configuration. Those wrappers are difficult to keep correct because they must coordinate resource allocation, worker registration, job submission, failure handling, artifact localization, and cleanup.
+The revised design separates deployment, native job execution, and resource lifecycle. It does not introduce a resource-manager core module, a custom application-ID wrapper, an ApplicationResult wrapper, or an all-in-one ApplicationClusterEntrypoint.
 
-This proposal introduces a native Application Mode for the Zeta engine. One submission creates one platform application containing one Zeta Master, a fixed number of Zeta Workers, and exactly one SeaTunnel job.
+## 1. Background, goals, and scope
 
-### Why add this to SeaTunnel?
+Zeta's long-running standalone cluster model is useful for multiple jobs sharing a cluster. Teams using YARN or Kubernetes also need job-level isolation without operating a permanent SeaTunnel cluster.
 
-Native Application Mode provides the following benefits:
+Application Mode provides:
 
-- **Per-job isolation.** Each job owns its Master, Workers, classpath, configuration, and failure boundary.
-- **Platform-native lifecycle.** YARN and Kubernetes create, observe, terminate, and clean up the application resources.
-- **Elastic resource ownership.** Batch jobs release resources after completion, while streaming jobs keep only the resources assigned to that application.
-- **Consistent deployment semantics.** Both providers implement the same submission, status, cancellation, worker-allocation, and cleanup contracts.
-- **Checkpoint-based recovery.** A failed application can be submitted again with the historical Zeta job ID and recover from durable checkpoint storage.
-- **A foundation for later work.** The lifecycle contracts leave room for worker replacement, autoscaling, Kerberos, and Master HA without including them in the first release.
+- one platform application for exactly one Zeta job;
+- isolated compute resources, dependencies, membership, and lifecycle;
+- automatic resource release after normal batch completion;
+- platform-visible state for independently running streaming applications;
+- resubmission into a new application using an earlier job's durable checkpoint.
 
-## Goals
+The implementation reuses Zeta's coordinator, DAG parser, scheduler, worker registration, SlotService, connector runtime, and checkpoint service.
 
-The first release provides:
+### MVP boundaries
 
-1. One application for one native Zeta job.
-2. One Master and a fixed, configurable number of Workers.
-3. Parallel execution across multiple Workers and task slots.
-4. YARN and Kubernetes providers behind independent Maven profiles.
-5. Submit, detached submit, status, wait, and cancel operations.
-6. Platform-aware allocation, monitoring, failure propagation, and cleanup.
-7. The standard SeaTunnel distribution layout, with optional provider bundles.
-8. Durable checkpoint recovery using local persistent storage, HDFS, and the object stores already supported by Zeta.
-9. End-to-end coverage for batch, streaming, cancellation, invalid jobs, isolation, and checkpoint recovery.
+- One master and a fixed number of workers.
+- The master coordinates; it does not provide task slots.
+- Workers execute task groups using fixed slots.
+- No automatic master failover, worker replacement, or autoscaling.
+- No multi-job application or new session-cluster mode.
+- No Kerberos/delegation-token/keytab support in the YARN MVP.
+- No savepoint-based application upgrade protocol.
+- No replacement of Hazelcast membership or the Zeta slot scheduler.
+- No new REST application-management service or separate release archive.
+- Existing standalone, Flink, and Spark behavior remains unchanged.
 
-## Non-goals
+Review sequencing is separate from design coverage. The YARN-first acceptance request in the review comments is recorded in section 16; Kubernetes remains fully specified here.
 
-The following capabilities are intentionally deferred:
-
-- Multiple Masters or automatic Master failover.
-- Hazelcast state replication between Master processes. The application cluster uses `backup-count=0`.
-- Automatic Worker replacement after an unexpected exit.
-- Reactive scaling or autoscaling.
-- YARN and HDFS Kerberos authentication.
-- A separate Application Mode distribution.
-- Application deployment for the Flink or Spark engines.
-
-These exclusions define the first release boundary. They do not change Zeta's existing task checkpointing semantics.
-
-## Proposal
-
-### High-level architecture
+## 2. Process topology and identity
 
 ```mermaid
 flowchart LR
-  client["SeaTunnel Application CLI"]
-  platform["YARN ResourceManager<br/>or Kubernetes API"]
-
-  subgraph app["One platform application"]
-    master["Application Master<br/>Zeta Master"]
-    worker1["Zeta Worker 1"]
-    workerN["Zeta Worker N"]
-    job["One native Zeta job"]
-  end
-
-  checkpoint[("Durable checkpoint storage")]
-
-  client -->|submit / status / cancel| platform
-  platform --> master
-  master -->|request fixed workers| platform
-  platform --> worker1
-  platform --> workerN
-  worker1 -->|Hazelcast TCP join| master
-  workerN -->|Hazelcast TCP join| master
-  master --> job
-  job --> checkpoint
-
-  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
-  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
-  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
-  class client layerCyan;
-  class platform,master,worker1,workerN,job layerBlue;
-  class checkpoint layerPurple;
-  linkStyle default stroke:#5db8e2,stroke-width:2px;
+    CLI["Application CLI"]
+    D["ApplicationClusterDeployer<br/>ClusterClientServiceLoader"]
+    CD["ClusterDescriptor&lt;ID&gt;"]
+    P["YARN / Kubernetes"]
+    CP["SeatunnelClientProvider"]
+    C["SeaTunnelClient"]
+    subgraph APP["One application / one Zeta job"]
+        M["Master process<br/>Zeta coordinator + ApplicationResourceManager"]
+        W1["Worker process 1"]
+        WN["Worker process N"]
+    end
+    S[("Durable checkpoint storage")]
+    CLI --> D --> CD
+    CLI -->|status / cancel| CD
+    CD -->|platform API| P
+    CD -->|retrieve live endpoint| CP
+    CP -->|create on demand| C
+    C -->|native Hazelcast job operations| M
+    P -->|start| M
+    M -->|driver requests / releases workers| P
+    P --> W1
+    P --> WN
+    W1 -->|TCP join + slot registration| M
+    WN -->|TCP join + slot registration| M
+    M --> S
 ```
 
-The platform controls processes and resource objects. Zeta continues to control cluster membership, slot registration, task scheduling, execution, and checkpointing. Application Mode does not introduce a second scheduler.
+There are three different identities, not one interchangeable ID:
 
-### Lifecycle
+| Identity | Meaning | Representation |
+| --- | --- | --- |
+| Application ID | Platform deployment and resource ownership | Hadoop `ApplicationId` on YARN; Job name `String` on Kubernetes, within the selected namespace/cluster |
+| Zeta job ID | Native job execution and checkpoint namespace | Positive native job ID |
+| Worker resource ID | One allocated external worker process | `YarnWorkerNode` / `KubernetesWorkerNode`, exposing `ResourceID` through `ResourceIDRetrievable` |
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#0f1d33","primaryTextColor":"#f8fbff","primaryBorderColor":"#5db8e2","lineColor":"#5db8e2","secondaryColor":"#0c2530","tertiaryColor":"#1f1a34","actorBkg":"#0f1d33","actorBorder":"#5db8e2","actorTextColor":"#f8fbff","actorLineColor":"#5db8e2","signalColor":"#5db8e2","signalTextColor":"#0f1d33","labelBoxBkgColor":"#0c2530","labelBoxBorderColor":"#2dd4bf","labelTextColor":"#f8fbff","loopTextColor":"#0f1d33","noteBkgColor":"#1f1a34","noteBorderColor":"#8d7cf6","noteTextColor":"#f8fbff"}}}%%
-sequenceDiagram
-    participant CLI as Application CLI
-    participant Platform as YARN / Kubernetes
-    participant Master as Application Master
-    participant Worker as Zeta Workers
-    participant Engine as Zeta Engine
+No custom application-ID class is needed. CLI text is parsed by the selected platform factory. A native job ID is generated once before submission when absent; restoring uses a different historical source job ID.
 
-    CLI->>Platform: Submit job and deployment specification
-    Platform->>Master: Start one Application Master
-    Master->>Platform: Request N fixed Workers
-    Platform->>Worker: Start Worker processes
-    Worker->>Master: Join Hazelcast and register slots
-    Master->>Engine: Submit one job after all Workers are ready
-    Engine-->>Master: SUCCEEDED / FAILED / CANCELED
-    Master->>Platform: Stop Workers and publish final status
-```
+The Hazelcast cluster name is derived consistently from the native application ID. Every member and retrieved client uses that same name. It is discovery isolation, not an authentication boundary.
 
-The Master does not contribute task slots. Fixed application capacity is:
+Only the master is a non-lite member. Workers are lite members configured with the WORKER role. Application discovery uses explicit TCP membership and the advertised master endpoint, with no inherited standalone peers, multicast, or cloud auto-discovery. Workers require the master and must not bootstrap their own independent cluster. With no standby master, Engine `backup-count` is zero.
+
+Fixed capacity is:
 
 ```text
 application.worker-count × application.worker.slots
 ```
 
-The runtime waits for both platform allocation and Zeta registration. A launched container or Pod is not considered ready until its Worker joins the application cluster and registers the configured slots.
+This is slot capacity, not a promise that every job operator runs at that parallelism. Native topology and scheduling rules still apply.
 
-## Module and package structure
+## 3. Module layout and responsibility boundaries
 
-The shared contracts are always built. Platform implementations and their SDK dependencies are enabled independently through the `yarn` and `kubernetes` Maven profiles.
+There is no `seatunnel-resource-managers/core` module. Shared types belong to the existing Engine layer that owns their responsibility.
 
-```text
-seatunnel-resource-managers/
-├── core/                         seatunnel-resource-manager-core
-│   └── org.apache.seatunnel.resource.core
-│       ├── application/          specification, id, status, result
-│       ├── client/               deployer and client contracts
-│       ├── config/               shared application options
-│       └── classloader/          localized JAR path resolution
-├── yarn/                         seatunnel-resource-manager-yarn
-│   └── org.apache.seatunnel.resource.yarn
-│       ├── YarnApplicationMaster
-│       ├── client/               submit, retrieve, status, cancel
-│       ├── cluster/              container allocation and launch
-│       └── config/               YARN options and configuration
-└── kubernetes/                   seatunnel-resource-manager-kubernetes
-    └── org.apache.seatunnel.resource.kubernetes
-        ├── KubernetesApplicationEntrypoint
-        ├── client/               submit, retrieve, status, cancel
-        ├── cluster/              Pod allocation and reconciliation
-        └── config/               Kubernetes options
-```
-
-The Engine client remains responsible for Hazelcast communication with an existing Zeta cluster. Platform submission contracts therefore live in `seatunnel-resource-manager-core`, while the Zeta server owns a separate driver contract for requesting external Workers after the Master starts.
-
-## Core interfaces
-
-The shared resource-manager core defines platform-independent value objects and client contracts. Platform SDK types do not cross this boundary.
-
-| Interface | Responsibility |
+| Module / package | Responsibility |
 | --- | --- |
-| `ApplicationClusterDescriptorFactory` | Discovers a provider and creates its client-side deployer. |
-| `ApplicationClusterDescriptor` | Submits a new platform application or retrieves an existing one. |
-| `ApplicationClient` | Reads status and result, or cancels an application. |
-| `ResourceManagerDriverFactory` | Creates the Worker resource driver inside the Zeta Master. |
-| `ResourceManagerDriver` | Requests, releases, and stops platform Worker resources. |
-| `JarPathResolver` | Maps localized Master-side JAR paths to Worker-side paths. |
+| `engine-common/config/spec` | Immutable `ApplicationSpecification` and `WorkerSpecification`; job content, fixed resource requirements, resolved deployment options |
+| `engine-common/config/server` | Common `ApplicationOptions` |
+| `engine-common/config` | `ApplicationClusterConfig`: prepare caller-owned configuration before member creation; no process lifecycle |
+| `engine-common/runtime` | `ApplicationStatus` and existing deployment/role types |
+| `engine-core/classloader` | `ApplicationJarPathResolver`: resolve distribution-local connector/plugin paths |
+| `engine-client/deployment` | `ClusterDescriptor`, `SeatunnelClientProvider`, `ApplicationClusterDescriptorFactory`, `ClusterClientServiceLoader`, `ApplicationClusterDeployer` |
+| `engine-client/job` | `ApplicationJobExecutionEnvironment`: parse, build DAG, submit one native job, expose native completion |
+| `engine-server/resourcemanager` | `ApplicationResourceManager`, driver/context contracts, registration and resource lifecycle |
+| `seatunnel-starter` | Parse application CLI arguments and delegate submit/status/cancel |
+| `resource-managers/yarn` | YARN descriptor, uploader/localization, driver, platform options, master/worker CLIs |
+| `resource-managers/kubernetes` | Kubernetes descriptor, API/object construction, driver, platform options, master/worker CLIs |
 
-### `ApplicationClusterDescriptorFactory`
+Platform SDK dependencies stay in the optional platform modules. Engine server must not depend on engine-client or a platform provider. Existing engine-client-to-server usage for in-master job execution must not introduce a reverse dependency or a cycle.
+
+### Migration from the existing third-party resource managers
+
+The existing `YarnResourceManager` and `KubernetesResourceManager` are Engine integration points, not a second platform allocator.
+
+- They extend `ApplicationResourceManager`, which remains the coordinator's normal resource/slot registry.
+- Their worker request/release methods delegate to the injected platform `ResourceManagerDriver`.
+- `ApplicationResourceManager` coordinates startup, worker readiness, asynchronous failure, cleanup, and application terminal reporting.
+- The driver alone performs external allocation/launch/release through the platform SDK.
+- Worker registration and task-group slot assignment remain in the existing Engine resource manager and SlotService.
+- No independent allocation retry loop, worker replacement policy, or competing terminal-cleanup owner is introduced.
+
+`ResourceManagerFactory` selects the appropriate Engine resource manager at member creation. It is not a deployment factory. `ApplicationClusterDescriptorFactory` selects the submission-side platform descriptor through SPI. These factories serve different boundaries.
+
+## 4. Submission and client contracts
+
+### ClusterDescriptor: application operations
 
 ```java
-public interface ApplicationDeployerFactory {
-    DeployType getDeployType();
+public interface ClusterDescriptor<ID> extends AutoCloseable {
+    ID deployApplication(ApplicationSpecification specification) throws Exception;
 
-    ApplicationDeployer create(Map<String, String> options) throws Exception;
+    SeatunnelClientProvider retrieve(ID id) throws Exception;
+
+    ApplicationStatus getApplicationStatus(ID id) throws Exception;
+
+    void cancelApplication(ID id) throws Exception;
+
+    @Override
+    void close() throws Exception;
 }
 ```
 
-Providers are discovered with Java `ServiceLoader`. A factory performs local validation and creates a deployer; discovery itself must not create remote resources.
+The only generic parameter is the platform's native application ID. Deployment returns that ID directly; it does not construct a native Engine client merely to obtain an ID.
 
-### `ApplicationClusterDescriptor`
+Application status and cancellation use platform APIs. They do not require a live master, Hazelcast connectivity, or a Zeta job ID. Status remains available only as long as the platform retains the application record.
+
+`close()` releases descriptor-owned local connections. It does not stop the remote application.
+
+### SPI and Deployer
+
+`ClusterClientServiceLoader` discovers `ApplicationClusterDescriptorFactory<ID>` through `ServiceLoader`. Exactly one installed provider must match the selected deployment type. Missing or ambiguous providers fail explicitly; discovery itself must not allocate remote resources.
+
+The platform factory:
+
+- declares its deployment type;
+- parses a textual application ID;
+- creates a descriptor from deployment options.
+
+`ApplicationClusterDeployer` receives the loader through its constructor. Its `run(specification)` method selects a factory, opens a descriptor, calls `deployApplication`, closes the descriptor, and returns the native ID. It does not own the remotely running master or wait for the native job to finish.
+
+There is no parallel `ApplicationClusterDescriptors` utility with overlapping responsibility.
+
+### SeatunnelClientProvider: native job operations
 
 ```java
-public interface ApplicationDeployer extends AutoCloseable {
-    ApplicationClient deploy(ApplicationSpecification specification) throws Exception;
-
-    ApplicationClient retrieve(
-            ApplicationId applicationId, Map<String, String> options) throws Exception;
+@FunctionalInterface
+public interface SeatunnelClientProvider {
+    SeaTunnelClient getClusterClient();
 }
 ```
 
-`deploy` validates the immutable application specification, stages or references launch artifacts, and submits the Master. It returns after the external platform accepts the application. It does not wait for Workers or job completion.
+`retrieve(id)` discovers the running master's connection configuration and returns a provider without opening an Engine connection. Each `getClusterClient()` call creates a new `SeaTunnelClient`, which the caller must close independently.
 
-`retrieve` creates a client for a previously submitted application and is used by later status and cancellation commands.
+This is the existing Hazelcast-native client path, not HTTP. It requires a reachable live master. A Kubernetes Pod IP is not automatically reachable from an external workstation; no public ingress or port-forwarding service is implied.
 
-### `ApplicationClient`
+Closing a descriptor or native client must not implicitly cancel the application. A finished platform application is not converted into a fabricated native `JobResult`.
 
-```java
-public interface ApplicationClient extends AutoCloseable {
-    ApplicationId getApplicationId();
+### Results and cancellation are not conflated
 
-    ApplicationStatus getStatus() throws Exception;
+- Deployment returns the native application ID.
+- Application status returns `ApplicationStatus` directly.
+- Application cancellation returns normally when the platform request succeeds, or throws on failure; the platform may still be completing asynchronous termination.
+- Native execution returns a future of the existing `JobResult`.
+- No `ApplicationResult` wrapper is introduced.
+- Native job cancellation and platform application cancellation are distinct operations.
 
-    ApplicationResult getResult() throws Exception;
+## 5. Master startup and native job execution
 
-    void cancel() throws Exception;
-}
-```
+YARN and Kubernetes each have distinct master and worker entrypoints:
 
-Closing a client releases only local handles. It never cancels a remote application. This rule enables detached submission.
-
-### External Worker driver
-
-The Zeta server uses a separate `ResourceManagerDriver` contract for Worker resources:
-
-```java
-public interface ResourceManagerDriver extends AutoCloseable {
-    void initialize(ResourceManagerContext context) throws Exception;
-
-    CompletableFuture<WorkerRegistration> requestWorker(WorkerSpecification specification);
-
-    CompletableFuture<Void> releaseWorker(WorkerRegistration worker);
-
-    void stopWorkers() throws Exception;
-
-    void finish(ApplicationStatus status, String diagnostics) throws Exception;
-}
-```
-
-The deployment API owns client-side submission. The Worker driver owns resources after the Master starts. Zeta's existing `ResourceManager` still owns slot selection and task scheduling.
-
-The driver reports an unexpected Worker exit through `ResourceManagerContext`. The fixed-size first release fails the application instead of silently continuing with reduced capacity or requesting a replacement.
-
-## Configuration
-
-All user-facing configuration is defined with SeaTunnel `Option` objects. Common options use the `application.*` namespace, while providers use `yarn.*` or `kubernetes.*`.
-
-### Shared options
-
-| Option | Default | Meaning |
+| Platform | Master | Worker |
 | --- | --- | --- |
-| `application.name` | `seatunnel` | Platform display name |
-| `application.job-id` | generated | Positive native Zeta job ID for the new execution |
-| `application.restore-job-id` | unset | Historical Zeta job ID used to locate a checkpoint |
-| `application.worker-count` | `1` | Fixed Worker count |
-| `application.worker.memory-mb` | `1024` | Memory for each Worker |
-| `application.worker.cpu-cores` | `1` | CPU cores for each Worker |
-| `application.worker.slots` | `2` | Task slots for each Worker |
-| `application.master.memory-mb` | `1024` | Memory for the Master |
-| `application.master.cpu-cores` | `1` | CPU cores for the Master |
-| `application.master.port` | `5801` | Master Hazelcast port |
-| `application.startup-timeout-millis` | `120000` | Bound for Master startup and Worker provisioning/registration |
+| YARN | `SeatunnelYarnMasterCli` | `SeatunnelYarnWorkerCli` |
+| Kubernetes | `SeatunnelKubernetesMasterCli` | `SeatunnelKubernetesWorkerCli` |
 
-Checkpoint paths remain Engine storage configuration. The Application Mode layer does not validate storage by enumerating URI schemes. The selected Zeta checkpoint storage plugin validates and opens the configured path, which preserves support for filesystem implementations and credential providers already supported by the Engine.
+There is no `ApplicationClusterEntrypoint` or `ApplicationWorkerRunner`, and no replacement catch-all runner.
 
-## YARN provider
+The existing `SeaTunnelServerStarter.main` remains unchanged. Application entrypoints prepare configuration externally and invoke `SeaTunnelServerStarter.createHazelcastInstance`. The extended creation overload only passes configuration, instance name, jar resolver, and resource-manager factory through to member construction. It must not acquire application orchestration responsibilities.
 
-### Resource model
+### Master entrypoint responsibilities
 
-- One YARN application contains one ApplicationMaster Container.
-- The ApplicationMaster process also runs the Zeta Master.
-- The ApplicationMaster requests a fixed number of Worker Containers through `AMRMClient`.
-- `NMClient` launches each Worker JVM.
-- The distribution, job configuration, and resolved Hadoop configuration are localized from a private staging directory.
+1. Read localized application configuration and initialize platform-specific dependencies.
+2. Prepare master membership, checkpoint retention, and distribution-local jar resolution.
+3. Construct the driver and resource-manager factory, then create the native master member.
+4. Wait for `ApplicationResourceManager.awaitWorkerRegistration()`.
+5. Construct and execute `ApplicationJobExecutionEnvironment`.
+6. Observe native completion together with the resource manager's asynchronous failure future.
+7. On interruption/resource failure, signal native cancellation and wait within a bounded shutdown interval.
+8. Ask the resource manager to finish the application.
+9. Finally shut down the master and close remaining entrypoint-owned resources.
 
-```mermaid
-flowchart TB
-  client["Application CLI"]
-  rm["YARN ResourceManager"]
-  staging[("Private filesystem staging")]
+The entrypoint owns the master member and shutdown hook. Before the Engine resource manager assumes the driver lifecycle, a member-creation failure must close the partially initialized driver. YARN's outer lifecycle also owns post-submission staging cleanup.
 
-  subgraph yarnApp["One YARN application"]
-    am["ApplicationMaster Container<br/>Zeta Master"]
-    w1["Worker Container 1"]
-    wn["Worker Container N"]
-  end
+### ApplicationJobExecutionEnvironment
 
-  client --> staging
-  client --> rm
-  rm --> am
-  am -->|AMRMClient requests| rm
-  rm --> w1
-  rm --> wn
-  staging -. localize .-> am
-  staging -. localize .-> w1
-  staging -. localize .-> wn
-  w1 --> am
-  wn --> am
+This class belongs in `engine-client/job` and extends `AbstractJobEnvironment`, following `ClientJobExecutionEnvironment`'s parsing/DAG-building structure.
 
-  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
-  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
-  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
-  class client layerCyan;
-  class rm,am,w1,wn layerBlue;
-  class staging layerPurple;
-  linkStyle default stroke:#5db8e2,stroke-width:2px;
+It owns only:
+
+- the native JobConfig/JobContext and assigned job identity;
+- `getJobConfigParser()`, including checkpoint lookup when restoring;
+- `getLogicalDag()`, using the master's classloader and localized jars;
+- `execute(cancellation)`, which submits through the local coordinator and returns `CompletableFuture<JobResult>`.
+
+The future represents native job termination, not submission acknowledgement. Waiting for completion is chained after the coordinator acknowledges submission, so the caller does not observe an unknown job merely because registration has not happened yet.
+
+A caller-owned cancellation signal is also chained after submission acknowledgement. Cancellation arriving during submission must still cancel a subsequently accepted job. Canceling only the returned Java future is not a substitute for canceling the actual Zeta job.
+
+The execution environment does not allocate workers, wait for cluster readiness, publish platform state, shut down the master, or clean up application resources. It does not connect a SeaTunnelClient to its own master or use a REST execution environment as an adapter.
+
+Application-mode asynchronous APIs use SeaTunnel's `org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture`.
+
+## 6. Resource lifecycle and driver contract
+
+### Runtime context is deliberately small
+
+```java
+public interface ResourceManagerContext {
+    String getMasterAddress();
+    void onError(Throwable error);
+    void onWorkerTerminated(String workerId, String diagnostics);
+}
 ```
 
-### Cleanup
+There is no `getApplicationId()`, `getSpecification()`, or `getClusterName()` in this context. Fixed platform identity, cluster name, and deployment settings are supplied when constructing the driver. The context provides only the bound master endpoint and runtime failure callbacks.
 
-Normal termination releases Worker Containers, unregisters the ApplicationMaster with the final state, and deletes the application staging directory. Cancellation kills the YARN application and retries staging cleanup. Checkpoint storage must be outside the staging directory and is never deleted as application cleanup.
+### Platform driver
 
-Kerberos is rejected in the first release so the system does not imply support for token renewal or long-running credential management.
+The essential operations are:
 
-## Kubernetes provider
+```java
+void initialize(ResourceManagerContext context) throws Exception;
 
-### Resource model
+CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
 
-- One `batch/v1` Job runs the Master Pod.
-- A ConfigMap carries the job and deployment configuration.
-- A headless Service provides a stable Master discovery name.
-- The Master creates a fixed number of Worker Pods through the Kubernetes API.
-- The Master and Workers run the same immutable SeaTunnel image.
+CompletableFuture<Void> releaseWorker(WorkerType worker);
 
-```mermaid
-flowchart TB
-  client["Application CLI"]
-  api["Kubernetes API Server"]
+void stopWorkers() throws Exception;
 
-  subgraph ns["Target namespace"]
-    job["Job"]
-    config["ConfigMap"]
-    service["Headless Service"]
-    master["Master Pod<br/>Zeta Master"]
-    w1["Worker Pod 1"]
-    wn["Worker Pod N"]
-  end
+void finish(ApplicationStatus status, String diagnostics) throws Exception;
 
-  client --> api
-  api --> job
-  job --> master
-  config -. mount .-> master
-  master -->|create fixed Workers| api
-  api --> w1
-  api --> wn
-  service -. Master discovery .-> w1
-  service -. Master discovery .-> wn
-  w1 --> master
-  wn --> master
-
-  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
-  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
-  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
-  class client layerCyan;
-  class api,job,master,w1,wn layerBlue;
-  class config,service layerPurple;
-  linkStyle default stroke:#5db8e2,stroke-width:2px;
+void close() throws Exception;
 ```
 
-The Job is initially suspended. The client creates the Job, obtains its UID, creates owned supporting resources, and then resumes it. This ordering gives the ConfigMap and Service a valid Job `OwnerReference`.
+`WorkerType` exposes its resource identity through `ResourceIDRetrievable`.
 
-Only the Master mounts a ServiceAccount token. Worker Pods do not need Kubernetes API credentials. The application ServiceAccount manages only Worker Pods; the submitting identity manages Job, ConfigMap, Service, and application cancellation.
+- `initialize` creates/registers platform clients and starts necessary observation.
+- A successful request future means the external worker was launched, not that Zeta has registered its slots.
+- `releaseWorker` completes only after the driver's release operation succeeds, or completes exceptionally. Repeated release must be harmless.
+- Canceling a pending request stops demand but does not absolve the driver of resources allocated concurrently.
+- `stopWorkers` stops new allocation and observation, drains in-flight launches, and reclaims late/ambiguous allocations. It keeps clients needed for terminal reporting usable.
+- `finish` publishes platform terminal state where the platform supports explicit reporting.
+- `close` attempts outstanding cleanup, stops callbacks, and closes clients, including after partial initialization. It must tolerate repeated cleanup.
 
-An optional existing PVC is mounted for local-file checkpoint storage. The PVC is supplied by the user and does not receive a Job owner reference, so Job deletion and TTL cleanup do not remove checkpoint data.
+### One owner for each lifecycle
 
-## Artifact and classloader model
+| Resource / concern | Owner |
+| --- | --- |
+| Local submission API client | ClusterDescriptor |
+| Partial submission rollback | Platform descriptor, with uploader/resource helper handling its own partial creation |
+| Master member and shutdown hook | Platform master CLI |
+| Driver startup/readiness/failure/terminal sequence | ApplicationResourceManager |
+| External worker requests, launches, release and late allocations | Platform driver |
+| Engine membership, worker registration and slots | Existing Engine resource manager / SlotService |
+| Parse, DAG, native submission and completion | ApplicationJobExecutionEnvironment |
+| YARN staged application files after successful submission | Application lifecycle; terminal status/cancel can retry cleanup |
+| Kubernetes Job-owned Secret, Service and worker Pods | Explicit cleanup plus Kubernetes owner/TTL lifecycle |
+| Persistent checkpoint storage / caller-provided PVC | User/operator; never application cleanup |
+| Each retrieved SeaTunnelClient | Its caller |
 
-YARN localizes one distribution into different absolute directories on different NodeManagers. Zeta serializes Master-side plugin JAR URLs as part of job metadata, so a Worker cannot load the original absolute path directly.
+### Normal and exceptional sequence
 
-Application Mode adds a typed `JarPathResolver` extension to the existing classloader service. `ApplicationJarPathResolver` maps a file URL under the Master distribution root to the same relative path under the Worker's localized distribution root. It rejects missing files, path traversal, and symbolic-link escape. Non-local URLs and paths outside the distribution keep their original identity.
+```mermaid
+sequenceDiagram
+    participant CLI as Platform master CLI
+    participant RM as ApplicationResourceManager
+    participant D as ResourceManagerDriver
+    participant W as Workers
+    participant E as ApplicationJobExecutionEnvironment
+    participant Z as Native coordinator
+    CLI->>CLI: create configured master member
+    RM->>D: initialize(bound endpoint, callbacks)
+    RM->>D: request fixed workers
+    D->>W: allocate and launch
+    W->>RM: join and register slots
+    CLI->>RM: awaitWorkerRegistration
+    RM-->>CLI: all requested workers ready
+    CLI->>E: execute(cancellation signal)
+    E->>Z: submit native job
+    Z-->>E: submission acknowledged
+    E->>Z: wait for native completion
+    Note over CLI,Z: Resource failure/interruption signals cancellation after submission acknowledgement
+    Z-->>E: native terminal result
+    E-->>CLI: CompletableFuture completes
+    CLI->>RM: finishApplication(result, failure)
+    RM->>D: cancel pending requests / release known workers
+    RM->>D: stopWorkers (drain late allocations)
+    RM->>D: finish(platform status, diagnostics)
+    RM->>D: close
+    CLI->>CLI: finally shut down master
+```
 
-The resolver is injected explicitly when an application member starts. Application-specific paths are not stored as ad hoc Hazelcast properties and the default standalone classloader behavior is unchanged.
+The worker-readiness deadline includes driver initialization, allocation, launch, and Engine registration. It is one provisioning deadline for the whole fixed worker set, not a fresh timeout per worker. Submitter-side waiting for the master has its own startup deadline using the same configured duration.
 
-## Distribution and build profiles
+First unexpected driver/worker failure wakes the application lifecycle. Expected worker exits during cleanup must not be reported as new application failures. Shutdown and callbacks must coordinate without holding a platform callback thread while waiting for the entire shutdown.
 
-Application Mode uses the standard SeaTunnel binary archive. It does not create a second distribution.
+Cleanup must attempt remaining steps after a failure, preserve the original cause, and attach cleanup failures. Worker-release/drain failure can turn an otherwise successful result into FAILED. Cancellation timeout is not clean cancellation. Once a platform has accepted an immutable terminal report, a later client-close failure cannot be represented as if that report had been changed; it must remain visible in diagnostics/process failure.
+
+No automatic worker replacement or application restart is hidden inside these methods.
+
+## 7. YARN design
+
+### Submission and localization
+
+1. Merge Hadoop settings from `yarn.config-dir` or `HADOOP_CONF_DIR`; validate the supported authentication mode.
+2. Validate application/job/resource options and the distribution archive. Production staging must be on a shared filesystem such as HDFS, not a submitter-local path.
+3. Ask YARN for its native ApplicationId and maximum resource capability.
+4. Check master/worker requests against that capability.
+5. Use `YarnApplicationFileUploader` to create the application-private staging directory, upload the distribution, serialized specification, and merged Hadoop configuration, and register the LocalResource metadata.
+6. Build the AM launch context with the localized distribution and `SeatunnelYarnMasterCli`.
+7. Submit a single-attempt application, then wait within the master-startup deadline before returning its ID.
+
+`YarnApplicationFileUploader` owns validation/localization bookkeeping and an independently owned filesystem connection. `upload()` returns the local-resource descriptor and distribution root required by the launch context. The caller need not manually coordinate each uploaded file. Closing the uploader closes its filesystem client; it must not delete files needed by a successfully submitted application.
+
+An upload failure removes only the directory created by that upload. A submit failure or lost response may mean the RM accepted the application: rollback must attempt to kill that application and clean its staging, retaining rollback errors. Existing staging directories are not overwritten.
+
+### AM and worker behavior
+
+`SeatunnelYarnMasterCli` creates the master with `YarnResourceManagerFactory`. `YarnResourceManagerDriver` uses AMRMClient for registration, heartbeats, requests and release, and NMClient for worker launch/stop.
+
+The driver registers the actual bound master host/port for later discovery. It requests the fixed worker count, launches `SeatunnelYarnWorkerCli`, and reports allocation/launch/worker-exit failures through the runtime context.
+
+Master and workers use the same localized archive. Worker arguments carry the cluster name, advertised master endpoint, fixed slot count, and the master's distribution root. `ApplicationJarPathResolver` maps master-local jar paths to each worker's localized distribution root; no assumption is made that YARN container work directories match.
+
+A worker creates only the configured native worker member. It does not create AMRMClient/NMClient, submit another application, or own global staging cleanup.
+
+### Completion, cancellation, and master loss
+
+- The resource manager cancels outstanding requests, releases workers, drains races, and unregisters the AM with the terminal status and diagnostics.
+- The outer lifecycle shuts down the master and removes application staging.
+- Detached status reads YARN's application report. Terminal status/cancellation can retry staging cleanup left by an abrupt AM exit.
+- Platform cancellation calls YARN kill by ApplicationId; it does not require a native job ID.
+- `maxAppAttempts=1`: master failure fails this application; YARN reclaims its containers. Recovery is a new submission, not automatic AM takeover.
+- No staging cleanup may remove checkpoint directories. After SIGKILL/host loss, staging may need a later status/cancel operation or operator cleanup.
+
+Queue, priority, tags, and master/worker node-label expressions remain YARN configuration, not generic Engine scheduling policy.
+
+## 8. Kubernetes design
+
+### Resource topology and submission transaction
+
+| Resource | Purpose / ownership |
+| --- | --- |
+| `batch/v1 Job` | Native application identity and master lifecycle |
+| Master Pod | One Zeta master; created by the Job controller |
+| Application Secret | Serialized application/job configuration; owned by the Job and mounted only in the master |
+| Headless Service | Select only this application's master |
+| Worker Pods | Created by the master driver; labeled and owner-referenced to this Job |
+| Optional runtime ConfigMap | Existing user-owned SeaTunnel configuration mounted read-only; not deleted by the application |
+| Optional checkpoint PVC | Existing user-owned storage mounted on the master; not deleted by the application |
+
+Submission proceeds as follows:
+
+1. Validate namespace/image/options and any referenced runtime configuration.
+2. Generate a DNS-compatible Job name and create the Job suspended.
+3. Obtain its server-assigned UID.
+4. Create the application Secret and master Service using that owner UID.
+5. Unsuspend/start the Job only after its dependencies exist.
+6. Wait for deployment progress within the startup deadline and return the Job name.
+
+The Job has one completion, one parallel master, `backoffLimit=0`, and Pod `restartPolicy=Never`. Retry/replacement is not an implicit HA mechanism.
+
+Failure rolls back the application-owned resources, including ambiguous creates where the response was lost. A name conflict with a pre-existing Job must not trigger deletion of that unrelated Job. Cleanup must remain scoped to this application's identity/ownership.
+
+The submitter's local kubeconfig path is removed from the in-cluster serialized specification. The master uses its ServiceAccount credentials.
+
+### Driver and worker behavior
+
+`SeatunnelKubernetesMasterCli` constructs `KubernetesResourceManagerDriver` directly with its API client, deployment parameters, application ID, and cluster name, and injects it through `KubernetesResourceManagerFactory`. A one-line driver factory is not needed.
+
+The driver reads the owner Job, creates the fixed worker Pods, tracks pending/allocated resources, and observes worker failure. Each worker Pod receives the isolated cluster name, master endpoint and fixed slots, and runs `SeatunnelKubernetesWorkerCli`.
+
+Master and workers use the same image containing the Engine, selected provider, connectors, and checkpoint plugins. CPU and memory are specified on platform resources. The optional runtime ConfigMap is shared read-only. Workers do not mount the private application specification or require Kubernetes API credentials.
+
+### Status, retention, and cleanup
+
+- Job Complete/Failed conditions are the durable terminal record while the Job exists.
+- A running master Pod is platform RUNNING, not proof that every worker is registered or that the job has begun.
+- On graceful completion/failure, the driver deletes workers before the master exits. Job metadata, Secret and Service follow configured terminal retention.
+- Explicit application cancellation deletes the Job and its dependent application resources.
+- A missing/deleted/expired Job is UNKNOWN to a later stateless query. This design does not introduce a durable cancellation tombstone or fabricate CANCELED after deletion.
+- Owner references cause garbage collection when the owner Job is deleted; they do not immediately delete workers merely because the master Pod died or the retained Job reached a terminal condition.
+- Consequently, SIGKILL/host-loss cleanup may be delayed until explicit cancellation/deletion or terminal Job TTL cleanup. Immediate orphan cleanup would require an additional platform-level mechanism and is not guaranteed by this MVP.
+- A Job that cannot become terminal under a platform outage also cannot rely on terminal TTL timing. Operational reconciliation/manual cleanup remains necessary.
+
+No worker-orphan membership shutdown is added to SeaTunnelServerStarter. Abrupt process-loss recovery belongs to the platform lifecycle, with the above limitation made explicit.
+
+## 9. Application status and detached operations
+
+Application state is handled inside the platform/resource-management implementation, not the job execution environment.
+
+| Meaning | YARN | Kubernetes |
+| --- | --- | --- |
+| CREATED / DEPLOYING | NEW, NEW_SAVING, SUBMITTED / ACCEPTED | Job exists but master is not yet running |
+| RUNNING | YARN RUNNING | Active Job with a running master Pod |
+| SUCCEEDED | FINISHED with SUCCEEDED final status | Job Complete |
+| FAILED | FAILED, or unsuccessful final outcome | Job Failed |
+| CANCELED | KILLED / killed final status | Explicit delete is the cancellation action; no retained tombstone is promised |
+| UNKNOWN | State cannot be mapped; API/record errors remain explicit | Job absent after deletion or retention expiry |
+
+Permission/network/API failures must not be silently treated as successful cancellation or job success.
+
+`submit` returns the application ID and native job ID. `status --id` and `cancel --id` target the application; `--wait` for submit/status polls platform state. Disconnecting or closing the submitter does not cancel remote work.
+
+Cancellation via the platform may terminate processes before graceful native job cancellation completes. It is not a savepoint request and does not promise completion of in-flight sink transactions. Connector and checkpoint semantics remain native Zeta semantics.
+
+## 10. Checkpoint recovery and the HA boundary
+
+Persistent checkpoints and live master replication solve different problems.
+
+| Mechanism | Purpose |
+| --- | --- |
+| Hazelcast backup replicas | Replicate live coordination state to eligible surviving masters |
+| Durable checkpoints | Preserve source/operator/sink state for a later execution |
+| Platform restart/fencing/reconciliation | Additional mechanisms required for automatic application HA |
+
+Raising backup-count cannot provide HA without another eligible master. The MVP does not implement standby masters, fencing, process replacement, or live-state reconciliation.
+
+### Restore identity and lookup
+
+1. Application A executes native Job A and writes completed checkpoints to the configured native storage.
+2. A new submission creates Application B and Job B, with `application.restore-job-id=Job A`.
+3. `ApplicationJobExecutionEnvironment` uses `RestoreMode.CHECKPOINT` and calls the existing `CheckpointService.getLatestCheckpointData(String.valueOf(Job A), restoreMode)`.
+4. CheckpointService discovers the configured native CheckpointStorage implementation from the master's checkpoint configuration. It reads Job A within that backend's configured filesystem/bucket/endpoint and namespace.
+5. Existing parser and checkpoint-manager paths restore compatible source/action/subtask state. Later checkpoints belong to Job B.
+
+For file-oriented backends the lookup is conceptually `<configured namespace>/<historical job ID>/...`; the storage plugin owns actual layout and filenames. There is no new application-ID-to-checkpoint registry and no lookup inside application staging.
+
+The historical job ID alone is insufficient if the new application points at a different storage namespace or lacks access. Backend, namespace, credentials, and required job/state compatibility must be supplied correctly.
+
+### Eligible checkpoint
+
+The existing native restore selection is reused:
+
+- persisted completed checkpoints readable by the configured storage plugin;
+- checkpoint types accepted by CHECKPOINT restore mode: regular CHECKPOINT_TYPE or COMPLETED_POINT_TYPE, not SAVEPOINT_TYPE;
+- selection per pipeline by the latest eligible checkpoint ID, with native completed-timestamp tie-breaking where applicable;
+- state interpretation and compatibility remain with the native parser/checkpoint machinery.
+
+No eligible checkpoint causes explicit failure instead of a silent fresh start. Storage access/deserialization failures must remain visible according to the native storage contract; Application Mode introduces no alternate checkpoint format or reader.
+
+### Retention
+
+The full existing checkpoint storage configuration is preserved, including HDFS/object-store endpoints, filesystem options, namespace, and credentials.
+
+Application cleanup may cancel an unfinished native job after resource failure. Application-specific retention defaults retain checkpoints on cancellation so a replacement application can restore; explicit job retention settings still take precedence. This does not change standalone retention defaults.
+
+Checkpoint storage outlives compute:
+
+- YARN checkpoint directories must be outside per-application staging.
+- Kubernetes PVCs are caller-owned and must not receive application owner references.
+- Remote object storage needs no PVC.
+- Application cleanup never deletes caller-owned checkpoint storage.
+
+## 11. Configuration and CLI contract
+
+All user-facing deployment settings use SeaTunnel `Option` definitions. Names/defaults below are the proposed contract; changes must be documented rather than silently renamed.
+
+### Common options
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `application.name` | `seatunnel` | Display name |
+| `application.job-id` | Unset; generated before submission | Positive native ID for this execution |
+| `application.restore-job-id` | Unset | Historical native job ID to restore; different from the new job ID |
+| `application.worker-count` | `1` | Fixed worker count |
+| `application.worker.memory-mb` | `1024` | Memory MiB per worker |
+| `application.worker.cpu-cores` | `1` | CPU cores per worker |
+| `application.worker.slots` | `2` | Fixed slots per worker |
+| `application.master.memory-mb` | `1024` | Master memory MiB |
+| `application.master.cpu-cores` | `1` | Master CPU cores |
+| `application.master.port` | `5801` | Hazelcast master port |
+| `application.startup-timeout-millis` | `120000` | Duration for each of master startup and worker provisioning/registration |
+
+Counts, resource sizes and IDs must be valid positive values; port and platform-specific constraints are validated before their corresponding remote side effects. Submission does not require a custom validation framework.
+
+### YARN options
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `yarn.deployment-target` | `APPLICATION` | Only supported topology in the MVP |
+| `yarn.distribution` | Required | Local SeaTunnel .tar.gz/.tgz/.zip archive with required provider/connectors |
+| `yarn.config-dir` | Empty | Hadoop configuration directory; fallback to HADOOP_CONF_DIR |
+| `yarn.staging-dir` | `.seatunnel/applications` | Shared-filesystem root; relative to submitting user's filesystem home |
+| `yarn.queue` | `default` | Scheduling queue |
+| `yarn.priority` | `-1` | Negative leaves the cluster default |
+| `yarn.tags` | Empty | Comma-separated application tags |
+| `yarn.master.node-label` | Empty | AM node-label expression |
+| `yarn.worker.node-label` | Empty | Worker expression; empty inherits the master's setting |
+
+### Kubernetes options
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `kubernetes.namespace` | `default` | Existing namespace |
+| `kubernetes.image` | Required | Distribution image including provider and required connectors |
+| `kubernetes.image-pull-policy` | `IfNotPresent` | Always / IfNotPresent / Never |
+| `kubernetes.image-pull-secrets` | Empty | Existing image-pull Secret names |
+| `kubernetes.service-account` | `default` | Existing account authorized for master-side resource operations |
+| `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in image |
+| `kubernetes.config-map` | Unset | Existing read-only runtime configuration mounted at SeaTunnel config directory |
+| `kubernetes.kubeconfig` | Unset | Submitter-side config; in-cluster master uses ServiceAccount |
+| `kubernetes.finished-job-retention-seconds` | `86400` | Terminal Job retention before TTL deletion |
+| `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `/opt/seatunnel/checkpoints` on master |
+| `kubernetes.master.labels` / `kubernetes.worker.labels` | Empty | Additional role-specific labels |
+| `kubernetes.master.annotations` / `kubernetes.worker.annotations` | Empty | Role-specific annotations |
+| `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` | Empty | Role-specific scheduling selectors |
+
+Label/annotation/selector maps use the configured comma-separated `key:value` syntax. Application ownership/role labels are reserved and must not be overridden. Existing Secrets, ConfigMaps, ServiceAccounts and PVCs remain caller-owned.
+
+### Commands
+
+The dedicated launcher is `bin/seatunnel-application.sh`. Job configuration and deployment configuration remain separate:
+
+```bash
+# Submit YARN application
+bin/seatunnel-application.sh -p submit -d yarn \
+  -c job.conf -dc yarn.conf
+
+# Submit Kubernetes application
+bin/seatunnel-application.sh -p submit -d kubernetes \
+  -c job.conf -dc kubernetes.conf
+
+# Query / wait for a detached application
+bin/seatunnel-application.sh -p status -d yarn \
+  -dc yarn.conf --id application_... --wait
+
+# Cancel by platform application identity
+bin/seatunnel-application.sh -p cancel -d kubernetes \
+  -dc kubernetes.conf --id seatunnel-...
+
+# Restore into a new application / new native job ID
+bin/seatunnel-application.sh -p submit -d yarn \
+  -c job.conf -dc yarn.conf --restore-job-id 123456789
+```
+
+Deployment configuration is HOCON. Non-sensitive `-Dkey=value` arguments override file options; explicit `--job-id` / `--restore-job-id` populate their corresponding common options. Secrets should not be placed in command-line arguments.
+
+Submit needs job/deployment configuration and no existing application ID. Status/cancel need the platform ID and deployment connection settings, not the job file or a job ID. `--wait` is for submit/status. Validation should be performed at the responsible parsing/configuration boundary without redundant lifecycle checks.
+
+## 12. Distribution and dependencies
+
+Application Mode uses the standard SeaTunnel binary distribution, with optional platform bundles:
 
 ```text
-apache-seatunnel-<version>/
+SeaTunnel distribution
 ├── bin/seatunnel-application.sh
-├── starter/seatunnel-starter.jar
-├── config/
-├── lib/
-├── connectors/
+├── lib/                         existing Engine/client/starter jars
+├── connectors/                  job connector jars
 └── resource-managers/
-    ├── yarn/
-    └── kubernetes/
+    ├── yarn/                    selected YARN provider
+    └── kubernetes/              selected Kubernetes provider
 ```
 
-The shared `seatunnel-resource-manager-core` module is part of the default reactor and is consumed by the starter. The `yarn` and `kubernetes` Maven profiles independently add their provider modules and distribution dependencies. Release builds can enable both profiles; focused platform builds can enable only one.
+- The `yarn` and `kubernetes` build profiles select their provider artifacts.
+- The launcher loads only the requested provider.
+- YARN reuses the Hadoop runtime distributed with SeaTunnel.
+- Kubernetes SDK dependencies with conflict risk are shaded/relocated while preserving SPI metadata.
+- Engine modules depend on shared contracts, never on an optional provider's SDK.
+- Master/worker distributions must agree on Engine, connector, and checkpoint plugin versions.
+- No shared resource-manager-core artifact is built or shipped.
 
-Provider dependencies remain in their provider directory. The application launcher loads only the selected provider so Hadoop and Kubernetes SDK dependencies do not enter the normal standalone runtime classpath.
+SPI selection must be testable with no provider, one provider, and duplicate providers. Another platform can supply its own descriptor/driver without changing the existing standalone entrypoint.
 
-## Checkpoint recovery and availability
+## 13. Failure and cleanup semantics
 
-Master availability and checkpoint durability solve different failure modes.
+| Event | Required behavior |
+| --- | --- |
+| Invalid CLI/deployment options | Fail before corresponding platform resource creation |
+| Upload/localization failure | Remove only files created by this submission; close local handles |
+| Partial/ambiguous platform submission | Attempt scoped rollback; preserve original and rollback failures |
+| Driver initialization failure | Fail readiness and close partial driver state |
+| Allocation/launch failure | Fail application; cancel pending requests and reclaim all allocated workers |
+| Worker registration timeout | Fail within the shared provisioning deadline |
+| Worker process exit / cluster departure | Fail the application without replacement |
+| Cancellation before submission acknowledgement | Ensure a subsequently accepted native job is canceled |
+| Native job failure | Preserve native diagnostics; perform resource cleanup |
+| Owner-thread interruption | Signal cancellation, perform bounded cleanup, restore interrupt status |
+| Late allocation during cleanup | Driver drains/releases it before relinquishing lifecycle ownership |
+| Cleanup failure | Continue remaining steps; preserve diagnostics; do not report false success |
+| Master SIGKILL / host loss | Platform records failure; no claim that in-process hooks ran |
+| Kubernetes retained Job after master loss | Worker reclamation may await explicit deletion or terminal TTL |
+| Status record expired/deleted | Do not fabricate a terminal job result |
+| Persistent storage unavailable / no eligible checkpoint | Restore fails; no silent fresh execution |
 
-The first release has one Master and `backup-count=0`; therefore, it does not provide live Master failover. Losing the Master or a Worker fails the current platform application. A durable checkpoint still allows a new application to resume the data job:
+All cleanup is application-scoped. One application's cancellation must not delete another application's containers, Pods, staging, or user-owned persistent resources.
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#0f1d33","primaryTextColor":"#f8fbff","primaryBorderColor":"#5db8e2","lineColor":"#5db8e2","secondaryColor":"#0c2530","tertiaryColor":"#1f1a34","actorBkg":"#0f1d33","actorBorder":"#5db8e2","actorTextColor":"#f8fbff","actorLineColor":"#5db8e2","signalColor":"#5db8e2","signalTextColor":"#0f1d33","labelBoxBkgColor":"#0c2530","labelBoxBorderColor":"#2dd4bf","labelTextColor":"#f8fbff","loopTextColor":"#0f1d33","noteBkgColor":"#1f1a34","noteBorderColor":"#8d7cf6","noteTextColor":"#f8fbff"}}}%%
-sequenceDiagram
-    participant Old as Application A / Job A
-    participant Store as Durable checkpoint storage
-    participant CLI
-    participant New as Application B / Job B
+## 14. Security and operations
 
-    Old->>Store: Complete checkpoint
-    Old--xOld: Master or Worker failure
-    CLI->>New: Submit with restore-job-id = Job A
-    New->>Store: Load Job A's latest eligible checkpoint
-    Store-->>New: Source and task state
-    New->>New: Resume with a new application ID and job ID
-```
+- Treat job/deployment configuration as sensitive and never log it wholesale.
+- YARN staging is submitter-private (directory permissions 0700); localized files are application-private.
+- Kubernetes job/specification content is stored in a Secret, not a generated ConfigMap. Kubernetes Secret storage still requires appropriate RBAC and cluster encryption-at-rest policy; base64 is not encryption.
+- The master receives platform API credentials; worker Pods disable automatic ServiceAccount-token mounting.
+- Namespace-scoped RBAC should grant only the resources/verbs required for application operations.
+- Existing runtime ConfigMaps should not be treated as a confidential secret store.
+- Image-pull credentials are supplied by existing Secrets/ServiceAccounts.
+- Application ownership selectors and Job UIDs must not be overridden by custom labels.
+- Cluster names and labels provide discovery/ownership boundaries, not protection against an untrusted party with network/API access.
+- Logs should identify application ID, native job ID and worker ID so platform and Engine diagnostics can be correlated without exposing credentials.
+- Operators must distinguish compute cleanup, staged-file cleanup, terminal-record retention and checkpoint retention.
 
-The restore operation is explicit. It creates a new platform application and a new Zeta job ID. Checkpoint data must be accessible with the same storage configuration and credentials, and Connector state must remain compatible.
+## 15. Compatibility and migration
 
-## First-phase boundary
+Standalone, Flink and Spark entrypoints/defaults remain unchanged. `SeaTunnelApplication` is not repurposed for application lifecycle orchestration, and `SeaTunnelServerStarter.main` stays the ordinary server entrypoint.
 
-The feature is experimental in the first release. Existing local and standalone Zeta submission, Connector APIs, job APIs, and configuration keys remain unchanged. The first phase must prove the single-Master lifecycle, multiple-Worker execution, cleanup, and checkpoint recovery before adding multiple Masters, Worker replacement, autoscaling, or Kerberos.
+The internal draft evolves as follows:
+
+| Previous draft | Revised design |
+| --- | --- |
+| `resource-managers/core` | Responsibilities placed in engine-common/core/client/server |
+| Custom ApplicationId / ApplicationResult | Native platform ID / direct ApplicationStatus and native JobResult |
+| `ApplicationClusterDescriptors` | Constructor-injected ApplicationClusterDeployer + ClusterClientServiceLoader |
+| Catch-all ApplicationClusterEntrypoint | Platform master CLI + job environment + resource manager, each with an explicit lifecycle |
+| ApplicationWorkerRunner / role-dispatch entrypoint | Separate platform MasterCli and WorkerCli calling native member creation |
+| Context exposes identity/specification/cluster name | Constructor-supplied fixed settings; context only endpoint and callbacks |
+| Platform allocation mixed with Engine slots | Driver owns external resources; Engine retains registration/scheduling |
+
+These are draft API/module migrations, not permission to silently break a released public API. Any published compatibility impact must be listed in the project's incompatible-changes documentation with migration guidance. Option names/defaults are stable contracts once accepted.
+
+## 16. Validation and review plan
+
+Validation evidence must distinguish unit/runtime tests, module compilation, real platform E2E, and CI. Compilation or mocked tests alone do not establish platform lifecycle correctness.
+
+### Contract and unit tests
+
+- Option parsing/precedence/validation and immutable specification serialization.
+- SPI discovery and native ID parsing.
+- Descriptor close does not cancel an application.
+- Lazy client provider creates independently owned native clients.
+- Platform status/cancel requires no live master or native job ID.
+- Launch resources/commands carry correct role, cluster name, master endpoint and slots.
+- Upload/partial-create rollback, name conflicts and ownership scoping.
+- Worker release futures, duplicate cleanup, canceled/late allocation and ambiguous launch responses.
+- Kubernetes owner UID, private Secret, token settings, resource requests and retention.
+
+### Native runtime tests
+
+- Successful batch execution and native terminal-result future.
+- Invalid job and failed native submission.
+- Cancellation before/after submission acknowledgement.
+- Worker readiness including blocked initialization and allocation timeout.
+- Unexpected worker loss and asynchronous driver failure.
+- Owner interruption, late allocation, cleanup failure and preserved diagnostics.
+- Historical checkpoint restore and explicit missing-checkpoint failure.
+- Master remains available until worker cleanup/draining completes.
+- Existing Starter entrypoint behavior remains unchanged.
+
+### Real platform E2E
+
+YARN: MiniYARN + MiniDFS with actual AM and worker JVMs, localization, normal completion, detached status/cancel, worker/master loss, startup failure, resource cleanup, and HDFS checkpoint restore.
+
+Kubernetes: a disposable cluster with actual Job/worker Pods, namespace isolation, Secret/Service ownership, normal completion, cancellation/deletion, worker/master loss, terminal retention, and restore using a persistent volume. Test abrupt-master-loss cleanup separately from graceful cleanup; do not count retained orphan workers as immediately reclaimed.
+
+Both platforms use representative FakeSource/Console/Assert jobs. Parallel applications must not join each other's cluster or delete each other's resources.
+
+### Reviewable slices
+
+The requested YARN-first rollout is a review proposal, distinct from the complete two-platform architecture:
+
+1. Agree the lifecycle, ownership, timeout, status/cancel, ID and checkpoint contracts.
+2. Review shared contracts plus the YARN descriptor/launcher/driver integration.
+3. Establish real MiniYARN/HDFS lifecycle and restore evidence.
+4. Review Kubernetes implementation, platform-specific cleanup limits and real-cluster E2E independently.
+5. Review provider packaging, dependency isolation, documentation and CI evidence for each accepted platform.
+
+The final acceptance sequence still needs agreement; this update does not invent follow-up issue/PR links, claim either platform is accepted, or change #12460. Focused follow-up links and actual test evidence should be added as the review slices exist.

@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.client;
 
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationResult;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -29,19 +26,18 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import io.kubernetes.client.openapi.ApiException;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
-public final class KubernetesApplicationClient implements ApplicationClient {
+public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
-    private final ApplicationId applicationId;
+    private final String applicationId;
     private volatile boolean canceled;
 
-    public KubernetesApplicationClient(KubernetesClient api, ApplicationId applicationId) {
+    public KubernetesApplicationClient(KubernetesClient api, String applicationId) {
         this.api = api;
         this.applicationId = applicationId;
     }
 
     /** @return the generated Kubernetes Job identity */
-    @Override
-    public ApplicationId getApplicationId() {
+    public String getClusterId() {
         return applicationId;
     }
 
@@ -49,37 +45,23 @@ public final class KubernetesApplicationClient implements ApplicationClient {
      * @return durable Job state, or UNKNOWN after deletion or retention expiry
      * @throws Exception when Kubernetes cannot be queried
      */
-    @Override
     public ApplicationStatus getStatus() throws Exception {
-        return getResult().getStatus();
-    }
-
-    /**
-     * Resolves native Job conditions; the method does not expose job configuration or Pod logs.
-     *
-     * @return current state and Kubernetes reason, when available
-     * @throws Exception on API errors other than a missing Job
-     */
-    @Override
-    public ApplicationResult getResult() throws Exception {
         if (canceled) {
-            return new ApplicationResult(
-                    applicationId, ApplicationStatus.CANCELED, "Application resources deleted");
+            return ApplicationStatus.CANCELED;
         }
         try {
-            KubernetesJob job = api.getJob(applicationId.getId());
+            KubernetesJob job = api.getJob(applicationId);
             if (job.isFailed()) {
-                return new ApplicationResult(
-                        applicationId, ApplicationStatus.FAILED, job.getFailureReason());
+                return ApplicationStatus.FAILED;
             }
             if (job.isComplete()) {
-                return new ApplicationResult(applicationId, ApplicationStatus.SUCCEEDED, null);
+                return ApplicationStatus.SUCCEEDED;
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
                 for (KubernetesPod pod :
                         api.listPods(
-                                KubernetesResourceFactory.selector(applicationId.getId())
+                                KubernetesResourceFactory.selector(applicationId)
                                         + ","
                                         + KubernetesResourceFactory.ROLE_LABEL
                                         + "=master")) {
@@ -89,15 +71,12 @@ public final class KubernetesApplicationClient implements ApplicationClient {
                     }
                 }
             }
-            return new ApplicationResult(applicationId, state, null);
+            return state;
         } catch (ApiException e) {
             if (e.getCode() != 404) {
                 throw e;
             }
-            return new ApplicationResult(
-                    applicationId,
-                    ApplicationStatus.UNKNOWN,
-                    "Job does not exist or its retention period expired");
+            return ApplicationStatus.UNKNOWN;
         }
     }
 
@@ -106,9 +85,8 @@ public final class KubernetesApplicationClient implements ApplicationClient {
      *
      * @throws Exception if any resource could not be deleted
      */
-    @Override
     public void cancel() throws Exception {
-        api.deleteApplication(applicationId.getId());
+        api.deleteApplication(applicationId);
         canceled = true;
     }
 

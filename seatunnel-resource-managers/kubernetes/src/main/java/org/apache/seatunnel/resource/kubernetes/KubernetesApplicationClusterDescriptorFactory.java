@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 
@@ -30,7 +30,15 @@ import java.util.Map;
 /** Discovers the Kubernetes application deployment target. */
 @AutoService(ApplicationClusterDescriptorFactory.class)
 public final class KubernetesApplicationClusterDescriptorFactory
-        implements ApplicationClusterDescriptorFactory {
+        implements ApplicationClusterDescriptorFactory<String> {
+
+    @Override
+    public String parseApplicationId(String applicationId) {
+        if (applicationId == null || applicationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Kubernetes Job name must not be empty");
+        }
+        return applicationId;
+    }
 
     /** @return the Kubernetes deployment target advertised by this SPI provider */
     @Override
@@ -45,8 +53,8 @@ public final class KubernetesApplicationClusterDescriptorFactory
      * @throws Exception if Kubernetes credentials or configuration cannot be loaded
      */
     @Override
-    public ApplicationClusterDescriptor create(Map<String, String> options) throws Exception {
+    public ClusterDescriptor<String> create(Map<String, String> options) throws Exception {
         KubernetesClient kubernetesClient = KubernetesClientFactory.create(options, false);
-        return new KubernetesApplicationClusterDescriptor(kubernetesClient);
+        return new KubernetesApplicationClusterDescriptor(kubernetesClient, options);
     }
 }

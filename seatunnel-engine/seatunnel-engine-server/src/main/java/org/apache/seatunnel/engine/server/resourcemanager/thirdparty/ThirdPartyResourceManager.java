@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
-public interface ThirdPartyResourceManager {
+public interface ThirdPartyResourceManager<WorkerType extends ResourceIDRetrievable> {
 
-    CompletableFuture<WorkerRegistration> requestWorker(WorkerSpecification specification);
+    CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
 
-    CompletableFuture<Void> releaseWorker(WorkerRegistration worker);
+    CompletableFuture<Void> releaseWorker(WorkerType worker);
 }

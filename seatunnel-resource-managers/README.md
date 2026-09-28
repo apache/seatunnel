@@ -7,13 +7,6 @@ Optional YARN and Kubernetes providers for native Zeta application mode. Each ap
 ```text
 seatunnel-resource-managers/
 ├── pom.xml                       # Parent and aggregator; inherits the repository root
-├── core/                         # Default module: seatunnel-resource-manager-core
-│   ├── pom.xml                   # Inherits seatunnel-resource-managers
-│   └── src/main/java/.../resource/core/
-│       ├── application/          # Application and worker models
-│       ├── client/               # Deployment lifecycle contracts and provider discovery
-│       ├── config/               # Deployment options, membership and checkpoint configuration
-│       └── classloader/          # Localized distribution jar resolver
 ├── yarn/                         # Maven artifact: seatunnel-resource-manager-yarn
 │   ├── pom.xml
 │   └── src/                      # Entrypoint plus config/, client/ and cluster/
@@ -22,22 +15,23 @@ seatunnel-resource-managers/
     └── src/                      # Entrypoint plus config/, client/ and cluster/
 ```
 
-`core` is part of the default reactor. Under `org.apache.seatunnel.resource.core`, `application` contains the five application/worker model types, `client` contains the four deployment/client contracts and discovery types, `config` contains `ApplicationOptions` and `ApplicationClusterConfig`, and `classloader` contains `ApplicationJarPathResolver`. It depends on Engine common to reuse the existing `DeployType`, and on Engine core for the typed `JarPathResolver` extension. It does not depend on Engine server, Engine client or platform SDKs. Engine common and Engine core have no reverse dependency on this module. Engine core uses the generic `seatunnel-core-starter` artifact, which is separate from `seatunnel-starter`.
+There is no resource-manager `core` module. Shared `ApplicationSpecification` and `WorkerSpecification` live in engine-common under `org.apache.seatunnel.engine.common.config.spec`; `ApplicationOptions` lives in `engine.common.config.server` and `ApplicationClusterConfig` in `engine.common.config`. `ApplicationJarPathResolver` lives in engine-core. These modules do not depend on platform SDKs.
 
-Engine client retains native Zeta job communication over Hazelcast. Engine server owns the external worker-driver SPI and the existing slot scheduler. `ApplicationRuntime` and `ApplicationWorker` stay in starter because they create Engine members and own native server/client lifecycles. Platform providers implement the core deployment SPI and the Engine worker-driver SPI, without replacing slot scheduling.
+Engine client owns native Zeta job communication, the deployment SPI and `ApplicationJobExecutionEnvironment`. Engine server owns the external worker-driver SPI, resource lifecycle and existing slot scheduler. Platform providers implement deployment and worker drivers; separate Master/Worker CLIs prepare configuration and call `SeaTunnelServerStarter.createHazelcastInstance`. Master CLIs own job cancellation signaling and master shutdown.
 
 ```text
-resource-manager-core → engine-common → seatunnel-api
-resource-manager-core → engine-core → seatunnel-core-starter
-engine-server → resource-manager-core
-seatunnel-starter → resource-manager-core, engine-client, engine-server
-yarn / kubernetes → resource-manager-core, seatunnel-starter
+engine-common → seatunnel-api
+engine-core → engine-common, seatunnel-core-starter
+engine-server → engine-core
+engine-client → engine-server
+seatunnel-starter → engine-client, engine-server
+yarn / kubernetes → engine-client, engine-server
 seatunnel-dist → seatunnel-starter, yarn, kubernetes
 ```
 
-Inside core, `client` uses `application` models, and `application` uses `config` options. The deployment-provider SPI resource is `META-INF/services/org.apache.seatunnel.resource.core.client.ApplicationDeployerFactory`.
+The deployment-provider SPI resource is `META-INF/services/org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory`.
 
-Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM aggregates `core`, `yarn`, and `kubernetes`, and all three children inherit this parent. CI explicitly selects `ci` to exclude distribution packaging.
+Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM aggregates `yarn` and `kubernetes`; both inherit this parent. CI explicitly selects `ci` to exclude distribution packaging.
 
 To build the standard SeaTunnel distribution with both providers:
 

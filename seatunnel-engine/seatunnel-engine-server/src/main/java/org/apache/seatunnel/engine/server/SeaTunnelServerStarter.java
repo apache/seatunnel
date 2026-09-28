@@ -34,7 +34,7 @@ import com.hazelcast.internal.util.ConcurrencyUtil;
 import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
-
+    /** Starts the server using the configured cluster role. */
     public static void main(String[] args) {
         createHazelcastInstance();
     }
@@ -68,14 +68,15 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
             @NonNull JarPathResolver jarPathResolver) {
-        return initializeHazelcastInstance(
+        return createHazelcastInstance(
                 seaTunnelConfig,
                 customInstanceName,
                 jarPathResolver,
                 new StandaloneResourceManagerFactory());
     }
 
-    private static HazelcastInstanceImpl initializeHazelcastInstance(
+    /** Creates a configured member with its jar resolver and resource manager factory. */
+    public static HazelcastInstanceImpl createHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
             @NonNull JarPathResolver jarPathResolver,
@@ -126,7 +127,7 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
-        return initializeHazelcastInstance(
+        return createHazelcastInstance(
                 seaTunnelConfig, null, JarPathResolver.identity(), resourceManagerFactory);
     }
 

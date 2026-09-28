@@ -42,8 +42,8 @@ public class ApplicationCommandArgs extends CommandArgs {
             names = {"-p", "--operation"},
             description =
                     "Application operation: submit (deploy a new application), "
-                            + "status (query an existing application's state), "
-                            + "or cancel (terminate an existing application)",
+                            + "status (query application state from the resource platform), "
+                            + "or cancel (stop the application and release its resources)",
             converter = ApplicationOperationConverter.class)
     private ApplicationOperation operation;
 
@@ -58,9 +58,7 @@ public class ApplicationCommandArgs extends CommandArgs {
             description = "SeaTunnel job configuration file")
     private String config;
 
-    @Parameter(
-            names = "--job-id",
-            description = "Optional positive native Zeta job ID for this submission")
+    @Parameter(names = "--job-id", description = "Optional native Zeta job ID for submit")
     private Long jobId;
 
     @Parameter(
@@ -77,7 +75,7 @@ public class ApplicationCommandArgs extends CommandArgs {
     @Parameter(names = "--id", description = "External application ID returned by submit")
     private String id;
 
-    @Parameter(names = "--wait", description = "Wait for terminal application status")
+    @Parameter(names = "--wait", description = "Wait for the application to reach a terminal state")
     private boolean wait;
 
     @DynamicParameter(

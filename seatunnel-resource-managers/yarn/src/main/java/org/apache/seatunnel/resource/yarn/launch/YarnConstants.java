@@ -32,23 +32,23 @@ public final class YarnConstants {
     public static final String STAGING_DIRECTORY_ENV = "SEATUNNEL_YARN_STAGING";
 
     /** Environment variables exported to each localized SeaTunnel process. */
-    static final String SEATUNNEL_HOME_ENV = "SEATUNNEL_HOME";
+    public static final String SEATUNNEL_HOME_ENV = "SEATUNNEL_HOME";
 
-    static final String HADOOP_CONF_DIR_ENV = "HADOOP_CONF_DIR";
+    public static final String HADOOP_CONF_DIR_ENV = "HADOOP_CONF_DIR";
 
     /** JVM property used by workers to locate their distribution root. */
-    static final String SEATUNNEL_HOME_PROPERTY = "seatunnel.home";
+    public static final String SEATUNNEL_HOME_PROPERTY = "seatunnel.home";
 
     /** Heap sizing used by both ApplicationMaster and worker JVMs. */
-    static final int JVM_HEAP_NUMERATOR = 3;
+    public static final int JVM_HEAP_NUMERATOR = 3;
 
-    static final int JVM_HEAP_DENOMINATOR = 4;
-    static final int MINIMUM_JVM_HEAP_MB = 64;
+    public static final int JVM_HEAP_DENOMINATOR = 4;
+    public static final int MINIMUM_JVM_HEAP_MB = 64;
 
     /** Files and directories relative to the localized SeaTunnel distribution home. */
-    static final String LOG4J_CONFIG_FILE = "config/log4j2_client.properties";
+    public static final String LOG4J_CONFIG_FILE = "config/log4j2_client.properties";
 
-    static final String YARN_CLASSPATH =
+    public static final String YARN_CLASSPATH =
             ".:%sconfig:%sstarter/seatunnel-starter.jar:%sstarter/logging/*:%slib/*:%sresource-managers/yarn/*";
 
     private YarnConstants() {}

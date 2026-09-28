@@ -17,60 +17,47 @@
 
 package org.apache.seatunnel.resource.yarn.client;
 
-import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationResult;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
-import static org.apache.hadoop.yarn.api.records.ApplicationId.fromString;
-
 /** Closing a client leaves a detached application running; cancel explicitly stops it. */
-public final class YarnApplicationClient implements ApplicationClient {
+public final class YarnApplicationClient implements AutoCloseable {
     private final YarnClient client;
     private final Configuration configuration;
-    private final String yarnId;
+    private final ApplicationId yarnId;
     private final Path staging;
 
     public YarnApplicationClient(
-            YarnClient client, Configuration configuration, String yarnId, Path staging) {
+            YarnClient client, Configuration configuration, ApplicationId yarnId, Path staging) {
         this.client = client;
         this.configuration = configuration;
         this.yarnId = yarnId;
         this.staging = staging;
     }
 
-    @Override
-    public ApplicationId getApplicationId() {
-        return new ApplicationId(DeployType.YARN, yarnId);
+    public ApplicationId getClusterId() {
+        return yarnId;
     }
 
-    @Override
+    /** Reads native application state and retries artifact cleanup after any terminal state. */
     public ApplicationStatus getStatus() throws Exception {
-        return getResult().getStatus();
-    }
-
-    /** Reads the native result and retries artifact cleanup after any terminal state. */
-    @Override
-    public ApplicationResult getResult() throws Exception {
-        ApplicationReport report = client.getApplicationReport(fromString(yarnId));
+        ApplicationReport report = client.getApplicationReport(yarnId);
         ApplicationStatus status = status(report);
         if (status.isTerminal()) {
             YarnStagingDirectory.cleanup(configuration, staging);
         }
-        return new ApplicationResult(getApplicationId(), status, report.getDiagnostics());
+        return status;
     }
 
     /** Kills the remote application and removes only its staged submission artifacts. */
-    @Override
     public void cancel() throws Exception {
-        client.killApplication(fromString(yarnId));
+        client.killApplication(yarnId);
         YarnStagingDirectory.cleanup(configuration, staging);
     }
 

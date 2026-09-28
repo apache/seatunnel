@@ -21,14 +21,20 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
+import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
+import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.config.ApplicationOptions;
 import org.apache.seatunnel.resource.kubernetes.KubernetesApplicationClusterDescriptorFactory;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
+import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -90,6 +96,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.getResourcesFil
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Runs real application processes in a disposable K3s cluster using Maven test dependencies. */
@@ -106,10 +113,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             "seatunnel-app-it-" + UUID.randomUUID().toString().substring(0, 8);
     private CoreV1Api core;
     private BatchV1Api batch;
-    private ApplicationClusterDescriptor deployer;
+    private ClusterDescriptor<String> deployer;
     private Map<String, String> options;
     private boolean namespaceCreated;
     private ApiClient apiClient;
+    private KubernetesClient platformMonitor;
     private K3sContainer k3s;
     private Path kubeconfig;
 
@@ -236,6 +244,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         options.put(ApplicationOptions.MASTER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "180000");
         deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
+        platformMonitor = KubernetesClientFactory.create(options, false);
     }
 
     @AfterAll
@@ -250,6 +259,9 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                     core.deleteNamespace(namespace, null, null, 0, null, "Foreground", null);
                 }
             } finally {
+                if (platformMonitor != null) {
+                    platformMonitor.close();
+                }
                 if (apiClient != null) {
                     apiClient.getHttpClient().dispatcher().executorService().shutdown();
                     apiClient.getHttpClient().connectionPool().evictAll();
@@ -266,20 +278,18 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void fakeSourceSubmissionCompletesWithAssertAndReleasesWorkers() throws Exception {
-        try (ApplicationClient application =
-                deployer.deploy(specification(assertSubmissionJob()))) {
+        try (KubernetesApplicationClient application =
+                deployApplication(specification(assertSubmissionJob()))) {
             try {
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
                 awaitWorkersRemoved(application);
                 assertEquals(
                         1,
-                        batch.readNamespacedJob(
-                                        application.getApplicationId().getId(), namespace, null)
+                        batch.readNamespacedJob(application.getClusterId(), namespace, null)
                                 .getStatus()
                                 .getSucceeded());
                 V1Secret applicationSecret =
-                        core.readNamespacedSecret(
-                                application.getApplicationId().getId(), namespace, null);
+                        core.readNamespacedSecret(application.getClusterId(), namespace, null);
                 assertEquals(1, applicationSecret.getMetadata().getOwnerReferences().size());
                 assertEquals("Opaque", applicationSecret.getType());
                 assertTrue(applicationSecret.getData().containsKey(APPLICATION_SPECIFICATION_FILE));
@@ -287,11 +297,9 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         missing(
                                 () ->
                                         core.readNamespacedConfigMap(
-                                                application.getApplicationId().getId(),
-                                                namespace,
-                                                null)));
+                                                application.getClusterId(), namespace, null)));
             } finally {
-                application.cancel();
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -299,13 +307,18 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void invalidJobFailsAndReleasesWorkers() throws Exception {
-        try (ApplicationClient application =
-                deployer.deploy(specification(job("BATCH", "ConnectorThatDoesNotExist")))) {
+        try (KubernetesApplicationClient application =
+                deployApplication(specification(job("BATCH", "ConnectorThatDoesNotExist")))) {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
+                String masterLogs =
+                        podLogs(application, masterPod(application).getMetadata().getName());
+                assertTrue(
+                        masterLogs.contains("ConnectorThatDoesNotExist"),
+                        "The application must reach job parsing, not fail during runtime startup");
             } finally {
-                application.cancel();
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -313,42 +326,56 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void simultaneousApplicationsAreIsolatedAndCancellationRemovesEverything() throws Exception {
-        try (ApplicationClient first =
-                deployer.deploy(singleWorkerSpecification(job("STREAMING", "Console", 1)))) {
-            try (ApplicationClient second =
-                    deployer.deploy(singleWorkerSpecification(job("STREAMING", "Console", 1)))) {
+        try (KubernetesApplicationClient first =
+                deployApplication(specification(job("STREAMING", "Console")))) {
+            try (KubernetesApplicationClient second =
+                    deployApplication(singleWorkerSpecification(job("STREAMING", "Console", 1)))) {
                 try {
-                    awaitWorkersRunning(first, 1);
+                    awaitWorkersRunning(first, 2);
                     awaitWorkersRunning(second, 1);
                     awaitJobRunning(first);
                     awaitJobRunning(second);
-                    assertNotEquals(
-                            first.getApplicationId().getId(), second.getApplicationId().getId());
+                    // Pod addresses are cluster-internal; retrieving a provider must not connect.
+                    assertNotNull(deployer.retrieve(first.getClusterId()));
+                    assertNotNull(deployer.retrieve(second.getClusterId()));
+                    assertNotEquals(first.getClusterId(), second.getClusterId());
                     String firstMaster = masterPod(first).getStatus().getPodIP() + ":5801";
                     String secondMaster = masterPod(second).getStatus().getPodIP() + ":5801";
                     assertNotEquals(firstMaster, secondMaster);
                     for (V1Pod worker : workers(first)) {
                         assertRuntimeConfigMapMounted(worker);
                         List<String> command = worker.getSpec().getContainers().get(0).getCommand();
+                        assertTrue(command.contains(SeatunnelKubernetesWorkerCli.class.getName()));
+                        int entrypoint =
+                                command.indexOf(SeatunnelKubernetesWorkerCli.class.getName());
+                        assertEquals(
+                                ApplicationClusterConfig.clusterName(first.getClusterId()),
+                                command.get(entrypoint + 1));
+                        assertEquals(firstMaster, command.get(entrypoint + 2));
                         assertTrue(command.contains(firstMaster));
                         assertFalse(command.contains(secondMaster));
                         assertEquals(
-                                first.getApplicationId().getId(),
+                                first.getClusterId(),
                                 worker.getMetadata().getOwnerReferences().get(0).getName());
                     }
                     assertRuntimeConfigMapMounted(masterPod(first));
                     assertRuntimeConfigMapMounted(masterPod(second));
-                    first.cancel();
-                    assertEquals(ApplicationStatus.CANCELED, first.getStatus());
+                    deployer.cancelApplication(first.getClusterId());
                     awaitAllResourcesRemoved(first);
-                    assertEquals(ApplicationStatus.RUNNING, second.getStatus());
+                    assertEquals(
+                            ApplicationStatus.UNKNOWN,
+                            deployer.getApplicationStatus(first.getClusterId()));
+                    awaitAllResourcesRemoved(first);
+                    assertEquals(
+                            ApplicationStatus.RUNNING,
+                            deployer.getApplicationStatus(second.getClusterId()));
                     assertEquals(1, workers(second).size());
                 } finally {
-                    second.cancel();
+                    deployer.cancelApplication(second.getClusterId());
                 }
                 awaitAllResourcesRemoved(second);
             } finally {
-                first.cancel();
+                deployer.cancelApplication(first.getClusterId());
             }
             awaitAllResourcesRemoved(first);
         }
@@ -356,8 +383,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void workerLossFailsApplicationAndCleansRemainingWorkers() throws Exception {
-        try (ApplicationClient application =
-                deployer.deploy(specification(job("STREAMING", "Console")))) {
+        try (KubernetesApplicationClient application =
+                deployApplication(specification(job("STREAMING", "Console")))) {
             try {
                 awaitWorkersRunning(application, 2);
                 awaitJobRunning(application);
@@ -373,7 +400,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
             } finally {
-                application.cancel();
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -407,7 +434,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         String config = readJobTemplate("checkpoint_recovery.conf", 1, marker);
         ApplicationSpecification firstSpecification =
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, recovery);
-        try (ApplicationClient first = deployer.deploy(firstSpecification)) {
+        try (KubernetesApplicationClient first = deployApplication(firstSpecification)) {
             try {
                 awaitWorkersRunning(first, 1);
                 String worker = workers(first).get(0).getMetadata().getName();
@@ -429,7 +456,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 recordPodDiagnostics(first);
                 throw failure;
             } finally {
-                first.cancel();
+                deployer.cancelApplication(first.getClusterId());
             }
             awaitAllResourcesRemoved(first);
         }
@@ -445,7 +472,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         ApplicationSpecification restoredSpecification =
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, recovery);
         assertNotEquals(firstSpecification.getJobId(), restoredSpecification.getJobId());
-        try (ApplicationClient restored = deployer.deploy(restoredSpecification)) {
+        try (KubernetesApplicationClient restored = deployApplication(restoredSpecification)) {
             try {
                 awaitWorkersRunning(restored, 1);
                 awaitDurableCheckpoint(restored, restoredSpecification.getJobId(), 1);
@@ -466,7 +493,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 recordPodDiagnostics(restored);
                 throw failure;
             } finally {
-                restored.cancel();
+                deployer.cancelApplication(restored.getClusterId());
             }
             awaitAllResourcesRemoved(restored);
         }
@@ -489,7 +516,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     }
 
     private void awaitDurableCheckpoint(
-            ApplicationClient application, long jobId, int expectedCompletions) {
+            KubernetesApplicationClient application, long jobId, int expectedCompletions) {
         try {
             Awaitility.await()
                     .atMost(180, TimeUnit.SECONDS)
@@ -559,7 +586,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private String podLogs(ApplicationClient application, String name) throws Exception {
+    private String podLogs(KubernetesApplicationClient application, String name) throws Exception {
         ApplicationStatus status = application.getStatus();
         if (status.isTerminal() || status == ApplicationStatus.UNKNOWN) {
             throw new IllegalStateException(
@@ -628,13 +655,13 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 return current.getStatus() != null
                                         && current.getStatus().getHard() != null;
                             });
-            try (ApplicationClient application =
-                    deployer.deploy(specification(job("STREAMING", "Console")))) {
+            try (KubernetesApplicationClient application =
+                    deployApplication(specification(job("STREAMING", "Console")))) {
                 try {
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
                 } finally {
-                    application.cancel();
+                    deployer.cancelApplication(application.getClusterId());
                 }
                 awaitAllResourcesRemoved(application);
             }
@@ -644,19 +671,32 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private void awaitStatus(ApplicationClient application, ApplicationStatus expected) {
+    private KubernetesApplicationClient deployApplication(ApplicationSpecification specification)
+            throws Exception {
+        return new KubernetesApplicationClient(
+                platformMonitor,
+                new ApplicationClusterDeployer(new ClusterClientServiceLoader())
+                        .<String>run(specification));
+    }
+
+    private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {
         try {
             Awaitility.await()
                     .atMost(300, TimeUnit.SECONDS)
                     .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(() -> assertEquals(expected, application.getStatus()));
+                    .untilAsserted(
+                            () ->
+                                    assertEquals(
+                                            expected,
+                                            deployer.getApplicationStatus(
+                                                    application.getClusterId())));
         } catch (RuntimeException e) {
             recordPodDiagnostics(application);
             throw e;
         }
     }
 
-    private void recordPodDiagnostics(ApplicationClient application) {
+    private void recordPodDiagnostics(KubernetesApplicationClient application) {
         try {
             Path reports =
                     Paths.get(
@@ -695,7 +735,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private void awaitWorkersRunning(ApplicationClient application, int expected) {
+    private void awaitWorkersRunning(KubernetesApplicationClient application, int expected) {
         Awaitility.await()
                 .atMost(240, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
@@ -715,7 +755,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         });
     }
 
-    private void awaitJobRunning(ApplicationClient application) {
+    private void awaitJobRunning(KubernetesApplicationClient application) {
         try {
             Awaitility.await()
                     .atMost(180, TimeUnit.SECONDS)
@@ -736,7 +776,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private void awaitWorkersRemoved(ApplicationClient application) {
+    private void awaitWorkersRemoved(KubernetesApplicationClient application) {
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
@@ -758,7 +798,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                                 && Boolean.TRUE.equals(mount.getReadOnly())));
     }
 
-    private void awaitAllResourcesRemoved(ApplicationClient application) {
+    private void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -768,28 +808,28 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                     missing(
                                             () ->
                                                     batch.readNamespacedJob(
-                                                            application.getApplicationId().getId(),
+                                                            application.getClusterId(),
                                                             namespace,
                                                             null)));
                             assertTrue(
                                     missing(
                                             () ->
                                                     core.readNamespacedService(
-                                                            application.getApplicationId().getId(),
+                                                            application.getClusterId(),
                                                             namespace,
                                                             null)));
                             assertTrue(
                                     missing(
                                             () ->
                                                     core.readNamespacedSecret(
-                                                            application.getApplicationId().getId(),
+                                                            application.getClusterId(),
                                                             namespace,
                                                             null)));
                             assertTrue(
                                     missing(
                                             () ->
                                                     core.readNamespacedConfigMap(
-                                                            application.getApplicationId().getId(),
+                                                            application.getClusterId(),
                                                             namespace,
                                                             null)));
                         });
@@ -811,16 +851,17 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         void run() throws Exception;
     }
 
-    private List<V1Pod> workers(ApplicationClient application) throws Exception {
+    private List<V1Pod> workers(KubernetesApplicationClient application) throws Exception {
         return pods(application, "worker");
     }
 
-    private V1Pod masterPod(ApplicationClient application) throws Exception {
+    private V1Pod masterPod(KubernetesApplicationClient application) throws Exception {
         return pods(application, "master").get(0);
     }
 
-    private List<V1Pod> pods(ApplicationClient application, String role) throws Exception {
-        String selector = APPLICATION_LABEL + "=" + application.getApplicationId().getId();
+    private List<V1Pod> pods(KubernetesApplicationClient application, String role)
+            throws Exception {
+        String selector = APPLICATION_LABEL + "=" + application.getClusterId();
         if (role != null) {
             selector += "," + ROLE_LABEL + "=" + role;
         }

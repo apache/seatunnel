@@ -18,48 +18,39 @@
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.util.Objects;
 
 /** Creates a Kubernetes resource manager for one application master. */
-public final class KubernetesResourceManagerFactory implements ResourceManagerFactory {
-    private final ApplicationId applicationId;
+public final class KubernetesResourceManagerFactory<WorkerType extends ResourceIDRetrievable>
+        implements ResourceManagerFactory {
+    private final String applicationId;
     private final ApplicationSpecification specification;
-    private final String clusterName;
-    private final ResourceManagerDriver driver;
+    private final ResourceManagerDriver<WorkerType> driver;
 
     public KubernetesResourceManagerFactory(
-            ApplicationId applicationId,
+            String applicationId,
             ApplicationSpecification specification,
-            String clusterName,
-            ResourceManagerDriver driver) {
+            ResourceManagerDriver<WorkerType> driver) {
         this.applicationId = Objects.requireNonNull(applicationId, "applicationId");
         this.specification = Objects.requireNonNull(specification, "specification");
-        this.clusterName = Objects.requireNonNull(clusterName, "clusterName");
         this.driver = Objects.requireNonNull(driver, "driver");
     }
 
     @Override
-    public DeployType getDeployType() {
-        return DeployType.KUBERNETES;
-    }
-
-    @Override
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        return new KubernetesResourceManager(
+        return new KubernetesResourceManager<>(
                 nodeEngine,
                 engineConfig,
                 applicationId,
                 specification,
-                clusterName,
                 nodeEngine.getClusterService().getLocalMember().getAddress(),
                 driver);
     }

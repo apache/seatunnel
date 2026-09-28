@@ -17,26 +17,27 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
 /**
  * Owns external worker allocations for one application independently of SeaTunnel's slot scheduler.
  *
  * <p>The application runtime invokes initialize once, requests a fixed number of workers, releases
- * them during shutdown, invokes stopWorkers to drain late allocations, stops the native master,
- * publishes the terminal outcome with finish, and finally invokes close. Drivers may use background
- * callbacks, but must synchronize them with lifecycle calls and stop failure notifications during
- * intentional release and shutdown. No method may alter another application's resources. This
- * contract provides no worker replacement, scaling, or master HA.
+ * them during shutdown, invokes stopWorkers to drain late allocations, publishes the terminal
+ * outcome with finish, and invokes close before the outer lifecycle stops the master. Drivers may
+ * use background callbacks, but must synchronize them with lifecycle calls and stop failure
+ * notifications during intentional release and shutdown. No method may alter another application's
+ * resources. This contract provides no worker replacement, scaling, or master HA.
  */
-public interface ResourceManagerDriver extends AutoCloseable {
+public interface ResourceManagerDriver<WorkerType extends ResourceIDRetrievable>
+        extends AutoCloseable {
     /**
      * Initializes platform clients and registers the application master where required.
      *
-     * @param context application-owned metadata and thread-safe asynchronous failure callbacks
+     * @param context bound master endpoint and thread-safe asynchronous failure callbacks
      * @throws Exception if initialization fails; close is still invoked to clean partial state
      */
     void initialize(ResourceManagerContext context) throws Exception;
@@ -53,15 +54,16 @@ public interface ResourceManagerDriver extends AutoCloseable {
      * @param specification immutable memory, CPU, and slot requirements for this worker
      * @return a non-null future containing the launched worker's platform identity
      */
-    CompletableFuture<WorkerRegistration> requestWorker(WorkerSpecification specification);
+    CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
 
     /**
      * Releases a worker belonging to this application; repeated release must be harmless.
      *
-     * @param worker registration returned by a successful requestWorker call
-     * @throws Exception if release cannot be confirmed; close must retry outstanding cleanup
+     * @param worker node returned by a successful requestWorker call
+     * @return a future completed when release succeeds, or completed exceptionally if release
+     *     fails; close must retry outstanding cleanup
      */
-    CompletableFuture<Void> releaseWorker(WorkerRegistration worker);
+    CompletableFuture<Void> releaseWorker(WorkerType worker);
 
     /**
      * Quiesces allocation and reclaims resources that cannot be handled by explicit worker release.
@@ -81,7 +83,7 @@ public interface ResourceManagerDriver extends AutoCloseable {
     default void stopWorkers() throws Exception {}
 
     /**
-     * Publishes the terminal outcome after known workers and native engine resources are stopped.
+     * Publishes the terminal outcome after native job termination and worker cleanup.
      *
      * <p>This is called at most once and before close, including after partial initialization. A
      * backend without an explicit application deregistration operation may keep the default no-op.

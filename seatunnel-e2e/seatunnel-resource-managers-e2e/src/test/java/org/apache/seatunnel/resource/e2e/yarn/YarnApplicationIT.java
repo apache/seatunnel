@@ -20,14 +20,15 @@ package org.apache.seatunnel.resource.e2e.yarn;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
+import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
+import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptors;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationResult;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
+import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -38,8 +39,10 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.net.ScriptBasedMapping;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
@@ -73,6 +76,7 @@ import java.util.zip.GZIPOutputStream;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -85,7 +89,8 @@ public class YarnApplicationIT extends TestSuiteBase {
     private MiniDFSCluster hdfs;
     private MiniYARNCluster yarn;
     private Configuration configuration;
-    private ApplicationClusterDescriptor deployer;
+    private ClusterDescriptor<ApplicationId> deployer;
+    private final ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
     private String distribution;
     private File distributionHome;
 
@@ -125,11 +130,13 @@ public class YarnApplicationIT extends TestSuiteBase {
                 Files.newOutputStream(new File(hadoopDirectory, "core-site.xml").toPath())) {
             configuration.writeXml(output);
         }
+        Map<String, String> options = new HashMap<>();
+        options.put("yarn.config-dir", hadoopDirectory.getAbsolutePath());
+        options.put("yarn.staging-dir", "/seatunnel-applications");
         deployer =
-                ApplicationClusterDescriptors.create(
-                        DeployType.YARN,
-                        Collections.singletonMap(
-                                "yarn.config-dir", hadoopDirectory.getAbsolutePath()));
+                clientServiceLoader
+                        .<ApplicationId>getClusterClientFactory(DeployType.YARN)
+                        .create(options);
     }
 
     /** Prepares only the native layout needed for real YARN archive localization. */
@@ -212,16 +219,17 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void batchRunsInAllocatedWorkersAndCleansHdfsArtifacts() throws Exception {
-        try (ApplicationClient client = deployer.deploy(specification(false, false, 120000, 2))) {
-            ApplicationResult result = awaitTerminal(client);
-            assertEquals(ApplicationStatus.SUCCEEDED, result.getStatus(), result.getDiagnostics());
+        try (YarnApplicationClient client =
+                deployApplication(specification(false, false, 120000, 2))) {
+            ApplicationStatus status = awaitTerminal(client);
+            assertEquals(ApplicationStatus.SUCCEEDED, status, diagnostics(client));
             assertEquals(
                     2,
-                    launchedWorkers(client.getApplicationId().getId()).size(),
+                    launchedWorkers(client.getClusterId().toString()).size(),
                     "The successful batch must launch two distinct worker JVMs");
             assertEquals(
                     4,
-                    outputRows(client.getApplicationId().getId()),
+                    outputRows(client.getClusterId().toString()),
                     "Both parallel readers must emit both splits to the Console sink");
             assertCleaned(client);
         }
@@ -229,36 +237,79 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void invalidJobReportsFailureAndReleasesWorkers() throws Exception {
-        try (ApplicationClient client = deployer.deploy(specification(false, true, 120000))) {
-            ApplicationResult result = awaitTerminal(client);
-            assertEquals(ApplicationStatus.FAILED, result.getStatus(), result.getDiagnostics());
-            assertTrue(
-                    result.getDiagnostics().contains("NonexistentSink"), result.getDiagnostics());
+        try (YarnApplicationClient client = deployApplication(specification(false, true, 120000))) {
+            ApplicationStatus status = awaitTerminal(client);
+            assertEquals(ApplicationStatus.FAILED, status, diagnostics(client));
+            assertTrue(diagnostics(client).contains("NonexistentSink"), diagnostics(client));
             assertCleaned(client);
         }
     }
 
     @Test
     void cancelStopsTheRunningApplicationAndWorkers() throws Exception {
-        ApplicationId id;
-        try (ApplicationClient client = deployer.deploy(specification(true, false, 120000))) {
-            awaitWorker(client);
-            id = client.getApplicationId();
+        String id;
+        try (YarnApplicationClient client =
+                deployApplication(specification(true, false, 120000, 2))) {
+            ContainerId worker = awaitWorker(client);
+            assertTrue(
+                    yarn.getNodeManager(0)
+                            .getNMContext()
+                            .getContainers()
+                            .get(worker)
+                            .getLaunchContext()
+                            .getCommands()
+                            .get(0)
+                            .contains(
+                                    ApplicationClusterConfig.clusterName(
+                                            client.getClusterId().toString())));
+            assertTrue(
+                    yarn.getNodeManager(0)
+                            .getNMContext()
+                            .getContainers()
+                            .get(worker)
+                            .getLaunchContext()
+                            .getCommands()
+                            .get(0)
+                            .contains(SeatunnelYarnWorkerCli.class.getName()));
+            await().atMost(Duration.ofMinutes(3))
+                    .untilAsserted(
+                            () ->
+                                    assertEquals(
+                                            2,
+                                            launchedWorkers(client.getClusterId().toString())
+                                                    .size()));
+            id = client.getClusterId().toString();
+            Path staging = new Path("/seatunnel-applications/" + id);
+            assertEquals(
+                    (short) 0700,
+                    hdfs.getFileSystem().getFileStatus(staging).getPermission().toShort());
+            Set<String> stagedFiles = new HashSet<>();
+            for (FileStatus file : hdfs.getFileSystem().listStatus(staging)) {
+                stagedFiles.add(file.getPath().getName());
+                assertTrue(file.isFile());
+                assertTrue(file.getLen() > 0);
+            }
+            assertEquals(4, stagedFiles.size());
+            assertTrue(stagedFiles.contains("distribution.tar.gz"));
+            assertTrue(stagedFiles.contains("distribution.properties"));
+            assertTrue(stagedFiles.contains("application.properties"));
+            assertTrue(stagedFiles.contains("hadoop-conf.xml"));
         }
-        try (ApplicationClient client =
-                deployer.retrieve(
+        try (YarnApplicationClient client =
+                retrieveApplication(
                         id,
                         Collections.singletonMap("yarn.staging-dir", "/seatunnel-applications"))) {
             assertEquals(ApplicationStatus.RUNNING, client.getStatus());
-            client.cancel();
-            assertEquals(ApplicationStatus.CANCELED, awaitTerminal(client).getStatus());
+            assertNotNull(deployer.retrieve(ApplicationId.fromString(id)));
+            cancelApplication(deployer, client.getClusterId().toString());
+            assertEquals(ApplicationStatus.CANCELED, awaitTerminal(client));
             assertCleaned(client);
         }
     }
 
     @Test
     void workerLossFailsTheApplicationWithoutReplacement() throws Exception {
-        try (ApplicationClient client = deployer.deploy(specification(true, false, 120000))) {
+        try (YarnApplicationClient client = deployApplication(specification(true, false, 120000))) {
             ContainerId worker = awaitWorker(client);
             yarn.getNodeManager(0)
                     .getNMContext()
@@ -269,14 +320,15 @@ public class YarnApplicationIT extends TestSuiteBase {
                                     worker,
                                     ContainerExitStatus.KILLED_BY_APPMASTER,
                                     "Injected worker failure"));
-            assertEquals(ApplicationStatus.FAILED, awaitTerminal(client).getStatus());
+            assertEquals(ApplicationStatus.FAILED, awaitTerminal(client));
             assertCleaned(client);
         }
     }
 
     @Test
     void startupDeadlineFailsAndRemovesStagedConfiguration() throws Exception {
-        assertThrows(TimeoutException.class, () -> deployer.deploy(specification(false, false, 1)));
+        assertThrows(
+                TimeoutException.class, () -> deployApplication(specification(false, false, 1)));
         assertEquals(
                 0, hdfs.getFileSystem().listStatus(new Path("/seatunnel-applications")).length);
         await().atMost(Duration.ofSeconds(60))
@@ -295,8 +347,8 @@ public class YarnApplicationIT extends TestSuiteBase {
         long originalJobId = System.currentTimeMillis();
         long restoredJobId = originalJobId + 1;
         long checkpoint;
-        try (ApplicationClient original =
-                deployer.deploy(checkpointSpecification(archive, originalJobId, null))) {
+        try (YarnApplicationClient original =
+                deployApplication(checkpointSpecification(archive, originalJobId, null))) {
             try {
                 ContainerId worker = awaitWorker(original);
                 // Wait beyond any snapshot that could have started before the first emitted row.
@@ -305,7 +357,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                         originalJobId,
                         checkpoints.latest(originalJobId) + 1,
                         checkpoints);
-                assertEquals(1, outputRows(original.getApplicationId().getId()));
+                assertEquals(1, outputRows(original.getClusterId().toString()));
                 yarn.getNodeManager(0)
                         .getNMContext()
                         .getContainers()
@@ -315,38 +367,38 @@ public class YarnApplicationIT extends TestSuiteBase {
                                         worker,
                                         ContainerExitStatus.KILLED_BY_APPMASTER,
                                         "Fail application after a durable checkpoint"));
-                assertEquals(ApplicationStatus.FAILED, awaitTerminal(original).getStatus());
+                assertEquals(ApplicationStatus.FAILED, awaitTerminal(original));
                 assertCleaned(original);
                 checkpoint = checkpoints.latest(originalJobId);
                 assertTrue(checkpoint > 0, "Application cleanup deleted retained checkpoints");
             } finally {
                 if (!original.getStatus().isTerminal()) {
-                    original.cancel();
+                    cancelApplication(deployer, original.getClusterId().toString());
                 }
             }
         }
-        try (ApplicationClient restored =
-                deployer.deploy(checkpointSpecification(archive, restoredJobId, originalJobId))) {
+        try (YarnApplicationClient restored =
+                deployApplication(checkpointSpecification(archive, restoredJobId, originalJobId))) {
             try {
                 awaitCheckpoint(restored, restoredJobId, checkpoint, checkpoints);
                 assertEquals(ApplicationStatus.RUNNING, restored.getStatus());
                 assertTrue(
                         applicationLogContains(
-                                restored.getApplicationId().getId(),
+                                restored.getClusterId().toString(),
                                 "Restore checkpoint, job id: " + restoredJobId),
                         "Native engine did not restore checkpoint state in the new application");
                 assertEquals(
                         0,
-                        outputRows(restored.getApplicationId().getId()),
+                        outputRows(restored.getClusterId().toString()),
                         "Restored FakeSource replayed rows already consumed before the checkpoint");
-                restored.cancel();
-                assertEquals(ApplicationStatus.CANCELED, awaitTerminal(restored).getStatus());
+                cancelApplication(deployer, restored.getClusterId().toString());
+                assertEquals(ApplicationStatus.CANCELED, awaitTerminal(restored));
                 assertCleaned(restored);
                 assertTrue(checkpoints.latest(originalJobId) > 0);
                 assertTrue(checkpoints.latest(restoredJobId) > checkpoint);
             } finally {
                 if (!restored.getStatus().isTerminal()) {
-                    restored.cancel();
+                    cancelApplication(deployer, restored.getClusterId().toString());
                 }
             }
         }
@@ -366,7 +418,7 @@ public class YarnApplicationIT extends TestSuiteBase {
     }
 
     private void awaitCheckpoint(
-            ApplicationClient client, long jobId, long previous, CheckpointProbe checkpoints) {
+            YarnApplicationClient client, long jobId, long previous, CheckpointProbe checkpoints) {
         await().atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofMillis(250))
                 .until(
@@ -374,7 +426,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                             assertFalse(
                                     client.getStatus().isTerminal(),
                                     "Application terminated before persisting a checkpoint: "
-                                            + client.getResult().getDiagnostics());
+                                            + diagnostics(client));
                             return checkpoints.latest(jobId) > previous;
                         });
     }
@@ -458,6 +510,7 @@ public class YarnApplicationIT extends TestSuiteBase {
     private ApplicationSpecification specification(String job, long timeout, int workers) {
         Map<String, String> options = new HashMap<>();
         options.put("yarn.distribution", distribution);
+        options.put("yarn.config-dir", new File(temporary, "hadoop-conf").getAbsolutePath());
         options.put("yarn.staging-dir", "/seatunnel-applications");
         options.put("application.name", "seatunnel-yarn-e2e");
         options.put("application.master.memory-mb", "1024");
@@ -468,19 +521,65 @@ public class YarnApplicationIT extends TestSuiteBase {
         return ApplicationSpecification.fromOptions(DeployType.YARN, job, options);
     }
 
-    private ApplicationResult awaitTerminal(ApplicationClient client) {
-        AtomicReference<ApplicationResult> result = new AtomicReference<>();
+    private YarnApplicationClient deployApplication(ApplicationSpecification specification)
+            throws Exception {
+        ApplicationId id = new ApplicationClusterDeployer(clientServiceLoader).run(specification);
+        return platformMonitor(id.toString());
+    }
+
+    private YarnApplicationClient retrieveApplication(String id, Map<String, String> options)
+            throws Exception {
+        return platformMonitor(id);
+    }
+
+    private ApplicationStatus applicationStatus(
+            ClusterDescriptor<ApplicationId> descriptor, String id) throws Exception {
+        return descriptor.getApplicationStatus(ApplicationId.fromString(id));
+    }
+
+    private void cancelApplication(ClusterDescriptor<ApplicationId> descriptor, String id)
+            throws Exception {
+        descriptor.cancelApplication(ApplicationId.fromString(id));
+    }
+
+    private YarnApplicationClient platformMonitor(String id) {
+        YarnClient client = YarnClient.createYarnClient();
+        client.init(configuration);
+        client.start();
+        return new YarnApplicationClient(
+                client,
+                configuration,
+                ApplicationId.fromString(id),
+                new Path("/seatunnel-applications/" + id));
+    }
+
+    private String diagnostics(YarnApplicationClient client) throws Exception {
+        try (YarnClient platformClient = YarnClient.createYarnClient()) {
+            platformClient.init(configuration);
+            platformClient.start();
+            return platformClient.getApplicationReport(client.getClusterId()).getDiagnostics();
+        }
+    }
+
+    private ApplicationStatus awaitTerminal(YarnApplicationClient client) {
+        AtomicReference<ApplicationStatus> result = new AtomicReference<>();
         await().atMost(Duration.ofMinutes(5))
                 .pollInterval(Duration.ofMillis(500))
                 .until(
                         () -> {
-                            result.set(client.getResult());
-                            return result.get().getStatus().isTerminal();
+                            result.set(client.getStatus());
+                            if (!result.get().isTerminal()) {
+                                return false;
+                            }
+                            assertEquals(
+                                    result.get(),
+                                    applicationStatus(deployer, client.getClusterId().toString()));
+                            return true;
                         });
         return result.get();
     }
 
-    private ContainerId awaitWorker(ApplicationClient client) {
+    private ContainerId awaitWorker(YarnApplicationClient client) {
         AtomicReference<ContainerId> worker = new AtomicReference<>();
         await().atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofMillis(250))
@@ -489,7 +588,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                             assertFalse(
                                     client.getStatus().isTerminal(),
                                     "Application terminated before launching a worker: "
-                                            + client.getResult().getDiagnostics());
+                                            + diagnostics(client));
                             for (Map.Entry<ContainerId, Container> entry :
                                     yarn.getNodeManager(0)
                                             .getNMContext()
@@ -499,10 +598,10 @@ public class YarnApplicationIT extends TestSuiteBase {
                                 if (id.getApplicationAttemptId()
                                                 .getApplicationId()
                                                 .toString()
-                                                .equals(client.getApplicationId().getId())
+                                                .equals(client.getClusterId().toString())
                                         && id.getContainerId() > 1
                                         && entry.getValue().isRunning()
-                                        && outputRows(client.getApplicationId().getId()) > 0) {
+                                        && outputRows(client.getClusterId().toString()) > 0) {
                                     worker.set(id);
                                     return true;
                                 }
@@ -583,13 +682,13 @@ public class YarnApplicationIT extends TestSuiteBase {
         return false;
     }
 
-    private void assertCleaned(ApplicationClient client) throws Exception {
+    private void assertCleaned(YarnApplicationClient client) throws Exception {
         assertFalse(
                 hdfs.getFileSystem()
                         .exists(
                                 new Path(
                                         "/seatunnel-applications/"
-                                                + client.getApplicationId().getId())));
+                                                + client.getClusterId().toString())));
         await().atMost(Duration.ofSeconds(60))
                 .until(
                         () ->
@@ -601,7 +700,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                                                                 .getApplicationId()
                                                                 .toString()
                                                                 .equals(
-                                                                        client.getApplicationId()
-                                                                                .getId())));
+                                                                        client.getClusterId()
+                                                                                .toString())));
     }
 }

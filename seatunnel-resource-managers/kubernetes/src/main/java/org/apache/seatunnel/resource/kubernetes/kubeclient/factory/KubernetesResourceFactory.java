@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;

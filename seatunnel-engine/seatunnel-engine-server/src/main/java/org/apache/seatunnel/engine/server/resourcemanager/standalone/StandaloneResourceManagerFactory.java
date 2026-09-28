@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.resourcemanager.standalone;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
@@ -26,10 +25,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 /** Creates the resource manager used by standalone and session clusters. */
 public final class StandaloneResourceManagerFactory implements ResourceManagerFactory {
-    @Override
-    public DeployType getDeployType() {
-        return DeployType.STANDALONE;
-    }
 
     @Override
     public ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {

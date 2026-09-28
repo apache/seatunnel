@@ -18,14 +18,11 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
 /** Creates the single resource manager owned by an Engine coordinator. */
 public interface ResourceManagerFactory {
-    /** Returns the deployment type implemented by this factory. */
-    DeployType getDeployType();
 
     /** Creates an uninitialized manager after the owning Hazelcast node is available. */
     ResourceManager createResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig);

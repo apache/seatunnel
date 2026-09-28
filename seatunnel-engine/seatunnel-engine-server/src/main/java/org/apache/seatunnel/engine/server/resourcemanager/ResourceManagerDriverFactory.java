@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 
 /**
  * Service-provider boundary for application worker drivers, keeping SDK types outside the engine.
@@ -33,8 +33,10 @@ public interface ResourceManagerDriverFactory {
      * Creates the worker driver without registering an application or allocating workers.
      *
      * @param specification immutable application settings for this provider's deployment platform
+     * @param clusterName isolated Hazelcast cluster name passed to worker processes
      * @return a new driver that the application runtime must initialize and eventually close
      * @throws Exception if configuration is invalid or platform client creation fails
      */
-    ResourceManagerDriver create(ApplicationSpecification specification) throws Exception;
+    ResourceManagerDriver<?> create(ApplicationSpecification specification, String clusterName)
+            throws Exception;
 }

@@ -82,7 +82,6 @@ final class KubernetesConstants {
     static final String RESTART_POLICY_NEVER = "Never";
 
     static final String POD_IP_FIELD_PATH = "status.podIP";
-    static final String HEADLESS_CLUSTER_IP = "None";
     static final String HAZELCAST_PORT_NAME = "hazelcast";
     static final int APPLICATION_SECRET_MODE = 0400;
     static final long TERMINATION_GRACE_PERIOD_SECONDS = 120L;

@@ -151,7 +151,7 @@ public class SeaTunnelServer
         this.resourceManagerFactory = resourceManagerFactory;
         LOGGER.info(
                 "SeaTunnel server uses "
-                        + resourceManagerFactory.getDeployType()
+                        + resourceManagerFactory.getClass().getSimpleName()
                         + " resource manager");
     }
 

@@ -17,18 +17,25 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
+
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.NodeId;
 
-import java.util.Objects;
-
 /** Allocated YARN worker container with stable identity used by the resource-manager driver. */
-public final class YarnWorkerNode {
+public final class YarnWorkerNode implements ResourceIDRetrievable {
+    private final ResourceID resourceID;
     private final Container container;
 
-    public YarnWorkerNode(Container container) {
-        this.container = Objects.requireNonNull(container, "container");
+    public YarnWorkerNode(Container container, ResourceID resourceID) {
+        Preconditions.checkNotNull(container);
+        Preconditions.checkNotNull(resourceID);
+        this.container = container;
+        this.resourceID = resourceID;
     }
 
     /** @return worker identifier exposed to the Zeta resource manager */
@@ -49,5 +56,10 @@ public final class YarnWorkerNode {
     /** @return NodeManager identity hosting this worker */
     public NodeId getNodeId() {
         return container.getNodeId();
+    }
+
+    @Override
+    public ResourceID getResourceID() {
+        return resourceID;
     }
 }

@@ -60,9 +60,7 @@ public final class YarnDistribution {
         this.root = root;
     }
 
-    /**
-     * Validates an archive and discovers the distribution root before allocating an application.
-     */
+    /** Validates an archive and discovers the distribution root before uploading its files. */
     public static YarnDistribution inspect(File archive) throws IOException {
         String name = archive.getName();
         String distributionRoot = null;

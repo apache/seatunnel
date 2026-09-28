@@ -17,14 +17,28 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.deployment.SeatunnelClientProvider;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
+import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnMasterCli;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
+import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
+import org.apache.seatunnel.resource.yarn.launch.YarnApplicationFileUploader;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
+import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
+import org.apache.seatunnel.resource.yarn.launch.YarnLocalResourceDescriptor;
+import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -35,41 +49,246 @@ import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
+import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.util.Records;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
+
+import com.hazelcast.client.config.ClientConfig;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class YarnApplicationTest {
     @TempDir File temporary;
+    private MockedConstruction<SeaTunnelClient> nativeClients;
+    private final List<ClientConfig> clientConfigs = new ArrayList<>();
+
+    @BeforeEach
+    void mockNativeConnections() {
+        nativeClients =
+                mockConstruction(
+                        SeaTunnelClient.class,
+                        (client, context) ->
+                                clientConfigs.add((ClientConfig) context.arguments().get(0)));
+    }
+
+    @AfterEach
+    void closeNativeConnections() {
+        nativeClients.close();
+    }
+
+    @Test
+    void startsLocalizedWorkerWithoutOwningApplicationCleanup() throws Exception {
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        java.nio.file.Path masterHome = temporary.toPath().resolve("master");
+        java.nio.file.Path workerHome =
+                Files.createDirectories(temporary.toPath().resolve("worker"));
+        java.nio.file.Path localJar =
+                Files.write(workerHome.resolve("connector.jar"), new byte[] {1});
+        String previousHome = System.getProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY);
+        System.setProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY, workerHome.toString());
+        try (MockedStatic<ConfigProvider> configurations = mockStatic(ConfigProvider.class);
+                MockedStatic<SeaTunnelServerStarter> starter =
+                        mockStatic(SeaTunnelServerStarter.class);
+                MockedStatic<YarnStagingDirectory> staging =
+                        mockStatic(YarnStagingDirectory.class)) {
+            configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
+            SeatunnelYarnWorkerCli.main(
+                    new String[] {"yarn-app", "master:5801", "3", masterHome.toString()});
+            ArgumentCaptor<JarPathResolver> resolver =
+                    ArgumentCaptor.forClass(JarPathResolver.class);
+            starter.verify(
+                    () ->
+                            SeaTunnelServerStarter.createHazelcastInstance(
+                                    eq(config),
+                                    isNull(),
+                                    resolver.capture(),
+                                    any(StandaloneResourceManagerFactory.class)));
+            starter.verifyNoMoreInteractions();
+            staging.verifyNoInteractions();
+            assertEquals("yarn-app", config.getHazelcastConfig().getClusterName());
+            assertEquals(
+                    EngineConfig.ClusterRole.WORKER, config.getEngineConfig().getClusterRole());
+            assertTrue(config.getHazelcastConfig().isLiteMember());
+            assertEquals(
+                    "master:5801",
+                    config.getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getRequiredMember());
+            assertTrue(config.getHazelcastConfig().getNetworkConfig().isPortAutoIncrement());
+            assertEquals(3, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+            assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+            assertEquals(
+                    "true",
+                    config.getHazelcastConfig().getProperty("hazelcast.shutdownhook.enabled"));
+            assertEquals(
+                    "GRACEFUL",
+                    config.getHazelcastConfig().getProperty("hazelcast.shutdownhook.policy"));
+            List<URL> original =
+                    Collections.singletonList(masterHome.resolve("connector.jar").toUri().toURL());
+            assertEquals(
+                    Collections.singletonList(localJar.toUri().toURL()),
+                    resolver.getValue().resolve(original));
+        } finally {
+            if (previousHome == null) {
+                System.clearProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY);
+            } else {
+                System.setProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY, previousHome);
+            }
+        }
+    }
+
+    @Test
+    void rejectsIncompleteWorkerArgumentsBeforeStartingResources() {
+        try (MockedStatic<SeaTunnelServerStarter> starter =
+                mockStatic(SeaTunnelServerStarter.class)) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> SeatunnelYarnWorkerCli.main(new String[] {"yarn-app"}));
+            starter.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void retrievesLazyProviderWithIndependentlyOwnedClients() throws Exception {
+        YarnClient client = client();
+        ApplicationId id = ApplicationId.newInstance(1, 1);
+        Map<String, String> options =
+                Collections.singletonMap(
+                        YarnOptions.STAGING_DIRECTORY.key(), temporary.toURI().toString());
+        SeatunnelClientProvider provider;
+        SeaTunnelClient first;
+        try (YarnApplicationClusterDescriptor descriptor =
+                new YarnApplicationClusterDescriptor(
+                        localConfiguration(), () -> client, true, options)) {
+            provider = descriptor.retrieve(id);
+            assertTrue(nativeClients.constructed().isEmpty());
+            first = provider.getClusterClient();
+        }
+        verify(first, never()).close();
+        try (SeaTunnelClient application = first;
+                SeaTunnelClient second = provider.getClusterClient()) {
+            assertSame(application, nativeClients.constructed().get(0));
+            assertSame(second, nativeClients.constructed().get(1));
+            assertNotSame(application, second);
+            assertEquals("seatunnel-application-" + id, clientConfigs.get(0).getClusterName());
+            assertEquals(
+                    Collections.singletonList("master:5801"),
+                    clientConfigs.get(0).getNetworkConfig().getAddresses());
+        }
+        for (SeaTunnelClient application : nativeClients.constructed()) {
+            verify(application).close();
+        }
+        verify(client, never()).createApplication();
+        verify(client, never()).submitApplication(any());
+        verify(client, never()).killApplication(any());
+        verify(client).stop();
+    }
+
+    @Test
+    void rejectsInvalidApplicationIdBeforeOpeningYarnClient() throws Exception {
+        YarnClient client = mock(YarnClient.class);
+        try (YarnApplicationClusterDescriptor descriptor =
+                new YarnApplicationClusterDescriptor(localConfiguration(), () -> client, true)) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () ->
+                            new YarnApplicationClusterDescriptorFactory()
+                                    .parseApplicationId("not-a-yarn-application"));
+        }
+        verify(client, never()).init(any());
+        verify(client, never()).start();
+    }
+
+    @Test
+    void applicationOperationsDoNotNeedALiveMaster() throws Exception {
+        YarnClient client = client();
+        ApplicationId id = ApplicationId.newInstance(1, 1);
+        ApplicationReport report = client.getApplicationReport(id);
+        report.setYarnApplicationState(YarnApplicationState.FINISHED);
+        report.setFinalApplicationStatus(FinalApplicationStatus.SUCCEEDED);
+        report.setHost(null);
+        report.setRpcPort(-1);
+        java.nio.file.Path staging =
+                Files.createDirectories(temporary.toPath().resolve(id.toString()));
+        Map<String, String> options =
+                Collections.singletonMap(
+                        YarnOptions.STAGING_DIRECTORY.key(), temporary.toURI().toString());
+        try (YarnApplicationClusterDescriptor descriptor =
+                new YarnApplicationClusterDescriptor(
+                        localConfiguration(), () -> client, true, options)) {
+            assertEquals(ApplicationStatus.SUCCEEDED, descriptor.getApplicationStatus(id));
+            assertFalse(Files.exists(staging));
+            assertThrows(IllegalStateException.class, () -> descriptor.retrieve(id));
+            descriptor.cancelApplication(id);
+            verify(client).killApplication(id);
+            assertTrue(nativeClients.constructed().isEmpty());
+        }
+        verify(client).stop();
+    }
+
+    @Test
+    void deploymentReturnsIdWhenApplicationFinishesBeforeConnecting() throws Exception {
+        YarnClient client = client();
+        ApplicationReport report = client.getApplicationReport(ApplicationId.newInstance(1, 1));
+        report.setYarnApplicationState(YarnApplicationState.FINISHED);
+        report.setFinalApplicationStatus(FinalApplicationStatus.SUCCEEDED);
+        report.setHost(null);
+        try (YarnApplicationClusterDescriptor descriptor =
+                new YarnApplicationClusterDescriptor(localConfiguration(), () -> client, true)) {
+            assertEquals(
+                    ApplicationId.newInstance(1, 1), descriptor.deployApplication(specification()));
+            assertTrue(nativeClients.constructed().isEmpty());
+        }
+        verify(client, never()).killApplication(any());
+    }
 
     @Test
     void localStagingIsRejectedForRemoteApplications() throws Exception {
@@ -80,7 +299,7 @@ class YarnApplicationTest {
                         () ->
                                 new YarnApplicationClusterDescriptor(
                                                 localConfiguration(), () -> client, false)
-                                        .deploy(specification()));
+                                        .deployApplication(specification()));
         assertTrue(failure.getMessage().contains("shared filesystem"));
         verify(client, never()).submitApplication(any());
         verify(client).stop();
@@ -102,7 +321,7 @@ class YarnApplicationTest {
                 () ->
                         new YarnApplicationClusterDescriptor(
                                         localConfiguration(), () -> client, true)
-                                .deploy(specification));
+                                .deployApplication(specification));
         verify(client).killApplication(ApplicationId.newInstance(1, 1));
         assertFalse(Files.exists(temporary.toPath().resolve("application_1_0001")));
     }
@@ -117,7 +336,7 @@ class YarnApplicationTest {
                         IllegalArgumentException.class,
                         () ->
                                 new YarnApplicationClusterDescriptor(localConfiguration())
-                                        .deploy(specification));
+                                        .deployApplication(specification));
         assertEquals("Required option yarn.distribution is missing", failure.getMessage());
     }
 
@@ -130,7 +349,7 @@ class YarnApplicationTest {
                 new YarnApplicationClient(
                         client,
                         localConfiguration(),
-                        ApplicationId.newInstance(1, 1).toString(),
+                        ApplicationId.newInstance(1, 1),
                         new Path(new Path(temporary.toURI()), "terminal"));
         report.setYarnApplicationState(YarnApplicationState.FINISHED);
         report.setFinalApplicationStatus(FinalApplicationStatus.FAILED);
@@ -146,14 +365,18 @@ class YarnApplicationTest {
     @Test
     void submitStagesPrivateArtifactsAndDisablesRetries() throws Exception {
         Configuration configuration = localConfiguration();
+        configuration.set("seatunnel.test.hadoop-option", "localized-value");
         YarnClient client = client();
         ApplicationSpecification specification = specification();
-        try (ApplicationClient deployed =
-                new YarnApplicationClusterDescriptor(configuration, () -> client, true)
-                        .deploy(specification)) {
+        try (YarnApplicationClusterDescriptor descriptor =
+                new YarnApplicationClusterDescriptor(
+                        configuration, () -> client, true, specification.getOptions())) {
+            ApplicationId deployed = descriptor.deployApplication(specification);
+            assertTrue(nativeClients.constructed().isEmpty());
             ArgumentCaptor<ApplicationSubmissionContext> context =
                     ArgumentCaptor.forClass(ApplicationSubmissionContext.class);
             verify(client).submitApplication(context.capture());
+            assertEquals(context.getValue().getApplicationId(), deployed);
             assertEquals(1, context.getValue().getMaxAppAttempts());
             assertEquals("test-application", context.getValue().getApplicationName());
             assertEquals(3, context.getValue().getPriority().getPriority());
@@ -171,7 +394,8 @@ class YarnApplicationTest {
                             .contains("seatunnel/apache-seatunnel/starter/seatunnel-starter.jar:"));
             assertFalse(launch.getCommands().get(0).contains("starter/*"));
             assertTrue(launch.getCommands().get(0).contains("starter/logging/*"));
-            assertTrue(launch.getCommands().get(0).contains(YarnApplicationMaster.class.getName()));
+            assertTrue(
+                    launch.getCommands().get(0).contains(SeatunnelYarnMasterCli.class.getName()));
             Path staging =
                     new Path(launch.getEnvironment().get(YarnConstants.STAGING_DIRECTORY_ENV));
             try (FileSystem fileSystem = FileSystem.newInstance(configuration)) {
@@ -181,10 +405,117 @@ class YarnApplicationTest {
                         fileSystem.exists(
                                 new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME)));
             }
-            deployed.cancel();
-            assertFalse(Files.exists(Paths.get(staging.toUri())));
+            java.nio.file.Path stagedFiles = Paths.get(staging.toUri());
+            ApplicationSpecification localized =
+                    ApplicationSpecification.read(
+                            stagedFiles.resolve(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
+            assertEquals(specification.getJobConfig(), localized.getJobConfig());
+            assertEquals(specification.getOptions(), localized.getOptions());
+            Configuration localizedConfiguration = new Configuration(false);
+            localizedConfiguration.addResource(
+                    new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME));
+            assertEquals(
+                    "localized-value", localizedConfiguration.get("seatunnel.test.hadoop-option"));
+            assertArrayEquals(
+                    Files.readAllBytes(
+                            Paths.get(specification.getOption(YarnOptions.DISTRIBUTION))),
+                    Files.readAllBytes(stagedFiles.resolve("distribution.zip")));
+            assertTrue(Files.exists(Paths.get(staging.toUri())));
         }
-        verify(client).killApplication(ApplicationId.newInstance(1, 1));
+        verify(client, never()).killApplication(any());
+        verify(client).stop();
+    }
+
+    @Test
+    void failedUploadRemovesOnlyItsNewStagingDirectory() throws Exception {
+        ApplicationSpecification specification = specification();
+        YarnApplicationConfiguration deployment =
+                YarnApplicationConfiguration.forSubmission(specification);
+        Configuration configuration = spy(localConfiguration());
+        java.nio.file.Path staging = temporary.toPath().resolve("application_1_0001");
+        java.nio.file.Path existing =
+                Files.createDirectories(temporary.toPath().resolve("application_1_0002"));
+        Files.write(existing.resolve("preserve"), new byte[] {1});
+        IOException uploadFailure = new IOException("Failed to write Hadoop configuration");
+        doAnswer(
+                        invocation -> {
+                            assertTrue(Files.exists(staging.resolve("distribution.zip")));
+                            assertTrue(
+                                    Files.exists(
+                                            staging.resolve(
+                                                    YarnConstants.LOCALIZED_SPECIFICATION_NAME)));
+                            throw uploadFailure;
+                        })
+                .when(configuration)
+                .writeXml(any(OutputStream.class));
+        try (YarnApplicationFileUploader uploader =
+                new YarnApplicationFileUploader(
+                        configuration, deployment, ApplicationId.newInstance(1, 1), true)) {
+            assertSame(uploadFailure, assertThrows(IOException.class, uploader::upload));
+        }
+        assertFalse(Files.exists(staging));
+        assertTrue(Files.exists(existing.resolve("preserve")));
+        assertTrue(deployment.getDistribution().isFile());
+    }
+
+    @Test
+    void uploaderCloseRetainsFilesAndRegisteredResources() throws Exception {
+        Configuration configuration = localConfiguration();
+        YarnApplicationConfiguration deployment =
+                YarnApplicationConfiguration.forSubmission(specification());
+        Path staging;
+        YarnLocalResourceDescriptor registered;
+        try (YarnApplicationFileUploader uploader =
+                new YarnApplicationFileUploader(
+                        configuration, deployment, ApplicationId.newInstance(1, 1), true)) {
+            staging = uploader.getApplicationDir();
+            assertFalse(Files.exists(Paths.get(staging.toUri())));
+            registered = uploader.upload();
+            assertThrows(IllegalStateException.class, uploader::upload);
+        }
+        assertTrue(Files.exists(Paths.get(staging.toUri())));
+        assertEquals("seatunnel/apache-seatunnel/", registered.getHome());
+        assertEquals(3, registered.getResources().size());
+        assertEquals(
+                LocalResourceType.ARCHIVE,
+                registered.getResources().get(YarnConstants.LOCALIZED_DISTRIBUTION_NAME).getType());
+        registered
+                .getResources()
+                .values()
+                .forEach(
+                        resource ->
+                                assertEquals(
+                                        LocalResourceVisibility.APPLICATION,
+                                        resource.getVisibility()));
+        assertEquals(
+                YarnContainerLaunchContextFactory.master(configuration, staging, 512)
+                        .getLocalResources(),
+                registered.getResources());
+    }
+
+    @Test
+    void invalidArchiveIsRejectedBeforeStagingOrSubmission() throws Exception {
+        ApplicationSpecification specification = specification();
+        try (ZipOutputStream zip =
+                new ZipOutputStream(
+                        Files.newOutputStream(
+                                Paths.get(specification.getOption(YarnOptions.DISTRIBUTION))))) {
+            zip.putNextEntry(new ZipEntry("../starter/seatunnel-starter.jar"));
+            zip.closeEntry();
+        }
+        YarnClient client = client();
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                new YarnApplicationClusterDescriptor(
+                                                localConfiguration(), () -> client, true)
+                                        .deployApplication(specification));
+        assertTrue(failure.getMessage().contains("Unsafe distribution archive entry"));
+        assertFalse(Files.exists(temporary.toPath().resolve("application_1_0001")));
+        verify(client, never()).submitApplication(any());
+        verify(client, never()).killApplication(any());
+        verify(client).stop();
     }
 
     @Test
@@ -197,7 +528,7 @@ class YarnApplicationTest {
                 () ->
                         new YarnApplicationClusterDescriptor(
                                         localConfiguration(), () -> client, true)
-                                .deploy(specification()));
+                                .deployApplication(specification()));
         verify(client).killApplication(ApplicationId.newInstance(1, 1));
         assertFalse(Files.exists(temporary.toPath().resolve("application_1_0001")));
     }
@@ -213,7 +544,7 @@ class YarnApplicationTest {
                 () ->
                         new YarnApplicationClusterDescriptor(
                                         localConfiguration(), () -> client, true)
-                                .deploy(specification()));
+                                .deployApplication(specification()));
         assertTrue(Files.exists(existing.toPath().resolve("preserve")));
         verify(client, never()).killApplication(any());
     }
@@ -225,7 +556,7 @@ class YarnApplicationTest {
         new YarnApplicationClient(
                         client,
                         localConfiguration(),
-                        ApplicationId.newInstance(1, 1).toString(),
+                        ApplicationId.newInstance(1, 1),
                         new Path(staging.toURI()))
                 .close();
         verify(client).stop();
@@ -240,11 +571,11 @@ class YarnApplicationTest {
         ApplicationReport report = Records.newRecord(ApplicationReport.class);
         report.setYarnApplicationState(YarnApplicationState.FAILED);
         when(client.getApplicationReport(any())).thenReturn(report);
-        try (ApplicationClient deployed =
+        try (YarnApplicationClient deployed =
                 new YarnApplicationClient(
                         client,
                         localConfiguration(),
-                        ApplicationId.newInstance(1, 1).toString(),
+                        ApplicationId.newInstance(1, 1),
                         new Path(staging.toURI()))) {
             assertEquals(ApplicationStatus.FAILED, deployed.getStatus());
             assertFalse(Files.exists(staging.toPath()));
@@ -298,6 +629,8 @@ class YarnApplicationTest {
         when(client.createApplication()).thenReturn(new YarnClientApplication(response, context));
         ApplicationReport report = Records.newRecord(ApplicationReport.class);
         report.setYarnApplicationState(YarnApplicationState.RUNNING);
+        report.setHost("master");
+        report.setRpcPort(5801);
         when(client.getApplicationReport(any())).thenReturn(report);
         return client;
     }

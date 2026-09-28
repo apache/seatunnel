@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
-import org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-import org.apache.seatunnel.resource.yarn.YarnApplicationMaster;
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnMasterCli;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -44,11 +44,17 @@ public final class YarnContainerLaunchContextFactory {
      */
     public static ContainerLaunchContext master(
             Configuration configuration, Path staging, int memoryMb) throws Exception {
+        return master(staging, memoryMb, YarnLocalResources.resolve(configuration, staging));
+    }
+
+    /** Creates the master context directly from resources registered during upload. */
+    public static ContainerLaunchContext master(
+            Path staging, int memoryMb, YarnLocalResourceDescriptor localized) {
         return create(
-                configuration,
+                localized,
                 staging,
                 memoryMb,
-                YarnApplicationMaster.class.getName(),
+                SeatunnelYarnMasterCli.class.getName(),
                 Collections.emptyList());
     }
 
@@ -71,10 +77,10 @@ public final class YarnContainerLaunchContextFactory {
             WorkerSpecification specification)
             throws Exception {
         return create(
-                configuration,
+                YarnLocalResources.resolve(configuration, staging),
                 staging,
                 specification.getMemoryMb(),
-                ApplicationWorkerRunner.class.getName(),
+                SeatunnelYarnWorkerCli.class.getName(),
                 Arrays.asList(
                         clusterName,
                         masterAddress,
@@ -83,13 +89,11 @@ public final class YarnContainerLaunchContextFactory {
     }
 
     private static ContainerLaunchContext create(
-            Configuration configuration,
+            YarnLocalResourceDescriptor localized,
             Path staging,
             int memoryMb,
             String mainClass,
-            List<String> arguments)
-            throws Exception {
-        YarnLocalResourceDescriptor localized = YarnLocalResources.resolve(configuration, staging);
+            List<String> arguments) {
         return ContainerLaunchContext.newInstance(
                 localized.getResources(),
                 YarnContainerCommand.environment(staging, localized.getHome()),

@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.yarn.client;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
+import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
@@ -42,14 +43,28 @@ public final class YarnApplicationStatusMonitor {
      * @param timeoutMillis maximum startup wait
      * @throws Exception when status retrieval fails or the startup deadline expires
      */
-    public void awaitRunning(ApplicationId applicationId, long timeoutMillis) throws Exception {
+    public ApplicationReport awaitRunning(ApplicationId applicationId, long timeoutMillis)
+            throws Exception {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         while (true) {
             ApplicationReport report = client.getApplicationReport(applicationId);
             YarnApplicationState state = report.getYarnApplicationState();
             if (state == YarnApplicationState.RUNNING
-                    || YarnApplicationClient.status(report).isTerminal()) {
-                return;
+                    || (state == YarnApplicationState.FINISHED
+                            && report.getFinalApplicationStatus()
+                                    == FinalApplicationStatus.SUCCEEDED)) {
+                return report;
+            }
+            if (state == YarnApplicationState.FINISHED
+                    || state == YarnApplicationState.FAILED
+                    || state == YarnApplicationState.KILLED) {
+                throw new IllegalStateException(
+                        "YARN application "
+                                + applicationId
+                                + " has no live master ("
+                                + state
+                                + "): "
+                                + report.getDiagnostics());
             }
             long remaining = deadline - System.nanoTime();
             if (remaining <= 0) {

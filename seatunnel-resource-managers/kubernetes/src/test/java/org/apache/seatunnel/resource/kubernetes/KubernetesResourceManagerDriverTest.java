@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -33,6 +32,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.mockito.ArgumentCaptor;
 
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -46,7 +46,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,10 +57,65 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class KubernetesResourceManagerDriverTest {
+    @Test
+    void returnsPodIdentityAndReleasesOnlyOwnedWorkerOnce() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        ResourceManagerContext context = context();
+        when(api.getJob("app")).thenReturn(job());
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationParameters.from(specification()),
+                        "app",
+                        "isolated-app")) {
+            driver.initialize(context);
+            KubernetesWorkerNode worker =
+                    driver.requestWorker(specification().getWorkerSpecification())
+                            .get(5, TimeUnit.SECONDS);
+            assertEquals("app-worker-0", worker.getResourceID().getResourceIdString());
+            verify(api).getJob("app");
+            ArgumentCaptor<KubernetesPod> created = ArgumentCaptor.forClass(KubernetesPod.class);
+            verify(api).createPod(created.capture());
+            assertTrue(
+                    created.getValue()
+                            .getInternalResource()
+                            .getSpec()
+                            .getContainers()
+                            .get(0)
+                            .getCommand()
+                            .contains("isolated-app"));
+            assertTrue(
+                    created.getValue()
+                            .getInternalResource()
+                            .getSpec()
+                            .getContainers()
+                            .get(0)
+                            .getCommand()
+                            .contains("10.0.0.1:5801"));
+            assertEquals(
+                    "uid-1",
+                    created.getValue()
+                            .getInternalResource()
+                            .getMetadata()
+                            .getOwnerReferences()
+                            .get(0)
+                            .getUid());
+            assertNull(driver.releaseWorker(worker).get());
+            assertNull(driver.releaseWorker(worker).get());
+            driver.releaseWorker(new KubernetesWorkerNode(new ResourceID("other-worker"))).get();
+            driver.checkWorkers();
+            verify(api, times(1)).deletePod("app-worker-0");
+            verify(api, never()).deletePod("other-worker");
+            verify(context, never()).onWorkerTerminated(anyString(), anyString());
+        }
+    }
+
     @Test
     void reportsWorkerFailureAndCleansEveryPod() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
@@ -73,14 +130,18 @@ class KubernetesResourceManagerDriverTest {
                                         pod("app-worker-1", "Running")));
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
-                        api, KubernetesApplicationParameters.from(specification()));
+                        api,
+                        KubernetesApplicationParameters.from(specification()),
+                        "app",
+                        "isolated-app");
         driver.initialize(context);
-        WorkerRegistration first =
+        KubernetesWorkerNode first =
                 driver.requestWorker(specification().getWorkerSpecification()).get();
         driver.requestWorker(specification().getWorkerSpecification()).get();
         failed.set(true);
         driver.checkWorkers();
-        verify(context).onWorkerTerminated(eq(first.getWorkerId()), anyString());
+        verify(context)
+                .onWorkerTerminated(eq(first.getResourceID().getResourceIdString()), anyString());
         driver.close();
         driver.checkWorkers();
         verify(api).deleteWorkers("app");
@@ -93,7 +154,10 @@ class KubernetesResourceManagerDriverTest {
         when(api.getJob("app")).thenReturn(job());
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
-                        api, KubernetesApplicationParameters.from(specification()));
+                        api,
+                        KubernetesApplicationParameters.from(specification()),
+                        "app",
+                        "isolated-app");
         driver.initialize(context());
         doThrow(new ApiException(0, "connection interrupted")).when(api).createPod(any());
         assertThrows(
@@ -144,12 +208,16 @@ class KubernetesResourceManagerDriverTest {
                 .deletePod(anyString());
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
-                        api, KubernetesApplicationParameters.from(specification()));
+                        api,
+                        KubernetesApplicationParameters.from(specification()),
+                        "app",
+                        "isolated-app");
         driver.initialize(context());
-        CompletableFuture<WorkerRegistration> allocation =
+        CompletableFuture<KubernetesWorkerNode> allocation =
                 driver.requestWorker(specification().getWorkerSpecification());
         assertTrue(creating.await(2, TimeUnit.SECONDS));
         assertFalse(allocation.isDone());
+        assertTrue(allocation.cancel(true));
         CompletableFuture<Void> closing =
                 CompletableFuture.runAsync(
                         () -> {
@@ -171,9 +239,6 @@ class KubernetesResourceManagerDriverTest {
 
     private static ResourceManagerContext context() {
         ResourceManagerContext context = mock(ResourceManagerContext.class);
-        when(context.getApplicationId())
-                .thenReturn(new ApplicationId(DeployType.KUBERNETES, "app"));
-        when(context.getClusterName()).thenReturn("isolated-app");
         when(context.getMasterAddress()).thenReturn("10.0.0.1:5801");
         return context;
     }

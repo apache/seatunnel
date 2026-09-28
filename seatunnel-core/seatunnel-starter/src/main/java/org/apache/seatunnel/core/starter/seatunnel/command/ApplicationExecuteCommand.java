@@ -25,14 +25,13 @@ import org.apache.seatunnel.common.constants.ApplicationOperation;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.core.ApplicationClusterDescriptors;
-import org.apache.seatunnel.resource.core.application.ApplicationId;
-import org.apache.seatunnel.resource.core.application.ApplicationResult;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
+import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
+import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
+import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 
 import java.nio.file.Paths;
 import java.util.Map;
@@ -91,49 +90,54 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
                             applicationCommandArgs.getDeployType(), jobConfig, options);
         }
 
-        try (ApplicationClusterDescriptor descriptor =
-                        ApplicationClusterDescriptors.create(
-                                applicationCommandArgs.getDeployType(), options);
-                ApplicationClient client =
-                        operation == ApplicationOperation.SUBMIT
-                                ? descriptor.deploy(specification)
-                                : descriptor.retrieve(
-                                        new ApplicationId(
-                                                applicationCommandArgs.getDeployType(),
-                                                applicationCommandArgs.getId()),
-                                        options)) {
-            System.out.println("Application ID: " + client.getApplicationId().getId());
-            if (specification != null) {
-                System.out.println("Job ID: " + specification.getJobId());
+        ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
+        String applicationId = applicationCommandArgs.getId();
+        if (specification != null) {
+            Object submittedId =
+                    new ApplicationClusterDeployer(clientServiceLoader).run(specification);
+            applicationId = submittedId.toString();
+            System.out.println("Application ID: " + applicationId);
+            System.out.println("Job ID: " + specification.getJobId());
+            if (!applicationCommandArgs.isWait()) {
+                return;
             }
-            if (operation == ApplicationOperation.CANCEL) {
-                client.cancel();
+        } else {
+            System.out.println("Application ID: " + applicationId);
+        }
+        executeApplication(
+                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getDeployType()),
+                options,
+                applicationId);
+    }
+
+    private <ID> void executeApplication(
+            ApplicationClusterDescriptorFactory<ID> factory, Map<String, String> options, String id)
+            throws Exception {
+        ID applicationId = factory.parseApplicationId(id);
+        try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
+            if (applicationCommandArgs.getOperation() == ApplicationOperation.CANCEL) {
+                descriptor.cancelApplication(applicationId);
                 System.out.println("Cancellation requested");
                 return;
             }
-            int result = printResult(client, applicationCommandArgs.isWait());
-            if (result != 0) {
+            if (printResult(descriptor, applicationId, applicationCommandArgs.isWait()) != 0) {
                 throw new CommandExecuteException(
                         "Application finished with an unsuccessful status");
             }
         }
     }
 
-    static int printResult(ApplicationClient client, boolean wait) throws Exception {
-        ApplicationResult result = client.getResult();
-        while (wait
-                && !result.getStatus().isTerminal()
-                && result.getStatus() != ApplicationStatus.UNKNOWN) {
-            Thread.sleep(1000L);
-            result = client.getResult();
+    static <ID> int printResult(ClusterDescriptor<ID> descriptor, ID applicationId, boolean wait)
+            throws Exception {
+        ApplicationStatus status = descriptor.getApplicationStatus(applicationId);
+        while (wait && !status.isTerminal() && status != ApplicationStatus.UNKNOWN) {
+            Thread.sleep(500L);
+            status = descriptor.getApplicationStatus(applicationId);
         }
-        System.out.println("Status: " + result.getStatus());
-        if (!result.getDiagnostics().isEmpty()) {
-            System.out.println(result.getDiagnostics());
-        }
-        return result.getStatus() == ApplicationStatus.FAILED
-                        || result.getStatus() == ApplicationStatus.CANCELED
-                        || result.getStatus() == ApplicationStatus.UNKNOWN
+        System.out.println("Status: " + status);
+        return status == ApplicationStatus.FAILED
+                        || status == ApplicationStatus.CANCELED
+                        || status == ApplicationStatus.UNKNOWN
                 ? 1
                 : 0;
     }

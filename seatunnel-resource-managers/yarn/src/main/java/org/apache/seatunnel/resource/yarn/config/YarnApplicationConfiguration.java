@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.resource.yarn.config;
 
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 
 import org.apache.hadoop.fs.Path;
 

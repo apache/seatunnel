@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -33,7 +35,9 @@ import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,6 +111,15 @@ class KubernetesResourceFactoryTest {
         KubernetesJob job = KubernetesResourceFactory.job("app", parameters);
         V1Job jobResource = job.getInternalResource();
         jobResource.getMetadata().setUid("uid-1");
+        assertTrue(
+                jobResource
+                        .getSpec()
+                        .getTemplate()
+                        .getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains(SeatunnelKubernetesMasterCli.class.getName()));
         assertTrue(jobResource.getSpec().getSuspend());
         assertEquals(0, jobResource.getSpec().getBackoffLimit());
         assertEquals("Never", jobResource.getSpec().getTemplate().getSpec().getRestartPolicy());
@@ -201,6 +214,18 @@ class KubernetesResourceFactoryTest {
                 "/opt/seatunnel/config",
                 worker.getSpec().getContainers().get(0).getVolumeMounts().get(0).getMountPath());
         assertEquals("java", worker.getSpec().getContainers().get(0).getCommand().get(0));
+        List<String> workerCommand = worker.getSpec().getContainers().get(0).getCommand();
+        int entrypoint = workerCommand.indexOf(SeatunnelKubernetesWorkerCli.class.getName());
+        assertTrue(entrypoint >= 0);
+        assertEquals(
+                Arrays.asList("isolated-cluster", "10.0.0.1:5801", "2"),
+                workerCommand.subList(entrypoint + 1, workerCommand.size()));
+        assertTrue(
+                worker.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains(SeatunnelKubernetesWorkerCli.class.getName()));
         assertTrue(
                 worker.getSpec()
                         .getContainers()

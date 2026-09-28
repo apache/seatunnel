@@ -4,6 +4,35 @@
 
 ## dev
 
+`ApplicationClusterEntrypoint` 已删除。进程内 application 调用方在外层准备配置，通过 `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)` 创建节点并负责关闭 Master。`ApplicationJobExecutionEnvironment` 从 `org.apache.seatunnel.engine.client.job` 导入，构造时传入 `JobConfig`、已解析和解密的作业 `Config`、本地 `SeaTunnelServer`、作业 ID 及可选的 Checkpoint 来源作业 ID。先调用 `ApplicationResourceManager.awaitWorkerRegistration()`，再调用 `execute(cancellation)`，其中 cancellation 为调用方持有的 `CompletableFuture<Void>`。该方法返回 `CompletableFuture<JobResult>`，不再清理应用。中断或资源失败时完成取消信号，等待作业结果后调用 `finishApplication(result, failure)`；资源管理器发布终态并关闭 Worker/driver，最后由外层关闭 Master。`ApplicationClusterConfig` 的导入从 `org.apache.seatunnel.resource.core.config` 改为 `org.apache.seatunnel.engine.common.config`。
+
+### Application 部署句柄
+
+`ResourceManagerContext` 移除 `getApplicationId()`、`getSpecification()` 和 `getClusterName()`。固定部署信息改由 driver 构造器接收；Context 仅保留 `getMasterAddress()`、`onError(...)`、`onWorkerTerminated(...)`。`ResourceManagerDriverFactory.create` 改为接收 `(specification, clusterName)`；YARN/Kubernetes 资源管理器 factory 构造器改为 `(applicationId, specification, driver)`，不再透传集群名。
+
+实验性模块 `seatunnel-resource-manager-core` 已删除。`ApplicationSpecification`、`WorkerSpecification` 的包由 `org.apache.seatunnel.resource.core.spec` 改为 `org.apache.seatunnel.engine.common.config.spec`；`ApplicationOptions` 改从 `org.apache.seatunnel.engine.common.config.server` 导入。直接依赖旧 artifact 的代码改为依赖 `seatunnel-engine-common`。现有 application 配置项名称、默认值及规格序列化字段均不变。作业执行统一使用 SeaTunnel 自己的 `org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture`。
+
+实验性部署 API 使用 `org.apache.seatunnel.engine.client.deployment` 下的 `ClusterDescriptor<ID>` 和 `ApplicationClusterDescriptorFactory<ID>`。原 `ApplicationClusterDescriptors.create(...)` 改为构造器注入：`new ApplicationClusterDeployer(new ClusterClientServiceLoader()).run(specification)`。deployer 选择平台 factory，创建 descriptor 完成部署并关闭该本地连接，返回平台原生 ID：YARN 为 Hadoop `ApplicationId`，Kubernetes 为 `String` 类型的 Job 名称。SeaTunnel 自定义的 `ApplicationId` 包装类和公共应用客户端接口已删除。
+
+deployment 导入路径从 `org.apache.seatunnel.resource.core.deployment` 调整为 `org.apache.seatunnel.engine.client.deployment`，descriptor 和 factory 移除客户端类型参数。自定义 SPI 注册也需要使用新的 factory 包名。`descriptor.retrieve(id)` 现在发现运行中的 Master 并返回无泛型的 `SeatunnelClientProvider`；原来直接获取客户端的调用改为 `descriptor.retrieve(id).getClusterClient()`。每次调用都会创建新的 `SeaTunnelClient`，要求 Master 正在运行且网络可达。每个 client 与 descriptor 分别关闭，关闭均不会取消应用。
+
+通过 `descriptor.getApplicationStatus(id)` 和 `descriptor.cancelApplication(id)` 操作平台应用；CLI 字符串 ID 使用 `factory.parseApplicationId(text)` 转换。CLI 的 `status/cancel` 仍通过 `--id` 操作应用，不需要 `--job-id`。运行时上下文使用平台 ID 字符串。
+
+`ApplicationResult` 已删除。原 `getResult().getStatus()` 改为直接查询 `ApplicationStatus`，诊断信息保留在平台原生报告中。`ApplicationResourceManager.finishApplication` 在执行失败、取消或可报告的清理失败时抛出异常。调用方需要处理异常并保证失败应用以非零状态退出；执行失败同时发生清理失败时，后者作为 suppressed 异常保留。
+
+`ApplicationJarPathResolver` 从 `org.apache.seatunnel.resource.core.classloader` 移至 engine-core 模块的 `org.apache.seatunnel.engine.core.classloader`。请更新 import 和模块依赖；路径解析行为不变。
+
+### Application Worker 启动入口
+
+实验性入口 `org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner` 已删除。
+自定义 Worker 启动命令改用各平台独立的 Worker CLI：
+
+- YARN：`org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli <cluster-name> <master-address> <slots> <master-distribution-home>`。
+- Kubernetes：`org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli <cluster-name> <master-address> <slots>`。
+
+实验性的五参数 `createWorkerHazelcastInstance` 重载已删除。进程内调用方在外层准备 Worker 配置，再调用 `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)`。原有单参数、双参数 Worker 方法保持不变。`SeaTunnelServerStarter.main` 继续按配置启动，不解析 application Worker 参数。
+启动器不再因 Master 离开集群而主动关闭 Worker。自定义 application 运行时需要通过平台 driver 释放 Worker，并为 Master 在资源释放前异常死亡的情况安排平台层清理。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

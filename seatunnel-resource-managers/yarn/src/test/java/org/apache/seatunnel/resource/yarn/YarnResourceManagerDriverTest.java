@@ -17,16 +17,19 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.util.Records;
@@ -37,22 +40,95 @@ import org.mockito.ArgumentCaptor;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class YarnResourceManagerDriverTest {
     @TempDir File temporary;
+
+    @Test
+    void returnsAllocatedContainerAndReleasesTheSameNodeOnce() throws Exception {
+        Files.write(
+                temporary.toPath().resolve("distribution.properties"),
+                Arrays.asList("archive=distribution.zip", "root="));
+        for (String file :
+                Arrays.asList(
+                        "distribution.zip",
+                        YarnConstants.LOCALIZED_SPECIFICATION_NAME,
+                        YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME)) {
+            Files.write(temporary.toPath().resolve(file), new byte[] {1});
+        }
+        AMRMClient<AMRMClient.ContainerRequest> resourceManager = mock(AMRMClient.class);
+        NMClient nodeManager = mock(NMClient.class);
+        ResourceManagerContext context = mock(ResourceManagerContext.class);
+        when(context.getMasterAddress()).thenReturn("localhost:5801");
+        AllocateResponse empty = Records.newRecord(AllocateResponse.class);
+        AtomicReference<AllocateResponse> nextResponse = new AtomicReference<>(empty);
+        when(resourceManager.allocate(anyFloat()))
+                .thenAnswer(invocation -> nextResponse.getAndSet(empty));
+        Container container = Records.newRecord(Container.class);
+        container.setId(ContainerId.fromString("container_1_0001_01_000001"));
+        container.setNodeId(NodeId.newInstance("localhost", 1234));
+        String previousHome = System.getProperty("seatunnel.home");
+        System.setProperty("seatunnel.home", temporary.toString());
+        try (YarnResourceManagerDriver driver =
+                new YarnResourceManagerDriver(
+                        localConfiguration(),
+                        new Path(temporary.toURI()),
+                        "application-test",
+                        null,
+                        resourceManager,
+                        nodeManager)) {
+            driver.initialize(context);
+            CompletableFuture<YarnWorkerNode> requested =
+                    driver.requestWorker(new WorkerSpecification(512, 1, 2));
+            AllocateResponse allocated = Records.newRecord(AllocateResponse.class);
+            allocated.setAllocatedContainers(Collections.singletonList(container));
+            nextResponse.set(allocated);
+            driver.heartbeat();
+            YarnWorkerNode worker = requested.get(5, TimeUnit.SECONDS);
+            ArgumentCaptor<ContainerLaunchContext> launch =
+                    ArgumentCaptor.forClass(ContainerLaunchContext.class);
+            verify(nodeManager).startContainer(any(), launch.capture());
+            String command = launch.getValue().getCommands().get(0);
+            assertTrue(command.contains(SeatunnelYarnWorkerCli.class.getName()));
+            assertTrue(command.contains("'application-test' 'localhost:5801' '2'"));
+            assertTrue(command.contains("'" + temporary + "'"));
+            assertSame(container, worker.getContainer());
+            assertEquals(
+                    container.getId().toString(), worker.getResourceID().getResourceIdString());
+            assertNull(driver.releaseWorker(worker).get());
+            assertNull(driver.releaseWorker(worker).get());
+            verify(nodeManager, times(1)).stopContainer(container.getId(), container.getNodeId());
+            verify(resourceManager, times(1)).releaseAssignedContainer(container.getId());
+            verify(context, never()).onWorkerTerminated(anyString(), anyString());
+        } finally {
+            if (previousHome == null) {
+                System.clearProperty("seatunnel.home");
+            } else {
+                System.setProperty("seatunnel.home", previousHome);
+            }
+        }
+    }
 
     @Test
     void initializationFailureDoesNotStopAnUnopenedNodeManager() throws Exception {
@@ -65,6 +141,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        "application-test",
                         null,
                         resourceManager,
                         nodeManager);
@@ -89,11 +166,12 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        "application-test",
                         null,
                         resourceManager,
                         nodeManager);
         driver.initialize(context);
-        CompletableFuture<WorkerRegistration> worker =
+        CompletableFuture<YarnWorkerNode> worker =
                 driver.requestWorker(new WorkerSpecification(512, 1, 2));
         when(resourceManager.allocate(anyFloat()))
                 .thenThrow(new IOException("resource manager unavailable"));
@@ -117,6 +195,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        "application-test",
                         "worker-pool",
                         resourceManager,
                         nodeManager);
@@ -144,6 +223,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        "application-test",
                         null,
                         resourceManager,
                         nodeManager);

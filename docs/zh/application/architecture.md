@@ -50,7 +50,23 @@ flowchart LR
 
 一个 Master 可以协调多个 Worker。固定 slot 总量为 `application.worker-count × application.worker.slots`，实际并行度还取决于作业拓扑。
 
+两个平台都使用独立的 Master、Worker 入口：YARN 分别为 `SeatunnelYarnMasterCli`、`SeatunnelYarnWorkerCli`；Kubernetes 分别为 `SeatunnelKubernetesMasterCli`、`SeatunnelKubernetesWorkerCli`。Worker 入口设置集群名、Master 地址和固定 slot 数，再将配置传给 `SeaTunnelServerStarter.createHazelcastInstance`。YARN 额外使用 Master 的发行包根目录，解析各个 Worker 本地化目录中的 jar 路径。Worker 启动不初始化平台客户端，也不承担整个应用的清理。`SeaTunnelServerStarter.main` 保持原有的按配置启动行为。Worker 进程退出时使用 Hazelcast 自带的 shutdown hook。Worker 的回收由外层 application 生命周期和平台 driver 负责，启动器不会因集群成员变化主动关闭 Worker。如果 Master 进程在清理前异常死亡，需要由平台层负责回收 Worker。
+
 ## 运行流程
+
+`ResourceManagerContext` 只提供绑定后的 Master 地址及故障回调。应用 ID、集群名和部署配置在构造平台 driver 时传入，不再通过运行时 Context 获取。
+
+运行时不再保留独立的 `ApplicationClusterEntrypoint`。平台 CLI 通过 `SeaTunnelServerStarter.createHazelcastInstance` 创建已配置的节点并负责关闭 Master。`ApplicationJobExecutionEnvironment` 位于 engine-client 的 `client.job` 包，与 `ClientJobExecutionEnvironment` 一样继承 `AbstractJobEnvironment`，只负责解析配置、构建 DAG、在进程内提交作业并返回 `CompletableFuture<JobResult>`；不等待 Worker，不清理集群，也不创建客户端连接自己。
+
+`ApplicationResourceManager` 负责 driver 初始化、有启动超时约束的 Worker 就绪等待、异步资源故障通知、Worker 释放、应用终态发布及 driver 关闭。平台 CLI 等待资源就绪后执行作业，在中断或资源失败时发出取消信号；执行环境在提交确认后落实该信号，避免迟到提交逃过取消。仅取消结果 Future 不会取消实际作业。CLI 等待作业终止（取消等待有超时），再调用资源管理器完成清理，最后关闭 Master。清理异常附加到原始异常，取消超时会使应用按失败处理。
+
+resource-manager core 模块已删除。部署选项放在 engine-common 的 `config.server` 包，引擎配置准备类放在其 `config` 包，应用和 Worker 的不可变规格放在其 `config.spec` 包；部署和客户端契约放在 engine-client，运行时资源归 engine-server 管理。
+
+提交端通过构造器向 `ApplicationClusterDeployer` 注入 `ClusterClientServiceLoader`，再调用 `run(specification)`。loader 发现唯一的平台 factory；deployer 创建并关闭 `ClusterDescriptor<ID>`，返回平台原生 ID（YARN 为 Hadoop `ApplicationId`，Kubernetes 为 `String` 类型的 Job 名称）。factory 同时负责将 CLI 的 `--id` 字符串转换为平台 ID。descriptor 的 `getApplicationStatus` 和 `cancelApplication` 在内部调用资源平台 API，不连接 Master，也不需要 Zeta job ID。
+
+`retrieve(applicationId)` 发现运行中 Master 的连接配置，返回无泛型的 `SeatunnelClientProvider`，不建立 Engine 连接。每次调用 `provider.getClusterClient()` 才创建一个新的 `SeaTunnelClient` 操作 Zeta 作业；调用方必须能访问 Master 的网络地址，应用结束后不能再建立连接。deployment 契约放在 `engine-client`，engine-common 不依赖客户端。部署、CLI 状态查询（包括 `--wait`）和取消应用均不依赖 Engine 连接。每个 client 都由调用方独立于 descriptor 关闭；关闭任意一方只释放各自连接，不会取消应用。公共运行时上下文直接保存平台 ID 字符串，不再使用自定义 ID 包装。
+
+接口不再返回 `ApplicationResult` 包装对象：查询直接返回 `ApplicationStatus`，集群内执行入口成功时正常返回，执行或可报告的清理失败时抛出异常。平台入口将失败映射为非零进程退出码，最终的平台状态及诊断信息仍由资源管理器 driver 发布。
 
 ```mermaid
 sequenceDiagram

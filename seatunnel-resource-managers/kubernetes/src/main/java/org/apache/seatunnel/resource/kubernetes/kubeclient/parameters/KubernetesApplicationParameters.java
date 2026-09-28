@@ -18,7 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.parameters;
 
 import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 
 import lombok.Getter;
