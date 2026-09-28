@@ -29,12 +29,36 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public class TableDiscoveryUtils {
     private static final Logger LOG = LoggerFactory.getLogger(TableDiscoveryUtils.class);
 
+    /**
+     * Reads the captured table ids from every database hosted by the connected PostgreSQL instance.
+     *
+     * <p>Filtering happens in two stages. First, {@code databaseFilter} is consulted per database
+     * before any metadata query is issued: PostgreSQL cannot read another database's {@code
+     * INFORMATION_SCHEMA} over the discovery connection, so probing foreign databases only produces
+     * a warning per database (see <a
+     * href="https://github.com/apache/seatunnel/issues/8184">#8184</a>). Second, tables read from
+     * an allowed database are passed through {@code tableFilters.dataCollectionFilter()}, which
+     * decides capture at table level.
+     *
+     * <p>The database predicate is deliberately kept outside the Debezium configuration: folding it
+     * into {@code database.include.list} would make {@code dataCollectionFilter()} reject the
+     * catalog-less {@link TableId}s used throughout the PostgreSQL connector.
+     *
+     * @param jdbc open connection to the database to discover
+     * @param tableFilters table-level capture filter built from the connector config
+     * @param databaseFilter predicate deciding which databases may be probed for tables
+     * @return the deduplicated table ids eligible for capture, in discovery order
+     */
     @SuppressWarnings("MagicNumber")
-    public static List<TableId> listTables(JdbcConnection jdbc, RelationalTableFilters tableFilters)
+    public static List<TableId> listTables(
+            JdbcConnection jdbc,
+            RelationalTableFilters tableFilters,
+            Predicate<String> databaseFilter)
             throws SQLException {
         // Use a LinkedHashSet to deduplicate table ids. Some PostgreSQL-compatible databases
         // (e.g. HighGo) return the same physical table several times from
@@ -67,8 +91,8 @@ public class TableDiscoveryUtils {
         // database and not taking them from the user ...
         LOG.info("Read list of available tables in each database");
         for (String dbName : databaseNames) {
-            if (!tableFilters.databaseFilter().test(dbName)) {
-                LOG.info("\t database '{}' is filtered out of capturing", dbName);
+            if (!databaseFilter.test(dbName)) {
+                LOG.debug("\t database '{}' is filtered out of capturing", dbName);
                 continue;
             }
             try {
