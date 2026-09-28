@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public interface SupportSchemaEvolutionSinkWriter {
 
@@ -30,4 +31,19 @@ public interface SupportSchemaEvolutionSinkWriter {
      * @throws IOException
      */
     void applySchemaChange(SchemaChangeEvent event) throws IOException;
+
+    /**
+     * Returns a stable identifier of the physical sink table this writer commits to. Multi-table
+     * sinks that resolve a sink-table template per upstream table can end up with several writers
+     * sharing one physical destination. When that happens, a schema change applied through one
+     * sub-writer mutates the external table immediately while sibling sub-writers keep writing with
+     * their stale in-memory schema unless the coordinator can fan the change out to all of them.
+     *
+     * <p>Writers that can share one physical destination should expose that resolved identifier
+     * here. The default implementation returns {@link Optional#empty()} so connectors that do not
+     * need shared-sink coordination keep the legacy source-only routing.
+     */
+    default Optional<String> getPhysicalSinkTableIdentifier() {
+        return Optional.empty();
+    }
 }

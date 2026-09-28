@@ -26,7 +26,6 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -150,9 +149,11 @@ public class MongodbIncrementalSourceOptions extends SourceOptions implements Ta
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
-                    .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
+                    .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER, StopMode.TIMESTAMP))
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
-                            "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                            "Optional stop mode for MongoDB CDC source, valid enumerations are "
+                                    + "\"never\" or \"timestamp\". "
+                                    + "\"never\": keeps reading the change stream. "
+                                    + "\"timestamp\": stops after reaching the change-stream position given by \"stop.timestamp\".");
 }

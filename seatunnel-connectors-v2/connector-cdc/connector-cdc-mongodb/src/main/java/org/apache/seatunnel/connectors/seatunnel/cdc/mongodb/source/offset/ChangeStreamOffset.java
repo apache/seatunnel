@@ -93,6 +93,11 @@ public class ChangeStreamOffset extends Offset {
     }
 
     @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
+
+    @Override
     public int compareTo(Offset offset) {
         if (offset == null) {
             return -1;

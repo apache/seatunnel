@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 > InfluxDB Sink 连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将 SeaTunnel 行数据写入 InfluxDB 1.x。Sink 会把一行数据转换成一个 InfluxDB point，并通过
@@ -12,7 +18,9 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 ## 关键特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
@@ -29,10 +37,10 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 当前 InfluxDB sink 序列化器不支持其他 SeaTunnel 类型。
 
-## 选项
+## Sink 选项
 
 | 参数名                         | 类型     | 必须 | 默认值          | 描述                                                       |
-|-----------------------------|--------|----|--------------|----------------------------------------------------------|
+|------------------------------|--------|----|--------------|----------------------------------------------------------|
 | url                         | string | 是  | -            | InfluxDB 连接 URL，例如 `http://influxdb-host:8086`。          |
 | database                    | string | 是  | -            | InfluxDB 数据库名称。                                           |
 | measurement                 | string | 否  | 输入表完整名称      | InfluxDB measurement 名称。不配置时使用输入表名。                     |
@@ -50,66 +58,62 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | connect_timeout_ms          | long   | 否  | 15000        | 连接 InfluxDB 的超时时间，单位毫秒。                                  |
 | query_timeout_sec           | int    | 否  | 3            | InfluxDB 客户端读超时时间，单位秒。                                   |
 | multi_table_sink_replica    | int    | 否  | -            | 多表写入时的 sink writer 副本数。                                  |
-| common-options              | config | 否  | -            | Sink 插件通用参数。                                             |
+| common-options              | config | 否  | -            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
-### url
+### url [string]
 
-连接到 influxDB 的 url，例如
-
-```
-http://influxdb-host:8086
-```
+连接到 InfluxDB 的 URL，例如 `http://influxdb-host:8086`。
 
 ### database [string]
 
-`influxDB` 数据库的名称
+InfluxDB 数据库的名称。
 
 ### measurement [string]
 
-`influxDB` measurement 的名称。这个配置是可选项；不配置时，sink 会使用输入表完整名称作为
-measurement 名称，这在多表写入场景很有用。
+InfluxDB measurement 的名称。该项可省略；不配置时，sink 会使用输入表完整名称作为
+measurement 名称，这在多表写入场景中很常见。
 多表输入时，请确保生成的表名可以作为合法的 InfluxDB measurement 名称。
 
 ### username [string]
 
-`influxDB` 用户名
+InfluxDB 用户名。
 
 ### password [string]
 
-`influxDB` 用户密码
+InfluxDB 用户密码。
 
 ### key_time [string]
 
-在 SeaTunnelRow 中指定 `influxDB` measurement 时间戳的字段名。如果未指定，则使用处理时间作为时间戳
+指定 SeaTunnelRow 中作为 InfluxDB measurement 时间戳的字段名。
+如果未指定，则使用处理时间作为时间戳；支持数值类型或 ISO-8601 时间戳字符串。
 
 ### key_tags [array]
 
-在 SeaTunnelRow 中指定 `influxDB` measurement 标签的字段名。
-如果未指定，则包含所有字段作为 `influxDB` measurement 字段
+指定 SeaTunnelRow 中作为 InfluxDB measurement tag 的字段名。
+如果未指定，所有字段都会作为 InfluxDB measurement field。
 
 ### batch_size [int]
 
-对于批量写入，当缓冲区数量达到 `batch_size` 数量或时间达到 `checkpoint.interval` 时，数据将被刷新到 influxDB
+批量写入时，当缓冲数量达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据会刷新到 InfluxDB。
+默认值为 `1024`，在每个 checkpoint 和 writer 关闭时也会触发 flush。
 
 ### max_retries [int]
 
-刷新失败的重试次数
-
-不配置该选项时，sink 只尝试写入一次，失败后直接报错。
+写入失败时的最大重试次数。不配置该选项时，sink 只尝试写入一次，失败后直接报错。
 
 ### retry_backoff_multiplier_ms [int]
 
-用作生成下一个退避延迟的乘数
+用作生成下一次重试退避延迟的乘数，单位毫秒。
+须配合 `max_retry_backoff_ms` 一起配置，否则重试等待时间仍为 `0`。
 
 ### max_retry_backoff_ms [int]
 
-在尝试重新请求 `influxDB` 之前等待的时间量
-
-使用重试配置时，建议同时配置 `retry_backoff_multiplier_ms` 和 `max_retry_backoff_ms`；否则重试等待时间仍为 `0`。
+两次重试之间的最大等待时间，单位毫秒。
+须配合 `retry_backoff_multiplier_ms` 一起配置，否则重试等待时间仍为 `0`。
 
 ### write_timeout [int]
 
-InfluxDB 客户端写入超时时间。
+InfluxDB 客户端写入超时时间，单位秒。
 
 ### rp [string]
 
@@ -126,31 +130,32 @@ InfluxDB 客户端读超时时间，单位秒。
 
 ### connect_timeout_ms [long]
 
-连接到 InfluxDB 的超时时间，以毫秒为单位
+连接 InfluxDB 的超时时间，单位毫秒。默认值为 `15000`。
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见。
 
-## 示例
+## 任务示例
 
-### 写入一个 measurement
+### 写入一个 Measurement
+
+将行数据写入指定 measurement 的简单示例。
 
 ```hocon
 sink {
-    InfluxDB {
-        url = "http://influxdb-host:8086"
-        database = "test"
-        measurement = "sink"
-        key_time = "time"
-        key_tags = ["label"]
-        batch_size = 1
-    }
+  InfluxDB {
+    url = "http://influxdb-host:8086"
+    database = "test"
+    measurement = "sink"
+    key_time = "time"
+    key_tags = ["label"]
+    batch_size = 1
+  }
 }
-
 ```
 
-### 不显式配置 measurement
+### 不显式配置 Measurement
 
 不配置 `measurement` 时，sink 会使用输入表完整名称作为 measurement 名称。
 
@@ -212,7 +217,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -41,6 +42,8 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
     private final PrimaryKey primaryKey;
     private final String sourceCatalogName;
     private final String fieldIde;
+    private final String tablespace;
+    private final String fillfactor;
     private final List<ConstraintKey> constraintKeys;
     private boolean createIndex;
 
@@ -49,6 +52,8 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.tablespace = catalogTable.getOptions().get(DamengCatalog.TABLE_OPTION_TABLESPACE);
+        this.fillfactor = catalogTable.getOptions().get(DamengCatalog.TABLE_OPTION_FILLFACTOR);
         constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
         this.createIndex = createIndex;
     }
@@ -93,6 +98,19 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
+        List<String> storageItems = new ArrayList<>();
+        if (StringUtils.isNotBlank(fillfactor)) {
+            storageItems.add("FILLFACTOR " + DmdbDialect.normalizeFillfactorForDdl(fillfactor));
+        }
+        if (StringUtils.isNotBlank(tablespace)) {
+            storageItems.add("ON \"" + DmdbDialect.normalizeTablespaceForDdl(tablespace) + "\"");
+        }
+        if (!storageItems.isEmpty()) {
+            createTableSql
+                    .append("\nSTORAGE (")
+                    .append(String.join(", ", storageItems))
+                    .append(")");
+        }
         sqls.add(createTableSql.toString());
 
         List<String> commentSqls =

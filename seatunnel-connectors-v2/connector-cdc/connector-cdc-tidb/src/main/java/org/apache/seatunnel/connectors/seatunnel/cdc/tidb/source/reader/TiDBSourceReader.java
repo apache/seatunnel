@@ -264,7 +264,8 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         }
         long pullCostMs = nanosToMillis(System.nanoTime() - pullStartNanos);
         long flushStartNanos = System.nanoTime();
-        resolvedTs = currentMaxResolvedTs;
+        // A split is safe to advance only after every TiKV region has reached the timestamp.
+        resolvedTs = cdcClient.getMinResolvedTs();
         int pendingCommitsBeforeFlush = commits.size();
         int committedEventsBeforeFlush = committedEvents.size();
         if (commits.size() > 0) {

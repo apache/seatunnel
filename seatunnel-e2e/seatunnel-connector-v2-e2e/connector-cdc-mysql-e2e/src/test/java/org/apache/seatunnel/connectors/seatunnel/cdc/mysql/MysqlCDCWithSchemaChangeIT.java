@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -43,17 +44,23 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -73,7 +80,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 180_000L;
 
+    /** Covers the longer convergence window for DDL plus data assertions in CI. */
     private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+
+    /** Allows timestamp columns to drift slightly while source and sink are converging in CI. */
     private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
 
     private static final String MYSQL_DATABASE = "shop";
@@ -81,9 +91,13 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+
+    /** Stable projection used after add-column evolution to compare source and sink rows. */
     private static final String STABLE_QUERY =
             "select id,name,description,weight from %s.%s order by id";
+
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -92,6 +106,33 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String DESC = "desc %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s;";
+    /** Source table reused by both source databases in the multi-database schema-evolution case. */
+    private static final String MULTI_DB_SAME_NAME_TABLE = "products";
+    /** First source database for the multi-database schema-evolution routing scenario. */
+    private static final String MULTI_DB_SOURCE_DATABASE_A = "multi_schema_shop_a";
+    /** Second source database for the multi-database schema-evolution routing scenario. */
+    private static final String MULTI_DB_SOURCE_DATABASE_B = "multi_schema_shop_b";
+    /** First sink database that receives the table from {@link #MULTI_DB_SOURCE_DATABASE_A}. */
+    private static final String MULTI_DB_SINK_DATABASE_A = "multi_schema_shop_a_sink";
+    /** Second sink database that receives the table from {@link #MULTI_DB_SOURCE_DATABASE_B}. */
+    private static final String MULTI_DB_SINK_DATABASE_B = "multi_schema_shop_b_sink";
+    /** Job config used to validate schema evolution for same-name tables across databases. */
+    private static final String MULTI_DB_SCHEMA_CHANGE_JOB_CONFIG =
+            "/mysqlcdc_to_mysql_with_multi_db_same_name_schema_change.conf";
+    /** SQL template that resets the multi-database schema-evolution fixture. */
+    private static final String MULTI_DB_SCHEMA_CHANGE_INIT_TEMPLATE =
+            "multi_db_same_name_schema_change";
+    /** SQL template that triggers add-column DDL and post-DDL DML on both source databases. */
+    private static final String MULTI_DB_SCHEMA_CHANGE_ADD_COLUMNS_TEMPLATE =
+            "multi_db_same_name_add_columns";
+    /** Strips inline SQL comments when a single template manages multiple databases at once. */
+    private static final Pattern INLINE_SQL_COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
+    /**
+     * Marker emitted once the CDC reader leaves the snapshot phase and starts reading binlog events
+     * for the captured tables.
+     */
+    private static final String INCREMENTAL_READ_MARKER =
+            "Start incremental read task for incremental split";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -114,7 +155,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @Order(1)
     @TestTemplate
@@ -133,7 +176,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 });
 
         // waiting for case1 completed
-        assertSchemaEvolutionForAddColumns(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+        assertSchemaEvolutionForAddColumns(container, MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
 
         // savepoint 1
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
@@ -179,6 +222,31 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // waiting for case3/case4 completed
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // savepoint 3
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // case5 table comment change with cdc data at same time
+        shopDatabase.setTemplateName("comment_changes").createAndInitialize();
+
+        // restore 3
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // waiting for case5 completed – data must continue flowing after comment DDL
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // verify the final source table comment was applied (tests comment update idempotency)
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
     }
 
     @Order(2)
@@ -197,22 +265,82 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                     }
                 });
 
-        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+        assertSchemaEvolution(container, MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+    }
+
+    /** Default wait used while polling the shared-name multi-database source tables. */
+    private static final long DEFAULT_TABLE_SYNC_TIMEOUT_MS = 60000L;
+
+    /** Extended wait for the downstream tables after the second source database starts syncing. */
+    private static final long MULTI_DB_TABLE_SYNC_TIMEOUT_MS = 180000L;
+
+    /**
+     * Verifies that two upstream databases can expose the same table name, evolve that schema, and
+     * still land in different downstream databases without mixing data or DDL.
+     */
+    @Order(4)
+    @TestTemplate
+    public void testMysqlCdcWithMultiDatabaseSameTableSchemaEvolution(TestContainer container) {
+        executeSqlTemplate(MULTI_DB_SCHEMA_CHANGE_INIT_TEMPLATE);
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(MULTI_DB_SCHEMA_CHANGE_JOB_CONFIG);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Once the job submission succeeds, both sink tables must first catch up with their
+        // matching source tables before the DDL phase starts. This keeps the DDL and later DML
+        // assertions focused on post-snapshot schema evolution instead of snapshot warm-up lag.
+        assertTableStructureAndData(
+                MULTI_DB_SOURCE_DATABASE_A,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SINK_DATABASE_A,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS);
+        assertTableStructureAndData(
+                MULTI_DB_SOURCE_DATABASE_B,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SINK_DATABASE_B,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS);
+
+        // The DDL phase must start only after the CDC reader switches from snapshot discovery to
+        // binlog consumption for both same-name source tables.
+        waitForIncrementalRead(
+                container,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS,
+                MULTI_DB_SOURCE_DATABASE_A + "." + MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SOURCE_DATABASE_B + "." + MULTI_DB_SAME_NAME_TABLE);
+
+        executeSqlTemplate(MULTI_DB_SCHEMA_CHANGE_ADD_COLUMNS_TEMPLATE);
+
+        assertTableStructureAndData(
+                MULTI_DB_SOURCE_DATABASE_A,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SINK_DATABASE_A,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS);
+        assertTableStructureAndData(
+                MULTI_DB_SOURCE_DATABASE_B,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SINK_DATABASE_B,
+                MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS);
     }
 
     /**
      * Regression for issue #11044. With {@code schema-changes.exclude = ["drop.column"]}: a dropped
-     * column must NOT propagate to the sink (it stays in the sink schema), and the data changes
-     * happening at the same time must still reach the sink.
+     * column must NOT propagate to the sink, and the concurrent data changes must still reach the
+     * sink.
      *
      * <p>The dropped column here is intentionally <b>NULLABLE</b>. #11044 is event-type filtering
-     * only and, per its non-goals, does not define a schema-change data-handling policy, so the
-     * source simply writes {@code null} for a retained-but-no-longer-supplied column — valid for a
-     * nullable column. Excluding {@code drop.column} for a NOT NULL column is a known limitation
-     * that fails at the sink and is deferred to a future behavior-policy feature; see MySQL-CDC.md.
-     * Using a nullable column is exactly why this test needs its own {@code *_filter} DDL templates
-     * instead of the shared {@code add_columns}/{@code drop_columns} (which add/drop NOT NULL
-     * columns).
+     * only and does not define a schema-change data-handling policy, so the source writes {@code
+     * null} for a retained-but-no-longer-supplied column. Excluding {@code drop.column} for a NOT
+     * NULL column is a known limitation deferred to a future behavior-policy feature.
      */
     @Order(3)
     @TestTemplate
@@ -257,7 +385,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         // drop.column IS excluded; this template also inserts/updates/deletes rows at the same time
         shopDatabase.setTemplateName("drop_columns_filter").createAndInitialize();
 
-        // regression: the concurrent data changes must still reach the sink (job did not crash)
+        // regression: the concurrent data changes must still reach the sink
         await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
@@ -273,9 +401,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                                         MYSQL_DATABASE,
                                                         SINK_TABLE_FILTER))));
 
-        // Row-level hardening: drop_columns_filter.sql performs INSERT + UPDATE + DELETE alongside
-        // the filtered drop.column DDL. Every one of those data changes must be reflected in the
-        // sink (the earlier iterable-equals already converged, so these reads are stable).
+        // Row-level hardening: every INSERT, UPDATE, and DELETE must be reflected in the sink.
         List<List<Object>> sourceRows =
                 query(String.format(STABLE_QUERY, MYSQL_DATABASE, SOURCE_TABLE));
         List<List<Object>> sinkRows =
@@ -284,15 +410,12 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 sourceRows.size(),
                 sinkRows.size(),
                 "sink row count must match source after the concurrent INSERT/UPDATE/DELETE");
-        // DELETE propagated: drop_columns_filter.sql runs `delete from products where id = 102`.
         Assertions.assertTrue(
                 sinkRows.stream().noneMatch(row -> ((Number) row.get(0)).intValue() == 102),
                 "rows deleted at the source must also be deleted in the sink");
-        // INSERT propagated: id 110 is inserted by drop_columns_filter.sql.
         Assertions.assertTrue(
                 sinkRows.stream().anyMatch(row -> ((Number) row.get(0)).intValue() == 110),
                 "rows inserted at the source must appear in the sink");
-        // UPDATE propagated: `set name='dailai' where id = 101`.
         assertSinkNameEquals(sinkRows, 101, "dailai");
 
         // the excluded drop.column must NOT have been applied to the sink schema
@@ -301,7 +424,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 "drop.column was excluded, so the sink must keep the column the source dropped");
     }
 
-    /** Asserts the sink row with the given id exists and its {@code name} matches expectedName. */
+    // Asserts the sink row with the given id exists and its name matches expectedName.
     private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
         Optional<List<Object>> row =
                 sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();
@@ -312,12 +435,16 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 "updated value must propagate to the sink for id=" + id);
     }
 
+    /**
+     * Checks whether a column remains present in the sink schema after filtered schema evolution.
+     */
     private boolean columnExists(String database, String table, String column) {
         return query(String.format(DESC, database, table)).stream()
                 .anyMatch(row -> column.equalsIgnoreCase(String.valueOf(row.get(0))));
     }
 
-    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
+    private void assertSchemaEvolution(
+            TestContainer container, String database, String sourceTable, String sinkTable) {
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
@@ -325,6 +452,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                         database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
+        waitForIncrementalRead(container, database + "." + sourceTable);
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -376,6 +504,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // case4 modify column data type with cdc data at same time
         assertCaseByDdlName("modify_columns", database, sourceTable, sinkTable);
+
+        // case5 comment changes with cdc data at same time
+        assertCaseByDdlName("comment_changes", database, sourceTable, sinkTable);
+        assertSourceTableComment(
+                database, sourceTable, "Updated product catalog with sports equipment");
     }
 
     private void assertCaseByDdlName(
@@ -385,7 +518,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     }
 
     private void assertSchemaEvolutionForAddColumns(
-            String database, String sourceTable, String sinkTable) {
+            TestContainer container, String database, String sourceTable, String sinkTable) {
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
@@ -393,6 +526,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                         database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
+        waitForIncrementalRead(container, database + "." + sourceTable);
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -439,16 +573,122 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        assertTableStructureAndData(
+                database, sourceTable, database, sinkTable, DEFAULT_TABLE_SYNC_TIMEOUT_MS);
+    }
+
+    /** Waits until the sink table matches the source table for both structure and data. */
+    private void assertTableStructureAndData(
+            String sourceDatabase, String sourceTable, String sinkDatabase, String sinkTable) {
+        assertTableStructureAndData(
+                sourceDatabase,
+                sourceTable,
+                sinkDatabase,
+                sinkTable,
+                DEFAULT_TABLE_SYNC_TIMEOUT_MS);
+    }
+
+    /**
+     * Waits until the sink table matches the source table for both structure and data with a
+     * scenario-specific timeout. Larger multi-table snapshots can need a longer warm-up window
+     * before the first rows arrive in CI.
+     */
+    private void assertTableStructureAndData(
+            String sourceDatabase,
+            String sourceTable,
+            String sinkDatabase,
+            String sinkTable,
+            long timeoutMs) {
+        await().atMost(timeoutMs, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
-                                        database, sourceTable, sinkTable));
-        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                                        sourceDatabase, sourceTable, sinkDatabase, sinkTable));
+        await().atMost(timeoutMs, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
-                                        database, sourceTable, sinkTable, null));
+                                        sourceDatabase,
+                                        sourceTable,
+                                        sinkDatabase,
+                                        sinkTable,
+                                        null));
+    }
+
+    /**
+     * Waits until the CDC reader has switched to binlog consumption before the test emits DDL.
+     * Otherwise schema-change statements can be produced while the job is still finishing the
+     * snapshot phase, which makes slow environments miss the intended event ordering.
+     */
+    private void waitForIncrementalRead(TestContainer container, String... capturedTables) {
+        waitForIncrementalRead(container, DEFAULT_TABLE_SYNC_TIMEOUT_MS, capturedTables);
+    }
+
+    /**
+     * Waits until the CDC reader has switched to binlog consumption with a scenario-specific
+     * timeout. Multi-database snapshot jobs can spend noticeably longer in initial split discovery
+     * before the incremental-reader marker appears.
+     */
+    private void waitForIncrementalRead(
+            TestContainer container, long timeoutMs, String... capturedTables) {
+        await().atMost(timeoutMs, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            String serverLogs = container.getServerLogs();
+                            Assertions.assertTrue(
+                                    serverLogs.contains(INCREMENTAL_READ_MARKER),
+                                    "Incremental reader has not started yet");
+                            for (String capturedTable : capturedTables) {
+                                Assertions.assertTrue(
+                                        serverLogs.contains(capturedTable),
+                                        "Incremental reader has not started for "
+                                                + capturedTable
+                                                + "\nCurrent logs:\n"
+                                                + serverLogs);
+                            }
+                        });
+    }
+
+    /** Executes a fixed SQL template that prepares or mutates multiple databases in one step. */
+    private void executeSqlTemplate(String templateName) {
+        String ddlFile = String.format("ddl/%s.sql", templateName);
+        URL ddlTemplate = MysqlCDCWithSchemaChangeIT.class.getClassLoader().getResource(ddlFile);
+        Assertions.assertNotNull(ddlTemplate, "Cannot locate " + ddlFile);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            for (String sql : loadSqlStatements(ddlTemplate)) {
+                statement.execute(sql);
+                log.info(sql);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Converts a classpath SQL template into executable statements while preserving custom
+     * delimiters.
+     */
+    private List<String> loadSqlStatements(URL ddlTemplate) throws Exception {
+        return Arrays.stream(
+                        Files.readAllLines(Paths.get(ddlTemplate.toURI())).stream()
+                                .map(String::trim)
+                                .filter(line -> !line.startsWith("--") && !line.isEmpty())
+                                .map(this::stripInlineComment)
+                                .collect(Collectors.joining("\n"))
+                                .split(";"))
+                .map(sql -> sql.replace("$$", ";"))
+                .map(String::trim)
+                .filter(sql -> !sql.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Removes end-of-line SQL comments so that the template executor can split statements safely.
+     */
+    private String stripInlineComment(String sql) {
+        Matcher matcher = INLINE_SQL_COMMENT_PATTERN.matcher(sql);
+        return matcher.matches() ? matcher.group(1).trim() : sql;
     }
 
     /**
@@ -457,9 +697,19 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     private void assertSchemaDescriptionEqualsIgnoringColumnOrder(
             String database, String sourceTable, String sinkTable) {
+        assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                database, sourceTable, database, sinkTable);
+    }
+
+    /**
+     * Compares source and sink schemas across databases without depending on physical column
+     * placement.
+     */
+    private void assertSchemaDescriptionEqualsIgnoringColumnOrder(
+            String sourceDatabase, String sourceTable, String sinkDatabase, String sinkTable) {
         Assertions.assertIterableEquals(
-                normalizeDescRows(query(String.format(DESC, database, sourceTable))),
-                normalizeDescRows(query(String.format(DESC, database, sinkTable))));
+                normalizeDescRows(query(String.format(DESC, sourceDatabase, sourceTable))),
+                normalizeDescRows(query(String.format(DESC, sinkDatabase, sinkTable))));
     }
 
     /**
@@ -468,14 +718,28 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     private void assertTableDataEqualsBySourceColumnOrder(
             String database, String sourceTable, String sinkTable, String whereClause) {
-        List<String> sourceColumns = getColumnNames(database, sourceTable);
+        assertTableDataEqualsBySourceColumnOrder(
+                database, sourceTable, database, sinkTable, whereClause);
+    }
+
+    /**
+     * Compares source and sink rows across databases using the source schema's semantic column
+     * order.
+     */
+    private void assertTableDataEqualsBySourceColumnOrder(
+            String sourceDatabase,
+            String sourceTable,
+            String sinkDatabase,
+            String sinkTable,
+            String whereClause) {
+        List<String> sourceColumns = getColumnNames(sourceDatabase, sourceTable);
         Assertions.assertIterableEquals(
                 query(
                         buildOrderedProjectionQuery(
-                                database, sourceTable, sourceColumns, whereClause)),
+                                sourceDatabase, sourceTable, sourceColumns, whereClause)),
                 query(
                         buildOrderedProjectionQuery(
-                                database, sinkTable, sourceColumns, whereClause)));
+                                sinkDatabase, sinkTable, sourceColumns, whereClause)));
     }
 
     /**
@@ -543,6 +807,31 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     public void tearDown() {
         if (MYSQL_CONTAINER != null) {
             MYSQL_CONTAINER.close();
+        }
+    }
+
+    /**
+     * Asserts that the given source table's TABLE_COMMENT in {@code information_schema.TABLES}
+     * matches {@code expectedComment}. This check is performed directly against the source MySQL
+     * instance; it is intentionally not compared with the sink because the JDBC sink treats comment
+     * events as no-ops.
+     */
+    private void assertSourceTableComment(String database, String table, String expectedComment) {
+        String sql =
+                String.format(
+                        "SELECT TABLE_COMMENT FROM information_schema.TABLES"
+                                + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        database, table);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
+            Assertions.assertTrue(rs.next(), "Table " + table + " not found in information_schema");
+            Assertions.assertEquals(
+                    expectedComment,
+                    rs.getString("TABLE_COMMENT"),
+                    "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

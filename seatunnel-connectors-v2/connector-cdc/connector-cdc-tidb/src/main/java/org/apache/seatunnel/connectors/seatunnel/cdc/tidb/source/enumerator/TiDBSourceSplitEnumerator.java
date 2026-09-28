@@ -33,10 +33,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class TiDBSourceSplitEnumerator
@@ -46,6 +48,9 @@ public class TiDBSourceSplitEnumerator
 
     private final TiDBSourceConfig sourceConfig;
     private final Map<Integer, List<TiDBSourceSplit>> pendingSplit;
+    // Persist the round-robin cursor so restored enumerators keep assigning newly discovered
+    // splits in the same sequence instead of skewing ownership after a checkpoint restore.
+    private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Context<TiDBSourceSplit> context;
     private TiSession tiSession;
     private long tableId;
@@ -70,6 +75,7 @@ public class TiDBSourceSplitEnumerator
         if (restoreState != null) {
             this.shouldEnumerate = restoreState.isShouldEnumerate();
             this.pendingSplit.putAll(restoreState.getPendingSplit());
+            this.assignCount.set(restoreState.getAssignCount());
         }
     }
 
@@ -116,14 +122,21 @@ public class TiDBSourceSplitEnumerator
     }
 
     private synchronized void addPendingSplit(List<TiDBSourceSplit> splits) {
-        splits.forEach(
-                split -> {
-                    pendingSplit
-                            .computeIfAbsent(
-                                    getSplitOwner(split.splitId(), context.currentParallelism()),
-                                    ignored -> new ArrayList<>())
-                            .add(split);
-                });
+        splits.stream()
+                .sorted(Comparator.comparing(TiDBSourceSplit::splitId))
+                .forEach(
+                        split ->
+                                pendingSplit
+                                        .computeIfAbsent(
+                                                getSplitOwner(
+                                                        assignCount.getAndIncrement(),
+                                                        context.currentParallelism()),
+                                                ignored -> new ArrayList<>())
+                                        .add(split));
+    }
+
+    private synchronized void addPendingSplit(List<TiDBSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, ignored -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -141,8 +154,8 @@ public class TiDBSourceSplitEnumerator
         }
     }
 
-    private static int getSplitOwner(String splitId, int numReaders) {
-        return (splitId.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private List<TiDBSourceSplit> getTiDBSourceSplit() {
@@ -188,7 +201,7 @@ public class TiDBSourceSplitEnumerator
     public void addSplitsBack(List<TiDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to TiDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
+            addPendingSplit(splits, subtaskId);
             if (context.registeredReaders().contains(subtaskId)) {
                 assignSplit(Collections.singletonList(subtaskId));
             } else {
@@ -224,7 +237,7 @@ public class TiDBSourceSplitEnumerator
     @Override
     public TiDBSourceCheckpointState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new TiDBSourceCheckpointState(shouldEnumerate, pendingSplit);
+            return new TiDBSourceCheckpointState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 

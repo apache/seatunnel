@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | 名称                                    | 类型      | 必需 | 默认值            |
 |---------------------------------------|---------|----|----------------|
 | table_name                            | string  | 是  | -              |
-| metastore_uri                         | string  | 是  | -              |
+| metastore_uri                         | string  | 否  | -              |
 | compress_codec                        | string  | 否  | none           |
 | hdfs_site_path                        | string  | 否  | -              |
 | hive_site_path                        | string  | 否  | -              |
@@ -61,6 +61,31 @@ import ChangeLog from '../changelog/connector-hive.md';
 ### metastore_uri [string]
 
 Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
+
+通过 `hive_site_path`、`hive.hadoop.conf-path` 或 `hive.hadoop.conf` 配置 `hive.metastore.client.factory.class` 时，可以省略此选项。如果 URI 和客户端工厂均未配置，SeaTunnel 不会回退到内嵌 metastore。
+
+### AWS Glue Data Catalog
+
+可以通过 Hive 标准的 metastore 客户端工厂使用 AWS Glue Data Catalog：
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.seatunnel_parquet"
+    hive.hadoop.conf = {
+      "hive.metastore.client.factory.class" = "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+      # 跨 AWS 账号访问 Data Catalog 时可配置
+      # "hive.metastore.glue.catalogid" = "123456789012"
+    }
+  }
+}
+```
+
+所有创建或使用 Hive Sink 的 SeaTunnel 进程都必须能够从运行时 classpath 加载 AWS Glue Data Catalog 客户端和兼容的已修补 Hive 运行时。支持 Glue 的 Amazon EMR 发行版包含这些组件，但仍需确保 SeaTunnel 进程能够加载它们。其他部署需要安装相互兼容的 Hive 运行时和 AWS Glue Data Catalog 客户端。
+
+认证使用 AWS SDK 默认凭据提供链。请使用运行环境支持的 IAM Role、Web Identity、容器凭据、实例配置文件、环境变量或共享配置，不要在 SeaTunnel 作业配置中填写访问密钥。
+
+如果无法加载配置的工厂类或其兼容 Hive 类，Sink 初始化会直接失败，不会回退到本地 metastore。
 
 ### hdfs_site_path [string]
 

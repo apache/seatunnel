@@ -50,6 +50,11 @@ public class MaxcomputeUtil {
         if (StringUtils.isNotEmpty(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT))) {
             tableTunnel.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT));
         }
+        if (StringUtils.isNotEmpty(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_NAME))) {
+            tableTunnel
+                    .getConfig()
+                    .setQuotaName(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_NAME));
+        }
         return tableTunnel;
     }
 

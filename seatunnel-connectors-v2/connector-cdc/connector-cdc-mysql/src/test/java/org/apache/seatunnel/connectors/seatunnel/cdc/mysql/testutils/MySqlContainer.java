@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils;
 import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -38,6 +39,8 @@ public class MySqlContainer extends JdbcDatabaseContainer<MySqlContainer> {
     private static final String MY_CNF_CONFIG_OVERRIDE_PARAM_NAME = "MY_CNF";
     private static final String SETUP_SQL_PARAM_NAME = "SETUP_SQL";
     private static final String MYSQL_ROOT_USER = "root";
+    /** File mode that keeps copied init SQL readable for the container entrypoint. */
+    private static final int SETUP_SQL_FILE_MODE = 0644;
 
     private String databaseName = "test";
     private String username = "test";
@@ -63,8 +66,7 @@ public class MySqlContainer extends JdbcDatabaseContainer<MySqlContainer> {
                 MY_CNF_CONFIG_OVERRIDE_PARAM_NAME, "/etc/mysql/", "mysql-default-conf");
 
         if (parameters.containsKey(SETUP_SQL_PARAM_NAME)) {
-            optionallyMapResourceParameterAsVolume(
-                    SETUP_SQL_PARAM_NAME, "/docker-entrypoint-initdb.d/", "N/A");
+            copyResourceToInitDirectory(parameters.get(SETUP_SQL_PARAM_NAME));
         }
 
         addEnv("MYSQL_DATABASE", databaseName);
@@ -159,6 +161,20 @@ public class MySqlContainer extends JdbcDatabaseContainer<MySqlContainer> {
     public MySqlContainer withSetupSQL(String sqlPath) {
         parameters.put(SETUP_SQL_PARAM_NAME, sqlPath);
         return this;
+    }
+
+    /**
+     * Copies the setup SQL into the MySQL init directory with a deterministic readable mode.
+     *
+     * <p>Mounting the classpath resource directly inherits host filesystem semantics, which can
+     * make the init script unreadable on volumes without Unix permissions.
+     */
+    private void copyResourceToInitDirectory(String setupSqlPath) {
+        String targetPath =
+                "/docker-entrypoint-initdb.d/"
+                        + setupSqlPath.substring(setupSqlPath.lastIndexOf('/') + 1);
+        withCopyFileToContainer(
+                MountableFile.forClasspathResource(setupSqlPath, SETUP_SQL_FILE_MODE), targetPath);
     }
 
     @Override

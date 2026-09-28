@@ -71,6 +71,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | time_format                | string  | no       | HH:mm:ss                    |
 | schema                     | config  | no       | -                           |
 | sheet_name                 | string  | no       | -                           |
+| excel_engine               | string  | no       | POI                         |
+| poi_excel_max_file_size    | long    | no       | 52428800                    |
 | xml_row_tag                | string  | no       | -                           |
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
@@ -198,19 +200,35 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
 - `chunk_index`: One-based chunk order in the parsed document
 - `content_hash`: SHA-256 hash of the emitted `text` value
 
+When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 
@@ -226,15 +244,15 @@ The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
-The secret id of Cos file system.
+The secret id of Cos file system. Issue this from the [Tencent Cloud CAM console](https://console.cloud.tencent.com/cam/capi) (SecretId field). For production jobs, prefer a CAM role with a scoped policy (e.g. `QcloudCOSReadOnlyAccess`) and use role-based temporary keys via STS instead of long-lived keys.
 
 ### secret_key [string]
 
-The secret key of Cos file system.
+The secret key of Cos file system. The SecretKey that pairs with `secret_id`. See `secret_id` for the recommended STS-based replacement.
 
 ### region [string]
 
-The region of cos file system.
+The region of cos file system. Use a region that matches your bucket's actual location (for example `ap-guangzhou`, `ap-shanghai`, `ap-chengdu`). Bucket access from a different region still works but incurs cross-region transfer cost and latency.
 
 ### read_columns [list]
 
@@ -320,6 +338,22 @@ Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
 
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
+
 ### xml_row_tag [string]
 
 Only need to be configured when file_format is xml.
@@ -331,6 +365,12 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### csv_use_header_line [boolean]
 

@@ -41,6 +41,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -80,6 +81,38 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("access_key"), ACCESS_KEY);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("secret_key"), SECRET_KEY);
+    }
+
+    @Test
+    public void testLogOnlySensitiveOptionsDoNotChangeDefaultDecryptOptions() {
+        String jaasConfig =
+                "org.apache.kafka.common.security.scram.ScramLoginModule required "
+                        + "username=\"alice\" password=\"plain\";";
+
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("shade.identifier", "base64");
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("plugin_name", "FakeSource");
+        source.put(
+                "username",
+                Base64.getEncoder().encodeToString(USERNAME.getBytes(StandardCharsets.UTF_8)));
+        source.put("sasl.jaas.config", jaasConfig);
+
+        Map<String, Object> sink = new LinkedHashMap<>();
+        sink.put("plugin_name", "Console");
+
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("env", env);
+        configMap.put("source", Arrays.asList(source));
+        configMap.put("sink", Arrays.asList(sink));
+
+        Config config = ConfigShadeUtils.decryptConfig(ConfigFactory.parseMap(configMap));
+
+        Assertions.assertEquals(
+                USERNAME, config.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                jaasConfig, config.getConfigList("source").get(0).getString("sasl.jaas.config"));
     }
 
     @Test

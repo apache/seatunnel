@@ -1,0 +1,41 @@
+{
+  "models": [
+    {
+      "name": "claude-sonnet-4 (bedrock)",
+      "provider": "bedrock",
+      "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+      "fast_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    },
+    {
+      "name": "claude-haiku-4.5 (bedrock)",
+      "provider": "bedrock",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "fast_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    },
+    {
+      "name": "claude-sonnet-4 (anthropic)",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "fast_model": "claude-haiku-4-5-20251001"
+    },
+    {
+      "name": "gpt-4o",
+      "provider": "openai",
+      "model": "gpt-4o",
+      "fast_model": "gpt-4o-mini"
+    },
+    {
+      "name": "gpt-4o-mini",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "fast_model": "gpt-4o-mini"
+    },
+    {
+      "name": "deepseek-chat (openai-compatible)",
+      "provider": "openai",
+      "model": "deepseek-chat",
+      "fast_model": "deepseek-chat",
+      "base_url": "https://api.deepseek.com/v1"
+    }
+  ]
+}

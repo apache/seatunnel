@@ -28,6 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> The PostgreSQL Source connector is a JDBC-based batch connector. It does not tail the PostgreSQL write-ahead log. Use [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) when you need continuous change capture.
 
 > supports query SQL and can achieve projection effect.
 
@@ -97,7 +101,7 @@ Read external data source data through JDBC.
 | split.size                                 | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double     | No       | 0.05            | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | split.even-distribution.factor.upper-bound | Double     | No       | 100             | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
-| split.sample-sharding.threshold            | Int        | No       | 10000           | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
+| split.sample-sharding.threshold            | Int        | No       | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | split.inverse-sampling.rate                | Int        | No       | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | common-options                             |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -306,6 +310,74 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Streaming With Incremental ID Range
+
+The PostgreSQL Source connector is a JDBC-based batch reader. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) for continuous change capture.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    query = "SELECT * FROM orders WHERE id >= ? AND id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### Read With Schema Prefix
+
+PostgreSQL uses `database.schema.table` as the qualified name. When `url` does not include the target database, pass the schema explicitly via `table_path` in the `database.schema.table` form.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_path = "demo.public.orders"
+    split.size = 10000
+  }
+}
+```
+
+### Read With Per-Table Query Override
+
+When tables in `table_list` need different projections or filters, set `query` per entry. SeaTunnel uses the per-item SQL verbatim and skips table metadata lookup for that entry.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_list = [
+      {
+        table_path = "demo.public.orders"
+        query = "select id, status, amount from orders where status = 'PAID'"
+      },
+      {
+        table_path = "demo.public.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
 }
 ```
 

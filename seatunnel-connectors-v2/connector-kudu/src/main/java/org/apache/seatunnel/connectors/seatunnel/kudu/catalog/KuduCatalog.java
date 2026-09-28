@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduClientResource;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
@@ -59,6 +60,7 @@ public class KuduCatalog implements Catalog {
     private final CommonConfig config;
 
     private KuduClient kuduClient;
+    private KuduClientResource kuduClientResource;
 
     private final String defaultDatabase = "default_database";
 
@@ -71,15 +73,23 @@ public class KuduCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        kuduClient = KuduUtil.getKuduClient(config);
+        kuduClientResource = KuduUtil.getKuduClientResource(config);
+        kuduClient = kuduClientResource.getClient();
     }
 
     @Override
     public void close() throws CatalogException {
         try {
-            kuduClient.close();
+            if (kuduClientResource != null) {
+                kuduClientResource.close();
+            } else if (kuduClient != null) {
+                kuduClient.close();
+            }
         } catch (KuduException e) {
             throw new CatalogException("Failed close kudu client", e);
+        } finally {
+            kuduClient = null;
+            kuduClientResource = null;
         }
     }
 

@@ -21,6 +21,7 @@ Supports multiple backends while presenting a unified interface:
   - bedrock  : AWS Bedrock Converse API (Claude models)
   - anthropic: Anthropic Messages API (direct)
   - openai   : OpenAI Chat Completions API
+  - orcarouter: OrcaRouter AI gateway (OpenAI Chat Completions API)
 
 All providers normalize their responses to a common internal format
 so that the agent layer (agents.py) needs no provider-specific code.
@@ -277,6 +278,10 @@ class LLMProvider(abc.ABC):
                     reasoning_text["text"] += event.get("text", "")
                     if event.get("signature"):
                         reasoning_text["signature"] += event["signature"]
+            elif etype == "mantle_responses_item":
+                flush_text()
+                flush_model_state()
+                content.append({"mantleResponsesItem": event.get("item", {})})
             elif etype == "tool_start":
                 flush_text()
                 flush_model_state()
@@ -947,6 +952,365 @@ class OpenAIProvider(LLMProvider):
         return None
 
 
+# ─── Bedrock Mantle Provider (OpenAI Responses API) ───
+
+class BedrockMantleProvider(LLMProvider):
+    """AWS Bedrock 'mantle' endpoint provider for OpenAI-family models.
+
+    Some OpenAI models on Bedrock (e.g. openai.gpt-5.6-terra) are NOT in the
+    foundation-model catalog and reject Converse/InvokeModel/ChatCompletions.
+    They are served only via the OpenAI Responses API on the bedrock-mantle
+    endpoint: https://bedrock-mantle.{region}.api.aws/openai/v1
+
+    Auth uses a short-term bearer token derived from the caller's SigV4
+    credentials (aws-bedrock-token-generator); tokens are refreshed
+    automatically. These models do not accept `temperature` — it is omitted.
+    """
+
+    TOKEN_TTL_SECONDS = 1800  # regenerate well within the 12h token validity
+
+    def __init__(self):
+        try:
+            import openai  # noqa: F401
+            from aws_bedrock_token_generator import provide_token  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "bedrock-mantle provider requires: "
+                "pip install openai aws-bedrock-token-generator"
+            ) from e
+
+        self._region = os.environ.get(
+            "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+        self._model_id = os.environ.get("OPENAI_MODEL", "openai.gpt-5.6-terra")
+        self._fast_model_id = os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id)
+        self._client = None
+        self._token_born = 0.0
+
+    def _get_client(self):
+        """Return an OpenAI client for the bedrock-mantle endpoint.
+
+        Auth uses a short-term bearer token derived from the caller's AWS
+        credentials; the client (and token) is rebuilt after TOKEN_TTL_SECONDS.
+        The base URL must be the model-specific ``openai/v1`` path — the
+        generic ``v1`` path rejects these models (see the GPT-5.6 model card).
+        """
+        import time as _time
+        import openai
+        from aws_bedrock_token_generator import provide_token
+        if self._client is None or _time.monotonic() - self._token_born > self.TOKEN_TTL_SECONDS:
+            token = provide_token(region=self._region)
+            self._client = openai.OpenAI(
+                api_key=token,
+                base_url=f"https://bedrock-mantle.{self._region}.api.aws/openai/v1",
+            )
+            self._token_born = _time.monotonic()
+        return self._client
+
+    @property
+    def provider_name(self) -> str:
+        return "bedrock-mantle"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def fast_model_id(self) -> str:
+        return self._fast_model_id
+
+    # ── format conversion ──
+
+    @staticmethod
+    def _to_responses_input(messages: list[dict]) -> list[dict]:
+        """Convert internal (Converse-shaped) messages to Responses API items."""
+        items: list[dict] = []
+        for msg in messages:
+            role = msg["role"]
+            for block in msg.get("content", []):
+                if "text" in block:
+                    items.append({"role": role, "content": block["text"]})
+                elif "toolUse" in block:
+                    tu = block["toolUse"]
+                    items.append({
+                        "type": "function_call",
+                        "call_id": tu["toolUseId"],
+                        "name": tu["name"],
+                        "arguments": json.dumps(tu.get("input", {})),
+                    })
+                elif "toolResult" in block:
+                    tr = block["toolResult"]
+                    text_parts = [c["text"] for c in tr.get("content", []) if "text" in c]
+                    items.append({
+                        "type": "function_call_output",
+                        "call_id": tr["toolUseId"],
+                        "output": "\n".join(text_parts),
+                    })
+                elif "mantleResponsesItem" in block:
+                    # Opaque Responses API output item (e.g. reasoning)
+                    # captured verbatim from a previous turn; replayed
+                    # in-order so multi-step tool loops keep their context,
+                    # as the AWS tool-calling guide requires.
+                    item = block["mantleResponsesItem"]
+                    if item:
+                        items.append(item)
+        return items
+
+    @staticmethod
+    def _to_responses_tools(tools: list[dict]) -> list[dict]:
+        result = []
+        for tool in tools:
+            spec = tool.get("toolSpec", {})
+            result.append({
+                "type": "function",
+                "name": spec["name"],
+                "description": spec.get("description", ""),
+                "parameters": spec.get("inputSchema", {}).get("json", {}),
+            })
+        return result
+
+    @staticmethod
+    def _dump_item(item) -> dict:
+        """Serialize a Responses output item to a replayable plain dict."""
+        try:
+            return item.model_dump(exclude_none=True)
+        except AttributeError:
+            return dict(item) if isinstance(item, dict) else {}
+
+    @staticmethod
+    def _raise_on_terminal_status(response) -> None:
+        """Fail loudly on non-completed terminal states.
+
+        Bedrock Mantle reports truncation/filtering/model errors in-band via
+        ``status`` + ``incomplete_details``/``error`` rather than transport
+        errors; treating those as success would hand truncated configs to
+        the agent loop as if they were complete.
+        """
+        status = getattr(response, "status", None)
+        if status in (None, "completed"):
+            return
+        detail = ""
+        incomplete = getattr(response, "incomplete_details", None)
+        if incomplete is not None:
+            detail = f" ({getattr(incomplete, 'reason', '') or incomplete})"
+        error = getattr(response, "error", None)
+        if error is not None:
+            detail += f" error: {getattr(error, 'message', '') or error}"
+        raise RuntimeError(
+            f"Bedrock Mantle response ended with status '{status}'{detail}")
+
+    def chat(
+        self,
+        messages: list[dict],
+        system: str = "",
+        model: str | None = None,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        tools: list[dict] | None = None,
+    ) -> dict:
+        """Send a non-streaming Responses API request.
+
+        Requests are sent with ``store=False`` so Bedrock does not retain
+        prompt/response data server-side (its default is 30-day retention).
+        Reasoning output items are preserved verbatim in the returned
+        history so subsequent turns can replay them. Non-``completed``
+        terminal statuses and refusals raise ``RuntimeError`` instead of
+        being returned as an apparently-successful message.
+        """
+        client = self._get_client()
+        kwargs = {
+            "model": model or self._model_id,
+            "input": self._to_responses_input(messages),
+            "max_output_tokens": max_tokens,
+            "store": False,
+        }
+        if system:
+            kwargs["instructions"] = system
+        if tools:
+            kwargs["tools"] = self._to_responses_tools(tools)
+
+        response = client.responses.create(**kwargs)
+        self._raise_on_terminal_status(response)
+
+        content: list[dict] = []
+        has_tool_use = False
+        for item in response.output:
+            itype = getattr(item, "type", "")
+            if itype == "message":
+                for part in getattr(item, "content", []) or []:
+                    if getattr(part, "type", "") == "refusal":
+                        refusal = getattr(part, "refusal", "") or ""
+                        raise RuntimeError(
+                            f"Bedrock Mantle model refused the request: {refusal}")
+                    text = getattr(part, "text", None)
+                    if text:
+                        content.append({"text": text})
+            elif itype == "function_call":
+                has_tool_use = True
+                try:
+                    parsed = json.loads(item.arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    parsed = {}
+                content.append({
+                    "toolUse": {
+                        "toolUseId": item.call_id,
+                        "name": item.name,
+                        "input": parsed,
+                    }
+                })
+            elif itype == "reasoning":
+                content.append({
+                    "mantleResponsesItem": self._dump_item(item),
+                })
+
+        return {
+            "output": {"message": {"role": "assistant", "content": content}},
+            "stopReason": "tool_use" if has_tool_use else "end_turn",
+        }
+
+    def chat_stream(
+        self,
+        messages: list[dict],
+        system: str = "",
+        model: str | None = None,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        tools: list[dict] | None = None,
+    ) -> Generator[dict, None, None]:
+        """Stream a Responses API request as internal events.
+
+        Same contracts as :meth:`chat`: ``store=False`` on every request,
+        reasoning output items forwarded for replay, and terminal
+        failed/incomplete/error events raised as ``RuntimeError`` rather
+        than silently ending the stream (collect_stream would otherwise
+        default the missing stop to a successful ``end_turn``).
+        """
+        client = self._get_client()
+        kwargs = {
+            "model": model or self._model_id,
+            "input": self._to_responses_input(messages),
+            "max_output_tokens": max_tokens,
+            "store": False,
+            "stream": True,
+        }
+        if system:
+            kwargs["instructions"] = system
+        if tools:
+            kwargs["tools"] = self._to_responses_tools(tools)
+
+        stream = client.responses.create(**kwargs)
+        current_tool_id = None
+        saw_tool_use = False
+        for event in stream:
+            etype = getattr(event, "type", "")
+            if etype == "response.output_text.delta":
+                yield {"type": "text_delta", "text": getattr(event, "delta", "")}
+            elif etype == "response.output_item.added":
+                item = getattr(event, "item", None)
+                if item is not None and getattr(item, "type", "") == "function_call":
+                    saw_tool_use = True
+                    current_tool_id = getattr(item, "call_id", "") or ""
+                    yield {
+                        "type": "tool_start",
+                        "tool_use_id": current_tool_id,
+                        "name": getattr(item, "name", "") or "",
+                    }
+            elif etype == "response.function_call_arguments.delta":
+                yield {
+                    "type": "tool_input_delta",
+                    "tool_use_id": current_tool_id or "",
+                    "delta": getattr(event, "delta", ""),
+                }
+            elif etype == "response.output_item.done":
+                item = getattr(event, "item", None)
+                item_type = getattr(item, "type", "") if item is not None else ""
+                if item_type == "function_call" and current_tool_id:
+                    yield {"type": "tool_stop", "tool_use_id": current_tool_id}
+                    current_tool_id = None
+                elif item_type == "reasoning":
+                    yield {
+                        "type": "mantle_responses_item",
+                        "item": self._dump_item(item),
+                    }
+            elif etype == "response.refusal.done":
+                refusal = getattr(event, "refusal", "") or ""
+                raise RuntimeError(
+                    f"Bedrock Mantle model refused the request: {refusal}")
+            elif etype in ("response.failed", "response.incomplete",
+                           "response.error", "error"):
+                resp = getattr(event, "response", None)
+                self._raise_on_terminal_status(resp) if resp is not None \
+                    else None
+                message = getattr(event, "message", "") or etype
+                raise RuntimeError(
+                    f"Bedrock Mantle stream ended abnormally: {message}")
+            elif etype == "response.completed":
+                self._raise_on_terminal_status(getattr(event, "response", None))
+                yield {
+                    "type": "message_stop",
+                    "stop_reason": "tool_use" if saw_tool_use else "end_turn",
+                }
+
+
+# ─── OrcaRouter Provider ───
+
+class OrcaRouterProvider(OpenAIProvider):
+    """OrcaRouter AI gateway provider (OpenAI Chat Completions API).
+
+    OrcaRouter is an OpenAI-compatible gateway that exposes many models (and
+    provider/model routing namespaces) behind one endpoint. Models are
+    addressed as ``provider/model``, e.g. ``orcarouter/auto`` routes and
+    grades automatically. Defaults to the ``orcarouter/auto`` model, which
+    automatically selects the best model for each request.
+
+    Since OrcaRouter speaks the OpenAI Chat Completions protocol, this
+    provider mirrors :class:`OpenAIProvider` and only customizes the base
+    URL, the API key environment variable, and the default model.
+    """
+
+    #: OrcaRouter's OpenAI-compatible base URL.
+    DEFAULT_BASE_URL = "https://api.orcarouter.ai/v1"
+    #: Default model: auto-routes to the best model for the request.
+    DEFAULT_MODEL = "orcarouter/auto"
+
+    def __init__(self):
+        try:
+            import openai
+        except ImportError:
+            raise ImportError(
+                "openai package required for AI_PROVIDER=orcarouter. "
+                "Install it: pip install openai"
+            )
+
+        api_key = os.environ.get("ORCAROUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "ORCAROUTER_API_KEY environment variable is required for "
+                "AI_PROVIDER=orcarouter"
+            )
+
+        self._model_id = os.environ.get(
+            "ORCAROUTER_MODEL",
+            os.environ.get("OPENAI_MODEL", self.DEFAULT_MODEL))
+        self._fast_model_id = os.environ.get(
+            "ORCAROUTER_SMALL_FAST_MODEL",
+            os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id))
+        self._client = openai.OpenAI(api_key=api_key, base_url=self.DEFAULT_BASE_URL)
+        self._echo_reasoning_content = _env_bool(
+            "ORCAROUTER_ECHO_REASONING_CONTENT", True)
+
+    @property
+    def provider_name(self) -> str:
+        return "orcarouter"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def fast_model_id(self) -> str:
+        return self._fast_model_id
+
+
 # ─── Config file ───
 
 
@@ -983,11 +1347,15 @@ def _auto_detect_provider() -> str | None:
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
 
-    # 2. OpenAI API key
+    # 2. OrcaRouter gateway key
+    if os.environ.get("ORCAROUTER_API_KEY"):
+        return "orcarouter"
+
+    # 3. OpenAI API key
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
 
-    # 3. AWS credentials (for Bedrock)
+    # 4. AWS credentials (for Bedrock)
     if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
         return "bedrock"
     try:
@@ -1006,8 +1374,10 @@ def _auto_detect_provider() -> str | None:
 
 _PROVIDERS = {
     "bedrock": BedrockProvider,
+    "bedrock-mantle": BedrockMantleProvider,
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
+    "orcarouter": OrcaRouterProvider,
 }
 
 
@@ -1050,16 +1420,22 @@ def create_provider(provider: str | None = None) -> LLMProvider:
     # Apply model overrides from config file
     if name and "models" in config:
         model_config = config["models"].get(name, {})
-        if model_config.get("model") and not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
-            if name == "openai":
-                os.environ.setdefault("OPENAI_MODEL", model_config["model"])
-            else:
-                os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
-        if model_config.get("fast_model") and not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
-            if name == "openai":
-                os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
-            else:
-                os.environ.setdefault("ANTHROPIC_SMALL_FAST_MODEL", model_config["fast_model"])
+        if model_config.get("model"):
+            if name == "orcarouter":
+                os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
+            elif not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
+                if name in ("openai", "bedrock-mantle"):
+                    os.environ.setdefault("OPENAI_MODEL", model_config["model"])
+                else:
+                    os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
+        if model_config.get("fast_model"):
+            if name == "orcarouter":
+                os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
+            elif not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
+                if name in ("openai", "bedrock-mantle"):
+                    os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
+                else:
+                    os.environ.setdefault("ANTHROPIC_SMALL_FAST_MODEL", model_config["fast_model"])
 
     # 4. Auto-detect
     if not name:

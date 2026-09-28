@@ -4,9 +4,15 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 > Cos 文件接收器连接器
 
+## 支持这些引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
-将数据输出到腾讯云 COS 文件系统。
+将数据输出到腾讯云 COS（云对象存储）文件系统。
 
 :::提示
 
@@ -45,40 +51,41 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 | 名称                                    | 类型      | 必需 | 默认值                                        | 描述                                                              |
 |---------------------------------------|---------|----|--------------------------------------------|-----------------------------------------------------------------|
-| path                                  | string  | 是  | -                                          |                                                                 |
-| tmp_path                              | string  | 否  | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用“mv”将tmp目录提交到目标目录。需要一个COS目录.                 |
-| bucket                                | string  | 是  | -                                          |                                                                 |
-| secret_id                             | string  | 是  | -                                          |                                                                 |
-| secret_key                            | string  | 是  | -                                          |                                                                 |
-| region                                | string  | 是  | -                                          |                                                                 |
-| custom_filename                       | boolean | 否  | false                                      | 是否需要自定义文件名                                                      |
-| file_name_expression                  | string  | 否  | "${transactionId}"                         | 仅在custom_filename为true时使用                                       |
-| filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                       |
-| file_format_type                      | string  | 否  | "csv"                                      |                                                                 |
-| filename_extension                    | string  | 否  | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
-| field_delimiter                       | string  | 否  | '\001'                                     | 仅在file_format为text时使用                                           |
-| row_delimiter                         | string  | 否  | "\n"                                       | 仅在file_format为 `text`、`csv`、`json` 时使用                          |
-| have_partition                        | boolean | 否  | false                                      | 是否需要处理分区.                                                       |
-| partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                                      |
-| partition_dir_expression              | string  | 否  | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                                      |
-| is_partition_field_write_in_file      | boolean | 否  | false                                      | 只有在have_partition为true时才使用                                      |
-| sink_columns                          | array   | 否  |                                            | 当此参数为空时，所有字段都是接收列                                               |
-| is_enable_transaction                 | boolean | 否  | true                                       |                                                                 |
-| batch_size                            | int     | 否  | 1000000                                    |                                                                 |
-| compress_codec                        | string  | 否  | none                                       |                                                                 |
-| common-options                        | object  | 否  | -                                          |                                                                 |
-| max_rows_in_memory                    | int     | 否  | -                                          | 仅在file_format为excel时使用.                                         |
-| sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅在file_format为excel时使用.                                         |
-| csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用.                                           |
-| xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用.                                           |
-| xml_row_tag                           | string  | 否  | RECORD                                     | 仅在file_format为xml时使用.                                           |
-| xml_use_attr_format                   | boolean | 否  | -                                          | 仅在file_format为xml时使用.                                           |
-| single_file_mode                      | boolean | 否  | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀.             |
-| create_empty_file_when_no_data        | boolean | 否  | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件.                                        |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false                                      | 仅在file_format为parquet时使用.                                       |
-| parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅在file_format为parquet时使用.                                       |
-| encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                        |
-| merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.       |
+| path                                  | string  | 是  | -                                          | Sink 写入 COS 桶内的目标目录。配合 `bucket`，实际路径为 `cosn://<bucket><path>`。                                                                       |
+| tmp_path                              | string  | 否  | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用“mv”将tmp目录提交到目标目录。需要一个COS目录.                                                              |
+| bucket                                | string  | 是  | -                                          | COS 文件系统的桶地址，例如 `cosn://seatunnel-test-1259587829`。                                                                                |
+| secret_id                             | string  | 是  | -                                          | 腾讯云 COS 的 SecretId。                                                                                                            |
+| secret_key                            | string  | 是  | -                                          | 腾讯云 COS 的 SecretKey。                                                                                                          |
+| region                                | string  | 是  | -                                          | COS 桶所在地域，例如 `ap-chengdu`。                                                                                                  |
+| custom_filename                       | boolean | 否  | false                                      | 是否需要自定义文件名                                                                                                                    |
+| file_name_expression                  | string  | 否  | "${transactionId}"                         | 仅在custom_filename为true时使用                                                                                                    |
+| filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                    |
+| file_format_type                      | string  | 否  | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`。                                       |
+| filename_extension                    | string  | 否  | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype`                                                                  |
+| field_delimiter                       | string  | 否  | '\001'                                     | 仅在file_format为text时使用                                                                                                          |
+| row_delimiter                         | string  | 否  | "\n"                                       | 仅在file_format为 `text`、`csv`、`json` 时使用                                                                                       |
+| have_partition                        | boolean | 否  | false                                      | 是否需要处理分区.                                                                                                                       |
+| partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                                                                                                    |
+| partition_dir_expression              | string  | 否  | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                                                                                                    |
+| is_partition_field_write_in_file      | boolean | 否  | false                                      | 只有在have_partition为true时才使用                                                                                                    |
+| sink_columns                          | array   | 否  |                                            | 当此参数为空时，所有字段都是接收列                                                                                                            |
+| is_enable_transaction                 | boolean | 否  | true                                       | 若为 `true`，写入目标目录的数据不会丢失或重复；当为 `true` 时，会自动在文件名前缀添加 `${transactionId}_`。                                                                   |
+| batch_size                            | int     | 否  | 1000000                                    | 单个文件的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。                                                            |
+| compress_codec                        | string  | 否  | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。                                                                                                |
+| common-options                        | object  | 否  | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情。                                                     |
+| max_rows_in_memory                    | int     | 否  | -                                          | 仅在file_format为excel时使用.                                                                                                       |
+| sheet_max_rows                         | int     | 否  | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。                                                                |
+| sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅在file_format为excel时使用.                                                                                                       |
+| csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用.                                                                                                         |
+| xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用.                                                                                                         |
+| xml_row_tag                           | string  | 否  | RECORD                                     | 仅在file_format为xml时使用.                                                                                                         |
+| xml_use_attr_format                   | boolean | 否  | -                                          | 仅在file_format为xml时使用.                                                                                                         |
+| single_file_mode                      | boolean | 否  | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀.                                                                |
+| create_empty_file_when_no_data        | boolean | 否  | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件.                                                                                                       |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false                                      | 仅在file_format为parquet时使用.                                                                                                     |
+| parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅在file_format为parquet时使用.                                                                                                     |
+| encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                                                                                    |
+| merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                        |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### path [string]
@@ -206,6 +213,10 @@ Tips: excel 类型不支持任何压缩格式
 ### max_rows_in_memory [int]
 
 当文件格式为Excel时，内存中可以缓存的最大数据项数.
+
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 

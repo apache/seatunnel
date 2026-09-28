@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将 SeaTunnel 数据写入阿里云 Tablestore。
@@ -14,6 +20,16 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 数据类型映射
+
+| SeaTunnel 类型                         | Tablestore 普通属性列类型 | Tablestore 主键列类型 |
+|----------------------------------------|---------------------------|-----------------------|
+| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                 | `INTEGER`             |
+| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                  | `STRING`              |
+| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                  | `STRING`              |
+| `BOOLEAN`                              | `BOOLEAN`                 | `STRING`              |
+| `BYTES`                                | `BINARY`                  | `BINARY`              |
 
 ## 选项
 
@@ -31,6 +47,7 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 ## 使用说明
 
+- `end_point`、`instance_name`、`access_key_id`、`access_key_secret` 和 `table` 不能为空白，`primary_keys` 至少需要包含一个元素。缺失、为空或仅包含空白字符的值会在配置校验阶段被拒绝，不会建立任何连接。
 - `primary_keys` 可以包含一个或多个主键字段。这些字段会写为 Tablestore 主键列，其余字段会写为普通属性列。
 - Sink 使用 Tablestore `RowPutChange` 写入，并使用 `RowExistenceExpectation.IGNORE`。当上游发送 `DELETE` 类型数据时，当前 Sink 不会删除 Tablestore 中的行。
 - `batch_size` 控制缓存多少行后刷新；任务关闭时，写入器也会刷新剩余数据。
@@ -88,16 +105,6 @@ sink {
   }
 }
 ```
-
-## 类型映射
-
-| SeaTunnel 类型                         | Tablestore 普通属性列类型 | Tablestore 主键列类型 |
-|----------------------------------------|---------------------------|-----------------------|
-| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                 | `INTEGER`             |
-| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                  | `STRING`              |
-| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                  | `STRING`              |
-| `BOOLEAN`                              | `BOOLEAN`                 | `STRING`              |
-| `BYTES`                                | `BINARY`                  | `BINARY`              |
 
 ## 变更日志
 

@@ -42,6 +42,15 @@ import java.util.List;
 @Slf4j
 public class DamengCatalog extends AbstractJdbcCatalog {
 
+    /** Sink {@code table_options} key for Dameng table tablespace ({@code STORAGE (ON ...)}). */
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+
+    /**
+     * Sink {@code table_options} key for Dameng page fill factor ({@code STORAGE (FILLFACTOR
+     * ...)}).
+     */
+    public static final String TABLE_OPTION_FILLFACTOR = "fillfactor";
+
     private static final String SELECT_COLUMNS_SQL =
             "SELECT COLUMNS.COLUMN_NAME, COLUMNS.DATA_TYPE, COLUMNS.DATA_LENGTH, COLUMNS.DATA_PRECISION, COLUMNS.DATA_SCALE "
                     + ", COLUMNS.NULLABLE, COLUMNS.DATA_DEFAULT, COMMENTS.COMMENTS ,"

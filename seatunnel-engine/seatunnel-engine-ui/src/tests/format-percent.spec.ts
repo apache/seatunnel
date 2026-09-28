@@ -39,4 +39,3 @@ test("format invalid ratio as empty string", () => {
   expect(formatPercentFromRatio(null)).toBe("")
   expect(formatPercentFromRatio("NaN")).toBe("")
 })
-

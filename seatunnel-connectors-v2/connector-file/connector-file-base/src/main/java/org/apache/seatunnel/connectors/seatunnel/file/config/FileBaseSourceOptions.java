@@ -28,6 +28,7 @@ import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final long DEFAULT_POI_EXCEL_MAX_FILE_SIZE = 50L * 1024L * 1024L;
 
     public static final Option<FileDiscoveryMode> DISCOVERY_MODE =
             Options.key("discovery_mode")
@@ -116,11 +117,26 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                             "Whether to append RAG-oriented metadata columns when reading markdown files. "
                                     + "Only valid when file_format_type is markdown.");
 
+    public static final Option<Boolean> PDF_RAG_METADATA_ENABLED =
+            Options.key("pdf_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading PDF files. "
+                                    + "Only valid when file_format_type is pdf.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
                     .defaultValue(ExcelEngine.POI)
-                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
+                    .withDescription("To switch excel read engine, e.g. POI, EasyExcel");
+
+    public static final Option<Long> POI_EXCEL_MAX_FILE_SIZE =
+            Options.key("poi_excel_max_file_size")
+                    .longType()
+                    .defaultValue(DEFAULT_POI_EXCEL_MAX_FILE_SIZE)
+                    .withDescription(
+                            "Maximum Excel file size in bytes allowed by POI engine. Use EasyExcel for larger Excel files.");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")
@@ -229,6 +245,50 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                                     + "sync_mode=update comparison from point lookups to one directory listing. "
                                     + "The default 0 disables automatic bulk listing for non-FTP/SFTP targets; "
                                     + "positive values enable it.");
+
+    public static final Option<FilePostSyncAction> POST_SYNC_ACTION =
+            Options.key("post_sync_action")
+                    .singleChoice(
+                            FilePostSyncAction.class,
+                            Arrays.asList(
+                                    FilePostSyncAction.NONE,
+                                    FilePostSyncAction.DELETE,
+                                    FilePostSyncAction.BACKUP))
+                    .defaultValue(FilePostSyncAction.NONE)
+                    .withDescription(
+                            "Post-sync action after successful processing in discovery_mode=continuous. "
+                                    + "Supported values: none (default), delete, backup. "
+                                    + "The default none preserves existing behavior and performs no source-side file operation.");
+
+    public static final Option<String> BACKUP_PATH =
+            Options.key("backup_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Backup base path for post_sync_action=backup. "
+                                    + "Used as the destination path when moving processed source files. "
+                                    + "It must not overlap with path.");
+
+    public static final Option<Duration> RETENTION_MAX_AGE =
+            Options.key("retention_max_age")
+                    .durationType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum age for SeaTunnel backup files in backup_path before cleanup. "
+                                    + "Only valid when post_sync_action=backup. "
+                                    + "Duration suffixes are case-insensitive: MS (milliseconds), S (seconds), M (minutes), H (hours), D (days). "
+                                    + "M always means minutes, never months. ISO-8601 durations like PT1H30M are also supported. "
+                                    + "Invalid values (e.g., PT7D, P1M) fail config validation with an error.");
+
+    public static final Option<Duration> RETENTION_CHECK_INTERVAL =
+            Options.key("retention_check_interval")
+                    .durationType()
+                    .defaultValue(Duration.ofHours(1))
+                    .withDescription(
+                            "Retention scan interval for backup cleanup. "
+                                    + "Only effective when post_sync_action=backup and retention_max_age is configured. "
+                                    + "Duration suffixes are case-insensitive: MS, S, M, H, D. "
+                                    + "M always means minutes, never months. Invalid values fail config validation.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()
