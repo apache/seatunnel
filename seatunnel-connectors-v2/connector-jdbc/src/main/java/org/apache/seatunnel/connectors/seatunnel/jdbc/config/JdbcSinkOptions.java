@@ -135,6 +135,15 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                             "Stage DuckLake rows in a DuckDB temporary table and insert each batch"
                                     + " into the lake with one statement");
 
+    public static final Option<Boolean> DUCKLAKE_BULK_WRITE_IGNORE_INHERITED_KEYS =
+            Options.key("ducklake_bulk_write_ignore_inherited_keys")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Ignore primary and unique keys inherited from the source schema for"
+                                    + " insert-only DuckLake bulk writes; explicit primary_keys remain"
+                                    + " unsupported and no uniqueness is enforced");
+
     public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
             Options.key("oracle_insert_mode")
                     .enumType(JdbcSinkConfig.OracleInsertMode.class)

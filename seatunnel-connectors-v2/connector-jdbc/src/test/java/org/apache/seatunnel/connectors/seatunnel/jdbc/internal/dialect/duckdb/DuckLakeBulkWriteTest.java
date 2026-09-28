@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 
@@ -126,9 +129,12 @@ public class DuckLakeBulkWriteTest {
                     new DuckLakeBulkStatementExecutor(
                             "main", "events", schema(), new DuckDBJdbcRowConverter());
             executor.prepareStatements(connection);
-            SeaTunnelRow update = new SeaTunnelRow(new Object[] {0, "not-insert"});
-            update.setRowKind(RowKind.UPDATE_AFTER);
-            Assertions.assertThrows(SQLException.class, () -> executor.addToBatch(update));
+            for (RowKind kind :
+                    new RowKind[] {RowKind.UPDATE_BEFORE, RowKind.UPDATE_AFTER, RowKind.DELETE}) {
+                SeaTunnelRow update = new SeaTunnelRow(new Object[] {0, "not-insert"});
+                update.setRowKind(kind);
+                Assertions.assertThrows(SQLException.class, () -> executor.addToBatch(update));
+            }
 
             executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
             executor.addToBatch(new SeaTunnelRow(new Object[] {2, "invalid"}));
@@ -309,6 +315,102 @@ public class DuckLakeBulkWriteTest {
             Assertions.assertTrue(result.next());
             Assertions.assertEquals(100, result.getInt(1));
             Assertions.assertEquals(100, result.getInt(2));
+        }
+    }
+
+    @Test
+    void inheritedPrimaryKeyCanBeIgnoredForInsertOnlyLakeWrites() throws Exception {
+        String duckLakeExtension = System.getProperty("ducklake.extension");
+        String sqliteExtension = System.getProperty("sqlite.scanner.extension");
+        Assumptions.assumeTrue(duckLakeExtension != null && sqliteExtension != null);
+        Path init = tempDir.resolve("keyed-init.sql");
+        Files.write(
+                init,
+                ("/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */\nLOAD '"
+                                + sqliteExtension.replace("'", "''")
+                                + "';\nLOAD '"
+                                + duckLakeExtension.replace("'", "''")
+                                + "';\nATTACH IF NOT EXISTS 'ducklake:sqlite:"
+                                + tempDir.resolve("keyed.sqlite")
+                                + "' AS lake (DATA_PATH '"
+                                + tempDir.resolve("keyed-data")
+                                + "');\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        String url = "jdbc:duckdb:;session_init_sql_file=" + init;
+        try (Connection connection = new DuckDBDriver().connect(url, new Properties());
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE lake.main.keyed (id INTEGER, val VARCHAR)");
+        }
+        PrimaryKey key = PrimaryKey.of("source_pk", Collections.singletonList("id"));
+        CatalogTable input =
+                CatalogTable.of(
+                        TableIdentifier.of("postgres", "upstream", "ingest", "events"),
+                        TableSchema.builder()
+                                .columns(schema().getColumns())
+                                .primaryKey(key)
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        null);
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", url);
+        options.put("driver", "org.duckdb.DuckDBDriver");
+        options.put("database", "lake");
+        options.put("table", "main.keyed");
+        options.put("generate_sink_sql", true);
+        options.put("ducklake_bulk_write", true);
+        options.put("schema_save_mode", "IGNORE");
+        options.put("data_save_mode", "APPEND_DATA");
+        options.put("batch_size", 100);
+        JdbcSinkFactory factory = new JdbcSinkFactory();
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        factory.createSink(
+                                new TableSinkFactoryContext(
+                                        input,
+                                        ReadonlyConfig.fromMap(options),
+                                        getClass().getClassLoader())));
+        options.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(new SeaTunnelRow(new Object[] {7, "first"}));
+        rows.add(new SeaTunnelRow(new Object[] {7, "replayed"}));
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                input, ReadonlyConfig.fromMap(options), factory, rows);
+        // The opt-out is append-only: it does not enforce the upstream key or deduplicate replay.
+        try (Connection connection = new DuckDBDriver().connect(url, new Properties());
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT COUNT(*), COUNT(DISTINCT id) FROM lake.main.keyed")) {
+            Assertions.assertTrue(result.next());
+            Assertions.assertEquals(2, result.getInt(1));
+            Assertions.assertEquals(1, result.getInt(2));
+        }
+        Assertions.assertSame(key, input.getTableSchema().getPrimaryKey());
+        Assertions.assertFalse(input.getOptions().containsKey("fieldIde"));
+        for (RowKind kind :
+                new RowKind[] {RowKind.UPDATE_BEFORE, RowKind.UPDATE_AFTER, RowKind.DELETE}) {
+            SeaTunnelRow change = new SeaTunnelRow(new Object[] {7, "not-insert"});
+            change.setRowKind(kind);
+            JdbcConnectorException failure =
+                    Assertions.assertThrows(
+                            JdbcConnectorException.class,
+                            () ->
+                                    SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                                            input,
+                                            ReadonlyConfig.fromMap(options),
+                                            factory,
+                                            Collections.singletonList(change)));
+            Assertions.assertTrue(failure.getCause() instanceof SQLException);
+            Assertions.assertEquals("0A000", ((SQLException) failure.getCause()).getSQLState());
+            Assertions.assertTrue(failure.getCause().getMessage().contains(kind.toString()));
+        }
+        try (Connection connection = new DuckDBDriver().connect(url, new Properties());
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM lake.main.keyed")) {
+            Assertions.assertTrue(result.next());
+            Assertions.assertEquals(2, result.getInt(1));
         }
     }
 

@@ -85,6 +85,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        validateDuckLakeIgnoreInheritedKeys(config);
         Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
@@ -107,6 +108,32 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         catalogTable.getPartitionKeys(),
                         catalogTable.getComment(),
                         catalogTable.getCatalogName());
+
+        if (config.get(JdbcSinkOptions.DUCKLAKE_BULK_WRITE_IGNORE_INHERITED_KEYS)
+                && CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
+            // Remove keys only from the Sink copy; source metadata remains available to other
+            // sinks.
+            TableSchema sourceSchema = catalogTable.getTableSchema();
+            catalogTable =
+                    CatalogTable.of(
+                            catalogTable.getTableId(),
+                            TableSchema.builder()
+                                    .columns(sourceSchema.getColumns())
+                                    .constraintKey(
+                                            sourceSchema.getConstraintKeys().stream()
+                                                    .filter(
+                                                            key ->
+                                                                    key.getConstraintType()
+                                                                            != ConstraintKey
+                                                                                    .ConstraintType
+                                                                                    .UNIQUE_KEY)
+                                                    .collect(Collectors.toList()))
+                                    .build(),
+                            new HashMap<>(catalogTable.getOptions()),
+                            catalogTable.getPartitionKeys(),
+                            catalogTable.getComment(),
+                            catalogTable.getCatalogName());
+        }
 
         Map<String, String> map = config.toMap();
         if (catalogTable.getTableId().getSchemaName() != null) {
@@ -169,7 +196,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                 && sinkConfig.getPrimaryKeys() != null
                 && !sinkConfig.getPrimaryKeys().isEmpty()) {
             throw new OptionValidationException(
-                    "ducklake_bulk_write only supports insert-only tables without primary_keys.");
+                    "ducklake_bulk_write does not support primary_keys. To ignore only inherited"
+                            + " source keys, set ducklake_bulk_write_ignore_inherited_keys=true.");
         }
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         catalogTable.getOptions().putAll(sinkTableOptions);
@@ -232,6 +260,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
+                        JdbcSinkOptions.DUCKLAKE_BULK_WRITE_IGNORE_INHERITED_KEYS,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
@@ -505,6 +534,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         @Override
         public boolean evaluate(ReadonlyConfig config, Boolean value)
                 throws OptionValidationException {
+            validateDuckLakeIgnoreInheritedKeys(config);
             if (!Boolean.TRUE.equals(value)) {
                 return true;
             }
@@ -537,6 +567,14 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                 + " COPY, upsert, max_retries>0, or batch_size<=0.");
             }
             return true;
+        }
+    }
+
+    private static void validateDuckLakeIgnoreInheritedKeys(ReadonlyConfig config) {
+        if (config.get(JdbcSinkOptions.DUCKLAKE_BULK_WRITE_IGNORE_INHERITED_KEYS)
+                && !config.get(JdbcSinkOptions.DUCKLAKE_BULK_WRITE)) {
+            throw new OptionValidationException(
+                    "ducklake_bulk_write_ignore_inherited_keys requires ducklake_bulk_write=true.");
         }
     }
 }

@@ -79,6 +79,7 @@ database. DuckDB JDBC 1.3.1 does not provide an XA datasource; do not configure
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit a failed `executeBatch` call.                                                                                                                                                                                  |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
 | ducklake_bulk_write                       | Boolean | No       | false                        | For an existing DuckLake table, stage each batch in a DuckDB temporary table and write it to the lake with one `INSERT ... SELECT`. See below.                                                                                                  |
+| ducklake_bulk_write_ignore_inherited_keys | Boolean | No | false | Ignore only source PK/UNIQUE metadata for insert-only bulk append. Requires ducklake_bulk_write=true; explicit primary_keys remain unsupported. |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which uses XA transactions. When enabled, you must also set `xa_data_source_class_name`.                                                                                                              |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
 | xa_data_source_class_name                 | String  | No       | -                            | XA datasource class name, if the selected driver supplies one. DuckDB JDBC 1.3.1 does not supply one.                                                                                                                                         |
@@ -142,15 +143,20 @@ sink {
 }
 ```
 
-This mode accepts INSERT rows only. It does not support `query`, primary keys/upserts, COPY, XA,
+This mode accepts INSERT rows only. It does not support `query`, explicit `primary_keys`, upserts, COPY, XA,
 automatic table creation, or JDBC batch retries. Each successful flush commits one lake insert;
 replaying a job after an uncertain commit can still duplicate rows. The number of Parquet files
 also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
 general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
 
-This mode writes one configured target table and does not support multi-table
-routing. A primary key or UNIQUE key inherited from the upstream table is also rejected, even
-when `primary_keys` is omitted; disabling `enable_upsert` does not remove the inherited key.
+This mode writes one configured target table and does not support multi-table routing.
+Primary or UNIQUE keys inherited from an upstream table cause rejection by default.
+For an insert-only batch source such as PostgreSQL, explicitly set
+`ducklake_bulk_write_ignore_inherited_keys = true` to ignore these keys in the Sink schema
+while retaining source metadata. The target table must already exist without enforced keys.
+Explicit `primary_keys` remain unsupported. This opt-out does not enable upsert, enforce
+uniqueness, or deduplicate replay; UPDATE and DELETE rows are still rejected. Disabling
+`enable_upsert` alone does not remove inherited keys.
 
 Choose `batch_size` for the row width and worker memory budget. For small rows, a larger batch
 than the default 1000 can reduce small files, but rows occupy both the Java buffer and the DuckDB

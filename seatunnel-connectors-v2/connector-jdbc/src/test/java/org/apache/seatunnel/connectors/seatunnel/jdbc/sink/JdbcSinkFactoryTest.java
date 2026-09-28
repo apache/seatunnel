@@ -145,6 +145,63 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> factory.createSink(context));
     }
 
+    @Test
+    void testDuckLakeBulkWriteCanExplicitlyIgnoreInheritedPrimaryKey() {
+        CatalogTable table = createCatalogTable(true);
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table, ReadonlyConfig.fromMap(cfg), getClass().getClassLoader());
+        Assertions.assertDoesNotThrow(() -> factory.createSink(context).createSink());
+        Assertions.assertNotNull(table.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                table.getTableSchema().getPrimaryKey().getColumnNames());
+        Assertions.assertFalse(table.getOptions().containsKey("fieldIde"));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteCanExplicitlyIgnoreInheritedUniqueKey() {
+        CatalogTable table = createCatalogTable(false);
+        ConstraintKey unique =
+                ConstraintKey.of(
+                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                        "unique_id",
+                        Collections.singletonList(
+                                ConstraintKey.ConstraintKeyColumn.of(
+                                        "id", ConstraintKey.ColumnSortType.ASC)));
+        table.getTableSchema().getConstraintKeys().add(unique);
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table, ReadonlyConfig.fromMap(cfg), getClass().getClassLoader());
+        Assertions.assertDoesNotThrow(() -> factory.createSink(context).createSink());
+        Assertions.assertEquals(
+                Collections.singletonList(unique), table.getTableSchema().getConstraintKeys());
+        Assertions.assertFalse(table.getOptions().containsKey("fieldIde"));
+    }
+
+    @Test
+    void testIgnoringInheritedKeysRequiresDuckLakeBulkWrite() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write", false);
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    @Test
+    void testIgnoringInheritedKeysDoesNotIgnoreConfiguredPrimaryKeys() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("ducklake_bulk_write_ignore_inherited_keys", true);
+        cfg.put("primary_keys", Collections.singletonList("id"));
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
     private Map<String, Object> duckLakeBulkConfig() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:duckdb:");
