@@ -122,6 +122,10 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                         MountableFile.forClasspathResource("jdbc_mysql_json_params.conf"),
                         "/tmp/jdbc_mysql_json_params.conf");
 
+                container.copyFileToContainer(
+                        MountableFile.forClasspathResource("jdbc_mysql_plugin_json_params.conf"),
+                        "/tmp/jdbc_mysql_plugin_json_params.conf");
+
                 Assertions.assertEquals(
                         0,
                         result.getExitCode(),
@@ -214,6 +218,32 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                 0,
                 result.getExitCode(),
                 "plain json or nested json or nested array value from -i variables assertion failed:\n"
+                        + result.getStderr());
+    }
+
+    @TestTemplate
+    public void testJsonParamsAtPluginNodeNotSupported(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        variables.add("-c /tmp/jdbc_mysql_plugin_json_params.conf");
+        variables.add(
+                "-i 'mysql_host="
+                        + MYSQL_HOST
+                        + ",mysql_port=3306"
+                        + ",mysql_db="
+                        + MYSQL_DATABASE
+                        + "'");
+        variables.add("-i mysql_password=" + MYSQL_PASSWORD);
+        variables.add(
+                "-i table_filter='{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"table_filter\",\"include_fields\":[movie_id,unix_time]}'");
+
+        Container.ExecResult result =
+                container.executeBaseCommand(variables.toArray(new String[0]));
+
+        Assertions.assertEquals(
+                1,
+                result.getExitCode(),
+                "json param for plugin node from -i variables not supported:\n"
                         + result.getStderr());
     }
 
