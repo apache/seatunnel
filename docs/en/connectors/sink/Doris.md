@@ -53,6 +53,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
 | sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
+| sink.visibility-timeout-ms     | long    | No       | 300000                       | Maximum time in milliseconds to wait for a 2PC load to reach the VISIBLE state on Doris FE after a successful stream-load commit. ABORTED and CANCELLED remain terminal failures. Must be greater than 0.                                                                            |
 | sink.enable-delete             | bool    | No       | false                        | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
 | sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                      |
 | sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                            |
@@ -79,6 +80,10 @@ If `sink.enable-2pc=true` at the same time:
 - 2PC commit/abort control requests still use `fenodes`
 
 This mixed path keeps the default FE control path while allowing the data path to bypass unstable FE redirect scenarios.
+
+### Data Visibility Wait (2PC)
+
+After a 2PC stream load is committed, Doris can report the transaction as COMMITTED before the loaded rows are actually queryable (VISIBLE). When `sink.enable-2pc=true`, the commit phase polls the FE `get_load_state` endpoint with the stream load label and waits until the load reaches the VISIBLE state before the checkpoint completes; `ABORTED` and `CANCELLED` are treated as terminal failures. Use `sink.visibility-timeout-ms` to bound this wait (default 300000 ms). The polling loop and the underlying control HTTP requests are both bounded, so an unresponsive FE cannot block checkpoint completion forever.
 
 ### schema_save_mode [Enum]
 

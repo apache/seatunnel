@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.util;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -45,6 +46,18 @@ public class HttpUtil {
     // does not stretch checkpoint completion / transaction cleanup.
     private static final int WAIT_FOR_CONTINUE_TIMEOUT_MS = 60 * 1000;
 
+    // Control requests (commit / abort / pre-commit / get_load_state polling) are small
+    // latency-bound calls. Without an explicit RequestConfig, a hung or half-open FE connection
+    // (network partition, GC-paused FE that accepted the socket but never answers) blocks
+    // httpClient.execute() indefinitely - a single stuck get_load_state poll would bypass
+    // DorisCommitter.waitUntilLoadVisible's visibility-timeout deadline entirely. 30s connect and
+    // socket timeouts match the source-side defaults (DorisSourceOptions) and stay well below the
+    // default 5-minute sink.visibility-timeout-ms, so one hung request is retried while the outer
+    // deadline stays meaningful. The stream-load upload client deliberately keeps no socket
+    // timeout: uploads stream large bodies and must not be cut off mid-transfer.
+    private static final int CONTROL_CONNECT_TIMEOUT_MS = 30 * 1000;
+    private static final int CONTROL_SOCKET_TIMEOUT_MS = 30 * 1000;
+
     private static final DefaultRedirectStrategy REDIRECT_STRATEGY =
             new DefaultRedirectStrategy() {
                 @Override
@@ -56,7 +69,12 @@ public class HttpUtil {
     private final HttpClientBuilder httpClientBuilder =
             HttpClients.custom()
                     .setRedirectStrategy(REDIRECT_STRATEGY)
-                    .addInterceptorLast(new RequestContent(true));
+                    .addInterceptorLast(new RequestContent(true))
+                    .setDefaultRequestConfig(
+                            RequestConfig.custom()
+                                    .setConnectTimeout(CONTROL_CONNECT_TIMEOUT_MS)
+                                    .setSocketTimeout(CONTROL_SOCKET_TIMEOUT_MS)
+                                    .build());
 
     // Separate builder for the stream-load upload path, which sends a non-repeatable body and
     // needs a longer waitForContinue window than the default 3s.
