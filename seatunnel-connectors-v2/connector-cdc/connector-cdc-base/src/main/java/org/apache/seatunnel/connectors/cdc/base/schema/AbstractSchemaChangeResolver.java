@@ -24,10 +24,16 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
@@ -87,9 +93,46 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.setCurrentSchema(tablePath.getSchemaName());
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
-        List<AlterTableColumnEvent> parsedEvents = getAndClearParsedEvents();
-        parsedEvents = completionEvent(parsedEvents, catalogTables);
+        List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
+        parsedEvents = normalizeTableIdentifiers(parsedEvents, tablePath);
+        parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
+
+        if (parsedEvents.isEmpty()) {
+            return null;
+        }
+
+        // If there's a single table-level comment event, return it directly
+        if (parsedEvents.size() == 1 && parsedEvents.get(0) instanceof AlterTableCommentEvent) {
+            AlterTableCommentEvent commentEvent = (AlterTableCommentEvent) parsedEvents.get(0);
+            commentEvent.setStatement(ddl);
+            return commentEvent;
+        }
+
+        // Filter column events for AlterTableColumnsEvent
+        List<AlterTableColumnEvent> columnEvents =
+                parsedEvents.stream()
+                        .filter(e -> e instanceof AlterTableColumnEvent)
+                        .map(e -> (AlterTableColumnEvent) e)
+                        .collect(Collectors.toList());
+
+        if (columnEvents.isEmpty()) {
+            return null;
+        }
+
+        // Warn if non-column events (e.g. table comment changes) are present alongside column
+        // events, since only column events can be batched in AlterTableColumnsEvent and the
+        // others will not be propagated for this DDL.
+        long droppedCount = parsedEvents.size() - columnEvents.size();
+        if (droppedCount > 0) {
+            log.warn(
+                    "DDL '{}' produced {} non-column event(s) alongside column events; "
+                            + "only column changes will be propagated. "
+                            + "Non-column events (e.g. table comment changes) in mixed DDL are not yet supported.",
+                    ddl,
+                    droppedCount);
+        }
+
         AlterTableColumnsEvent alterTableColumnsEvent =
                 new AlterTableColumnsEvent(
                         TableIdentifier.of(
@@ -97,68 +140,203 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                                 tablePath.getDatabaseName(),
                                 tablePath.getSchemaName(),
                                 tablePath.getTableName()),
-                        parsedEvents);
+                        columnEvents);
         alterTableColumnsEvent.setStatement(ddl);
         alterTableColumnsEvent.setSourceDialectName(getSourceDialectName());
-        return parsedEvents.isEmpty() ? null : alterTableColumnsEvent;
+        return alterTableColumnsEvent;
     }
 
     List<AlterTableColumnEvent> completionEvent(
             List<AlterTableColumnEvent> events, List<CatalogTable> catalogTables) {
+        return completeSchemaChangeEvents(
+                        Lists.newArrayList(events),
+                        catalogTables,
+                        events.isEmpty() ? null : events.get(0).getTablePath())
+                .stream()
+                .filter(event -> event instanceof AlterTableColumnEvent)
+                .map(event -> (AlterTableColumnEvent) event)
+                .collect(Collectors.toList());
+    }
+
+    List<AlterTableEvent> completeSchemaChangeEvents(
+            List<AlterTableEvent> events, List<CatalogTable> catalogTables, TablePath tablePath) {
         return events.stream()
                 .map(
-                        columnEvent -> {
-                            columnEvent.setSourceDialectName(getSourceDialectName());
+                        event -> {
+                            event.setSourceDialectName(getSourceDialectName());
                             if (catalogTables == null || catalogTables.isEmpty()) {
-                                return columnEvent;
-                            }
-                            if (!(columnEvent instanceof AlterTableChangeColumnEvent)) {
-                                return columnEvent;
+                                return event;
                             }
 
-                            AlterTableChangeColumnEvent changeColumnEvent =
-                                    (AlterTableChangeColumnEvent) columnEvent;
-                            if (changeColumnEvent.getColumn().getDataType() != null) {
-                                return columnEvent;
+                            CatalogTable table = findCatalogTable(catalogTables, tablePath);
+
+                            // Handle table comment event - fill in old comment
+                            if (event instanceof AlterTableCommentEvent) {
+                                AlterTableCommentEvent commentEvent =
+                                        (AlterTableCommentEvent) event;
+                                if (table != null && commentEvent.getOldComment() == null) {
+                                    String oldComment = table.getComment();
+                                    AlterTableCommentEvent newEvent =
+                                            AlterTableCommentEvent.of(
+                                                    commentEvent.getTableIdentifier(),
+                                                    oldComment,
+                                                    commentEvent.getNewComment());
+                                    newEvent.setSourceDialectName(getSourceDialectName());
+                                    return newEvent;
+                                }
+                                return event;
                             }
-                            CatalogTable table =
-                                    catalogTables.stream()
-                                            .filter(
-                                                    catalogTable ->
-                                                            catalogTable
-                                                                    .getTablePath()
-                                                                    .equals(
-                                                                            columnEvent
-                                                                                    .getTablePath()))
-                                            .findFirst()
-                                            .orElse(null);
-                            if (table != null) {
-                                Column oldColumn =
-                                        table.getTableSchema()
-                                                .getColumn(changeColumnEvent.getOldColumn());
-                                Column newColumn =
-                                        oldColumn.rename(changeColumnEvent.getColumn().getName());
-                                AlterTableChangeColumnEvent newEvent =
-                                        new AlterTableChangeColumnEvent(
-                                                changeColumnEvent.getTableIdentifier(),
-                                                changeColumnEvent.getOldColumn(),
-                                                newColumn,
-                                                changeColumnEvent.isFirst(),
-                                                changeColumnEvent.getAfterColumn());
-                                newEvent.setSourceDialectName(getSourceDialectName());
-                                return newEvent;
-                            } else {
-                                log.warn(
-                                        "Ignoring rename column {} type completion for table {}",
-                                        changeColumnEvent.getOldColumn(),
-                                        changeColumnEvent.getTablePath());
+
+                            // Handle column change event - complete type info
+                            if (event instanceof AlterTableChangeColumnEvent) {
+                                AlterTableChangeColumnEvent changeColumnEvent =
+                                        (AlterTableChangeColumnEvent) event;
+                                if (changeColumnEvent.getColumn().getDataType() != null) {
+                                    return event;
+                                }
+                                if (table != null) {
+                                    Column oldColumn =
+                                            table.getTableSchema()
+                                                    .getColumn(changeColumnEvent.getOldColumn());
+                                    Column newColumn =
+                                            oldColumn.rename(
+                                                    changeColumnEvent.getColumn().getName());
+                                    AlterTableChangeColumnEvent newEvent =
+                                            new AlterTableChangeColumnEvent(
+                                                    changeColumnEvent.getTableIdentifier(),
+                                                    changeColumnEvent.getOldColumn(),
+                                                    newColumn,
+                                                    changeColumnEvent.isFirst(),
+                                                    changeColumnEvent.getAfterColumn());
+                                    newEvent.setSourceDialectName(getSourceDialectName());
+                                    return newEvent;
+                                } else {
+                                    log.warn(
+                                            "Ignoring rename column {} type completion for table {}",
+                                            changeColumnEvent.getOldColumn(),
+                                            changeColumnEvent.getTablePath());
+                                }
                             }
-                            return columnEvent;
+                            if (event instanceof AlterTableModifyColumnEvent && table != null) {
+                                AlterTableModifyColumnEvent modifyColumnEvent =
+                                        (AlterTableModifyColumnEvent) event;
+                                if (table.getTableSchema()
+                                        .contains(modifyColumnEvent.getColumn().getName())) {
+                                    Column oldColumn =
+                                            table.getTableSchema()
+                                                    .getColumn(
+                                                            modifyColumnEvent
+                                                                    .getColumn()
+                                                                    .getName());
+                                    AlterColumnCommentEvent columnCommentEvent =
+                                            convertToColumnCommentEventIfOnlyCommentChanged(
+                                                    modifyColumnEvent, oldColumn);
+                                    if (columnCommentEvent != null) {
+                                        columnCommentEvent.setSourceDialectName(
+                                                getSourceDialectName());
+                                        return columnCommentEvent;
+                                    }
+                                }
+                            }
+                            return event;
                         })
                 .collect(Collectors.toList());
     }
 
+    List<AlterTableEvent> normalizeTableIdentifiers(
+            List<AlterTableEvent> events, TablePath tablePath) {
+        // The parser may lose the database while walking a SourceRecord. The SourceRecord table
+        // path is authoritative because it comes from the CDC event's captured source table.
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(
+                        StringUtils.EMPTY,
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName());
+        return events.stream()
+                .map(
+                        event -> {
+                            if (event instanceof AlterTableCommentEvent) {
+                                AlterTableCommentEvent commentEvent =
+                                        (AlterTableCommentEvent) event;
+                                return AlterTableCommentEvent.of(
+                                        tableIdentifier,
+                                        commentEvent.getOldComment(),
+                                        commentEvent.getNewComment());
+                            }
+                            return event;
+                        })
+                .collect(Collectors.toList());
+    }
+
+    private CatalogTable findCatalogTable(List<CatalogTable> catalogTables, TablePath tablePath) {
+        if (tablePath == null) {
+            return null;
+        }
+        return catalogTables.stream()
+                .filter(catalogTable -> catalogTable.getTablePath().equals(tablePath))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private AlterColumnCommentEvent convertToColumnCommentEventIfOnlyCommentChanged(
+            AlterTableModifyColumnEvent modifyColumnEvent, Column oldColumn) {
+        if (oldColumn == null
+                || modifyColumnEvent.isFirst()
+                || StringUtils.isNotBlank(modifyColumnEvent.getAfterColumn())) {
+            return null;
+        }
+        Column newColumn = modifyColumnEvent.getColumn();
+        if (isSameColumnExceptComment(oldColumn, newColumn)
+                && !StringUtils.equals(oldColumn.getComment(), newColumn.getComment())) {
+            return AlterColumnCommentEvent.of(
+                    modifyColumnEvent.getTableIdentifier(),
+                    newColumn.getName(),
+                    oldColumn.getComment(),
+                    newColumn.getComment());
+        }
+        return null;
+    }
+
+    private boolean isSameColumnExceptComment(Column oldColumn, Column newColumn) {
+        return StringUtils.equals(oldColumn.getName(), newColumn.getName())
+                && isSameDataType(oldColumn.getDataType(), newColumn.getDataType())
+                && isSameColumnLength(oldColumn, newColumn)
+                && Objects.equals(oldColumn.getScale(), newColumn.getScale())
+                && oldColumn.isNullable() == newColumn.isNullable()
+                && Objects.equals(oldColumn.getDefaultValue(), newColumn.getDefaultValue())
+                && StringUtils.equals(oldColumn.getSourceType(), newColumn.getSourceType())
+                && Objects.equals(oldColumn.getOptions(), newColumn.getOptions());
+    }
+
+    private boolean isSameColumnLength(Column oldColumn, Column newColumn) {
+        if (Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())) {
+            return true;
+        }
+        // Some dialects canonicalize character lengths (for example MySQL converts character
+        // counts to a four-byte storage length). An identical source type is the stable semantic
+        // representation in that case; genuine length changes still have a different source type.
+        return oldColumn.getDataType() != null
+                && oldColumn.getDataType().getSqlType() == SqlType.STRING
+                && newColumn.getDataType() != null
+                && newColumn.getDataType().getSqlType() == SqlType.STRING
+                && StringUtils.isNotBlank(oldColumn.getSourceType())
+                && StringUtils.equals(oldColumn.getSourceType(), newColumn.getSourceType());
+    }
+
+    private boolean isSameDataType(
+            SeaTunnelDataType<?> oldDataType, SeaTunnelDataType<?> newDataType) {
+        return Objects.equals(oldDataType, newDataType)
+                || (oldDataType != null
+                        && newDataType != null
+                        && oldDataType.getSqlType() == newDataType.getSqlType());
+    }
+
     protected abstract DdlParser createDdlParser(TablePath tablePath);
+
+    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
+        return Lists.newArrayList(getAndClearParsedEvents());
+    }
 
     protected abstract List<AlterTableColumnEvent> getAndClearParsedEvents();
 

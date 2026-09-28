@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class StringFunctionTest {
 
@@ -424,6 +425,19 @@ public class StringFunctionTest {
         args.add(null);
         Assertions.assertNull(StringFunction.lower(args));
         Assertions.assertNull(StringFunction.upper(args));
+    }
+
+    @Test
+    public void testLowerAndUpperAreLocaleIndependent() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            Assertions.assertEquals("i", StringFunction.lower(Collections.singletonList("I")));
+            Assertions.assertEquals("I", StringFunction.upper(Collections.singletonList("i")));
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @Test

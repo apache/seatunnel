@@ -116,6 +116,11 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
     }
 
     @Override
+    protected boolean useMavenRepositoryDriver() {
+        return false;
+    }
+
+    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {

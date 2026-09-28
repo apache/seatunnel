@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -61,7 +62,10 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
 
     @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory = this::copyOracleDriverToContainer;
+    protected final ContainerExtendedFactory extendedFactory =
+            container ->
+                    DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
+                            .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
 
     @BeforeAll
     @Override

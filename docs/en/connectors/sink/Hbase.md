@@ -39,6 +39,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 | schema_save_mode         | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing. |
 | data_save_mode           | enum    | no       | APPEND_DATA                  | How to handle existing data before writing. |
 | hbase_extra_config       | config  | no       | -                            | Extra HBase or Hadoop client configuration. |
+| ttl                      | long    | no       | -1                           | Expiration time in milliseconds for written HBase cells; `-1` means cells never expire. |
 | multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. |
 | common-options           |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`. |
 
@@ -180,6 +181,26 @@ sink {
     }
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### Recreate the Target Table Before Writing
+
+Use `schema_save_mode = "RECREATE_SCHEMA"` when the job is allowed to drop and re-create the
+target table on every run. Combine it with `data_save_mode = "DROP_DATA"` to wipe any previous
+rows, or keep `APPEND_DATA` if you only want the table structure refreshed.
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_recreate_schema"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "RECREATE_SCHEMA"
   }
 }
 ```

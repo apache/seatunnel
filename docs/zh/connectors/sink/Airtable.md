@@ -161,6 +161,46 @@ sink {
 }
 ```
 
+### 从 Kafka 流式写入 Airtable
+
+将 Kafka 源与 Airtable sink 组合，可以把订单等事件持续推送到运营跟踪表。
+`batch_size` 保持在 10 以满足 Airtable 的请求上限；当 Topic 的突发流量超过每秒 5 条时，
+适当上调 `request_interval_ms`。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Kafka {
+    bootstrap.servers = "kafka:9092"
+    topic = "orders.events"
+    format = "json"
+    schema = {
+      fields {
+        order_id = string
+        customer = string
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Orders"
+    typecast = true
+    batch_size = 10
+    request_interval_ms = 220
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

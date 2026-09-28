@@ -105,7 +105,7 @@ duplicate table names during startup.
 
 Example entry:
 
-```
+```hocon
 {
   cql = "SELECT id, name FROM keyspace.table1"
 }
@@ -206,6 +206,25 @@ sink {
     datacenter = "datacenter1"
     keyspace = "test"
     table = "mt_sink_table"
+  }
+}
+```
+
+### Read With A Stricter Consistency Level
+
+Use `consistency_level = "QUORUM"` when the read result must satisfy the configured replication
+factor. Combine it with `datacenter` so the driver talks to the right local coordinator:
+
+```hocon
+source {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    consistency_level = "QUORUM"
+    cql = "SELECT id, name, score FROM test.accounts"
   }
 }
 ```

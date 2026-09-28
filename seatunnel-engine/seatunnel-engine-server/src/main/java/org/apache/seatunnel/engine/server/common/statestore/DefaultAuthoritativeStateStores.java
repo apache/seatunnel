@@ -25,14 +25,24 @@ import java.util.Objects;
 public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores {
 
     private final CounterStateStore<String> checkpointCounterStore;
+    private final CounterStateStore<String> errorHandlerCounterStore;
 
-    public DefaultAuthoritativeStateStores(CounterStateStore<String> checkpointCounterStore) {
+    public DefaultAuthoritativeStateStores(
+            CounterStateStore<String> checkpointCounterStore,
+            CounterStateStore<String> errorHandlerCounterStore) {
         this.checkpointCounterStore =
                 Objects.requireNonNull(checkpointCounterStore, "checkpointCounterStore");
+        this.errorHandlerCounterStore =
+                Objects.requireNonNull(errorHandlerCounterStore, "errorHandlerCounterStore");
     }
 
     @Override
     public CounterStateStore<String> checkpointCounterStore() {
         return checkpointCounterStore;
+    }
+
+    @Override
+    public CounterStateStore<String> errorHandlerCounterStore() {
+        return errorHandlerCounterStore;
     }
 }

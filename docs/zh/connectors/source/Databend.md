@@ -20,7 +20,12 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 描述
 
-用于从 Databend 读取数据的源连接器。
+通过 Databend JDBC 驱动从 [Databend](https://databend.rs/) 读取数据的源连接器。可以使用
+`database` + `table` 读取单张表，使用 `query` 执行一次性查询，也可以通过 `sql` 提供完整的
+SQL 语句。连接器在批处理模式下执行查询，并把每一行结果转换为 SeaTunnel 行。
+
+连接器支持标准 SQL 的列投影，并提供 `fetch_size`、`ssl` 等 JDBC 调优选项。当前不支持在同
+一个 source 块中读取多张表，需要为每张表配置一个 Databend source。
 
 ## 依赖
 
@@ -69,7 +74,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 | url | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username | String | 是 | - | Databend 数据库用户名 |
 | password | String | 是 | - | Databend 数据库密码 |
-| database | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
+| database | String | 否 | `default` | Databend 数据库名称。未设置时源端回退到 `default` 数据库 |
 | table | String | 否 | - | Databend 表名称 |
 | query | String | 否 | - | Databend 查询语句。如果设置，会覆盖 database 和 table 的设置 |
 | sql | String | 否 | - | 自定义 SQL 语句。若同时配置 `sql` 和 `query`，优先使用 `sql` |
@@ -129,6 +134,21 @@ source {
     sql = "SELECT * FROM default.users"
     ssl = true
     fetch_size = 1000
+  }
+}
+```
+
+### 在查询中过滤和投影
+
+可以直接在 `query` 里使用 Databend 支持的任意表达式，提前把不需要的列过滤掉：
+
+```hocon
+source {
+  Databend {
+    url = "jdbc:databend://localhost:8000"
+    username = "root"
+    password = ""
+    query = "SELECT id, name, age FROM default.users WHERE age >= 18 AND starts_with(name, 'A') ORDER BY id"
   }
 }
 ```

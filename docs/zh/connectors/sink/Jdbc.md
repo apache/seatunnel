@@ -335,6 +335,14 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 事务提交失败的最大重试次数
 
+在 exactly-once 的 XA 模式下，这个重试预算会在单次 aggregated-commit 或 restore 调用内消耗完。
+恢复时，SeaTunnel 会从 XA recovery scan 中第一个仍然处于 prepared 状态的 checkpoint XID 开始，
+严格回放其后的事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交
+成功之后才会被视为已经解析完成。如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel
+会把整个批次视为已经完成，不再重复回放。SeaTunnel 会在同步重试轮次之间固定等待 1 秒，让瞬时
+的资源管理器不可用可以真正消耗这份重试预算，而不是在瞬间烧完所有尝试次数。只有在第一个 recovered checkpoint XID 之后又出现缺
+口时，恢复才会直接 fail-closed，而不是把结果推断成已经成功提交。
+
 ### transaction_timeout_sec [int]
 
 在事务开启后的超时时间，默认值为-1（即永不超时）。请注意，设置超时时间可能会影响到精确一次（exactly-once）的语义
@@ -342,6 +350,10 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 ### auto_commit [boolean]
 
 默认启用自动事务提交
+
+对于 Oracle JDBC Sink，即使配置 `auto_commit = true`，SeaTunnel 写入时也会在内部使用手动提交。
+这样可以保证失败批次的原子性，避免原始数据错误被后续的主键重复错误掩盖。
+关闭 checkpoint 时，每次由 `batch_size` / `batch_interval_ms` 触发并成功的批量写入会立即提交事务，避免已刷出的数据一直停留在同一个未结束的事务中直到 writer 关闭；开启 checkpoint 时，提交边界仍然是 checkpoint。
 
 ### field_ide [String]
 
@@ -558,7 +570,7 @@ Oracle 插入模式。默认值为 `CONVENTIONAL`，保持现有 JDBC insert 行
 INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
-该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
+该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。Oracle Sink 实际写入时仍会在内部使用手动提交。
 
 ### create_index [boolean]
 

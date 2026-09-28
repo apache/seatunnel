@@ -45,6 +45,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -618,6 +619,15 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     public static FieldNamedPreparedStatement prepareStatement(
             Connection connection, String sql, String[] fieldNames) throws SQLException {
+        return prepareStatement(connection, sql, fieldNames, field -> "?");
+    }
+
+    static FieldNamedPreparedStatement prepareStatement(
+            Connection connection,
+            String sql,
+            String[] fieldNames,
+            Function<String, String> parameterExpression)
+            throws SQLException {
         checkNotNull(connection, "connection must not be null.");
         checkNotNull(sql, "sql must not be null.");
         checkNotNull(fieldNames, "fieldNames must not be null.");
@@ -632,7 +642,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             }
         } else {
             HashMap<String, List<Integer>> parameterMap = new HashMap<>();
-            parsedSQL = parseNamedStatement(sql, parameterMap);
+            parsedSQL = parseNamedStatement(sql, parameterMap, parameterExpression);
             // currently, the statements must contain all the field parameters
             checkArgument(parameterMap.size() >= fieldNames.length);
             for (int i = 0; i < fieldNames.length; i++) {
@@ -648,6 +658,13 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
+        return parseNamedStatement(sql, paramMap, field -> "?");
+    }
+
+    private static String parseNamedStatement(
+            String sql,
+            Map<String, List<Integer>> paramMap,
+            Function<String, String> parameterExpression) {
         StringBuilder parsedSql = new StringBuilder();
         int fieldIndex = 1; // SQL statement parameter index starts from 1
         int length = sql.length();
@@ -667,7 +684,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
                 paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex);
                 fieldIndex++;
                 i = j - 1;
-                parsedSql.append('?');
+                parsedSql.append(parameterExpression.apply(parameterName));
             } else {
                 parsedSql.append(c);
             }

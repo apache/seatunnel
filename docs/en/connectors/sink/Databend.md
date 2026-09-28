@@ -49,7 +49,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | url                 | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username            | String | Yes | - | Databend database username                    |
 | password            | String | Yes | - | Databend database password                     |
-| database            | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
+| database            | String | No | - | Databend database name used when `generate_sink_sql = true` (together with `table`) to generate the write SQL. No default is applied when unset |
 | table               | String | No | - | Databend table name                       |
 | batch_size          | Integer | No | 1000 | Number of records for batch writing                           |
 | auto_commit         | Boolean | No | true | Whether to auto-commit transactions                           |
@@ -229,6 +229,42 @@ sink {
 
     # Enable CDC mode
     batch_size = 1
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
+### Stream MySQL CDC To Databend In Streaming Mode
+
+The same CDC settings also work in streaming jobs. The following example pipes MySQL CDC
+events into Databend continuously. Keep `batch_size` small in streaming CDC jobs so that each
+checkpoint reflects the latest writes:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
     conflict_key = "id"
     enable_delete = true
   }

@@ -162,6 +162,8 @@ seatunnel:
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
 ```
 
+**Container environments**: Checkpoint storage passes `fs.s3a.*` configuration keys directly to Hadoop without any connector-level enum restriction, so any S3A credential provider class available on the classpath can be used. This includes container-oriented providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS task role) and `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`. For EKS deployments, the EC2 node instance role is recommended. EKS IRSA (`WebIdentityTokenCredentialsProvider`) is not available in the bundled AWS SDK v1.x (1.11.271) and requires adding a newer AWS SDK v1.x JAR to `${SEATUNNEL_HOME}/lib` on all nodes.
+
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 
 ```yaml

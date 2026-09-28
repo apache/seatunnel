@@ -136,6 +136,14 @@ seatunnel:
     state-cleanup-delay-ms: 60000
 ```
 
+`/system-monitoring-information` REST API 会向每个集群成员收集健康指标。所有成员共享一个由 `health-metrics-timeout-seconds` 控制的统一截止时间，默认值为 `3` 秒。在截止时间内未应答的成员会以带地址和 `timeout` 标记的条目返回，而不是一直阻塞整个响应，因此该 API 的总耗时不会随失联成员数量而增长。
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
@@ -341,15 +349,17 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
-注意：使用OSS 时，确保 lib目录下有这几个jar.
+注意：使用OSS 时，确保 lib目录下有这几个jar。
+
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
 ```
 aliyun-sdk-oss-3.13.2.jar
 hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
+netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端

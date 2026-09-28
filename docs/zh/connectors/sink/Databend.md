@@ -48,7 +48,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | url                 | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username            | String | 是 | - | Databend 数据库用户名                    |
 | password            | String | 是 | - | Databend 数据库密码                     |
-| database            | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
+| database            | String | 否 | - | `generate_sink_sql = true` 时与 `table` 一起用于生成写入 SQL 的 Databend 数据库名称。未设置时不会自动回退 |
 | table               | String | 否 | - | Databend 表名称                       |
 | batch_size          | Integer | 否 | 1000 | 批量写入的记录数                           |
 | auto_commit         | Boolean | 否 | true | 是否自动提交事务                           |
@@ -227,6 +227,41 @@ sink {
 
     # 开启 CDC 写入模式
     batch_size = 1
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
+### 将 MySQL CDC 流式写入 Databend
+
+同一套 CDC 参数同样适用于流式任务。下面的示例将 MySQL CDC 事件持续写入 Databend。流式
+CDC 场景下建议把 `batch_size` 调小一些，让每个 checkpoint 都能反映最新写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
     conflict_key = "id"
     enable_delete = true
   }

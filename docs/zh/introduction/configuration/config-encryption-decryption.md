@@ -18,6 +18,9 @@ Base64编码默认支持加密以下参数：
 
 用户也可以在 `shade.options` 指定要用于加解密的参数.
 
+当 SeaTunnel 将解析后的配置打印到日志时，也会在嵌套配置路径中对这些参数做脱敏展示。日志脱敏匹配会将
+`.`、`_` 和 `-` 视为等价分隔符，因此 `access.key`、`access_key` 和 `access-key` 可以复用同一条脱敏规则。
+
 接下来，将展示如何快速使用 SeaTunnel 自带的 `base64` 加密功能：
 
 1. 在配置文件的环境变量（env）部分新增了选项 `shade.identifier` 和 `shade.options`。`shade.identifier`用于表示您想要使用的加密方法，`shade.options`用于指定您想加解密的参数。
