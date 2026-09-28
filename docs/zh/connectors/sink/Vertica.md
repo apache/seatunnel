@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 | Vertica 数据类型                                                                                     | SeaTunnel 数据类型                                                                                   |
 |------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                              | BOOLEAN                                                                                             |
+| BIT                                                                              | BOOLEAN                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                        | BIGINT                                                                                              |
 | BIGINT UNSIGNED                                                                                      | DECIMAL(20,0)                                                                                       |
@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                                                 | DATE                                                                                                |
 | TIME                                                                                                 | TIME                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                               | TIMESTAMP                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                     | BYTES                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY                     | BYTES                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                 | 尚未支持                                                                                            |
 
 ## 接收器选项
@@ -72,8 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -       | 连接实例的用户名                                                                                                                                                                                     |
 | password                     | String  | 否       | -       | 连接实例的密码                                                                                                                                                                                       |
 | query                        | String  | 否       | -       | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 优先级更高。                                                                                                                         |
-| database                     | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
-| table                        | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
+| database                     | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                   |
+| table                        | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                   |
 | primary_keys                 | Array    | 否       | -       | 此选项用于在自动生成 SQL 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                              |
 | connection_check_timeout_sec | Int    | 否       | 30      | 用于验证连接完成的数据库操作的等待时间（秒）。                                                                                                                                                       |
 | max_retries                  | Int    | 否       | 0       | 提交失败（executeBatch）的重试次数。                                                                                                                                                                 |
