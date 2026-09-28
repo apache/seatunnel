@@ -88,10 +88,7 @@ public class ApplicationCommandArgs extends CommandArgs {
         validateCommandOptions();
         return new ApplicationExecuteCommand(this);
     }
-
-    /**
-     * TODO: 需要重新实现 Validates operation-specific arguments before any platform provider is loaded.
-     */
+    
     public void validateCommandOptions() {
         if (!Files.isRegularFile(Paths.get(deploymentConfig))) {
             throw new IllegalArgumentException(
