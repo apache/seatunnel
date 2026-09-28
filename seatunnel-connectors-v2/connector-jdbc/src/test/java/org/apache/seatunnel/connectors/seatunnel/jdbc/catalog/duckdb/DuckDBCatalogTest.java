@@ -211,6 +211,66 @@ public class DuckDBCatalogTest {
         Assertions.assertFalse(catalog.tableExists(copyPath));
     }
 
+    @Test
+    public void testQueryPreservesDecimalPrecisionAndScale() throws Exception {
+        CatalogTable table =
+                catalog.getTable(
+                        "SELECT CAST('12345678901234567890' AS DECIMAL(20,0)) AS exact_integer, "
+                                + "CAST(1.25 AS DECIMAL(10,2)) AS fractional");
+        PhysicalColumn integerColumn = (PhysicalColumn) table.getTableSchema().getColumns().get(0);
+        Assertions.assertEquals("exact_integer", integerColumn.getName());
+        Assertions.assertEquals(new DecimalType(20, 0), integerColumn.getDataType());
+        Assertions.assertEquals(20L, integerColumn.getColumnLength());
+        Assertions.assertEquals(0, integerColumn.getScale());
+        Assertions.assertEquals("DECIMAL(20,0)", integerColumn.getSourceType());
+        PhysicalColumn fractionalColumn =
+                (PhysicalColumn) table.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals(new DecimalType(10, 2), fractionalColumn.getDataType());
+        Assertions.assertEquals(2, fractionalColumn.getScale());
+        Assertions.assertTrue(fractionalColumn.isNullable());
+    }
+
+    @Test
+    public void testQueryPreservesTimestampWithTimeZone() throws Exception {
+        CatalogTable table =
+                catalog.getTable(
+                        "SELECT TIMESTAMPTZ '2024-01-01 12:34:56.123456+08' AS zoned, "
+                                + "TIMESTAMP '2024-01-01 12:34:56' AS local");
+        List<Column> columns = table.getTableSchema().getColumns();
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, columns.get(0).getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, columns.get(1).getDataType());
+    }
+
+    @Test
+    public void testQueryMapsNativeAndComplexTypes() throws Exception {
+        CatalogTable table =
+                catalog.getTable(
+                        "SELECT UUID '550e8400-e29b-41d4-a716-446655440000' AS uuid_value, "
+                                + "CAST('{\"a\":1}' AS JSON) AS json_value, [1,2] AS array_value, "
+                                + "struct_pack(a := 1) AS struct_value, map(['a'], [1]) AS map_value, "
+                                + "INTERVAL '2 days' AS interval_value, CAST(1 AS HUGEINT) AS huge_value");
+        List<Column> columns = table.getTableSchema().getColumns();
+        for (int index = 0; index < 6; index++) {
+            Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(index).getDataType());
+        }
+        Assertions.assertEquals(new DecimalType(38, 0), columns.get(6).getDataType());
+        Assertions.assertEquals("INTEGER[]", ((PhysicalColumn) columns.get(2)).getSourceType());
+    }
+
+    @Test
+    public void testQueryDistinguishesDecimalArrayFromScalar() throws Exception {
+        List<Column> columns =
+                catalog.getTable(
+                                "SELECT CAST([1.25, NULL] AS DECIMAL(10,2)[]) AS decimal_array, "
+                                        + "CAST(1.25 AS DECIMAL(10,2)) AS scalar")
+                        .getTableSchema()
+                        .getColumns();
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(0).getDataType());
+        Assertions.assertEquals(
+                "DECIMAL(10,2)[]", ((PhysicalColumn) columns.get(0)).getSourceType());
+        Assertions.assertEquals(new DecimalType(10, 2), columns.get(1).getDataType());
+    }
+
     private void createTestTable(String tableName) throws Exception {
         Connection connection = catalog.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {

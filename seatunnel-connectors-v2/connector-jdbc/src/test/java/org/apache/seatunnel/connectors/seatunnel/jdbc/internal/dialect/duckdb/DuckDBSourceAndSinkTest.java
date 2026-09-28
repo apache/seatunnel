@@ -40,10 +40,13 @@ import org.junit.jupiter.api.TestInstance;
 import lombok.SneakyThrows;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,6 +115,72 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @Test
+    public void testQueryReadsNativeTypesAndNulls() throws Exception {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE query_native_types (id INTEGER, d DECIMAL(20,0), "
+                            + "tz TIMESTAMPTZ, u UUID, j JSON, a INTEGER[], s STRUCT(v INTEGER), "
+                            + "m MAP(VARCHAR, INTEGER))");
+            statement.execute(
+                    "INSERT INTO query_native_types VALUES "
+                            + "(1, 12345678901234567890, TIMESTAMPTZ '2024-01-01 12:34:56.123456+08', "
+                            + "UUID '550e8400-e29b-41d4-a716-446655440000', '{\"a\":1}', "
+                            + "[1,2], struct_pack(v := 3), map(['a'], [4])), "
+                            + "(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+        }
+        try {
+            Map<String, Object> options = new HashMap<>();
+            options.put("url", jdbcUrl);
+            options.put("driver", "org.duckdb.DuckDBDriver");
+            options.put(
+                    "query",
+                    "SELECT id AS row_id, d, tz, u, j, a, s, m, "
+                            + "CAST(d AS DECIMAL(24,0)) AS decimal_expression FROM query_native_types");
+            List<SeaTunnelRow> rows =
+                    SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                            ReadonlyConfig.fromMap(options), new JdbcSourceFactory());
+            Assertions.assertEquals(2, rows.size());
+            SeaTunnelRow value =
+                    rows.stream()
+                            .filter(row -> Integer.valueOf(1).equals(row.getField(0)))
+                            .findFirst()
+                            .get();
+            Assertions.assertEquals(new BigDecimal("12345678901234567890"), value.getField(1));
+            Assertions.assertEquals(
+                    Instant.parse("2024-01-01T04:34:56.123456Z"),
+                    ((OffsetDateTime) value.getField(2)).toInstant());
+            Assertions.assertEquals("550e8400-e29b-41d4-a716-446655440000", value.getField(3));
+            Assertions.assertEquals("{\"a\":1}", value.getField(4));
+            try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                    Statement statement = connection.createStatement();
+                    ResultSet expected =
+                            statement.executeQuery(
+                                    "SELECT a, s, m FROM query_native_types WHERE id=1")) {
+                Assertions.assertTrue(expected.next());
+                for (int index = 0; index < 3; index++) {
+                    Assertions.assertEquals(
+                            expected.getString(index + 1), value.getField(index + 5));
+                }
+            }
+            Assertions.assertEquals(new BigDecimal("12345678901234567890"), value.getField(8));
+            SeaTunnelRow nulls =
+                    rows.stream()
+                            .filter(row -> Integer.valueOf(2).equals(row.getField(0)))
+                            .findFirst()
+                            .get();
+            for (int index = 1; index < 9; index++) {
+                Assertions.assertNull(nulls.getField(index));
+            }
+        } finally {
+            try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                    Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE query_native_types");
+            }
+        }
     }
 
     @AfterAll

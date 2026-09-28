@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -216,6 +218,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                         .build();
         // 5. Convert to internal Column representation using DuckDB semantics
         return DuckDBTypeConverter.INSTANCE.convert(typeDefine);
+    }
+
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        return CatalogUtils.getCatalogTable(
+                getConnection(defaultUrl), sqlQuery, new DuckDBTypeMapper());
     }
 
     @Override

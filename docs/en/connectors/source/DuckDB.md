@@ -66,8 +66,24 @@ and reading multiple tables in one job through `table_list`.
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+| TIMESTAMP                                                           | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE                                             | TIMESTAMP_TZ        |
+| ARRAY<br/>STRUCT<br/>MAP                                             | STRING              |
+| BLOB                                                                | BYTES               |
+
+When using `query`, schema discovery uses DuckDB native type metadata. `DECIMAL(p,0)` remains
+`DECIMAL(p,0)` even when its scale is zero, and `TIMESTAMP WITH TIME ZONE` maps to
+`TIMESTAMP_TZ` (`OffsetDateTime`). UUID, JSON, INTERVAL, ARRAY, STRUCT and MAP are read as
+`STRING`; complex values use the JDBC driver's text representation, not SeaTunnel nested types.
+Query column aliases become the output column names. Jobs that previously treated zero-scale
+DECIMAL as BIGINT or zoned timestamps as TIMESTAMP must update downstream schemas, or use an
+explicit SQL cast if the old output type is intentional.
+
+Complex-type STRING values are not guaranteed to be valid literals for a native complex Sink
+column. For example, DuckDB JDBC 1.3.1 renders a STRUCT as `{a=5, b=hello}`, which cannot be
+inserted back into a STRUCT column. Use a source projection such as
+`SELECT id, to_json(val) AS val FROM source_table` when moving that STRUCT through STRING into a
+compatible pre-created target.
 
 ## Source Options
 

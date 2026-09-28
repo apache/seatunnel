@@ -63,8 +63,22 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+| TIMESTAMP                                                | TIMESTAMP      |
+| TIMESTAMP WITH TIME ZONE                                  | TIMESTAMP_TZ   |
+| ARRAY<br/>STRUCT<br/>MAP                                  | STRING         |
+| BLOB                                                     | BYTES          |
+
+使用 `query` 时，schema 推断采用 DuckDB 原生类型元数据。即使 scale 为零，
+`DECIMAL(p,0)` 仍映射为 `DECIMAL(p,0)`；`TIMESTAMP WITH TIME ZONE` 映射为
+`TIMESTAMP_TZ`（`OffsetDateTime`）。UUID、JSON、INTERVAL、ARRAY、STRUCT 和 MAP 读取为
+`STRING`；复杂值采用 JDBC 驱动的文本表示，不映射为 SeaTunnel 嵌套类型。
+查询列别名作为输出列名。原来把零 scale 的 DECIMAL 当作 BIGINT、把带时区时间当作
+TIMESTAMP 的作业，需要调整下游 schema；如确实需要旧输出类型，请在 SQL 中显式转换。
+
+复杂类型的 STRING 值不保证能直接写回原生复杂类型的 Sink 列。例如，DuckDB JDBC 1.3.1
+把 STRUCT 表示为 `{a=5, b=hello}`，该文本不能直接写回 STRUCT 列。需要经 STRING
+写入兼容的预建目标表时，可在源查询中使用 `SELECT id, to_json(val) AS val FROM source_table`
+这样的投影。
 
 ## 源选项
 

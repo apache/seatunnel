@@ -4,6 +4,16 @@
 
 ## dev
 
+### DuckDB 查询 Schema
+
+- DuckDB JDBC Source 的 `query` 现在使用原生类型元数据：零 scale 的 `DECIMAL(p,0)`
+  映射为 `DECIMAL(p,0)` 而非 BIGINT；`TIMESTAMP WITH TIME ZONE` 映射为
+  `TIMESTAMP_TZ` 而非 TIMESTAMP。此前查询 schema 推断拒绝的 UUID、JSON 和复杂值，
+  可以按 JDBC 驱动的文本表示读取为 STRING。
+- 请调整下游 schema 以接受 DECIMAL 和 TIMESTAMP_TZ。如确实需要 BIGINT 或无时区
+  TIMESTAMP，请在源查询中显式转换；DECIMAL 转 BIGINT 的值必须处于有符号 64 位范围内。
+  此变更不改变 `table_path` 的 schema 推断。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

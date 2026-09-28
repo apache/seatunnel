@@ -5,6 +5,16 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### DuckDB Query Schema
+
+- DuckDB JDBC Source `query` now uses native type metadata: zero-scale `DECIMAL(p,0)` is
+  `DECIMAL(p,0)` rather than BIGINT, and `TIMESTAMP WITH TIME ZONE` is `TIMESTAMP_TZ`
+  rather than TIMESTAMP. UUID, JSON and complex values previously rejected by query discovery
+  can be read as STRING using the JDBC driver's text representation.
+- Update downstream schemas to accept DECIMAL and TIMESTAMP_TZ. If BIGINT or an unzoned
+  TIMESTAMP is intentional, cast it explicitly in the source query; narrowing DECIMAL to BIGINT
+  must stay within the signed 64-bit range. This does not change `table_path` discovery.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
