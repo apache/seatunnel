@@ -5,17 +5,6 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### Application Worker Entry Point
-
-The experimental `org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner` has been removed.
-Custom worker launch commands must use the platform's dedicated worker CLI:
-
-- YARN: `org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli <cluster-name> <master-address> <slots> <master-distribution-home>`.
-- Kubernetes: `org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli <cluster-name> <master-address> <slots>`.
-
-The experimental five-argument `createWorkerHazelcastInstance` overload has been removed. Embedded callers prepare worker configuration externally and call `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)`. The existing one- and two-argument worker helpers are unchanged. `SeaTunnelServerStarter.main` continues to start from configuration and does not parse application worker arguments.
-The starter no longer shuts down workers when the master leaves the cluster. Custom application runtimes must release workers through their platform driver and arrange platform-level cleanup if the master dies before releasing resources.
-
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
