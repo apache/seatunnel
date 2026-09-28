@@ -71,7 +71,8 @@ public class DuckDBDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(String database, String tableName) {
-        return tableIdentifier(TablePath.of(DEFAULT_DATABASE_NAME, database, tableName));
+        // Preserve the legacy schema.table parsing; the database argument is not a schema.
+        return tableIdentifier(TablePath.of(database + "." + tableName));
     }
 
     /**

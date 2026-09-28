@@ -223,6 +223,7 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
     }
 
     private String quoteIdentifier(String identifier) {
+        // Apply the configured case conversion before escaping embedded quotes.
         return "\"" + CatalogUtils.getFieldIde(identifier, fieldIde).replace("\"", "\"\"") + "\"";
     }
 

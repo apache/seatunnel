@@ -95,6 +95,42 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testLegacySinkRoutingWithUpstreamDatabase() throws Exception {
+        for (String[] target :
+                new String[][] {{"test", TABLE_NAME}, {"default", "main." + TABLE_NAME}}) {
+            Assertions.assertEquals(
+                    "\"main\".\"dialect_test\"", dialect.tableIdentifier(target[0], target[1]));
+            executeSql(
+                    dialect.getInsertIntoStatement(
+                            target[0], target[1], new String[] {"id", "name"}),
+                    params("id", 42, "name", "before"));
+            executeSql(
+                    dialect.getUpdateStatement(
+                            target[0],
+                            target[1],
+                            new String[] {"id", "name"},
+                            new String[] {"id"},
+                            false),
+                    params("id", 42, "name", "after"));
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    executableSql(
+                                            dialect.getRowExistsStatement(
+                                                    target[0],
+                                                    target[1],
+                                                    new String[] {"id", "name"}),
+                                            params("id", 42, "name", "after")))) {
+                Assertions.assertTrue(resultSet.next());
+            }
+            executeSql(
+                    dialect.getDeleteStatement(target[0], target[1], new String[] {"id"}),
+                    params("id", 42));
+            Assertions.assertEquals(0, countRows());
+        }
+    }
+
+    @Test
     void testQuotedIdentifiersExecute() throws Exception {
         TablePath quotedTable = TablePath.of("default", "main", "odd\"table");
         Assertions.assertEquals(
