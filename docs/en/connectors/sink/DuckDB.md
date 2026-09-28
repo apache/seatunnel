@@ -16,10 +16,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data to DuckDB through JDBC in batch or streaming jobs. DuckDB runs in-process, so a normal
-DuckDB connection uses a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory
-database. DuckDB JDBC 1.3.1 does not provide an XA datasource; do not configure
-`is_exactly_once = true` with this driver.
+Write data to a DuckDB database file through JDBC. Supports batch and streaming modes and concurrent
+writing. The DuckDB JDBC driver used by this connector does not provide an XA datasource, so the JDBC sink's
+XA-based exactly-once option is unavailable for DuckDB. DuckDB runs in-process, so the connector
+works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database.
 
 ## Using Dependency
 
@@ -35,10 +35,10 @@ database. DuckDB JDBC 1.3.1 does not provide an XA datasource; do not configure
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> The JDBC sink requires an XA datasource for exactly-once writes. DuckDB JDBC 1.3.1 does not
-> provide one, so exactly-once is unavailable with this driver.
+> The generic JDBC sink implements exactly-once through XA transactions. The DuckDB JDBC driver does not
+> provide an XA datasource; do not set `is_exactly_once = true` for DuckDB.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -80,9 +80,9 @@ database. DuckDB JDBC 1.3.1 does not provide an XA datasource; do not configure
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
 | ducklake_bulk_write                       | Boolean | No       | false                        | For an existing DuckLake table, stage each batch in a DuckDB temporary table and write it to the lake with one `INSERT ... SELECT`. See below.                                                                                                  |
 | ducklake_bulk_write_ignore_inherited_keys | Boolean | No | false | Ignore only source PK/UNIQUE metadata for insert-only bulk append. Requires ducklake_bulk_write=true; explicit primary_keys remain unsupported. |
-| is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which uses XA transactions. When enabled, you must also set `xa_data_source_class_name`.                                                                                                              |
+| is_exactly_once                           | Boolean | No       | false                        | Generic JDBC XA option. Keep `false` for DuckDB because its JDBC driver has no XA datasource.                                                                                                                                                  |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
-| xa_data_source_class_name                 | String  | No       | -                            | XA datasource class name, if the selected driver supplies one. DuckDB JDBC 1.3.1 does not supply one.                                                                                                                                         |
+| xa_data_source_class_name                 | String  | No       | -                            | Generic JDBC XA datasource class option. The DuckDB JDBC driver does not provide one, so this option cannot enable exactly-once for DuckDB.                                                                                                    |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures.                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is `-1` (never timeout). Note that setting the timeout may affect exactly-once semantics.                                                                                             |
 | auto_commit                               | Boolean | No       | true                         | Whether to enable automatic transaction commit. Set to `false` when `is_exactly_once = true`.                                                                                                                                                 |
@@ -239,6 +239,7 @@ sink {
   }
 }
 ```
+
 
 ## Changelog
 
