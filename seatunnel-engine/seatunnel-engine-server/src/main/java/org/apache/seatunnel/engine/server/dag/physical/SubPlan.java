@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -738,7 +739,10 @@ public class SubPlan {
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
                     jobMaster.releasePipelineResource(this);
-                    jobMaster.preApplyResources(this);
+                    if (!jobMaster.preApplyResources(this)) {
+                        throw new NoEnoughResourceException(
+                                "Not enough resources to restore " + pipelineFullName);
+                    }
                     restorePipeline();
                     return;
                 }
