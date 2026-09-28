@@ -222,6 +222,8 @@ public class SeaTunnelServer
 
     @Override
     public void reset() {
+        // Cluster merges invalidate worker task deployments on this member. Coordinator and slot
+        // ownership follow their own master and worker lifecycle paths; this reset is worker-only.
         if (taskExecutionService != null) {
             taskExecutionService.reset();
         }
