@@ -131,18 +131,20 @@ public class MaxcomputeUtil {
     }
 
     /**
-     * Converts a millisecond timeout to whole seconds, rejecting sub-second / negative values. The
-     * ODPS RestClient and Tunnel Configuration store timeouts in seconds internally, so millisecond
-     * input is divided by 1000; a value below 1000 would silently collapse to 0 or be clamped to 1
-     * second, which is almost never what the user intended.
+     * Converts a millisecond timeout to whole seconds, rejecting sub-second / negative values and
+     * values that would overflow the SDK's int-seconds field. The ODPS RestClient and Tunnel
+     * Configuration store timeouts in seconds internally, so millisecond input is divided by 1000;
+     * a value below 1000 would silently collapse to 0 or be clamped to 1 second, which is almost
+     * never what the user intended.
      */
     private static int toTimeoutSeconds(long ms, String optionName) {
         checkArgument(
-                ms >= 1000,
-                "%s must be >= 1000 (millisecond values are converted to whole seconds). Got: %s",
+                ms >= 1000 && ms <= Integer.MAX_VALUE * 1000L,
+                "%s must be between 1000 and %d (millisecond values are converted to whole seconds). Got: %s",
                 optionName,
+                Integer.MAX_VALUE * 1000L,
                 ms);
-        return Math.toIntExact(ms / 1000);
+        return (int) (ms / 1000);
     }
 
     private static int toRetryTimes(int value, String optionName) {

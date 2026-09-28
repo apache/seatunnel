@@ -351,6 +351,24 @@ public class MaxcomputeUtilTest {
                 () -> MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config)));
     }
 
+    /**
+     * A millisecond value that would overflow the SDK's int-seconds field (above ~2.1 trillion ms)
+     * must be rejected with a clear error naming the option, not a bare ArithmeticException.
+     */
+    @Test
+    void testOverflowTimeoutIsRejected() {
+        Map<String, Object> config = baseConfig();
+        config.put("connect_timeout_ms", Long.MAX_VALUE);
+        config.put("tunnel_read_timeout_ms", ((long) Integer.MAX_VALUE) * 1000L + 1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config)));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config)));
+    }
+
     // --- SDK defaults consistency test ---
 
     /**
