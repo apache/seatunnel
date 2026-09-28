@@ -39,6 +39,30 @@ public class RabbitmqSinkFactoryTest {
     }
 
     @Test
+    public void testQueueNameValidation() {
+        Map<String, Object> validConfig = createValidConfig();
+        Assertions.assertDoesNotThrow(() -> validate(validConfig));
+
+        Map<String, Object> missingQueueName = createValidConfig();
+        missingQueueName.remove(RabbitmqSinkOptions.QUEUE_NAME.key());
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(missingQueueName));
+
+        Map<String, Object> emptyQueueName = createValidConfig();
+        emptyQueueName.put(RabbitmqSinkOptions.QUEUE_NAME.key(), "");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(emptyQueueName));
+
+        Map<String, Object> whitespaceQueueName = createValidConfig();
+        whitespaceQueueName.put(RabbitmqSinkOptions.QUEUE_NAME.key(), "   ");
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(whitespaceQueueName));
+
+        Map<String, Object> paddedQueueName = createValidConfig();
+        paddedQueueName.put(RabbitmqSinkOptions.QUEUE_NAME.key(), "  test_queue  ");
+        Assertions.assertDoesNotThrow(() -> validate(paddedQueueName));
+    }
+
+    @Test
     public void testValidProtobufConfig() {
         Map<String, Object> config = createValidConfig();
         config.put(RabbitmqSinkOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
