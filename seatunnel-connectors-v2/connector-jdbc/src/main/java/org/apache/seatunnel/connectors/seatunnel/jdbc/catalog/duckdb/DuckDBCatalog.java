@@ -235,7 +235,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     private String escapeSqlLiteral(String value) {
-        return value.replace("'", "''");
+        return value == null ? null : value.replace("'", "''");
     }
 
     @Override
