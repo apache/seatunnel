@@ -70,6 +70,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -843,23 +844,9 @@ public class CheckpointCoordinator {
                 return;
             }
 
-            try {
-                CompletableFuture<PendingCheckpoint> pendingCheckpoint =
-                        createPendingCheckpoint(currentTimestamp, checkpointType);
-                startTriggerPendingCheckpoint(pendingCheckpoint);
-            } catch (Throwable t) {
-                // Defensive: createPendingCheckpoint's drain guard (and any future create-time
-                // failure) must not escape a scheduler Runnable as a silent drop that permanently
-                // stops this pipeline's self-rescheduling cadence.
-                LOG.error(
-                        "failed to create/start pending checkpoint type {} for job {} pipeline {}; re-arming trigger",
-                        checkpointType,
-                        jobId,
-                        pipelineId,
-                        t);
-                scheduleTriggerPendingCheckpoint(checkpointType, 500L);
-                return;
-            }
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint =
+                    createPendingCheckpoint(currentTimestamp, checkpointType);
+            startTriggerPendingCheckpoint(pendingCheckpoint);
             // if checkpoint type are final type, we don't need to trigger next checkpoint
             if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -920,6 +907,13 @@ public class CheckpointCoordinator {
      * window. While {@link #savepointDraining} is set, non-savepoint {@link
      * #tryTriggerPendingCheckpoint(CheckpointType)} calls re-arm instead of creating a new pending
      * checkpoint, preserving the exclusion that the previous lock-held wait provided.
+     *
+     * <pre>
+     * install sharedFuture + gate (locked)
+     *   -&gt; unlocked sleep-poll until pendingCounter==0 or shutdown/interrupt
+     *   -&gt; abort: failSavepointDrainLocked (interrupt / shutdown / reset / !ready)
+     *   -&gt; create SAVEPOINT + drop gate (locked) -&gt; forward completion
+     * </pre>
      */
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info("start save point for job id: {}.", jobId);
@@ -956,15 +950,17 @@ public class CheckpointCoordinator {
                     try {
                         Thread.sleep(500);
                     } catch (InterruptedException e) {
-                        // Do not re-interrupt: startSavepoint() is invoked via
-                        // CheckpointManager.triggerSavePoints()'s parallelStream() on
-                        // ForkJoinPool.commonPool(). Leaving interrupt status set on a shared-pool
-                        // worker can leak to an unrelated later task on the same thread. The shared
-                        // future already carries the failure to callers.
+                        // triggerSavePoints() uses parallelStream(), so the caller thread (e.g.
+                        // JobMaster's savepoint worker) may run startSavepoint() here. Re-interrupt
+                        // on that thread preserves the cancel signal for waitSavepointCompleted().
+                        // ForkJoinPool.commonPool() workers must not keep interrupt status set.
                         LOG.warn(
                                 "savepoint drain interrupted for job {} pipeline {}; failing shared savepoint future",
                                 jobId,
                                 pipelineId);
+                        if (!(Thread.currentThread() instanceof ForkJoinWorkerThread)) {
+                            Thread.currentThread().interrupt();
+                        }
                         synchronized (lock) {
                             failSavepointDrainLocked(
                                     sharedFuture,
@@ -982,9 +978,18 @@ public class CheckpointCoordinator {
                                 CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
                         break;
                     }
+                    if (sharedFuture.isDone()) {
+                        break;
+                    }
                     if (pendingCounter.get() > 0) {
                         // Another create raced in; keep draining outside the lock.
                         continue;
+                    }
+                    if (!isAllTaskReady.get()) {
+                        failSavepointDrainLocked(
+                                sharedFuture,
+                                CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
+                        break;
                     }
                     if (savepointPendingCheckpoint != null
                             && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
@@ -1416,6 +1421,13 @@ public class CheckpointCoordinator {
             closedIdleTask.clear();
             pendingCounter.set(0);
             schemaChanging.set(false);
+            if (savepointRequestFuture != null && !savepointRequestFuture.isDone()) {
+                failSavepointDrainLocked(
+                        savepointRequestFuture,
+                        closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET
+                                ? CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN
+                                : closedReason);
+            }
             // Only remove the persisted ready-to-close state when the coordinator truly ends
             // (completed/failed/cancelled). During a reset (master failover), the IMap entry
             // must be preserved so restoreCoordinator() can recover from it.

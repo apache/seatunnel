@@ -1254,6 +1254,11 @@ public class CheckpointCoordinatorTest
     /**
      * Interrupt during the unlocked drain must clear the drain gate and complete the shared future
      * exceptionally so ordinary triggering can run again.
+     *
+     * <p>On a non-{@link java.util.concurrent.ForkJoinWorkerThread} (the JobMaster savepoint caller
+     * thread that may participate in {@code parallelStream}), the interrupt flag must be restored
+     * so {@code JobMaster.waitSavepointCompleted} observes {@code InterruptedException} and drives
+     * the job out of {@code DOING_SAVEPOINT}.
      */
     @Test
     void testSavepointDrainInterruptClearsGateAndAllowsTrigger() throws Exception {
@@ -1288,11 +1293,13 @@ public class CheckpointCoordinatorTest
             CountDownLatch entered = new CountDownLatch(1);
             AtomicReference<PassiveCompletableFuture<CompletedCheckpoint>> savepointFutureRef =
                     new AtomicReference<>();
+            AtomicBoolean interruptRestored = new AtomicBoolean(false);
             savepointThread =
                     new Thread(
                             () -> {
                                 entered.countDown();
                                 savepointFutureRef.set(spy.startSavepoint());
+                                interruptRestored.set(Thread.currentThread().isInterrupted());
                             },
                             "savepoint-interrupt-#12441");
             savepointThread.start();
@@ -1309,6 +1316,9 @@ public class CheckpointCoordinatorTest
             Assertions.assertTrue(
                     savepointFuture.isCompletedExceptionally(),
                     "interrupted drain must complete the shared savepoint future exceptionally");
+            Assertions.assertTrue(
+                    interruptRestored.get(),
+                    "non-ForkJoinWorkerThread must restore interrupt for JobMaster savepoint path");
 
             Object draining = getCoordinatorField(spy, "savepointDraining");
             if (draining instanceof AtomicBoolean) {
@@ -1324,6 +1334,103 @@ public class CheckpointCoordinatorTest
             Mockito.verify(spy, Mockito.atLeastOnce())
                     .scheduleTriggerPendingCheckpoint(
                             Mockito.eq(CheckpointType.CHECKPOINT_TYPE), Mockito.eq(500L));
+        } finally {
+            if (savepointThread != null && savepointThread.isAlive()) {
+                savepointThread.interrupt();
+                savepointThread.join(5_000);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Issue #12441 carryover: a savepoint drain sleeping off-lock must not create a savepoint on
+     * the post-reset coordinator epoch. {@code cleanPendingCheckpoint(RESET)} fails the shared
+     * future and clears the gate under the lock; after {@code shutdown} is cleared (as {@code
+     * restoreCoordinator} does), the drain must exit without calling {@code getAndIncrement}.
+     */
+    @Test
+    void testSavepointDrainAbortedByCoordinatorReset() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        Thread savepointThread = null;
+        try {
+            CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
+            AtomicLong nextId = new AtomicLong(1);
+            Mockito.when(mockIdCounter.getAndIncrement())
+                    .thenAnswer(invocation -> nextId.getAndIncrement());
+
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, mockIdCounter);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(new InvocationFuture[0])
+                    .when(spy)
+                    .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+
+            AtomicBoolean isAllTaskReady =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "isAllTaskReady")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "isAllTaskReady field not found"));
+            isAllTaskReady.set(true);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            CountDownLatch entered = new CountDownLatch(1);
+            AtomicReference<PassiveCompletableFuture<CompletedCheckpoint>> savepointFutureRef =
+                    new AtomicReference<>();
+            savepointThread =
+                    new Thread(
+                            () -> {
+                                entered.countDown();
+                                savepointFutureRef.set(spy.startSavepoint());
+                            },
+                            "savepoint-reset-#12441");
+            savepointThread.start();
+            Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            awaitThreadState(savepointThread, Thread.State.TIMED_WAITING, 5, TimeUnit.SECONDS);
+            awaitCondition(
+                    () -> getCoordinatorField(spy, "savepointRequestFuture") != null,
+                    5,
+                    TimeUnit.SECONDS);
+
+            // Simulate restoreCoordinator's reset window: clean under lock, then clear shutdown.
+            spy.cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            java.lang.reflect.Field shutdownField =
+                    CheckpointCoordinator.class.getDeclaredField("shutdown");
+            shutdownField.setAccessible(true);
+            shutdownField.setBoolean(spy, false);
+
+            savepointThread.join(10_000);
+            Assertions.assertFalse(
+                    savepointThread.isAlive(),
+                    "drain must exit after reset aborts the shared savepoint future");
+
+            PassiveCompletableFuture<CompletedCheckpoint> savepointFuture =
+                    savepointFutureRef.get();
+            Assertions.assertNotNull(savepointFuture);
+            Assertions.assertTrue(
+                    savepointFuture.isCompletedExceptionally(),
+                    "reset must fail the in-flight savepoint request");
+            Assertions.assertNull(
+                    getCoordinatorField(spy, "savepointRequestFuture"),
+                    "savepointRequestFuture must be cleared by cleanPendingCheckpoint");
+            Object draining = getCoordinatorField(spy, "savepointDraining");
+            Assertions.assertFalse(
+                    draining instanceof AtomicBoolean && ((AtomicBoolean) draining).get(),
+                    "drain gate must be cleared");
+            Assertions.assertNull(
+                    getCoordinatorField(spy, "savepointPendingCheckpoint"),
+                    "savepoint must not be created on the post-reset coordinator");
+            Mockito.verify(mockIdCounter, Mockito.never()).getAndIncrement();
         } finally {
             if (savepointThread != null && savepointThread.isAlive()) {
                 savepointThread.interrupt();
