@@ -346,12 +346,17 @@ public class RocketMqAdminUtil {
                     // above: a group cannot commit an offset for any topic without first
                     // registering, and registering is what creates the retry topic, so a missing
                     // retry topic means no topic in the list has committed anything and the map
-                    // is still empty here. The invariant does not cover one transition: each
-                    // iteration re-resolves the retry topic, so a route that was present on an
-                    // earlier iteration and gone on a later one would reach this return with
-                    // offsets already collected. If that ever becomes reachable, this has to
-                    // become a continue that keeps the earlier offsets, otherwise a later
-                    // cold-start topic silently rewinds the topics already read.
+                    // is still empty here. The invariant does not cover one transition, and
+                    // that transition is reachable today. The guard above probes the
+                    // requested topic, not the group's retry topic, and every iteration
+                    // re-resolves the retry topic. On a multi-broker cluster where the retry
+                    // topic and a later topic in the list are hosted on different brokers,
+                    // losing the retry topic's broker mid-loop leaves the later topic
+                    // resolvable, so the guard passes and this return discards the offsets
+                    // already collected for the earlier topics. The caller reads an empty map
+                    // as a cold start and rewinds every topic to its first offset, so
+                    // supporting that layout means turning this into a continue that keeps
+                    // the earlier offsets.
                     log.warn(
                             "Consumer group {} has no retry topic yet, so it has never registered "
                                     + "and has committed nothing. Topic {} still resolves, so this "
