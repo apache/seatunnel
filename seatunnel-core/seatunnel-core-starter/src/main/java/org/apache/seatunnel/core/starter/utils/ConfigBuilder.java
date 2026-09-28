@@ -282,6 +282,7 @@ public class ConfigBuilder {
                         .parse()
                         .toConfig();
 
+        // Priority: userConfig > systemProperties
         Map<String, Object> mergedMap = new LinkedHashMap<>(systemConfig.root().unwrapped());
         mergedMap.putAll(userConfig.root().unwrapped());
         Config sourceConfig = ConfigFactory.parseMap(mergedMap);
