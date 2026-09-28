@@ -198,6 +198,12 @@ public class MysqlCdcProgressIT {
         Assertions.assertTrue(
                 new BinlogOffset(beforePosition).isBefore(batchStart),
                 "The initial report must precede the next batch's binlog boundary");
+        // Reader progress is sampled at most once per second. Let that interval pass so the
+        // batch's first record is sampled; nothing else emits afterwards to refresh it.
+        long lastSampleAt = before.getReport().getLastPositionChangeAt();
+        Awaitility.await()
+                .atMost(1, TimeUnit.MINUTES)
+                .until(() -> System.currentTimeMillis() - lastSampleAt >= 1500);
 
         log.info("Checking insert, update, and delete with incremental progress for job {}", jobId);
         executeSql(
