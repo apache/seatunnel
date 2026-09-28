@@ -45,8 +45,7 @@ public class RabbitmqSinkFactoryTest {
 
         Map<String, Object> missingQueueName = createValidConfig();
         missingQueueName.remove(RabbitmqSinkOptions.QUEUE_NAME.key());
-        Assertions.assertThrows(
-                OptionValidationException.class, () -> validate(missingQueueName));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(missingQueueName));
 
         Map<String, Object> emptyQueueName = createValidConfig();
         emptyQueueName.put(RabbitmqSinkOptions.QUEUE_NAME.key(), "");
