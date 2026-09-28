@@ -90,6 +90,13 @@ public class ConfigValueUtils {
         return ConfigValueFactory.fromAnyRef(value);
     }
 
+    /**
+     * check the quote char is Escaped or normal
+     *
+     * @param value
+     * @param quoteIndex
+     * @return
+     */
     public static boolean isEscapedQuote(String value, int quoteIndex) {
         int backslashCount = 0;
         int i = quoteIndex - 1;
@@ -100,6 +107,15 @@ public class ConfigValueUtils {
         return backslashCount % 2 == 1;
     }
 
+    /**
+     * Returns the updated "inside quotes" state after scanning the character at {@code quoteIndex}
+     * in {@code value}.
+     *
+     * @param value
+     * @param quoteIndex
+     * @param insideQuotes
+     * @return
+     */
     public static boolean updateQuoteState(String value, int quoteIndex, boolean insideQuotes) {
 
         boolean isStartWrapper = isStartWrapper(insideQuotes, value, quoteIndex);
@@ -115,6 +131,15 @@ public class ConfigValueUtils {
         return insideQuotes;
     }
 
+    /**
+     * Checks if the quote at quoteIndex is a start wrapper: not inside quotes, and preceded by a
+     * START_DELIMITER or start of string.
+     *
+     * @param insideQuotes
+     * @param value
+     * @param quoteIndex
+     * @return
+     */
     private static boolean isStartWrapper(boolean insideQuotes, String value, int quoteIndex) {
         char prev = (quoteIndex > 0) ? value.charAt(quoteIndex - 1) : 0;
         char beforePrev = (quoteIndex > 1) ? value.charAt(quoteIndex - 2) : 0;
@@ -125,6 +150,15 @@ public class ConfigValueUtils {
                         || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
     }
 
+    /**
+     * Checks if the quote at quoteIndex is an end wrapper: inside quotes, and followed by an
+     * END_DELIMITER or end of string.
+     *
+     * @param insideQuotes
+     * @param value
+     * @param quoteIndex
+     * @return
+     */
     private static boolean isEndWrapper(boolean insideQuotes, String value, int quoteIndex) {
         char next = (quoteIndex + 1 < value.length()) ? value.charAt(quoteIndex + 1) : 0;
         char afterNext = (quoteIndex + 2 < value.length()) ? value.charAt(quoteIndex + 2) : 0;
@@ -135,6 +169,13 @@ public class ConfigValueUtils {
                         || (next == ' ' && END_DELIMITERS.contains(afterNext)));
     }
 
+    /**
+     * Checks if the value is a balanced structured string (e.g., JSON/HOCON). Returns false if
+     * brackets are unbalanced, empty, or not starting with '{' or '['.
+     *
+     * @param value
+     * @return
+     */
     public static boolean isStructured(String value) {
         if (value == null || value.isEmpty()) {
             return false;
