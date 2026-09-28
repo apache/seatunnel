@@ -212,6 +212,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
+    @Order(8)
     public void testMetadataLookupWithApostrophes() throws Exception {
         TablePath tablePath = TablePath.of(DATABASE_NAME, "odd'schema", "odd'table");
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
@@ -219,6 +220,8 @@ public class DuckDBCatalogTest {
             statement.execute("CREATE TABLE \"odd'schema\".\"odd'table\" (id INTEGER)");
             try {
                 Assertions.assertTrue(catalog.tableExists(tablePath));
+                Assertions.assertFalse(
+                        catalog.tableExists(TablePath.of(DATABASE_NAME, null, "odd'table")));
                 CatalogTable table = catalog.getTable(tablePath);
                 Assertions.assertEquals("id", table.getTableSchema().getColumns().get(0).getName());
                 Assertions.assertFalse(

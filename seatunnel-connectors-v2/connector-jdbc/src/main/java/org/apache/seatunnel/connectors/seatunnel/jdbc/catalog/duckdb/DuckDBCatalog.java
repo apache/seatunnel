@@ -235,6 +235,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     private String escapeSqlLiteral(String value) {
+        // Preserve the existing String.format behavior for a missing schema.
         return value == null ? null : value.replace("'", "''");
     }
 
