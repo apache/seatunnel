@@ -287,6 +287,12 @@ class IncrementalSourceReaderTest {
         DebeziumDeserializationSchema<Object> schema =
                 Mockito.mock(DebeziumDeserializationSchema.class);
         CdcReaderProgressTracker progressTracker = Mockito.mock(CdcReaderProgressTracker.class);
+        // The checkpoint schema is only restored when the job propagates schema changes.
+        RelationalDatabaseConnectorConfig dbzConfig =
+                Mockito.mock(RelationalDatabaseConnectorConfig.class);
+        Mockito.when(dbzConfig.isSchemaChangesHistoryEnabled()).thenReturn(true);
+        JdbcSourceConfig sourceConfig = Mockito.mock(JdbcSourceConfig.class);
+        Mockito.when(sourceConfig.getDbzConnectorConfig()).thenReturn(dbzConfig);
         IncrementalSourceReader<Object, SourceConfig> reader =
                 new IncrementalSourceReader<>(
                         Mockito.mock(DataSourceDialect.class),
@@ -295,7 +301,7 @@ class IncrementalSourceReaderTest {
                         Mockito.mock(RecordEmitter.class),
                         new SourceReaderOptions(ReadonlyConfig.fromMap(Collections.emptyMap())),
                         Mockito.mock(SourceReader.Context.class),
-                        Mockito.mock(SourceConfig.class),
+                        sourceConfig,
                         schema,
                         progressTracker);
         IncrementalSplit split = restoredIncrementalSplit();
