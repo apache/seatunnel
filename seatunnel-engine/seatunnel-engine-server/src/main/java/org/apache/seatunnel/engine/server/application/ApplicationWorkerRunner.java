@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel.application;
+package org.apache.seatunnel.engine.server.application;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -35,8 +35,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Worker process entrypoint for an application-owned, fixed-size cluster. */
-public final class ApplicationWorker {
-    private ApplicationWorker() {}
+public final class ApplicationWorkerRunner {
+    private ApplicationWorkerRunner() {}
 
     /**
      * Starts a worker process and waits until it is stopped or its only master leaves the cluster.
@@ -108,7 +108,7 @@ public final class ApplicationWorker {
                 clusterName, masterAddress, slots, ConfigProvider.locateAndGetSeaTunnelConfig());
     }
 
-    static HazelcastInstance start(
+    public static HazelcastInstance start(
             String clusterName, String masterAddress, int slots, SeaTunnelConfig config) {
         return start(clusterName, masterAddress, slots, config, JarPathResolver.identity());
     }
@@ -124,7 +124,7 @@ public final class ApplicationWorker {
      * @return joined worker instance owned by the caller and stopped on master loss
      * @throws IllegalArgumentException if cluster identity or master endpoint is invalid
      */
-    static HazelcastInstance start(
+    public static HazelcastInstance start(
             String clusterName,
             String masterAddress,
             int slots,
