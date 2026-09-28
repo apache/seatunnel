@@ -66,6 +66,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -570,45 +571,120 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testResetAllowsRedeployOfTaskGroupAtSameLocation() {
-        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        Mockito.doNothing()
+                .when(taskExecutionService)
+                .notifyTaskStatusToMaster(Mockito.any(), Mockito.any());
         long testJobId = System.currentTimeMillis();
         TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
-        TaskGroupImmutableInformation firstDeployment =
-                new TaskGroupImmutableInformation(
-                        testJobId,
-                        1,
-                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
-                        location,
-                        "reset-test",
-                        Collections.singletonList(
-                                nodeEngine.getSerializationService().toData(new BlockTask())),
-                        Collections.singletonList(emptySet()),
-                        Collections.singletonList(emptySet()));
+        InterruptIgnoringTask oldTask = new InterruptIgnoringTask();
+        InterruptIgnoringTask restoredTask = new InterruptIgnoringTask();
+        try {
+            TaskGroupImmutableInformation firstDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "reset-test",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(oldTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
 
-        Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
-        assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
-        TaskGroupContext firstContext = taskExecutionService.getActiveExecutionContext(location);
+            Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
+            TaskGroupContext firstContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.started::getCount, count -> count == 0);
 
-        server.reset();
+            taskExecutionService.reset();
+            assertEquals(firstContext, taskExecutionService.getActiveExecutionContext(location));
 
-        TaskGroupImmutableInformation restoredDeployment =
-                new TaskGroupImmutableInformation(
-                        testJobId,
-                        2,
-                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
-                        location,
-                        "reset-test-restored",
-                        Collections.singletonList(
-                                nodeEngine.getSerializationService().toData(new BlockTask())),
-                        Collections.singletonList(emptySet()),
-                        Collections.singletonList(emptySet()));
-        Data restoredData = nodeEngine.getSerializationService().toData(restoredDeployment);
-        assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(restoredData));
+            TaskGroupImmutableInformation restoredDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            2,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "reset-test-restored",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(restoredTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data restoredData = nodeEngine.getSerializationService().toData(restoredDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(restoredData));
 
-        TaskGroupContext restoredContext = taskExecutionService.getActiveExecutionContext(location);
-        Assertions.assertNotSame(firstContext, restoredContext);
+            TaskGroupContext restoredContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            Assertions.assertNotSame(firstContext, restoredContext);
 
-        taskExecutionService.cancelTaskGroup(location);
+            oldTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.finished::getCount, count -> count == 0);
+            Mockito.verify(taskExecutionService, Mockito.after(1000).never())
+                    .notifyTaskStatusToMaster(Mockito.eq(location), Mockito.any());
+            assertEquals(restoredContext, taskExecutionService.getActiveExecutionContext(location));
+
+            restoredTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(restoredTask.control.finished::getCount, count -> count == 0);
+            Mockito.verify(taskExecutionService, Mockito.timeout(5000))
+                    .notifyTaskStatusToMaster(Mockito.eq(location), Mockito.any());
+        } finally {
+            oldTask.control.release.countDown();
+            restoredTask.control.release.countDown();
+            InterruptIgnoringTask.CONTROLS.remove(oldTask.taskId);
+            InterruptIgnoringTask.CONTROLS.remove(restoredTask.taskId);
+        }
+    }
+
+    private static final class InterruptIgnoringTask implements Task {
+        private static final Map<Long, TaskControl> CONTROLS = new ConcurrentHashMap<>();
+        private final long taskId;
+        private transient TaskControl control;
+
+        private InterruptIgnoringTask() {
+            this.taskId = FLAKE_ID_GENERATOR.newId();
+            this.control = new TaskControl();
+            CONTROLS.put(taskId, control);
+        }
+
+        @Override
+        public ProgressState call() {
+            TaskControl taskControl = CONTROLS.get(taskId);
+            taskControl.started.countDown();
+            try {
+                while (taskControl.release.getCount() > 0) {
+                    try {
+                        taskControl.release.await();
+                    } catch (InterruptedException ignored) {
+                        taskControl.interrupted.set(true);
+                    }
+                }
+                return ProgressState.DONE;
+            } finally {
+                taskControl.finished.countDown();
+            }
+        }
+
+        @Override
+        public Long getTaskID() {
+            return taskId;
+        }
+
+        @Override
+        public boolean isThreadsShare() {
+            return false;
+        }
+
+        private static final class TaskControl {
+            private final CountDownLatch started = new CountDownLatch(1);
+            private final CountDownLatch release = new CountDownLatch(1);
+            private final CountDownLatch finished = new CountDownLatch(1);
+            private final AtomicBoolean interrupted = new AtomicBoolean();
+        }
     }
 
     @Test

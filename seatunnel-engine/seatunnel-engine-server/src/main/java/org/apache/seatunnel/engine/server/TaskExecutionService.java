@@ -320,13 +320,26 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * Cancels active task groups when Hazelcast resets managed services during a cluster merge.
      * Their normal completion path releases task resources and removes the active contexts.
      */
-    public synchronized void reset() {
-        for (TaskGroupContext context : executionContexts.values()) {
-            CompletableFuture<Void> cancellationFuture = cancellationFutures.get(context);
-            if (cancellationFuture != null) {
-                cancellationFuture.cancel(false);
+    public void reset() {
+        List<CompletableFuture<Void>> cancellations = new ArrayList<>();
+        synchronized (this) {
+            for (TaskGroupContext context : executionContexts.values()) {
+                context.setResetRequested(true);
+                CompletableFuture<Void> cancellationFuture = cancellationFutures.get(context);
+                if (cancellationFuture != null) {
+                    cancellations.add(cancellationFuture);
+                }
             }
         }
+        if (!cancellations.isEmpty()) {
+            logger.info(
+                    String.format(
+                            "reset requested, cancelling %d task group(s)", cancellations.size()));
+        }
+        // Completing a cancellation future runs its task-cancellation callbacks inline. Do that
+        // after releasing the service monitor so connector shutdown cannot block deployments or
+        // Hazelcast's cluster-merge thread while holding this lock.
+        cancellations.forEach(cancellation -> cancellation.cancel(false));
     }
 
     /**
@@ -540,12 +553,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (activeContext != null) {
                     CompletableFuture<Void> activeCancellationFuture =
                             cancellationFutures.get(activeContext);
-                    if (activeCancellationFuture != null
-                            && activeCancellationFuture.isCancelled()) {
+                    if ((activeCancellationFuture != null && activeCancellationFuture.isCancelled())
+                            || activeContext.isResetRequested()) {
                         logger.info(
                                 String.format(
-                                        "TaskGroupLocation %s is being reset; deploying restored "
-                                                + "execution [%s]",
+                                        "TaskGroupLocation %s is being cancelled; deploying "
+                                                + "replacement execution [%s]",
                                         taskGroup.getTaskGroupLocation(),
                                         taskImmutableInfo.getExecutionId()));
                     } else {
@@ -659,6 +672,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskGroupContext context = new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
         resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
@@ -681,6 +695,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
+                            if (context.isResetRequested()) {
+                                logger.info(
+                                        String.format(
+                                                "Skip terminal status for task group %s execution %s "
+                                                        + "after cluster-merge reset",
+                                                taskGroup.getTaskGroupLocation(), executionId));
+                                return;
+                            }
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
                 MDCTracer.tracing(executorService));
@@ -725,8 +747,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 return true;
                                             }));
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-            TaskGroupContext context =
-                    new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
             TaskGroupExecutionTracker executionTracker =
                     new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
 
@@ -1305,10 +1325,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
             ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
+                    tracker.context.getClassLoaders().get(tracker.task.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
@@ -1583,6 +1600,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          */
         void exception(Throwable t) {
             executionException.compareAndSet(null, t);
+        }
+
+        public TaskGroupContext getContext() {
+            return context;
         }
 
         /**

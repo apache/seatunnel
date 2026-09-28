@@ -1208,8 +1208,8 @@ public class SplitClusterFaultToleranceIT {
                             .sum();
 
             // Hazelcast invokes ManagedService.reset() on members that merge back into a cluster.
-            // Reset both workers to model the losing side's task contexts, then verify the active
-            // coordinator restores them before it fails over as well.
+            // Reset both workers to model the losing side's task contexts. Their old terminal
+            // notifications must not be applied to the active master's task generations.
             SeaTunnelServer workerServer1 =
                     workerNode1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
             SeaTunnelServer workerServer2 =
@@ -1218,31 +1218,25 @@ public class SplitClusterFaultToleranceIT {
             workerServer2.reset();
 
             Awaitility.await()
-                    .atMost(300000, TimeUnit.MILLISECONDS)
-                    .pollInterval(2000, TimeUnit.MILLISECONDS)
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .during(3000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                JobMaster restoredJobMaster = getJobMaster(activeMaster, jobId);
-                                Assertions.assertNotNull(restoredJobMaster);
-                                PhysicalPlan restoredPlan = restoredJobMaster.getPhysicalPlan();
-                                Assertions.assertNotNull(restoredPlan);
-                                Assertions.assertTrue(
-                                        restoredPlan.getPipelineList().stream()
-                                                        .mapToInt(SubPlan::getPipelineRestoreNum)
-                                                        .sum()
-                                                > restoreCountBeforeReset,
-                                        "Reset should cancel the stale worker contexts and restore "
-                                                + "the pipeline");
-                                restoredPlan
-                                        .getPipelineList()
-                                        .forEach(
-                                                SplitClusterFaultToleranceIT
-                                                        ::assertAllVertexRunning);
+                                JobMaster currentJobMaster = getJobMaster(activeMaster, jobId);
+                                Assertions.assertNotNull(currentJobMaster);
+                                Assertions.assertEquals(
+                                        restoreCountBeforeReset,
+                                        currentJobMaster.getPhysicalPlan().getPipelineList().stream()
+                                                .mapToInt(SubPlan::getPipelineRestoreNum)
+                                                .sum(),
+                                        "Reset notifications from old worker contexts must not "
+                                                + "trigger another restore");
                             });
 
-            // Fail over the active master after the worker-side reset and pipeline recovery.
+            // This in-process fixture does not evict workers, so explicitly fail over the master
+            // to exercise recovery from the durable checkpoint after the local worker reset.
             activeMaster.shutdown();
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)

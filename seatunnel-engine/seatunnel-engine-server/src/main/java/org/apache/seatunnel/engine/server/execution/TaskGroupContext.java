@@ -76,6 +76,9 @@ public class TaskGroupContext {
      */
     private ConcurrentHashMap<Long, Collection<URL>> jars;
 
+    /** True when Hazelcast reset this deployment during a cluster merge. */
+    private volatile boolean resetRequested;
+
     public TaskGroupContext(
             long executionId,
             TaskGroup taskGroup,
@@ -93,6 +96,14 @@ public class TaskGroupContext {
         } else {
             return null;
         }
+    }
+
+    public boolean isResetRequested() {
+        return resetRequested;
+    }
+
+    public void setResetRequested(boolean resetRequested) {
+        this.resetRequested = resetRequested;
     }
 
     @Override
