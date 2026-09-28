@@ -37,19 +37,20 @@ import java.util.stream.Collectors;
 /**
  * Collects one JDBC batch in a DuckDB temporary table, then inserts it into DuckLake with one SQL
  * statement. With DuckDB JDBC 1.3.1, a JDBC executeBatch into DuckLake produced a separate Parquet
- * file per row in our reproduction.
+ * file per row in a batch.
  */
 public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     private final TableSchema tableSchema;
     private final JdbcRowConverter converter;
     private final String targetTable;
+    // A unique, connection-local stage avoids collisions with other writers on pooled connections.
     private final String stageTable =
             quote("__seatunnel_ducklake_" + UUID.randomUUID().toString().replace("-", ""));
     private final String columns;
+    // Keep the batch until the single lake INSERT succeeds, rather than partially staging on write.
     private final List<SeaTunnelRow> rows = new ArrayList<>();
 
-    private transient Statement statement;
-    private transient PreparedStatement stageInsert;
+    private transient Connection connection;
 
     public DuckLakeBulkStatementExecutor(
             String database, String table, TableSchema tableSchema, JdbcRowConverter converter) {
@@ -84,28 +85,8 @@ public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
-        statement = connection.createStatement();
-        statement.execute(
-                "CREATE TEMP TABLE IF NOT EXISTS "
-                        + stageTable
-                        + " AS SELECT "
-                        + columns
-                        + " FROM "
-                        + targetTable
-                        + " WHERE FALSE");
-        String placeholders =
-                Arrays.stream(tableSchema.getFieldNames())
-                        .map(field -> "?")
-                        .collect(Collectors.joining(", "));
-        stageInsert =
-                connection.prepareStatement(
-                        "INSERT INTO "
-                                + stageTable
-                                + " ("
-                                + columns
-                                + ") VALUES ("
-                                + placeholders
-                                + ")");
+        validateTarget(connection);
+        this.connection = connection;
     }
 
     @Override
@@ -124,42 +105,67 @@ public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor
         if (rows.isEmpty()) {
             return;
         }
-        // The stage may still contain rows from a previous successful flush or failed attempt.
-        statement.execute("DELETE FROM " + stageTable);
-        stageInsert.clearBatch();
-        for (SeaTunnelRow row : rows) {
-            converter.toExternal(tableSchema, null, row, stageInsert);
-            stageInsert.addBatch();
+        // DELETE/TRUNCATE does not guarantee reclaiming old stage storage. Recreate per flush,
+        // including after a failed transfer, so old rows and storage cannot accumulate.
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + stageTable);
+            statement.execute(
+                    "CREATE TEMP TABLE "
+                            + stageTable
+                            + " AS SELECT "
+                            + columns
+                            + " FROM "
+                            + targetTable
+                            + " WHERE FALSE");
+            String placeholders =
+                    Arrays.stream(tableSchema.getFieldNames())
+                            .map(field -> "?")
+                            .collect(Collectors.joining(", "));
+            try (PreparedStatement stageInsert =
+                    connection.prepareStatement(
+                            "INSERT INTO "
+                                    + stageTable
+                                    + " ("
+                                    + columns
+                                    + ") VALUES ("
+                                    + placeholders
+                                    + ")")) {
+                for (SeaTunnelRow row : rows) {
+                    converter.toExternal(tableSchema, null, row, stageInsert);
+                    stageInsert.addBatch();
+                }
+                stageInsert.executeBatch();
+                statement.executeUpdate(
+                        "INSERT INTO "
+                                + targetTable
+                                + " ("
+                                + columns
+                                + ") SELECT "
+                                + columns
+                                + " FROM "
+                                + stageTable);
+            }
+            rows.clear();
         }
-        stageInsert.executeBatch();
-        stageInsert.clearBatch();
-        statement.executeUpdate(
-                "INSERT INTO "
-                        + targetTable
-                        + " ("
-                        + columns
-                        + ") SELECT "
-                        + columns
-                        + " FROM "
-                        + stageTable);
-        rows.clear();
     }
 
     @Override
-    public void clearBatch() throws SQLException {
+    public void clearBatch() {
         rows.clear();
-        if (stageInsert != null) {
-            stageInsert.clearBatch();
-        }
     }
 
     @Override
     public void closeStatements() throws SQLException {
-        if (stageInsert != null) {
-            stageInsert.close();
-        }
-        if (statement != null) {
-            statement.close();
+        try {
+            if (connection != null) {
+                // Use a fresh statement: DuckDB may close the statement that failed a lake insert.
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE IF EXISTS " + stageTable);
+                }
+            }
+        } finally {
+            connection = null;
+            rows.clear();
         }
     }
 

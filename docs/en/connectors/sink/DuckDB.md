@@ -148,6 +148,17 @@ replaying a job after an uncertain commit can still duplicate rows. The number o
 also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
 general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
 
+This mode writes one configured target table and does not support `table_list` or multi-table
+routing. A primary key or UNIQUE key inherited from the upstream table is also rejected, even
+when `primary_keys` is omitted; disabling `enable_upsert` does not remove the inherited key.
+
+Choose `batch_size` for the row width and worker memory budget. For small rows, a larger batch
+than the default 1000 can reduce small files, but rows occupy both the Java buffer and the DuckDB
+stage during a flush. Checkpoints, the batch interval, and job completion can flush a partial
+batch, so increasing `batch_size` alone does not guarantee large files. Each flush recreates the
+stage to release the previous batch's storage; writer close drops the remaining stage without
+closing a pooled physical connection. This adds per-flush table creation and statement preparation.
+
 ### Simple
 
 ```hocon

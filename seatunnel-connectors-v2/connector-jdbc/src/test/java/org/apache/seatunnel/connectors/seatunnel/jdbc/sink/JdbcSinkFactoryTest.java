@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -122,6 +123,26 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(
                 OptionValidationException.class,
                 () -> createSinkViaFactoryContext(duckLakeBulkConfig(), true));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsDerivedUniqueKey() {
+        CatalogTable table = createCatalogTable(false);
+        table.getTableSchema()
+                .getConstraintKeys()
+                .add(
+                        ConstraintKey.of(
+                                ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                "unique_id",
+                                Collections.singletonList(
+                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                "id", ConstraintKey.ColumnSortType.ASC))));
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        table,
+                        ReadonlyConfig.fromMap(duckLakeBulkConfig()),
+                        getClass().getClassLoader());
+        Assertions.assertThrows(OptionValidationException.class, () -> factory.createSink(context));
     }
 
     private Map<String, Object> duckLakeBulkConfig() {

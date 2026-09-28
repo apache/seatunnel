@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -57,7 +58,9 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * Run with -Dducklake.extension=/path/ducklake.duckdb_extension and -Dsqlite.scanner.extension=...
+ * The real DuckLake file-count test is opt-in and skipped in default CI. Run it with
+ * -Dducklake.extension=/path/ducklake.duckdb_extension and -Dsqlite.scanner.extension=... The exact
+ * file counts apply to the pinned JDBC 1.3.1 and extension fixture, not all versions.
  */
 public class DuckLakeBulkWriteTest {
     @TempDir Path tempDir;
@@ -117,7 +120,8 @@ public class DuckLakeBulkWriteTest {
         String url = "jdbc:duckdb:" + tempDir.resolve("local.db");
         try (Connection connection = new DuckDBDriver().connect(url, new Properties());
                 Statement statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE main.events (id INTEGER, val VARCHAR)");
+            statement.execute("CREATE TABLE main.events (id INTEGER CHECK (id <> 2), val VARCHAR)");
+            statement.execute("INSERT INTO main.events VALUES (0, 'existing')");
             DuckLakeBulkStatementExecutor executor =
                     new DuckLakeBulkStatementExecutor(
                             "main", "events", schema(), new DuckDBJdbcRowConverter());
@@ -127,29 +131,97 @@ public class DuckLakeBulkWriteTest {
             Assertions.assertThrows(SQLException.class, () -> executor.addToBatch(update));
 
             executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
-            executor.addToBatch(new SeaTunnelRow(new Object[] {2, "two"}));
-            statement.execute("DROP TABLE main.events");
+            executor.addToBatch(new SeaTunnelRow(new Object[] {2, "invalid"}));
             Assertions.assertThrows(SQLException.class, executor::executeBatch);
+            // The target still exists: a failed INSERT SELECT must not publish its valid first row.
+            try (ResultSet result = statement.executeQuery("SELECT id FROM main.events")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(0, result.getInt(1));
+                Assertions.assertFalse(result.next());
+            }
+            // Discard the invalid batch explicitly; this is not an automatic JDBC retry.
+            executor.clearBatch();
+            executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
+            executor.addToBatch(new SeaTunnelRow(new Object[] {3, "three"}));
+            executor.executeBatch();
+            executor.addToBatch(new SeaTunnelRow(new Object[] {4, "four"}));
+            executor.executeBatch();
             executor.closeStatements();
-            statement.execute("CREATE TABLE main.events (id INTEGER, val VARCHAR)");
-            DuckLakeBulkStatementExecutor replay =
-                    new DuckLakeBulkStatementExecutor(
-                            "main", "events", schema(), new DuckDBJdbcRowConverter());
-            replay.prepareStatements(connection);
-            replay.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
-            replay.addToBatch(new SeaTunnelRow(new Object[] {2, "two"}));
-            replay.executeBatch();
-            replay.addToBatch(new SeaTunnelRow(new Object[] {3, "three"}));
-            replay.executeBatch();
-            replay.closeStatements();
             try (ResultSet result =
                     statement.executeQuery(
                             "SELECT COUNT(*), COUNT(DISTINCT id) FROM main.events")) {
                 Assertions.assertTrue(result.next());
-                Assertions.assertEquals(3, result.getInt(1));
-                Assertions.assertEquals(3, result.getInt(2));
+                Assertions.assertEquals(4, result.getInt(1));
+                Assertions.assertEquals(4, result.getInt(2));
             }
         }
+    }
+
+    @Test
+    void closesStageWithoutClosingReusableConnection() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect("jdbc:duckdb:", new Properties());
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main.events (id INTEGER, val VARCHAR)");
+            DuckLakeBulkStatementExecutor executor =
+                    new DuckLakeBulkStatementExecutor(
+                            "main", "events", schema(), new DuckDBJdbcRowConverter());
+            executor.prepareStatements(connection);
+            for (int batch = 0; batch < 50; batch++) {
+                executor.addToBatch(new SeaTunnelRow(new Object[] {batch, "value-" + batch}));
+                executor.executeBatch();
+            }
+            executor.closeStatements();
+            executor.closeStatements();
+            try (ResultSet result =
+                    statement.executeQuery(
+                            "SELECT COUNT(*) FROM duckdb_tables() WHERE temporary")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(0, result.getInt(1));
+            }
+            try (ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM main.events")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(50, result.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void closesRemainingResourcesWhenStageInsertCloseFails() throws Exception {
+        Connection connection = Mockito.mock(Connection.class);
+        Statement validation = Mockito.mock(Statement.class);
+        Statement flush = Mockito.mock(Statement.class);
+        Statement cleanup = Mockito.mock(Statement.class);
+        PreparedStatement insert = Mockito.mock(PreparedStatement.class);
+        Mockito.when(connection.createStatement()).thenReturn(validation, flush, cleanup);
+        Mockito.when(connection.prepareStatement(Mockito.anyString())).thenReturn(insert);
+        DuckLakeBulkStatementExecutor executor =
+                new DuckLakeBulkStatementExecutor(
+                        "main", "events", schema(), new DuckDBJdbcRowConverter());
+        executor.prepareStatements(connection);
+        executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
+        SQLException insertFailure = new SQLException("insert close failed");
+        SQLException statementFailure = new SQLException("statement close failed");
+        Mockito.doThrow(insertFailure).when(insert).close();
+        Mockito.doThrow(statementFailure).when(flush).close();
+        SQLException failure = Assertions.assertThrows(SQLException.class, executor::executeBatch);
+        Assertions.assertSame(insertFailure, failure);
+        Assertions.assertArrayEquals(new Throwable[] {statementFailure}, failure.getSuppressed());
+        Mockito.verify(flush).close();
+        SQLException dropFailure = new SQLException("drop failed");
+        SQLException cleanupFailure = new SQLException("cleanup close failed");
+        Mockito.when(cleanup.execute(Mockito.startsWith("DROP TABLE IF EXISTS ")))
+                .thenThrow(dropFailure);
+        Mockito.doThrow(cleanupFailure).when(cleanup).close();
+        SQLException closeFailure =
+                Assertions.assertThrows(SQLException.class, executor::closeStatements);
+        Assertions.assertSame(dropFailure, closeFailure);
+        Assertions.assertArrayEquals(
+                new Throwable[] {cleanupFailure}, closeFailure.getSuppressed());
+        Mockito.verify(cleanup).close();
+        // Closing again must not reuse a failed cleanup statement or close the pooled connection.
+        executor.closeStatements();
+        Mockito.verify(connection, Mockito.times(3)).createStatement();
+        Mockito.verify(connection, Mockito.never()).close();
     }
 
     @Test
