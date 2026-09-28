@@ -1228,7 +1228,8 @@ public class SplitClusterFaultToleranceIT {
                                 Assertions.assertNotNull(currentJobMaster);
                                 Assertions.assertEquals(
                                         restoreCountBeforeReset,
-                                        currentJobMaster.getPhysicalPlan().getPipelineList().stream()
+                                        currentJobMaster.getPhysicalPlan().getPipelineList()
+                                                .stream()
                                                 .mapToInt(SubPlan::getPipelineRestoreNum)
                                                 .sum(),
                                         "Reset notifications from old worker contexts must not "
