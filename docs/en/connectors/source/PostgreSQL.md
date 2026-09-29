@@ -28,6 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> The PostgreSQL Source connector is a JDBC-based batch connector. It does not tail the PostgreSQL write-ahead log. Use [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) when you need continuous change capture.
 
 > supports query SQL and can achieve projection effect.
 
@@ -306,6 +310,74 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Streaming With Incremental ID Range
+
+The PostgreSQL Source connector is a JDBC-based batch reader. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) for continuous change capture.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    query = "SELECT * FROM orders WHERE id >= ? AND id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### Read With Schema Prefix
+
+PostgreSQL uses `database.schema.table` as the qualified name. When `url` does not include the target database, pass the schema explicitly via `table_path` in the `database.schema.table` form.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_path = "demo.public.orders"
+    split.size = 10000
+  }
+}
+```
+
+### Read With Per-Table Query Override
+
+When tables in `table_list` need different projections or filters, set `query` per entry. SeaTunnel uses the per-item SQL verbatim and skips table metadata lookup for that entry.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_list = [
+      {
+        table_path = "demo.public.orders"
+        query = "select id, status, amount from orders where status = 'PAID'"
+      },
+      {
+        table_path = "demo.public.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
 }
 ```
 

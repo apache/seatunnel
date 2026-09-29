@@ -408,6 +408,28 @@ FtpFile {
 
 ```
 
+### 通过 SFTP 写入
+
+`FtpFile` Sink 同时支持 `ftp://` 和 `sftp://` URI。认证方式与 source 一致：SSH 密钥或密码外加 `known_hosts` 文件——连接器不会自动信任未知 host。
+
+```hocon
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "parquet"
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
 
 ## 变更日志
 

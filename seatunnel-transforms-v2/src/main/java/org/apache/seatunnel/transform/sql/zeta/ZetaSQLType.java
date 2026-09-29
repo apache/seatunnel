@@ -362,9 +362,6 @@ public class ZetaSQLType {
             case ZetaSQLFunction.LOCATE:
             case ZetaSQLFunction.INSTR:
             case ZetaSQLFunction.POSITION:
-            case ZetaSQLFunction.CEIL:
-            case ZetaSQLFunction.CEILING:
-            case ZetaSQLFunction.FLOOR:
             case ZetaSQLFunction.DAY_OF_MONTH:
             case ZetaSQLFunction.DAY_OF_WEEK:
             case ZetaSQLFunction.DAY_OF_YEAR:
@@ -410,8 +407,6 @@ public class ZetaSQLType {
             case ZetaSQLFunction.POWER:
             case ZetaSQLFunction.RAND:
             case ZetaSQLFunction.RANDOM:
-            case ZetaSQLFunction.TRUNC:
-            case ZetaSQLFunction.TRUNCATE:
             case ZetaSQLFunction.COSINE_DISTANCE:
             case ZetaSQLFunction.L1_DISTANCE:
             case ZetaSQLFunction.L2_DISTANCE:
@@ -462,10 +457,18 @@ public class ZetaSQLType {
                                     "unsupported datetime format type");
                     }
                 }
+                // These functions all return the type of their first argument. CEIL/FLOOR/TRUNC are
+                // documented that way as well; declaring INT/DOUBLE for them would truncate BIGINT
+                // and DECIMAL results.
             case ZetaSQLFunction.ABS:
             case ZetaSQLFunction.DATEADD:
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
+            case ZetaSQLFunction.CEIL:
+            case ZetaSQLFunction.CEILING:
+            case ZetaSQLFunction.FLOOR:
+            case ZetaSQLFunction.TRUNC:
+            case ZetaSQLFunction.TRUNCATE:
             case ZetaSQLFunction.NULLIF:
                 return getExpressionType(function.getParameters().getExpressions().get(0));
             case ZetaSQLFunction.IFNULL:

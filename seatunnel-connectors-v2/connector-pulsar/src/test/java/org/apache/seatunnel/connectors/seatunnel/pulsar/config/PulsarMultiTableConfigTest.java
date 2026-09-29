@@ -74,6 +74,42 @@ class PulsarMultiTableConfigTest {
     }
 
     @Test
+    void shouldAllowTextFormatInSingleTable() {
+        Map<String, Object> config = createBaseConfig();
+        config.put("topic", "persistent://public/default/events");
+        config.put("format", "text");
+        config.put("field_delimiter", "|");
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        PulsarTableConfig tableConfig = multiTableConfig.getTableConfigs().get(0);
+        Assertions.assertEquals("text", tableConfig.getFormat());
+        Assertions.assertEquals(
+                "|", tableConfig.getSchemaConfig().get(PulsarSourceOptions.FIELD_DELIMITER));
+    }
+
+    @Test
+    void shouldRejectTextFormatInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Collections.singletonList(
+                        createTableConfig(
+                                "db.events", "persistent://public/default/events", null, "text")));
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("TEXT is only supported in single-table mode"));
+    }
+
+    @Test
     void shouldRejectOverlappingTopicDeclarations() {
         Map<String, Object> config = createBaseConfig();
         config.put(

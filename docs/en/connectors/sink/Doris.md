@@ -65,7 +65,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                           |
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
-| doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
+| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `row_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
 
 ## Redirect Behavior
 
@@ -93,7 +93,7 @@ Option introduction：
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
-`DROP_DATA`： Preserve database structure and delete data  
+`DROP_DATA`： Preserve database structure and delete data. By default the complete target table is truncated. When `doris.config.partitions` contains a comma-separated list of formal Doris partition names, only those partitions are truncated and subsequent Stream Load writes are restricted to the same partitions. Every target in a multi-table job must contain the configured partition names. Doris rejects cleanup when a partition does not exist. Partition values and temporary partitions are not supported.
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
@@ -411,7 +411,7 @@ sink {
 
 ### Use JSON format to import data
 
-```
+```hocon
 sink {
     Doris {
         fenodes = "e2e_dorisdb:8030"
@@ -427,12 +427,11 @@ sink {
         }
     }
 }
-
 ```
 
 ### Use CSV format to import data
 
-```
+```hocon
 sink {
     Doris {
         fenodes = "e2e_dorisdb:8030"
@@ -448,6 +447,7 @@ sink {
         }
     }
 }
+```
 
 ### Case-Sensitive Configuration
 
@@ -467,6 +467,95 @@ sink {
           read_json_by_line = "true"
         }
     }
+}
+```
+
+### Custom SQL Pre-processing
+
+When `data_save_mode = "CUSTOM_PROCESSING"`, the SQL set in `custom_sql` is executed on the target
+Doris cluster before the synchronization task reads data. This lets you prepare, clean, or seed the
+target table out-of-band of the connector's normal write path. The connector still writes through
+Stream Load afterwards.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        F_ID = bigint
+        F_INT = int
+        F_BIGINT = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_sink"
+    table = "doris_e2e_unique_table"
+    data_save_mode = "CUSTOM_PROCESSING"
+    custom_sql = "INSERT INTO e2e_sink.doris_e2e_unique_table (F_ID, F_INT, F_BIGINT) VALUES (1, 123, 1234567890123);"
+    sink.enable-2pc = true
+    sink.label-prefix = "test_custom_sql"
+    save_mode_create_template = """CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) ENGINE=OLAP UNIQUE KEY (`F_ID`) DISTRIBUTED BY HASH (`F_ID`) PROPERTIES ("replication_allocation" = "tag.location.default: 1")"""
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### CDC With Schema Change
+
+This example shows MySQL-CDC streaming into Doris with `schema-changes.enabled = true` so that
+column additions, type widening, and other DDL changes from the upstream MySQL source are applied
+to the target Doris table.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "products"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = true
+    sink.enable-delete = true
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
 }
 ```
 
@@ -599,9 +688,11 @@ Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC s
 
 ### Are Doris column names case-sensitive?
 
-See the case-sensitivity example above for the exact behavior. If upstream field names still do not
-match the Doris schema, normalize them before the sink stage or align the target schema explicitly
-instead of relying on an undocumented `column_mapping` option.
+See the case-sensitivity example above for the exact behavior. By default (`case_sensitive = true`)
+the connector preserves the original case of `database` and `table`. Set `case_sensitive = false`
+to fold both names to lowercase before they reach Doris. If upstream field names still do not
+match the Doris schema, normalize them at the source stage (e.g. with a `Rename` transform) or
+align the target schema explicitly rather than relying on undocumented options.
 
 ### What data format does Doris Stream Load use?
 

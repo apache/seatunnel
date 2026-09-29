@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -154,7 +155,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @Order(1)
     @TestTemplate
@@ -219,6 +222,31 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // waiting for case3/case4 completed
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // savepoint 3
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+        // case5 table comment change with cdc data at same time
+        shopDatabase.setTemplateName("comment_changes").createAndInitialize();
+
+        // restore 3
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // waiting for case5 completed – data must continue flowing after comment DDL
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // verify the final source table comment was applied (tests comment update idempotency)
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
     }
 
     @Order(2)
@@ -476,6 +504,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // case4 modify column data type with cdc data at same time
         assertCaseByDdlName("modify_columns", database, sourceTable, sinkTable);
+
+        // case5 comment changes with cdc data at same time
+        assertCaseByDdlName("comment_changes", database, sourceTable, sinkTable);
+        assertSourceTableComment(
+                database, sourceTable, "Updated product catalog with sports equipment");
     }
 
     private void assertCaseByDdlName(
@@ -774,6 +807,31 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     public void tearDown() {
         if (MYSQL_CONTAINER != null) {
             MYSQL_CONTAINER.close();
+        }
+    }
+
+    /**
+     * Asserts that the given source table's TABLE_COMMENT in {@code information_schema.TABLES}
+     * matches {@code expectedComment}. This check is performed directly against the source MySQL
+     * instance; it is intentionally not compared with the sink because the JDBC sink treats comment
+     * events as no-ops.
+     */
+    private void assertSourceTableComment(String database, String table, String expectedComment) {
+        String sql =
+                String.format(
+                        "SELECT TABLE_COMMENT FROM information_schema.TABLES"
+                                + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        database, table);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
+            Assertions.assertTrue(rs.next(), "Table " + table + " not found in information_schema");
+            Assertions.assertEquals(
+                    expectedComment,
+                    rs.getString("TABLE_COMMENT"),
+                    "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

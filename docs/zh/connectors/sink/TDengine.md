@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 > TDengine 数据接收器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于将数据写入 TDengine。
@@ -23,48 +29,48 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 ## 选项
 
-| 名称           | 类型   | 是否必传 | 默认值 |
-|----------------|--------|----------|--------|
-| url            | string | 是       | -      |
-| username       | string | 是       | -      |
-| password       | string | 是       | -      |
-| database       | string | 是       | -      |
-| stable         | string | 是       | -      |
-| timezone       | string | 否       | UTC    |
-| write_columns  | list   | 否       | -      |
-| common-options |        | 否       | -      |
+| 名称           | 类型   | 是否必传 | 默认值 | 说明 |
+|----------------|--------|----------|--------|------|
+| url            | String | 是       | -      | TDengine REST JDBC 连接地址，例如 `jdbc:TAOS-RS://localhost:6041/`。 |
+| username       | String | 是       | -      | 连接 TDengine 使用的用户名。 |
+| password       | String | 是       | -      | 连接 TDengine 使用的密码。 |
+| database       | String | 是       | -      | TDengine 数据库名称。 |
+| stable         | String | 是       | -      | TDengine 超级表名称。多表写入时可以使用占位符，例如 `${table_name}`。 |
+| timezone       | String | 否       | UTC    | TDengine 服务端时区，用于时间戳转换。 |
+| write_columns  | List   | 否       | -      | 要写入 TDengine 的普通列名列表。不配置时按目标超级表的列顺序写入；不要包含子表名列或 TAGS 字段。 |
+| common-options |        | 否       | -      | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
-### url [string]
+### url [String]
 
 TDengine REST JDBC 连接地址。
 
-例如
+例如：
 
 ```
 jdbc:TAOS-RS://localhost:6041/
 ```
 
-### username [string]
+### username [String]
 
 连接 TDengine 使用的用户名。
 
-### password [string]
+### password [String]
 
 连接 TDengine 使用的密码。
 
-### database [string]
+### database [String]
 
-TDengine 数据库名称。
+TDengine 数据库名称，数据库必须已经在服务端存在。
 
-### stable [string]
+### stable [String]
 
-TDengine 超级表名称。多表写入时可以使用占位符，例如 `${table_name}`。
+TDengine 超级表名称。该值会被 Sink Writer 原样使用，TDengine 连接器本身不会执行占位符替换，因此 `${table_name}` 等占位符不会在运行时被替换。在多表写入场景下，上游 SeaTunnel 框架（`TablePlaceholderProcessor`）可能在任务初始化阶段根据上游 `CatalogTable` 的标识替换一次 `stable`，但这取决于上游框架的接线，并不是 TDengine 连接器自身的能力。
 
-### timezone [string]
+### timezone [String]
 
-TDengine 服务端时区，用于时间戳转换，默认值为 `UTC`。
+TDengine 服务端时区，用于时间戳转换，默认值为 `UTC`。如果服务端不是 UTC 时区，请把该项设置为与服务端一致的时区。
 
-### write_columns [list]
+### write_columns [List]
 
 要写入 TDengine 的普通列名列表。不配置时，TDengine 会按目标超级表的列顺序写入。这里不要包含第一列子表名，也不要包含 TAGS 字段；连接器会自动从输入数据末尾取出 TAGS 值。
 
@@ -72,6 +78,16 @@ TDengine 服务端时区，用于时间戳转换，默认值为 `UTC`。
 
 Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。
 多表写入时，可以配合通用参数中的 `multi_table_sink_replica` 使用。
+
+## 输入数据格式
+
+连接器要求每行输入数据符合超级表写入结构：
+
+1. 第一列为目标子表名（字符串）。若该子表不存在，Sink 会按目标超级表的 schema 自动创建。
+2. 接下来的列为 `write_columns` 中声明的普通列（未配置时使用目标超级表的列顺序）。
+3. 末尾几列为 TAGS 值。TAGS 字段的数量会从目标超级表的元数据中读取。
+
+例如，目标超级表有 2 个 TAGS 字段时，输入行最后 2 列会作为 TAGS 值，第一列会作为子表名。
 
 ## 示例
 
@@ -162,6 +178,8 @@ sink {
   }
 }
 ```
+
+这里的 `${table_name}` 会被 TDengine Sink Writer 当作普通字符串原样使用（连接器不会按行替换它），因此本示例只有在任务初始化阶段由上游框架依据 `CatalogTable` 的标识替换 `stable` 时才能生效。目标超级表必须已经存在并具有匹配的 TAGS 列。
 
 ## 变更日志
 

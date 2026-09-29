@@ -38,7 +38,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Read external data source data through JDBC.
+Read data from Microsoft SQL Server through the official `mssql-jdbc` driver. The connector supports
+single-table reads via `query` or `table_path`, partitioned reads via `partition_column`/`partition_lower_bound`/
+`partition_upper_bound`/`partition_num`, and multi-table reads via `table_list`. Each partition runs as one
+parallel SeaTunnel split.
 
 ## Supported DataSource Info
 

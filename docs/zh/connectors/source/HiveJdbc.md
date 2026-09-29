@@ -31,7 +31,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过JDBC读取外部数据源数据。
+通过标准 JDBC 接口读取 Apache Hive 中的数据。连接器使用 HiveServer2 JDBC 驱动（`org.apache.hive.jdbc.HiveDriver`）将配置的 `query` 提交给 HiveServer2 执行并读取结果。相较于直接读取 HDFS 文件的 [Hive 源](Hive.md)，HiveJdbc 把所有 I/O 委托给 HiveServer2，更适合 SeaTunnel Worker 端无法直接访问 Metastore 或 HDFS 的场景。同时支持 Kerberos 认证。
 
 ## 支持的数据源信息
 
@@ -66,24 +66,24 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 | 参数名                          | 类型         | 必须 | 默认值             | 描述                                                                                                                          |
 |------------------------------|------------|----|-----------------|-----------------------------------------------------------------------------------------------------------------------------|
-| url                          | String     | 是  | -               | JDBC连接的URL。参考示例: jdbc:hive2://localhost:10000/default                                                                       |
-| driver                       | String     | 是  | -               | 用于连接到远程数据源的jdbc类名，<br/> 如果使用Hive，则值为 `org.apache.hive.jdbc.HiveDriver`.                                                     |
-| username                     | String     | 否  | -               | 连接实例用户名                                                                                                                     |
-| password                     | String     | 否  | -               | 连接实例密码                                                                                                                      |
-| query                        | String     | 是  | -               | 查询sql                                                                                                                       |
-| connection_check_timeout_sec | Int        | 否  | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                      |
-| socket_timeout_ms            | Int        | 否  | 86400000        | 从服务器读取数据的 Socket 超时时间(毫秒)。设置为 0 表示无超时。注意：已在 Hive 3.2.0+ 测试,更早版本暂未验证。                                                         |
-| connect_timeout_ms           | Int        | 否  | 86400000        | 建立到服务器的连接超时时间(毫秒)。设置为 0 表示无超时。注意：已在 Hive 3.2.0+ 测试,更早版本暂未验证。                                                            |
-| partition_column             | String     | 否  | -               | 并行分区的列名，只支持数值类型，只支持数字类型主键，只能配置一列。                                                                                           |
-| partition_lower_bound        | BigDecimal | 否  | -               | 扫描的分区列最小值，如果未设置，SeaTunnel将查询数据库获取最小值。                                                                                       |
-| partition_upper_bound        | BigDecimal | 否  | -               | 扫描的分区列最大值，如果没有设置，SeaTunnel将查询数据库获取最大值。                                                                                      |
-| partition_num                | Int        | 否  | job parallelism | 分区数量，仅支持正整数。 默认值是作业并行数                                                                                                      |
-| fetch_size                   | Int        | 否 | 0               | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，通过减少满足选择条件所需的数据库查询次数来提高性能。0表示使用jdbc默认值。                                                        |
-| common-options               |            | 否 | -               | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见                                                         |
-| use_kerberos                 | Boolean    | 否 | no              | 是否启用Kerberos，默认值为false                                                                                |
-| kerberos_principal           | String     | 否 | -               | 使用kerberos时，我们应该设置kerberos主体，例如"test_user@xxx".                                                   |
-| kerberos_keytab_path         | String     | 否 | -               | 使用kerberos时，我们应该设置kerberos主体文件路径，如“/home/test/test_user.keytab”。                         |
-| krb5_path                    | String     | 否 | /etc/krb5.conf  | 使用kerberos时，我们应该设置krb5路径文件路径，如“/seatunnel/krb5.conf”，或使用默认路径“/etc/krb5.conf”。 |
+| url                          | String     | 是  | -               | JDBC 连接的 URL。参考示例：`jdbc:hive2://localhost:10000/default`，指向 HiveServer2 端点。 |
+| driver                       | String     | 是  | -               | 用于连接到远程数据源的 JDBC 类名。对于 Hive，值为 `org.apache.hive.jdbc.HiveDriver`。 |
+| username                     | String     | 否  | -               | 连接实例用户名。 |
+| password                     | String     | 否  | -               | 连接实例密码。 |
+| query                        | String     | 是  | -               | 查询语句。HiveServer2 返回的结果集结构即为输出结构。 |
+| connection_check_timeout_sec | Int        | 否  | 30              | 等待用于验证连接的数据库操作完成的时间（秒）。 |
+| socket_timeout_ms            | Int        | 否  | 86400000        | 从服务器读取数据的 Socket 超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
+| connect_timeout_ms           | Int        | 否  | 86400000        | 建立到服务器的连接超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
+| partition_column             | String     | 否  | -               | 并行分区的列名，仅支持数值类型主键，且只能配置一列。 |
+| partition_lower_bound        | BigDecimal | 否  | -               | 扫描的分区列最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。 |
+| partition_upper_bound        | BigDecimal | 否  | -               | 扫描的分区列最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。 |
+| partition_num                | Int        | 否  | job parallelism | 分区数量，仅支持正整数。默认值是作业并行数。 |
+| fetch_size                   | Int        | 否  | 0               | 对于返回大量行的查询，可配置 JDBC 一次获取的行数，通过减少访问数据库的次数来提升性能。`0` 表示使用 JDBC 驱动默认。 |
+| common-options               |            | 否  | -               | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)。 |
+| use_kerberos                 | Boolean    | 否  | false           | 是否启用 Kerberos 认证。 |
+| kerberos_principal           | String     | 否  | -               | 当 `use_kerberos = true` 时，设置 Kerberos 主体，例如 `test_user@REALM`。 |
+| kerberos_keytab_path         | String     | 否  | -               | 当 `use_kerberos = true` 时，设置 Kerberos keytab 文件路径，例如 `/home/test/test_user.keytab`。 |
+| krb5_path                    | String     | 否  | /etc/krb5.conf  | 当 `use_kerberos = true` 时，设置 `krb5.conf` 路径，例如 `/seatunnel/krb5.conf`，或保留默认 `/etc/krb5.conf`。 |
 
 ### 提示
 
@@ -94,15 +94,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单任务
 
->此示例以单并行方式查询测试数据库中表type_bin的16条数据，并查询其所有字段。您还可以指定要查询哪些字段以将最终输出到控制台。
+> 此示例以单并行方式查询测试数据库中表 `type_bin` 的 16 条数据，并查询其所有字段。您也可以指定要查询的字段，最终输出到控制台。
 
-```
+```hocon
 # 定义运行时环境
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+source {
     Jdbc {
         url = "jdbc:hive2://localhost:10000/default"
         driver = "org.apache.hive.jdbc.HiveDriver"
@@ -123,9 +123,9 @@ sink {
 
 ### 并行任务
 
-> 与您配置的分片字段和分片数据并行读取查询表如果您想读取整个表，可以这样做
+> 使用配置的分片字段并行读取查询表。如果需要读取整张表，可使用此模式。
 
-```
+```hocon
 source {
     Jdbc {
         url = "jdbc:hive2://localhost:10000/default"
@@ -143,9 +143,9 @@ source {
 
 ### 并行度临界值
 
-> 指定并行度的值在分区字段的值上下界之间，这样可以更高效的读取数据
+> 通过指定分区列的取值上下界可以更高效地读取数据。当取值集中时，建议显式指定范围。
 
-```
+```hocon
 source {
     Jdbc {
         url = "jdbc:hive2://localhost:10000/default"
@@ -159,6 +159,22 @@ source {
         # Read end boundary
         partition_upper_bound = 500
         partition_num = 10
+    }
+}
+```
+
+### 通过 Kerberos 读取
+
+```hocon
+source {
+    Jdbc {
+        url = "jdbc:hive2://hive-server:10000/default;principal=hive/_HOST@REALM"
+        driver = "org.apache.hive.jdbc.HiveDriver"
+        query = "select * from type_bin"
+        use_kerberos = true
+        kerberos_principal = "test_user@REALM"
+        kerberos_keytab_path = "/home/test/test_user.keytab"
+        krb5_path = "/etc/krb5.conf"
     }
 }
 ```

@@ -64,9 +64,9 @@ libfb303-xxx.jar
 
 | 名称                                     | 类型      | 是否必须 | 默认                           | 描述                                                                                                                                                                                                                |
 |----------------------------------------|---------|------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| catalog_name                           | string  | yes  | default                      | 用户指定的目录名称，默认为`default`                                                                                                                                                                                            |
-| namespace                              | string  | yes  | default                      | backend catalog（元数据存储的后端目录）中 Iceberg 数据库的名称，默认为 `default`                                                                                                                                                         |
-| table                                  | string  | yes  | -                            | backend catalog（元数据存储的后端目录）中 Iceberg 表的名称                                                                                                                                                                         |
+| catalog_name                           | string  | no   | default                      | 用户指定的目录名称，默认为`default`                                                                                                                                                                                            |
+| namespace                              | string  | no   | default                      | backend catalog（元数据存储的后端目录）中 Iceberg 数据库的名称，默认为 `default`                                                                                                                                                         |
+| table                                  | string  | no   | -                            | backend catalog（元数据存储的后端目录）中 Iceberg 表的名称。不配置时使用上游表的表名                                                                                                                                                                         |
 | iceberg.catalog.config                 | map     | yes  | -                            | 用于指定初始化 Iceberg Catalog 的属性，这些属性可以参考此文件：[CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                 |
 | hadoop.config                          | map     | no   | -                            | 传递给 Hadoop 配置的属性                                                                                                                                                                                                  |
 | iceberg.hadoop-conf-path               | string  | no   | -                            | 指定`core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的加载路径                                                                                                                                                         |
@@ -103,6 +103,10 @@ libfb303-xxx.jar
 ### custom_sql [string]
 
 当 `data_save_mode = CUSTOM_PROCESSING` 时，配置在 Sink 写入前删除目标数据的 `delete` SQL。该模式下必须配置此选项。
+
+对于 Iceberg `timestamptz` 列，比较以及 `IN`/`NOT IN` 条件支持带偏移量的时间戳字面量，例如 `event_time >= '2026-09-12 10:00:00.123456+05:30'`。偏移量会转换为对应的 UTC 时间点，精度为微秒。不带偏移量的字面量保持现有的 UTC 解释方式。不带时区的 Iceberg `timestamp` 列仍要求使用不带偏移量的字面量。
+
+现有的文件级删除限制仍然适用：如果数据文件中只有部分行匹配条件，Iceberg 会拒绝删除。
 
 ### krb5_path [string]
 

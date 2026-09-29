@@ -60,7 +60,7 @@ Output data to hdfs file
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when `custom_filename` is `true`.When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:[y:Year,M:Month,d:Day of month,H:Hour in day (0-23),m:Minute in hour,s:Second in minute]                                                                                                              |
 | file_format_type                      | string  | no       | "csv"                                      | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                                                                                                                                                                  |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                                                                                                                                                                                                                                                                                                                                   |
-| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format is text and csv,The separator between columns in a row of data. Only needed by `text` file format.                                                                                                                                                                                                                                                                                                                                                            |
+| field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format is text and csv,The separator between columns in a row of data. Only needed by `text` file format.                                                                                                                                                                                                                                                                                                                                                            |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format is text,The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                                                                                                                                                                                                                                                                                                            |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true,Partition data based on selected fields.                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -324,6 +324,24 @@ Configure mount table in `core-site.xml`:
 </configuration>
 ```
 
+### Writing to an HA HDFS Cluster (Kerberos-enabled)
+
+When writing to an HA HDFS cluster that uses Kerberos, supply the Kerberos principal/keytab in addition to the nameservice URI. The connector picks up the same authentication the rest of your Hadoop tooling uses, so the principal's HDFS permissions must allow writes to the target directory.
+
+```hocon
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/landing/events"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+    kerberos_principal = "sink@EXAMPLE.COM"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+The `kerberos_principal` and `krb5_path` values are forwarded to the Hadoop FileSystem client; the connector does not perform a `kinit` itself, so the keytab must already be discoverable on every worker node (typically via `KRB5CCNAME` / a `kinit` cron) or supplied to the same JVM via standard Hadoop authentication utilities. For cluster-level auth issues, check the worker logs for `LoginException` / `KrbException` messages — those indicate a credential problem, not a connector bug.
 
 ## Changelog
 

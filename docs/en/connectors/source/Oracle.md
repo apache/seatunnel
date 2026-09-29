@@ -56,7 +56,7 @@ Read external data source data through JDBC.
 | NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
-| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/> | STRING              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
 | DATE                                                                                                     | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |
@@ -328,6 +328,70 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Streaming With Incremental ID Range
+
+The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    query = "SELECT * FROM ORDERS WHERE ORDER_ID >= ? AND ORDER_ID < ?"
+    partition_column = "ORDER_ID"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### Use TNS Connection String
+
+For Oracle deployments that expose a TNS alias, point `url` at the TNS entry instead of a host/port combination. The TNS name is resolved by `oracle.net.tns_admin` on the classpath.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@tns_alias"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    properties {
+      oracle.net.tns_admin = "/etc/oracle"
+    }
+    table_path = "SCHEMA.ORDERS"
+    split.size = 10000
+  }
+}
+```
+
+### Row Filtering With `where_condition`
+
+Apply a global filter that affects every entry in `table_list` or `query` by setting `where_condition`. The string must start with `where` so it can be appended to either a custom query or to the dynamically-built query used for `table_path`.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    table_path = "SCHEMA.ORDERS"
+    where_condition = "where status = 'ACTIVE' and created_at >= DATE '2026-01-01'"
+    split.size = 10000
+  }
 }
 ```
 

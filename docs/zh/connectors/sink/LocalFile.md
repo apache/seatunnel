@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 > 本地文件接收器
 
+## 支持这些引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将数据输出到本地文件。
@@ -25,6 +31,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   默认情况下，我们使用 2PC 提交以确保`精确一次`。
+
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 - [x] 文件格式类型
   - [x] 文本

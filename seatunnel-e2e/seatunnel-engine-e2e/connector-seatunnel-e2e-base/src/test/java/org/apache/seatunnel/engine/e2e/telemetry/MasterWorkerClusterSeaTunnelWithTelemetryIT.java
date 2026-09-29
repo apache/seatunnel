@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.e2e.telemetry;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
@@ -66,8 +67,6 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
 
     private static final Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path config = Paths.get(SEATUNNEL_HOME, "config");
-    private static final Path hadoopJar =
-            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
     @Test
     public void testSubmitJobs() throws InterruptedException {
@@ -693,10 +692,8 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/master-worker-cluster/"),
                 config.toString());
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                hadoopJar.toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
