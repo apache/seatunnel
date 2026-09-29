@@ -5,6 +5,28 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Helm Chart: Zeta REST API v1 disabled by default
+
+- **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
+  - **Affected component**: Helm chart `deploy/kubernetes/seatunnel` (`conf/hazelcast-master.yaml`,
+    `conf/hazelcast-worker.yaml`, `values.yaml`)
+  - **Description**: The chart previously set `hazelcast.network.rest-api.enabled: true`, exposing the
+    deprecated Zeta REST API v1 (including `submit-job`, `stop-job`, `encrypt-config`, logs and thread
+    dump) on the Hazelcast member port (5801) without authentication. It is now `false`, matching the
+    standalone `config/hazelcast.yaml` default and the v1 documentation. The default Prometheus pod
+    annotations are repointed from `5801` (`/hazelcast/rest/instance/metrics`) to the REST API v2 /
+    Jetty listener on `8080` (`/metrics`), which returns the same samples.
+  - **Impact**: Deployments that called REST API v1 on port 5801 must switch to REST API v2 on port
+    8080. Prometheus setups that scraped `5801/hazelcast/rest/instance/metrics` directly (rather than
+    through the pod annotations) must update the target to `8080/metrics`. Job submission through the
+    Hazelcast client protocol and REST API v2 on 8080 are unaffected. Because the ConfigMap is mounted
+    with `subPath` and the Deployments carry no config checksum annotation, running pods keep the old
+    setting until restarted, so restart the master/worker pods after `helm upgrade`.
+  - **Migration Guide**: Use REST API v2 on port 8080 (the chart's documented interface). If Zeta REST
+    API v1 is genuinely required, set `rest-api.enabled: true` in a custom ConfigMap
+    (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
+    after upgrading so the new configuration is applied.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
