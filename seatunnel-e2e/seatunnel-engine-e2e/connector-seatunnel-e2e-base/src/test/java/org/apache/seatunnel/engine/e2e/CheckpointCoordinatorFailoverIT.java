@@ -618,10 +618,18 @@ public class CheckpointCoordinatorFailoverIT {
     }
 
     /**
-     * A real barrier-dispatch lookup failure must fail the job instead of leaving it running
-     * forever without checkpoints (#10442). Remove slot bookkeeping only between checkpoints, under
-     * the trigger lock: removing it during a pending checkpoint can instead fail the completion
-     * notification, which exercises a different error path.
+     * Regression test for the checkpoint-trigger failure in <a
+     * href="https://github.com/apache/seatunnel/issues/10442">#10442</a>, fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10448">#10448</a>. A synchronous
+     * barrier-dispatch failure must fail the job through {@code CHECKPOINT_INSIDE_ERROR}, rather
+     * than leave it RUNNING forever with a pending checkpoint that prevents subsequent triggers.
+     *
+     * <p>After a healthy checkpoint, remove this pipeline's real slot-profile bookkeeping so the
+     * next dispatch fails in {@code JobMaster#queryTaskGroupAddress}. Completion notifications use
+     * the same address lookup, so an allocated checkpoint ID alone is not a safe injection point.
+     * Wait for {@code pendingCounter == 0}, which is reached after completion notifications, and
+     * remove the entry while holding the coordinator's trigger lock. This excludes a new trigger
+     * between the idle check and removal without changing the production error-handling path.
      */
     @Test
     public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
@@ -670,54 +678,64 @@ public class CheckpointCoordinatorFailoverIT {
                                         "Waiting for the source to start producing rows");
                             });
 
-            // Prove checkpointing is healthy before injecting the fault: the id counter can only
-            // reach 2 once checkpoint id 1 has been fully acknowledged -- see the class javadoc
-            // above for why (tryTriggerPendingCheckpoint never allocates a new id while
-            // pendingCounter is still above zero).
+            CheckpointCoordinator coordinator =
+                    getJobMaster(node, jobId)
+                            .getCheckpointManager()
+                            .getCheckpointCoordinator(pipelineId);
+            // Reflectively access the private lock and pendingCounter to time fault injection.
+            // Keep these field lookups in sync when refactoring CheckpointCoordinator.
+            Object triggerLock =
+                    ReflectionUtils.getField(coordinator, "lock")
+                            .orElseThrow(
+                                    () -> new IllegalStateException("Missing checkpoint lock"));
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(coordinator, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "Missing pending checkpoint counter"));
             CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(node);
             String checkpointIdKey =
                     StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                    node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+            PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(200, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Long currentId = checkpointCounterStore.get(checkpointIdKey);
-                                Assertions.assertNotNull(
-                                        currentId,
-                                        "waiting for the first checkpoint id to be allocated");
-                                Assertions.assertTrue(
-                                        currentId >= 2,
-                                        "waiting for checkpoint id 1 to be fully acknowledged"
-                                                + " before injecting the fault");
-                            });
-
-            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
-                    node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-            PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
-            CheckpointCoordinator checkpoint =
-                    getJobMaster(node, jobId)
-                            .getCheckpointManager()
-                            .getCheckpointCoordinator(pipelineId);
-            Object triggerLock = ReflectionUtils.getField(checkpoint, "lock").get();
-            AtomicInteger pendingCounter =
-                    (AtomicInteger) ReflectionUtils.getField(checkpoint, "pendingCounter").get();
-            Awaitility.await()
-                    .atMost(30, TimeUnit.SECONDS)
-                    .until(
-                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                // Trigger creation and pendingCounter increment hold this lock.
+                                // Completion only decrements pendingCounter after notify succeeds.
                                 synchronized (triggerLock) {
-                                    // Zero is published only after completion notifications have
-                                    // finished.
-                                    // Holding the trigger lock prevents the next checkpoint from
-                                    // starting.
-                                    if (pendingCounter.get() != 0) {
-                                        return false;
-                                    }
+                                    Long currentId = checkpointCounterStore.get(checkpointIdKey);
                                     Assertions.assertNotNull(
-                                            ownedSlotProfilesIMap.remove(pipelineLocation),
-                                            "Running pipeline slot bookkeeping must exist before fault injection");
-                                    return true;
+                                            currentId,
+                                            "waiting for the first checkpoint id to be allocated");
+                                    Assertions.assertTrue(
+                                            currentId >= 2,
+                                            "waiting for at least one checkpoint to be triggered");
+                                    Assertions.assertEquals(
+                                            0,
+                                            pendingCounter.get(),
+                                            "waiting for checkpoint completion notifications"
+                                                    + " before injecting the dispatch failure");
+                                    Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
+                                            ownedSlotProfilesIMap.remove(pipelineLocation);
+                                    Assertions.assertNotNull(
+                                            removedSlotProfiles,
+                                            "the running task's slot-profile bookkeeping should"
+                                                    + " exist before injection");
+                                    log.info(
+                                            "Job {} has no pending checkpoint; removed pipeline {}'s"
+                                                    + " slot-profile bookkeeping ({} task group(s))"
+                                                    + " before the next checkpoint-barrier dispatch.",
+                                            jobId,
+                                            pipelineId,
+                                            removedSlotProfiles.size());
                                 }
                             });
 
@@ -742,6 +760,14 @@ public class CheckpointCoordinatorFailoverIT {
                                     + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
                                     + " CheckpointCoordinator#handleCoordinatorError), but got: "
                                     + jobResult.getError());
+            Assertions.assertTrue(
+                    jobResult.getError().contains("can't find task group address"),
+                    () ->
+                            "Expected the injected address lookup failure, but got: "
+                                    + jobResult.getError());
+            Assertions.assertTrue(
+                    jobResult.getError().contains("CheckpointCoordinator.triggerCheckpoint"),
+                    () -> "Expected a barrier-dispatch failure, but got: " + jobResult.getError());
         } finally {
             if (engineClient != null) {
                 engineClient.close();

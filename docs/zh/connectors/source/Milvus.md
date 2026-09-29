@@ -61,14 +61,14 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 | database   | String | 否    | default | 源数据库。                                                                                      |
 | collection | String | 否    | -       | 源集合。配置后只读取这个集合；不配置时读取 `database` 下的所有集合。旧别名 `collection_name` 也仍然支持。                |
 | batch_size | Integer | 否 | 1000    | 每次从 Milvus 拉取的记录数。值越大吞吐越高，但内存占用也越大；记录中包含较大向量负载时可以适当调小。                                       |
-| rate_limit | Integer | 否 | 1000000 | Source 每秒最多向 Milvus 请求的记录数。用于在共享 Milvus 配额（QPS）或 gRPC 消息大小限制下对流任务进行限速。设为 `-1` 关闭限速。       |
+| rate_limit | Integer | 否 | 1000000 | 通过 Milvus 的 `collection.queryRate.max.qps` 属性对源集合设置的服务端查询限速（QPS）。读取器会在作业运行期间修改该集合级属性，因此会影响该集合的所有客户端，而不仅是当前 SeaTunnel 作业。设为 `-1` 关闭限速。       |
 
 ## 注意事项
 
 - `database` 默认是 `default`，本地 Milvus 的简单任务通常不用配置。
 - `collection` 是可选项。只想读一个集合时再配置。
 - `batch_size` 控制单次拉取的页面大小，与 reader 的并行度无关。需要配合 `parallelism` 一起调整，以平衡吞吐和内存。
-- `rate_limit` 是 Milvus 服务端的提示，用于在大批量向量读取时规避 `GRPC limit` 错误。除非日志里出现限速或 gRPC 报错，否则保持默认值即可。
+- `rate_limit` 会修改作业读取的每个集合的服务端 `collection.queryRate.max.qps` 属性，新的限速在作业运行期间对该集合的所有客户端生效。读取器在 `close()` 时会把该属性重置为 `-1`，但如果作业在 `close()` 之前崩溃，集合会一直处于被限速状态，需要手动恢复。除非日志里出现限速或 gRPC 报错，否则保持默认值即可。
 - 不配置 `collection` 时，源端会发现 `database` 下的所有集合，并把每个集合作为一张独立的 SeaTunnel 表输出。
 - 源端会按 Milvus 分区拆分读取任务。有分区键的集合使用一个 split 读取；没有分区键的集合会按分区名拆分，并分配给多个 reader。
 - 源端读取带分区的集合时，下游 Milvus 接收器可以利用这些元数据在目标集合创建相同分区名。
