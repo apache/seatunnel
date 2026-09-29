@@ -110,7 +110,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
-        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
 
         long sleepTime = 300;
 
