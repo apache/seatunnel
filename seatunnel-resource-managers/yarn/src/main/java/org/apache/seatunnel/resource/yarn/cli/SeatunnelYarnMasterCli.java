@@ -18,8 +18,9 @@
 package org.apache.seatunnel.resource.yarn.cli;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
-import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -196,9 +197,10 @@ public final class SeatunnelYarnMasterCli {
             execution =
                     new ApplicationJobExecutionEnvironment(
                                     jobConfig,
-                                    ConfigShadeUtils.decryptConfig(
-                                            ConfigFactory.parseString(specification.getJobConfig())
-                                                    .resolve()),
+                                    ConfigFactory.parseString(
+                                            specification.getJobConfig(),
+                                            ConfigParseOptions.defaults()
+                                                    .setSyntax(ConfigSyntax.JSON)),
                                     server,
                                     specification.getJobId(),
                                     specification.getOption(ApplicationOptions.RESTORE_JOB_ID))

@@ -395,7 +395,9 @@ class KubernetesApplicationTest {
     private static KubernetesJob job(V1JobStatus status) {
         KubernetesJob job =
                 KubernetesResourceFactory.job(
-                        "app", KubernetesApplicationParameters.from(specification()));
+                        "app",
+                        SeatunnelKubernetesMasterCli.class.getName(),
+                        KubernetesApplicationParameters.from(specification()));
         job.getInternalResource().getMetadata().setUid("uid-1");
         job.getInternalResource().setStatus(status);
         return job;

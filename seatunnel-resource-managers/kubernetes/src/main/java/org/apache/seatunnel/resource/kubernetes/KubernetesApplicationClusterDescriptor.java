@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -84,19 +85,18 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             api.getConfigMap(parameters.getConfigMap());
         }
         String id = KubernetesResourceFactory.newId(specification.getName());
-        boolean ownerCreated = false;
+        String mainClass = SeatunnelKubernetesMasterCli.class.getName();
+        KubernetesJob job = null;
         try {
-            KubernetesJob job = api.createJob(KubernetesResourceFactory.job(id, parameters));
-            ownerCreated = true;
+
+            job = api.createJob(KubernetesResourceFactory.job(id, mainClass, parameters));
             api.createSecret(KubernetesResourceFactory.secret(job, specification));
             api.createService(KubernetesResourceFactory.service(job, parameters));
             api.startJob(id);
             awaitDeployment(id, specification.getStartupTimeoutMillis());
             return id;
         } catch (Exception failure) {
-            if (ownerCreated
-                    || !(failure instanceof ApiException)
-                    || ((ApiException) failure).getCode() != 409) {
+            if (job == null || job.isFailed() || ((ApiException) failure).getCode() != 409) {
                 try {
                     api.deleteApplication(id);
                 } catch (Exception cleanup) {

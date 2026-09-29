@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -126,8 +127,8 @@ class KubernetesResourceManagerDriverTest {
                 .thenAnswer(
                         invocation ->
                                 Arrays.asList(
-                                        pod("app-worker-0", failed.get() ? "Failed" : "Running"),
-                                        pod("app-worker-1", "Running")));
+                                        pod("app-worker-1", failed.get() ? "Failed" : "Running"),
+                                        pod("app-worker-2", "Running")));
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
@@ -255,7 +256,9 @@ class KubernetesResourceManagerDriverTest {
     private static KubernetesJob job() {
         KubernetesJob job =
                 KubernetesResourceFactory.job(
-                        "app", KubernetesApplicationParameters.from(specification()));
+                        "app",
+                        SeatunnelKubernetesMasterCli.class.getName(),
+                        KubernetesApplicationParameters.from(specification()));
         job.getInternalResource().getMetadata().setUid("uid-1");
         return job;
     }

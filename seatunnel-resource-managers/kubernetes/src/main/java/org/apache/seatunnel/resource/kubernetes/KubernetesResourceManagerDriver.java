@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
@@ -61,7 +62,7 @@ public final class KubernetesResourceManagerDriver
     private ResourceManagerContext context;
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
-    private int nextWorker;
+    private final IdGenerator idGenerator;
     private boolean running;
     private boolean closed;
     private boolean workersStopped;
@@ -79,6 +80,7 @@ public final class KubernetesResourceManagerDriver
         this.parameters = parameters;
         this.applicationId = applicationId;
         this.clusterName = clusterName;
+        this.idGenerator = new IdGenerator();
     }
 
     /**
@@ -119,7 +121,7 @@ public final class KubernetesResourceManagerDriver
                     new IllegalStateException("Kubernetes driver is not running"));
             return future;
         }
-        String name = job.getName() + "-worker-" + nextWorker++;
+        String name = job.getName() + "-worker-" + idGenerator.getNextId();
         // Register before creation: ambiguous HTTP failures must still be deleted on close.
         workers.add(name);
         pending.put(name, future);

@@ -114,10 +114,12 @@ public final class KubernetesResourceFactory {
      * Builds a suspended, non-restarting master Job with the configured terminal retention period.
      *
      * @param id generated application identifier
+     * @param mainClass start entrance
      * @param parameters validated image, master resources and optional caller-owned PVC
      * @return Job model to create before its configuration and service; the caller starts it last
      */
-    public static KubernetesJob job(String id, KubernetesApplicationParameters parameters) {
+    public static KubernetesJob job(
+            String id, String mainClass, KubernetesApplicationParameters parameters) {
         return new KubernetesJob(
                 new V1Job()
                         .apiVersion(KubernetesConstants.BATCH_API_VERSION)
@@ -148,7 +150,9 @@ public final class KubernetesResourceFactory {
                                                                                 .getMasterAnnotations()))
                                                         .spec(
                                                                 KubernetesPodFactory.master(
-                                                                        id, parameters)))));
+                                                                        id,
+                                                                        mainClass,
+                                                                        parameters)))));
     }
 
     /**

@@ -45,6 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KubernetesResourceFactoryTest {
+
+    private static final String mainClass = SeatunnelKubernetesMasterCli.class.getName();
+
     @Test
     void mountsExistingCheckpointClaimOnlyOnMaster() {
         Map<String, String> options = new HashMap<>(specification().getOptions());
@@ -53,7 +56,7 @@ class KubernetesResourceFactoryTest {
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification);
-        KubernetesJob job = KubernetesResourceFactory.job("application", parameters);
+        KubernetesJob job = KubernetesResourceFactory.job("application", mainClass, parameters);
         V1Job jobResource = job.getInternalResource();
         assertEquals(
                 "existing-checkpoints",
@@ -108,7 +111,7 @@ class KubernetesResourceFactoryTest {
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification);
-        KubernetesJob job = KubernetesResourceFactory.job("app", parameters);
+        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
         V1Job jobResource = job.getInternalResource();
         jobResource.getMetadata().setUid("uid-1");
         assertTrue(

@@ -20,7 +20,6 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 
@@ -61,7 +60,8 @@ final class KubernetesPodFactory {
      * @param parameters validated application and Kubernetes settings
      * @return pod specification embedded in the owner Job
      */
-    static V1PodSpec master(String id, KubernetesApplicationParameters parameters) {
+    static V1PodSpec master(
+            String id, String mainClass, KubernetesApplicationParameters parameters) {
         ApplicationSpecification specification = parameters.getSpecification();
         int memory = specification.getOption(ApplicationOptions.MASTER_MEMORY_MB);
         V1Container container =
@@ -73,7 +73,7 @@ final class KubernetesPodFactory {
                 command(
                         parameters,
                         memory,
-                        SeatunnelKubernetesMasterCli.class.getName(),
+                        mainClass,
                         id,
                         KubernetesConstants.CONFIG_DIRECTORY
                                 + "/"
