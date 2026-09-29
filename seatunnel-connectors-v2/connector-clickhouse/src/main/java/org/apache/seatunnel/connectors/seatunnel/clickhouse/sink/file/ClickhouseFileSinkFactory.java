@@ -82,8 +82,7 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         SERVER_TIME_ZONE)
                 .optional(
                         FILE_FIELDS_DELIMITER,
-                        Conditions.extension(
-                                FILE_FIELDS_DELIMITER, new SingleCharacterValidator()))
+                        Conditions.extension(FILE_FIELDS_DELIMITER, new SingleCharacterValidator()))
                 .build();
     }
 

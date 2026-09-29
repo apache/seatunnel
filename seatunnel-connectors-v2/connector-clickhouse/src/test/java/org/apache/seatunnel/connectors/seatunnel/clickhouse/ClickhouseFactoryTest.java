@@ -54,8 +54,7 @@ public class ClickhouseFactoryTest {
     }
 
     private void validateFileSink(Map<String, Object> map) {
-        ConfigValidator.of(ReadonlyConfig.fromMap(map))
-                .validate(FILE_SINK_FACTORY.optionRule());
+        ConfigValidator.of(ReadonlyConfig.fromMap(map)).validate(FILE_SINK_FACTORY.optionRule());
     }
 
     @Test
@@ -86,7 +85,6 @@ public class ClickhouseFactoryTest {
     public void emptyDelimiterIsRejected() {
         Map<String, Object> map = validFileSinkConfig();
         map.put("file_fields_delimiter", "");
-        Assertions.assertThrows(
-                OptionValidationException.class, () -> validateFileSink(map));
+        Assertions.assertThrows(OptionValidationException.class, () -> validateFileSink(map));
     }
 }
