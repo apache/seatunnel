@@ -239,6 +239,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
+    /** Runs terminal task-group metrics reports without inheriting task cancellation interrupts. */
+    private final ExecutorService finalMetricsExecutorService =
+            Executors.newSingleThreadExecutor(
+                    runnable -> {
+                        Thread thread = new Thread(runnable, "seatunnel.final-metrics");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
     /** Client for managing connector packages on the server. */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
 
@@ -313,6 +322,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        finalMetricsExecutorService.shutdown();
         timerFlushWorker.shutdown();
     }
 
@@ -933,7 +943,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private void updateMetricsContextInImap() {
+    void updateMetricsContextInImap() {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -1598,30 +1608,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 finishExecution(taskGroupLocation);
-                try {
-                    updateMetricsContextInImap();
-                } catch (Throwable t) {
-                    logger.severe("update metrics context in imap failed", t);
-                }
                 if (ex == null) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with FINISHED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FINISHED, null);
                     return;
                 } else if (isCancel.get()) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with CANCELED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.CANCELED, null);
                     return;
                 } else {
                     logger.info(
                             String.format("taskGroup %s complete with FAILED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FAILED, ex);
                 }
             }
             if (!isCancel.get() && ex != null) {
@@ -1630,6 +1632,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 "task %s error with exception: [%s], cancel other task in taskGroup %s.",
                                 task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask();
+            }
+        }
+
+        private void completeAfterFinalMetrics(
+                TaskGroupLocation taskGroupLocation,
+                ExecutionState executionState,
+                Throwable executionFailure) {
+            try {
+                finalMetricsExecutorService.submit(
+                        () -> {
+                            try {
+                                updateMetricsContextInImap();
+                            } catch (Throwable t) {
+                                logger.severe("update metrics context in imap failed", t);
+                            } finally {
+                                future.complete(
+                                        executionFailure == null
+                                                ? new TaskExecutionState(
+                                                        taskGroupLocation, executionState)
+                                                : new TaskExecutionState(
+                                                        taskGroupLocation,
+                                                        executionState,
+                                                        executionFailure));
+                            }
+                        });
+            } catch (Throwable t) {
+                logger.severe("failed to schedule final metrics report", t);
+                future.complete(
+                        executionFailure == null
+                                ? new TaskExecutionState(taskGroupLocation, executionState)
+                                : new TaskExecutionState(
+                                        taskGroupLocation, executionState, executionFailure));
             }
         }
 

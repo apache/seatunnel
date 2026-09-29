@@ -66,9 +66,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -108,6 +110,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
 
         long sleepTime = 300;
 
@@ -566,6 +569,54 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         stop.set(true);
         taskExecutionService.cancelTaskGroup(location);
+    }
+
+    @Test
+    public void testFinalMetricsRunOutsideInterruptedTaskWorker() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        location, "final-metrics-interrupt", Lists.newArrayList(task));
+        TaskGroupContext context = newTaskGroupContext(9L, taskGroup);
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch releaseMetrics = new CountDownLatch(1);
+        AtomicReference<Thread> metricsThread = new AtomicReference<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsThread.set(Thread.currentThread());
+                            metricsStarted.countDown();
+                            releaseMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+
+        Thread worker =
+                new Thread(
+                        () -> {
+                            Thread.currentThread().interrupt();
+                            tracker.taskDone(task);
+                        });
+        try {
+            worker.start();
+            Assertions.assertTrue(metricsStarted.await(5, TimeUnit.SECONDS));
+            Assertions.assertTrue(metricsThread.get() != worker);
+            Assertions.assertFalse(resultFuture.isDone());
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(worker.isAlive());
+            assertEquals(FINISHED, resultFuture.get().getExecutionState());
+        } finally {
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+        }
     }
 
     @Test
