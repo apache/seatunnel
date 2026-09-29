@@ -62,6 +62,7 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | secret_key                 | string  | yes      | -                           |
 | endpoint                   | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
+| read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |

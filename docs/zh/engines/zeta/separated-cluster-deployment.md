@@ -207,6 +207,14 @@ seatunnel:
     state-cleanup-delay-ms: 60000
 ```
 
+`/system-monitoring-information` REST API 会向每个集群成员收集健康指标。所有成员共享一个由 `health-metrics-timeout-seconds` 控制的统一截止时间，默认值为 `3` 秒。在截止时间内未应答的成员会以带地址和 `timeout` 标记的条目返回，而不是一直阻塞整个响应，因此该 API 的总耗时不会随失联成员数量而增长。
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
