@@ -145,6 +145,34 @@ public class NumericFunctionTest {
         Assertions.assertEquals(1, NumericFunction.mod(Arrays.asList(5, 2)));
         Assertions.assertEquals(1L, NumericFunction.mod(Arrays.asList(5L, 2L)));
 
+        // A TINYINT or SMALLINT divisor has to carry its own type into the result, which is what
+        // ZetaSQLType declares for MOD (added with #12215).
+        Object byteResult = NumericFunction.mod(Arrays.asList(5, (byte) 2));
+        Assertions.assertEquals(Byte.class, byteResult.getClass());
+        Assertions.assertEquals((byte) 1, byteResult);
+
+        Object shortResult = NumericFunction.mod(Arrays.asList(5, (short) 2));
+        Assertions.assertEquals(Short.class, shortResult.getClass());
+        Assertions.assertEquals((short) 1, shortResult);
+
+        // What bounds the result is the remainder, not the divisor: divideAndRemainder gives
+        // |remainder| <= |divisor| - 1, so the extreme outputs are the ones below. A dividend
+        // merely larger than the divisor does not reach them, so these are the inputs that
+        // would fail first if a range guard were ever added or the narrowing became lossy.
+        // The sign follows the dividend, which the negative cases pin.
+        Assertions.assertEquals(
+                (byte) 127, NumericFunction.mod(Arrays.asList(127, Byte.MIN_VALUE)));
+        Assertions.assertEquals(
+                (byte) -127, NumericFunction.mod(Arrays.asList(-127, Byte.MIN_VALUE)));
+        Assertions.assertEquals(
+                (short) 32767, NumericFunction.mod(Arrays.asList(32767, Short.MIN_VALUE)));
+        Assertions.assertEquals(
+                (short) -32767, NumericFunction.mod(Arrays.asList(-32767, Short.MIN_VALUE)));
+
+        // A fractional remainder is truncated to the divisor's integral type rather than
+        // rounded, which is what ZetaSQLType declares the result to be.
+        Assertions.assertEquals((byte) 1, NumericFunction.mod(Arrays.asList(5.5d, (byte) 2)));
+
         Float floatResult = (Float) NumericFunction.mod(Arrays.asList(5.5f, 2.0f));
         Assertions.assertEquals(1.5f, floatResult);
 
