@@ -18,6 +18,7 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.utils.ConfigValueUtils;
 
+import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
@@ -52,13 +53,13 @@ public class ParameterSplitter implements IParameterSplitter {
                 } else if (c == '}' && braceDepth > 0) {
                     braceDepth--;
                 } else if (c == '}' && braceDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
+                    throw new ParameterException("Unexpected closing brace '}': " + value);
                 } else if (c == '[') {
                     bracketDepth++;
                 } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
                 } else if (c == ']' && bracketDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
+                    throw new ParameterException("Unexpected closing bracket ']': " + value);
                 }
             }
 
