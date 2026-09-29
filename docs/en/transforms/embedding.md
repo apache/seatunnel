@@ -15,14 +15,14 @@ different API endpoints.
 | Name                           | Type   | Required | Default Value | Description                                                                                                                                                             |
 |--------------------------------|--------|----------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | model_provider                 | enum   | yes      | -             | The model provider for embedding. Options may include `AMAZON`, `QIANFAN`, `OPENAI`, etc.                                                                               |
-| api_key                        | string | yes      | -             | The API key required to authenticate with the embedding service.                                                                                                        |
-| secret_key                     | string | yes      | -             | The secret key required for additional authentication with the embedding service.                                                                                       |
+| api_key                        | string | yes for AMAZON/OPENAI/DOUBAO/QIANFAN | -             | The API key required to authenticate with the embedding service.                                                                                                        |
+| secret_key                     | string | yes for AMAZON/QIANFAN | -             | The secret key required for additional authentication with the embedding service.                                                                                       |
 | aws_region                     | string | no       |               | AWS Region. Required for use Amazon Bedrock model.                                                                                                                      |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
 | api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider.                                                                                   |
-| dimension                      | int    | no       | -             | TThe vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
+| dimension                      | int    | no       | 2048          | The vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
 | oauth_path                     | string | no       | -             | The API endpoint for the oauth service.                                                                                                                                 |
 | custom_config                  | map    | no       |               | Custom configurations for the model.                                                                                                                                    |
 | custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`.                                                             |
@@ -48,11 +48,13 @@ you can choose `CUSTOM` to implement requests and retrievals for custom embeddin
 ### api_key
 
 The API key for authenticating requests to the embedding service. This is typically provided by the model provider when
-you register for their service.
+you register for their service. For `AMAZON` this is the IAM access key. This option is required when `model_provider`
+is `AMAZON`, `OPENAI`, `DOUBAO` or `QIANFAN`, and not required for other providers.
 
 ### secret_key
 
 The secret key used for additional authentication. Some providers may require this for secure API requests.
+This option is required when `model_provider` is `AMAZON` or `QIANFAN`.
 
 ### single_vectorized_input_number
 

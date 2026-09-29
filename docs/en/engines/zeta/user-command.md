@@ -22,6 +22,11 @@ Usage: seatunnel.sh [options]
     -can, --cancel, --cancel-job                Cancel the job(s) by JobId.
     -f, --force-cancel, --force-cancel-job      Force Cancel job(s) by JobId.
     --check                                     Whether to check the config (default: false).
+    --checkpoint-overview                       Get checkpoint overview by JobId.
+    --checkpoint-history                        Get checkpoint history by JobId.
+    --checkpoint-history-pipeline               Filter checkpoint history by pipeline id.
+    --checkpoint-history-limit                  Limit checkpoint history size (default: 20).
+    --checkpoint-history-status                 Filter checkpoint history by status: COMPLETED,FAILED,CANCELED.
     -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
@@ -40,6 +45,7 @@ Usage: seatunnel.sh [options]
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
     --sample-limit                              Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000).
     --sample-print-data                         Print sampled row values to persistent logs (default: false).
+    --set-job-id                                Set custom job id for job.
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```
@@ -248,9 +254,9 @@ This command will output detailed information about all members in the cluster, 
 **Example output:**
 ```
 Member ID                            Address              Role                 Version
-a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5701  ACTIVE MASTER        5.3.0
-b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5701  MASTER               5.3.0
-c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5701  WORKER               5.3.0
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5801  ACTIVE MASTER        5.1
+b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5801  MASTER               5.1
+c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5801  WORKER               5.1
 ```
 
 **Note**: You must specify the cluster name with the `-cn` parameter. The cluster must be running for this command to work.

@@ -10,27 +10,36 @@ more.
 
 ## Options
 
-| name                   | type   | required | default value |
-|------------------------|--------|----------|---------------|
-| model_provider         | enum   | yes      |               |
-| output_data_type       | enum   | no       | String        |
-| output_column_name     | string | no       | llm_output    |
-| prompt                 | string | yes      |               |
-| inference_columns      | list   | no       |               |
-| model                  | string | yes      |               |
-| api_key                | string | yes      |               |
-| api_path               | string | no       |               |
-| custom_config          | map    | no       |               |
-| custom_response_parse  | string | no       |               |
-| custom_request_headers | map    | no       |               |
-| custom_request_body    | map    | no       |               |
+| name                       | type   | required                              | default value |
+|----------------------------|--------|---------------------------------------|---------------|
+| model_provider             | enum   | yes                                   |               |
+| output_data_type           | enum   | no                                    | String        |
+| output_column_name         | string | no                                    | llm_output    |
+| prompt                     | string | yes                                   |               |
+| inference_columns          | list   | no                                    |               |
+| model                      | string | yes                                   |               |
+| api_key                    | string | yes for OPENAI/DOUBAO/MICROSOFT/QIANFAN |             |
+| secret_key                 | string | yes for QIANFAN                       |               |
+| oauth_path                 | string | yes for QIANFAN                       |               |
+| api_path                   | string | no                                    |               |
+| process_batch_size         | int    | no                                    | 100           |
+| model_retry_max_attempts   | int    | no                                    | 1             |
+| model_retry_backoff_ms     | long   | no                                    | 1000          |
+| model_retry_max_backoff_ms | long   | no                                    | 10000         |
+| model_request_timeout_ms   | int    | no                                    | 20000         |
+| custom_config              | map    | no                                    |               |
+| custom_response_parse      | string | no                                    |               |
+| custom_request_headers     | map    | no                                    |               |
+| custom_request_body        | map    | no                                    |               |
 
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
+OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, QIANFAN, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
+>
+> tips: If you use QIANFAN, please make sure api_key, secret_key and oauth_path are configured
 
 ### output_data_type
 
@@ -97,10 +106,40 @@ If you use an OpenAI model, please refer to https://developers.openai.com/api/do
 The API key to use for the model provider.
 If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
+This option is required when `model_provider` is `OPENAI`, `DOUBAO`, `MICROSOFT` or `QIANFAN`, and not required for other providers.
+
+### secret_key
+
+The secret key used together with `api_key` when `model_provider` is `QIANFAN`.
+
+### oauth_path
+
+The OAuth file path used to obtain the access token when `model_provider` is `QIANFAN`.
+
 ### api_path
 
 The API path to use for the model provider. In most cases, you do not need to change this configuration. If you
 are using an API agent's service, you may need to configure it to the agent's API address.
+
+### process_batch_size
+
+The row batch size of each process, i.e. the number of input rows sent in one model invocation batch. The default value is `100`. The legacy option name `inference_batch_size` is still accepted as a fallback.
+
+### model_retry_max_attempts
+
+The maximum attempts for one remote model request. The default value `1` means no automatic retry.
+
+### model_retry_backoff_ms
+
+The initial backoff in milliseconds before retrying a remote model request.
+
+### model_retry_max_backoff_ms
+
+The maximum backoff in milliseconds before retrying a remote model request.
+
+### model_request_timeout_ms
+
+The request timeout in milliseconds for remote model calls.
 
 ### custom_config
 

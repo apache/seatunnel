@@ -8,7 +8,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 
 ## 属性
 
-| 名称                     | 类型   | 是否必须 | 默认值         |
+| 名称                       | 类型   | 是否必须 | 默认值         |
 |------------------------| ------ | -------- |-------------|
 | model_provider         | enum   | yes      |             |
 | output_data_type       | enum   | no       | String      |
@@ -16,8 +16,15 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
 | model                  | string | yes      |             |
-| api_key                | string | yes      |             |
+| api_key                | string | OPENAI/DOUBAO/MICROSOFT/QIANFAN 时必填 |             |
+| secret_key             | string | QIANFAN 时必填 |             |
+| oauth_path             | string | QIANFAN 时必填 |             |
 | api_path               | string | no       |             |
+| process_batch_size     | int    | no       | 100         |
+| model_retry_max_attempts | int  | no       | 1           |
+| model_retry_backoff_ms | long   | no       | 1000        |
+| model_retry_max_backoff_ms | long | no     | 10000       |
+| model_request_timeout_ms | int  | no       | 20000       |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
 | custom_request_headers | map    | no       |             |
@@ -26,9 +33,11 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
+OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, QIANFAN, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
+>
+> tips: 如果使用 QIANFAN, 请确保配置 api_key、secret_key 和 oauth_path
 
 ### output_data_type
 
@@ -95,9 +104,39 @@ transform {
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
+当 `model_provider` 为 `OPENAI`、`DOUBAO`、`MICROSOFT` 或 `QIANFAN` 时该选项必填，其他提供者无需配置。
+
+### secret_key
+
+当 `model_provider` 为 `QIANFAN` 时，与 `api_key` 一起使用的密钥。
+
+### oauth_path
+
+当 `model_provider` 为 `QIANFAN` 时，用于获取访问令牌的 OAuth 文件路径。
+
 ### api_path
 
 用于模型提供者的 API 路径。在大多数情况下，您不需要更改此配置。如果使用 API 代理的服务，您可能需要将其配置为代理的 API 地址。
+
+### process_batch_size
+
+每次处理的数据行批次大小，即单次模型调用批量发送的输入行数。默认值为 `100`。旧选项名 `inference_batch_size` 仍然可用。
+
+### model_retry_max_attempts
+
+单次远程模型请求的最大尝试次数。默认值 `1` 表示不自动重试。
+
+### model_retry_backoff_ms
+
+重试远程模型请求前的初始退避时间（毫秒）。
+
+### model_retry_max_backoff_ms
+
+重试远程模型请求前的最大退避时间（毫秒）。
+
+### model_request_timeout_ms
+
+远程模型调用的请求超时时间（毫秒）。
 
 ### custom_config
 

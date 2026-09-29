@@ -22,6 +22,17 @@ seatunnel:
 
 ## 指标
 
+> [!NOTE]
+> 指标接口通过 Hazelcast REST API 提供，而发行包中 `config/hazelcast.yaml` 默认**关闭**了 REST API。
+> 抓取指标前，需要在每个节点的 `hazelcast.yaml` 中启用它：
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
 OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
