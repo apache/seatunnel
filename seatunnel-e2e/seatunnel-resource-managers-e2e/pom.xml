@@ -236,7 +236,7 @@
                 <configuration>
                     <argLine>${surefire.jvm.args} -Xmx2048m</argLine>
                     <!-- MiniCluster uses upstream test jars; exclude the relocated runtime API. -->
-                    <classpathDependencyExcludes combine.children="append">
+                    <classpathDependencyExcludes combine.children="override">
                         <classpathDependencyExclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</classpathDependencyExclude>
                         <!-- The staged fat jar contains unshaded Jetty classes; worker JVMs load it from the archive. -->
                         <classpathDependencyExclude>org.apache.seatunnel:seatunnel-starter</classpathDependencyExclude>
