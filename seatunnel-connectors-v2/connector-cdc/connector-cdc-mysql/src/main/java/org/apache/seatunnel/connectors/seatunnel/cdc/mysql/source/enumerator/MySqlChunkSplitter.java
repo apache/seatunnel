@@ -157,16 +157,13 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
                 chunkSize);
         final List<ChunkRange> splits = new ArrayList<>();
         Object[] chunkStart = null;
-        Object[] chunkEnd =
-                nextChunkEndMulti(jdbc, min, tableId, splitColumns, max, chunkSize);
+        Object[] chunkEnd = nextChunkEndMulti(jdbc, min, tableId, splitColumns, max, chunkSize);
         int count = 0;
         while (chunkEnd != null && compareObjectArrays(chunkEnd, max) <= 0) {
             splits.add(ChunkRange.of(chunkStart, chunkEnd));
             maySleep(count++, tableId);
             chunkStart = chunkEnd;
-            chunkEnd =
-                    nextChunkEndMulti(
-                            jdbc, chunkEnd, tableId, splitColumns, max, chunkSize);
+            chunkEnd = nextChunkEndMulti(jdbc, chunkEnd, tableId, splitColumns, max, chunkSize);
         }
         splits.add(ChunkRange.of(chunkStart, null));
         return splits;
@@ -210,10 +207,7 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
             } catch (InterruptedException e) {
                 // nothing to do
             }
-            log.info(
-                    "MySqlChunkSplitter has split {} chunks for table {}",
-                    count,
-                    tableId);
+            log.info("MySqlChunkSplitter has split {} chunks for table {}", count, tableId);
         }
     }
 }
