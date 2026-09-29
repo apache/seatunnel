@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Redis Authentication
+
+- Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
+  `CLUSTER` mode. Previously, `SINGLE` used password-only authentication followed by `ACL SETUSER`,
+  and `CLUSTER` ignored `user`. Connection setup no longer creates or modifies ACL users.
+- Before upgrading, create the intended ACL user and grant its required command and key permissions,
+  including `INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for
+  topology discovery in `CLUSTER` mode. Set `auth` to that user's password. An omitted or empty password
+  is sent as an empty string when `user` is nonblank.
+- To keep using the default user, remove `user` and retain `auth` when a password is required.
+  Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
@@ -168,6 +180,12 @@ You need to check this document before you upgrade to related version.
 
 
 ### Connector Changes
+
+- **Breaking Change: Doris Source option key `doris.request.retriesdoris.deserialize.queue.size` renamed to `doris.deserialize.queue.size`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-doris` (`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`)
+  - **Description**: The option key for the asynchronous Arrow deserialization queue size has been a typo since it was introduced in #7895: the key was accidentally concatenated as `doris.request.retriesdoris.deserialize.queue.size`, gluing the preceding option's name (`doris.request.retries`) onto the intended key (`doris.deserialize.queue.size`). The option key is now the intended `doris.deserialize.queue.size`. The default value (`64`) and the option behavior are unchanged.
+  - **Impact**: Configurations that explicitly set the old malformed key `doris.request.retriesdoris.deserialize.queue.size` will no longer be picked up; the connector will fall back to the default queue size of `64`. The old key was a concatenation artifact and could only be discovered by copying it from the docs, so most users are unaffected.
+  - **Migration Guide**: If you explicitly tuned this option, rename the key to `doris.deserialize.queue.size` in your source configuration.
 
 - **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
   - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`

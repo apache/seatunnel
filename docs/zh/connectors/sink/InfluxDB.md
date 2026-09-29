@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | epoch                       | string | 否  | n            | 客户端使用的时间精度。写入精度识别大写值：`H`、`M`、`S`、`MS`、`U`、`NS`。 |
 | connect_timeout_ms          | long   | 否  | 15000        | 连接 InfluxDB 的超时时间，单位毫秒。                                  |
 | query_timeout_sec           | int    | 否  | 3            | InfluxDB 客户端读超时时间，单位秒。                                   |
-| multi_table_sink_replica    | int    | 否  | -            | 多表写入时的 sink writer 副本数。                                  |
+| multi_table_sink_replica    | int    | 否  | 1            | 多表写入时的 sink writer 副本数。                                  |
 | common-options              | config | 否  | -            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### url [string]
