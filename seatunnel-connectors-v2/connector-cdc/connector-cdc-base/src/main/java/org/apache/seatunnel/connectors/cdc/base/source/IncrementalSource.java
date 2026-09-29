@@ -425,7 +425,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
-/**
+    /**
      * Derives the set of captured tables from a {@link SnapshotPhaseState} checkpoint.
      *
      * <p>When a snapshot-only job is restarted from a checkpoint, the live table discovery (via
