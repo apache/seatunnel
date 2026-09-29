@@ -56,7 +56,12 @@ public final class ConfigShadeUtils {
 
     private static final String[] DEFAULT_LOG_MASK_ONLY_KEYWORDS =
             new String[] {
-                "sasl.jaas.config", "community", "client_secret", "security_token", "account_key"
+                "sasl.jaas.config",
+                "community",
+                "client_secret",
+                "security_token",
+                "connection_string",
+                "account_key"
             };
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
