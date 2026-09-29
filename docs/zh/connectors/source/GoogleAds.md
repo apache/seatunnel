@@ -174,12 +174,6 @@ source {
 - 不支持精确一次语义；重跑作业会重新读取数据。
 - 嵌套 MESSAGE 字段以 JSON 字符串输出，不展开为嵌套行。
 
-## 变更日志
-
-### 下一版本
-
-- 新增 Google Ads 源连接器，支持 GAQL、schema 自动推导与多表读取
-
 ## Changelog
 
 <ChangeLog />
