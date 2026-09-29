@@ -146,7 +146,8 @@ class InfluxDBFactoryTest {
                         OptionValidationException.class, () -> validateSink(new HashMap<>()));
         String message = ex.getMessage();
         Assertions.assertTrue(message.contains("url"), () -> "missing url in: " + message);
-        Assertions.assertTrue(message.contains("database"), () -> "missing database in: " + message);
+        Assertions.assertTrue(
+                message.contains("database"), () -> "missing database in: " + message);
     }
 
     @Test
