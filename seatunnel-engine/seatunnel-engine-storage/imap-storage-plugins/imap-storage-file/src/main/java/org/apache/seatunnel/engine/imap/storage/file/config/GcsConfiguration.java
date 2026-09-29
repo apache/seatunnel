@@ -54,6 +54,8 @@ public class GcsConfiguration extends AbstractConfiguration {
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(FS_DEFAULT_NAME_KEY, bucket);
         hadoopConf.set(GCS_IMPL_KEY, HDFS_GCS_IMPL);
+        // Unlike the checkpoint storage GcsConfiguration, the FileSystem cache is intentionally
+        // left at the Hadoop default, matching the IMap OSS and S3 configurations.
         setExtraConfiguration(hadoopConf, config, GCS_KEY);
         return hadoopConf;
     }

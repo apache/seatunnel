@@ -388,6 +388,8 @@ map:
         fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
 ```
 
+Notice: The IMap WAL writer rewrites its current object on every update (the same as for S3 and OSS), and GCS allows about one write per second to the same object name. GCS IMap persistence is therefore best suited to low or moderate IMap update rates.
+
 Notice: When using GCS, make sure that the following jars are in the lib directory.
 
 ```

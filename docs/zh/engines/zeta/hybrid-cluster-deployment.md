@@ -381,6 +381,8 @@ map:
         fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
 ```
 
+注意：IMap 的 WAL 写入器每次更新都会重写当前对象（与 S3、OSS 相同），而 GCS 对同一对象名的写入频率限制约为每秒一次，因此 GCS 作为 IMap 持久化存储更适合 IMap 更新频率较低或中等的场景。
+
 注意：使用 GCS 时，确保 lib 目录下有这几个jar。
 
 ```
