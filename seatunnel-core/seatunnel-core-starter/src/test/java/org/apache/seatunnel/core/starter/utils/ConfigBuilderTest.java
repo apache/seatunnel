@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -209,5 +211,13 @@ public class ConfigBuilderTest {
 
         Assertions.assertEquals("string", desensitizedFields.get("access_token"));
         Assertions.assertEquals("string", desensitizedFields.get("user-password"));
+    }
+
+    @Test
+    void testDuplicateKeyThrowsException() {
+        List<String> variables = Arrays.asList("jobName=value1", "jobName=value2");
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
     }
 }

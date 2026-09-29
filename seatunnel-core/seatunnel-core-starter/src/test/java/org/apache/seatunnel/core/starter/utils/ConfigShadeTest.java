@@ -379,15 +379,6 @@ public class ConfigShadeTest {
     }
 
     @Test
-    void testDuplicateKeyThrowsException() {
-        List<String> variables = Arrays.asList("jobName=value1", "jobName=value2");
-
-        Assertions.assertThrows(
-                ConfigCheckException.class,
-                () -> ConfigBuilder.of(Paths.get("config_duplicate_keys.conf"), variables));
-    }
-
-    @Test
     public void testVariableReplacementWithJsonParams() throws URISyntaxException {
         List<String> variables = new ArrayList<>();
         variables.add(
