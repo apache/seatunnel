@@ -7,7 +7,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 ## Features
 
 - **Natural Language to Config** -- Describe what you want in plain English or Chinese, get a valid SeaTunnel config
-- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway
+- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway, Cheaper Inference LLM gateway
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
 - **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
@@ -28,6 +28,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
   - **Anthropic API** -- requires `ANTHROPIC_API_KEY` and `anthropic` package
   - **OpenAI API** -- requires `OPENAI_API_KEY` and `openai` package
   - **OrcaRouter** -- requires `ORCAROUTER_API_KEY` and `openai` package
+  - **Cheaper Inference** -- requires `CHEAPER_INFERENCE_API_KEY` and `openai` package
 - (Optional) Running Apache SeaTunnel engine for live metadata and job execution
 
 > **Note:** When launched via `bin/seatunnel-ai.sh`, Python dependencies are installed automatically on first run. No manual `pip install` needed.
@@ -68,7 +69,7 @@ seatunnel --init
 ```bash
 pip install -e ".[bedrock]"    # AWS Bedrock
 pip install -e ".[anthropic]"  # Anthropic API
-pip install -e ".[openai]"     # OpenAI API / OrcaRouter
+pip install -e ".[openai]"     # OpenAI API / OrcaRouter / Cheaper Inference
 pip install -e ".[all]"        # All providers
 pip install -e ".[dev]"        # Development (all providers + pytest, ruff)
 ```
@@ -190,6 +191,30 @@ selects the best model per request. The OrcaRouter provider speaks the OpenAI
 Chat Completions protocol, so it inherits the same reasoning-content replay,
 streaming and tool-calling support as the `openai` provider.
 
+#### Option E: Cheaper Inference LLM Gateway
+
+```bash
+export AI_PROVIDER=cheaperinference
+export CHEAPER_INFERENCE_API_KEY=ci_live_...
+
+# Model overrides (optional) — Cheaper Inference model IDs are bare,
+# e.g. gpt-5.4-mini, gpt-5.4, claude-sonnet-5.
+# export CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+```
+
+Requires: `pip install -e ".[openai]"` (the `openai` package).
+
+[Cheaper Inference](https://cheaperinference.com) is an OpenAI-compatible LLM
+gateway that exposes models from several labs — including GPT, Claude, Gemini,
+DeepSeek and GLM — behind a single endpoint (`https://api.cheaperinference.com/v1`).
+Each model costs 15–60% less than the list price of its lab.
+Model IDs are bare, e.g. `gpt-5.4-mini`, `gpt-5.4` or `claude-sonnet-5`.
+The Cheaper Inference provider speaks the OpenAI Chat Completions protocol, so it
+inherits the same reasoning-content replay, streaming and tool-calling support as
+the `openai` provider.
+
 ### SEATUNNEL_HOME
 
 `SEATUNNEL_HOME` is the path to your Apache SeaTunnel engine installation. The CLI uses it to:
@@ -232,13 +257,14 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, or `orcarouter` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, `orcarouter`, or `cheaperinference` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
 | `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
 | `ORCAROUTER_API_KEY` | OrcaRouter | -- | OrcaRouter API key |
+| `CHEAPER_INFERENCE_API_KEY` | Cheaper Inference | -- | Cheaper Inference API key |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
@@ -246,6 +272,9 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
+| `CHEAPER_INFERENCE_MODEL` | No | `gpt-5.4-mini` | Primary model for Cheaper Inference provider |
+| `CHEAPER_INFERENCE_SMALL_FAST_MODEL` | No | `gpt-5.4-mini` | Fast model for Cheaper Inference provider |
+| `CHEAPER_INFERENCE_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
@@ -285,7 +314,7 @@ Positional:
 
 Options:
   -o, --output PATH        Save generated config to file
-  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
+  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter | cheaperinference
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source
