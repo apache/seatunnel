@@ -24,14 +24,13 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
 
 public class YarnResourceManager<WorkerType extends ResourceIDRetrievable>
-        extends ApplicationResourceManager<WorkerType>
-        implements ThirdPartyResourceManager<WorkerType> {
+        extends ApplicationResourceManager<WorkerType> {
+
     public YarnResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
