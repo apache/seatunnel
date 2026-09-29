@@ -19,6 +19,8 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.junit.jupiter.api.Test;
 
+import com.beust.jcommander.ParameterException;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -115,7 +117,7 @@ public class ParameterSplitterTest {
     @Test
     void testSplitWithUnmatchedBracket() {
         assertThrows(
-                IllegalArgumentException.class,
+                ParameterException.class,
                 () -> {
                     parameterSplitter.split("a=1]");
                 });
@@ -124,7 +126,7 @@ public class ParameterSplitterTest {
     @Test
     void testSplitWithUnmatchedBrace() {
         assertThrows(
-                IllegalArgumentException.class,
+                ParameterException.class,
                 () -> {
                     parameterSplitter.split("a=1}");
                 });
