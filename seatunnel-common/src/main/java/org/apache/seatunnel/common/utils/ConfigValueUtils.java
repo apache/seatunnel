@@ -31,8 +31,11 @@ import java.util.Set;
 
 public class ConfigValueUtils {
 
+    // Characters that may appear right before a start quote.
     private static final Set<Character> START_DELIMITERS =
             new HashSet<>(Arrays.asList('=', ':', '{', '[', ','));
+
+    // Characters that may appear right after an end quote.
     private static final Set<Character> END_DELIMITERS =
             new HashSet<>(Arrays.asList(',', '}', ']', ':'));
 
@@ -78,12 +81,13 @@ public class ConfigValueUtils {
             } catch (ConfigException e) {
                 throw new ConfigException.BadValue(
                         ConfigOriginFactory.newSimple(),
+                        "",
                         String.format(
                                 "Value '%s' looks like JSON or Array but failed to parse. "
                                         + "If you intended to pass a Map/List, please check the syntax. "
                                         + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
                                 value),
-                        e.getMessage());
+                        e.getCause());
             }
         }
 
@@ -91,11 +95,15 @@ public class ConfigValueUtils {
     }
 
     /**
-     * check the quote char is Escaped or normal
+     * Returns {@code true} if the quote character at {@code quoteIndex} is escaped by a preceding
+     * backslash.
      *
-     * @param value
-     * @param quoteIndex
-     * @return
+     * <p>A quote is treated as escaped when it is preceded by an odd number of consecutive
+     * backslashes, e.g. {@code \"} is escaped, {@code \\"} is not.
+     *
+     * @param value the user input string via {@code -i}
+     * @param quoteIndex index of the current quote character in {@code value}
+     * @return {@code true} if the quote at {@code quoteIndex} is escaped
      */
     public static boolean isEscapedQuote(String value, int quoteIndex) {
         int backslashCount = 0;
@@ -111,10 +119,10 @@ public class ConfigValueUtils {
      * Returns the updated "inside quotes" state after scanning the character at {@code quoteIndex}
      * in {@code value}.
      *
-     * @param value
-     * @param quoteIndex
-     * @param insideQuotes
-     * @return
+     * @param value the user input string being scanned
+     * @param quoteIndex index of the current character in {@code value}
+     * @param insideQuotes the quote state before processing this character
+     * @return the quote state after processing this character
      */
     public static boolean updateQuoteState(String value, int quoteIndex, boolean insideQuotes) {
 
@@ -132,13 +140,13 @@ public class ConfigValueUtils {
     }
 
     /**
-     * Checks if the quote at quoteIndex is a start wrapper: not inside quotes, and preceded by a
-     * START_DELIMITER or start of string.
+     * Checks if the quote at {@code quoteIndex} is a start wrapper: not inside quotes, and preceded
+     * by a {@link #START_DELIMITERS} or the start of string.
      *
-     * @param insideQuotes
-     * @param value
-     * @param quoteIndex
-     * @return
+     * @param insideQuotes whether the caller is currently inside quotes
+     * @param value the string being scanned
+     * @param quoteIndex index of the quote character to check
+     * @return {@code true} if the quote starts a quoted region
      */
     private static boolean isStartWrapper(boolean insideQuotes, String value, int quoteIndex) {
         char prev = (quoteIndex > 0) ? value.charAt(quoteIndex - 1) : 0;
@@ -151,13 +159,18 @@ public class ConfigValueUtils {
     }
 
     /**
-     * Checks if the quote at quoteIndex is an end wrapper: inside quotes, and followed by an
-     * END_DELIMITER or end of string.
+     * Checks if the quote at {@code quoteIndex} is an end wrapper: inside quotes, and followed by
+     * an {@link #END_DELIMITERS} or the end of string.
      *
-     * @param insideQuotes
-     * @param value
-     * @param quoteIndex
-     * @return
+     * <p>Checks are ordered: an already-closed quote state short-circuits first, then the
+     * end-of-string case, then the immediate next character, then the "space + end delimiter" form.
+     * A sentinel {@code 0} is used for missing following characters at the string boundary, so they
+     * never match a delimiter.
+     *
+     * @param insideQuotes whether the caller is currently inside quotes
+     * @param value the string being scanned
+     * @param quoteIndex index of the quote character to check
+     * @return {@code true} if the quote ends a quoted region
      */
     private static boolean isEndWrapper(boolean insideQuotes, String value, int quoteIndex) {
         char next = (quoteIndex + 1 < value.length()) ? value.charAt(quoteIndex + 1) : 0;
@@ -171,10 +184,11 @@ public class ConfigValueUtils {
 
     /**
      * Checks if the value is a balanced structured string (e.g., JSON/HOCON). Returns false if
-     * brackets are unbalanced, empty, or not starting with '{' or '['.
+     * brackets are unbalanced, empty, or not starting with '{' or '['. Characters inside quotes are
+     * ignored for bracket counting.
      *
-     * @param value
-     * @return
+     * @param value user input string value
+     * @return {@code true} if the value is a balanced structured string
      */
     public static boolean isStructured(String value) {
         if (value == null || value.isEmpty()) {
