@@ -47,6 +47,14 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
+### 带时区的时间戳
+
+标量 `TIMESTAMP_TZ` 值可以写入已存在的 `DateTime` 和 `DateTime64` 列，包括可空列。Sink 保留输入偏移量所表示的时间点。`DateTime` 存储整秒，`DateTime64` 按目标列的精度存储小数秒。ClickHouse 使用列级别的时区，不保留每行原始的时区偏移量。
+
+Sink 对这些字段使用显式 UTC 转换，包括更新和删除条件。包含这些字段的插入使用驱动的 SQL 批处理路径，而不是二进制输入路径。不包含这些字段的插入保持原有路径不变。
+
+运行作业前请先创建目标表。此映射不支持为 `TIMESTAMP_TZ` 自动建表，也不支持数组或 Map 中的带时区时间戳。
+
 ## Sink 选项
 
 |                  名称                   |   类型    | 是否必须 |  默认值  |                                                                                        描述                                                                                        |

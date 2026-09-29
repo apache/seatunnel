@@ -23,6 +23,26 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 用于 Apache Kafka 的源连接器。
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 仅通过主题元数据校验 Kafka source。它使用配置的
+`bootstrap.servers` 和 `kafka.config` 安全设置，通过 `describeTopics` 检查显式主题，
+并对 `pattern = true` 使用与正常运行一致的主题全名匹配规则。支持 `tables_configs`
+及旧版 `table_list`。输出 schema 复用正常 source 配置路径，包括 native 字段、Kafka
+header 字段和事件时间元数据。
+
+元数据请求共享 30 秒的时间预算；如果 `kafka.config.default.api.timeout.ms` 更小，
+则使用该值。请求超时不会超过此预算，客户端清理也使用有界等待。与 Kafka 正常启动一致，
+在应用 dry-run 限制之前，显式配置的 API 超时不得小于配置值或 Kafka 默认值的
+`request.timeout.ms`。客户端初始化（包括 DNS
+和认证提供方初始化）可能需要额外时间。正常作业运行及其超时
+配置保持不变。校验不会创建 consumer 或 producer，不会读写消息、访问或提交消费位点，
+也不会创建缺失的主题。
+
+校验成功仅证明可以访问元数据，**不代表**具备消费消息、访问消费组或反序列化实际消息
+的能力。与运行时一致，允许正则表达式当前没有可见的匹配主题；此时仅校验主题列表访问，
+不验证未来主题的访问权限。Kafka sink 仍不支持连通性 dry-run。
+
 ## 支持的数据源信息
 
 使用 Kafka 连接器需要以下依赖项。  
@@ -63,7 +83,6 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
 | strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 或 avro 时有效。protobuf 会在反序列化前去除 Confluent Schema Registry 头；avro 会去除固定的 5 字节头（magic byte 和 schema ID）。avro 启用此选项时必须同时配置 `avro_schema`，且不会查询 Schema Registry。 |
 | reader_cache_queue_size             | Integer                             | 否    | 2                            | Fetcher 与 Reader 线程之间缓冲队列的容量。每个元素是一次 `consumer.poll()` 的整批结果，而非单条消息。详见 [reader_cache_queue_size](#reader_cache_queue_size)。 |
-| is_native                           | Boolean                             | 否    | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
 | kafka_headers_fields                | Array                               | 否    | -                            | 指定要从 Kafka 消息 header 中提取并映射为行字段的 header key 列表。每个 header 值以 STRING 类型追加到输出行的末尾（位于正常 schema 字段之后）。不支持 NATIVE 格式。                                                                                                                                                                                                               |
 
 > 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。

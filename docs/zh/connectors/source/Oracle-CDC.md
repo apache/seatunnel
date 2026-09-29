@@ -558,6 +558,17 @@ ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 
 默认情况下，Oracle CDC 需要主键。如果表中存在合适的唯一列，可通过 `table-names-config` 中的 `primaryKeys` 字段指定自定义主键列。
 
+### 如何使用自定义快照查询？
+
+在 `debezium` 块中配置 Debezium 的 `snapshot.select.statement.overrides` 属性。SeaTunnel 会先使用该查询，再追加快照分片边界条件，因此查询必须包含已配置表结构和分片键所需的全部列。
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
+
 ### 如何提升 LogMiner 性能？
 
 首先把它当作数据库和 redo log 调优问题处理。优先复用上面的 LogMiner 配置和 supplemental

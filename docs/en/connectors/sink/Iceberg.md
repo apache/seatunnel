@@ -104,6 +104,10 @@ Write commits to the specified Iceberg branch. Leave it empty to commit to the t
 
 When `data_save_mode = CUSTOM_PROCESSING`, configure the `delete` SQL that removes the target data before the sink writes. This option is required in that mode.
 
+For Iceberg `timestamptz` columns, comparison and `IN`/`NOT IN` predicates accept timestamp literals with an offset, for example `event_time >= '2026-09-12 10:00:00.123456+05:30'`. Offsets are converted to the corresponding UTC instant at microsecond precision. Offset-free literals retain their existing UTC interpretation. Iceberg `timestamp` columns without a time zone continue to require offset-free literals.
+
+The existing file-level delete restriction still applies: Iceberg rejects a delete when only some rows in a data file match the condition.
+
 ### krb5_path [string]
 
 The path of `krb5.conf`, used for Kerberos authentication.

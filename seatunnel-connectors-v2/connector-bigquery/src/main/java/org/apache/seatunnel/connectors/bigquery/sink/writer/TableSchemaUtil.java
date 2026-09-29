@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 import org.threeten.bp.Duration;
 
 import com.google.api.gax.batching.FlowControlSettings;
+import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Field;
@@ -42,6 +43,7 @@ import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.protobuf.Descriptors;
+import io.grpc.ManagedChannelBuilder;
 
 import java.io.IOException;
 
@@ -53,7 +55,10 @@ public class TableSchemaUtil {
     private TableSchemaUtil() {}
 
     static JsonStreamWriter createStreamWriter(
-            String streamName, TableSchema tableSchema, BigQueryWriteClient client) {
+            String streamName,
+            TableSchema tableSchema,
+            BigQueryWriteClient client,
+            ReadonlyConfig config) {
         RetrySettings retrySettings =
                 RetrySettings.newBuilder()
                         .setInitialRetryDelay(Duration.ofMillis(500))
@@ -63,21 +68,33 @@ public class TableSchemaUtil {
                         .build();
 
         try {
-            return JsonStreamWriter.newBuilder(streamName, tableSchema, client)
-                    .setChannelProvider(
-                            BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
-                                    .setKeepAliveTime(Duration.ofMinutes(1))
-                                    .setKeepAliveTimeout(Duration.ofMinutes(1))
-                                    .setKeepAliveWithoutCalls(true)
-                                    .build())
-                    .setFlowControlSettings(
-                            FlowControlSettings.newBuilder()
-                                    .setMaxOutstandingElementCount(100L)
-                                    .build())
-                    .setDefaultMissingValueInterpretation(
-                            AppendRowsRequest.MissingValueInterpretation.DEFAULT_VALUE)
-                    .setRetrySettings(retrySettings)
-                    .build();
+            JsonStreamWriter.Builder builder =
+                    JsonStreamWriter.newBuilder(streamName, tableSchema, client)
+                            .setChannelProvider(
+                                    BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
+                                            .setKeepAliveTime(Duration.ofMinutes(1))
+                                            .setKeepAliveTimeout(Duration.ofMinutes(1))
+                                            .setKeepAliveWithoutCalls(true)
+                                            .build())
+                            .setFlowControlSettings(
+                                    FlowControlSettings.newBuilder()
+                                            .setMaxOutstandingElementCount(100L)
+                                            .build())
+                            .setDefaultMissingValueInterpretation(
+                                    AppendRowsRequest.MissingValueInterpretation.DEFAULT_VALUE)
+                            .setRetrySettings(retrySettings);
+            if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
+                String emulatorGrpcHost =
+                        config.getOptional(BigQuerySinkOptions.EMULATOR_GRPC_HOST)
+                                .orElse(config.get(BigQuerySinkOptions.EMULATOR_HOST));
+                builder.setEndpoint(emulatorGrpcHost)
+                        .setChannelProvider(
+                                BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
+                                        .setChannelConfigurator(ManagedChannelBuilder::usePlaintext)
+                                        .build())
+                        .setCredentialsProvider(NoCredentialsProvider.create());
+            }
+            return builder.build();
         } catch (Descriptors.DescriptorValidationException | IOException e) {
             throw new BigQueryConnectorException(
                     BigQueryConnectorErrorCode.WRITER_CREATE_FAILED, e);
