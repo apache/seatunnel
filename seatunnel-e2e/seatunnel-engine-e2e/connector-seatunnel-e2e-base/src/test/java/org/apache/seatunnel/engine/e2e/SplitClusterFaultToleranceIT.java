@@ -38,7 +38,10 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.awaitility.Awaitility;
@@ -64,6 +67,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -1202,6 +1206,12 @@ public class SplitClusterFaultToleranceIT {
                     activeMaster == masterNode1 ? masterNode2 : masterNode1;
             JobMaster jobMasterBeforeReset = getJobMaster(activeMaster, jobId);
             Assertions.assertNotNull(jobMasterBeforeReset);
+            List<TaskGroupLocation> taskGroupLocations =
+                    jobMasterBeforeReset.getPhysicalPlan().getPipelineList().stream()
+                            .flatMap(subPlan -> subPlan.getPhysicalVertexList().stream())
+                            .map(PhysicalVertex::getTaskGroupLocation)
+                            .collect(Collectors.toList());
+            Assertions.assertFalse(taskGroupLocations.isEmpty());
             int restoreCountBeforeReset =
                     jobMasterBeforeReset.getPhysicalPlan().getPipelineList().stream()
                             .mapToInt(SubPlan::getPipelineRestoreNum)
@@ -1216,6 +1226,17 @@ public class SplitClusterFaultToleranceIT {
                     workerNode2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
             workerServer1.reset();
             workerServer2.reset();
+
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    taskGroupLocations.forEach(
+                                            location ->
+                                                    assertTaskGroupResetRequested(
+                                                            location,
+                                                            workerServer1,
+                                                            workerServer2)));
 
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
@@ -1306,6 +1327,28 @@ public class SplitClusterFaultToleranceIT {
             if (workerNode2 != null) {
                 workerNode2.shutdown();
             }
+        }
+    }
+
+    private static void assertTaskGroupResetRequested(
+            TaskGroupLocation location,
+            SeaTunnelServer workerServer1,
+            SeaTunnelServer workerServer2) {
+        TaskGroupContext context = getTaskGroupContext(workerServer1, location);
+        if (context == null) {
+            context = getTaskGroupContext(workerServer2, location);
+        }
+        Assertions.assertNotNull(context, "No worker context found for " + location);
+        Assertions.assertTrue(
+                context.isResetRequested(), "Worker did not reset task group " + location);
+    }
+
+    private static TaskGroupContext getTaskGroupContext(
+            SeaTunnelServer workerServer, TaskGroupLocation location) {
+        try {
+            return workerServer.getTaskExecutionService().getExecutionContext(location);
+        } catch (TaskGroupContextNotFoundException ignored) {
+            return null;
         }
     }
 

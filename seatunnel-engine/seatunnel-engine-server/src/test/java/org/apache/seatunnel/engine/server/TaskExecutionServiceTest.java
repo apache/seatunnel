@@ -41,6 +41,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -570,7 +571,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testResetAllowsRedeployOfTaskGroupAtSameLocation() {
+    public void testResetAllowsRedeployOfTaskGroupAtSameLocation() throws Exception {
         TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
         Mockito.doNothing()
                 .when(taskExecutionService)
@@ -601,6 +602,17 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
             taskExecutionService.reset();
             assertEquals(firstContext, taskExecutionService.getActiveExecutionContext(location));
+            Boolean isExecuting =
+                    (Boolean)
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new CheckTaskGroupIsExecutingOperation(location),
+                                            nodeEngine.getThisAddress())
+                                    .invoke()
+                                    .get();
+            assertEquals(Boolean.FALSE, isExecuting);
 
             TaskGroupImmutableInformation restoredDeployment =
                     new TaskGroupImmutableInformation(
@@ -637,6 +649,65 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             restoredTask.control.release.countDown();
             InterruptIgnoringTask.CONTROLS.remove(oldTask.taskId);
             InterruptIgnoringTask.CONTROLS.remove(restoredTask.taskId);
+        }
+    }
+
+    @Test
+    public void testCancelledTaskGroupIsNotReplacedBeforeCleanup() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        InterruptIgnoringTask oldTask = new InterruptIgnoringTask();
+        InterruptIgnoringTask replacementTask = new InterruptIgnoringTask();
+        try {
+            TaskGroupImmutableInformation firstDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "cancel-test",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(oldTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
+            TaskGroupContext firstContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.started::getCount, count -> count == 0);
+
+            taskExecutionService.cancelTaskGroup(location);
+            await().atMost(5, TimeUnit.SECONDS).untilTrue(oldTask.control.interrupted);
+
+            TaskGroupImmutableInformation replacementDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            2,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "cancel-test-replacement",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(replacementTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data replacementData =
+                    nodeEngine.getSerializationService().toData(replacementDeployment);
+            assertEquals(
+                    TaskDeployState.success(), taskExecutionService.deployTask(replacementData));
+            assertEquals(firstContext, taskExecutionService.getActiveExecutionContext(location));
+        } finally {
+            oldTask.control.release.countDown();
+            replacementTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.finished::getCount, count -> count == 0);
+            if (replacementTask.control.started.getCount() == 0) {
+                await().atMost(5, TimeUnit.SECONDS)
+                        .until(replacementTask.control.finished::getCount, count -> count == 0);
+            }
+            InterruptIgnoringTask.CONTROLS.remove(oldTask.taskId);
+            InterruptIgnoringTask.CONTROLS.remove(replacementTask.taskId);
         }
     }
 

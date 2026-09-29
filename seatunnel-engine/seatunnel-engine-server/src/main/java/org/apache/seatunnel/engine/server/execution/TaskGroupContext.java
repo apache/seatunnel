@@ -98,14 +98,6 @@ public class TaskGroupContext {
         }
     }
 
-    public boolean isResetRequested() {
-        return resetRequested;
-    }
-
-    public void setResetRequested(boolean resetRequested) {
-        this.resetRequested = resetRequested;
-    }
-
     @Override
     public boolean equals(Object other) {
         if (this == other) {
