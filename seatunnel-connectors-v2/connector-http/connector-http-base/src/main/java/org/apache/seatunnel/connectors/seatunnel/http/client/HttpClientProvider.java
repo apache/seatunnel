@@ -43,7 +43,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
@@ -125,6 +124,23 @@ public class HttpClientProvider implements AutoCloseable {
             String body,
             boolean keepParamsAsForm)
             throws Exception {
+        // convert method option to uppercase
+        method = method.toUpperCase(Locale.ROOT);
+
+        // Preserve a configured POST body verbatim. Parsing it as HOCON and serializing the
+        // resulting map again flattens nested JSON keys (for example, data.type becomes
+        // data->type) before the request is sent. This only applies when the caller did not
+        // explicitly request a form-encoded body via Content-Type, in which case the legacy
+        // HOCON-to-form-parameter conversion below must still run to keep existing jobs
+        // (which configure a JSON-shaped body together with Content-Type
+        // application/x-www-form-urlencoded) working.
+        if (HttpPost.METHOD_NAME.equals(method)
+                && !keepParamsAsForm
+                && !Strings.isNullOrEmpty(body)
+                && !isFormContentType(headers)) {
+            return doPost(url, headers, params, body);
+        }
+
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
@@ -137,8 +153,6 @@ public class HttpClientProvider implements AutoCloseable {
                                             (v1, v2) -> v2));
         }
 
-        // convert method option to uppercase
-        method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
         if (HttpPost.METHOD_NAME.equals(method) && keepParamsAsForm) {
             // Compatible with old versions
@@ -167,6 +181,191 @@ public class HttpClientProvider implements AutoCloseable {
         }
         // if http method that user assigned is not support by http provider, default do get
         return doGet(url, headers, params);
+    }
+
+    public HttpResponse executeBinary(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm)
+            throws Exception {
+        method = method.toUpperCase(Locale.ROOT);
+        if (HttpGet.METHOD_NAME.equals(method)) {
+            URIBuilder uriBuilder = new URIBuilder(url);
+            addParameters(uriBuilder, params);
+            HttpGet httpGet = new HttpGet(uriBuilder.build());
+            httpGet.setConfig(requestConfig);
+            addHeaders(httpGet, headers);
+            return getResponseBinary(httpGet);
+        }
+        if (HttpPost.METHOD_NAME.equals(method)) {
+            if (keepParamsAsForm) {
+                return doPostBinary(url, headers, params, body);
+            }
+            HttpPost httpPost = new HttpPost(url);
+            httpPost.setConfig(requestConfig);
+            addHeaders(httpPost, headers);
+            if (!Strings.isNullOrEmpty(body)) {
+                httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+            } else {
+                addParameters(httpPost, params);
+            }
+            return getResponseBinary(httpPost);
+        }
+        // fallback to GET for other methods
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        HttpGet httpGet = new HttpGet(uriBuilder.build());
+        httpGet.setConfig(requestConfig);
+        addHeaders(httpGet, headers);
+        return getResponseBinary(httpGet);
+    }
+
+    private HttpResponse doPostBinary(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        if (!Strings.isNullOrEmpty(body)) {
+            bodyMap =
+                    ConfigFactory.parseString(body).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2));
+        }
+        if (MapUtils.isNotEmpty(params)) {
+            headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+            headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+        }
+        if (MapUtils.isEmpty(bodyMap)) {
+            bodyMap = new HashMap<>();
+        }
+        bodyMap.putAll(params);
+        URIBuilder uriBuilder = new URIBuilder(url);
+        HttpPost httpPost = new HttpPost(uriBuilder.build());
+        httpPost.setConfig(requestConfig);
+        addHeaders(httpPost, headers);
+        addBody(httpPost, bodyMap);
+        return getResponseBinary(httpPost);
+    }
+
+    /**
+     * Streams binary response directly in chunks without buffering the entire body. The consumer is
+     * called once per chunk with a SeaTunnelRow containing (byte[] data, String filename, long
+     * partIndex).
+     */
+    public int executeBinaryStreaming(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm,
+            long chunkSize,
+            String urlForFilename,
+            java.util.function.Consumer<Object[]> chunkConsumer)
+            throws Exception {
+        HttpRequestBase request =
+                buildRequest(url, method, headers, params, body, keepParamsAsForm);
+        try (CloseableHttpResponse response = retryWithException(request)) {
+            if (response == null
+                    || response.getStatusLine() == null
+                    || response.getStatusLine().getStatusCode() >= 300) {
+                int code =
+                        response != null && response.getStatusLine() != null
+                                ? response.getStatusLine().getStatusCode()
+                                : HttpStatus.SC_INTERNAL_SERVER_ERROR;
+                return code;
+            }
+
+            if (response.getEntity() == null) {
+                return response.getStatusLine().getStatusCode();
+            }
+
+            String contentDisposition = null;
+            if (response.getFirstHeader("Content-Disposition") != null) {
+                contentDisposition = response.getFirstHeader("Content-Disposition").getValue();
+            }
+            String filename =
+                    org.apache.seatunnel.connectors.seatunnel.http.source.FilenameExtractor.extract(
+                            contentDisposition, urlForFilename);
+
+            try (java.io.InputStream in = response.getEntity().getContent()) {
+                byte[] buffer = new byte[(int) chunkSize];
+                long partIndex = 0;
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) > 0) {
+                    byte[] chunk = new byte[bytesRead];
+                    System.arraycopy(buffer, 0, chunk, 0, bytesRead);
+                    chunkConsumer.accept(new Object[] {chunk, filename, partIndex});
+                    partIndex++;
+                }
+            }
+            return response.getStatusLine().getStatusCode();
+        }
+    }
+
+    private HttpRequestBase buildRequest(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm)
+            throws Exception {
+        method = method.toUpperCase(Locale.ROOT);
+        if (HttpGet.METHOD_NAME.equals(method)) {
+            URIBuilder uriBuilder = new URIBuilder(url);
+            addParameters(uriBuilder, params);
+            HttpGet httpGet = new HttpGet(uriBuilder.build());
+            httpGet.setConfig(requestConfig);
+            addHeaders(httpGet, headers);
+            return httpGet;
+        }
+        if (HttpPost.METHOD_NAME.equals(method)) {
+            HttpPost httpPost = new HttpPost(url);
+            httpPost.setConfig(requestConfig);
+            if (keepParamsAsForm) {
+                Map<String, Object> bodyMap = new HashMap<>();
+                if (!Strings.isNullOrEmpty(body)) {
+                    bodyMap =
+                            ConfigFactory.parseString(body).entrySet().stream()
+                                    .collect(
+                                            Collectors.toMap(
+                                                    Map.Entry::getKey,
+                                                    entry -> entry.getValue().unwrapped(),
+                                                    (v1, v2) -> v2));
+                }
+                if (MapUtils.isNotEmpty(params)) {
+                    headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+                    headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+                }
+                if (MapUtils.isEmpty(bodyMap)) {
+                    bodyMap = new HashMap<>();
+                }
+                bodyMap.putAll(params);
+                addHeaders(httpPost, headers);
+                addBody(httpPost, bodyMap);
+            } else {
+                addHeaders(httpPost, headers);
+                if (!Strings.isNullOrEmpty(body)) {
+                    httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+                } else {
+                    addParameters(httpPost, params);
+                }
+            }
+            return httpPost;
+        }
+        // fallback to GET for other methods
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        HttpGet httpGet = new HttpGet(uriBuilder.build());
+        httpGet.setConfig(requestConfig);
+        addHeaders(httpGet, headers);
+        return httpGet;
     }
 
     /**
@@ -296,6 +495,14 @@ public class HttpClientProvider implements AutoCloseable {
         addBody(httpPost, body);
         // return http response
         return getResponse(httpPost);
+    }
+
+    private HttpResponse doPost(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        return doPost(uriBuilder.build().toString(), headers, body);
     }
 
     /**
@@ -430,6 +637,27 @@ public class HttpClientProvider implements AutoCloseable {
         return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     }
 
+    private HttpResponse getResponseBinary(HttpRequestBase request) throws Exception {
+        try (CloseableHttpResponse httpResponse = retryWithException(request)) {
+            if (httpResponse != null && httpResponse.getStatusLine() != null) {
+                byte[] bodyBytes = null;
+                if (httpResponse.getEntity() != null) {
+                    bodyBytes = EntityUtils.toByteArray(httpResponse.getEntity());
+                }
+                String contentDisposition = null;
+                if (httpResponse.getFirstHeader("Content-Disposition") != null) {
+                    contentDisposition =
+                            httpResponse.getFirstHeader("Content-Disposition").getValue();
+                }
+                return new HttpResponse(
+                        httpResponse.getStatusLine().getStatusCode(),
+                        bodyBytes,
+                        contentDisposition);
+            }
+        }
+        return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    }
+
     private CloseableHttpResponse retryWithException(HttpRequestBase request) throws Exception {
         return retryer.call(() -> httpClient.execute(request));
     }
@@ -463,6 +691,17 @@ public class HttpClientProvider implements AutoCloseable {
             return;
         }
         headers.forEach(request::addHeader);
+    }
+
+    private static boolean isFormContentType(Map<String, String> headers) {
+        if (MapUtils.isEmpty(headers)) {
+            return false;
+        }
+        return headers.entrySet().stream()
+                .filter(entry -> HTTP.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .filter(Objects::nonNull)
+                .anyMatch(value -> APPLICATION_FORM.equalsIgnoreCase(value.trim()));
     }
 
     static void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
@@ -500,25 +739,20 @@ public class HttpClientProvider implements AutoCloseable {
         }
     }
 
-    private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
-        if (request.getEntity() != null && request.getEntity().getContentType() != null) {
-            return HTTP.CONTENT_TYPE.equals(request.getEntity().getContentType().getName());
-        }
-        return false;
-    }
-
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
-        if (checkAlreadyHaveContentType(request)) {
-            return;
-        }
-        request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
-
+        // The caller may have already supplied a Content-Type header via the headers map.
+        // We must not append a second Content-Type, otherwise the outgoing request carries
+        // duplicate Content-Type headers and the behaviour becomes implementation-defined
+        // (RFC 7230 §3.2.2 forbids duplicate non-list headers). Mirror the correct pattern
+        // already used by addBody(Map).
         if (StringUtils.isBlank(body)) {
             body = "";
         }
 
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
-        entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
+        if (!request.containsHeader(HTTP.CONTENT_TYPE)) {
+            request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+        }
         request.setEntity(entity);
     }
 

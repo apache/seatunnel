@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
@@ -42,12 +43,16 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 public class HadoopFileSystemProxy implements Serializable, Closeable {
+
+    private static final int DEFAULT_BUFFER_SIZE = 4096;
+    private static final String APPEND_TARGET_LENGTH_MARKER_SUFFIX = ".append-target-length";
 
     private transient UserGroupInformation userGroupInformation;
     private transient FileSystem fileSystem;
@@ -64,6 +69,19 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
 
     public boolean fileExist(@NonNull String filePath) throws IOException {
         return execute(() -> getFileSystem().exists(new Path(filePath)));
+    }
+
+    /**
+     * Qualifies a path against this proxy's configured filesystem.
+     *
+     * <p>This preserves the filesystem scheme and authority for paths configured without a URI,
+     * such as a relative FTP backup path.
+     *
+     * @param filePath path to qualify
+     * @return path qualified with the configured filesystem URI
+     */
+    public String makeQualifiedPath(@NonNull String filePath) {
+        return getFileSystem().makeQualified(new Path(filePath)).toString();
     }
 
     public boolean isFile(@NonNull String filePath) throws IOException {
@@ -93,6 +111,31 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 });
     }
 
+    public boolean deleteEmptyDirectory(@NonNull String filePath) throws IOException {
+        return execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    FileSystem fileSystem = getFileSystem();
+                    try {
+                        if (!fileSystem.exists(path)
+                                || !fileSystem.getFileStatus(path).isDirectory()) {
+                            return false;
+                        }
+                        FileStatus[] children = fileSystem.listStatus(path);
+                        if (children != null && children.length > 0) {
+                            return false;
+                        }
+                        return fileSystem.delete(path, false);
+                    } catch (IOException e) {
+                        log.debug(
+                                "Skip deleting empty directory {}, it may be changed concurrently",
+                                filePath,
+                                e);
+                        return false;
+                    }
+                });
+    }
+
     public void renameFile(
             @NonNull String oldFilePath,
             @NonNull String newFilePath,
@@ -104,13 +147,20 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                     Path newPath = new Path(newFilePath);
 
                     if (!fileExist(oldPath.toString())) {
-                        log.warn(
-                                "rename file :["
+                        if (fileExist(newPath.toString())) {
+                            log.info(
+                                    "Rename file from [{}] to [{}] already finished in a previous "
+                                            + "commit, skip.",
+                                    oldPath,
+                                    newPath);
+                            return Void.class;
+                        }
+                        throw new IOException(
+                                "Cannot rename file from ["
                                         + oldPath
                                         + "] to ["
                                         + newPath
-                                        + "] already finished in the last commit, skip");
-                        return Void.class;
+                                        + "]: both source and target are missing.");
                     }
 
                     if (removeWhenNewFilePathExist) {
@@ -133,14 +183,132 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 });
     }
 
+    /**
+     * Appends a temporary file to an existing target file, or moves it when the target is absent.
+     *
+     * <p>The move path preserves the normal rename behavior for the first committed file. Later
+     * commits record the target length before appending. If a retry sees the expected post-append
+     * length, it only cleans the temporary file instead of appending the same bytes again.
+     *
+     * <p>A retry is therefore idempotent only when it replays the same aggregated commit info (for
+     * example a commit re-run after restore). Once abort() has deleted the transaction directory
+     * together with its markers, a later commit re-appends bytes that may already have been
+     * written: FTP append mode is at-least-once in that case, not exactly-once.
+     */
+    public void appendFile(@NonNull String sourceFilePath, @NonNull String targetFilePath)
+            throws IOException {
+        execute(
+                () -> {
+                    Path sourcePath = new Path(sourceFilePath);
+                    Path targetPath = new Path(targetFilePath);
+                    Path markerPath = new Path(sourceFilePath + APPEND_TARGET_LENGTH_MARKER_SUFFIX);
+                    FileSystem fileSystem = getFileSystem();
+                    if (!fileSystem.exists(sourcePath)) {
+                        deleteAppendMarkerIfExists(fileSystem, markerPath);
+                        log.warn(
+                                "append file:[{}] to [{}] already finished in the last commit, skip.",
+                                sourcePath,
+                                targetPath);
+                        return Void.class;
+                    }
+                    if (!fileSystem.exists(targetPath)) {
+                        renameFile(sourceFilePath, targetFilePath, false);
+                        return Void.class;
+                    }
+                    long sourceLength = fileSystem.getFileStatus(sourcePath).getLen();
+                    long initialTargetLength =
+                            getOrCreateAppendTargetLength(fileSystem, markerPath, targetPath);
+                    long expectedTargetLength = initialTargetLength + sourceLength;
+                    long currentTargetLength = fileSystem.getFileStatus(targetPath).getLen();
+                    if (currentTargetLength == expectedTargetLength) {
+                        cleanupCommittedAppend(fileSystem, sourcePath, markerPath);
+                        log.info(
+                                "append file:[{}] to [{}] already applied in the last commit, cleanup source file.",
+                                sourcePath,
+                                targetPath);
+                        return Void.class;
+                    }
+                    if (currentTargetLength != initialTargetLength) {
+                        throw new IOException(
+                                String.format(
+                                        "Cannot append file [%s] to [%s], target length changed from [%s] to [%s] before append.",
+                                        sourcePath,
+                                        targetPath,
+                                        initialTargetLength,
+                                        currentTargetLength));
+                    }
+                    try (FSDataInputStream inputStream = fileSystem.open(sourcePath);
+                            FSDataOutputStream outputStream =
+                                    fileSystem.append(targetPath, DEFAULT_BUFFER_SIZE, null)) {
+                        IOUtils.copyBytes(inputStream, outputStream, DEFAULT_BUFFER_SIZE, false);
+                    }
+                    long actualTargetLength = fileSystem.getFileStatus(targetPath).getLen();
+                    if (actualTargetLength != expectedTargetLength) {
+                        throw new IOException(
+                                String.format(
+                                        "Append file [%s] to [%s] finished with unexpected target length [%s], expected [%s].",
+                                        sourcePath,
+                                        targetPath,
+                                        actualTargetLength,
+                                        expectedTargetLength));
+                    }
+                    cleanupCommittedAppend(fileSystem, sourcePath, markerPath);
+                    log.info("append file:[{}] to [{}] finish", sourcePath, targetPath);
+                    return Void.class;
+                });
+    }
+
+    private long getOrCreateAppendTargetLength(
+            FileSystem fileSystem, Path markerPath, Path targetPath) throws IOException {
+        if (fileSystem.exists(markerPath)) {
+            try (FSDataInputStream inputStream = fileSystem.open(markerPath)) {
+                byte[] bytes = new byte[64];
+                int length = inputStream.read(bytes);
+                if (length <= 0) {
+                    throw new IOException("Append target length marker is empty: " + markerPath);
+                }
+                return Long.parseLong(new String(bytes, 0, length, StandardCharsets.UTF_8).trim());
+            }
+        }
+        long targetLength = fileSystem.getFileStatus(targetPath).getLen();
+        try (FSDataOutputStream outputStream = fileSystem.create(markerPath, false)) {
+            outputStream.write(Long.toString(targetLength).getBytes(StandardCharsets.UTF_8));
+        }
+        return targetLength;
+    }
+
+    private void cleanupCommittedAppend(FileSystem fileSystem, Path sourcePath, Path markerPath)
+            throws IOException {
+        if (!fileSystem.delete(sourcePath, false)) {
+            throw CommonError.fileOperationFailed("SeaTunnel", "delete", sourcePath.toString());
+        }
+        deleteAppendMarkerIfExists(fileSystem, markerPath);
+    }
+
+    private void deleteAppendMarkerIfExists(FileSystem fileSystem, Path markerPath)
+            throws IOException {
+        if (fileSystem.exists(markerPath) && !fileSystem.delete(markerPath, false)) {
+            log.warn("Delete append marker [{}] failed, ignore this cleanup error.", markerPath);
+        }
+    }
+
     public void createDir(@NonNull String filePath) throws IOException {
         execute(
                 () -> {
                     Path dfs = new Path(filePath);
-                    if (!getFileSystem().mkdirs(dfs)) {
-                        throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
+                    FileSystem fs = getFileSystem();
+
+                    if (fs.mkdirs(dfs)) {
+                        return Void.class;
                     }
-                    return Void.class;
+
+                    if (fs.exists(dfs)) {
+                        return Void.class;
+                    }
+
+                    IOException enhanced = enhanceMkdirsException(fs, dfs, "create directory");
+                    throw CommonError.fileOperationFailed(
+                            "SeaTunnel", "create", filePath, enhanced);
                 });
     }
 
@@ -158,6 +326,17 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         fileList.add(locatedFileStatusRemoteIterator.next());
                     }
                     return fileList;
+                });
+    }
+
+    /** Checks for a file without collecting the directory listing in memory. */
+    public boolean hasAnyFile(@NonNull String path, boolean recursive) throws IOException {
+        return execute(
+                () -> {
+                    Path fileName = new Path(path);
+                    FileSystem fileSystem = getFileSystem();
+                    return fileSystem.exists(fileName)
+                            && fileSystem.listFiles(fileName, recursive).hasNext();
                 });
     }
 
@@ -185,8 +364,58 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return execute(() -> getFileSystem().listStatus(new Path(filePath)));
     }
 
+    /** Opens one reusable directory-listing session for a complete discovery pass. */
+    public FileStatusListingSession openFileStatusListingSession() throws IOException {
+        FileSystem fs = getFileSystem();
+        if (fs instanceof StreamingFileSystem) {
+            return ((StreamingFileSystem) fs).openFileStatusListingSession();
+        }
+        return new HadoopListingSession();
+    }
+
     public FileStatus getFileStatus(String filePath) throws IOException {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)));
+    }
+
+    private final class HadoopListingSession implements FileStatusListingSession {
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            return execute(() -> getFileSystem().getFileStatus(path));
+        }
+
+        @Override
+        public void list(Path directory, FileStatusConsumer consumer) throws IOException {
+            execute(
+                    () -> {
+                        FileSystem fs = getFileSystem();
+                        int emitted = 0;
+                        try {
+                            RemoteIterator<? extends FileStatus> iterator;
+                            if ("s3a".equalsIgnoreCase(fs.getScheme())) {
+                                iterator = fs.listLocatedStatus(directory);
+                            } else {
+                                iterator = fs.listStatusIterator(directory);
+                            }
+                            while (iterator.hasNext()) {
+                                consumer.accept(iterator.next());
+                                emitted++;
+                            }
+                        } catch (UnsupportedOperationException e) {
+                            if (emitted > 0) {
+                                throw e;
+                            }
+                            for (FileStatus status : fs.listStatus(directory)) {
+                                consumer.accept(status);
+                            }
+                        }
+                        return Void.class;
+                    });
+        }
+
+        @Override
+        public void close() {
+            // The proxy owns the Hadoop FileSystem lifecycle.
+        }
     }
 
     public FileChecksum getFileChecksum(String filePath) throws IOException {
@@ -194,7 +423,20 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     public FSDataOutputStream getOutputStream(String filePath) throws IOException {
-        return execute(() -> getFileSystem().create(new Path(filePath), true));
+        return execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    FileSystem fs = getFileSystem();
+                    try {
+                        return fs.create(path, true);
+                    } catch (IOException e) {
+                        IOException enhanced =
+                                enhanceMkdirsException(
+                                        fs, path.getParent(), "create file " + path.getName(), e);
+                        throw CommonError.fileOperationFailed(
+                                "SeaTunnel", "create", filePath, enhanced);
+                    }
+                });
     }
 
     public FSDataInputStream getInputStream(String filePath) throws IOException {
@@ -206,6 +448,11 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             initialize();
         }
         return fileSystem;
+    }
+
+    /** Returns the scheme of the initialized target or source file system. */
+    public String getScheme() {
+        return getFileSystem().getScheme();
     }
 
     @SneakyThrows
@@ -237,7 +484,13 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             }
         } finally {
             if (fileSystem != null) {
-                fileSystem.close();
+                try {
+                    fileSystem.close();
+                } finally {
+                    // Drop the reference so a later getFileSystem() re-initializes instead of
+                    // handing back a closed FileSystem.
+                    fileSystem = null;
+                }
             }
         }
     }
@@ -265,6 +518,53 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         Configuration configuration = hadoopConf.toConfiguration();
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
+    }
+
+    private IOException enhanceMkdirsException(FileSystem fs, Path path, String operation)
+            throws IOException {
+        return enhanceMkdirsException(fs, path, operation, null);
+    }
+
+    private IOException enhanceMkdirsException(
+            FileSystem fs, Path path, String operation, IOException cause) throws IOException {
+        StringBuilder reason = new StringBuilder();
+
+        if (!fs.exists(path)) {
+            Path parent = path.getParent();
+            if (parent != null && !fs.exists(parent)) {
+                reason.append("Parent directory does not exist: ").append(parent).append(". ");
+            } else {
+                reason.append("Directory does not exist and creation failed: ")
+                        .append(path)
+                        .append(". ");
+            }
+
+            try {
+                fs.getFileStatus(path);
+            } catch (IOException e) {
+                if (e.getMessage() != null) {
+                    if (e.getMessage().contains("Permission denied")) {
+                        reason.append("Permission denied. ");
+                    } else {
+                        reason.append("Hadoop error: ").append(e.getMessage()).append(". ");
+                    }
+                }
+            }
+        } else {
+            reason.append("Path exists but may be inaccessible: ").append(path).append(". ");
+        }
+
+        reason.append("Operation: ")
+                .append(operation)
+                .append(". ")
+                .append("Current working directory: ")
+                .append(fs.getWorkingDirectory());
+
+        IOException enhanced = new IOException(reason.toString());
+        if (cause != null) {
+            enhanced.addSuppressed(cause);
+        }
+        return enhanced;
     }
 
     private boolean enableKerberos() {

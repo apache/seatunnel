@@ -138,7 +138,7 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                             pluginIdentifier.getPluginName(),
                             fallbackCreateSource,
                             null,
-                            envOption == null ? null : ReadonlyConfig.fromMap(envOption));
+                            null);
 
             source._1().setJobContext(jobContext);
             ensureJobModeMatch(jobContext, source._1());

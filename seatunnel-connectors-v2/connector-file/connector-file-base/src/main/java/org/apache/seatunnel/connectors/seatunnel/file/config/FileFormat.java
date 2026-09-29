@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStra
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MarkdownReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.PdfReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
@@ -184,7 +185,17 @@ public enum FileFormat implements Serializable {
             return new MarkdownReadStrategy();
         }
     },
-    ;
+    PDF("pdf") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            throw new UnsupportedOperationException("File format 'pdf' does not support writing.");
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new PdfReadStrategy();
+        }
+    };
 
     private final String[] suffix;
 

@@ -195,8 +195,7 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
 
         if (queryResultsR.getStatus() != R.Status.Success.getCode()) {
             throw new MilvusConnectorException(
-                    MilvusConnectionErrorCode.SERVER_RESPONSE_FAILED,
-                    loadStateResponse.getException());
+                    MilvusConnectionErrorCode.SERVER_RESPONSE_FAILED, queryResultsR.getException());
         }
         QueryResultsWrapper wrapper = new QueryResultsWrapper(queryResultsR.getData());
         List<QueryResultsWrapper.RowRecord> records = wrapper.getRowRecords();

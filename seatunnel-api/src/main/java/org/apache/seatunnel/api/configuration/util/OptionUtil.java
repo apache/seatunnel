@@ -22,15 +22,18 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import lombok.experimental.UtilityClass;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@UtilityClass
 public class OptionUtil {
 
-    private OptionUtil() {}
+    private static final String ERROR_TEMPLATE = "%s: %s\n      type: %s\n      constraint: %s";
 
     public static String getOptionKeys(List<Option<?>> options) {
         StringBuilder builder = new StringBuilder();
@@ -91,6 +94,14 @@ public class OptionUtil {
             }
         }
         return options;
+    }
+
+    public static String formatError(String optionKey, String type, String constraint) {
+        return String.format(ERROR_TEMPLATE, "option", optionKey, type, constraint);
+    }
+
+    public static String formatOptionsError(String optionKeys, String type, String constraint) {
+        return String.format(ERROR_TEMPLATE, "options", optionKeys, type, constraint);
     }
 
     private static String formatUnderScoreCase(String camel) {

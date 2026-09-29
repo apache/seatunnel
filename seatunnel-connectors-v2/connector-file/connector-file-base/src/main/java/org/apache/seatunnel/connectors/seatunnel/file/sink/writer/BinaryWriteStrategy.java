@@ -18,9 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -85,11 +87,41 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
     }
 
     public String getOrCreateFilePathBeingWritten(String relativePath) {
+        if (fileSinkConfig.isCustomFilename()) {
+            return getOrCreateCustomFilePathBeingWritten(relativePath);
+        }
         String beingWrittenFilePath = beingWrittenFile.get(relativePath);
         if (beingWrittenFilePath != null) {
             return beingWrittenFilePath;
         } else {
             String[] pathSegments = new String[] {transactionDirectory, relativePath};
+            String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
+            beingWrittenFile.put(relativePath, newBeingWrittenFilePath);
+            return newBeingWrittenFilePath;
+        }
+    }
+
+    private String getOrCreateCustomFilePathBeingWritten(String relativePath) {
+        String beingWrittenFilePath = beingWrittenFile.get(relativePath);
+        if (beingWrittenFilePath != null) {
+            return beingWrittenFilePath;
+        } else {
+            if (!beingWrittenFile.isEmpty()) {
+                String existingRelativePath = beingWrittenFile.keySet().iterator().next();
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Binary sink custom_filename only supports a single source file in each "
+                                + "sink task. Existing source file: "
+                                + existingRelativePath
+                                + ", new source file: "
+                                + relativePath);
+            }
+            String[] pathSegments =
+                    new String[] {
+                        transactionDirectory,
+                        FileBaseSinkOptions.NON_PARTITION,
+                        generateFileName(transactionId)
+                    };
             String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
             beingWrittenFile.put(relativePath, newBeingWrittenFilePath);
             return newBeingWrittenFilePath;
@@ -109,6 +141,14 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
             }
         }
         return fsDataOutputStream;
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) {
+        throw new FileConnectorException(
+                FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                "BinaryWriteStrategy does not support schema evolution. "
+                        + "Binary format requires a fixed schema.");
     }
 
     @Override

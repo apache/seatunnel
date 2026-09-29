@@ -56,6 +56,8 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
 
     protected static ILogger LOGGER;
 
+    private final int hazelcastPort = TestUtils.getAvailablePort(100);
+
     @BeforeAll
     public void before() {
         String name = ((T) this).getClass().getName();
@@ -72,6 +74,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     }
 
     protected String getHazelcastConfig() {
+        // Use the IPv4 loopback address to avoid dual-stack localhost resolution on Windows CI.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -84,11 +87,13 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - localhost\n"
+                + "          - 127.0.0.1\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + getHazelcastPort()
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
@@ -99,8 +104,14 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 + "    hazelcast.operation.generic.thread.count: 200\n";
     }
 
+    protected int getHazelcastPort() {
+        return hazelcastPort;
+    }
+
     public SeaTunnelConfig loadSeaTunnelConfig() {
-        return ConfigProvider.locateAndGetSeaTunnelConfig();
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getEngineConfig().setStateCleanupDelayMillis(0L);
+        return seaTunnelConfig;
     }
 
     protected void startJob(Long jobId, String path, boolean isStartWithSavePoint) {

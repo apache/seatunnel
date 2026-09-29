@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -39,7 +38,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private static final long POST_MSG_WAITING_TIME = 1500L;
 
-    public SlackWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
+    public SlackWriter(SeaTunnelRowType seaTunnelRowType, ReadonlyConfig pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.slackClient = new SlackClient(pluginConfig);
         this.conversationId = slackClient.findConversation();

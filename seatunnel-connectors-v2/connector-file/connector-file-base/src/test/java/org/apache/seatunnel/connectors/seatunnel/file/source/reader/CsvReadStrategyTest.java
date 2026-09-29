@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,8 @@ public class CsvReadStrategyTest {
         URL resource = CsvReadStrategyTest.class.getResource("/test.csv");
         String path = Paths.get(resource.toURI()).toString();
         CsvReadStrategy csvReadStrategy = new CsvReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         csvReadStrategy.init(localConf);
         csvReadStrategy.getFileNamesByPath(path);
         csvReadStrategy.setPluginConfig(ConfigFactory.empty());
@@ -80,7 +81,8 @@ public class CsvReadStrategyTest {
         URL resource = CsvReadStrategyTest.class.getResource("/test-csv.csv");
         String path = Paths.get(resource.toURI()).toString();
         CsvReadStrategy csvReadStrategy = new CsvReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         csvReadStrategy.init(localConf);
         csvReadStrategy.getFileNamesByPath(path);
         System.setProperty("field_delimiter", ";");
@@ -112,7 +114,8 @@ public class CsvReadStrategyTest {
                 CsvReadStrategyTest.class.getResource("/csv/special_quote_char_break_line.csv");
         String path = Paths.get(resource.toURI()).toString();
         CsvReadStrategy csvReadStrategy = new CsvReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         csvReadStrategy.init(localConf);
         csvReadStrategy.getFileNamesByPath(path);
         csvReadStrategy.setPluginConfig(ConfigFactory.parseMap(getOptionsForSpecialQuoteChar()));
@@ -170,7 +173,8 @@ public class CsvReadStrategyTest {
         String path = Paths.get(resource.toURI()).toString();
         TestCollector testCollector;
         try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             csvReadStrategy.init(localConf);
             csvReadStrategy.getFileNamesByPath(path);
             csvReadStrategy.setPluginConfig(ConfigFactory.parseMap(csvBomOptions));
@@ -224,25 +228,6 @@ public class CsvReadStrategyTest {
         @Override
         public Object getCheckpointLock() {
             return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 }

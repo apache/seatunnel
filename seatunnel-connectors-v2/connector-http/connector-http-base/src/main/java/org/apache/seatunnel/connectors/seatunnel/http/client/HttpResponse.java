@@ -32,6 +32,12 @@ public class HttpResponse implements Serializable {
     /** response body */
     private String content;
 
+    /** binary response body */
+    private byte[] bodyBytes;
+
+    /** Content-Disposition header value */
+    private String contentDisposition;
+
     public HttpResponse() {}
 
     public HttpResponse(int code) {
@@ -45,6 +51,12 @@ public class HttpResponse implements Serializable {
     public HttpResponse(int code, String content) {
         this.code = code;
         this.content = content;
+    }
+
+    public HttpResponse(int code, byte[] bodyBytes, String contentDisposition) {
+        this.code = code;
+        this.bodyBytes = bodyBytes;
+        this.contentDisposition = contentDisposition;
     }
 
     public int getCode() {
@@ -61,6 +73,22 @@ public class HttpResponse implements Serializable {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public byte[] getBodyBytes() {
+        return bodyBytes;
+    }
+
+    public void setBodyBytes(byte[] bodyBytes) {
+        this.bodyBytes = bodyBytes;
+    }
+
+    public String getContentDisposition() {
+        return contentDisposition;
+    }
+
+    public void setContentDisposition(String contentDisposition) {
+        this.contentDisposition = contentDisposition;
     }
 
     @Override

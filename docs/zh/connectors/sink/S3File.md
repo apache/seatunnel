@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
   默认情况下，我们使用 2PC 提交来确保 `精确一次`。
 
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -108,14 +109,14 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
 | bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
 | fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 认证 s3a 的方式。目前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`。 |
+| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 透传给 Hadoop 的 S3A 凭据提供程序的全限定类名。除了两个常用值 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`（使用静态 `access_key`/`secret_key`）和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`（默认值）之外，任何 classpath 上可用的 S3A 凭据提供程序类都可以使用，例如基于容器的 `com.amazonaws.auth.ContainerCredentialsProvider` 或自定义提供程序。该类必须实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口，并提供 Hadoop 3.1.4 支持的任一创建方式：公共 `(java.net.URI, org.apache.hadoop.conf.Configuration)` 构造器、公共 `(org.apache.hadoop.conf.Configuration)` 构造器、返回 `AWSCredentialsProvider` 的公共静态无参 `getInstance()` 工厂方法，或公共无参构造器。支持 Hadoop 风格的逗号或换行分隔的提供程序链，且每个类都会被独立校验。该提供程序 jar 必须存在于**每个**集群节点的运行时 classpath 中（例如放在 `${SEATUNNEL_HOME}/lib` 下），而不仅仅是提交作业的节点。共享/多租户集群的运维者请注意：此选项允许作业编写者按类名加载类，因此请相应地限制作业提交权限。 |
 | access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
 | file_name_expression                  | string  | 否    | "${transactionId}"                                    | 仅当 custom_filename 为 true 时使用                                                                                                       |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                                          | 仅当 custom_filename 为 true 时使用                                                                                                       |
 | file_format_type                      | string  | 否    | "csv"                                                 |                                                                                                                                     |
-| field_delimiter                       | string  | 否    | '\001'                                                | 仅当 file_format 为 text 时使用                                                                                                           |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv                       | 仅当 file_format 为 text 时使用                                                                                                           |
 | row_delimiter                         | string  | 否    | "\n"                                                  | 仅当 file_format 为 `text`、`csv`、`json` 时使用                                                                                            |
 | have_partition                        | boolean | 否    | false                                                 | 是否需要处理分区。                                                                                                                           |
 | partition_by                          | array   | 否    | -                                                     | 仅当 have_partition 为 true 时使用                                                                                                        |
@@ -127,7 +128,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | compress_codec                        | string  | 否    | none                                                  |                                                                                                                                     |
 | common-options                        | object  | 否    | -                                                     |                                                                                                                                     |
 | max_rows_in_memory                    | int     | 否    | -                                                     | 仅当 file_format 为 excel 时使用                                                                                                          |
-| sheet_name                            | string  | 否    | Sheet${Random number}                                 | 仅当 file_format 为 excel 时使用                                                                                                          |
+| sheet_name                            | string  | 否    | Sheet0                                 | 仅当 file_format 为 excel 时使用                                                                                                          |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                               | 仅当 file_format 为 csv 时使用                                                                                                            |
 | xml_root_tag                          | string  | 否    | RECORDS                                               | 仅当 file_format 为 xml 时使用，指定 XML 文件中根元素的标签名称。                                                                                        |
 | xml_row_tag                           | string  | 否    | RECORD                                                | 仅当 file_format 为 xml 时使用，指定 XML 文件中数据行的标签名称。                                                                                        |
@@ -137,6 +138,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                                 | 仅当 file_format 为 parquet 时使用                                                                                                        |
 | parquet_avro_write_fixed_as_int96     | array   | 否    | -                                                     | 仅当 file_format 为 parquet 时使用                                                                                                        |
 | hadoop_s3_properties                  | map     | 否    |                                                       | 如果您需要添加其他选项，可以在此处添加，并参考此[链接](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                          |
+| schema_evolution_enabled              | boolean | 否    | false                                                 | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | schema_save_mode                      | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST                          | 在开启同步任务之前，对目标路径进行不同的处理                                                                                                              |
 | data_save_mode                        | Enum    | 否    | APPEND_DATA                                           | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                                                                                        |
 | enable_header_write                   | boolean | 否    | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                  |
@@ -367,13 +369,13 @@ source {
     }
   }
 # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的源插件列表，
-# 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+# 请访问 https://seatunnel.apache.org/docs/connectors/source
 source {
 }
 
 transform {
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transform-v2
+  # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -401,7 +403,7 @@ sink {
       }
   }
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的接收插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -515,6 +517,163 @@ sink {
 
 ### enable_header_write [boolean]
 仅在 file_format_type 为 text 或 csv 时使用。false：不写入表头，true：写入表头。
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+S3File {
+    path = "/test/cdc/${table_name}"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+生产作业中不建议把长期有效的密钥直接写入任务文件。优先使用 IAM 类认证方式，例如 `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`，或通过 SeaTunnel 变量替换注入 `access_key` 和 `secret_key`。
+
+### 使用 STS AssumeRole 写入（跨账号写入）
+
+向另一个 AWS 账号拥有的 bucket 写入时，先通过 `sts:AssumeRole` 拿到临时会话凭证，再通过 `hadoop_s3_properties` 与 `TemporaryAWSCredentialsProvider` 配合使用。
+
+```hocon
+sink {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"    = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"    = "<assumed-role-secret-key>"
+      "fs.s3a.session.token" = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+  }
+}
+```
+
+对于 AWS SSO / Profile 角色，把 provider 类换成 `com.amazonaws.auth.profile.ProfileCredentialsProvider`，并把 `fs.s3a.profile`、`fs.s3a.credentialsFile` 等 provider 特定键放在 `hadoop_s3_properties` 里。完整的 `fs.s3a.*` 键集合参见 [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) 文档。
+
+## 容器环境中的凭据提供程序
+
+在容器环境（Kubernetes、ECS、EKS、Docker）中运行 SeaTunnel 时，S3File 连接器接受任何实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口且在 classpath 上可用的全限定 S3A 凭据提供程序类。`fs.s3a.aws.credentials.provider` 选项在配置解析时进行验证（当类在构建配置的节点上可解析时）：类必须实现 AWS 凭据提供程序接口，且不能是抽象类。当类无法解析时（例如，提供程序 JAR 仅在 worker 节点上可用），验证将延迟到实际运行 S3A 的 worker 节点上的运行时进行。
+
+### 支持的凭据提供程序
+
+| 提供程序 | 类名 | 典型场景 |
+|----------|------|----------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | 静态 access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 实例角色（默认） |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS 任务角色 |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | 多源回退链 |
+| 自定义 | 任何 `com.amazonaws.auth.AWSCredentialsProvider` 实现 | 用户自定义提供程序 |
+
+### Kubernetes / EKS 配置
+
+**EC2 节点实例角色（推荐）**：如果您的 EKS 工作节点具有包含 S3 权限的 EC2 实例配置文件，默认的 `InstanceProfileCredentialsProvider` 会自动从实例元数据服务解析凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+**通过 Kubernetes Secret 注入静态密钥（备选方案）**：如果实例角色不可用，从 Kubernetes Secret 注入凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**：对于需要灵活部署的场景，默认链按顺序尝试多个凭据来源（环境变量 → 系统属性 → profile → 容器 → 实例配置文件）：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+### ECS 任务角色
+
+在 ECS 上运行时，ECS 代理会自动设置 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) 需要 `WebIdentityTokenCredentialsProvider` 类。该类在较新的 AWS SDK v1.x 版本（如 1.11.5xx+）中可用，但 **不包含** 在 SeaTunnel 捆绑的旧版 AWS SDK v1.x（1.11.271）中。推荐以下替代方案：
+
+1. **使用 EC2 节点实例角色** — 为 EKS 工作节点附加 IAM 角色，保持默认的 `InstanceProfileCredentialsProvider`。
+2. **使用 `SimpleAWSCredentialsProvider`**，从 Kubernetes Secret 注入凭据。
+3. **在所有集群节点** 的 `${SEATUNNEL_HOME}/lib` 中添加包含 `WebIdentityTokenCredentialsProvider` 的较新 AWS SDK JAR。
+
+### 通过 `hadoop_s3_properties` 传递额外选项
+
+对于 provider 特定的配置键（如 `fs.s3a.session.token`、`fs.s3a.assumed.role.arn`），使用 `hadoop_s3_properties` 映射：
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+连接器将这些键直接传递给 Hadoop S3A 配置。注意：连接器始终会用选项值覆盖 `fs.s3a.aws.credentials.provider` 键，因此无法通过 `hadoop_s3_properties` 覆盖它。
+
+### 故障排查
+
+**您可能会看到 `Factory initialize failed`（或类似的类加载）错误**：这通常意味着凭据提供程序类不在 classpath 上。请确保 provider JAR 存在于 **每个** 集群节点（不仅仅是提交节点）的 `${SEATUNNEL_HOME}/lib` 中。
+
+**`No AWS Credentials provided by ...`**：配置的凭据提供程序无法解析凭据。请检查：
+- `SimpleAWSCredentialsProvider`：验证 `access_key` 和 `secret_key` 已设置。
+- `InstanceProfileCredentialsProvider`：验证 EC2 实例已附加 IAM 角色。
+- `ContainerCredentialsProvider`：验证 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量已设置。
+
+**配置解析时的 `IllegalArgumentException`**：类名格式错误或类未实现 `com.amazonaws.auth.AWSCredentialsProvider`。请验证全限定类名是否正确，以及类是否实现了所需的接口。
 
 ## 变更日志
 

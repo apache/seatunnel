@@ -28,10 +28,14 @@ import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafka
 import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 public class KafkaRecordEmitter
@@ -59,16 +63,30 @@ public class KafkaRecordEmitter
             throws Exception {
         outputCollector.output = collector;
         // todo there is an additional loss in this place for non-multi-table scenarios
+        ConsumerMetadata consumerMetadata = mapMetadata.get(splitState.getTablePath());
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
-                mapMetadata.get(splitState.getTablePath()).getDeserializationSchema();
+                consumerMetadata.getDeserializationSchema();
         if (deserializationSchema instanceof KafkaEventTimeDeserializationSchema) {
-            ((KafkaEventTimeDeserializationSchema) deserializationSchema)
-                    .setCurrentRecordTimestamp(consumerRecord.timestamp());
+            KafkaEventTimeDeserializationSchema eventTimeSchema =
+                    (KafkaEventTimeDeserializationSchema) deserializationSchema;
+            eventTimeSchema.setCurrentRecordTimestamp(consumerRecord.timestamp());
+            if (eventTimeSchema.getDelegate() instanceof KafkaHeadersDeserializationSchema) {
+                ((KafkaHeadersDeserializationSchema) eventTimeSchema.getDelegate())
+                        .setCurrentRecordHeaders(consumerRecord.headers());
+            }
         }
         try {
             if (deserializationSchema instanceof CompatibleKafkaConnectDeserializationSchema) {
+                List<String> kafkaHeaderFields = consumerMetadata.getKafkaHeaderFields();
+                Collector<SeaTunnelRow> targetCollector =
+                        kafkaHeaderFields.isEmpty()
+                                ? outputCollector
+                                : headerInjectingCollector(
+                                        outputCollector,
+                                        consumerRecord.headers(),
+                                        kafkaHeaderFields);
                 ((CompatibleKafkaConnectDeserializationSchema) deserializationSchema)
-                        .deserialize(consumerRecord, outputCollector);
+                        .deserialize(consumerRecord, targetCollector);
             } else if (deserializationSchema instanceof NativeKafkaConnectDeserializationSchema) {
                 ((NativeKafkaConnectDeserializationSchema) deserializationSchema)
                         .deserialize(consumerRecord, outputCollector);
@@ -87,6 +105,54 @@ public class KafkaRecordEmitter
         // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
         // for the next run
         splitState.setCurrentOffset(consumerRecord.offset() + 1);
+    }
+
+    private static Collector<SeaTunnelRow> headerInjectingCollector(
+            Collector<SeaTunnelRow> delegate, Headers headers, List<String> headerFieldNames) {
+        return new Collector<SeaTunnelRow>() {
+            @Override
+            public void collect(SeaTunnelRow record) {
+                delegate.collect(appendHeaderFields(record, headers, headerFieldNames));
+            }
+
+            @Override
+            public void collect(SchemaChangeEvent event) {
+                delegate.collect(event);
+            }
+
+            @Override
+            public void markSchemaChangeBeforeCheckpoint() {
+                delegate.markSchemaChangeBeforeCheckpoint();
+            }
+
+            @Override
+            public void markSchemaChangeAfterCheckpoint() {
+                delegate.markSchemaChangeAfterCheckpoint();
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return delegate.getCheckpointLock();
+            }
+        };
+    }
+
+    private static SeaTunnelRow appendHeaderFields(
+            SeaTunnelRow baseRow, Headers headers, List<String> headerFieldNames) {
+        Object[] fields = new Object[baseRow.getFields().length + headerFieldNames.size()];
+        System.arraycopy(baseRow.getFields(), 0, fields, 0, baseRow.getFields().length);
+        for (int i = 0; i < headerFieldNames.size(); i++) {
+            Header header = headers.lastHeader(headerFieldNames.get(i));
+            fields[baseRow.getFields().length + i] =
+                    header != null && header.value() != null
+                            ? new String(header.value(), StandardCharsets.UTF_8)
+                            : null;
+        }
+        SeaTunnelRow newRow = new SeaTunnelRow(fields);
+        newRow.setRowKind(baseRow.getRowKind());
+        newRow.setTableId(baseRow.getTableId());
+        newRow.setOptions(baseRow.getOptions());
+        return newRow;
     }
 
     private static class OutputCollector<T> implements Collector<T> {

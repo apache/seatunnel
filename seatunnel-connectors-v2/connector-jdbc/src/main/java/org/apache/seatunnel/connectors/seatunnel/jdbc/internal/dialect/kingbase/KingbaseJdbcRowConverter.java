@@ -102,6 +102,9 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
                                     .map(Timestamp::toLocalDateTime)
                                     .orElse(null);
                     break;
+                case TIMESTAMP_TZ:
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getOffsetDateTime(rs, resultSetIndex);
+                    break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;
@@ -179,8 +182,15 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
                     break;
                 case TIMESTAMP_TZ:
                     OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
-                    statement.setTimestamp(
-                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                    try {
+                        statement.setObject(statementIndex, offsetDateTime);
+                    } catch (SQLException e) {
+                        statement.setTimestamp(
+                                statementIndex,
+                                Timestamp.from(offsetDateTime.toInstant()),
+                                java.util.Calendar.getInstance(
+                                        java.util.TimeZone.getTimeZone("UTC")));
+                    }
                     break;
                 case BYTES:
                     statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

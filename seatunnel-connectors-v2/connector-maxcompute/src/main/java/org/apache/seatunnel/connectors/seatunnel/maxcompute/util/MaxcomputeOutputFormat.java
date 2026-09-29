@@ -185,13 +185,14 @@ public class MaxcomputeOutputFormat {
                                     readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                     readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME))
                             .setPartitionSpec(partitionSpec)
+                            .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                             .build();
-
         } else {
             upsertSession =
                     tunnel.buildUpsertSession(
                                     readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                     readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME))
+                            .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                             .build();
         }
     }
@@ -208,20 +209,16 @@ public class MaxcomputeOutputFormat {
 
     private void initializeInsertSession() throws TunnelException {
         TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+        PartitionSpec partitionSpec = null;
         if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
-            PartitionSpec partitionSpec =
+            partitionSpec =
                     new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
-            uploadSession =
-                    tunnel.createUploadSession(
-                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
-                            partitionSpec);
-
-        } else {
-            uploadSession =
-                    tunnel.createUploadSession(
-                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
         }
+        uploadSession =
+                MaxcomputeUtil.buildUploadSession(
+                        tunnel,
+                        readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                        readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
+                        partitionSpec);
     }
 }

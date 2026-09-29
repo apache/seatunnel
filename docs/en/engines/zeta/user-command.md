@@ -18,24 +18,29 @@ The output is as follows:
 
 Usage: seatunnel.sh [options]
   Options:
-    --async                         Run the job asynchronously. When the job is submitted, the client will exit (default: false).
-    -can, --cancel-job              Cancel the job by JobId.
-    --check                         Whether to check the config (default: false).
-    -cj, --close-job                Close the client and the task will also be closed (default: true).
-    -cn, --cluster                  The name of the cluster.
-    -c, --config                    Config file.
-    --decrypt                       Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    -m, --master, -e, --deploy-mode SeaTunnel job submit master, support [local, cluster] (default: cluster).
-    --encrypt                       Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    --get_running_job_metrics       Get metrics for running jobs (default: false).
-    -h, --help                      Show the usage message.
-    -j, --job-id                    Get the job status by JobId.
-    -l, --list                      List the job status (default: false).
-    --metrics                       Get the job metrics by JobId.
-    -n, --name                      The SeaTunnel job name (default: SeaTunnel).
-    -r, --restore                   Restore with savepoint by jobId.
-    -s, --savepoint                 Savepoint the job by jobId.
-    -i, --variable                  Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
+    --async                                     Run the job asynchronously. When the job is submitted, the client will exit (default: false).
+    -can, --cancel, --cancel-job                Cancel the job(s) by JobId.
+    -f, --force-cancel, --force-cancel-job      Force Cancel job(s) by JobId.
+    --check                                     Whether to check the config (default: false).
+    -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
+    -cn, --cluster                              The name of the cluster.
+    -c, --config                                Config file.
+    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
+    -d, --dry-run                               Validate or preview without running sinks. Supported modes: [static, connect, sample].
+    -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
+    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
+    --get_running_job_metrics                   Get metrics for running jobs (default: false).
+    -h, --help                                  Show the usage message.
+    -j, --job-id                                Get the job status by JobId.
+    -l, --list                                  List the job status (default: false).
+    --metrics                                   Get the job metrics by JobId.
+    -n, --name                                  The SeaTunnel job name (default: SeaTunnel).
+    -r, --restore, --restore-job                Restore from the latest savepoint by jobId.
+    --restore-with-checkpoint                   Restore from the latest completed checkpoint by jobId.
+    -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
+    --sample-limit                              Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000).
+    --sample-print-data                         Print sampled row values to persistent logs (default: false).
+    -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```
 
@@ -56,6 +61,50 @@ The **-n** or **--name** parameter can specify the name of the job.
 ```shell
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
+
+## Validating Configuration (Dry Run)
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
+```
+
+The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, so this is offline validation of the configuration file, not a strict zero-I/O sandbox.
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
+```
+
+The `--dry-run connect` option runs the static checks first, then uses connector dry-run hooks to infer source schemas, validate sink schema compatibility, and check connector connectivity. It may connect to external systems to validate credentials, permissions, and source or sink existence, but the framework does not create source/sink runtime instances, submit a job, read source records, create sink writers, execute save-mode logic, or write target data. Please note that dry-run validation is provided exclusively via the CLI.
+
+**Connectivity validation is connector opt-in.** Only connectors that implement the `SupportSourceDryRunValidation` / `SupportSinkDryRunValidation` interfaces are actually validated against their external systems. Currently supported connectors:
+
+| Connector | Source | Sink |
+|-----------|--------|------|
+| Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
+| Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
+| FakeSource | Yes (schema inference only, no external system) | - |
+| S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
+
+Every plugin in the job is reported in a validation summary with one of two statuses:
+
+- `VALIDATED` – the connector performed real connectivity and/or schema validation.
+- `SKIPPED` – the connector does not support connect dry-run validation. **A successful `--dry-run connect` result does NOT verify credentials or reachability for `SKIPPED` plugins.** For sources without dry-run support, the schema fields declared in the config (`schema` / `tableConfigs` / `table_list` with `fields` or `columns`) are still used for downstream schema checks; if the config does not declare schema fields either, downstream transform/sink schema checks for that pipeline are also reported as `SKIPPED` instead of being validated against a placeholder schema.
+
+### Previewing Sample Rows
+
+```shell
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
+```
+
+The `--dry-run sample` mode has the following behavior:
+
+- Runs the configured sources and transforms locally and prints their table paths and physical row schemas. Connector options and credentials are not included in schema output.
+- Prints bounded source and transform row values only when `--sample-print-data` is set. Row values are hidden by default because persistent engine logs may expose sensitive data.
+- Uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic.
+- Forwards at most `10` rows from each source into the sample pipeline by default, with a maximum `--sample-limit` of `10000`. A source reader may finish its active poll or batch before it stops.
+- Replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints.
+- May read from external sources, but does not write to configured target systems.
+- Supports local execution only. Cluster mode, asynchronous submission, restore, savepoint, validation, and job-control operations are rejected. Sample options are also rejected when sample mode is not selected.
 
 ## Viewing The Job List
 
@@ -122,6 +171,23 @@ This command will cancel the specified job. After canceling the job, the job wil
 Supports batch cancellation of jobs, and can cancel multiple jobs at one time.
 
 All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.
+
+## Force Canceling Jobs
+
+```shell
+sh bin/seatunnel.sh -f <jobId1> [<jobId2> <jobId3> ...]
+```
+
+This command forcefully cancels the specified job(s).
+After cancellation, the job will be stopped and its status will be set to `CANCELED`.
+
+This command supports batch operations and allows multiple jobs to be force-canceled at once.
+
+All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 ## Configure The JVM Options
 

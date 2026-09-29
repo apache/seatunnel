@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -28,10 +33,12 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class CatalogTableTest {
@@ -94,6 +101,34 @@ public class CatalogTableTest {
                     }
                 });
         Assertions.assertEquals(result, exception.getParamsValueAs("tableUnsupportedTypes"));
+    }
+
+    @Test
+    public void testContinueOtherTablesRecordsDiscoveryFailures() {
+        Catalog catalog =
+                new InMemoryCatalogFactory()
+                        .createCatalog("InMemory", ReadonlyConfig.fromMap(new HashMap<>()));
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                ConnectorCommonOptions.TABLE_NAMES.key(),
+                Arrays.asList("st.public.table1", "unsupported.public.table1"));
+        configMap.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.CONTINUE_OTHER_TABLES);
+        List<MultiTableFailedTable> failedTables = new ArrayList<>();
+
+        List<CatalogTable> catalogTables =
+                MultiTableFailureHelper.collectFailedTables(
+                        failedTables, () -> catalog.getTables(ReadonlyConfig.fromMap(configMap)));
+
+        Assertions.assertEquals(1, catalogTables.size());
+        Assertions.assertEquals(
+                "st.public.table1", catalogTables.get(0).getTablePath().getFullName());
+        Assertions.assertEquals(1, failedTables.size());
+        MultiTableFailedTable failedTable = failedTables.get(0);
+        Assertions.assertEquals("unsupported.public.table1", failedTable.getTablePath());
+        Assertions.assertEquals(MultiTableFailurePhase.DISCOVERY, failedTable.getPhase());
+        Assertions.assertTrue(failedTable.getMessageSummary().contains("unsupported"));
     }
 
     @Test

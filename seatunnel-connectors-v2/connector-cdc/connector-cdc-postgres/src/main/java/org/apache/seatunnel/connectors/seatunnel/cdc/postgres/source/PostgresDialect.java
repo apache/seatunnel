@@ -51,6 +51,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,11 +67,20 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     private PostgresWalFetchTask postgresWalFetchTask;
 
     private final Map<TableId, CatalogTable> tableMap;
+    private boolean requireReplicaIdentityFull = true;
 
     public PostgresDialect(
             PostgresSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
         this.sourceConfig = configFactory.create(0);
         this.tableMap = CatalogTableUtils.convertTables(catalogTables);
+    }
+
+    protected PostgresDialect(
+            PostgresSourceConfigFactory configFactory,
+            List<CatalogTable> catalogTables,
+            boolean requireReplicaIdentityFull) {
+        this(configFactory, catalogTables);
+        this.requireReplicaIdentityFull = requireReplicaIdentityFull;
     }
 
     @Override
@@ -104,9 +114,14 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         PostgresSourceConfig postgresSourceConfig = (PostgresSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
+            // Scope discovery to the configured databases via an explicit predicate instead of
+            // Debezium's "database.include.list", which would filter out the catalog-less
+            // TableIds the PostgreSQL connector uses outside of discovery.
             List<TableId> tables =
                     TableDiscoveryUtils.listTables(
-                            jdbcConnection, postgresSourceConfig.getTableFilters());
+                            jdbcConnection,
+                            postgresSourceConfig.getTableFilters(),
+                            new HashSet<>(postgresSourceConfig.getDatabaseList())::contains);
             this.checkAllTablesEnabledCapture(jdbcConnection, tables);
             return tables;
         } catch (SQLException e) {
@@ -121,7 +136,8 @@ public class PostgresDialect implements JdbcDataSourceDialect {
         for (TableId tableId : tableIds) {
             ServerInfo.ReplicaIdentity replicaIdentity =
                     postgresConnection.readReplicaIdentityInfo(tableId);
-            if (!ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+            if (requireReplicaIdentityFull
+                    && !ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
                 throw new SeaTunnelException(
                         String.format(
                                 "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
@@ -166,8 +182,15 @@ public class PostgresDialect implements JdbcDataSourceDialect {
             }
         }
 
+        List<CatalogTable> relationSchemaBaseline = new ArrayList<>(tableMap.values());
+        if (sourceSplitBase.isIncrementalSplit()
+                && sourceSplitBase.asIncrementalSplit().getCheckpointTables() != null
+                && !sourceSplitBase.asIncrementalSplit().getCheckpointTables().isEmpty()) {
+            relationSchemaBaseline = sourceSplitBase.asIncrementalSplit().getCheckpointTables();
+        }
+
         return new PostgresSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, tableChangeList);
+                taskSourceConfig, this, jdbcConnection, tableChangeList, relationSchemaBaseline);
     }
 
     @Override

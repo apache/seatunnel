@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+/** Shared query keys, metric names, and endpoint paths used by SeaTunnel Engine REST handlers. */
 public class RestConstant {
 
     public static final String JOB_ID = "jobId";
@@ -25,7 +26,15 @@ public class RestConstant {
 
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
 
+    public static final String RESTORE_MODE = "restoreMode";
+
+    public static final String RESTORE_SOURCE_JOB_ID = "restoreSourceJobId";
+
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
+
+    public static final String DRY_RUN = "dryRun";
+
+    public static final String FORCE = "force";
 
     public static final String CONFIG_FORMAT = "format";
 
@@ -48,6 +57,9 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+
+    public static final String DIAGNOSTICS = "diagnostics";
+
     public static final String LIMIT = "limit";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
@@ -72,6 +84,9 @@ public class RestConstant {
     // api path start
     public static final String REST_URL_OVERVIEW = "/overview";
     public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
+
+    public static final String REST_URL_RUNNING_JOBS_SUMMARY = "/running-jobs/summary";
+
     @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
     public static final String REST_URL_JOB_INFO = "/job-info";
     public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
@@ -81,6 +96,7 @@ public class RestConstant {
     public static final String REST_URL_RUNNING_THREADS = "/running-threads";
     public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
             "/system-monitoring-information";
+    public static final String REST_URL_WORKER_RESOURCES = "/resource/workers";
     public static final String REST_URL_SUBMIT_JOB = "/submit-job";
 
     public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";
@@ -96,10 +112,15 @@ public class RestConstant {
     public static final String REST_URL_LOG = "/log";
     // Code internal Use , Get Node Log Name
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
+    // Read and change runtime log levels
+    public static final String REST_URL_LOGGERS = "/loggers";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    public static final String REST_URL_TRACE_TASK_MAPPING = "/trace/task-mapping";
+    public static final String REST_URL_OPTION_RULES = "/option-rules";
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
+    public static final String REST_URL_REALTIME_METRICS = "/metrics/realtime";
     // api path end
 
 }

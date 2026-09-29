@@ -17,19 +17,35 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
+import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.RingBuffer;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class RecordEventProducer {
 
+    /**
+     * Pre-processes barriers and stain trace metadata before handing the record to the ring buffer.
+     */
     public static void onData(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
-            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter putBlockedNs,
+            Counter totalQueueSize,
+            Counter queueSize,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
 
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
@@ -38,18 +54,106 @@ public class RecordEventProducer {
                     intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
+            publishRecord(record, ringBuffer, totalQueueSize);
+        } else if (record.getData() instanceof Signal) {
+            if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
+            }
+            publishSignalRecord(
+                    record,
+                    ringBuffer,
+                    totalQueueSize,
+                    flushSignalQueueSuccessTotal,
+                    flushSignalQueueFailureTotal);
         } else {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;
             }
+            publishDataRecord(
+                    record,
+                    ringBuffer,
+                    intermediateQueueFlowLifeCycle,
+                    putBlockedNs,
+                    totalQueueSize,
+                    queueSize);
         }
+    }
 
+    /** Publishes a barrier record without backpressure metrics, but tracks queue size. */
+    private static void publishRecord(
+            Record<?> record, RingBuffer<RecordEvent> ringBuffer, Counter totalQueueSize) {
         long sequence = ringBuffer.next();
+        try {
+            ringBuffer.get(sequence).setRecord(record);
+        } finally {
+            ringBuffer.publish(sequence);
+            totalQueueSize.inc();
+        }
+    }
+
+    /** Non-blocking publish for signal records; tracks success/failure via injected counters. */
+    private static void publishSignalRecord(
+            Record<?> record,
+            RingBuffer<RecordEvent> ringBuffer,
+            Counter totalQueueSize,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
+        boolean published = ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
+        if (published) {
+            totalQueueSize.inc();
+            flushSignalQueueSuccessTotal.inc();
+        } else {
+            flushSignalQueueFailureTotal.inc();
+        }
+    }
+
+    /** Publishes a data record with backpressure metrics and stain trace. */
+    private static void publishDataRecord(
+            Record<?> record,
+            RingBuffer<RecordEvent> ringBuffer,
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter putBlockedNs,
+            Counter totalQueueSize,
+            Counter queueSize) {
+
+        boolean metricsEnabled =
+                intermediateQueueFlowLifeCycle != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask() != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask().isObservabilityEnabled();
+
+        long sequence;
+        if (metricsEnabled) {
+            try {
+                sequence = ringBuffer.tryNext();
+            } catch (InsufficientCapacityException ignored) {
+                long blockedStartNs = System.nanoTime();
+                sequence = ringBuffer.next();
+                putBlockedNs.inc(System.nanoTime() - blockedStartNs);
+            }
+        } else {
+            sequence = ringBuffer.next();
+        }
         try {
             RecordEvent recordEvent = ringBuffer.get(sequence);
             recordEvent.setRecord(record);
+            if (record.getData() instanceof SeaTunnelRow) {
+                SeaTunnelRow row = (SeaTunnelRow) record.getData();
+                if (StainTraceUtils.hasPayload(row)) {
+                    StainTraceUtils.appendIfPresent(
+                            row,
+                            StainTraceStage.QUEUE_IN,
+                            intermediateQueueFlowLifeCycle.getRunningTask().getTaskID(),
+                            System.currentTimeMillis(),
+                            intermediateQueueFlowLifeCycle.getStainTraceMaxEntriesPerTrace(),
+                            intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
+                }
+            }
         } finally {
             ringBuffer.publish(sequence);
+            totalQueueSize.inc();
+            if (metricsEnabled) {
+                queueSize.inc();
+            }
         }
     }
 }

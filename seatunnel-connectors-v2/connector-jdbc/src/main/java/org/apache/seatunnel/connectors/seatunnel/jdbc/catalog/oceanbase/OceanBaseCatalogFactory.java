@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -30,17 +26,10 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.auto.service.AutoService;
-
-import java.util.Optional;
 
 @AutoService(Factory.class)
 public class OceanBaseCatalogFactory implements CatalogFactory {
-
-    private static final Logger log = LoggerFactory.getLogger(OceanBaseCatalogFactory.class);
 
     @Override
     public String factoryIdentifier() {
@@ -50,19 +39,9 @@ public class OceanBaseCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
-        Preconditions.checkArgument(
-                StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
-        Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
-        if (!defaultDatabase.isPresent()) {
-            throw new OptionValidationException(JdbcCommonOptions.URL);
-        }
 
         String compatibleMode = options.get(JdbcCommonOptions.COMPATIBLE_MODE);
-        Preconditions.checkArgument(
-                StringUtils.isNoneBlank(compatibleMode),
-                "Miss config <compatible_mode>! Please check your config.");
 
         if ("oracle".equalsIgnoreCase(compatibleMode.trim())) {
             return new OceanBaseOracleCatalog(
@@ -83,7 +62,7 @@ public class OceanBaseCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE
+        return JdbcCommonOptions.baseCatalogRule()
                 .required(JdbcCommonOptions.COMPATIBLE_MODE)
                 .build();
     }

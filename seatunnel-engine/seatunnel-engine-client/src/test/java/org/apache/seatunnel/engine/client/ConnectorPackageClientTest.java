@@ -191,50 +191,55 @@ public class ConnectorPackageClientTest {
         SeaTunnelHazelcastClient seaTunnelHazelcastClient =
                 new SeaTunnelHazelcastClient(clientConfig);
 
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
-        Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
-        ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("testUploadConnectorPluginJars");
-        jobConfig.setJobContext(new JobContext(JOB_ID));
-        fillJobConfig(jobConfig, envOptions);
+        try {
+            Common.setDeployMode(DeployMode.CLIENT);
+            String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
+            Config seaTunnelJobConfig = ConfigBuilder.of(Paths.get(filePath));
+            ReadonlyConfig envOptions =
+                    ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName("testUploadConnectorPluginJars");
+            jobConfig.setJobContext(new JobContext(JOB_ID));
+            fillJobConfig(jobConfig, envOptions);
 
-        ConnectorPackageClient connectorPackageClient =
-                new ConnectorPackageClient(seaTunnelHazelcastClient);
-        Path connectorDir = Common.connectorDir();
-        File[] files =
-                connectorDir
-                        .toFile()
-                        .listFiles(
-                                new FileFilter() {
-                                    @Override
-                                    public boolean accept(File pathname) {
-                                        return pathname.getName().endsWith(".jar")
-                                                && (StringUtils.startsWithIgnoreCase(
-                                                                pathname.getName(),
-                                                                "connector-fake")
-                                                        || StringUtils.startsWithIgnoreCase(
-                                                                pathname.getName(),
-                                                                "connector-file"));
-                                    }
-                                });
-        if (files != null) {
-            for (File file : files) {
-                ConnectorJarIdentifier connectorJarIdentifier =
-                        connectorPackageClient.uploadConnectorPluginJar(
-                                JOB_ID, file.toURI().toURL());
-                await().atMost(60000, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Assertions.assertTrue(
-                                            StringUtils.isNotBlank(
-                                                    connectorJarIdentifier.getStoragePath()));
-                                    Assertions.assertEquals(
-                                            ConnectorJarType.CONNECTOR_PLUGIN_JAR,
-                                            connectorJarIdentifier.getType());
-                                });
+            ConnectorPackageClient connectorPackageClient =
+                    new ConnectorPackageClient(seaTunnelHazelcastClient);
+            Path connectorDir = Common.connectorDir();
+            File[] files =
+                    connectorDir
+                            .toFile()
+                            .listFiles(
+                                    new FileFilter() {
+                                        @Override
+                                        public boolean accept(File pathname) {
+                                            return pathname.getName().endsWith(".jar")
+                                                    && (StringUtils.startsWithIgnoreCase(
+                                                                    pathname.getName(),
+                                                                    "connector-fake")
+                                                            || StringUtils.startsWithIgnoreCase(
+                                                                    pathname.getName(),
+                                                                    "connector-file"));
+                                        }
+                                    });
+            if (files != null) {
+                for (File file : files) {
+                    ConnectorJarIdentifier connectorJarIdentifier =
+                            connectorPackageClient.uploadConnectorPluginJar(
+                                    JOB_ID, file.toURI().toURL());
+                    await().atMost(60000, TimeUnit.MILLISECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertTrue(
+                                                StringUtils.isNotBlank(
+                                                        connectorJarIdentifier.getStoragePath()));
+                                        Assertions.assertEquals(
+                                                ConnectorJarType.CONNECTOR_PLUGIN_JAR,
+                                                connectorJarIdentifier.getType());
+                                    });
+                }
             }
+        } finally {
+            seaTunnelHazelcastClient.shutdown();
         }
     }
 

@@ -29,10 +29,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,6 +47,7 @@ public class TDengineSourceSplitEnumerator
     private volatile boolean shouldEnumerate;
     private final Object stateLock = new Object();
     private final Map<Integer, List<TDengineSourceSplit>> pendingSplits = new ConcurrentHashMap<>();
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public TDengineSourceSplitEnumerator(
             StableMetadata stableMetadata,
@@ -65,11 +68,12 @@ public class TDengineSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplits.putAll(sourceState.getPendingSplits());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int currentAssignCount, int numReaders) {
+        return currentAssignCount % numReaders;
     }
 
     @Override
@@ -95,8 +99,14 @@ public class TDengineSourceSplitEnumerator
 
     private void addPendingSplit(List<TDengineSourceSplit> newSplits) {
         int readerCount = context.currentParallelism();
-        for (TDengineSourceSplit split : newSplits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<TDengineSourceSplit> sortedSplits =
+                newSplits.stream()
+                        .sorted(Comparator.comparing(TDengineSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (TDengineSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
@@ -145,8 +155,15 @@ public class TDengineSourceSplitEnumerator
     public void addSplitsBack(List<TDengineSourceSplit> splits, int subtaskId) {
         log.info("Add back splits {} to TDengineSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
@@ -184,10 +201,14 @@ public class TDengineSourceSplitEnumerator
         }
     }
 
+    private void addPendingSplit(Collection<TDengineSourceSplit> splits, int ownerReader) {
+        pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
+    }
+
     @Override
     public TDengineSourceState snapshotState(long checkpointId) {
         synchronized (stateLock) {
-            return new TDengineSourceState(shouldEnumerate, pendingSplits);
+            return new TDengineSourceState(shouldEnumerate, pendingSplits, assignCount.get());
         }
     }
 

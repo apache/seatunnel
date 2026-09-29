@@ -33,7 +33,9 @@ public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
     NON_PRIMARY_KEY_CHECK_ERROR(
             "PAIMON-10", "Primary keys should be empty when nonPrimaryKey is true"),
     DECIMAL_PRECISION_INCOMPATIBLE("PAIMON-11", "decimal type precision is incompatible. "),
-    BRANCH_NOT_EXISTS("PAIMON-12", "Specified branch: %s does not exist. ");
+    BRANCH_NOT_EXISTS("PAIMON-12", "Specified branch: %s does not exist. "),
+    UNSUPPORTED_BRANCH_SAVE_MODE(
+            "PAIMON-13", "The save mode is not supported for non-main branches. ");
 
     private final String code;
     private final String description;

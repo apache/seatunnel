@@ -19,21 +19,21 @@ package org.apache.seatunnel.connectors.seatunnel.redis.util;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 public class KeyValueMergerFactory {
     private KeyValueMergerFactory() {}
 
     public static KeyValueMerger createMerger(
-            DeserializationSchema<?> schema, RedisParameters redisParameters) {
+            DeserializationSchema<?> schema, RedisTableConfig tableConfig) {
         if (schema == null) {
             throw CommonError.illegalArgument(
                     "deserializationSchema is null",
                     "Redis source requires a deserialization schema to parse the record with key");
         }
         if (schema instanceof JsonDeserializationSchema) {
-            return new JsonKeyValueMerger(redisParameters);
+            return new JsonKeyValueMerger(tableConfig);
         }
         throw CommonError.unsupportedOperation("Redis", schema.getClass().getTypeName());
     }

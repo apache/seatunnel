@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -27,7 +28,9 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -45,14 +48,31 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
+
+    /** Oracle PCTFREE legal range (inclusive). */
+    private static final int PCTFREE_MIN = 0;
+
+    private static final int PCTFREE_MAX = 99;
+
+    private static final Set<String> SUPPORTED_TABLE_OPTIONS =
+            Collections.unmodifiableSet(
+                    new LinkedHashSet<>(
+                            Arrays.asList(
+                                    OracleCatalog.TABLE_OPTION_TABLESPACE,
+                                    OracleCatalog.TABLE_OPTION_PCTFREE)));
+
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
     private final boolean handleBlobAsString;
 
@@ -119,10 +139,10 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .collect(Collectors.toList());
         String valuesBinding =
                 Arrays.stream(fieldNames)
@@ -131,7 +151,7 @@ public class OracleDialect implements JdbcDialect {
 
         String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 fieldName ->
                                         String.format(
@@ -511,6 +531,85 @@ public class OracleDialect implements JdbcDialect {
             return sql.toString();
         } else {
             return "char_val";
+        }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+
+        Set<String> unsupportedOptions = new LinkedHashSet<>(tableOptions.keySet());
+        unsupportedOptions.removeAll(SUPPORTED_TABLE_OPTIONS);
+        if (!unsupportedOptions.isEmpty()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
+                            dialectName(),
+                            String.join(", ", unsupportedOptions),
+                            String.join(", ", SUPPORTED_TABLE_OPTIONS)));
+        }
+
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (StringUtils.isBlank(value)) {
+                throw new JdbcConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "Invalid JDBC table_options for dialect '%s': key '%s' must not be blank",
+                                dialectName(), key));
+            }
+            String trimmed = value.trim();
+            if (OracleCatalog.TABLE_OPTION_PCTFREE.equals(key)) {
+                validatePctfree(trimmed);
+            } else if (OracleCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
+                validateTablespace(trimmed);
+            }
+        }
+    }
+
+    private void validatePctfree(String value) {
+        int pctfree;
+        try {
+            pctfree = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            OracleCatalog.TABLE_OPTION_PCTFREE,
+                            PCTFREE_MIN,
+                            PCTFREE_MAX,
+                            value));
+        }
+        if (pctfree < PCTFREE_MIN || pctfree > PCTFREE_MAX) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            OracleCatalog.TABLE_OPTION_PCTFREE,
+                            PCTFREE_MIN,
+                            PCTFREE_MAX,
+                            value));
+        }
+    }
+
+    private void validateTablespace(String value) {
+        // Always emitted as "TABLESPACE \"...\"", so reject quote / control chars that break DDL.
+        if (value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0
+                || value.indexOf(';') >= 0) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                            dialectName(), OracleCatalog.TABLE_OPTION_TABLESPACE, value));
         }
     }
 }

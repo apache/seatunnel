@@ -1,29 +1,46 @@
 ---
 sidebar_position: 1
+title: Transform Common Options
 ---
 
 # Transform Common Options
 
-> This is a process of intermediate conversion between the source and sink terminals,You can use sql statements to smoothly complete the conversion process
+SeaTunnel transforms share a small set of wiring options. These options do not define the transform logic itself. They define how a transform connects to upstream and downstream datasets inside a job.
 
-:::caution warn
+## Deprecated Option Names
 
-The old configuration name `source_table_name`/`result_table_name` is deprecated, please migrate to the new name `plugin_input`/`plugin_output` as soon as possible.
+:::caution Warning
+
+The old option names `source_table_name` and `result_table_name` are deprecated. Use `plugin_input` and `plugin_output` in new configurations.
 
 :::
 
-| Name          | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|---------------|--------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| plugin_output | String | No       | -       | When `plugin_input` is not specified, the current plugin processes the data set `(dataset)` output by the previous plugin in the configuration file; <br/>When `plugin_input` is specified, the current plugin is processing the data set corresponding to this parameter.                                                                                                                                                                                                                                               |
-| plugin_input  | String | No       | -       | When `plugin_output` is not specified, the data processed by this plugin will not be registered as a data set that can be directly accessed by other plugins, or called a temporary table `(table)`; <br/>When `plugin_output` is specified, the data processed by this plugin will be registered as a data set `(dataset)` that can be directly accessed by other plugins, or called a temporary table `(table)` . The dataset registered here can be directly accessed by other plugins by specifying `plugin_input` . |
+## Shared Wiring Options
 
-## Task Example
+| Option | Meaning | Typical use |
+| --- | --- | --- |
+| `plugin_input` | Declares which upstream dataset the current transform consumes. If it is omitted, the transform reads from the previous plugin in the configuration order. | Use it when reading from a named intermediate dataset or when the job is not a simple linear chain. |
+| `plugin_output` | Registers the current transform result as a named dataset that later transforms or sinks can reference. | Use it when multiple downstream steps need the same result, or when you want the pipeline graph to be explicit. |
 
-### Simple
+## How Dataset Wiring Works
 
-> This is the process of converting the data source to fake and write it to two different sinks, Detailed reference `transform`
+At a high level, transform wiring works in two modes:
 
-```bash
+- **implicit chaining**: each plugin reads from the previous plugin output in configuration order
+- **explicit dataset wiring**: plugins reference named datasets through `plugin_input` and `plugin_output`
+
+Implicit chaining is shorter for very small jobs. Explicit naming is better when:
+
+- one source feeds multiple downstream steps
+- a transform result is reused by more than one sink
+- the job contains multiple logical tables
+- you want the pipeline graph to be easier to read and debug
+
+## Example: Named Dataset Flow
+
+The example below shows a source registering `fake`, a transform reading that dataset and producing `fake1`, and two sinks consuming different outputs.
+
+```hocon
 env {
   job.mode = "BATCH"
 }
@@ -38,15 +55,6 @@ source {
         name = "string"
         age = "int"
         c_timestamp = "timestamp"
-        c_date = "date"
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_decimal = "decimal(30, 8)"
-        c_row = {
-          c_row = {
-            c_int = int
-          }
-        }
       }
     }
   }
@@ -56,20 +64,29 @@ transform {
   Sql {
     plugin_input = "fake"
     plugin_output = "fake1"
-    # the query table name must same as field 'plugin_input'
-    query = "select id, regexp_replace(name, '.+', 'b') as name, age+1 as age, pi() as pi, c_timestamp, c_date, c_map, c_array, c_decimal, c_row from dual"
+    query = "select id, upper(name) as name, age + 1 as age, c_timestamp from fake"
   }
-  # The SQL transform support base function and criteria operation
-  # But the complex SQL unsupported yet, include: multi source table/rows JOIN and AGGREGATE operation and the like
 }
 
 sink {
   Console {
     plugin_input = "fake1"
   }
-   Console {
+  Console {
     plugin_input = "fake"
   }
 }
 ```
 
+## Practical Guidelines
+
+- keep dataset names short and descriptive
+- prefer explicit naming once a job has branching or multi-table behavior
+- keep transform docs and config examples aligned with the real dataset names
+- avoid using dataset wiring to hide overly complex logic; split the job when it becomes hard to follow
+
+## Related Docs
+
+- [Transform Plugin System](../../architecture/transform-plugin-system.md)
+- [Job Configuration Guide](../../getting-started/job-configuration-guide.md)
+- [Transforms Catalog](..)

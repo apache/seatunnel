@@ -70,17 +70,16 @@ public class MongodbWriter
 
     private boolean transaction;
 
-    // TODO：Reserve parameters.
-    private final SinkWriter.Context context;
-
     public MongodbWriter(
             DocumentSerializer<SeaTunnelRow> serializer,
             MongodbWriterOptions options,
             SinkWriter.Context context) {
         initOptions(options);
-        this.context = context;
         this.serializer = serializer;
         this.bulkRequests = new ArrayList<>();
+        if (!transaction) {
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     private void initOptions(MongodbWriterOptions options) {
@@ -129,6 +128,11 @@ public class MongodbWriter
         bulkRequests.clear();
 
         return Optional.of(new MongodbCommitInfo(bsonDocuments));
+    }
+
+    /** Flushes pending bulk requests when the Zeta engine delivers a timer flush signal. */
+    private void timerFlush() {
+        doBulkWrite();
     }
 
     private BsonDocument convertModelToBsonDocument(WriteModel<BsonDocument> model) {

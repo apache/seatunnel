@@ -23,10 +23,15 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordConverter;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
@@ -37,6 +42,7 @@ import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.model.WriteOperationType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.StringUtils;
@@ -53,6 +59,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -125,6 +132,45 @@ public class HudiTest {
         Assertions.assertEquals(
                 "{\"type\":\"record\",\"name\":\"hudi_record\",\"namespace\":\"hoodie.hudi\",\"fields\":[{\"name\":\"bool\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"int\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"longValue\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"float\",\"type\":[\"null\",\"float\"],\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"date\"}],\"default\":null},{\"name\":\"time\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"time-millis\"}],\"default\":null},{\"name\":\"timestamp3\",\"type\":[\"null\",{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"map\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"long\"]}],\"default\":null},{\"name\":\"decimal\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"fixed\",\"namespace\":\"hoodie.hudi.hudi_record.decimal\",\"size\":5,\"logicalType\":\"decimal\",\"precision\":10,\"scale\":5}],\"default\":null}]}",
                 getSchema());
+    }
+
+    @Test
+    void testConvertNullableStructField() throws IOException {
+        SeaTunnelRowType structType =
+                new SeaTunnelRowType(
+                        new String[] {"field1", "field2"},
+                        new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "payload"},
+                        new SeaTunnelDataType[] {INT_TYPE, structType});
+        Schema schema =
+                convertToSchema(rowType, AvroSchemaUtils.getAvroRecordQualifiedName(tableName));
+
+        Assertions.assertEquals(Schema.Type.RECORD, schema.getType());
+        Assertions.assertEquals(Schema.Type.UNION, schema.getField("payload").schema().getType());
+
+        SeaTunnelRow nullStructRow = new SeaTunnelRow(2);
+        nullStructRow.setField(0, 1);
+        nullStructRow.setField(1, null);
+
+        GenericRecord nullStructRecord = convertToAvroRecord(schema, rowType, nullStructRow);
+        Assertions.assertNull(nullStructRecord.get("payload"));
+        writeAvroRecord(schema, nullStructRecord);
+
+        SeaTunnelRow struct = new SeaTunnelRow(2);
+        struct.setField(0, "value");
+        struct.setField(1, 100);
+
+        SeaTunnelRow structRow = new SeaTunnelRow(2);
+        structRow.setField(0, 2);
+        structRow.setField(1, struct);
+
+        GenericRecord structRecord = convertToAvroRecord(schema, rowType, structRow);
+        GenericRecord payload = (GenericRecord) structRecord.get("payload");
+        Assertions.assertEquals("value", payload.get("field1").toString());
+        Assertions.assertEquals(100, payload.get("field2"));
+        writeAvroRecord(schema, structRecord);
     }
 
     @Test
@@ -208,6 +254,25 @@ public class HudiTest {
 
         return new HoodieAvroRecord<>(
                 getHoodieKey(element, seaTunnelRowType), new HoodieAvroPayload(Option.of(rec)));
+    }
+
+    private GenericRecord convertToAvroRecord(
+            Schema schema, SeaTunnelRowType rowType, SeaTunnelRow element) throws IOException {
+        HudiTableConfig tableConfig =
+                HudiTableConfig.builder()
+                        .tableName(tableName)
+                        .opType(WriteOperationType.INSERT)
+                        .build();
+        HoodieRecord<HoodieAvroPayload> record =
+                new HudiRecordConverter().convertRow(schema, rowType, element, tableConfig);
+        return (GenericRecord) record.getData().getInsertValue(schema).get();
+    }
+
+    private void writeAvroRecord(Schema schema, GenericRecord record) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+        new GenericDatumWriter<GenericRecord>(schema).write(record, encoder);
+        encoder.flush();
     }
 
     private HoodieKey getHoodieKey(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {

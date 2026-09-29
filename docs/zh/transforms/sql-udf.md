@@ -34,8 +34,47 @@ public interface ZetaUDF {
      * @return result value
      */
     Object evaluate(List<Object> args);
+
+    /**
+     * 是否需要行级上下文。
+     */
+    default boolean requiresContext() {
+        return false;
+    }
+
+    /**
+     * 带上下文执行。
+     */
+    default Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        return evaluate(args);
+    }
+
+    /**
+     * 初始化 UDF 资源。
+     */
+    default void open() throws Exception {}
+
+    /**
+     * 释放 UDF 资源。
+     */
+    default void close() {}
 }
 ```
+
+`ZetaUDFContext` 提供运行时行级元数据与字段：
+
+- `getRawTableId()`
+- `getDatabase()`
+- `getSchema()`
+- `getTable()`
+- `getRowKind()`
+- `getAllFields()`
+
+说明：
+
+- `database/schema/table` 的解析语义与 `TablePath.of(tableId)` 保持一致。
+- 如果 `tableId` 格式不被支持，访问 `database/schema/table` 时会抛出 `IllegalArgumentException`。
+- 已有 UDF 保持向后兼容，仍可只实现 `evaluate(List<Object> args)`。
 
 ## UDF 实现示例
 
@@ -92,6 +131,50 @@ public class ExampleUDF implements ZetaUDF {
 ```
 
 打包UDF项目并将jar文件复制到路径：${SEATUNNEL_HOME}/lib
+
+## 支持上下文与生命周期的 UDF 示例
+
+```java
+@AutoService(ZetaUDF.class)
+public class ContextLifecycleUdf implements ZetaUDF {
+
+    private transient String prefix;
+
+    @Override
+    public String functionName() {
+        return "CTX_LIFE";
+    }
+
+    @Override
+    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    public boolean requiresContext() {
+        return true;
+    }
+
+    @Override
+    public void open() {
+        this.prefix = "OPENED";
+    }
+
+    @Override
+    public Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        String arg = args.get(0) == null ? null : String.valueOf(args.get(0));
+        if (arg == null) {
+            return null;
+        }
+        return prefix + ":" + context.getRowKind().shortString() + ":" + arg;
+    }
+
+    @Override
+    public void close() {
+        this.prefix = null;
+    }
+}
+```
 
 ## 示例
 

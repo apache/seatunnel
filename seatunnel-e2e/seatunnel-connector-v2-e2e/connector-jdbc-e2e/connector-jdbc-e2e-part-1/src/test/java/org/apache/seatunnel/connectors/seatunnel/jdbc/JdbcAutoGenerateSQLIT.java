@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -37,10 +38,12 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -51,21 +54,13 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgres:14-alpine";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.ofClassName("org.postgresql.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -120,6 +115,51 @@ public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    /** Verifies that the PostgreSQL quick start writes the exact rows documented for users. */
+    @TestTemplate
+    public void testDocumentedPostgresQuickStart(TestContainer container)
+            throws IOException, InterruptedException {
+        truncateOrdersTable();
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_sink_postgres_quick_start.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        List<List<Object>> result =
+                querySql(
+                        "select id, customer_name, amount from orders order by id",
+                        () -> {
+                            try {
+                                return DriverManager.getConnection(
+                                        postgreSQLContainer.getJdbcUrl(),
+                                        postgreSQLContainer.getUsername(),
+                                        postgreSQLContainer.getPassword());
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Assertions.assertEquals(3, result.size());
+        Assertions.assertEquals(
+                Arrays.asList(1L, "Alice", new BigDecimal("120.50")), result.get(0));
+        Assertions.assertEquals(Arrays.asList(2L, "Bob", new BigDecimal("80.00")), result.get(1));
+        Assertions.assertEquals(Arrays.asList(3L, "Carol", new BigDecimal("42.00")), result.get(2));
+    }
+
+    /**
+     * Clears rows from earlier TestTemplate invocations so every engine must prove its own write.
+     */
+    private void truncateOrdersTable() {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                postgreSQLContainer.getJdbcUrl(),
+                                postgreSQLContainer.getUsername(),
+                                postgreSQLContainer.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute("truncate table orders");
+        } catch (SQLException e) {
+            throw new RuntimeException("Truncating PostgreSql orders table failed!", e);
+        }
+    }
+
     private void initializeJdbcTable() {
         try (Connection connection =
                 DriverManager.getConnection(
@@ -135,6 +175,11 @@ public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource
                             + "timestamp_tz TIMESTAMPTZ \n"
                             + ")";
             statement.execute(sink);
+            statement.execute(
+                    "create table if not exists orders("
+                            + "id BIGINT PRIMARY KEY,"
+                            + "customer_name VARCHAR(100) NOT NULL,"
+                            + "amount DECIMAL(10, 2) NOT NULL)");
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
         }

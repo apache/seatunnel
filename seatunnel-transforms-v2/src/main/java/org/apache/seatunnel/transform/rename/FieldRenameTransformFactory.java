@@ -46,6 +46,7 @@ public class FieldRenameTransformFactory implements TableTransformFactory {
                 .optional(CONVERT_CASE, PREFIX, SUFFIX, REPLACEMENTS_WITH_REGEX, SPECIFIC)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

@@ -23,7 +23,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import lombok.Getter;
@@ -85,9 +85,11 @@ public class MultipleTableHiveSourceConfig implements Serializable {
         }
 
         String tableNamePattern =
-                tableConfig.getOptional(HiveOptions.TABLE_NAME).orElse("<missing table_name>");
-        if (!tableConfig.getOptional(HiveOptions.METASTORE_URI).isPresent()
-                || StringUtils.isBlank(tableConfig.get(HiveOptions.METASTORE_URI))) {
+                tableConfig
+                        .getOptional(HiveSourceOptions.TABLE_NAME)
+                        .orElse("<missing table_name>");
+        if (!tableConfig.getOptional(HiveSourceOptions.METASTORE_URI).isPresent()
+                || StringUtils.isBlank(tableConfig.get(HiveSourceOptions.METASTORE_URI))) {
             throw new IllegalArgumentException(
                     "Hive metastore_uri is required for regex table discovery (use_regex). table_name="
                             + tableNamePattern);
@@ -121,7 +123,7 @@ public class MultipleTableHiveSourceConfig implements Serializable {
 
     private ReadonlyConfig overrideTableName(ReadonlyConfig baseConfig, String tableName) {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>(baseConfig.getSourceMap());
-        map.put(HiveOptions.TABLE_NAME.key(), tableName);
+        map.put(HiveSourceOptions.TABLE_NAME.key(), tableName);
         return ReadonlyConfig.fromMap(map);
     }
 
@@ -129,7 +131,9 @@ public class MultipleTableHiveSourceConfig implements Serializable {
         List<HiveSourceConfig> configs = new ArrayList<>(tableConfigs.size());
         for (ReadonlyConfig tableConfig : tableConfigs) {
             String tableName =
-                    tableConfig.getOptional(HiveOptions.TABLE_NAME).orElse("<missing table_name>");
+                    tableConfig
+                            .getOptional(HiveSourceOptions.TABLE_NAME)
+                            .orElse("<missing table_name>");
             try {
                 configs.add(new HiveSourceConfig(tableConfig));
             } catch (Exception exception) {

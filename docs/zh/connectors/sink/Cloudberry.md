@@ -29,9 +29,10 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，只有支持 `XA 事务` 的数据库才支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 
@@ -55,10 +56,17 @@ Cloudberry 连接器使用与 PostgreSQL 相同的选项。有关详细的配置
 关键选项包括：
 - url（必需）：JDBC 连接 URL
 - driver（必需）：驱动程序类名（org.postgresql.Driver）
-- user/password：身份验证凭证
+- username/password：身份验证凭证。`user` 也可以作为 `username` 的兼容写法
 - query 或 database/table 组合：要写入的数据和方式
 - is_exactly_once：使用 XA 事务启用精确一次语义
 - batch_size：控制批量写入行为
+
+## 注意事项
+
+- Cloudberry 作业使用 `Jdbc` 插件名。
+- Cloudberry 使用 PostgreSQL JDBC 行为，请配置 `driver = "org.postgresql.Driver"` 和 `jdbc:postgresql://...` URL。
+- 需要手写 INSERT 语句时使用 `query`；希望 SeaTunnel 自动生成 SQL 时，使用 `generate_sink_sql`、`database` 和 `table`。
+- `is_exactly_once=true` 还需要配置可用的 XA 数据源类，例如 `org.postgresql.xa.PGXADataSource`。
 
 ## 任务示例
 

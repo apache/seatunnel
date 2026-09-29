@@ -17,17 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSingleTableValidator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqTableConfigsValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -43,15 +46,32 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        RabbitmqSourceOptions.HOST,
-                        RabbitmqSourceOptions.PORT,
-                        RabbitmqSourceOptions.VIRTUAL_HOST,
-                        RabbitmqSourceOptions.QUEUE_NAME,
-                        RabbitmqSourceOptions.SCHEMA)
+                .required(RabbitmqSourceOptions.HOST, RabbitmqSourceOptions.PORT)
                 .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
+                .exclusive(RabbitmqSourceOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
                 .optional(
+                        RabbitmqSourceOptions.QUEUE_NAME,
+                        Conditions.notBlank(RabbitmqSourceOptions.QUEUE_NAME),
+                        Conditions.extension(
+                                RabbitmqSourceOptions.QUEUE_NAME,
+                                new RabbitmqSingleTableValidator()))
+                .optional(
+                        RabbitmqSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(RabbitmqSourceOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                RabbitmqSourceOptions.TABLE_CONFIGS,
+                                new RabbitmqTableConfigsValidator()))
+                .optional(RabbitmqSourceOptions.FORMAT)
+                .conditional(
+                        RabbitmqSourceOptions.FORMAT,
+                        RabbitmqMessageFormat.PROTOBUF,
+                        RabbitmqSourceOptions.PROTOBUF_SCHEMA,
+                        RabbitmqSourceOptions.PROTOBUF_MESSAGE_NAME)
+                .optional(
+                        RabbitmqSourceOptions.VIRTUAL_HOST,
                         RabbitmqSourceOptions.URL,
+                        RabbitmqBaseOptions.URI,
+                        RabbitmqSourceOptions.SSL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,
                         RabbitmqSourceOptions.NETWORK_RECOVERY_INTERVAL,
@@ -62,22 +82,21 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSourceOptions.PASSIVE,
                         RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX,
                         RabbitmqSourceOptions.REQUESTED_FRAME_MAX,
                         RabbitmqSourceOptions.REQUESTED_HEARTBEAT,
                         RabbitmqSourceOptions.PREFETCH_COUNT,
-                        RabbitmqSourceOptions.DELIVERY_TIMEOUT)
+                        RabbitmqSourceOptions.DELIVERY_TIMEOUT,
+                        RabbitmqSourceOptions.SCHEMA,
+                        RabbitmqSourceOptions.USE_CORRELATION_ID)
                 .build();
     }
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new RabbitmqSource(
-                                new RabbitmqConfig(context.getOptions()),
-                                CatalogTableUtil.buildWithConfig(context.getOptions()));
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new RabbitmqSource(context.getOptions());
     }
 
     @Override

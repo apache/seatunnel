@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.iotdb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -87,10 +85,10 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(IOTDB_HOST)
+                        .withExposedPorts(IOTDB_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
-        iotdbServer.setPortBindings(Lists.newArrayList(String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         tableSessionBuilder = createTableSessionBuilder();
@@ -121,7 +119,7 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
     private TableSessionBuilder createTableSessionBuilder() throws IoTDBConnectionException {
         TableSessionBuilder tableSessionBuilder = new TableSessionBuilder();
         List<String> nodeUrls = new ArrayList<>();
-        nodeUrls.add("localhost:" + IOTDB_PORT);
+        nodeUrls.add(iotdbServer.getHost() + ":" + iotdbServer.getMappedPort(IOTDB_PORT));
         tableSessionBuilder.nodeUrls(nodeUrls);
         tableSessionBuilder.username(IOTDB_USERNAME);
         tableSessionBuilder.password(IOTDB_PASSWORD);

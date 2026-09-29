@@ -32,4 +32,4 @@ In the future, SeaTunnel Engine will further optimize its functions to support f
 
 ### Quick Start
 
-[Quick Start](../docs/en/start-v2)
+[Quick Start](../docs/en/getting-started/locally/quick-start-seatunnel-engine.md)

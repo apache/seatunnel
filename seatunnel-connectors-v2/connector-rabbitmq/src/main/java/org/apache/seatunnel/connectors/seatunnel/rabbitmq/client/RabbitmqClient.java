@@ -19,76 +19,98 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.Delivery;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.net.ssl.SSLContext;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeoutException;
 
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CLOSE_CONNECTION_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.ILLEGAL_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.INIT_SSL_CONTEXT_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.PARSE_URI_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SETUP_SSL_FACTORY_FAILED;
 
+/** RabbitMQ client for interaction with the broker. */
 @Slf4j
-@AllArgsConstructor
-public class RabbitmqClient {
+public class RabbitmqClient implements AutoCloseable {
     private final RabbitmqConfig config;
     private final ConnectionFactory connectionFactory;
     private final Connection connection;
     private final Channel channel;
 
+    /**
+     * Constructor for RabbitmqClient.
+     *
+     * @param config RabbitMQ configuration
+     */
     public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
         try {
-            this.connectionFactory = getConnectionFactory();
+            this.connectionFactory = createConnectionFactory();
             this.connection = connectionFactory.newConnection();
             this.channel = connection.createChannel();
+
             // set channel prefetch count
             if (config.getPrefetchCount() != null) {
                 channel.basicQos(config.getPrefetchCount(), true);
             }
-            setupQueue();
+
         } catch (Exception e) {
             throw new RabbitmqConnectorException(
                     CREATE_RABBITMQ_CLIENT_FAILED,
                     String.format(
-                            "Error while create RMQ client with %s at %s",
+                            "Error while creating RMQ client with queue %s at %s",
                             config.getQueueName(), config.getHost()),
                     e);
         }
     }
 
+    /**
+     * Get the current RabbitMQ channel.
+     *
+     * @return RabbitMQ channel
+     */
     public Channel getChannel() {
         return channel;
     }
 
-    public DefaultConsumer getQueueingConsumer(Handover<Delivery> handover) {
-        DefaultConsumer consumer = new QueueingConsumer(channel, handover);
-        return consumer;
+    /**
+     * Create a new QueueingConsumer for the given queue and split.
+     *
+     * @param queue blocking queue
+     * @param splitId split id
+     * @return consumer instance
+     */
+    public DefaultConsumer getQueueingConsumer(
+            BlockingQueue<DeliveryMessage> queue, String splitId) {
+        return new QueueingConsumer(channel, queue, splitId);
     }
 
-    public ConnectionFactory getConnectionFactory() {
+    private ConnectionFactory createConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
-        if (!StringUtils.isEmpty(config.getUri())) {
+        if (StringUtils.isNotEmpty(config.getUri())) {
             try {
                 factory.setUri(config.getUri());
             } catch (URISyntaxException e) {
-                throw new RabbitmqConnectorException(PARSE_URI_FAILED, e);
+                throw new RabbitmqConnectorException(
+                        PARSE_URI_FAILED,
+                        "Failed to parse RabbitMQ uri. Check the URI syntax without exposing credentials.");
             } catch (KeyManagementException e) {
                 // this should never happen
                 throw new RabbitmqConnectorException(INIT_SSL_CONTEXT_FAILED, e);
@@ -96,12 +118,20 @@ public class RabbitmqClient {
                 // this should never happen
                 throw new RabbitmqConnectorException(SETUP_SSL_FACTORY_FAILED, e);
             }
+            if (factory.isSSL()) {
+                configureSsl(factory);
+            }
         } else {
             factory.setHost(config.getHost());
             factory.setPort(config.getPort());
-            factory.setVirtualHost(config.getVirtualHost());
+            if (StringUtils.isNotEmpty(config.getVirtualHost())) {
+                factory.setVirtualHost(config.getVirtualHost());
+            }
             factory.setUsername(config.getUsername());
             factory.setPassword(config.getPassword());
+            if (config.isSsl()) {
+                configureSsl(factory);
+            }
         }
 
         if (config.getAutomaticRecovery() != null) {
@@ -128,6 +158,21 @@ public class RabbitmqClient {
         return factory;
     }
 
+    /** Configures TLS with the JVM trust store and hostname verification enabled. */
+    private void configureSsl(ConnectionFactory factory) {
+        try {
+            factory.useSslProtocol(SSLContext.getDefault());
+            factory.enableHostnameVerification();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RabbitmqConnectorException(INIT_SSL_CONTEXT_FAILED, e);
+        }
+    }
+
+    /**
+     * Write data to RabbitMQ.
+     *
+     * @param msg message body
+     */
     public void write(byte[] msg) {
         try {
             if (StringUtils.isEmpty(config.getRoutingKey())) {
@@ -140,7 +185,7 @@ public class RabbitmqClient {
         } catch (IOException e) {
             if (config.isLogFailuresOnly()) {
                 log.error(
-                        "Cannot send RMQ message {} at {}",
+                        "Cannot send RMQ message to queue {} at host {}",
                         config.getQueueName(),
                         config.getHost(),
                         e);
@@ -148,7 +193,7 @@ public class RabbitmqClient {
                 throw new RabbitmqConnectorException(
                         SEND_MESSAGE_FAILED,
                         String.format(
-                                "Cannot send RMQ message %s at %s",
+                                "Cannot send RMQ message to queue %s at host %s",
                                 config.getQueueName(), config.getHost()),
                         e);
             }
@@ -158,7 +203,7 @@ public class RabbitmqClient {
     public void close() {
         Exception t = null;
         try {
-            if (channel != null) {
+            if (channel != null && channel.isOpen()) {
                 channel.close();
             }
         } catch (IOException | TimeoutException e) {
@@ -166,7 +211,7 @@ public class RabbitmqClient {
         }
 
         try {
-            if (connection != null) {
+            if (connection != null && connection.isOpen()) {
                 connection.close();
             }
         } catch (IOException e) {
@@ -181,24 +226,51 @@ public class RabbitmqClient {
             throw new RabbitmqConnectorException(
                     CLOSE_CONNECTION_FAILED,
                     String.format(
-                            "Error while closing RMQ connection with  %s at %s",
+                            "Error while closing RMQ connection with queue %s at %s",
                             config.getQueueName(), config.getHost()),
                     t);
         }
     }
 
-    protected void setupQueue() throws IOException {
-        if (config.getQueueName() != null) {
+    /** Declare the queue using configuration defaults. */
+    public void setupQueue() throws IOException {
+        if (StringUtils.isNotEmpty(config.getQueueName())) {
             declareQueueDefaults(channel, config);
         }
     }
 
+    /** Declare a specific queue */
+    public void setupQueue(String queueName) throws IOException {
+        if (StringUtils.isNotEmpty(queueName)) {
+            declareQueue(channel, config, queueName);
+        }
+    }
+
     private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
-        channel.queueDeclare(
-                config.getQueueName(),
-                config.getDurable(),
-                config.getExclusive(),
-                config.getAutoDelete(),
-                null);
+        declareQueue(channel, config, config.getQueueName());
+    }
+
+    static void declareQueue(Channel channel, RabbitmqConfig config, String queueName)
+            throws IOException {
+        if (config.isPassive()) {
+            try {
+                channel.queueDeclarePassive(queueName);
+            } catch (IOException e) {
+                throw new RabbitmqConnectorException(
+                        ILLEGAL_CONFIG,
+                        String.format(
+                                "Cannot passively declare RabbitMQ queue '%s'. The queue may not exist "
+                                        + "or the account may lack access; create it first or set passive=false.",
+                                queueName),
+                        e);
+            }
+        } else {
+            channel.queueDeclare(
+                    queueName,
+                    config.getDurable(),
+                    config.getExclusive(),
+                    config.getAutoDelete(),
+                    null);
+        }
     }
 }

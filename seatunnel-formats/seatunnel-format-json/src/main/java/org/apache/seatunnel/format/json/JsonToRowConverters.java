@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
@@ -44,6 +45,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
@@ -198,6 +200,13 @@ public class JsonToRowConverters implements Serializable {
                         return convertToBigDecimal(jsonNode);
                     }
                 };
+            case FLOAT_VECTOR:
+                return new JsonToObjectConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode, String fieldName) {
+                        return convertToFloatVector(jsonNode, fieldName);
+                    }
+                };
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
@@ -258,16 +267,25 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalDate convertToLocalDate(JsonNode jsonNode, String fieldName) {
         String dateStr = jsonNode.asText();
-        DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
+
+        DateTimeFormatter dateFormatter = null;
+
+        if (fieldName != null) {
+            dateFormatter = fieldFormatterMap.get(fieldName);
+        }
+
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
-            fieldFormatterMap.put(fieldName, dateFormatter);
+            if (fieldName != null) {
+                fieldFormatterMap.put(fieldName, dateFormatter);
+            }
         }
+
         if (dateFormatter == null) {
             throw CommonError.formatDateError(dateStr, fieldName);
         }
 
-        return dateFormatter.parse(jsonNode.asText()).query(TemporalQueries.localDate());
+        return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
@@ -277,19 +295,53 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
         String datetimeStr = jsonNode.asText();
-        DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
+
+        DateTimeFormatter dateTimeFormatter = null;
+
+        if (fieldName != null) {
+            dateTimeFormatter = fieldFormatterMap.get(fieldName);
+        }
+
         if (dateTimeFormatter == null) {
             dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
-            fieldFormatterMap.put(fieldName, dateTimeFormatter);
+            if (fieldName != null) {
+                fieldFormatterMap.put(fieldName, dateTimeFormatter);
+            }
         }
+
         if (dateTimeFormatter == null) {
             throw CommonError.formatDateTimeError(datetimeStr, fieldName);
         }
 
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        TemporalAccessor parsedTimestamp =
+                parseDateTimeWithFormatterRefresh(datetimeStr, fieldName, dateTimeFormatter);
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
+    }
+
+    /**
+     * Re-resolves the formatter when the cached per-field formatter no longer matches the current
+     * timestamp text. This happens when one JSON field mixes second-only and fractional-second
+     * values across rows.
+     */
+    private TemporalAccessor parseDateTimeWithFormatterRefresh(
+            String datetimeStr, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(datetimeStr);
+        } catch (DateTimeParseException parseException) {
+            if (StringUtils.isBlank(fieldName)) {
+                throw parseException;
+            }
+
+            DateTimeFormatter refreshedFormatter =
+                    DateTimeUtils.matchDateTimeFormatter(datetimeStr);
+            if (refreshedFormatter == null) {
+                throw CommonError.formatDateTimeError(datetimeStr, fieldName);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(datetimeStr);
+        }
     }
 
     private OffsetDateTime convertToOffsetDateTime(JsonNode jsonNode, String fieldName) {
@@ -322,6 +374,27 @@ public class JsonToRowConverters implements Serializable {
         }
 
         return bigDecimal;
+    }
+
+    private Object convertToFloatVector(JsonNode jsonNode, String fieldName) {
+        if (!jsonNode.isArray()) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    String.format("Field '%s' expects an array for FLOAT_VECTOR.", fieldName));
+        }
+        Float[] values = new Float[jsonNode.size()];
+        for (int i = 0; i < jsonNode.size(); i++) {
+            JsonNode element = jsonNode.get(i);
+            if (element == null || element.isNull() || !element.isNumber()) {
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Field '%s' expects numeric values for FLOAT_VECTOR, but element at index %d is '%s'.",
+                                fieldName, i, element));
+            }
+            values[i] = convertToFloat(element);
+        }
+        return VectorUtils.toByteBuffer(values);
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {

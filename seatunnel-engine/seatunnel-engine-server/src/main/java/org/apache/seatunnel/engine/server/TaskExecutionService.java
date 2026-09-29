@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
+import org.apache.seatunnel.api.tracing.MDCScheduledExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
@@ -29,10 +30,12 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -53,6 +56,7 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -91,12 +95,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -112,46 +120,149 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
 
-/** This class is responsible for the execution of the Task */
+/**
+ * This class is responsible for the execution of the Task.
+ *
+ * <p>TaskExecutionService manages the lifecycle of task execution in the SeaTunnel engine. It
+ * handles:
+ *
+ * <ul>
+ *   <li>Task deployment and deserialization.
+ *   <li>Task execution using cooperative multitasking (CooperativeTaskWorker) and blocking workers
+ *       (BlockingWorker).
+ *   <li>Class loader management for connector jars.
+ *   <li>Task cancellation and cleanup.
+ *   <li>Metrics collection and reporting.
+ * </ul>
+ *
+ * <p>The service supports two execution modes:
+ *
+ * <ul>
+ *   <li>Thread-share mode: Tasks share a common thread pool and are executed cooperatively.
+ *   <li>Blocking mode: Tasks run in dedicated threads for blocking operations.
+ * </ul>
+ *
+ * <p>Tasks are organized into TaskGroups, each tracked by a TaskGroupExecutionTracker that monitors
+ * execution state and handles completion/cancellation.
+ */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
+    /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
+
+    /** The NodeEngine implementation for this Hazelcast node. */
     private final NodeEngineImpl nodeEngine;
+
+    /** Shared engine context exposing state-store abstractions. */
+    private final SeaTunnelEngineContext engineContext;
+
+    /** Service for managing class loaders for connector jars. */
     private final ClassLoaderService classLoaderService;
+
+    /** Logger for this service. */
     private final ILogger logger;
+
+    /** Flag indicating whether the service is running. */
     private volatile boolean isRunning = true;
+
+    /** Queue for tasks that can share threads (cooperative multitasking). */
     private final LinkedBlockingDeque<TaskTracker> threadShareTaskQueue =
             new LinkedBlockingDeque<>();
+
+    /** Executor service for running task workers. */
     private final ExecutorService executorService =
             newCachedThreadPool(new BlockingTaskThreadFactory());
+
+    /** Supplier for creating and running new BusWork threads. */
     private final RunBusWorkSupplier runBusWorkSupplier =
             new RunBusWorkSupplier(executorService, threadShareTaskQueue);
-    // key: TaskID
+
+    /**
+     * The single active deployment for each logical task-group location.
+     *
+     * <p>This map is intentionally not a history of deployments: one {@link TaskGroupLocation} key
+     * can have only one active {@link TaskGroupContext} value. Deployment serializes the
+     * check-and-publish path, while terminal cleanup uses {@link ConcurrentMap#compute(Object,
+     * java.util.function.BiFunction)} and removes the value only when its execution ID matches the
+     * finishing tracker. Therefore a stale tracker cannot remove a newer active deployment.
+     * Execution-scoped resource maps and each {@code TaskTracker} retain their concrete contexts
+     * independently, so replacing the active mapping does not lose the old deployment's cleanup
+     * identity.
+     */
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
             new ConcurrentHashMap<>();
+
+    /**
+     * Cache of finished execution contexts, keyed by TaskGroupLocation. Contains context for tasks
+     * that have completed but have not been cleaned up yet.
+     */
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
             new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+    /**
+     * Async operations grouped by the context that created them.
+     *
+     * <p>Do not change the key back to {@link TaskGroupLocation}. A location identifies a logical
+     * task group and is reused by every restore generation, whereas a {@link TaskGroupContext}
+     * identifies one concrete deployment. A stale deployment must only cancel its own operations.
+     */
+    private final ConcurrentMap<TaskGroupContext, Map<String, CompletableFuture<?>>>
             taskAsyncFunctionFuture = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
+    /**
+     * Cancellation signal for each concrete task-group deployment.
+     *
+     * <p>The active {@link TaskGroupContext} is first resolved from {@code executionContexts}; that
+     * same context is then used here so a cancel request is delivered to the active generation.
+     */
+    private final ConcurrentMap<TaskGroupContext, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
-    private final SeaTunnelConfig seaTunnelConfig;
 
+    /**
+     * Timer-flush tasks grouped by their owning deployment context.
+     *
+     * <p>Task locations are also reused after restore, so the outer context key is required to keep
+     * timers from different generations isolated.
+     */
+    private final ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+            timerFlushFutures = new ConcurrentHashMap<>();
+
+    private final SeaTunnelConfig seaTunnelConfig;
+    // Track worker-side metrics reporting cost without changing the report path semantics.
+    private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationFailureCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationInterruptedCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationLastPayloadTaskCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationLastInvocationLatencyMs = new AtomicLong();
+    private final AtomicLong reportMetricsOperationMaxInvocationLatencyMs = new AtomicLong();
+
+    /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
+
+    /** Client for managing connector packages on the server. */
+    private final ScheduledThreadPoolExecutor timerFlushWorker;
 
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
+    /** Service for reporting events. */
     private final EventService eventService;
 
+    /**
+     * Creates a new TaskExecutionService.
+     *
+     * @param classLoaderService service for managing class loaders
+     * @param nodeEngine the Hazelcast node engine
+     * @param eventService service for reporting events
+     */
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
+            SeaTunnelEngineContext engineContext,
             EventService eventService) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
+        this.engineContext = engineContext;
         this.classLoaderService = classLoaderService;
         this.logger = nodeEngine.getLoggingService().getLogger(TaskExecutionService.class);
 
@@ -172,18 +283,47 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
 
         this.eventService = eventService;
+
+        int timerPoolSize = seaTunnelConfig.getEngineConfig().getTimerFlushPoolSize();
+        timerFlushWorker =
+                new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
+        timerFlushWorker.setRemoveOnCancelPolicy(true);
+        timerFlushWorker.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
+    /**
+     * Gets the Hazelcast node engine backing this task execution service.
+     *
+     * @return the Hazelcast node engine
+     */
+    public NodeEngineImpl getNodeEngine() {
+        return nodeEngine;
+    }
+
+    /** Starts the task execution service by creating initial cooperative task worker threads. */
     public void start() {
         runBusWorkSupplier.runNewBusWork(false);
     }
 
+    /**
+     * Shuts down the task execution service. This method stops accepting new tasks and interrupts
+     * all running tasks.
+     */
     public void shutdown() {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        timerFlushWorker.shutdown();
     }
 
+    /**
+     * Gets the execution context for a task group. First checks active execution contexts, then
+     * falls back to finished execution contexts.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @return the TaskGroupContext for the task group
+     * @throws TaskGroupContextNotFoundException if the task group is not found
+     */
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
         TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
 
@@ -197,6 +337,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    /**
+     * Gets the active execution context for a task group. Only checks active execution contexts,
+     * does not check finished contexts.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @return the TaskGroupContext for the task group
+     * @throws TaskGroupContextNotFoundException if the task group is not found or not active
+     */
     public TaskGroupContext getActiveExecutionContext(TaskGroupLocation taskGroupLocation) {
         TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
 
@@ -207,6 +355,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    public ClassLoaderService getClassLoaderService() {
+        return classLoaderService;
+    }
+
+    /**
+     * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
+     * TaskTracker and initialized before being added to the queue.
+     *
+     * @param taskGroupExecutionTracker the tracker for the task group execution
+     * @param tasks the list of tasks to submit
+     */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         Stream<TaskTracker> taskTrackerStream =
@@ -232,6 +391,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Submits tasks to the executor service for blocking execution. Each task runs in a dedicated
+     * thread using BlockingWorker. A CountDownLatch is used to ensure all workers have started
+     * before returning.
+     *
+     * @param taskGroupExecutionTracker the tracker for the task group execution
+     * @param tasks the list of tasks to submit
+     */
     private void submitBlockingTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
@@ -261,24 +428,46 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         uncheckRun(startedLatch::await);
     }
 
+    /**
+     * Deploys a task from serialized data.
+     *
+     * @param taskImmutableInformation serialized task information
+     * @return the deployment state indicating success or failure
+     */
     public TaskDeployState deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
     }
 
+    /**
+     * Gets a task by its location.
+     *
+     * @param taskLocation the location of the task
+     * @param <T> the task type
+     * @return the task
+     */
     public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
         TaskGroupContext executionContext =
                 this.getActiveExecutionContext(taskLocation.getTaskGroupLocation());
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
+    /**
+     * Deploys a task group from TaskGroupImmutableInformation. This method handles task
+     * deserialization, class loader setup, and task group creation.
+     *
+     * @param taskImmutableInfo the task group information
+     * @return the deployment state indicating success or failure
+     */
     public TaskDeployState deployTask(@NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         logger.info(
                 String.format(
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
+        // References owned by this deployment attempt until TaskGroupContext is published.
+        List<Collection<URL>> acquiredClassLoaderJars = new ArrayList<>();
         try {
             List<Set<ConnectorJarIdentifier>> connectorJarIdentifiersList =
                     taskImmutableInfo.getConnectorJarIdentifiers();
@@ -301,9 +490,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
                     jars = taskImmutableInfo.getJars().get(i);
                 }
+                List<URL> classLoaderJars = Lists.newArrayList(jars);
                 ClassLoader classLoader =
                         classLoaderService.getClassLoader(
-                                taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
+                                taskImmutableInfo.getJobId(), classLoaderJars);
+                acquiredClassLoaderJars.add(classLoaderJars);
                 Task task;
                 if (jars.isEmpty()) {
                     task = nodeEngine.getSerializationService().toObject(taskData.get(i));
@@ -316,7 +507,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 tasks.add(task);
                 classLoaders.put(task.getTaskID(), classLoader);
-                taskJars.put(task.getTaskID(), jars);
+                taskJars.put(task.getTaskID(), classLoaderJars);
             }
             taskGroup =
                     TaskGroupUtils.createTaskGroup(
@@ -332,15 +523,50 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
             synchronized (this) {
                 if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                    throw new RuntimeException(
+                    // Task is actively running (present in executionContexts, not
+                    // finishedExecutionContexts). This happens during master failover: the new
+                    // master restores state and tries to re-deploy tasks that never stopped on
+                    // the worker. Return success so the master reconnects without interrupting
+                    // the running task. The worker will notify the master of the terminal state
+                    // via NotifyTaskStatusOperation when the task eventually completes.
+                    logger.warning(
                             String.format(
-                                    "TaskGroupLocation: %s already exists",
+                                    "TaskGroupLocation %s already exists and is active, "
+                                            + "skipping redeploy for master failover recovery",
                                     taskGroup.getTaskGroupLocation()));
+                    // Release classloaders acquired during deserialization
+                    for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
+                        classLoaderService.releaseClassLoader(
+                                taskImmutableInfo.getJobId(), entry.getValue());
+                    }
+                    acquiredClassLoaderJars.clear();
+                    return TaskDeployState.success();
                 }
-                deployLocalTask(taskGroup, classLoaders, taskJars);
+                AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
+                deployLocalTask(
+                        taskImmutableInfo.getExecutionId(),
+                        taskGroup,
+                        classLoaders,
+                        taskJars,
+                        () -> classLoaderOwnershipTransferred.set(true),
+                        failure -> {
+                            releaseClassLoadersAfterFailedDeployment(
+                                    taskImmutableInfo.getJobId(), acquiredClassLoaderJars, failure);
+                            acquiredClassLoaderJars.clear();
+                        });
+                // Publication is a monotonic ownership transfer. The context may already have
+                // completed and left executionContexts by the time deployment returns.
+                if (classLoaderOwnershipTransferred.get()) {
+                    // Clearing this local bookkeeping list does not release the classloaders. It
+                    // records that their ownership moved to TaskGroupContext, whose tracker will
+                    // release them when this exact execution finishes.
+                    acquiredClassLoaderJars.clear();
+                }
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
+            releaseClassLoadersAfterFailedDeployment(
+                    taskImmutableInfo.getJobId(), acquiredClassLoaderJars, t);
             logger.severe(
                     String.format(
                             "TaskGroupID : %s  deploy error with Exception: %s",
@@ -352,65 +578,60 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+    /**
+     * Releases classloader references acquired by the current deployment attempt.
+     *
+     * <p>This cleanup only releases references that have not been transferred to a published {@link
+     * TaskGroupContext}. Cleanup failures are added to the deployment failure so all references are
+     * attempted without replacing the original error.
+     */
+    private void releaseClassLoadersAfterFailedDeployment(
+            long jobId,
+            List<Collection<URL>> acquiredClassLoaderJars,
+            Throwable deploymentFailure) {
+        // Release in reverse acquisition order, matching the ownership stack built above.
+        for (int i = acquiredClassLoaderJars.size() - 1; i >= 0; i--) {
+            Collection<URL> jars = acquiredClassLoaderJars.get(i);
+            try {
+                classLoaderService.releaseClassLoader(jobId, jars);
+            } catch (Throwable cleanupFailure) {
+                deploymentFailure.addSuppressed(cleanupFailure);
+                logger.severe(
+                        "Release classloader after failed task deployment failed", cleanupFailure);
+            }
+        }
+    }
+
+    /**
+     * Initializes and publishes one concrete task-group deployment on this worker.
+     *
+     * <p>The {@code executionId} identifies this deployment, while {@link TaskGroupLocation}
+     * identifies the logical task group and may be reused by a later restore. The method creates a
+     * {@link TaskGroupContext}, registers all resources under that context, publishes it as the
+     * active context, and then submits the group's cooperative and blocking tasks.
+     *
+     * <p>{@code onContextPublished} marks the point at which ownership of the supplied classloaders
+     * and jars has transferred to the published context. If initialization fails before that point,
+     * {@code onFailureBeforeContextPublished} is invoked so the caller can release resources it
+     * still owns.
+     *
+     * @param executionId unique ID generated for this deployment attempt
+     * @param taskGroup task group to initialize and execute
+     * @param classLoaders classloaders acquired for the tasks in this deployment
+     * @param jars connector jars associated with each task
+     * @param onContextPublished callback invoked after the context becomes active
+     * @param onFailureBeforeContextPublished callback invoked when deployment fails before context
+     *     publication
+     * @return future completed with this task group's terminal execution state
+     */
+    PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            long executionId,
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
-            ConcurrentHashMap<Long, Collection<URL>> jars) {
+            ConcurrentHashMap<Long, Collection<URL>> jars,
+            Runnable onContextPublished,
+            Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
-        try {
-            taskGroup.init();
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s init success",
-                            taskGroup.getTaskGroupLocation()));
-            Collection<Task> tasks = taskGroup.getTasks();
-            CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-            TaskGroupExecutionTracker executionTracker =
-                    new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
-            ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
-                    new ConcurrentHashMap<>();
-            final Map<Boolean, List<Task>> byCooperation =
-                    tasks.stream()
-                            .peek(
-                                    task -> {
-                                        TaskExecutionContext taskExecutionContext =
-                                                new TaskExecutionContext(task, nodeEngine, this);
-                                        task.setTaskExecutionContext(taskExecutionContext);
-                                        taskExecutionContextMap.put(
-                                                task.getTaskID(), taskExecutionContext);
-                                    })
-                            .collect(
-                                    partitioningBy(
-                                            t -> {
-                                                ThreadShareMode mode =
-                                                        seaTunnelConfig
-                                                                .getEngineConfig()
-                                                                .getTaskExecutionThreadShareMode();
-                                                if (mode.equals(ThreadShareMode.ALL)) {
-                                                    return true;
-                                                }
-                                                if (mode.equals(ThreadShareMode.OFF)) {
-                                                    return false;
-                                                }
-                                                if (mode.equals(ThreadShareMode.PART)) {
-                                                    return t.isThreadsShare();
-                                                }
-                                                return true;
-                                            }));
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
-            submitThreadShareTask(executionTracker, byCooperation.get(true));
-            submitBlockingTask(executionTracker, byCooperation.get(false));
-            taskGroup.setTasksContext(taskExecutionContextMap);
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
-        } catch (Throwable t) {
-            logger.severe(ExceptionUtils.getMessage(t));
-            resultFuture.completeExceptionally(t);
-        }
         resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
@@ -436,10 +657,96 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
                 MDCTracer.tracing(executorService));
+        boolean contextPublished = false;
+        try {
+            taskGroup.init();
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s init success",
+                            taskGroup.getTaskGroupLocation()));
+            Collection<Task> tasks = taskGroup.getTasks();
+            CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+            ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
+                    new ConcurrentHashMap<>();
+            final Map<Boolean, List<Task>> byCooperation =
+                    tasks.stream()
+                            .peek(
+                                    task -> {
+                                        TaskExecutionContext taskExecutionContext =
+                                                new TaskExecutionContext(
+                                                        task, nodeEngine, engineContext, this);
+                                        task.setTaskExecutionContext(taskExecutionContext);
+                                        taskExecutionContextMap.put(
+                                                task.getTaskID(), taskExecutionContext);
+                                    })
+                            .collect(
+                                    partitioningBy(
+                                            t -> {
+                                                ThreadShareMode mode =
+                                                        seaTunnelConfig
+                                                                .getEngineConfig()
+                                                                .getTaskExecutionThreadShareMode();
+                                                if (mode.equals(ThreadShareMode.ALL)) {
+                                                    return true;
+                                                }
+                                                if (mode.equals(ThreadShareMode.OFF)) {
+                                                    return false;
+                                                }
+                                                if (mode.equals(ThreadShareMode.PART)) {
+                                                    return t.isThreadsShare();
+                                                }
+                                                return true;
+                                            }));
+            TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
+            TaskGroupContext context =
+                    new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
+            TaskGroupExecutionTracker executionTracker =
+                    new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+
+            // Publish a deployment in two phases:
+            //
+            // 1. Register every execution-scoped resource under the new context. These entries are
+            //    invisible to location-based callers because the context is not active yet.
+            // 2. Publish location -> context in executionContexts. All callers first resolve the
+            //    active context from executionContexts and then use that context to find its
+            //    cancellation future, async functions, or timer-flush tasks.
+            //
+            // The executionContexts write must remain last. Once another thread observes this
+            // context through ConcurrentHashMap#get, the preceding resource registrations are also
+            // visible to that thread. Reversing the order would allow cancelTaskGroup() to observe
+            // an active context before its cancellation future exists and lose the cancel request.
+            // No service-wide lock is required: publication is one-way, and cleanup uses the
+            // context's execution ID rather than TaskGroupLocation to address the exact deployment.
+            cancellationFutures.put(context, cancellationFuture);
+            taskAsyncFunctionFuture.put(context, new ConcurrentHashMap<>());
+            timerFlushFutures.put(context, new ConcurrentHashMap<>());
+            executionContexts.put(taskGroupLocation, context);
+            contextPublished = true;
+            onContextPublished.run();
+            submitThreadShareTask(executionTracker, byCooperation.get(true));
+            submitBlockingTask(executionTracker, byCooperation.get(false));
+            taskGroup.setTasksContext(taskExecutionContextMap);
+            logger.info(
+                    String.format(
+                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
+        } catch (Throwable t) {
+            logger.severe(ExceptionUtils.getMessage(t));
+            if (!contextPublished) {
+                onFailureBeforeContextPublished.accept(t);
+            }
+            resultFuture.completeExceptionally(t);
+        }
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
-    private void notifyTaskStatusToMaster(
+    /**
+     * Notifies the master node of the task execution state. This method retries indefinitely until
+     * successful or the service is shutdown.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @param taskExecutionState the execution state to report
+     */
+    void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;
@@ -461,6 +768,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } catch (JobNotFoundException e) {
                 logger.warning("send notify task status failed because can't find job", e);
                 notifyStateSuccess = true;
+            } catch (JobRestoreInProgressException e) {
+                logger.info(ExceptionUtils.getMessage(e));
+                logger.info(
+                        String.format(
+                                "notify the job of the task(%s) status failed, retry in %s millis",
+                                taskGroupLocation, sleepTime));
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    logger.severe(e);
+                }
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof JobNotFoundException) {
                     logger.warning("send notify task status failed because can't find job", e);
@@ -474,6 +793,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     try {
                         Thread.sleep(sleepTime);
                     } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                         logger.severe(e);
                     }
                 }
@@ -489,9 +809,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public void cancelTaskGroup(TaskGroupLocation taskGroupLocation) {
         logger.info(String.format("Task (%s) need cancel.", taskGroupLocation));
-        if (cancellationFutures.containsKey(taskGroupLocation)) {
+        TaskGroupContext context = executionContexts.get(taskGroupLocation);
+        CompletableFuture<Void> cancellationFuture =
+                context == null ? null : cancellationFutures.get(context);
+        if (cancellationFuture != null) {
             try {
-                cancellationFutures.get(taskGroupLocation).cancel(false);
+                cancellationFuture.cancel(false);
             } catch (CancellationException ignore) {
                 // ignore
             }
@@ -501,18 +824,54 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Executes and tracks an asynchronous function for the currently active deployment of a task
+     * group.
+     *
+     * <p>{@link TaskGroupLocation} identifies a logical task group and may be reused after a
+     * restore. This method therefore resolves the location to its active {@link TaskGroupContext}
+     * exactly once and records the future in that deployment's bucket. Cancellation or terminal
+     * cleanup can then cancel only the functions owned by that deployment; a late cleanup from an
+     * older deployment cannot affect functions registered by a newer deployment at the same
+     * location.
+     *
+     * <p>The completion callback removes the future from the captured bucket instead of resolving
+     * the location again. By the time the callback runs, the location may already refer to a newer
+     * deployment. The deployment-level bucket itself is retained until task-group cleanup removes
+     * it.
+     *
+     * @param taskGroupLocation the task group location
+     * @param task the function to execute on the shared task executor
+     * @throws TaskGroupContextNotFoundException if the task group has no active deployment
+     */
     public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+        // The ID distinguishes multiple async functions owned by the same deployment and lets each
+        // completion callback remove only its own future.
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
-        if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
-            taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
+
+        // Capture the active deployment once. Never resolve taskGroupLocation again for this
+        // function: a restore may publish another context at the same location while it is running.
+        TaskGroupContext context = getActiveExecutionContext(taskGroupLocation);
+        Map<String, CompletableFuture<?>> taskGroupFutures = taskAsyncFunctionFuture.get(context);
+        if (taskGroupFutures == null) {
+            // Deployment publishes this bucket before publishing the active context. A missing
+            // bucket therefore means cleanup has already claimed this execution; recreating it
+            // here would leave the function outside the tracker's cancellation lifecycle.
+            throw new TaskGroupContextNotFoundException(
+                    String.format(
+                            "Async-function resources for task group %s execution %s not found.",
+                            taskGroupLocation, context.getExecutionId()));
         }
         CompletableFuture<?> future =
                 CompletableFuture.runAsync(task, MDCTracer.tracing(executorService));
-        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
+        taskGroupFutures.put(id, future);
+
+        // Capture taskGroupFutures in the callback. Looking up the bucket by location here could
+        // remove a future from a newer deployment after restore.
         future.whenComplete(
                 (r, e) -> {
-                    taskAsyncFunctionFuture.get(taskGroupLocation).remove(id);
+                    taskGroupFutures.remove(id);
                     logger.fine(
                             "remove async execute function from "
                                     + taskGroupLocation
@@ -521,6 +880,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 });
     }
 
+    /**
+     * Notifies the service to clean up the execution context for a finished task group. This is
+     * called when the task group context is no longer needed.
+     *
+     * @param taskGroupLocation the task group location to clean up
+     */
     public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
         finishedExecutionContexts.remove(taskGroupLocation);
     }
@@ -578,24 +943,81 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             return;
         }
 
+        long invocationStartNanos = System.nanoTime();
+        HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
+        int payloadTaskCount = localMetricsMap.size();
         InvocationFuture<Object> invoke =
                 nodeEngine
                         .getOperationService()
                         .createInvocationBuilder(
                                 SeaTunnelServer.SERVICE_NAME,
-                                new ReportMetricsOperation(collectLocalMetricsMap()),
+                                new ReportMetricsOperation(localMetricsMap),
                                 nodeEngine.getMasterAddress())
                         .invoke();
 
         try {
             invoke.get();
+            recordReportMetricsOperationSuccess(
+                    payloadTaskCount, elapsedMillisSince(invocationStartNanos));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.severe("update metrics context stopped due to thread interruption.", e);
+            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
+            recordReportMetricsOperationInterruption(payloadTaskCount, elapsedMillis);
+            logger.severe(
+                    String.format(
+                            "update metrics context stopped due to thread interruption, "
+                                    + "payloadTaskCount=%d, invocationLatencyMs=%d.",
+                            payloadTaskCount, elapsedMillis),
+                    e);
         } catch (Exception e) {
-            logger.severe("failed to update metrics", e);
+            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
+            recordReportMetricsOperationFailure(payloadTaskCount, elapsedMillis);
+            logger.severe(
+                    String.format(
+                            "failed to update metrics, payloadTaskCount=%d, "
+                                    + "invocationLatencyMs=%d.",
+                            payloadTaskCount, elapsedMillis),
+                    e);
         }
         this.printTaskExecutionRuntimeInfo();
+    }
+
+    private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationSuccessCount.incrementAndGet();
+    }
+
+    private void recordReportMetricsOperationFailure(int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationFailureCount.incrementAndGet();
+    }
+
+    private void recordReportMetricsOperationInterruption(
+            int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationInterruptedCount.incrementAndGet();
+    }
+
+    private void updateReportMetricsOperationObservability(
+            int payloadTaskCount, long elapsedMillis) {
+        reportMetricsOperationLastPayloadTaskCount.set(payloadTaskCount);
+        reportMetricsOperationLastInvocationLatencyMs.set(elapsedMillis);
+        reportMetricsOperationMaxInvocationLatencyMs.accumulateAndGet(elapsedMillis, Math::max);
+    }
+
+    private long elapsedMillisSince(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+    }
+
+    /** Returns the latest worker-side ReportMetricsOperation observability snapshot. */
+    public ReportMetricsOperationStats getReportMetricsOperationStats() {
+        return new ReportMetricsOperationStats(
+                reportMetricsOperationSuccessCount.get(),
+                reportMetricsOperationFailureCount.get(),
+                reportMetricsOperationInterruptedCount.get(),
+                reportMetricsOperationLastPayloadTaskCount.get(),
+                reportMetricsOperationLastInvocationLatencyMs.get(),
+                reportMetricsOperationMaxInvocationLatencyMs.get());
     }
 
     private HashMap<TaskLocation, SeaTunnelMetricsContext> collectLocalMetricsMap() {
@@ -624,6 +1046,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return localMap;
     }
 
+    /**
+     * Prints task execution runtime information to the log. This includes thread pool status like
+     * active count, queue size, and task counts. Only logs when fine level logging is enabled.
+     */
     public void printTaskExecutionRuntimeInfo() {
         if (logger.isFineEnabled()) {
             ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
@@ -645,14 +1071,183 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Register or replace a periodic timer-flush task for one source subtask.
+     *
+     * <p>If a timer already exists for the same {@link TaskLocation}, cancel it first. The task is
+     * scheduled with fixed delay on {@code timerFlushWorker} and owned by the active task-group
+     * context.
+     *
+     * @param taskLocation source subtask location (map key)
+     * @param callback flush callback to run on each tick
+     * @param intervalMs flush interval in milliseconds, must be > 0
+     * @return scheduled future for later cancellation
+     * @throws IllegalArgumentException if intervalMs <= 0
+     */
+    public ScheduledFuture<?> registerTimerFlushTask(
+            TaskLocation taskLocation, Runnable callback, long intervalMs) {
+        if (intervalMs <= 0) {
+            throw new IllegalArgumentException("intervalMs must be positive, got: " + intervalMs);
+        }
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        // Bind the timer to the currently active deployment rather than to the reusable location.
+        TaskGroupContext context = getActiveExecutionContext(groupLocation);
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.get(context);
+        if (groupFutures == null) {
+            // Deployment publishes this bucket before publishing the active context. Never
+            // recreate a bucket after cleanup, otherwise the new timer could no longer be found
+            // and cancelled by the owning tracker.
+            throw new TaskGroupContextNotFoundException(
+                    String.format(
+                            "Timer-flush resources for task group %s execution %s not found.",
+                            groupLocation, context.getExecutionId()));
+        }
+
+        ScheduledFuture<?> existing = groupFutures.remove(taskLocation);
+        if (existing != null && !existing.isDone()) {
+            existing.cancel(false);
+        }
+
+        MDCScheduledExecutorService mdcTimerFlushWorker = MDCTracer.tracing(timerFlushWorker);
+        Runnable namedCallback = new NamedTaskWrapper(callback, "TimerFlush-" + taskLocation);
+        ScheduledFuture<?> future =
+                mdcTimerFlushWorker.scheduleWithFixedDelay(
+                        namedCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+        groupFutures.put(taskLocation, future);
+        logger.info(
+                String.format(
+                        "Registered timer-flush task for %s, intervalMs=%d",
+                        taskLocation, intervalMs));
+        return future;
+    }
+
+    /**
+     * Cancel and remove the timer-flush task for one source subtask.
+     *
+     * <p>{@code executionContexts} contains at most one active context for a task-group location,
+     * so this lookup addresses the timer owned by the deployment that is active when this method is
+     * called. The returned context, rather than the reusable location, is then used as the outer
+     * key of {@code timerFlushFutures}.
+     *
+     * <p>No-op if the task group or task entry does not exist. The deployment-level bucket remains
+     * registered even when empty and is removed only by the owning {@code TaskTracker}. Keeping one
+     * owner for the bucket lifecycle prevents a concurrent registration from being detached by an
+     * unrelated subtask closing the last previously registered timer.
+     *
+     * @param taskLocation source subtask location
+     */
+    public void closeTimerFlushTask(TaskLocation taskLocation) {
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        // A location maps to one active deployment. Old deployments remain addressable through
+        // their own contexts, but are deliberately not returned by this active-context index.
+        TaskGroupContext context = executionContexts.get(groupLocation);
+        if (context == null) {
+            // The task group has already left the active index. Do not fall back to
+            // finishedExecutionContexts: TaskLocation does not contain an executionId, so such a
+            // fallback could select a different deployment that reused the same location. The
+            // finishing TaskTracker owns the exact context and cancels any remaining timers during
+            // deployment cleanup.
+            return;
+        }
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.get(context);
+        if (groupFutures == null) {
+            return;
+        }
+        ScheduledFuture<?> future = groupFutures.remove(taskLocation);
+        if (future != null && !future.isDone()) {
+            future.cancel(false);
+        }
+        logger.info(String.format("Closed timer-flush task for %s", taskLocation));
+    }
+
+    /** Cancels only timer-flush tasks created by the supplied deployment context. */
+    private void cancelTimerFlushFutures(TaskGroupContext context) {
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.remove(context);
+        if (groupFutures == null) {
+            return;
+        }
+        groupFutures
+                .values()
+                .forEach(
+                        f -> {
+                            if (!f.isDone()) {
+                                f.cancel(false);
+                            }
+                        });
+        groupFutures.clear();
+        logger.info(
+                String.format(
+                        "Cancelled all timer-flush tasks for task group %s",
+                        context.getTaskGroup().getTaskGroupLocation()));
+    }
+
+    /**
+     * Detaches and cancels asynchronous-function futures owned by one concrete deployment.
+     *
+     * <p>The outer map is keyed by {@link TaskGroupContext}, whose identity is the immutable
+     * execution ID, rather than by the reusable {@link TaskGroupLocation}. It is therefore safe for
+     * a stale tracker to call this method after a newer deployment has become active: removing the
+     * stale context's bucket cannot remove the newer context's futures.
+     *
+     * <p>The bucket is removed from the outer map before its futures are cancelled. This first
+     * makes the execution undiscoverable to new registrations; {@link #asyncExecuteFunction}
+     * rejects a missing bucket instead of recreating one after cleanup. Completion callbacks may
+     * still remove their own entries from the detached bucket, which is safe because the bucket is
+     * a {@link ConcurrentHashMap} created during deployment.
+     *
+     * <p>Calling this method more than once is safe. After the first call claims the bucket, later
+     * calls find no entry and return. Cancellation is requested only for futures that are not
+     * already complete or cancelled, and clearing the detached bucket releases its remaining
+     * references. Code running inside an async function must not rely on cancellation causing an
+     * immediate thread interruption; it must still cooperate with its own shutdown mechanism.
+     *
+     * @param context deployment whose asynchronous futures should be cleaned
+     */
+    private void cancelAsyncFunctionFutures(TaskGroupContext context) {
+        // Removing first transfers this deployment's bucket from the service to this cleanup path.
+        Map<String, CompletableFuture<?>> asyncFunctionFutures =
+                taskAsyncFunctionFuture.remove(context);
+        if (asyncFunctionFutures == null) {
+            // The bucket was never published or has already been claimed by another cleanup path.
+            return;
+        }
+        try {
+            asyncFunctionFutures.values().stream()
+                    .filter(f -> !f.isDone())
+                    .filter(f -> !f.isCancelled())
+                    .forEach(f -> f.cancel(true));
+            // Completion callbacks remove individual entries, while deployment cleanup releases
+            // any references that remain in the detached bucket.
+            asyncFunctionFutures.clear();
+        } catch (CancellationException e) {
+            logger.warning(ExceptionUtils.getMessage(e));
+        }
+        logger.fine(
+                String.format(
+                        "Cancelled all async functions for task group %s",
+                        context.getTaskGroup().getTaskGroupLocation()));
+    }
+
     public void reportEvent(Event e) {
         eventService.reportEvent(e);
     }
 
+    /**
+     * Gets the SeaTunnel configuration.
+     *
+     * @return the SeaTunnel configuration
+     */
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
     }
 
+    /**
+     * Worker that executes blocking tasks in a dedicated thread. Each BlockingWorker runs a single
+     * task to completion, suitable for I/O-bound operations that may block.
+     */
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;
@@ -663,6 +1258,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.startedLatch = startedLatch;
         }
 
+        /**
+         * Executes the blocking task in a dedicated thread. The task runs to completion (or
+         * failure/cancellation) without preemption.
+         *
+         * <p>Execution flow:
+         *
+         * <ol>
+         *   <li>Set up the class loader for the task
+         *   <li>Signal that the worker has started via CountDownLatch
+         *   <li>Initialize the task via {@link Task#init()}
+         *   <li>Execute the task repeatedly via {@link Task#call()} until done
+         *   <li>Handle interrupts and exceptions, notifying the execution tracker
+         *   <li>Clean up by calling {@link Task#close()} if not completed
+         * </ol>
+         */
         @Override
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
@@ -711,6 +1321,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * ThreadFactory for creating named threads used for SeaTunnel task execution. The shared
+     * executor service created with this factory may run blocking workers, cooperative workers, and
+     * asynchronous tasks. Threads are named with the pattern {@code
+     * hz.{instance}.seaTunnel.task.thread-{n}}.
+     */
     private final class BlockingTaskThreadFactory implements ThreadFactory {
         private final AtomicInteger seq = new AtomicInteger();
 
@@ -725,8 +1341,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * CooperativeTaskWorker is used to poll the task call method, When a task times out, a new
-     * BusWork will be created to take over the execution of the task
+     * Cooperative task worker that polls tasks from the queue and executes them cooperatively. Uses
+     * a TaskCallTimer to detect stuck tasks. When a task times out, a new BusWork will be created
+     * to take over the execution.
+     *
+     * <p>In cooperative mode, multiple tasks share a single worker thread. Each task yields control
+     * by returning {@link ProgressState#isDone()} == false, allowing other tasks to run. This is
+     * efficient for CPU-bound tasks that don't block.
      */
     public final class CooperativeTaskWorker implements Runnable {
 
@@ -748,6 +1369,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.futureBlockingQueue = futureBlockingQueue;
         }
 
+        /**
+         * Main execution loop for the cooperative task worker. Continuously polls tasks from the
+         * queue and executes them.
+         *
+         * <p>The execution flow:
+         *
+         * <ol>
+         *   <li>Wait for a task from the queue or exclusive tracker
+         *   <li>Check if execution completed exceptionally, handle accordingly
+         *   <li>Start the task call timer for timeout detection
+         *   <li>Execute the task via {@link Task#call()}
+         *   <li>Stop the timer and check the result
+         *   <li>If task is done, mark it complete; otherwise, re-queue for next iteration
+         * </ol>
+         */
         @SneakyThrows
         @Override
         public void run() {
@@ -834,7 +1470,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    /** Used to create a new BusWork and run */
+    /**
+     * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed. New
+     * workers are created either unconditionally or, when requested by the caller, only if the task
+     * queue currently contains pending tasks.
+     */
     public final class RunBusWorkSupplier {
 
         ExecutorService executorService;
@@ -846,6 +1486,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.taskQueue = taskqueue;
         }
 
+        /**
+         * Creates and submits a new CooperativeTaskWorker if conditions are met.
+         *
+         * @param checkTaskQueue if true, only creates a new worker if the task queue is not empty
+         * @return true if a new worker was created and submitted, false otherwise
+         */
         public boolean runNewBusWork(boolean checkTaskQueue) {
             if (!checkTaskQueue || !taskQueue.isEmpty()) {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
@@ -860,8 +1506,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Internal utility class to track the overall state of tasklet execution. There's one instance
-     * of this class per job.
+     * Internal utility class to track the overall state of a TaskGroup execution. There's one
+     * instance of this class per TaskGroup.
      */
     public final class TaskGroupExecutionTracker {
 
@@ -876,13 +1522,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
+        /** The concrete deployment whose tasks and resources are tracked by this instance. */
+        private final TaskGroupContext context;
+
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
-                @NonNull TaskGroup taskGroup,
+                @NonNull TaskGroupContext context,
                 @NonNull CompletableFuture<TaskExecutionState> future) {
             this.future = future;
+            this.context = context;
+            this.taskGroup = context.getTaskGroup();
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
-            this.taskGroup = taskGroup;
             cancellationFuture.whenComplete(
                     withTryCatch(
                             logger,
@@ -894,37 +1544,51 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                     "cancellationFuture should be completed exceptionally");
                                 }
                                 exception(e);
-                                cancelAllTask(taskGroup.getTaskGroupLocation());
+                                cancelAllTask();
                             }));
         }
 
+        /**
+         * Records an exception that occurred during task execution. Uses compareAndSet to ensure
+         * only the first exception is recorded.
+         *
+         * @param t the exception that occurred
+         */
         void exception(Throwable t) {
             executionException.compareAndSet(null, t);
         }
 
-        private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
+        /**
+         * Cancels tasks and background work owned by this tracker, regardless of active generation.
+         */
+        private void cancelAllTask() {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));
             } catch (CancellationException ignore) {
                 // ignore
             }
-            cancelAsyncFunction(taskGroupLocation);
+            cancelAsyncFunctionFutures(context);
+            cancelTimerFlushFutures(context);
         }
 
-        private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
-            try {
-                if (taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
-                    taskAsyncFunctionFuture.remove(taskGroupLocation).values().stream()
-                            .filter(f -> !f.isDone())
-                            .filter(f -> !f.isCancelled())
-                            .forEach(f -> f.cancel(true));
-                }
-            } catch (CancellationException ignore) {
-                logger.warning(ExceptionUtils.getMessage(ignore));
-            }
-        }
-
+        /**
+         * Marks a task as done and handles completion logic for the task group.
+         *
+         * <p>When the last task completes (completionLatch reaches zero):
+         *
+         * <ol>
+         *   <li>Recycle the class loader
+         *   <li>Move execution context from active to finished
+         *   <li>Cancel async functions and update metrics
+         *   <li>Complete the future with final state (FINISHED, CANCELED, or FAILED)
+         * </ol>
+         *
+         * <p>If an exception occurred and the task group is not cancelled, cancels all remaining
+         * tasks in the group.
+         *
+         * @param task the task that completed
+         */
         void taskDone(Task task) {
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
             logger.info(
@@ -933,15 +1597,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
-                cancellationFutures.remove(taskGroupLocation);
-                try {
-                    cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel async function failed", t);
-                }
+                finishExecution(taskGroupLocation);
                 try {
                     updateMetricsContextInImap();
                 } catch (Throwable t) {
@@ -973,15 +1629,67 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         String.format(
                                 "task %s error with exception: [%s], cancel other task in taskGroup %s.",
                                 task.getTaskID(), ex, taskGroupLocation));
-                cancelAllTask(taskGroupLocation);
+                cancelAllTask();
             }
         }
 
-        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
-            TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
+        private void recycleClassLoader(
+                TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
+            context.setClassLoaders(null);
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
+            }
+        }
+
+        /**
+         * Finishes this deployment without removing a newer deployment at the same location.
+         *
+         * <p>Only the active context mapping is conditional. All other resources are keyed by this
+         * tracker's context and can therefore always be cleaned safely.
+         */
+        private void finishExecution(TaskGroupLocation taskGroupLocation) {
+            // AtomicBoolean is only a mutable result holder for the compute lambda. The atomic
+            // active-context transition itself is provided by ConcurrentMap.compute.
+            AtomicBoolean activeGeneration = new AtomicBoolean();
+            // ConcurrentMap.compute serializes updates for this location. Comparing contexts by
+            // their immutable executionId and performing the active-to-finished transition in the
+            // same computation prevents an older generation from removing a newer generation.
+            executionContexts.compute(
+                    taskGroupLocation,
+                    (ignored, activeContext) -> {
+                        if (!context.equals(activeContext)) {
+                            return activeContext;
+                        }
+                        finishedExecutionContexts.put(taskGroupLocation, context);
+                        activeGeneration.set(true);
+                        return null;
+                    });
+
+            // These removals are intentionally unconditional. Even when this tracker is stale, the
+            // context key identifies its exact execution, so cleaning it cannot affect the newer
+            // context stored for the same TaskGroupLocation.
+            cancellationFutures.remove(context);
+
+            if (!activeGeneration.get()) {
+                logger.warning(
+                        String.format(
+                                "Task group %s execution %s finished after it was superseded",
+                                taskGroupLocation, context.getExecutionId()));
+            }
+            try {
+                recycleClassLoader(taskGroupLocation, context);
+            } catch (Throwable t) {
+                logger.severe("recycle classloader failed", t);
+            }
+            try {
+                cancelAsyncFunctionFutures(context);
+            } catch (Throwable t) {
+                logger.severe("cancel async function failed", t);
+            }
+            try {
+                cancelTimerFlushFutures(context);
+            } catch (Throwable t) {
+                logger.severe("cancel timer-flush tasks failed", t);
             }
         }
 
@@ -990,8 +1698,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Gets the server connector package client for managing connector jars.
+     *
+     * @return the server connector package client
+     */
     public ServerConnectorPackageClient getServerConnectorPackageClient() {
         return serverConnectorPackageClient;
+    }
+
+    /**
+     * A Runnable wrapper that sets a custom thread name before executing the task and restores the
+     * original name afterward.
+     */
+    private final class TimerFlushThreadFactory implements ThreadFactory {
+        private final AtomicInteger seq = new AtomicInteger();
+
+        @Override
+        public Thread newThread(@NonNull Runnable r) {
+            return new Thread(
+                    r,
+                    String.format(
+                            "hz.%s.seaTunnel.timer-flush-%d",
+                            hzInstanceName, seq.getAndIncrement()));
+        }
     }
 
     public static class NamedTaskWrapper implements Runnable {

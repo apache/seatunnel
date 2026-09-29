@@ -107,6 +107,40 @@ sink {
 }
 ```
 
+## Primary Key 占位符行为
+
+`${primary_key}` 占位符会展开为上游表元数据中定义的所有主键列。
+
+例如，如果上游表的主键为：
+
+```text
+(f1, f2)
+```
+
+那么：
+
+```hocon
+primary_keys = ["${primary_key}"]
+```
+
+会被展开为：
+
+```hocon
+primary_keys = ["f1", "f2"]
+```
+
+当前不支持将 `${primary_key}` 与静态列名混合使用。
+
+例如，以下配置 **不受支持**：
+
+```hocon
+primary_keys = ["${primary_key}", "tenant_id"]
+```
+
+只有当 `${primary_key}` 是列表中的唯一元素时，才会执行列表占位符替换。
+
+单表任务和多表任务中的行为保持一致。
+
 占位符的替换将在连接器启动之前完成，确保 Sink 参数在使用前已准备就绪。
 若该占位符变量没有被替换，则可能是上游表元数据缺少该选项，例如：
 - `mysql` source 连接器不包含 `${schema_name}` 元数据

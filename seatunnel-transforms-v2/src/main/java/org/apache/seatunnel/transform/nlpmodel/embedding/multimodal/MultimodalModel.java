@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.nlpmodel.embedding.multimodal;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import java.io.IOException;
@@ -31,6 +32,10 @@ public abstract class MultimodalModel extends AbstractModel {
 
     public MultimodalModel(Integer vectorizedNumber) {
         super(vectorizedNumber);
+    }
+
+    public MultimodalModel(Integer vectorizedNumber, ModelInvocationOptions invocationOptions) {
+        super(vectorizedNumber, invocationOptions);
     }
 
     @Override

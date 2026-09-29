@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -50,17 +51,26 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkOptions.DATABASE,
                         PaimonSinkOptions.TABLE)
                 .optional(
+                        PaimonSinkOptions.CATALOG_NAME,
                         PaimonSinkOptions.HDFS_SITE_PATH,
                         PaimonSinkOptions.HADOOP_CONF,
                         PaimonSinkOptions.HADOOP_CONF_PATH,
                         PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonSinkOptions.USER,
+                        PaimonSinkOptions.PASSWORD,
                         PaimonSinkOptions.SCHEMA_SAVE_MODE,
                         PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.NON_PRIMARY_KEY,
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
                         PaimonSinkOptions.WRITE_PROPS,
                         PaimonSinkOptions.BRANCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(
+                        SinkConnectorCommonOptions.TABLE_OPTIONS,
+                        Conditions.extension(
+                                SinkConnectorCommonOptions.TABLE_OPTIONS,
+                                PaimonTableOptionsConditionExtension.INSTANCE))
                 .conditional(
                         PaimonSinkOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

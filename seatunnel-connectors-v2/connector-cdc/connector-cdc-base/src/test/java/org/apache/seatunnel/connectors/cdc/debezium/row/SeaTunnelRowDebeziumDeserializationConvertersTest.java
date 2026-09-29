@@ -37,7 +37,10 @@ import org.junit.jupiter.api.Test;
 import io.debezium.data.geometry.Geography;
 import io.debezium.data.geometry.Geometry;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -205,5 +208,58 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         Object fieldValue = row.getField(0);
         Assertions.assertTrue(fieldValue instanceof String);
         Assertions.assertEquals("0102FF", fieldValue);
+    }
+
+    /**
+     * Verifies the fallback chain in {@code parseOffsetDateTimeFromString} against the four
+     * Debezium timestamp formats called out in the review:
+     *
+     * <ol>
+     *   <li>Standard ISO-8601 with numeric offset (baseline)
+     *   <li>Oracle TIMESTAMP WITH LOCAL TIME ZONE — IANA zone-region id
+     *   <li>MySQL TIMESTAMP in certain schema-history modes — space date/time separator
+     *   <li>PostgreSQL timestamptz — short-form hour-only offset
+     * </ol>
+     *
+     * All four variants must parse to the same UTC instant.
+     */
+    @Test
+    void testParseOffsetDateTimeFromStringFallbackChain() {
+        ZoneId serverTz = ZoneId.of("Asia/Shanghai");
+        // Expected UTC instant: 2024-01-01 04:00:00Z  (2024-01-01 12:00:00+08:00)
+        OffsetDateTime expected = Instant.parse("2024-01-01T04:00:00Z").atOffset(ZoneOffset.UTC);
+
+        // 1. ISO-8601 with numeric offset — handled by OffsetDateTime.parse
+        OffsetDateTime r1 =
+                SeaTunnelRowDebeziumDeserializationConverters.parseOffsetDateTimeFromString(
+                        "2024-01-01T12:00:00+08:00", serverTz);
+        Assertions.assertEquals(expected, r1, "ISO-8601 numeric offset failed");
+
+        // 2. IANA zone-region id — Oracle TIMESTAMP WITH LOCAL TIME ZONE
+        OffsetDateTime r2 =
+                SeaTunnelRowDebeziumDeserializationConverters.parseOffsetDateTimeFromString(
+                        "2024-01-01T12:00:00 Asia/Shanghai", serverTz);
+        Assertions.assertEquals(expected, r2, "IANA zone-region id failed");
+
+        // 3. Space separator — MySQL in certain schema-history modes
+        OffsetDateTime r3 =
+                SeaTunnelRowDebeziumDeserializationConverters.parseOffsetDateTimeFromString(
+                        "2024-01-01 12:00:00+08:00", serverTz);
+        Assertions.assertEquals(expected, r3, "Space date/time separator failed");
+
+        // 4. Short-form hour-only offset — PostgreSQL timestamptz
+        OffsetDateTime r4 =
+                SeaTunnelRowDebeziumDeserializationConverters.parseOffsetDateTimeFromString(
+                        "2024-01-01T12:00:00+08", serverTz);
+        Assertions.assertEquals(expected, r4, "Short-form hour-only offset failed");
+    }
+
+    @Test
+    void testParseOffsetDateTimeFromStringThrowsOnUnknownFormat() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SeaTunnelRowDebeziumDeserializationConverters.parseOffsetDateTimeFromString(
+                                "not-a-timestamp", ZoneId.systemDefault()));
     }
 }

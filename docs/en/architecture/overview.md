@@ -24,53 +24,44 @@ SeaTunnel is designed as a distributed multimodal data integration tool with the
 - **Data Lake/Warehouse Ingestion**: Efficient data loading to data lakes (Iceberg, Hudi, Delta Lake) and warehouses
 - **Multi-table Synchronization**: Synchronizing multiple tables in a single job with schema evolution support
 
+### 1.3 Recommended Reading Path
+
+If you are using this section to build architectural understanding, read in this order:
+
+- this page for the layered system view
+- [Configuration And Option System](./configuration-and-option-system.md) for how plugin configuration is modeled and validated
+- [Transform Plugin System](./transform-plugin-system.md) for how transform plugins fit between source, sink, schema, and engine translation
+- [Table Schema and Type System](./table-schema-and-type-system.md) for how table metadata and portable types flow through the pipeline
+- [CDC Pipeline Architecture](./cdc-pipeline-architecture.md) if you need the end-to-end view for changelog-style pipelines
+- [Checkpoint Mechanism](./fault-tolerance/checkpoint-mechanism.md) and [Exactly-Once](./fault-tolerance/exactly-once.md) for consistency semantics
+- [Resource Management](./engine/resource-management.md) for slot allocation and worker coordination
+- [Plugin Discovery and Class Loading](./plugin-discovery-and-class-loading.md) for runtime plugin packaging and isolation
+- [Translation Layer](./api-design/translation-layer.md) if you need to understand multi-engine support
+
 ## 2. Overall Architecture
 
 SeaTunnel adopts a layered architecture that separates concerns and enables flexibility:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      User Configuration Layer                    │
-│                  (HOCON Config / SQL / Web UI)                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SeaTunnel API Layer                         │
-│         (Source API / Sink API / Transform API / Table API)      │
-│                                                                   │
-│  • SeaTunnelSource        • CatalogTable                         │
-│  • SeaTunnelSink          • TableSchema                          │
-│  • SeaTunnelTransform     • SchemaChangeEvent                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Connector Ecosystem                           │
-│                                                                   │
-│  [Jdbc] [Kafka] [MySQL-CDC] [Elasticsearch] [Iceberg] ...       │
-│                    (Connector Ecosystem)                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Translation Layer                            │
-│          (Adapts SeaTunnel API to Engine-Specific API)           │
-│                                                                   │
-│  • FlinkSource/FlinkSink     • SparkSource/SparkSink            │
-│  • Context Adapters          • Serialization Adapters           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  SeaTunnel   │      │    Apache    │      │    Apache    │
-│ Engine (Zeta)│      │     Flink    │      │     Spark    │
-│              │      │              │      │              │
-│ • Master     │      │ • JobManager │      │ • Driver     │
-│ • Worker     │      │ • TaskManager│      │ • Executor   │
-│ • Checkpoint │      │ • State      │      │ • RDD/DS     │
-└──────────────┘      └──────────────┘      └──────────────┘
+```mermaid
+flowchart TD
+    config["User Configuration Layer<br/>HOCON Config / SQL / Web UI"]
+    api["SeaTunnel API Layer<br/>Source API / Sink API / Transform API / Table API"]
+    connectors["Connector Ecosystem<br/>JDBC / Kafka / MySQL-CDC / Elasticsearch / Iceberg / ..."]
+    translation["Translation Layer<br/>Flink adapters / Spark adapters / Context wrappers / Serialization adapters"]
+
+    config --> api --> connectors --> translation
+    translation --> zeta["SeaTunnel Engine (Zeta)<br/>Master / Worker / Checkpoint"]
+    translation --> flink["Apache Flink<br/>JobManager / TaskManager / State"]
+    translation --> spark["Apache Spark<br/>Driver / Executor / RDD / Dataset"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,api layerBlue;
+    class connectors,translation layerCyan;
+    class zeta,flink,spark layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.1 Layer Responsibilities
@@ -98,20 +89,20 @@ The API layer provides engine-independent abstractions:
 **Key Design**: Separation of coordination (Enumerator) and execution (Reader) enables efficient parallel processing and fault tolerance.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSource.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [seatunnel-api/.../SourceSplitEnumerator.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
+- [seatunnel-api/.../SeaTunnelSource.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
+- [seatunnel-api/.../SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
 
 #### Sink API
-- **SeaTunnelSink**: Factory interface for creating writers and committers
+- **SeaTunnelSink**: Factory interface for creating writers and optional commit strategies
 - **SinkWriter**: Worker-side component for writing data
-- **SinkCommitter**: Coordinator for commit operations from multiple writers
-- **SinkAggregatedCommitter**: Global coordinator for aggregated commits
+- **SinkCommitter**: Optional worker-side committer for per-writer commit operations
+- **SinkAggregatedCommitter**: Optional global committer for coordinator-side aggregated commits
 
 **Key Design**: Two-phase commit protocol (prepareCommit → commit) ensures exactly-once semantics.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSink.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [seatunnel-api/.../SinkWriter.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [seatunnel-api/.../SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [seatunnel-api/.../SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
 
 #### Transform API
 - **SeaTunnelTransform**: Data transformation interface
@@ -119,7 +110,7 @@ The API layer provides engine-independent abstractions:
 - **SeaTunnelFlatMapTransform**: 1:N transformation
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelTransform.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
+- [seatunnel-api/.../SeaTunnelTransform.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
 
 #### Table API
 - **CatalogTable**: Complete table metadata (schema, partition keys, options)
@@ -127,7 +118,7 @@ The API layer provides engine-independent abstractions:
 - **SchemaChangeEvent**: Represents DDL changes for schema evolution
 
 **Code Reference**:
-- [seatunnel-api/.../CatalogTable.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [seatunnel-api/.../CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
 
 ### 3.2 SeaTunnel Engine (Zeta)
 
@@ -145,13 +136,21 @@ The native execution engine provides:
 - **FlowLifeCycle**: Manages lifecycle of Source/Transform/Sink components
 
 #### Execution Model
-```
-LogicalDag → PhysicalPlan → SubPlan (Pipeline) → PhysicalVertex → TaskGroup → SeaTunnelTask
+```mermaid
+flowchart LR
+    logical["LogicalDag"] --> plan["PhysicalPlan"] --> pipeline["SubPlan<br/>(Pipeline)"] --> vertex["PhysicalVertex"] --> taskGroup["TaskGroup"] --> task["SeaTunnelTask"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class logical,plan,pipeline layerBlue;
+    class vertex,taskGroup,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 **Code Reference**:
-- [seatunnel-engine/.../server/CoordinatorService.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
-- [seatunnel-engine/.../server/master/JobMaster.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
+- [seatunnel-engine/.../server/CoordinatorService.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- [seatunnel-engine/.../server/master/JobMaster.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
 
 ### 3.3 Translation Layer
 
@@ -163,26 +162,18 @@ Enables engine portability through adapter pattern:
 - **Serialization Adapters**: Bridges SeaTunnel and engine serialization mechanisms
 
 **Code Reference**:
-- [seatunnel-translation/.../flink/source/FlinkSource.java](../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
+- [seatunnel-translation/.../flink/source/FlinkSource.java](../../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
 
 ### 3.4 Connector Ecosystem
 
 All connectors follow a standardized structure:
 
-```
-connector-[name]/
-├── src/main/java/.../
-│   ├── [Name]Source.java          # Implements SeaTunnelSource
-│   ├── [Name]SourceReader.java    # Implements SourceReader
-│   ├── [Name]SourceSplitEnumerator.java
-│   ├── [Name]SourceSplit.java
-│   ├── [Name]Sink.java            # Implements SeaTunnelSink
-│   ├── [Name]SinkWriter.java      # Implements SinkWriter
-│   └── config/[Name]Config.java
-└── src/main/resources/META-INF/services/
-    ├── org.apache.seatunnel.api.table.factory.TableSourceFactory
-    └── org.apache.seatunnel.api.table.factory.TableSinkFactory
-```
+| Area | Typical Files | Responsibility |
+|------|---------------|----------------|
+| Source entry | `[Name]Source.java`, `[Name]SourceReader.java`, `[Name]SourceSplitEnumerator.java`, `[Name]SourceSplit.java` | Read data, split work, and expose a unified Source contract |
+| Sink entry | `[Name]Sink.java`, `[Name]SinkWriter.java` | Buffer, write, and commit data to the target system |
+| Configuration | `config/[Name]Config.java` | Define connector options, validation rules, and defaults |
+| SPI registration | `META-INF/services/TableSourceFactory`, `META-INF/services/TableSinkFactory` | Register factories for discovery and runtime loading |
 
 **Discovery Mechanism**: Java SPI (Service Provider Interface) for dynamic connector loading.
 
@@ -190,47 +181,28 @@ connector-[name]/
 
 ### 4.1 Source Data Flow
 
-```
-Data Source
-    │
-    ▼
-┌─────────────────────┐
-│ SourceSplitEnumerator│ (Master Side)
-│  • Generate Splits   │
-│  • Assign to Readers │
-└─────────────────────┘
-    │ (Split Assignment)
-    ▼
-┌─────────────────────┐
-│   SourceReader      │ (Worker Side)
-│  • Read from Split  │
-│  • Emit Records     │
-└─────────────────────┘
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
- Transform Chain (Optional)
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
-┌─────────────────────┐
-│    SinkWriter       │ (Worker Side)
-│  • Buffer Records   │
-│  • Prepare Commit   │
-└─────────────────────┘
-    │ (CommitInfo)
-    ▼
-┌─────────────────────┐
-│   SinkCommitter     │ (Coordinator)
-│  • Commit Changes   │
-└─────────────────────┘
-    │
-    ▼
-Data Sink
+```mermaid
+flowchart TD
+    source["Data Source"] --> enumerator["SourceSplitEnumerator<br/>Master side<br/>Generate splits / Assign readers"]
+    enumerator -->|Split assignment| reader["SourceReader<br/>Worker side<br/>Read split / Emit records"]
+    reader --> rowIn["SeaTunnelRow"]
+    rowIn --> transform["Transform Chain<br/>(Optional)"]
+    transform --> rowOut["SeaTunnelRow"]
+    rowOut --> writer["SinkWriter<br/>Worker side<br/>Buffer records / Prepare commit"]
+    writer -->|"optional worker-local commit"| committer["SinkCommitter<br/>Worker side<br/>Commit each writer change independently"]
+    writer -. "optional aggregated commit path" .-> aggregatedTask["SinkAggregatedCommitterTask<br/>Coordinator side<br/>Collect commit infos from writers"]
+    aggregatedTask --> aggregated["SinkAggregatedCommitter<br/>Coordinator side<br/>Perform one global commit"]
+    committer --> sink["Data Sink"]
+    aggregated --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink,rowIn,rowOut layerBlue;
+    class enumerator,reader,transform layerCyan;
+    class writer,committer,aggregatedTask,aggregated layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 Split-based Parallelism
@@ -244,10 +216,28 @@ Data Sink
 
 Jobs are divided into **Pipelines** (SubPlans):
 
-```
-Pipeline 1: [Source A] → [Transform 1] → [Sink A]
-                                ↓
-Pipeline 2: [Source B] ───────→ [Transform 2] → [Sink B]
+The example below shows two independent subplans inside the same job. They do not directly exchange records with each other.
+
+```mermaid
+flowchart TB
+    subgraph pipeline1["Pipeline 1"]
+        direction LR
+        sourceA["Source A"] --> transformA["Transform 1"] --> sinkA["Sink A"]
+    end
+
+    subgraph pipeline2["Pipeline 2"]
+        direction LR
+        sourceB["Source B"] --> transformB["Transform 2"] --> sinkB["Sink B"]
+    end
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class sourceA,sourceB,transformA,transformB layerCyan;
+    class sinkA,sinkB layerPurple;
+    style pipeline1 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    style pipeline2 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Each pipeline:
@@ -295,25 +285,48 @@ sequenceDiagram
 
 4. **Commit Phase**
    - SinkWriter prepares commit information
-   - SinkCommitter coordinates commits
+   - A worker-local `SinkCommitter` commits each writer change independently, or a coordinator-side aggregated commit runs when configured
    - State persisted to checkpoint storage
 
 ### 5.3 State Machine
 
 **Task State Transitions**:
-```
-CREATED → INIT → WAITING_RESTORE → READY_START → STARTING → RUNNING
-                                                                ↓
-                    FAILED ← ─────────────────────── → PREPARE_CLOSE → CLOSED
-                                                                ↓
-                                                             CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE: restore path
+    INIT --> READY_START: fresh start
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE: normal completion
+    PREPARE_CLOSE --> CLOSED
+    INIT --> CANCELLING: external cancel
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
+**Failure Note**:
+- `FAILED` exists as a runtime result, but task-level restart is handled by higher-level recovery logic rather than by a direct `FAILED → ...` edge in this state machine.
+
 **Job State Transitions**:
-```
-CREATED → SCHEDULED → RUNNING → FINISHED
-            ↓            ↓
-          FAILED      CANCELING → CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> SCHEDULED
+    SCHEDULED --> RUNNING
+    RUNNING --> FINISHED
+    SCHEDULED --> FAILED
+    RUNNING --> FAILED
+    RUNNING --> CANCELING
+    CANCELING --> CANCELED
 ```
 
 ## 6. Key Features
@@ -335,10 +348,10 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 
 **Two-Phase Commit Protocol**:
 1. **Prepare Phase**: SinkWriter prepares commit info during checkpoint
-2. **Commit Phase**: SinkCommitter commits after checkpoint completes
+2. **Commit Phase**: A worker-local `SinkCommitter` commits each writer change independently, or a coordinator-side aggregated commit performs one global commit after checkpoint success
 3. **Abort Handling**: Roll back on failure before commit
 
-**Idempotency**: SinkCommitter operations must be idempotent to handle retries
+**Idempotency**: `SinkCommitter` and `SinkAggregatedCommitter` operations must be idempotent to handle retries
 
 ### 6.3 Dynamic Resource Management
 
@@ -363,49 +376,23 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 
 ## 7. Module Structure
 
-```
-seatunnel/
-├── seatunnel-api/                 # Core API definitions
-│   ├── source/                    # Source API
-│   ├── sink/                      # Sink API
-│   ├── transform/                 # Transform API
-│   └── table/                     # Table and Schema API
-│
-├── seatunnel-connectors-v2/       # Connector implementations
-│   ├── connector-jdbc/            # JDBC connector
-│   ├── connector-kafka/           # Kafka connector
-│   ├── connector-cdc-mysql/       # MySQL CDC connector
-│   └── ...                        # connectors
-│
-├── seatunnel-transforms-v2/       # Transform implementations
-│   ├── transform-sql/             # SQL transform
-│   ├── transform-filter/          # Filter transform
-│   └── ...
-│
-├── seatunnel-engine/              # SeaTunnel Engine (Zeta)
-│   ├── seatunnel-engine-core/     # Core execution logic
-│   ├── seatunnel-engine-server/   # Server components (Master/Worker)
-│   └── seatunnel-engine-storage/  # Checkpoint storage
-│
-├── seatunnel-translation/         # Engine translation layers
-│   ├── seatunnel-translation-flink/
-│   └── seatunnel-translation-spark/
-│
-├── seatunnel-formats/             # Data format handlers
-│   ├── seatunnel-format-json/
-│   ├── seatunnel-format-avro/
-│   └── ...
-│
-├── seatunnel-core/                # Job submission and CLI
-└── seatunnel-e2e/                 # End-to-end tests
-```
+| Module | Representative subdirectories | Responsibility |
+|--------|-------------------------------|----------------|
+| `seatunnel-api` | `source`, `sink`, `transform`, `table` | Defines the core APIs, table model, and engine-neutral abstractions |
+| `seatunnel-connectors-v2` | `connector-jdbc`, `connector-kafka`, `connector-cdc-mysql` | Implements source and sink connectors |
+| `seatunnel-transforms-v2` | `transform-sql`, `transform-filter` | Provides reusable transform implementations |
+| `seatunnel-engine` | `seatunnel-engine-core`, `seatunnel-engine-server`, `seatunnel-engine-storage` | Hosts Zeta execution, scheduling, and checkpoint storage |
+| `seatunnel-translation` | `seatunnel-translation-flink`, `seatunnel-translation-spark` | Adapts SeaTunnel APIs to different execution engines |
+| `seatunnel-formats` | `seatunnel-format-json`, `seatunnel-format-avro` | Handles data format serialization and parsing |
+| `seatunnel-core` | CLI and submission entrypoints | Owns job submission and command-line capabilities |
+| `seatunnel-e2e` | End-to-end test suites | Covers critical regression scenarios |
 
 ## 8. Design Principles
 
 ### 8.1 Separation of Concerns
 
 - **API vs Implementation**: Clean API boundaries enable multiple implementations
-- **Coordination vs Execution**: Enumerator/Committer (master) separate from Reader/Writer (worker)
+- **Coordination vs Execution**: Enumerator and aggregated-commit orchestration handle coordination, while Reader/Writer execute on workers
 - **Logical vs Physical**: LogicalDag (user intent) separate from PhysicalPlan (execution details)
 
 ### 8.2 Plugin Architecture
@@ -437,8 +424,12 @@ seatunnel/
 To dive deeper into specific architectural components:
 
 - [Design Philosophy](design-philosophy.md) - Core design principles and trade-offs
+- [Transform Plugin System](transform-plugin-system.md) - How transform plugins are structured, discovered, and used to shape rows and schema
+- [Table Schema and Type System](table-schema-and-type-system.md) - How schema, metadata, and portable types are modeled across connectors and engines
+- [CDC Pipeline Architecture](cdc-pipeline-architecture.md) - How snapshot, incremental change capture, and sink application work together
 - [Source Architecture](api-design/source-architecture.md) - Deep dive into Source API design
 - [Sink Architecture](api-design/sink-architecture.md) - Deep dive into Sink API design
+- [Plugin Discovery and Class Loading](plugin-discovery-and-class-loading.md) - How factories, jars, and isolated dependencies are resolved at runtime
 - [Engine Architecture](engine/engine-architecture.md) - SeaTunnel Engine internals
 - [Checkpoint Mechanism](fault-tolerance/checkpoint-mechanism.md) - Fault tolerance implementation
 

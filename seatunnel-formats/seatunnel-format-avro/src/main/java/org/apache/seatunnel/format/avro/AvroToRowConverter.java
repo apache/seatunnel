@@ -51,6 +51,13 @@ public class AvroToRowConverter implements Serializable {
         schema = SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType);
     }
 
+    public AvroToRowConverter(SeaTunnelRowType rowType, String writerSchema) {
+        schema =
+                writerSchema == null
+                        ? SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType)
+                        : new Schema.Parser().parse(writerSchema);
+    }
+
     public DatumReader<GenericRecord> getReader() {
         if (reader == null) {
             reader = createReader();

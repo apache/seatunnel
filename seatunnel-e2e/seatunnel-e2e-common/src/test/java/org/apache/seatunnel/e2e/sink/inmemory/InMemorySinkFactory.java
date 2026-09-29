@@ -30,6 +30,7 @@ import com.google.auto.service.AutoService;
 
 import java.util.List;
 
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @AutoService(Factory.class)
@@ -42,6 +43,17 @@ public class InMemorySinkFactory
 
     public static final Option<Boolean> WRITER_SLEEP =
             Options.key("writer_sleep").booleanType().defaultValue(false);
+
+    /**
+     * Per-record artificial delay (milliseconds) applied inside the writer's {@code write()}
+     * method. Unlike {@link #WRITER_SLEEP} (which blocks a single record forever to simulate a
+     * stuck slot), this option is graduated and tunable: it throttles sustained write throughput to
+     * a fixed rate so tests can construct a deliberately slow-but-alive sink and observe how the
+     * engine handles sustained backpressure from a fast source. Default 0 means no delay (existing
+     * behavior of every other test using this sink is unaffected).
+     */
+    public static final Option<Long> WRITE_DELAY_MS =
+            Options.key("write_delay_ms").longType().defaultValue(0L);
 
     public static final Option<Boolean> THROW_OUT_OF_MEMORY =
             Options.key("throw_out_of_memory").booleanType().defaultValue(false);
@@ -70,10 +82,12 @@ public class InMemorySinkFactory
                         THROW_EXCEPTION,
                         THROW_OUT_OF_MEMORY,
                         WRITER_SLEEP,
+                        WRITE_DELAY_MS,
                         CHECKPOINT_SLEEP,
                         THROW_EXCEPTION_OF_COMMITTER,
                         ASSERT_OPTIONS_KEY,
-                        ASSERT_OPTIONS_VALUE)
+                        ASSERT_OPTIONS_VALUE,
+                        MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

@@ -17,21 +17,102 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 public class FixedChunkSplitterTest {
+
+    @Test
+    public void testCreateFirstStringRangeSplitStatement() throws SQLException {
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "tbl"),
+                        "split-0",
+                        null,
+                        "id",
+                        BasicType.STRING_TYPE,
+                        null,
+                        "mm");
+
+        splitter.generateSplitStatement(split, TableSchema.builder().build());
+
+        assertEquals("SELECT * FROM `db`.`tbl` WHERE `id` <= ? AND NOT (`id` = ?)", splitter.sql);
+        assertEquals("mm", splitter.stringParameters.get(1));
+        assertEquals("mm", splitter.stringParameters.get(2));
+    }
+
+    @Test
+    public void testCreateLastStringRangeSplitStatement() throws SQLException {
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "tbl"),
+                        "split-1",
+                        null,
+                        "id",
+                        BasicType.STRING_TYPE,
+                        "mm",
+                        null);
+
+        splitter.generateSplitStatement(split, TableSchema.builder().build());
+
+        assertEquals("SELECT * FROM `db`.`tbl` WHERE `id` >= ?", splitter.sql);
+        assertEquals("mm", splitter.stringParameters.get(1));
+    }
+
+    @Test
+    public void testRejectAutoStringRangeSplitForNonMysqlDialect() {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:postgresql://localhost:5432/test")
+                                        .driverName("org.postgresql.Driver")
+                                        .build())
+                        .stringSplitStrategy(StringSplitStrategy.AUTO)
+                        .build();
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("public", "tbl")).build();
+
+        JdbcConnectorException exception =
+                assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                splitter.createSplits(
+                                        table,
+                                        new SeaTunnelRowType(
+                                                new String[] {"id"},
+                                                new SeaTunnelDataType[] {BasicType.STRING_TYPE})));
+
+        assertTrue(exception.getMessage().contains("does not support range/auto"));
+    }
 
     @Test
     public void testConvertFloat() throws Exception {
@@ -82,5 +163,42 @@ public class FixedChunkSplitterTest {
         // Verify that the old method indeed has precision issues
         BigDecimal oldPrecisionWay = BigDecimal.valueOf(precisionTestFloat);
         assertNotEquals(new BigDecimal("0.1"), oldPrecisionWay);
+    }
+
+    private static JdbcSourceConfig mysqlConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:mysql://localhost:3306/test")
+                                .driverName("com.mysql.cj.jdbc.Driver")
+                                .build())
+                .stringSplitStrategy(StringSplitStrategy.RANGE)
+                .build();
+    }
+
+    private static class CapturingFixedChunkSplitter extends FixedChunkSplitter {
+        private String sql;
+        private final Map<Integer, String> stringParameters = new HashMap<>();
+
+        private CapturingFixedChunkSplitter(JdbcSourceConfig config) {
+            super(config);
+        }
+
+        @Override
+        protected PreparedStatement createPreparedStatement(String sql) {
+            this.sql = sql;
+            InvocationHandler handler =
+                    (proxy, method, args) -> {
+                        if ("setString".equals(method.getName())) {
+                            stringParameters.put((Integer) args[0], (String) args[1]);
+                        }
+                        return null;
+                    };
+            return (PreparedStatement)
+                    Proxy.newProxyInstance(
+                            PreparedStatement.class.getClassLoader(),
+                            new Class<?>[] {PreparedStatement.class},
+                            handler);
+        }
     }
 }

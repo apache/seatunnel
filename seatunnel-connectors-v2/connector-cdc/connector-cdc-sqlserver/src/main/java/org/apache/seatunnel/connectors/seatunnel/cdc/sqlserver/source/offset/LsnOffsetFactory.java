@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerS
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.SqlServerDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils;
 
-import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
 
@@ -62,7 +61,7 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(Map<String, String> offset) {
-        return LsnOffset.valueOf(offset.get(SourceInfo.COMMIT_LSN_KEY));
+        return LsnOffset.valueOf(offset);
     }
 
     @Override
@@ -73,6 +72,13 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset timestamp(long timestamp) {
-        throw new UnsupportedOperationException("not supported create new Offset by timestamp.");
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
+            return SqlServerUtils.timestampToLsn(
+                    (SqlServerConnection) jdbcConnection,
+                    timestamp,
+                    sourceConfig.getServerTimeZone());
+        } catch (Exception e) {
+            throw new RuntimeException("Convert timestamp to LSN offset error", e);
+        }
     }
 }

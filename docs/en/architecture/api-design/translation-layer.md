@@ -29,30 +29,44 @@ SeaTunnel's translation layer aims to:
 
 ### 1.3 Architecture Overview
 
+```mermaid
+flowchart TB
+    api["SeaTunnel API Layer<br/>Engine-independent connector interfaces<br/>SeaTunnelSource / SeaTunnelSink / SeaTunnelTransform"]
+
+    flinkAdapter["Flink Adapter<br/>FlinkSource / FlinkSink"]
+    sparkAdapter["Spark Adapter<br/>SparkSource / SparkSink"]
+    zetaAdapter["Zeta (Native)<br/>Direct execution"]
+
+    flinkRuntime["Apache Flink Runtime"]
+    sparkRuntime["Apache Spark Runtime"]
+    zetaRuntime["SeaTunnel Engine (Zeta)"]
+
+    api --> flinkAdapter
+    api --> sparkAdapter
+    api --> zetaAdapter
+
+    flinkAdapter --> flinkRuntime
+    sparkAdapter --> sparkRuntime
+    zetaAdapter --> zetaRuntime
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class api layerBlue;
+    class flinkAdapter,sparkAdapter,zetaAdapter layerCyan;
+    class flinkRuntime,sparkRuntime,zetaRuntime layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                   SeaTunnel API Layer                         │
-│         (Engine-Independent Connector Interface)              │
-│                                                                │
-│  SeaTunnelSource    SeaTunnelSink    SeaTunnelTransform      │
-└──────────────────────────────────────────────────────────────┘
-                              │
-                              │ Translation Layer
-                ┌─────────────┼─────────────┐
-                ▼             ▼             ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Flink Adapter   │  │  Spark Adapter   │  │ Zeta (Native)    │
-│                  │  │                  │  │                  │
-│ FlinkSource      │  │ SparkSource      │  │ Direct           │
-│ FlinkSink        │  │ SparkSink        │  │ Execution        │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Apache Flink    │  │  Apache Spark    │  │ SeaTunnel Engine │
-│     Runtime      │  │     Runtime      │  │      (Zeta)      │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-```
+
+### 1.4 Recommended Reading Path
+
+Use this page as the cross-engine overview, then branch into the engine-specific pages:
+
+- [Flink Translation Layer](./flink-translation-layer.md)
+- [Spark Translation Layer](./spark-translation-layer.md)
+
+Read the rest of this page when you want the combined view of shared translation concerns.
 
 ## 2. Flink Translation Layer
 

@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.container.flink.Flink13Container;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -55,26 +54,24 @@ public class FlinkMetricsIT extends TestSuiteBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkMetricsIT.class);
 
     @TestTemplate
-    public void testFlinkMetrics(TestContainer container) throws IOException, InterruptedException {
+    public void testFlinkMetrics(AbstractTestFlinkContainer container)
+            throws IOException, InterruptedException {
         Container.ExecResult executeResult =
                 container.executeJob("/fake_to_assert_verify_flink_metrics.conf");
         Assertions.assertEquals(0, executeResult.getExitCode());
-        final String jobListUrl = "http://%s:8081/jobs/overview";
-        final String jobDetailsUrl = "http://%s:8081/jobs/%s";
-        final String jobAccumulatorUrl = "http://%s:8081/jobs/%s/vertices/%s/accumulators";
-        final String jobManagerHost;
-        String dockerHost = System.getenv("DOCKER_HOST");
-        if (dockerHost == null) {
-            jobManagerHost = "localhost";
-        } else {
-            URI uri = URI.create(dockerHost);
-            jobManagerHost = uri.getHost();
-        }
+        final String jobManagerRestEndpoint =
+                String.format(
+                        "http://%s:%s",
+                        container.getJobManagerHost(), container.getJobManagerRestPort());
+        final String jobListUrl = jobManagerRestEndpoint + "/jobs/overview";
+        final String jobDetailsUrl = jobManagerRestEndpoint + "/jobs/%s";
+        final String jobAccumulatorUrl =
+                jobManagerRestEndpoint + "/jobs/%s/vertices/%s/accumulators";
         // create http client
         CloseableHttpClient httpClient = HttpClients.createDefault();
 
         // get job id
-        HttpGet httpGet = new HttpGet(String.format(jobListUrl, jobManagerHost));
+        HttpGet httpGet = new HttpGet(jobListUrl);
         CloseableHttpResponse response = httpClient.execute(httpGet);
         Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
         String responseContent = EntityUtils.toString(response.getEntity());
@@ -83,7 +80,7 @@ public class FlinkMetricsIT extends TestSuiteBase {
         Assertions.assertNotNull(jobId);
 
         // get job vertices
-        httpGet = new HttpGet(String.format(jobDetailsUrl, jobManagerHost, jobId));
+        httpGet = new HttpGet(String.format(jobDetailsUrl, jobId));
         response = httpClient.execute(httpGet);
         Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
 
@@ -98,12 +95,7 @@ public class FlinkMetricsIT extends TestSuiteBase {
                 .untilAsserted(
                         () -> {
                             HttpGet httpGetTemp =
-                                    new HttpGet(
-                                            String.format(
-                                                    jobAccumulatorUrl,
-                                                    jobManagerHost,
-                                                    jobId,
-                                                    verticeId));
+                                    new HttpGet(String.format(jobAccumulatorUrl, jobId, verticeId));
                             CloseableHttpResponse responseTemp = httpClient.execute(httpGetTemp);
                             String responseContentTemp =
                                     EntityUtils.toString(responseTemp.getEntity());
@@ -117,7 +109,7 @@ public class FlinkMetricsIT extends TestSuiteBase {
                         });
 
         // get metrics
-        httpGet = new HttpGet(String.format(jobAccumulatorUrl, jobManagerHost, jobId, verticeId));
+        httpGet = new HttpGet(String.format(jobAccumulatorUrl, jobId, verticeId));
         response = httpClient.execute(httpGet);
         responseContent = EntityUtils.toString(response.getEntity());
         jsonNode = JsonUtils.parseObject(responseContent);

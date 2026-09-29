@@ -4,35 +4,65 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 > Maxcompute sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Used to read data from Maxcompute.
+Used to write data to Maxcompute. The connector supports AccessKey (`accessId`/`accesskey`)
+authentication, STS-token authentication, and the default Aliyun credentials provider chain. It can
+append to or overwrite a target table or partition, create the target table from a template, and
+uses an upload
+or upsert session selected by `insert_strategy`.
 
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-|      name      | type    | required | default value |
-|----------------|---------|----------|---------------|
-| accessId       | string  | yes      | -             |
-| accesskey      | string  | yes      | -             |
-| endpoint       | string  | yes      | -             |
-| project        | string  | yes      | -             |
-| table_name     | string  | yes      | -             |
-| partition_spec | string  | no       | -             |
-| overwrite      | boolean | no       | false         |
-| insert_strategy| string  | no       | upload        |
-| common-options | string  | no       |               |
+| name                      | type    | required | default value                | description                                                                                                              |
+|---------------------------|---------|----------|------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| accessId                  | string  | no       | -                            | Aliyun AccessKey ID used to access MaxCompute.                                                                            |
+| accesskey                 | string  | no       | -                            | Aliyun AccessKey secret used to access MaxCompute.                                                                        |
+| sts_token                 | string  | no       | -                            | STS token used for temporary MaxCompute authentication. When `sts_token` is provided, `accessId` and `accesskey` are required. |
+| endpoint                  | string  | yes      | -                            | MaxCompute endpoint, starting with `http`.                                                                                |
+| project                   | string  | yes      | -                            | MaxCompute project created in Alibaba Cloud.                                                                              |
+| table_name                | string  | yes      | -                            | Target MaxCompute table name, for example `fake`.                                                                         |
+| schema_name               | string  | no       | -                            | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema.    |
+| partition_spec            | string  | no       | -                            | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                           |
+| overwrite                 | boolean | no       | false                        | Whether to overwrite the target table or partition.                                                                       |
+| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing, such as `RECREATE_SCHEMA` or `CREATE_SCHEMA_WHEN_NOT_EXIST`.                |
+| data_save_mode            | enum    | no       | APPEND_DATA                  | How to handle existing target data before writing, such as `DROP_DATA`, `APPEND_DATA`, or `ERROR_WHEN_DATA_EXISTS`.      |
+| custom_sql                | string  | no       | -                            | Custom SQL to execute before writing when `data_save_mode = CUSTOM_PROCESSING`.                                          |
+| save_mode_create_template | string  | no       | see below                    | DDL template used when the sink creates the target table.                                                                 |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss          | Format string used to convert `LocalDateTime` fields to strings.                                                         |
+| tunnel_endpoint           | string  | no       | -                            | Custom endpoint URL for the MaxCompute Tunnel service. When not set, the endpoint is auto-inferred from the region.       |
+| tunnel_name               | string  | no       | -                            | Tunnel Quota name used for exclusive resource groups. Requires both `endpoint` and `tunnel_endpoint` to be VPC endpoints. |
+| insert_strategy           | string  | no       | upload                       | Insert session strategy: `upload` uses an upload session, `upsert` uses an upsert session and requires a primary key.    |
+| multi_table_sink_replica  | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job.                                                      |
+| common-options            |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`.                                                                   |
 
 ### accessId [string]
 
-`accessId` Your Maxcompute accessId which cloud be access from Alibaba Cloud.
+`accessId` Your Maxcompute accessId that can access Alibaba Cloud.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+`accesskey` Your Maxcompute accessKey that can access Alibaba Cloud.
+
+### sts_token [string]
+
+`sts_token` Your MaxCompute STS Token for temporary authentication. **Note:** If `sts_token` is provided, `accessId` and `accesskey` are strictly required.
+
+> **Passwordless Authentication (ECS RAM Role, Environment Variables, etc.)**
+> To use passwordless authentication seamlessly, simply leave `accessId`, `accesskey`, and `sts_token` all blank. The connector will automatically fall back to the Aliyun DefaultCredentialsProvider chain (Environment Variables, System Properties, CLI Profiles, OIDC, ECS RAM Roles).
 
 ### endpoint [string]
 
@@ -49,6 +79,14 @@ Used to read data from Maxcompute.
 ### partition_spec [string]
 
 `partition_spec` This spec of Maxcompute partition table eg:ds='20220101'.
+
+### schema_name [string]
+
+`schema_name` The MaxCompute Schema name (the namespace between Project and Table).
+Only required when the table resides in a **non-default schema** within your MaxCompute project.
+See [Schema-related operations](https://www.alibabacloud.com/help/en/maxcompute/user-guide/schema-related-operations).
+
+Default: not set (uses the project default schema).
 
 ### overwrite [boolean]
 
@@ -152,6 +190,22 @@ Example values:
 
 Default: Not set (auto-inferred from region)
 
+### tunnel_name [String]
+
+`tunnel_name` Specifies the Tunnel Quota name for exclusive resource groups.
+
+Tunnel Quota allows you to use dedicated computing resources for MaxCompute Tunnel data transfer, providing better performance and resource isolation.
+
+**Important**: Tunnel Quota only works with **VPC (Virtual Private Cloud) endpoints**. It is not supported for public network access. You must configure both `endpoint` and `tunnel_endpoint` to use VPC endpoints when using `tunnel_name`.
+
+If not specified, the default Tunnel quota will be used.
+
+Example values:
+
+- `your_tunnel_quota_name`
+
+Default: Not set (use default quota)
+
 ### insert_strategy [string]
 
 If `insert_strategy` is set to `upload`, insert operations use an upload session.
@@ -161,11 +215,21 @@ If set to `upsert`, insert operations use an upsert session. Upsert sessions req
 Using upload sessions for insert operations alongside update or delete operations may cause insert records to appear in the table later than expected.
 When a primary key is present, it is recommended to set `insert_strategy` to `upsert` to ensure consistent upsert behavior.
 
+`UPDATE_AFTER` and `DELETE` rows are always written through a MaxCompute upsert session, so the target table must have a primary key when the job contains update or delete rows. `UPDATE_BEFORE` rows are not supported by this sink.
+
+### multi_table_sink_replica [int]
+
+The number of writer replicas in multi-table sink mode. The default value is `1`.
+
+Use this option when upstream data contains multiple table identifiers and `table_name` uses placeholders such as `${table_name}`. For example, `table_name = "${table_name}_sink"` writes upstream table `test_table` to target table `test_table_sink`.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Examples
+
+### Append Data
 
 ```hocon
 sink {
@@ -177,6 +241,111 @@ sink {
     table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #overwrite = false
+  }
+}
+```
+
+### Multiple Tables
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+          { kind = INSERT, fields = [2, "INSERT_TEST2", 30] }
+        ]
+      },
+      {
+        schema = {
+          table = "test_table_2"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "${table_name}_sink"
+    insert_strategy = "upsert"
+    multi_table_sink_replica = 1
+  }
+}
+```
+
+### Upsert or Delete Rows
+
+Use `insert_strategy = "upsert"` when the upstream schema has a primary key and the job contains
+update or delete rows. The example below uses an update row; delete rows use the same sink settings.
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table_sink"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          {
+            kind = UPDATE_AFTER
+            fields = [1, "UPSERT_TEST", 100]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "test_table_sink"
+    insert_strategy = "upsert"
   }
 }
 ```

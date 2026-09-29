@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,7 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +127,108 @@ class KafkaRecordEmitterTest {
         SeaTunnelRow row = out.get(0);
         Assertions.assertFalse(row.getOptions().containsKey(CommonOptions.EVENT_TIME.getName()));
         Assertions.assertEquals(6L, splitState.getCurrentOffset());
+    }
+
+    @Test
+    void emitRecordShouldAttachHeaderFields() throws Exception {
+        SeaTunnelRowType baseRowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType extendedRowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0", "correlation_id"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+        List<String> headerFields = Arrays.asList("correlation_id");
+
+        KafkaHeadersDeserializationSchema headersSchema =
+                new KafkaHeadersDeserializationSchema(
+                        new SimpleStringRowSchema(baseRowType), headerFields, extendedRowType);
+        DeserializationSchema<SeaTunnelRow> schema =
+                new KafkaEventTimeDeserializationSchema(headersSchema);
+
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setDeserializationSchema(schema);
+        Map<TablePath, ConsumerMetadata> map = new HashMap<>();
+        TablePath tablePath = TablePath.DEFAULT;
+        map.put(tablePath, metadata);
+
+        KafkaRecordEmitter emitter = new KafkaRecordEmitter(map, MessageFormatErrorHandleWay.FAIL);
+
+        RecordHeaders recordHeaders = new RecordHeaders();
+        recordHeaders.add(
+                new RecordHeader("correlation_id", "corr-test".getBytes(StandardCharsets.UTF_8)));
+
+        org.apache.kafka.clients.consumer.ConsumerRecord<byte[], byte[]> record =
+                Mockito.mock(org.apache.kafka.clients.consumer.ConsumerRecord.class);
+        Mockito.when(record.timestamp()).thenReturn(1000L);
+        Mockito.when(record.value()).thenReturn("hello".getBytes(StandardCharsets.UTF_8));
+        Mockito.when(record.offset()).thenReturn(0L);
+        Mockito.when(record.headers()).thenReturn(recordHeaders);
+
+        KafkaSourceSplit split = new KafkaSourceSplit(tablePath, new TopicPartition("t", 0));
+        KafkaSourceSplitState splitState = new KafkaSourceSplitState(split);
+
+        List<SeaTunnelRow> out = new ArrayList<>();
+        emitter.emitRecord(record, new TestCollector(out), splitState);
+
+        Assertions.assertEquals(1, out.size());
+        SeaTunnelRow row = out.get(0);
+        Assertions.assertEquals(2, row.getFields().length);
+        Assertions.assertEquals("hello", row.getField(0));
+        Assertions.assertEquals("corr-test", row.getField(1));
+    }
+
+    @Test
+    void emitRecordShouldPreserveEventTimeWithHeaders() throws Exception {
+        long kafkaTimestamp = 9876543210L;
+        SeaTunnelRowType baseRowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType extendedRowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0", "trace_id"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+
+        KafkaHeadersDeserializationSchema headersSchema =
+                new KafkaHeadersDeserializationSchema(
+                        new SimpleStringRowSchema(baseRowType),
+                        Arrays.asList("trace_id"),
+                        extendedRowType);
+        DeserializationSchema<SeaTunnelRow> schema =
+                new KafkaEventTimeDeserializationSchema(headersSchema);
+
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setDeserializationSchema(schema);
+        Map<TablePath, ConsumerMetadata> map = new HashMap<>();
+        TablePath tablePath = TablePath.DEFAULT;
+        map.put(tablePath, metadata);
+
+        KafkaRecordEmitter emitter = new KafkaRecordEmitter(map, MessageFormatErrorHandleWay.FAIL);
+
+        RecordHeaders recordHeaders = new RecordHeaders();
+        recordHeaders.add(
+                new RecordHeader("trace_id", "trace-abc".getBytes(StandardCharsets.UTF_8)));
+
+        org.apache.kafka.clients.consumer.ConsumerRecord<byte[], byte[]> record =
+                Mockito.mock(org.apache.kafka.clients.consumer.ConsumerRecord.class);
+        Mockito.when(record.timestamp()).thenReturn(kafkaTimestamp);
+        Mockito.when(record.value()).thenReturn("data".getBytes(StandardCharsets.UTF_8));
+        Mockito.when(record.offset()).thenReturn(0L);
+        Mockito.when(record.headers()).thenReturn(recordHeaders);
+
+        KafkaSourceSplit split = new KafkaSourceSplit(tablePath, new TopicPartition("t3", 0));
+        KafkaSourceSplitState splitState = new KafkaSourceSplitState(split);
+
+        List<SeaTunnelRow> out = new ArrayList<>();
+        emitter.emitRecord(record, new TestCollector(out), splitState);
+
+        Assertions.assertEquals(1, out.size());
+        SeaTunnelRow row = out.get(0);
+        // Header field populated
+        Assertions.assertEquals("trace-abc", row.getField(1));
+        // Event time also set
+        Assertions.assertEquals(
+                kafkaTimestamp, row.getOptions().get(CommonOptions.EVENT_TIME.getName()));
     }
 
     private static class SimpleStringRowSchema implements DeserializationSchema<SeaTunnelRow> {

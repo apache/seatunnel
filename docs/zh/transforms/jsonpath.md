@@ -1,10 +1,10 @@
-# JsonPath
+# JSON 路径提取
 
-> JSONPath 转换插件
+> JsonPath：使用 JSONPath 从 JSON 数据中提取字段
 
 ## 描述
 
-> 支持使用 JSONPath 选择数据
+JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 ## 属性
 
@@ -13,7 +13,7 @@
 | columns              | Array | Yes  |      | 
 | row_error_handle_way | Enum  | No   | FAIL |
 
-### common options [string]
+### 通用选项 [string]
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 
@@ -23,18 +23,19 @@
 
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
+- ROUTE_TO_TABLE：JsonPath 转换尚未实现该处理方式。该值目前可以配置，但实际行为与 `FAIL` 完全相同：解析失败的行会直接使作业失败，不会被路由到错误表。
 
 ### columns [array]
 
 #### 属性
 
-| 名称                      | 类型     | 是否必须 | 默认值    |
-|-------------------------|--------|------|--------|
-| src_field               | String | Yes  |        |
-| dest_field              | String | Yes  |        |
-| path                    | String | Yes  |        |
-| dest_type               | String | No   | String |
-| column_error_handle_way | Enum   | No   |        |
+| 名称                      | 类型              | 是否必须 | 默认值    |
+|-------------------------|-----------------|------|--------|
+| src_field               | String          | Yes  |        |
+| dest_field              | String or Array | Yes  |        |
+| path                    | String or Array | Yes  |        |
+| dest_type               | String or Array | No   | String |
+| column_error_handle_way | Enum            | No   |        |
 
 #### src_field
 
@@ -52,13 +53,19 @@
 
 > 使用 JSONPath 后的输出字段
 
+可以是单个字段名；当需要从同一个源字段提取多个值时，也可以配置为字段名数组。
+
 #### dest_type
 
 > 目标字段的类型
 
+可以是单个类型；也可以在批量提取时配置为类型数组。单字段提取时如果省略，默认使用 `string`。
+
 #### path
 
 > Jsonpath
+
+可以是单个 JSONPath 表达式，也可以是 JSONPath 表达式数组。
 
 #### column_error_handle_way [Enum]
 
@@ -91,7 +98,7 @@
 
 假设我们想要使用 JsonPath 提取属性。
 
-```json
+```hocon
 transform {
   JsonPath {
     plugin_input = "fake"
@@ -179,13 +186,13 @@ transform {
   }
 }
 ```
-**重要提示：** 当使用批量字段提取（多个 paths、dest_fields 和 dest_types）时，`dest_type` 参数是必填的，不能省略。每个提取的字段都必须指定一个对应的类型。数组格式提供了更好的可读性，比基于字符串的配置更不容易出错。
+**重要提示：** 使用批量字段提取时，`path`、`dest_field` 和 `dest_type` 的数组长度必须一致。如果省略 `dest_type`，Transform 只会使用单个默认类型 `string`，因此多个输出字段应显式配置 `dest_type` 数组。
 
 那么数据结果表 `fake1` 将会像这样
 
-|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |
-|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|
-| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] |
+|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |         c1_map_array         |
+|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|------------------------------|
+| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] | [{"key1": "value1", "key2": "value2"}] |
 
 ## 读取 SeatunnelRow 示例
 
@@ -323,4 +330,3 @@ transform {
 ## 更新日志
 
 * 添加 JsonPath 转换
-

@@ -24,4 +24,12 @@ public class NoEnoughResourceException extends RuntimeException {
     public NoEnoughResourceException(String message) {
         super(message);
     }
+
+    public NoEnoughResourceException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public NoEnoughResourceException(Throwable cause) {
+        super(cause);
+    }
 }

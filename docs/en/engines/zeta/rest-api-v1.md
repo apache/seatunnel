@@ -37,6 +37,100 @@ network:
 
 ## API reference
 
+### Get Connector Option Rules
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/option-rules?type=source&plugin=FakeSource</b></code> <code>(Returns the full runtime OptionRule metadata of a connector.)</code></summary>
+
+#### Parameters
+
+> |  name  |   type   | data type |                            description                             |
+> |--------|----------|-----------|--------------------------------------------------------------------|
+> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
+
+#### Responses
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": []
+  }
+}
+```
+
+**Notes:**
+- The response is resolved from runtime plugin discovery, so it follows the connector version installed on the server.
+- `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
+- `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
+- For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
@@ -67,6 +161,53 @@ network:
 **Notes:**
 - If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
 - If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Query Worker Resources
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/resource/workers</b></code> <code>(Returns the current resource snapshot for registered workers.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
+- Dynamic-slot workers do not have a fixed slot capacity. For them, `totalSlots` is the number of currently tracked assigned and unassigned slots, while `freeSlots` is the currently unassigned count. Use `dynamicSlot` together with the CPU and heap fields when interpreting capacity.
+- When `available` is `false`, `workers` is empty because the master snapshot cannot currently be read. Clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` records when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
+- Resource and usage fields are omitted until the worker heartbeat contains those values.
 
 </details>
 
@@ -198,6 +339,9 @@ network:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
+see [REST API V2](rest-api-v2.md) for its fields. Only this endpoint returns it, `/running-jobs` does
+not.
 
 #### Metrics field description
 
@@ -429,6 +573,9 @@ When we can't get the job info, the response will be:
 ]
 ```
 
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -594,14 +741,24 @@ When we can't get the job info, the response will be:
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stopped successfully.)</code></summary>
+
+#### Parameters
+
+> | name                | required | data type | description                                                      |
+> |---------------------|----------|-----------|------------------------------------------------------------------|
+> | jobId               | yes      | long      | job id                                                           |
+> | isStopWithSavePoint | no       | boolean   | If the job is stopped with a savepoint.                          |
+> | force               | no       | boolean   | If true, the job is force-stopped (ignores isStopWithSavePoint). |
+
 
 #### Body
 
 ```json
 {
     "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+    "isStopWithSavePoint": false,
+    "force": false
 }
 ```
 
@@ -612,6 +769,10 @@ When we can't get the job info, the response will be:
 "jobId": 733584788375666689
 }
 ```
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 </details>
 
@@ -627,11 +788,13 @@ When we can't get the job info, the response will be:
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```
@@ -656,7 +819,7 @@ When we can't get the job info, the response will be:
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 #### Body
 

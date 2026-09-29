@@ -23,15 +23,6 @@ import ChangeLog from '../changelog/connector-http.md';
 
 Used to read data from Http.
 
-## Key features
-
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-
 Supported DataSource Info
 -------------------------
 
@@ -51,16 +42,17 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | schema.fields                 | Config  | No       | -           | The schema fields of upstream data                                                                                                                                            |
 | json_field                    | Config  | No       | -           | This parameter helps you configure the schema,so this parameter must be used with schema.                                                                                     |
 | pageing                       | Config  | No       | -           | This parameter is used for paging queries                                                                                                                                     |
-| pageing.page_field            | String  | No       | -           | This parameter is used to specify the page field name in the request. It can be used in headers, params, or body with placeholders like ${page_field}.                        |
+| pageing.page_field            | String  | No       | page        | This parameter is used to specify the page field name in the request. It can be used in headers, params, or body with placeholders like `${page}`.                        |
 | pageing.use_placeholder_replacement | Boolean | No | false | If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.                                                 |
-| pageing.total_page_size       | Int     | No       | -           | This parameter is used to control the total number of pages                                                                                                                   |
-| pageing.batch_size            | Int     | No       | -           | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown                                                        |
+| pageing.total_page_size       | Long    | No       | 0           | This parameter is used to control the total number of pages. `0` means the connector continues until the returned row count is less than `pageing.batch_size`.                                                                                                                   |
+| pageing.batch_size            | Int     | No       | 100         | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown.                                                        |
 | pageing.start_page_number     | Int     | No       | 1           | Specify the page number from which synchronization starts                                                                                                                     |
 | pageing.page_type             | String  | No       | PageNumber  | this parameter is used to specify the page type ,or PageNumber if not set, only support `PageNumber` and `Cursor`.                                  |
 | pageing.cursor_field          | String  | No       | -           | this parameter is used to specify the Cursor field name in the request parameter.                                                                                       |
 | pageing.cursor_response_field | String  | No       | -           | This parameter specifies the field in the response from which the cursor is retrieved.                                                                                        |
 | content_field                  | String  | No       | -           | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.                                          |
-| format                        | String  | No       | text        | The format of upstream data, now only support `json` `text`, default `text`.                                                                                                  |
+| format                        | String  | No       | text        | The format of upstream data, supports `json` `text` `binary`, default `text`. When set to `binary`, the response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). |
+| binary_chunk_size             | Long    | No       | 10485760    | Chunk size in bytes when `format = binary`. Large files are split into multiple rows. Default 10MB. Only effective in BATCH mode.                                             |
 | method                        | String  | No       | get         | Http request method, only supports GET, POST method.                                                                                                                          |
 | headers                       | Map     | No       | -           | Http headers.                                                                                                                                                                 |
 | params                        | Map     | No       | -           | Http params.                                                                                                                                                                  |
@@ -76,6 +68,12 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | keep_params_as_form           |    Boolean  | No       | false       | Whether the params are submitted according to the form, used for compatibility with legacy behaviors. When true, the value of the params parameter is submitted through the form. |
 | keep_page_param_as_http_param |    Boolean  | No       | false       | Whether to set the paging parameters to params. For compatibility with legacy behaviors.|
 | json_filed_missed_return_null         |    Boolean     | No       | false       | When the json field is missing, set true return null else error.|
+
+## Option Notes
+
+- `pageing` is intentionally spelled this way in the connector option name. Keep this spelling in job configs.
+- `format = json` normally needs `schema`. `json_field` is used with `schema` when fields are extracted from nested JSON paths. `content_field` can extract a JSON array or object fragment directly.
+- `format = binary` outputs fixed fields `(data: bytes, relativePath: string, partIndex: long)`, only works in batch mode, and cannot be used with `pageing`.
 
 
 ## How to Create a Http Data Synchronization Jobs
@@ -191,6 +189,40 @@ connector will generate data as the following:
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
+when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode and does not support pagination (`pageing`).
+
+Example: Download a file via HTTP and write to LocalFileSink:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Http {
+    url = "http://example.com/files/report.pdf"
+    method = "GET"
+    format = "binary"
+    binary_chunk_size = 10485760  # 10MB per chunk
+    schema = {
+      fields {
+        data = bytes
+        relativePath = string
+        partIndex = long
+      }
+    }
+  }
+}
+
+sink {
+  LocalFile {
+    path = "/tmp/download"
+    file_format = "binary"
+  }
+}
+```
+
 ### keep_params_as_form
 For compatibility with old versions of http.
 When set to true,`<params>` and `<pageing>` will be submitted in the form.
@@ -221,7 +253,7 @@ The HTTP body is used to carry the actual data in requests or responses, includi
 
 The reference format is as follows：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 For form submissions,please set the content-type as follows.
@@ -229,6 +261,110 @@ For form submissions,please set the content-type as follows.
 headers {
     Content-Type = "application/x-www-form-urlencoded"
 }
+```
+
+### Pagination and final request shape
+
+The easiest way to troubleshoot the Http source is to reason from the final outbound request:
+
+1. For `GET`, `params` are always appended to the URL query string.
+2. For `POST` with `keep_params_as_form = false`:
+   - `params` still go to the URL query string
+   - on the default non-form path, `body` is serialized as the JSON request body
+   - if `body` is not configured and the request stays on that default non-form path, the runtime sends an empty JSON object `{}` as the request body
+   - if you explicitly force `Content-Type: application/x-www-form-urlencoded`, the runtime follows the form-body branch instead of the default JSON branch
+3. For `POST` with `keep_params_as_form = true`:
+   - `params` are merged into the form body
+   - if `Content-Type` is not set explicitly, SeaTunnel adds `application/x-www-form-urlencoded`
+   - if `body` and `params` contain the same key, the value from `params` overrides the value in `body`
+4. `keep_page_param_as_http_param = true` writes the paging field directly into `params`
+5. `keep_page_param_as_http_param = false` only updates existing keys or placeholders in headers, params, and body; it does not invent new paging fields automatically
+6. `pageing.use_placeholder_replacement = true` supports `${page}` and `${cursor}` placeholders, and also prefixed/suffixed replacements such as `"10${page}" -> "105"`; when `false`, only key-based replacement is applied
+
+Example 1: GET pagination with the page number in query parameters
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders"
+    method = "GET"
+    params = {
+      page = "${page}"
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+GET https://api.example.com/orders?page=3&size=100
+```
+
+Example 2: POST JSON on the default non-form path, with URL query parameters and the paging field inside the body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = false
+    params = {
+      tenant = "acme"
+    }
+    body = """{"page":"${page}","pageSize":100}"""
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+POST https://api.example.com/orders/search?tenant=acme
+Content-Type: application/json
+Body: {"page":"3","pageSize":100}
+```
+
+Example 3: POST form submission with paging fields merged into the form body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = true
+    keep_page_param_as_http_param = true
+    params = {
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+POST https://api.example.com/orders/search
+Content-Type: application/x-www-form-urlencoded
+Body: size=100&page=3
 ```
 
 ### content_field
@@ -303,8 +439,8 @@ Http {
 
 Here is an example:
 
-- Test data can be found at this link [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_contentjson_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
 
 ### json_field
 
@@ -364,8 +500,8 @@ source {
 }
 ```
 
-- Test data can be found at this link [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_jsonpath_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### pageing
 The current supported pagination type are `PageNumber` and `Cursor`.
@@ -555,7 +691,7 @@ source {
 the `pageing.page_type` parameter must be set to `Cursor`.
 `cursor_field` is the field name of the cursor in the request parameters.
 `cursor_response_field` is the field name denotes the name of the pagination token field in the response data, we should add this to add pageing fields into request.
-````hocon
+```hocon
 
 source {
     Http {

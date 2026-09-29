@@ -44,7 +44,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class StarRocksCreateTableTest {
@@ -425,5 +427,35 @@ public class StarRocksCreateTableTest {
                         + "    \"replication_num\" = \"1\" \n"
                         + ")\n",
                 result);
+    }
+
+    @Test
+    public void testCreateTableWithTableOptions() {
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("replication_num", "3");
+        tableOptions.put("storage_format", "V2");
+
+        String result =
+                StarRocksSaveModeUtil.INSTANCE.getCreateTableSql(
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue(),
+                        "testdb",
+                        "test_table",
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                false,
+                                                null,
+                                                ""))
+                                .primaryKey(PrimaryKey.of("test", Collections.singletonList("id")))
+                                .build(),
+                        "test table",
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
+                        tableOptions);
+
+        Assertions.assertTrue(result.contains("\"replication_num\" = \"3\""));
+        Assertions.assertTrue(result.contains("\"storage_format\" = \"V2\""));
     }
 }

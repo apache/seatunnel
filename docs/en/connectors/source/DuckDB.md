@@ -6,7 +6,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Read external data source data through JDBC.
+Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
+talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
+remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
+and reading multiple tables in one job through `table_list`.
 
 ## Support DuckDB Version
 
@@ -30,12 +33,12 @@ Read external data source data through JDBC.
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
 
@@ -77,16 +80,16 @@ Read external data source data through JDBC.
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                     |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                  |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type primary key, and only can config one column.                                                                                                                                                 |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                    |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                      |
+| partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |
+| partition_upper_bound        | String     | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                    |
+| partition_num                | Int        | No       | 10              | The number of partition count, only support positive integer. default value is 10                                                                                                                                                                                   |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure<br/> the row fetch size used in the query to improve performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters, when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in DuckDB, properties take precedence over the URL.                    |
 | table_path                   | String     | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>duckdb: "main.table1" <br/>                                                                                                                              |
 | table_list                   | Array      | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "main.table1"}, {table_path = "main.table2", query = "select * id, name from main.table2"}]```                                                    |
 | where_condition              | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                          |
 | split.size                   | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                        |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                   |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                   |
 
 ## Parallel Reader
 
@@ -112,11 +115,11 @@ How many rows in one split, captured tables are split into multiple splits when 
 
 The column name for split data.
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
@@ -124,11 +127,11 @@ The partition_column min value for scan, if not set SeaTunnel will query databas
 
 > Not recommended for use, The correct approach is to control the number of split through `split.size`
 
-How many splits do we need to split into, only support positive integer. default value is job parallelism.
+How many splits do we need to split into, only support positive integer. default value is 10.
 
-## tips
+## Tips
 
-> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
+> If the table can not be split (for example, the table has no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
 >
 > Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
@@ -138,7 +141,7 @@ How many splits do we need to split into, only support positive integer. default
 
 > This example queries 'user_events' table in your test database in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 4
@@ -157,7 +160,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -167,7 +170,7 @@ sink {
 
 ### parallel by partition_column
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -198,7 +201,7 @@ sink {
 
 > Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -225,7 +228,7 @@ sink {
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
-```
+```hocon
 source {
     Jdbc {
         url = "jdbc:duckdb:/tmp/test.db"

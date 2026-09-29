@@ -23,7 +23,9 @@ import org.slf4j.MDC;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -127,129 +129,138 @@ public class MDCTracerTest {
     public void testMDCTracedExecutorService() throws Exception {
         MDCContext mdcContext = MDCContext.of(1, 2, 3);
 
-        MDCExecutorService tracedExecutorService =
-                MDCTracer.tracing(mdcContext, Executors.newSingleThreadExecutor());
+        ExecutorService rawExecutor = Executors.newSingleThreadExecutor();
+        ScheduledExecutorService rawScheduledExecutor =
+                Executors.newSingleThreadScheduledExecutor();
+        try {
+            MDCExecutorService tracedExecutorService = MDCTracer.tracing(mdcContext, rawExecutor);
 
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-        tracedExecutorService
-                .submit(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                                Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                                Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+            tracedExecutorService
+                    .submit(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                                    Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                                    Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                                }
+                            })
+                    .get();
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+
+            tracedExecutorService
+                    .submit(
+                            new Callable<Void>() {
+                                @Override
+                                public Void call() throws Exception {
+                                    Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                                    Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                                    Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                                    return null;
+                                }
+                            })
+                    .get();
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+
+            MDCScheduledExecutorService tracedScheduledExecutorService =
+                    MDCTracer.tracing(mdcContext, rawScheduledExecutor);
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+
+            tracedScheduledExecutorService
+                    .schedule(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                                    Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                                    Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                                }
+                            },
+                            1,
+                            TimeUnit.SECONDS)
+                    .get();
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+
+            tracedScheduledExecutorService
+                    .schedule(
+                            new Callable<Object>() {
+                                @Override
+                                public Object call() {
+                                    Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                                    Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                                    Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                                    return null;
+                                }
+                            },
+                            1,
+                            TimeUnit.SECONDS)
+                    .get();
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+
+            CompletableFuture<Boolean> futureWithScheduleAtFixedRate = new CompletableFuture<>();
+            tracedScheduledExecutorService.scheduleAtFixedRate(
+                    new Runnable() {
+                        AtomicInteger executeCount = new AtomicInteger(0);
+
+                        @Override
+                        public void run() {
+                            Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                            Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                            Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                            executeCount.incrementAndGet();
+                            if (executeCount.get() > 10
+                                    && !futureWithScheduleAtFixedRate.isDone()) {
+                                futureWithScheduleAtFixedRate.complete(true);
                             }
-                        })
-                .get();
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-
-        tracedExecutorService
-                .submit(
-                        new Callable<Void>() {
-                            @Override
-                            public Void call() throws Exception {
-                                Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                                Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                                Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
-                                return null;
-                            }
-                        })
-                .get();
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-
-        MDCScheduledExecutorService tracedScheduledExecutorService =
-                MDCTracer.tracing(mdcContext, Executors.newSingleThreadScheduledExecutor());
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-
-        tracedScheduledExecutorService
-                .schedule(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                                Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                                Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
-                            }
-                        },
-                        1,
-                        TimeUnit.SECONDS)
-                .get();
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-
-        tracedScheduledExecutorService
-                .schedule(
-                        new Callable<Object>() {
-                            @Override
-                            public Object call() {
-                                Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                                Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                                Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
-                                return null;
-                            }
-                        },
-                        1,
-                        TimeUnit.SECONDS)
-                .get();
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
-
-        CompletableFuture<Boolean> futureWithScheduleAtFixedRate = new CompletableFuture<>();
-        tracedScheduledExecutorService.scheduleAtFixedRate(
-                new Runnable() {
-                    AtomicInteger executeCount = new AtomicInteger(0);
-
-                    @Override
-                    public void run() {
-                        Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                        Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                        Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
-                        executeCount.incrementAndGet();
-                        if (executeCount.get() > 10 && !futureWithScheduleAtFixedRate.isDone()) {
-                            futureWithScheduleAtFixedRate.complete(true);
                         }
-                    }
-                },
-                0,
-                10,
-                TimeUnit.MILLISECONDS);
-        futureWithScheduleAtFixedRate.join();
+                    },
+                    0,
+                    10,
+                    TimeUnit.MILLISECONDS);
+            futureWithScheduleAtFixedRate.get(30, TimeUnit.SECONDS);
 
-        CompletableFuture<Boolean> futureWithScheduleAtFixedDelay = new CompletableFuture<>();
-        tracedScheduledExecutorService.scheduleWithFixedDelay(
-                new Runnable() {
-                    AtomicInteger executeCount = new AtomicInteger(0);
+            CompletableFuture<Boolean> futureWithScheduleAtFixedDelay = new CompletableFuture<>();
+            tracedScheduledExecutorService.scheduleWithFixedDelay(
+                    new Runnable() {
+                        AtomicInteger executeCount = new AtomicInteger(0);
 
-                    @Override
-                    public void run() {
-                        Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
-                        Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
-                        Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
-                        executeCount.incrementAndGet();
-                        if (executeCount.get() > 10 && !futureWithScheduleAtFixedDelay.isDone()) {
-                            futureWithScheduleAtFixedDelay.complete(true);
+                        @Override
+                        public void run() {
+                            Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+                            Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
+                            Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+                            executeCount.incrementAndGet();
+                            if (executeCount.get() > 10
+                                    && !futureWithScheduleAtFixedDelay.isDone()) {
+                                futureWithScheduleAtFixedDelay.complete(true);
+                            }
                         }
-                    }
-                },
-                0,
-                10,
-                TimeUnit.MILLISECONDS);
-        futureWithScheduleAtFixedDelay.join();
+                    },
+                    0,
+                    10,
+                    TimeUnit.MILLISECONDS);
+            futureWithScheduleAtFixedDelay.get(30, TimeUnit.SECONDS);
 
-        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
-        Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
-        Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+            Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+            Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
+            Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+        } finally {
+            rawExecutor.shutdownNow();
+            rawScheduledExecutor.shutdownNow();
+        }
     }
 
     @Test

@@ -28,9 +28,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -234,5 +242,131 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(subRow.getField(9), null);
         Assertions.assertEquals(subRow.getField(12), null);
         Assertions.assertEquals(subRow.getField(13), null);
+    }
+
+    @Test
+    public void testDeserializeWithProvidedWriterSchema() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dev_id", "timestamp", "s_port"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                        });
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        String writerSchemaText =
+                "{"
+                        + "\"type\":\"record\","
+                        + "\"name\":\"AvroEvent\","
+                        + "\"namespace\":\"safe.serialize\","
+                        + "\"fields\":["
+                        + "{\"name\":\"dev_id\",\"type\":[{\"type\":\"string\",\"avro.java.string\":\"String\"},\"null\"]},"
+                        + "{\"name\":\"timestamp\",\"type\":[\"long\",\"null\"]},"
+                        + "{\"name\":\"s_port\",\"type\":[\"int\",\"null\"]}"
+                        + "]"
+                        + "}";
+        Schema writerSchema = new Schema.Parser().parse(writerSchemaText);
+        GenericRecord record =
+                new GenericRecordBuilder(writerSchema)
+                        .set("dev_id", "device-1")
+                        .set("timestamp", 1769504419000L)
+                        .set("s_port", null)
+                        .build();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
+        new GenericDatumWriter<GenericRecord>(writerSchema).write(record, encoder);
+        encoder.flush();
+
+        AvroDeserializationSchema deserializationSchema =
+                new AvroDeserializationSchema(catalogTable, writerSchemaText);
+        SeaTunnelRow row = deserializationSchema.deserialize(out.toByteArray());
+
+        Assertions.assertEquals("device-1", row.getField(0));
+        Assertions.assertEquals(1769504419000L, row.getField(1));
+        Assertions.assertNull(row.getField(2));
+    }
+
+    @Test
+    public void testMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"CustomerID", "customerid"},
+                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(2);
+        sourceRow.setField(0, 42);
+        sourceRow.setField(1, 84);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, result.getField(0));
+        Assertions.assertEquals(84, result.getField(1));
+    }
+
+    @Test
+    public void testNestedMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType nestedType =
+                new SeaTunnelRowType(
+                        new String[] {"InnerID"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {nestedType});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow nestedRow = new SeaTunnelRow(1);
+        nestedRow.setField(0, 42);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(1);
+        sourceRow.setField(0, nestedRow);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, ((SeaTunnelRow) result.getField(0)).getField(0));
+    }
+
+    @Test
+    public void testDeserializeConfluentSchemaRegistryHeader() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        String writerSchemaText =
+                "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}";
+        Schema writerSchema = new Schema.Parser().parse(writerSchemaText);
+        GenericRecord record =
+                new GenericRecordBuilder(writerSchema).set("payload", "seatunnel").build();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
+        new GenericDatumWriter<GenericRecord>(writerSchema).write(record, encoder);
+        encoder.flush();
+        byte[] framed = new byte[out.size() + 5];
+        framed[0] = 0;
+        framed[1] = 0;
+        framed[2] = 0;
+        framed[3] = 0;
+        framed[4] = 1;
+        System.arraycopy(out.toByteArray(), 0, framed, 5, out.size());
+
+        AvroDeserializationSchema schema =
+                new AvroDeserializationSchema(catalogTable, writerSchemaText, true);
+        Assertions.assertEquals("seatunnel", schema.deserialize(framed).getField(0));
+    }
+
+    @Test
+    public void testDeserializeConfluentSchemaRegistryHeaderRejectsInvalidHeader() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        AvroDeserializationSchema schema =
+                new AvroDeserializationSchema(
+                        catalogTable,
+                        "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}",
+                        true);
+        Assertions.assertThrows(
+                RuntimeException.class, () -> schema.deserialize(new byte[] {1, 0, 0, 0, 1}));
     }
 }

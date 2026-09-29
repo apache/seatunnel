@@ -26,10 +26,13 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.SupportLoadTable;
 
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.utils.BranchManager;
 
 public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
 
@@ -55,15 +58,67 @@ public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
 
     @Override
     public void handleSchemaSaveMode() {
+        checkBranchSaveMode();
         super.handleSchemaSaveMode();
         TablePath tablePath = catalogTable.getTablePath();
         Table paimonTable = ((PaimonCatalog) catalog).getPaimonTable(tablePath);
         Table loadTable = this.supportLoadTable.getLoadTable();
         if (loadTable == null || this.schemaSaveMode == SchemaSaveMode.RECREATE_SCHEMA) {
-            if (StringUtils.isNotEmpty(branch)) {
+            if (isNonMainBranch()) {
                 paimonTable = ((FileStoreTable) paimonTable).switchToBranch(branch);
             }
             this.supportLoadTable.setLoadTable(paimonTable);
         }
+    }
+
+    @Override
+    public void handleDataSaveMode() {
+        checkBranchSaveMode();
+        super.handleDataSaveMode();
+    }
+
+    @Override
+    public void handleSchemaSaveModeWithRestore() {
+        checkBranchSaveMode();
+        super.handleSchemaSaveModeWithRestore();
+    }
+
+    private boolean isNonMainBranch() {
+        return StringUtils.isNotEmpty(branch)
+                && !BranchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branch);
+    }
+
+    private void checkBranchSaveMode() {
+        if (!isNonMainBranch()) {
+            return;
+        }
+        if (!catalog.tableExists(tablePath)) {
+            throw unsupportedBranchSaveMode(
+                    "The main table must exist before writing to a non-main branch.");
+        }
+        Table paimonTable = ((PaimonCatalog) catalog).getPaimonTable(tablePath);
+        if (!((FileStoreTable) paimonTable).branchManager().branchExists(branch)) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.BRANCH_NOT_EXISTS,
+                    String.format(
+                            "Specified branch '%s' of table '%s' does not exist.",
+                            branch, tablePath));
+        }
+        if (this.schemaSaveMode == SchemaSaveMode.RECREATE_SCHEMA) {
+            throw unsupportedBranchSaveMode(
+                    "schema_save_mode=RECREATE_SCHEMA would drop and recreate the main table.");
+        }
+        if (this.dataSaveMode == DataSaveMode.DROP_DATA) {
+            throw unsupportedBranchSaveMode(
+                    "data_save_mode=DROP_DATA would truncate the main table.");
+        }
+    }
+
+    private PaimonConnectorException unsupportedBranchSaveMode(String reason) {
+        return new PaimonConnectorException(
+                PaimonConnectorErrorCode.UNSUPPORTED_BRANCH_SAVE_MODE,
+                String.format(
+                        "Paimon branch '%s' does not support this save mode for table '%s'. %s",
+                        branch, tablePath, reason));
     }
 }

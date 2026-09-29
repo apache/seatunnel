@@ -19,6 +19,9 @@ Used to write data to IoTDB.
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> The IoTDB sink connector writes rows by calling the IoTDB insert RPC. When a row carries a non-unique `(device, timestamp)` pair, the write is treated as an upsert — the latest value overwrites earlier ones — so duplicate deliveries from upstream do not create phantom rows. Row-kind `UPDATE`/`DELETE` are not interpreted as CDC operations; all rows are written as inserts.
 
 ## Supported DataSource Info
 
@@ -48,9 +51,9 @@ Used to write data to IoTDB.
 | password                    | String  | Yes      | -                              | IoTDB user password                                                                                                                                               |
 | key_device                  | String  | Yes      | -                              | Specify field name of the IoTDB deviceId in SeaTunnelRow                                                                                                          |
 | key_timestamp               | String  | No       | processing time                | Specify field-name of the IoTDB timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                     |
-| key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the IoTDB measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                         |
-| storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
-| batch_size                  | Integer | No       | 1024                           | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
+| key_measurement_fields      | Array   | No       | exclude device and timestamp fields | Specify field names of the IoTDB measurement list in SeaTunnelRow. If not specified, include all fields except `key_device` and `key_timestamp` fields.             |
+| storage_group               | String  | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
+| batch_size                  | Integer | No       | 1024                           | For batch writing, data is flushed into IoTDB when the buffered row count reaches `batch_size`.                                                                    |
 | max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
 | retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
 | max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
@@ -60,6 +63,14 @@ Used to write data to IoTDB.
 | enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in IoTDB client                                                                                                                            |
 | connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                         |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                       |
+
+## Write Rules
+
+- `key_device` must name the SeaTunnel field that contains the IoTDB device path.
+- `storage_group` is a string prefix. When it is set, the final device path is built from `storage_group` and the value of `key_device`.
+- `key_timestamp` can name a `STRING`, `BIGINT`, or `TIMESTAMP` field. If it is not configured, the connector uses the current processing time.
+- If `key_measurement_fields` is not configured, all fields except `key_device` and `key_timestamp` are written as measurements.
+- The sink supports `STRING`, `BOOLEAN`, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, and `DOUBLE` measurement fields.
 
 ## Examples
 
@@ -193,6 +204,34 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 |2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
 +------------------------+------------------------+--------------+-----------+
 ```
+
+### Case4: Streaming writes with explicit batch flush
+
+For long-running streaming jobs, increase `batch_size` to reduce per-row RPC overhead. The connector flushes the buffered rows when either the buffer fills up to `batch_size` or the checkpoint completes. Set `max_retries` and `max_retry_backoff_ms` to keep the job resilient against transient RPC failures.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  IoTDB {
+    node_urls = ["localhost:6667", "localhost:6668"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "event_ts"
+    batch_size = 2048
+    max_retries = 3
+    retry_backoff_multiplier_ms = 100
+    max_retry_backoff_ms = 5000
+  }
+}
+```
+
+`node_urls` accepts multiple IoTDB nodes. The sink will pick one as the active write node per task and fall over to the others when the active node fails.
 
 ## Changelog
 

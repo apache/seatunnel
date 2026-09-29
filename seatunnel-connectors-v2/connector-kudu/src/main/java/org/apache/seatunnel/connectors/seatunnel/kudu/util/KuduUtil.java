@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduClientResource;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -46,6 +47,9 @@ import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,13 +72,50 @@ public class KuduUtil {
                     UserGroupInformation ugi = loginAndReturnUgi(config);
                     return ugi.doAs(
                             (PrivilegedExceptionAction<KuduClient>)
-                                    () -> getKuduClientInternal(config));
+                                    () -> getKuduClientInternal(config, null));
                 }
             }
-            return getKuduClientInternal(config);
-
+            return getKuduClientInternal(config, null);
         } catch (IOException | InterruptedException e) {
             throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+        }
+    }
+
+    public static KuduClientResource getKuduClientResource(CommonConfig config) {
+        AtomicInteger threadCounter = new AtomicInteger();
+        ExecutorService executorService =
+                Executors.newCachedThreadPool(
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "seatunnel-kudu-nio-"
+                                                    + threadCounter.incrementAndGet());
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        boolean initialized = false;
+        try {
+            KuduClient kuduClient;
+            if (config.getEnableKerberos()) {
+                synchronized (UserGroupInformation.class) {
+                    UserGroupInformation ugi = loginAndReturnUgi(config);
+                    kuduClient =
+                            ugi.doAs(
+                                    (PrivilegedExceptionAction<KuduClient>)
+                                            () -> getKuduClientInternal(config, executorService));
+                }
+            } else {
+                kuduClient = getKuduClientInternal(config, executorService);
+            }
+            initialized = true;
+            return new KuduClientResource(kuduClient, executorService);
+        } catch (IOException | InterruptedException e) {
+            throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+        } finally {
+            if (!initialized) {
+                executorService.shutdownNow();
+            }
         }
     }
 
@@ -109,14 +150,18 @@ public class KuduUtil {
         }
     }
 
-    private static KuduClient getKuduClientInternal(CommonConfig config) {
-        return new AsyncKuduClient.AsyncKuduClientBuilder(
-                        Arrays.asList(config.getMasters().split(",")))
-                .workerCount(config.getWorkerCount())
-                .defaultAdminOperationTimeoutMs(config.getAdminOperationTimeout())
-                .defaultOperationTimeoutMs(config.getOperationTimeout())
-                .build()
-                .syncClient();
+    private static KuduClient getKuduClientInternal(
+            CommonConfig config, ExecutorService executorService) {
+        AsyncKuduClient.AsyncKuduClientBuilder builder =
+                new AsyncKuduClient.AsyncKuduClientBuilder(
+                                Arrays.asList(config.getMasters().split(",")))
+                        .workerCount(config.getWorkerCount())
+                        .defaultAdminOperationTimeoutMs(config.getAdminOperationTimeout())
+                        .defaultOperationTimeoutMs(config.getOperationTimeout());
+        if (executorService != null) {
+            builder.nioExecutor(executorService);
+        }
+        return builder.build().syncClient();
     }
 
     public static List<KuduScanToken> getKuduScanToken(

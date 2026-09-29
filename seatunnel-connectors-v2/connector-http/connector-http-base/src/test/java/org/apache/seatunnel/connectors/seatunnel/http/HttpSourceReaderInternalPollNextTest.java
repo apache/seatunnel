@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -42,10 +43,13 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class HttpSourceReaderInternalPollNextTest {
@@ -132,6 +136,50 @@ public class HttpSourceReaderInternalPollNextTest {
                 JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
         Assertions.assertEquals("2", bodyMap.get("page"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
+        httpSourceReader.close();
+    }
+
+    @Test
+    public void testCursorPaginationStopsWhenCursorDoesNotAdvance() throws Exception {
+        httpParameter.setBody("{\"scrollId\":\"${scrollId}\",\"capacity\":100}");
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageType(HttpPaginationType.CURSOR.getCode());
+        pageInfo.setPageCursorFieldName("scrollId");
+        pageInfo.setPageCursorResponseField("$.scrollId");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        AtomicInteger requestCount = new AtomicInteger();
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            int currentRequest = requestCount.incrementAndGet();
+                            if (currentRequest == 1) {
+                                return new HttpResponse(
+                                        200,
+                                        "{\"scrollId\":\"cursor-1\",\"data\":[{\"key1\":\"v1\",\"key2\":\"v2\"}]}");
+                            }
+                            if (currentRequest == 2) {
+                                return new HttpResponse(
+                                        200, "{\"scrollId\":\"cursor-1\",\"data\":[]}");
+                            }
+                            throw new AssertionError(
+                                    "Cursor pagination should stop when the cursor does not advance");
+                        });
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, null, "$.data", pageInfo);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+
+        httpSourceReader.internalPollNext(collector);
+
+        verify(httpClientProvider, times(2))
+                .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
+        verify(context, times(1)).signalNoMoreElement();
         httpSourceReader.close();
     }
 

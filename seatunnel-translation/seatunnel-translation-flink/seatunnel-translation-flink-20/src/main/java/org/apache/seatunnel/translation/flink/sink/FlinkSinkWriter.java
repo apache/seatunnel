@@ -130,7 +130,6 @@ public class FlinkSinkWriter<CommT, WriterStateT>
                 "FlinkSinkWriter applying SchemaChangeEvent for table: {}",
                 schemaChangeEvent.tableIdentifier());
 
-        sinkWriter.prepareCommit();
         if (!(sinkWriter instanceof SupportSchemaEvolutionSinkWriter)) {
             log.warn(
                     "Sink writer {} does not support schema evolution, ignoring SchemaChangeEvent for table: {}",
