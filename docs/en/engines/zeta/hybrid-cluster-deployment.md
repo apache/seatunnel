@@ -407,6 +407,31 @@ seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade
 seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
+If you use GCS, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # optional, Application Default Credentials (e.g. GKE Workload Identity) are used when absent
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+Notice: When using GCS, make sure that the following jars are in the lib directory.
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
 
 ## 6. Configure The SeaTunnel Engine Client
 

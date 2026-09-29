@@ -334,6 +334,32 @@ netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
+如果您使用 GCS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # 可选，未配置时使用 Application Default Credentials（例如 GKE Workload Identity）
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+注意：使用 GCS 时，确保 lib 目录下有这几个jar。
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
 ### 4.7 作业调度策略
 
 当资源不足时，作业调度策略可以配置为以下两种模式：
