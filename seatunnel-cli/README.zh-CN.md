@@ -217,6 +217,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
 | `SEATUNNEL_API_BASE` | 否 | `http://localhost:5801` | SeaTunnel REST API 端点 |
 | `SEATUNNEL_CLI_DATA` | 否 | `<cli-package>/.data/` | 覆盖 CLI 数据目录（会话、记忆、配置） |
+| `SEATUNNEL_CLI_DEBUG` | 否 | 关闭 | 设为 `1`/`true` 打印 Agent 流水线诊断信息（等同 `--debug`） |
 
 ## 使用方法
 
@@ -256,10 +257,13 @@ seatunnel [request] [options]
   --provider PROVIDER      LLM 提供商：bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            覆盖主模型 ID
   --fast-model MODEL       覆盖快速模型 ID
+  --debug                  打印 Agent 流水线诊断（各阶段结果；失败时附脱敏模型片段）
   --sync-catalog PATH      从 SeaTunnel 源码重新生成连接器目录
   -V, --version            显示版本
   -h, --help               显示帮助信息
 ```
+
+当配置生成软失败（例如模型回复中没有 HOCON 代码块）时，CLI 会打印简短原因。使用 `--debug` 或 `SEATUNNEL_CLI_DEBUG=1` 可查看完整的 planner → skill → generator → validator 链路，以及失败阶段的脱敏模型输出片段。
 
 ### 交互命令
 
