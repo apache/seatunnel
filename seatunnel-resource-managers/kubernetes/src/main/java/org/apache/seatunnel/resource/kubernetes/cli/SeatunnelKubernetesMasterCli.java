@@ -169,6 +169,7 @@ public final class SeatunnelKubernetesMasterCli {
         JobResult result = null;
         Exception failure = null;
         try {
+            // Waiting for all workers to be ready
             resources.awaitWorkerRegistration();
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(specification.getName());
