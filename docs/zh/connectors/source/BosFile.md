@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用 binary 格式读写任意类型文件（视频、图片等），可将任意文件同步到目标位置。
 
@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | secret_key                 | string  | 是   | -                           |
 | endpoint                   | string  | 是   | -                           |
 | read_columns               | list    | 否   | -                           |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否   | text 为 \001，csv 为 ,      |
 | row_delimiter              | string  | 否   | \n                          |
 | parse_partition_from_path  | boolean | 否   | true                        |

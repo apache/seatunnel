@@ -73,7 +73,7 @@ seatunnel:
 ## Web UI 与 8080 排查
 
 - 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。
-- 如果开启了 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以启动日志 `SeaTunnel REST service will start on port xxx` 为准。
+- 如果同时开启 HTTP 和 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以 Jetty 启动日志 `SeaTunnel REST service started on http port xxx` 为准。`/logs` 和 `/loggers?scope=cluster` 会解析并报告各节点实际绑定的 HTTP 端口。配置中的 `port` 保持不变，即使多个节点共享同一个 HTTP 配置对象也不例外。
 - 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
 - Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
 
@@ -756,8 +756,14 @@ seatunnel:
 > | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
 > |-------|----------|--------|-----------------------------------------------------------------------------------|
 > | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
-> | page | 否    | int  | 页号   |
-> | rows | 否    | int  | 每页行数 |
+> | page | 否    | int  | 页号，必须是大于 0 的整数   |
+> | rows | 否    | int  | 每页行数，默认为 10，必须是大于 0 的整数 |
+
+当传入 `page` 时，响应会被包装为 `{"data": [...], "total": n}`，其中 `total` 是分页之前匹配
+`state` 的作业总数。未传入 `page` 时，直接返回数组。
+
+`page` 或 `rows` 不是整数，或者不大于 0 时，返回 `400`。起始位置超出结果集末尾时同样返回 `400`，
+而起始位置恰好等于 `total` 时返回空页。
 
 #### 响应
 
@@ -854,6 +860,9 @@ seatunnel:
   }
 ]
 ```
+
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+
 
 </details>
 
@@ -1510,8 +1519,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ```
 
 所有节点都返回结果时 `status` 为 `SUCCESS`，部分节点失败时为 `PARTIAL_FAILURE`，全部失败时为
-`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点配置中的 REST 端口访问，因此无法
-访问通过 `enable-dynamic-port` 使用了其它端口的节点。
+`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点实际绑定的 REST HTTP 端口访问，
+包括通过 `enable-dynamic-port` 选择了其它端口的节点。各节点都需要启用 HTTP，且其端口可访问。
 
 </details>
 

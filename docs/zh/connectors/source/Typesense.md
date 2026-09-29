@@ -48,7 +48,7 @@ Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:810
 
 ### schema [config]
 
-typesense 需要读取的列。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+typesense 需要读取的列。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### api_key [string]
 
