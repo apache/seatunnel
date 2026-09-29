@@ -136,16 +136,24 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 以下指标仅由 active master 输出；采集 worker 节点的接口不会返回这些指标。
 
-| MetricName                          | Type    | Labels                                  | 描述                             |
-|-------------------------------------|---------|-----------------------------------------|--------------------------------|
-| job_thread_pool_activeCount         | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的活动线程数  |
-| job_thread_pool_corePoolSize        | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的核心池大小  |
-| job_thread_pool_maximumPoolSize     | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的最大池大小  |
-| job_thread_pool_poolSize            | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的当前池大小  |
-| job_thread_pool_queueTaskCount      | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的队列任务数  |
-| job_thread_pool_completedTask_total | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的完成任务数  |
-| job_thread_pool_task_total          | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的总任务数   |
-| job_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的拒绝任务总数 |
+| MetricName                                    | Type    | Labels                                  | 描述                             |
+|-----------------------------------------------|---------|-----------------------------------------|----------------------------------|
+| job_thread_pool_activeCount                   | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的活动线程数     |
+| job_thread_pool_corePoolSize                  | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的核心池大小     |
+| job_thread_pool_maximumPoolSize               | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的最大池大小     |
+| job_thread_pool_poolSize                      | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的当前池大小     |
+| job_thread_pool_queueTaskCount                | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的队列任务数     |
+| job_thread_pool_completedTask_total           | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的已完成任务数   |
+| job_thread_pool_task_total                    | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的已提交任务数   |
+| job_thread_pool_rejection_total               | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业准入线程池的被拒绝任务数   |
+| job_lifecycle_thread_pool_activeCount         | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的活动线程数   |
+| job_lifecycle_thread_pool_corePoolSize        | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的核心池大小   |
+| job_lifecycle_thread_pool_maximumPoolSize     | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的最大池大小   |
+| job_lifecycle_thread_pool_poolSize            | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的当前池大小   |
+| job_lifecycle_thread_pool_queueTaskCount      | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的队列任务数   |
+| job_lifecycle_thread_pool_completedTask_total | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的已完成任务数 |
+| job_lifecycle_thread_pool_task_total          | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的已提交任务数 |
+| job_lifecycle_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | 协调器作业生命周期线程池的被拒绝任务数 |
 
 ### ReportMetricsOperation 指标
 

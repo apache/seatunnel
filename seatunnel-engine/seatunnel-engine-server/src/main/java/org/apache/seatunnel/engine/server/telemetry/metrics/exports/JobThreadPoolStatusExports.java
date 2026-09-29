@@ -29,8 +29,7 @@ import java.util.List;
 
 public class JobThreadPoolStatusExports extends AbstractCollector {
 
-    private static String HELP =
-            "The %s of seatunnel coordinator job's executor cached thread pool";
+    private static String HELP = "The %s of the SeaTunnel coordinator %s thread pool";
 
     public JobThreadPoolStatusExports(Node node) {
         super(node);
@@ -41,86 +40,96 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
         List<MetricFamilySamples> mfs = new ArrayList();
         // Only report metrics when the local node is master and in READY state.
         if (isMaster() && isCoordinatorReady()) {
-            ThreadPoolStatus threadPoolStatusMetrics = getServer().getThreadPoolStatusMetrics();
-            List<String> labelNames = clusterLabelNames(ADDRESS, "type");
-
-            GaugeMetricFamily activeCount =
-                    new GaugeMetricFamily(
-                            "job_thread_pool_activeCount",
-                            String.format(HELP, "activeCount"),
-                            labelNames);
-            activeCount.addMetric(
-                    labelValues(localAddress(), "activeCount"),
-                    threadPoolStatusMetrics.getActiveCount());
-            mfs.add(activeCount);
-
-            CounterMetricFamily completedTask =
-                    new CounterMetricFamily(
-                            "job_thread_pool_completedTask",
-                            String.format(HELP, "completedTask"),
-                            labelNames);
-            completedTask.addMetric(
-                    labelValues(localAddress(), "completedTask"),
-                    threadPoolStatusMetrics.getCompletedTaskCount());
-            mfs.add(completedTask);
-
-            GaugeMetricFamily corePoolSize =
-                    new GaugeMetricFamily(
-                            "job_thread_pool_corePoolSize",
-                            String.format(HELP, "corePoolSize"),
-                            labelNames);
-            corePoolSize.addMetric(
-                    labelValues(localAddress(), "corePoolSize"),
-                    threadPoolStatusMetrics.getCorePoolSize());
-            mfs.add(corePoolSize);
-
-            GaugeMetricFamily maximumPoolSize =
-                    new GaugeMetricFamily(
-                            "job_thread_pool_maximumPoolSize",
-                            String.format(HELP, "maximumPoolSize"),
-                            labelNames);
-            maximumPoolSize.addMetric(
-                    labelValues(localAddress(), "maximumPoolSize"),
-                    threadPoolStatusMetrics.getMaximumPoolSize());
-            mfs.add(maximumPoolSize);
-
-            GaugeMetricFamily poolSize =
-                    new GaugeMetricFamily(
-                            "job_thread_pool_poolSize",
-                            String.format(HELP, "poolSize"),
-                            labelNames);
-            poolSize.addMetric(
-                    labelValues(localAddress(), "poolSize"), threadPoolStatusMetrics.getPoolSize());
-            mfs.add(poolSize);
-
-            CounterMetricFamily taskCount =
-                    new CounterMetricFamily(
-                            "job_thread_pool_task", String.format(HELP, "taskCount"), labelNames);
-            taskCount.addMetric(
-                    labelValues(localAddress(), "taskCount"),
-                    threadPoolStatusMetrics.getTaskCount());
-            mfs.add(taskCount);
-
-            GaugeMetricFamily queueTaskCount =
-                    new GaugeMetricFamily(
-                            "job_thread_pool_queueTaskCount",
-                            String.format(HELP, "queueTaskCount"),
-                            labelNames);
-            queueTaskCount.addMetric(
-                    labelValues(localAddress(), "queueTaskCount"),
-                    threadPoolStatusMetrics.getQueueTaskCount());
-            mfs.add(queueTaskCount);
-
-            CounterMetricFamily rejectedTaskCount =
-                    new CounterMetricFamily(
-                            "job_thread_pool_rejection",
-                            String.format(HELP, "rejectionCount"),
-                            labelNames);
-            rejectedTaskCount.addMetric(
-                    labelValues(localAddress(), "rejectionCount"),
-                    threadPoolStatusMetrics.getRejectionCount());
-            mfs.add(rejectedTaskCount);
+            addThreadPoolMetrics(
+                    mfs, getServer().getThreadPoolStatusMetrics(), "job_thread_pool_", "admission");
+            addThreadPoolMetrics(
+                    mfs,
+                    getServer().getLifecycleThreadPoolStatusMetrics(),
+                    "job_lifecycle_thread_pool_",
+                    "lifecycle");
         }
         return mfs;
+    }
+
+    private void addThreadPoolMetrics(
+            List<MetricFamilySamples> mfs,
+            ThreadPoolStatus threadPoolStatusMetrics,
+            String prefix,
+            String pool) {
+        List<String> labelNames = clusterLabelNames(ADDRESS, "type");
+
+        GaugeMetricFamily activeCount =
+                new GaugeMetricFamily(
+                        prefix + "activeCount",
+                        String.format(HELP, "activeCount", pool),
+                        labelNames);
+        activeCount.addMetric(
+                labelValues(localAddress(), "activeCount"),
+                threadPoolStatusMetrics.getActiveCount());
+        mfs.add(activeCount);
+
+        CounterMetricFamily completedTask =
+                new CounterMetricFamily(
+                        prefix + "completedTask",
+                        String.format(HELP, "completedTask", pool),
+                        labelNames);
+        completedTask.addMetric(
+                labelValues(localAddress(), "completedTask"),
+                threadPoolStatusMetrics.getCompletedTaskCount());
+        mfs.add(completedTask);
+
+        GaugeMetricFamily corePoolSize =
+                new GaugeMetricFamily(
+                        prefix + "corePoolSize",
+                        String.format(HELP, "corePoolSize", pool),
+                        labelNames);
+        corePoolSize.addMetric(
+                labelValues(localAddress(), "corePoolSize"),
+                threadPoolStatusMetrics.getCorePoolSize());
+        mfs.add(corePoolSize);
+
+        GaugeMetricFamily maximumPoolSize =
+                new GaugeMetricFamily(
+                        prefix + "maximumPoolSize",
+                        String.format(HELP, "maximumPoolSize", pool),
+                        labelNames);
+        maximumPoolSize.addMetric(
+                labelValues(localAddress(), "maximumPoolSize"),
+                threadPoolStatusMetrics.getMaximumPoolSize());
+        mfs.add(maximumPoolSize);
+
+        GaugeMetricFamily poolSize =
+                new GaugeMetricFamily(
+                        prefix + "poolSize", String.format(HELP, "poolSize", pool), labelNames);
+        poolSize.addMetric(
+                labelValues(localAddress(), "poolSize"), threadPoolStatusMetrics.getPoolSize());
+        mfs.add(poolSize);
+
+        CounterMetricFamily taskCount =
+                new CounterMetricFamily(
+                        prefix + "task", String.format(HELP, "taskCount", pool), labelNames);
+        taskCount.addMetric(
+                labelValues(localAddress(), "taskCount"), threadPoolStatusMetrics.getTaskCount());
+        mfs.add(taskCount);
+
+        GaugeMetricFamily queueTaskCount =
+                new GaugeMetricFamily(
+                        prefix + "queueTaskCount",
+                        String.format(HELP, "queueTaskCount", pool),
+                        labelNames);
+        queueTaskCount.addMetric(
+                labelValues(localAddress(), "queueTaskCount"),
+                threadPoolStatusMetrics.getQueueTaskCount());
+        mfs.add(queueTaskCount);
+
+        CounterMetricFamily rejectedTaskCount =
+                new CounterMetricFamily(
+                        prefix + "rejection",
+                        String.format(HELP, "rejectionCount", pool),
+                        labelNames);
+        rejectedTaskCount.addMetric(
+                labelValues(localAddress(), "rejectionCount"),
+                threadPoolStatusMetrics.getRejectionCount());
+        mfs.add(rejectedTaskCount);
     }
 }
