@@ -66,6 +66,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
+使用 `table_path` 推断表结构时，目录会保留 DECIMAL 和 NUMERIC 列声明的精度与小数位数；按推断结构创建表时，`DECIMAL(10,2)` 仍为 `DECIMAL(10,2)`。
+
 ## 源选项
 
 | 名称                           | 类型         | 是否必需 | 默认值             | 描述                                                                                                                                                   |
