@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 This Milvus sink connector writes data to Milvus or Zilliz Cloud. It can create the target
@@ -228,6 +234,129 @@ sink {
 }
 ```
 
+### Write With a Partition Key
+
+This example creates a new Milvus collection on the fly with `partition_key` set to a
+SeaTunnel scalar field. SeaTunnel uses this field as the Milvus partition key when it
+creates the collection, so each value of `category` becomes a separate partition.
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      table = "simple_example_with_partitionkey"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          defaultValue = 0
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          comment = "vector"
+        },
+        {
+          name = category
+          type = string
+          nullable = false
+          comment = "partition key"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test"
+    partition_key = "category"
+  }
+}
+```
+
+### Write With Nullable Fields
+
+This example enables nullable Milvus fields. It requires Milvus 2.5 or later. The
+nullable scalar column is declared in the schema with `nullable = true` and the
+sink is configured with `enable_nullable_field = true` so that `null` values can be
+written.
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      table = "simple_example_nullable"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          nullable = false
+          comment = "vector"
+        },
+        {
+          name = book_title
+          type = string
+          nullable = true
+          comment = "nullable title"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, [0.1, 0.2, 0.3, 0.4], null]
+      },
+      {
+        kind = INSERT
+        fields = [2, [0.2, 0.3, 0.4, 0.5], "nullable title"]
+      }
+    ]
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test_nullable"
+    enable_nullable_field = true
+  }
+}
+```
+
 ### Streaming Write with Checkpoint Flush
 
 ```bash
@@ -282,6 +411,16 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Milvus sink automatically create target collections?
+
+Yes. If the target collection does not exist in Milvus, the sink can automatically create it based on the upstream schema and vector dimension configuration.
+
+### How does upsert work in Milvus sink?
+
+When `enable_upsert` is set to `true`, incoming records with existing primary keys will be updated in Milvus rather than resulting in duplicate key errors.
 
 ## Changelog
 

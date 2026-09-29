@@ -84,7 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
 | max_commit_attempts          | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
 | transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
-| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
+| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交。Oracle Sink 即使配置为 `true`，实际写入时也会在内部使用手动提交，以保证失败批次的原子性并保留原始数据错误。                                                                                                                                                                                              |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
 | common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
@@ -196,7 +196,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -205,6 +205,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### 批量 + 定时刷新组合
+
+流式作业同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，可以根据上游行携带的元数据把每行路由到对应的目标表。通过 `multi_table_sink_replica` 控制多表写入的 writer 副本数。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

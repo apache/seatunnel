@@ -374,6 +374,20 @@ public class ServerConfigOptions {
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
 
+        public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
+                Options.key("upload-max-file-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum size in MB of a single file uploaded to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> UPLOAD_MAX_REQUEST_SIZE_MB =
+                Options.key("upload-max-request-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
+
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")
                         .type(new TypeReference<HttpConfig>() {})

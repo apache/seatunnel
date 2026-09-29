@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -42,11 +43,15 @@ public class TypesenseSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TypesenseSinkOptions.HOSTS,
+                        TypesenseSinkOptions.HOSTS, Conditions.notEmpty(TypesenseSinkOptions.HOSTS))
+                .required(
                         TypesenseSinkOptions.COLLECTION,
+                        Conditions.notBlank(TypesenseSinkOptions.COLLECTION))
+                .required(
                         TypesenseSinkOptions.APIKEY,
-                        TypesenseSinkOptions.SCHEMA_SAVE_MODE,
-                        TypesenseSinkOptions.DATA_SAVE_MODE)
+                        Conditions.notBlank(TypesenseSinkOptions.APIKEY))
+                .required(
+                        TypesenseSinkOptions.SCHEMA_SAVE_MODE, TypesenseSinkOptions.DATA_SAVE_MODE)
                 .optional(TypesenseSinkOptions.PRIMARY_KEYS)
                 .optional(TypesenseSinkOptions.KEY_DELIMITER)
                 .optional(TypesenseSinkOptions.MAX_BATCH_SIZE)

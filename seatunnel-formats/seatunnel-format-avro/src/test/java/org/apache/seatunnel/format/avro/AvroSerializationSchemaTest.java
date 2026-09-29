@@ -285,4 +285,88 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(1769504419000L, row.getField(1));
         Assertions.assertNull(row.getField(2));
     }
+
+    @Test
+    public void testMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"CustomerID", "customerid"},
+                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(2);
+        sourceRow.setField(0, 42);
+        sourceRow.setField(1, 84);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, result.getField(0));
+        Assertions.assertEquals(84, result.getField(1));
+    }
+
+    @Test
+    public void testNestedMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType nestedType =
+                new SeaTunnelRowType(
+                        new String[] {"InnerID"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {nestedType});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow nestedRow = new SeaTunnelRow(1);
+        nestedRow.setField(0, 42);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(1);
+        sourceRow.setField(0, nestedRow);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, ((SeaTunnelRow) result.getField(0)).getField(0));
+    }
+
+    @Test
+    public void testDeserializeConfluentSchemaRegistryHeader() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        String writerSchemaText =
+                "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}";
+        Schema writerSchema = new Schema.Parser().parse(writerSchemaText);
+        GenericRecord record =
+                new GenericRecordBuilder(writerSchema).set("payload", "seatunnel").build();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
+        new GenericDatumWriter<GenericRecord>(writerSchema).write(record, encoder);
+        encoder.flush();
+        byte[] framed = new byte[out.size() + 5];
+        framed[0] = 0;
+        framed[1] = 0;
+        framed[2] = 0;
+        framed[3] = 0;
+        framed[4] = 1;
+        System.arraycopy(out.toByteArray(), 0, framed, 5, out.size());
+
+        AvroDeserializationSchema schema =
+                new AvroDeserializationSchema(catalogTable, writerSchemaText, true);
+        Assertions.assertEquals("seatunnel", schema.deserialize(framed).getField(0));
+    }
+
+    @Test
+    public void testDeserializeConfluentSchemaRegistryHeaderRejectsInvalidHeader() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        AvroDeserializationSchema schema =
+                new AvroDeserializationSchema(
+                        catalogTable,
+                        "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}",
+                        true);
+        Assertions.assertThrows(
+                RuntimeException.class, () -> schema.deserialize(new byte[] {1, 0, 0, 0, 1}));
+    }
 }

@@ -117,6 +117,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
+    private final Map<String, Object> envOptions;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
@@ -139,11 +140,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private transient boolean observabilityEnabled;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public SeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.envOptions = envOptions;
         this.currState = SeaTunnelTaskState.CREATED;
+    }
+
+    public Map<String, Object> getEnvOptions() {
+        return envOptions;
     }
 
     /**
@@ -184,41 +195,36 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return observabilityEnabled;
     }
 
-    private boolean resolveObservabilityEnabled() {
+    public Map<String, Object> getJobEnvOptions() {
         try {
-            if (executionContext == null) {
-                return false;
-            }
-            if (executionContext.getTaskExecutionService() == null) {
-                return false;
+            if (executionContext == null
+                    || executionContext.getTaskExecutionService() == null
+                    || executionContext.getTaskExecutionService().getNodeEngine() == null) {
+                return Collections.emptyMap();
             }
             NodeEngineImpl nodeEngine = executionContext.getTaskExecutionService().getNodeEngine();
-            if (nodeEngine == null) {
-                return false;
-            }
             IMap<Long, JobInfo> jobInfoMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
             JobInfo jobInfo = jobInfoMap.get(jobID);
             if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
-                return false;
+                return Collections.emptyMap();
             }
             JobImmutableInformation immutable =
                     nodeEngine
                             .getSerializationService()
                             .toObject(jobInfo.getJobImmutableInformation());
             if (immutable == null || immutable.getJobConfig() == null) {
-                return false;
+                return Collections.emptyMap();
             }
-            Map<String, Object> envOptions = immutable.getJobConfig().getEnvOptions();
-            return ObservabilityConfig.resolveEnabled(envOptions);
+            return immutable.getJobConfig().getEnvOptions();
         } catch (Throwable t) {
-            log.debug(
-                    "Resolve observability enabled failed, jobId={}, taskLocation={}, err={}",
-                    jobID,
-                    taskLocation,
-                    t.getMessage());
-            return false;
+            log.debug("Resolve job env options failed, jobId={}", jobID, t);
+            return Collections.emptyMap();
         }
+    }
+
+    private boolean resolveObservabilityEnabled() {
+        return ObservabilityConfig.resolveEnabled(getJobEnvOptions());
     }
 
     /**
@@ -434,14 +440,19 @@ public abstract class SeaTunnelTask extends AbstractTask {
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is logged but does not prevent the
-     * remaining lifecycles from being closed (first-exception-wins logging).
+     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
+     * remaining lifecycles from being closed.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} fails
+     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
      */
     @Override
     public void close() throws IOException {
-        super.close();
+        IOException[] closeException = {null};
+        try {
+            super.close();
+        } catch (IOException e) {
+            closeException[0] = e;
+        }
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
@@ -449,8 +460,16 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 flowLifeCycle.close();
                             } catch (IOException e) {
                                 log.error("Close FlowLifeCycle error.", e);
+                                if (closeException[0] == null) {
+                                    closeException[0] = e;
+                                } else {
+                                    closeException[0].addSuppressed(e);
+                                }
                             }
                         });
+        if (closeException[0] != null) {
+            throw closeException[0];
+        }
     }
 
     /**

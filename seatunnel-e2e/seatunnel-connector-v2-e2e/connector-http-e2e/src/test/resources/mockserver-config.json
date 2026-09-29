@@ -3986,6 +3986,63 @@
   {
     "httpRequest": {
       "method" : "GET",
+      "path": "/admin/api/2024-01/products.json",
+      "headers": {
+        "X-Shopify-Access-Token": [
+          "e2e-shopify-access-token"
+        ]
+      }
+    },
+    "httpResponse": {
+      "body": {
+        "products": [
+        {
+          "id": "7982391918849",
+          "title": "Ocean Blue Shirt",
+          "vendor": "Acme",
+          "product_type": "Shirts",
+          "created_at": "2024-01-01T10:15:30-05:00",
+          "updated_at": "2024-01-02T10:15:30-05:00"
+        },
+        {
+          "id": "7982391951617",
+          "title": "Classic Varsity Top",
+          "vendor": "Acme",
+          "product_type": "Tops",
+          "created_at": "2024-01-02T10:15:30-05:00",
+          "updated_at": "2024-01-03T10:15:30-05:00"
+        },
+        {
+          "id": "7982391984385",
+          "title": "Mist Grey Hoodie",
+          "vendor": "Northwind",
+          "product_type": "Hoodies",
+          "created_at": "2024-01-03T10:15:30-05:00",
+          "updated_at": "2024-01-04T10:15:30-05:00"
+        },
+        {
+          "id": "7982392017153",
+          "title": "Draft Denim Jacket",
+          "vendor": "Northwind",
+          "product_type": "Jackets",
+          "created_at": "2024-01-04T10:15:30-05:00",
+          "updated_at": "2024-01-05T10:15:30-05:00"
+        },
+        {
+          "id": "7982392049921",
+          "title": "Pink Ruffle Dress",
+          "vendor": "Contoso",
+          "product_type": "Dresses",
+          "created_at": "2024-01-05T10:15:30-05:00",
+          "updated_at": "2024-01-06T10:15:30-05:00"
+        }
+        ]
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
       "path": "/api/lists"
     },
     "httpResponse": {
@@ -4835,7 +4892,7 @@
       "path": "/v0/appTEST123/TestTable/listRecords",
       "body": {
         "type": "JSON",
-        "json": "{\"pageSize\":2}",
+        "json": "{\"pageSize\":2,\"offset\":null}",
         "matchType": "STRICT"
       }
     },
@@ -4957,6 +5014,34 @@
       "body": {
         "type": "BINARY",
         "base64Bytes": "SGVsbG8gV29ybGQgLSBiaW5hcnkgdGVzdCBjb250ZW50"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/api/projects/123/query/",
+      "headers": {
+        "Authorization": ["Bearer phx_test"]
+      },
+      "body": {
+        "type": "JSON",
+        "json": "{\"query\":{\"kind\":\"HogQLQuery\",\"query\":\"SELECT event, distinct_id FROM events LIMIT 2\"},\"refresh\":\"blocking\"}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "body": {
+        "columns": ["event", "distinct_id"],
+        "results": [
+          ["signup", "user-1"],
+          ["purchase", "user-2"]
+        ],
+        "query_status": {
+          "complete": true,
+          "error": false
+        }
       }
     }
   }

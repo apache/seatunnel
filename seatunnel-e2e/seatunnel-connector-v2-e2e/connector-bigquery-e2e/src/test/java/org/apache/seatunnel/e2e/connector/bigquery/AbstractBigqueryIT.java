@@ -17,14 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.bigquery;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.containers.BigQueryEmulatorContainer;
 import org.testcontainers.lifecycle.Startables;
 
@@ -33,7 +30,6 @@ import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
@@ -46,23 +42,26 @@ import java.util.stream.Stream;
 @Slf4j
 public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestResource {
 
-    private static final String DOCKER_IMAGE = "ghcr.io/goccy/bigquery-emulator:0.6.6";
+    private static final String DOCKER_IMAGE = "ghcr.io/goccy/bigquery-emulator:0.8.1";
+    protected static final String EMULATOR_NETWORK_ALIAS = "bigquery-emulator";
+    protected static final int EMULATOR_REST_PORT = 9050;
+    protected static final int EMULATOR_GRPC_PORT = 9060;
     public static final String DATASET_NAME = "test_dataset";
     public static final String TABLE_NAME = "test_table";
     public static final String PROJECT_NAME = "test-project";
-    public static final int HOST_PORT = 9050;
-    public static final int LOCAL_PORT = 9050;
 
     protected BigQueryEmulatorContainer container;
     protected BigQuery bigquery;
     protected TableId tableId;
 
-    @BeforeAll
+    @BeforeEach
     @Override
     public void startUp() {
-        container = new BigQueryEmulatorContainer(DOCKER_IMAGE).withExposedPorts(HOST_PORT);
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, HOST_PORT)));
+        container =
+                new BigQueryEmulatorContainer(DOCKER_IMAGE)
+                        .withExposedPorts(EMULATOR_REST_PORT, EMULATOR_GRPC_PORT)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(EMULATOR_NETWORK_ALIAS);
 
         Startables.deepStart(Stream.of(container)).join();
         log.info("BigQuery emulator container started");
@@ -72,10 +71,9 @@ public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestRe
     }
 
     private void initialize() {
-        String endpoint = "http://localhost:" + LOCAL_PORT;
         this.bigquery =
                 BigQueryOptions.newBuilder()
-                        .setHost(endpoint)
+                        .setHost(container.getEmulatorHttpEndpoint())
                         .setProjectId(PROJECT_NAME)
                         .setCredentials(NoCredentials.getInstance())
                         .build()
@@ -124,28 +122,13 @@ public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestRe
     }
 
     @AfterEach
-    public void cleanUp() throws InterruptedException {
-        if (bigquery == null || tableId == null) {
-            return;
-        }
-
-        if (bigquery.getTable(tableId) == null) {
-            return;
-        }
-
-        bigquery.query(
-                QueryJobConfiguration.newBuilder(
-                                String.format(
-                                        "DELETE FROM `%s.%s.%s` WHERE TRUE",
-                                        PROJECT_NAME, DATASET_NAME, TABLE_NAME))
-                        .build());
-    }
-
-    @AfterAll
     @Override
     public void tearDown() {
         if (container != null) {
             container.close();
+            container = null;
         }
+        bigquery = null;
+        tableId = null;
     }
 }

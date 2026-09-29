@@ -53,6 +53,6 @@ public class SeaTunnelRowSnapshotRecordDeserializer
                         RowKey.decode(record.getKey().toByteArray()).getHandle(),
                         tableInfo);
         SeaTunnelRow row = converter.convert(values, tableInfo, rowType);
-        output.collect(row);
+        collect(row, output);
     }
 }

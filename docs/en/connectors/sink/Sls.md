@@ -46,11 +46,15 @@ Maven central repository.
 
 - The configured RAM user must have permission to write logs to the target project and logstore.
 - The sink writes data as soon as `write` is called. It does not provide exactly-once commit semantics.
+  In streaming mode the connector flushes row by row; rely on checkpointing only for downstream state,
+  not for the SLS writes themselves.
+- Each row is serialized as a JSON object and stored under the `content` key of an SLS log item. The
+  remaining row fields are not mapped to separate log keys.
 - Do not print `access_key_secret` in logs or job descriptions.
 
 ## Task Example
 
-### Write Rows to SLS
+### Write Rows to SLS (Batch)
 
 ```hocon
 env {
@@ -84,6 +88,50 @@ sink {
     access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     source = "seatunnel-demo"
+    topic = "fake-source"
+  }
+}
+```
+
+### Write Rows to SLS (Streaming)
+
+In streaming mode the connector keeps the SLS producer connection open and writes each row as it
+arrives. Configure `checkpoint.interval` to make downstream state recoverable, but keep in mind that
+each `PutLogs` call is independent and may retry only within the open client session.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    map.size = 10
+    array.size = 10
+    bytes.length = 10
+    string.length = 10
+    schema = {
+      fields = {
+        id = "int"
+        name = "string"
+        description = "string"
+        weight = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Sls {
+    endpoint = "cn-hangzhou.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    source = "seatunnel-streaming"
     topic = "fake-source"
   }
 }

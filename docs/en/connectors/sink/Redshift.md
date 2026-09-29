@@ -90,9 +90,9 @@ semantics (using XA transaction guarantee).
 | field_ide                                 | String  | No       | -                            | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed;`UPPERCASE` indicates conversion to uppercase;`LOWERCASE` indicates conversion to lowercase.      |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters, when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in Redshift, properties take precedence over the URL. |
 | common-options                            |         | No       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                     |
-| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                       |
-| data_save_mode                            | Enum    | No       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                  |
-| custom_sql                                | String  | No       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                      |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the existing table schema on the target side before the sync task starts. Supported values: `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`.                                                       |
+| data_save_mode                            | Enum    | No       | APPEND_DATA                  | How to handle existing data on the target side before the sync task starts. Supported values: `DROP_DATA`, `APPEND_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`.                                                                          |
+| custom_sql                                | String  | No       | -                            | When `data_save_mode = CUSTOM_PROCESSING`, fill in the CUSTOM_SQL parameter. This is a SQL statement that runs before the synchronization task.                                                                                                  |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import                                                                                                                 |
 | multi_table_sink_replica                  | Int     | No       | 1                            | The number of replicas for multi-table write, when `multi_table_sink_replica > 1`, the data will be written to multiple tables in parallel                                                                                                     |
 
@@ -102,7 +102,7 @@ semantics (using XA transaction guarantee).
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database and table test_table in your Redshift. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 1
@@ -141,7 +141,7 @@ sink {
 
 > This example does not need to write complex sql statements, you can configure the database name and table name to automatically generate add statements for you
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -160,7 +160,7 @@ sink {
 
 > For accurate write scene we guarantee accurate once
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -179,7 +179,7 @@ sink {
 
 > CDC change data is also supported by us. In this case, you need config database, table and primary_keys.
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -204,7 +204,7 @@ sink {
 
 > Sync multiple tables from a CDC source to target Redshift database, using placeholders for dynamic table name mapping
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -242,7 +242,7 @@ sink {
 
 > Batch sync multiple tables from a database using JDBC Source to Redshift
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

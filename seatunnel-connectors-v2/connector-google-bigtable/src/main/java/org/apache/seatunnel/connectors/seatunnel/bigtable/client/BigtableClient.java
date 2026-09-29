@@ -26,6 +26,7 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.BulkMutation;
+import com.google.cloud.bigtable.data.v2.models.KeyOffset;
 import com.google.cloud.bigtable.data.v2.models.Mutation;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.protobuf.ByteString;
@@ -138,6 +139,27 @@ public class BigtableClient implements Serializable, AutoCloseable {
      */
     public BigtableDataClient getDataClient() {
         return dataClient;
+    }
+
+    /**
+     * Samples approximate tablet-boundary row keys used by the enumerator to build parallel source
+     * splits.
+     *
+     * <p>The returned keys delimit roughly equal-size ranges; the last key is typically empty,
+     * meaning the table end.
+     *
+     * @return sampled tablet-boundary keys
+     * @throws BigtableConnectorException if the RPC fails
+     */
+    public List<KeyOffset> sampleRowKeys() {
+        try {
+            return dataClient.sampleRowKeys(parameters.getTable());
+        } catch (Exception e) {
+            throw new BigtableConnectorException(
+                    BigtableConnectorErrorCode.TABLE_QUERY_FAILED,
+                    "Failed to sample row keys for table " + parameters.getTable(),
+                    e);
+        }
     }
 
     @Override
