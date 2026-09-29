@@ -291,6 +291,18 @@ public class ConfigBuilder {
                 sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
+    /**
+     * Extracts user variables into a map by splitting each entry on '='.
+     *
+     * <p>Inputs like {@code -i 'k1= , k2=v2'} or {@code -i ' =v1,k2=v2'} have ambiguous semantics,
+     * so both key and value are trimmed.
+     *
+     * <p>Empty values are allowed, but empty keys, duplicate keys, system placeholder keys, and
+     * entries without '=' are rejected.
+     *
+     * @param variables the {@code -i} variables from CLI
+     * @return map stores trimmed key and value
+     */
     public static Map<String, String> extractUserVariables(List<String> variables) {
         Map<String, String> userConfigMap = new LinkedHashMap<>();
 
@@ -320,8 +332,6 @@ public class ConfigBuilder {
     }
 
     private static String getUserKey(String[] pair, Map<String, String> userConfigMap) {
-        // if user input: -i 'k1= , k2=v2' or ' =v1,k2=v2', will lead to ambiguous semantics,
-        // thus both key and value must be trimmed
         String userKey = pair[0].trim();
 
         if (userKey.isEmpty()) {
