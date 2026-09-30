@@ -28,7 +28,7 @@ seatunnel:
           namespace: /seatunnel/checkpoints
 ```
 
-Application Mode 会原样使用完整的 `plugin-config`。OSS、S3、COS、HDFS nameservice、endpoint 和认证配置参见 [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md)。发行包必须包含对应文件系统实现和依赖。
+Application Mode 会原样使用完整的 `plugin-config`。OSS、S3、COS、HDFS nameservice、endpoint 和认证配置参见 [Checkpoint Storage](../../../engines/zeta/checkpoint-storage.md)。发行包必须包含对应文件系统实现和依赖。
 
 ## 2. 在作业中启用 checkpoint
 

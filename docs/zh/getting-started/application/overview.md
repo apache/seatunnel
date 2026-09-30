@@ -108,7 +108,7 @@ bin/seatunnel-application.sh --help
 
 这不影响基于持久化 checkpoint 的断点恢复。初次提交时把 checkpoint 保存到 HDFS、OSS、S3、COS 或 Kubernetes 持久卷；故障后提交一个新 application，并通过历史 Zeta job ID 加载最近一次可用 checkpoint。新 application 会获得新的平台 application ID 和 Zeta job ID。
 
-checkpoint 的保留策略、存储依赖、Connector 一致性和恢复限制参见平台指南与 [Checkpoint Storage](../engines/zeta/checkpoint-storage.md)。Master 可用性与 checkpoint 恢复的区别参见[故障与恢复](architecture.md#故障与恢复)。
+checkpoint 的保留策略、存储依赖、Connector 一致性和恢复限制参见平台指南与 [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md)。Master 可用性与 checkpoint 恢复的区别参见[故障与恢复](architecture.md#故障与恢复)。
 
 ## 支持的平台
 

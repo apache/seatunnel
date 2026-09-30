@@ -28,7 +28,7 @@ seatunnel:
           namespace: /seatunnel/checkpoints
 ```
 
-Application Mode preserves the complete `plugin-config`. See [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md) for OSS, S3, COS, HDFS nameservice, endpoint, and authentication settings. Include the required filesystem implementation and dependencies in the distribution.
+Application Mode preserves the complete `plugin-config`. See [Checkpoint Storage](../../../engines/zeta/checkpoint-storage.md) for OSS, S3, COS, HDFS nameservice, endpoint, and authentication settings. Include the required filesystem implementation and dependencies in the distribution.
 
 ## 2. Enable checkpoints in the job
 

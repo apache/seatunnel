@@ -108,7 +108,7 @@ This release has one master and sets `backup-count=0`. No standby member can tak
 
 Durable checkpoint recovery remains available. Store checkpoints in HDFS, OSS, S3, COS, or a Kubernetes persistent volume during the initial execution. After a failure, submit a new application and identify the historical Zeta job ID whose latest eligible checkpoint should be loaded. The new execution receives a new platform application ID and a new Zeta job ID.
 
-For retention, storage dependencies, connector compatibility, and recovery limits, see the platform guides and [Checkpoint Storage](../engines/zeta/checkpoint-storage.md). See [failure and recovery](architecture.md#failure-and-recovery) for the distinction between durable recovery and live failover.
+For retention, storage dependencies, connector compatibility, and recovery limits, see the platform guides and [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md). See [failure and recovery](architecture.md#failure-and-recovery) for the distinction between durable recovery and live failover.
 
 ## Supported platforms
 

@@ -76,6 +76,44 @@ const sidebars = {
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/architecture",
+                        {
+                            "type": "category",
+                            "label": "YARN",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/yarn/overview"
+                            },
+                            "items": [
+                                "getting-started/application/yarn/architecture",
+                                "getting-started/application/yarn/quick-start",
+                                "getting-started/application/yarn/configuration",
+                                "getting-started/application/yarn/checkpoint-recovery",
+                                "getting-started/application/yarn/faq"
+                            ]
+                        },
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
@@ -248,44 +286,6 @@ const sidebars = {
                                 "engines/zeta/local-mode-deployment",
                                 "engines/zeta/hybrid-cluster-deployment",
                                 "engines/zeta/separated-cluster-deployment"
-                            ]
-                        },
-                        {
-                            "type": "category",
-                            "label": "Application Mode (Experimental)",
-                            "items": [
-                                "application/overview",
-                                "application/architecture",
-                                {
-                                    "type": "category",
-                                    "label": "YARN",
-                                    "link": {
-                                        "type": "doc",
-                                        "id": "application/yarn/overview"
-                                    },
-                                    "items": [
-                                        "application/yarn/architecture",
-                                        "application/yarn/quick-start",
-                                        "application/yarn/configuration",
-                                        "application/yarn/checkpoint-recovery",
-                                        "application/yarn/faq"
-                                    ]
-                                },
-                                {
-                                    "type": "category",
-                                    "label": "Kubernetes",
-                                    "link": {
-                                        "type": "doc",
-                                        "id": "application/kubernetes/overview"
-                                    },
-                                    "items": [
-                                        "application/kubernetes/architecture",
-                                        "application/kubernetes/quick-start",
-                                        "application/kubernetes/configuration",
-                                        "application/kubernetes/checkpoint-recovery",
-                                        "application/kubernetes/faq"
-                                    ]
-                                }
                             ]
                         },
                         "getting-started/submit-job-to-remote-zeta-cluster",
