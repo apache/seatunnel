@@ -112,16 +112,16 @@ Platform SDK dependencies stay in the optional platform modules. Engine server m
 
 ### Migration from the existing third-party resource managers
 
-The existing `YarnResourceManager` and `KubernetesResourceManager` are Engine integration points, not a second platform allocator.
+The platform-specific `YarnResourceManager` and `KubernetesResourceManager` classes and their factories are removed. One concrete `ResourceManagerFactory` selects `StandaloneResourceManager` or `ApplicationResourceManager`.
 
-- They extend `ApplicationResourceManager`, which remains the coordinator's normal resource/slot registry.
-- Their worker request/release methods delegate to the injected platform `ResourceManagerDriver`.
+- `ApplicationResourceManager` remains the coordinator's normal resource/slot registry and directly calls the injected platform `ResourceManagerDriver`.
+- Platform Master CLIs construct the specification and driver externally and capture them with the deployment type and application ID in ResourceManagerFactory, passing only the factory through member creation. Engine does not load platform SDKs.
 - `ApplicationResourceManager` coordinates startup, worker readiness, asynchronous failure, cleanup, and application terminal reporting.
 - The driver alone performs external allocation/launch/release through the platform SDK.
 - Worker registration and task-group slot assignment remain in the existing Engine resource manager and SlotService.
 - No independent allocation retry loop, worker replacement policy, or competing terminal-cleanup owner is introduced.
 
-`ResourceManagerFactory` selects the appropriate Engine resource manager at member creation. It is not a deployment factory. `ApplicationClusterDescriptorFactory` selects the submission-side platform descriptor through SPI. These factories serve different boundaries.
+`ResourceManagerFactory` retains deployment dependencies before a node engine exists. The coordinator calls `createResourceManager(nodeEngine, engineConfig)` to create an uninitialized manager. The coordinator initializes that manager once before publishing it; each concrete manager owns initialization and failed-initialization cleanup. It is not a deployment factory. `ApplicationClusterDescriptorFactory` selects the submission-side platform descriptor through SPI. These factories serve different boundaries.
 
 ## 4. Submission and client contracts
 
@@ -197,13 +197,13 @@ YARN and Kubernetes each have distinct master and worker entrypoints:
 
 There is no `ApplicationClusterEntrypoint` or `ApplicationWorkerRunner`, and no replacement catch-all runner.
 
-The existing `SeaTunnelServerStarter.main` remains unchanged. Application entrypoints prepare configuration externally and invoke `SeaTunnelServerStarter.createHazelcastInstance`. The extended creation overload only passes configuration, instance name, jar resolver, and resource-manager factory through to member construction. It must not acquire application orchestration responsibilities.
+The existing `SeaTunnelServerStarter.main` remains unchanged. Application entrypoints prepare configuration externally and invoke `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)`. This overload only passes dependencies through to member construction. It must not acquire application orchestration responsibilities. Worker entrypoints pass `new ResourceManagerFactory()` and do not receive platform drivers.
 
 ### Master entrypoint responsibilities
 
 1. Read localized application configuration and initialize platform-specific dependencies.
 2. Prepare master membership, checkpoint retention, and distribution-local jar resolution.
-3. Construct the driver and resource-manager factory, then create the native master member.
+3. Construct the driver and unified ResourceManagerFactory externally, then pass the factory into native master creation. The coordinator supplies its NodeEngine and EngineConfig when asking that factory for a manager.
 4. Wait for `ApplicationResourceManager.awaitWorkerRegistration()`.
 5. Construct and execute `ApplicationJobExecutionEnvironment`.
 6. Observe native completion together with the resource manager's asynchronous failure future.
@@ -348,7 +348,7 @@ An upload failure removes only the directory created by that upload. A submit fa
 
 ### AM and worker behavior
 
-`SeatunnelYarnMasterCli` creates the master with `YarnResourceManagerFactory`. `YarnResourceManagerDriver` uses AMRMClient for registration, heartbeats, requests and release, and NMClient for worker launch/stop.
+`SeatunnelYarnMasterCli` creates the driver externally and captures it, the application ID and specification in ResourceManagerFactory with `DeployType.YARN`, then passes that factory into master creation. The unified `ResourceManagerFactory` creates `ApplicationResourceManager`. `YarnResourceManagerDriver` uses AMRMClient for registration, heartbeats, requests and release, and NMClient for worker launch/stop.
 
 The driver registers the actual bound master host/port for later discovery. It requests the fixed worker count, launches `SeatunnelYarnWorkerCli`, and reports allocation/launch/worker-exit failures through the runtime context.
 
@@ -398,7 +398,7 @@ The submitter's local kubeconfig path is removed from the in-cluster serialized 
 
 ### Driver and worker behavior
 
-`SeatunnelKubernetesMasterCli` constructs `KubernetesResourceManagerDriver` directly with its API client, deployment parameters, application ID, and cluster name, and injects it through `KubernetesResourceManagerFactory`. A one-line driver factory is not needed.
+`SeatunnelKubernetesMasterCli` constructs `KubernetesResourceManagerDriver` directly with its API client, deployment parameters, application ID, and cluster name, and captures the dependencies in ResourceManagerFactory with `DeployType.KUBERNETES` and passes that factory into master creation. The unified `ResourceManagerFactory` creates `ApplicationResourceManager`. Neither a platform-specific Engine manager factory nor a one-line driver factory is needed.
 
 The driver reads the owner Job, creates the fixed worker Pods, tracks pending/allocated resources, and observes worker failure. Each worker Pod receives the isolated cluster name, master endpoint and fixed slots, and runs `SeatunnelKubernetesWorkerCli`.
 

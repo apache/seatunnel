@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -42,7 +48,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceManagerTest> {
 
@@ -60,6 +76,126 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     @Test
     public void testHaveWorkerWhenUseHybridDeployment() {
         Assertions.assertEquals(1, resourceManager.workerCount(null));
+    }
+
+    @Test
+    void testFactorySelectsStandaloneWithoutApplicationDependencies() {
+        ResourceManager manager =
+                new ResourceManagerFactory().createResourceManager(nodeEngine, new EngineConfig());
+        try {
+            Assertions.assertEquals(StandaloneResourceManager.class, manager.getClass());
+            manager.init();
+            Assertions.assertEquals(1, manager.workerCount(Collections.emptyMap()));
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
+        for (DeployType type : new DeployType[] {DeployType.YARN, DeployType.KUBERNETES}) {
+            ApplicationSpecification specification = applicationSpecification(type);
+            ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+            ResourceID worker = new ResourceID("test-worker");
+            when(driver.requestWorker(specification.getWorkerSpecification()))
+                    .thenReturn(CompletableFuture.completedFuture(worker));
+            when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
+            ResourceManager manager =
+                    new ResourceManagerFactory(type, "test-application", specification, driver)
+                            .createResourceManager(nodeEngine, new EngineConfig());
+            try {
+                Assertions.assertEquals(ApplicationResourceManager.class, manager.getClass());
+                verifyNoInteractions(driver);
+                manager.init();
+                ((ApplicationResourceManager<?>) manager).awaitWorkerRegistration();
+                verify(driver, times(1)).initialize(any(ResourceManagerContext.class));
+                verify(driver, times(1)).requestWorker(specification.getWorkerSpecification());
+            } finally {
+                manager.close();
+                manager.close();
+            }
+            verify(driver, times(1)).releaseWorker(worker);
+            verify(driver, times(1)).close();
+            Assertions.assertThrows(IllegalStateException.class, manager::init);
+        }
+    }
+
+    @Test
+    void testApplicationFactoryRejectsIncompleteOrMismatchedDependencies() {
+        ResourceManagerFactory incomplete =
+                new ResourceManagerFactory(DeployType.YARN, null, null, null);
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> incomplete.createResourceManager(nodeEngine, new EngineConfig()));
+        Assertions.assertThrows(
+                UnsupportedDeployTypeException.class,
+                () ->
+                        new ResourceManagerFactory(null, null, null, null)
+                                .createResourceManager(nodeEngine, new EngineConfig()));
+        ResourceManagerDriver<?> driver = mock(ResourceManagerDriver.class);
+        ResourceManagerFactory application =
+                new ResourceManagerFactory(
+                        DeployType.YARN,
+                        "test-application",
+                        applicationSpecification(DeployType.KUBERNETES),
+                        driver);
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> application.createResourceManager(nodeEngine, new EngineConfig()));
+        verifyNoInteractions(driver);
+    }
+
+    @Test
+    void testApplicationInitializationFailureClosesDriverAndPreservesCause() throws Exception {
+        ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+        IllegalStateException syncFailure = new IllegalStateException("profile sync failed");
+        Exception cleanupFailure = new Exception("driver close failed");
+        doThrow(cleanupFailure).when(driver).close();
+        ApplicationResourceManager<ResourceID> manager =
+                new ApplicationResourceManager<ResourceID>(
+                        nodeEngine,
+                        new EngineConfig(),
+                        "test-application",
+                        applicationSpecification(DeployType.YARN),
+                        nodeEngine.getThisAddress(),
+                        driver) {
+                    @Override
+                    protected void syncExistingWorkerProfiles() {
+                        throw syncFailure;
+                    }
+                };
+        IllegalStateException failure =
+                Assertions.assertThrows(IllegalStateException.class, manager::init);
+        Assertions.assertSame(syncFailure, failure.getCause());
+        Assertions.assertEquals(1, failure.getSuppressed().length);
+        Assertions.assertSame(cleanupFailure, failure.getSuppressed()[0].getCause());
+        verify(driver, never()).initialize(any());
+        verify(driver, times(1)).close();
+        manager.close();
+        Assertions.assertThrows(IllegalStateException.class, manager::init);
+    }
+
+    @Test
+    void testStandaloneInitializationSynchronizesProfilesAndCannotRestartAfterClose() {
+        AtomicInteger synchronizations = new AtomicInteger();
+        StandaloneResourceManager manager =
+                new StandaloneResourceManager(nodeEngine, new EngineConfig()) {
+                    @Override
+                    protected void syncExistingWorkerProfiles() {
+                        synchronizations.incrementAndGet();
+                    }
+                };
+        manager.init();
+        Assertions.assertEquals(1, synchronizations.get());
+        manager.close();
+        Assertions.assertThrows(IllegalStateException.class, manager::init);
+    }
+
+    private ApplicationSpecification applicationSpecification(DeployType type) {
+        return ApplicationSpecification.fromOptions(
+                type,
+                "env { job.mode = BATCH }",
+                Collections.singletonMap(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "10000"));
     }
 
     @Test

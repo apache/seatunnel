@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
 /** Starts one fixed-slot application worker without Kubernetes API access. */
 public final class SeatunnelKubernetesWorkerCli {
@@ -44,6 +44,6 @@ public final class SeatunnelKubernetesWorkerCli {
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, JarPathResolver.identity(), new StandaloneResourceManagerFactory());
+                config, null, JarPathResolver.identity(), new ResourceManagerFactory());
     }
 }

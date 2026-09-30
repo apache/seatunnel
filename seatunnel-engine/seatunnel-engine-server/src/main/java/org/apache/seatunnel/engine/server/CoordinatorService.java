@@ -80,7 +80,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceExcept
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
@@ -98,6 +97,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -139,7 +139,7 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
-    private JobHistoryService jobHistoryService;
+    @Getter private JobHistoryService jobHistoryService;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -238,7 +238,7 @@ public class CoordinatorService {
 
     private ConnectorPackageService connectorPackageService;
 
-    private EventProcessor eventProcessor;
+    @Getter private EventProcessor eventProcessor;
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
@@ -258,7 +258,7 @@ public class CoordinatorService {
                 seaTunnelServer,
                 engineContext,
                 engineConfig,
-                new StandaloneResourceManagerFactory());
+                new ResourceManagerFactory());
     }
 
     public CoordinatorService(
@@ -610,20 +610,12 @@ public class CoordinatorService {
         return new JobEventProcessor(handlers);
     }
 
-    public JobHistoryService getJobHistoryService() {
-        return jobHistoryService;
-    }
-
     public JobMaster getJobMaster(Long jobId) {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
             return pendingJobInfo.getJobMaster();
         }
         return runningJobMasterMap.get(jobId);
-    }
-
-    public EventProcessor getEventProcessor() {
-        return eventProcessor;
     }
 
     private void initCoordinatorService() {

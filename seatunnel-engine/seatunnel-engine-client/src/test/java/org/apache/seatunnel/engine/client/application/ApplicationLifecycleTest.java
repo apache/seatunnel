@@ -46,9 +46,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManagerFactory;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -725,7 +724,8 @@ class ApplicationLifecycleTest {
                         config,
                         null,
                         JarPathResolver.identity(),
-                        new KubernetesResourceManagerFactory<>(id, specification, driver));
+                        new ResourceManagerFactory(
+                                specification.getDeployType(), id, specification, driver));
         SeaTunnelServer server =
                 master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         try {
@@ -800,7 +800,7 @@ class ApplicationLifecycleTest {
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         return SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, resolver, new StandaloneResourceManagerFactory());
+                config, null, resolver, new ResourceManagerFactory());
     }
 
     private static class LocalDriver implements ResourceManagerDriver<ResourceID> {

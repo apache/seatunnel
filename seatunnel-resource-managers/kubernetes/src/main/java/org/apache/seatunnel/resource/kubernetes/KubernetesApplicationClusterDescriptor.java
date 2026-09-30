@@ -96,7 +96,10 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             awaitDeployment(id, specification.getStartupTimeoutMillis());
             return id;
         } catch (Exception failure) {
-            if (job == null || job.isFailed() || ((ApiException) failure).getCode() != 409) {
+            if (job == null
+                    || job.isFailed()
+                    || !(failure instanceof ApiException)
+                    || ((ApiException) failure).getCode() != 409) {
                 try {
                     api.deleteApplication(id);
                 } catch (Exception cleanup) {

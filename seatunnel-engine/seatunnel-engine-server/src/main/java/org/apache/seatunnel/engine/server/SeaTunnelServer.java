@@ -39,7 +39,6 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -122,7 +121,7 @@ public class SeaTunnelServer
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, JarPathResolver.identity(), new StandaloneResourceManagerFactory());
+        this(seaTunnelConfig, JarPathResolver.identity(), new ResourceManagerFactory());
     }
 
     /**
@@ -138,7 +137,7 @@ public class SeaTunnelServer
      */
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
-        this(seaTunnelConfig, jarPathResolver, new StandaloneResourceManagerFactory());
+        this(seaTunnelConfig, jarPathResolver, new ResourceManagerFactory());
     }
 
     public SeaTunnelServer(
@@ -149,10 +148,6 @@ public class SeaTunnelServer
         this.seaTunnelConfig = seaTunnelConfig;
         this.jarPathResolver = jarPathResolver;
         this.resourceManagerFactory = resourceManagerFactory;
-        LOGGER.info(
-                "SeaTunnel server uses "
-                        + resourceManagerFactory.getClass().getSimpleName()
-                        + " resource manager");
     }
 
     /** Lazy load for Slot Service */

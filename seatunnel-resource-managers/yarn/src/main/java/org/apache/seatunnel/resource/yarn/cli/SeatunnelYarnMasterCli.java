@@ -35,7 +35,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
@@ -123,7 +123,8 @@ public final class SeatunnelYarnMasterCli {
                                 engineConfiguration,
                                 null,
                                 JarPathResolver.identity(),
-                                new YarnResourceManagerFactory<>(id, specification, driver));
+                                new ResourceManagerFactory(
+                                        specification.getDeployType(), id, specification, driver));
             } catch (Exception failure) {
                 try {
                     driver.close();

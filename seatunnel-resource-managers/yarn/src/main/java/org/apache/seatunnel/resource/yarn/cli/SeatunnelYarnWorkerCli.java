@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.classloader.ApplicationJarPathResolver;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 
 import java.nio.file.Paths;
@@ -56,6 +56,6 @@ public final class SeatunnelYarnWorkerCli {
                                 .normalize()
                                 .toString());
         SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, jarPathResolver, new StandaloneResourceManagerFactory());
+                config, null, jarPathResolver, new ResourceManagerFactory());
     }
 }

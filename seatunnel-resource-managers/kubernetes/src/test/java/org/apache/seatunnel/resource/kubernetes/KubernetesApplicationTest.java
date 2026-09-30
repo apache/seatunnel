@@ -28,7 +28,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
@@ -120,7 +120,7 @@ class KubernetesApplicationTest {
                                     eq(config),
                                     isNull(),
                                     resolver.capture(),
-                                    any(StandaloneResourceManagerFactory.class)));
+                                    any(ResourceManagerFactory.class)));
             starter.verifyNoMoreInteractions();
             clients.verifyNoInteractions();
             assertEquals("kubernetes-app", config.getHazelcastConfig().getClusterName());

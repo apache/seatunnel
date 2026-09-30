@@ -79,7 +79,7 @@ class KubernetesResourceManagerDriverTest {
             KubernetesWorkerNode worker =
                     driver.requestWorker(specification().getWorkerSpecification())
                             .get(5, TimeUnit.SECONDS);
-            assertEquals("app-worker-0", worker.getResourceID().getResourceIdString());
+            assertEquals("app-worker-1", worker.getResourceID().getResourceIdString());
             verify(api).getJob("app");
             ArgumentCaptor<KubernetesPod> created = ArgumentCaptor.forClass(KubernetesPod.class);
             verify(api).createPod(created.capture());
@@ -111,7 +111,7 @@ class KubernetesResourceManagerDriverTest {
             assertNull(driver.releaseWorker(worker).get());
             driver.releaseWorker(new KubernetesWorkerNode(new ResourceID("other-worker"))).get();
             driver.checkWorkers();
-            verify(api, times(1)).deletePod("app-worker-0");
+            verify(api, times(1)).deletePod("app-worker-1");
             verify(api, never()).deletePod("other-worker");
             verify(context, never()).onWorkerTerminated(anyString(), anyString());
         }

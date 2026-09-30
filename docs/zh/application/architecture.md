@@ -54,6 +54,8 @@ flowchart LR
 
 ## 运行流程
 
+统一的具体类 `ResourceManagerFactory` 只选择 `StandaloneResourceManager` 或 `ApplicationResourceManager`，不再保留 YARN/Kubernetes 专属的 Engine manager 子类和工厂。平台 Master CLI 在外层构造应用规格和 driver，连同应用 ID、部署类型放入统一 factory；节点创建链只透传 factory。Coordinator 将 NodeEngine 和 EngineConfig 传给 factory 创建对应 manager，初始化成功后才发布实例。两个具体 manager 分别负责初始化，ApplicationResourceManager 直接调用注入的 driver。
+
 `ResourceManagerContext` 只提供绑定后的 Master 地址及故障回调。应用 ID、集群名和部署配置在构造平台 driver 时传入，不再通过运行时 Context 获取。
 
 运行时不再保留独立的 `ApplicationClusterEntrypoint`。平台 CLI 通过 `SeaTunnelServerStarter.createHazelcastInstance` 创建已配置的节点并负责关闭 Master。`ApplicationJobExecutionEnvironment` 位于 engine-client 的 `client.job` 包，与 `ClientJobExecutionEnvironment` 一样继承 `AbstractJobEnvironment`，只负责解析配置、构建 DAG、在进程内提交作业并返回 `CompletableFuture<JobResult>`；不等待 Worker，不清理集群，也不创建客户端连接自己。

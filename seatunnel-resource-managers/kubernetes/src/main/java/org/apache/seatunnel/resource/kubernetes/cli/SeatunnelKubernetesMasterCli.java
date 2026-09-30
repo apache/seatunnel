@@ -34,7 +34,7 @@ import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.KubernetesResourceManagerDriver;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
@@ -104,7 +104,8 @@ public final class SeatunnelKubernetesMasterCli {
                                 engineConfiguration,
                                 null,
                                 JarPathResolver.identity(),
-                                new KubernetesResourceManagerFactory<>(id, specification, driver));
+                                new ResourceManagerFactory(
+                                        specification.getDeployType(), id, specification, driver));
             } catch (Exception failure) {
                 try {
                     driver.close();

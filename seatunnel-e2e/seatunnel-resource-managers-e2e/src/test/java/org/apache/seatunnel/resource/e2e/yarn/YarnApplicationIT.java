@@ -248,9 +248,21 @@ public class YarnApplicationIT extends TestSuiteBase {
     @Test
     void cancelStopsTheRunningApplicationAndWorkers() throws Exception {
         String id;
-        try (YarnApplicationClient client =
-                deployApplication(specification(true, false, 120000, 2))) {
+        ApplicationSpecification specification = specification(true, false, 120000, 2);
+        try (YarnApplicationClient client = deployApplication(specification)) {
             ContainerId worker = awaitWorker(client);
+            String workerCommand =
+                    yarn.getNodeManager(0)
+                            .getNMContext()
+                            .getContainers()
+                            .get(worker)
+                            .getLaunchContext()
+                            .getCommands()
+                            .get(0);
+            assertTrue(
+                    workerCommand.contains(
+                            " '" + specification.getWorkerSpecification().getSlots() + "' "),
+                    "The injected application specification must reach the worker launch command");
             assertTrue(
                     yarn.getNodeManager(0)
                             .getNMContext()

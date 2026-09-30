@@ -22,7 +22,6 @@ import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor;
 
@@ -54,11 +53,7 @@ public class NodeExtension extends DefaultNodeExtension {
      * @param seaTunnelConfig Engine and cluster configuration
      */
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(
-                node,
-                seaTunnelConfig,
-                JarPathResolver.identity(),
-                new StandaloneResourceManagerFactory());
+        this(node, seaTunnelConfig, JarPathResolver.identity(), new ResourceManagerFactory());
     }
 
     /**
@@ -73,7 +68,7 @@ public class NodeExtension extends DefaultNodeExtension {
             @NonNull Node node,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull JarPathResolver jarPathResolver) {
-        this(node, seaTunnelConfig, jarPathResolver, new StandaloneResourceManagerFactory());
+        this(node, seaTunnelConfig, jarPathResolver, new ResourceManagerFactory());
     }
 
     public NodeExtension(

@@ -97,28 +97,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public synchronized void init() {
+    public void init() {
         if (!isRunning) {
             throw new IllegalStateException("Resource manager has already been closed");
         }
-        log.info("Init ResourceManager");
-        try {
-            syncExistingWorkerProfiles();
-            initializeResourceManager();
-        } catch (Exception e) {
-            IllegalStateException initializationFailure =
-                    new IllegalStateException("Could not initialize resource manager", e);
-            try {
-                close();
-            } catch (RuntimeException cleanupFailure) {
-                initializationFailure.addSuppressed(cleanupFailure);
-            }
-            throw initializationFailure;
-        }
     }
-
-    /** Adds deployment-specific initialization after the common worker registry is synchronized. */
-    protected void initializeResourceManager() throws Exception {}
 
     /**
      * Synchronizes profiles from Engine workers that are already cluster members when this resource
@@ -129,7 +112,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
      * later through the normal worker heartbeat path; this startup synchronization only prevents an
      * existing member from being absent from the master-side registry until its next heartbeat.
      */
-    private void syncExistingWorkerProfiles() {
+    protected void syncExistingWorkerProfiles() {
         log.info("Synchronizing existing worker profiles");
         List<Address> aliveNode =
                 nodeEngine.getClusterService().getMembers().stream()

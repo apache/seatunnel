@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
@@ -29,6 +28,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRet
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.spi.impl.NodeEngine;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * AbstractResourceManager}.
  */
 @Slf4j
-public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable>
+public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable>
         extends AbstractResourceManager implements ResourceManagerContext {
 
     private final String applicationId;
@@ -62,12 +62,16 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
     private final Address masterAddress;
     private final ResourceManagerDriver<WorkerType> driver;
     private final List<CompletableFuture<WorkerType>> requests = new CopyOnWriteArrayList<>();
-    protected final List<WorkerType> workers = new CopyOnWriteArrayList<>();
+    private final List<WorkerType> workers = new CopyOnWriteArrayList<>();
     private final CompletableFuture<Void> workersReady = new CompletableFuture<>();
     private final ExecutorService startup;
     private long startupDeadline;
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
-    private final CompletableFuture<Void> failureFuture = new CompletableFuture<>();
+    /**
+     * -- GETTER -- Notifies the job owner of the first asynchronous allocation or worker failure.
+     */
+    @Getter private final CompletableFuture<Void> failureFuture = new CompletableFuture<>();
+
     private final AtomicBoolean workersStopped = new AtomicBoolean();
     private final AtomicBoolean resultPublished = new AtomicBoolean();
 
@@ -93,9 +97,29 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
                         });
     }
 
-    /** Starts driver initialization and worker registration without blocking the master thread. */
+    /** Initializes this application's worker lifecycle; called once by the coordinator. */
     @Override
-    protected void initializeResourceManager() {
+    public synchronized void init() {
+        super.init();
+        log.info("Init application ResourceManager");
+        try {
+            syncExistingWorkerProfiles();
+            initializeResourceManager();
+        } catch (Exception e) {
+            IllegalStateException initializationFailure =
+                    new IllegalStateException(
+                            "Could not initialize application resource manager", e);
+            try {
+                close();
+            } catch (RuntimeException cleanupFailure) {
+                initializationFailure.addSuppressed(cleanupFailure);
+            }
+            throw initializationFailure;
+        }
+    }
+
+    /** Starts driver initialization and worker registration without blocking the master thread. */
+    private void initializeResourceManager() {
         startupDeadline =
                 System.nanoTime()
                         + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());
@@ -109,7 +133,7 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
                             }
                             checkFailure();
                             CompletableFuture<WorkerType> request =
-                                    requestWorker(specification.getWorkerSpecification());
+                                    driver.requestWorker(specification.getWorkerSpecification());
                             requests.add(request);
                             if (workersStopped.get()) {
                                 request.cancel(true);
@@ -159,11 +183,6 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
         if (reported != null) {
             throw new ExecutionException(reported);
         }
-    }
-
-    /** Notifies the job owner of the first asynchronous allocation or worker failure. */
-    public CompletableFuture<Void> getFailureFuture() {
-        return failureFuture;
     }
 
     /**
@@ -293,7 +312,7 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
         List<CompletableFuture<Void>> releases = new ArrayList<>();
         for (WorkerType worker : workers) {
             try {
-                releases.add(releaseWorker(worker));
+                releases.add(driver.releaseWorker(worker));
             } catch (RuntimeException e) {
                 cleanupFailure = collect(cleanupFailure, e);
             }
@@ -319,16 +338,6 @@ public abstract class ApplicationResourceManager<WorkerType extends ResourceIDRe
             throw new IllegalStateException("Application result has already been published");
         }
         driver.finish(status, diagnostics);
-    }
-
-    /** Requests one platform worker through the concrete YARN or Kubernetes manager. */
-    public abstract CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
-
-    /** Releases one platform worker through the concrete YARN or Kubernetes manager. */
-    public abstract CompletableFuture<Void> releaseWorker(WorkerType worker);
-
-    protected final ResourceManagerDriver<WorkerType> getDriver() {
-        return driver;
     }
 
     /** Stops application workers and closes the platform driver. */

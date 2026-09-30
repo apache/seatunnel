@@ -28,7 +28,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnMasterCli;
 import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
@@ -148,7 +148,7 @@ class YarnApplicationTest {
                                     eq(config),
                                     isNull(),
                                     resolver.capture(),
-                                    any(StandaloneResourceManagerFactory.class)));
+                                    any(ResourceManagerFactory.class)));
             starter.verifyNoMoreInteractions();
             staging.verifyNoInteractions();
             assertEquals("yarn-app", config.getHazelcastConfig().getClusterName());

@@ -326,8 +326,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void simultaneousApplicationsAreIsolatedAndCancellationRemovesEverything() throws Exception {
-        try (KubernetesApplicationClient first =
-                deployApplication(specification(job("STREAMING", "Console")))) {
+        ApplicationSpecification firstSpecification = specification(job("STREAMING", "Console"));
+        try (KubernetesApplicationClient first = deployApplication(firstSpecification)) {
             try (KubernetesApplicationClient second =
                     deployApplication(singleWorkerSpecification(job("STREAMING", "Console", 1)))) {
                 try {
@@ -352,6 +352,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 ApplicationClusterConfig.clusterName(first.getClusterId()),
                                 command.get(entrypoint + 1));
                         assertEquals(firstMaster, command.get(entrypoint + 2));
+                        assertEquals(
+                                String.valueOf(
+                                        firstSpecification.getWorkerSpecification().getSlots()),
+                                command.get(entrypoint + 3));
                         assertTrue(command.contains(firstMaster));
                         assertFalse(command.contains(secondMaster));
                         assertEquals(

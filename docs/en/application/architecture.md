@@ -54,6 +54,8 @@ Both platforms use separate master and worker entrypoints: YARN uses `SeatunnelY
 
 ## Runtime flow
 
+The concrete `ResourceManagerFactory` selects `StandaloneResourceManager` or `ApplicationResourceManager`. There are no YARN/Kubernetes-specific Engine manager subclasses or manager factories. Platform master CLIs construct the specification and driver outside Engine, capture them with the application ID and deployment type in the unified factory, and pass only that factory through native member creation. The coordinator passes its NodeEngine and EngineConfig to the factory to create the selected manager and publishes it only after successful initialization. Each concrete manager owns its initialization; the application manager invokes its injected driver directly.
+
 `ResourceManagerContext` exposes only the bound master endpoint and failure callbacks. Application identity, cluster name and deployment settings are supplied when constructing the platform driver; they are not retrieved through the runtime context.
 
 The application runtime has no separate `ApplicationClusterEntrypoint`. The platform CLI creates the configured member through `SeaTunnelServerStarter.createHazelcastInstance` and owns master shutdown. `ApplicationJobExecutionEnvironment`, in engine-client's `client.job` package, extends `AbstractJobEnvironment` like `ClientJobExecutionEnvironment`: it parses the job, builds the DAG and submits locally, returning a `CompletableFuture<JobResult>`. It does not wait for workers or clean up the cluster, and does not create a client connection to itself.

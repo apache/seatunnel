@@ -23,7 +23,6 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -69,10 +68,7 @@ public class SeaTunnelServerStarter {
             String customInstanceName,
             @NonNull JarPathResolver jarPathResolver) {
         return createHazelcastInstance(
-                seaTunnelConfig,
-                customInstanceName,
-                jarPathResolver,
-                new StandaloneResourceManagerFactory());
+                seaTunnelConfig, customInstanceName, jarPathResolver, new ResourceManagerFactory());
     }
 
     /** Creates a configured member with its jar resolver and resource manager factory. */
