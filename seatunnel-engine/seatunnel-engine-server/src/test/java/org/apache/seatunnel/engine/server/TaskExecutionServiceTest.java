@@ -206,7 +206,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         jobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "testClassloaderSplit",
@@ -269,7 +269,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         new TaskGroupLocation(testJobId, 1, 1),
                         "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
@@ -318,7 +318,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.DEFAULT,
                         location,
                         "testDeployTaskHandlesFailureBeforeContextPublication",
@@ -540,7 +540,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation info =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "idempotency-test",
@@ -582,7 +582,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
         TaskGroupContext firstContext =
                 new TaskGroupContext(
-                        1L,
+                        FLAKE_ID_GENERATOR.newId(),
                         new TaskGroupDefaultImpl(location, "first", Lists.newArrayList(firstTask)),
                         firstClassLoaders,
                         new ConcurrentHashMap<>());
@@ -595,7 +595,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
         TaskGroupContext replacementContext =
                 new TaskGroupContext(
-                        2L,
+                        FLAKE_ID_GENERATOR.newId(),
                         new TaskGroupDefaultImpl(
                                 location, "replacement", Lists.newArrayList(replacementTask)),
                         replacementClassLoaders,
@@ -623,7 +623,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
             TaskGroupContext firstContext =
                     new TaskGroupContext(
-                            1L,
+                            FLAKE_ID_GENERATOR.newId(),
                             new TaskGroupDefaultImpl(
                                     location, "first", Lists.newArrayList(firstTask)),
                             firstClassLoaders,
@@ -638,7 +638,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
             TaskGroupContext replacementContext =
                     new TaskGroupContext(
-                            2L,
+                            FLAKE_ID_GENERATOR.newId(),
                             new TaskGroupDefaultImpl(
                                     location, "replacement", Lists.newArrayList(replacementTask)),
                             replacementClassLoaders,
@@ -692,8 +692,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        // The service is shared across tests and earlier workers may still be finishing.
+        // Match production identity: every deployment needs a globally unique execution ID.
+        long oldExecutionId = FLAKE_ID_GENERATOR.newId();
+        long newExecutionId = FLAKE_ID_GENERATOR.newId();
+        TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(newExecutionId, newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
@@ -743,8 +747,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
             Assertions.assertSame(newContext, executionContexts.get(location));
             Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
-            assertEquals(1L, oldContext.getExecutionId());
-            assertEquals(2L, newContext.getExecutionId());
+            assertEquals(oldExecutionId, oldContext.getExecutionId());
+            assertEquals(newExecutionId, newContext.getExecutionId());
             Assertions.assertNull(oldContext.getClassLoaders());
             Assertions.assertNotNull(newContext.getClassLoaders());
             Assertions.assertTrue(oldAsyncFuture.isCancelled());
@@ -805,8 +809,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        // The service is shared across tests and earlier workers may still be finishing.
+        // Match production identity: every deployment needs a globally unique execution ID.
+        long oldExecutionId = FLAKE_ID_GENERATOR.newId();
+        long newExecutionId = FLAKE_ID_GENERATOR.newId();
+        TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(newExecutionId, newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
         TaskExecutionService.TaskGroupExecutionTracker oldTracker =
