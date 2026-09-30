@@ -345,14 +345,16 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     @Test
     void invalidJobFailsAndReleasesWorkers() throws Exception {
         try (KubernetesApplicationClient application =
-                deployApplication(specification(job("BATCH", "ConnectorThatDoesNotExist")))) {
+                deployApplication(specification(job("BATCH", "NonexistentSink")))) {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
                 String masterLogs = podLogs(masterPod(application).getMetadata().getName());
                 assertTrue(
-                        masterLogs.contains("ConnectorThatDoesNotExist"),
-                        "The application must reach job parsing, not fail during runtime startup");
+                        masterLogs.contains("NonexistentSink"),
+                        () ->
+                                "The application must reach job parsing, not fail during runtime startup. Master logs:\n"
+                                        + masterLogs);
             } finally {
                 deployer.cancelApplication(application.getClusterId());
             }
@@ -1010,7 +1012,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     private static String job(String mode, String sink, int parallelism) throws IOException {
         String template =
-                "ConnectorThatDoesNotExist".equals(sink)
+                "NonexistentSink".equals(sink)
                         ? "invalid_sink.conf"
                         : "STREAMING".equals(mode) ? "fake_streaming.conf" : "fake_batch.conf";
         return readJobTemplate(template, parallelism, "APPLICATION_E2E_DATA");
