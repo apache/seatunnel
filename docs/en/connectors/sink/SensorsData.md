@@ -65,11 +65,11 @@ SensorsData data sink address, the format is `https://${host}:8106/sa?project=${
 
 ### bulk_size [int]
 
-Threshold for the triggering flush operation in SensorsData SDK. When the memory cache queue reaches this value, the data in the cache will be sent. The default value is 50.
+Threshold for the triggering flush operation in SensorsData SDK. When the memory cache queue reaches this value, the data in the cache will be sent. The default value is 50. Must be greater than 0; a value of `0` or less is rejected during option validation.
 
 ### max_cache_row_size [int]
 
-Maximum cache refresh size for SensorsData SDK. If it exceeds this value, the flush operation will be triggered immediately. The default value is 0, which depends on bulkSize.
+Maximum cache refresh size for SensorsData SDK. If it exceeds this value, the flush operation will be triggered immediately. The default value is 0, which depends on bulkSize. Must be `0` or greater; a negative value is rejected during option validation.
 
 ### consumer [string]
 

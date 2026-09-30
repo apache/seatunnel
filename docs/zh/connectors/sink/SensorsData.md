@@ -65,11 +65,11 @@ SensorsData 数据 Sink 地址，格式为 `https://${host}:8106/sa?project=${pr
 
 ### bulk_size [int]
 
-SensorsData SDK 中触发刷新操作的阈值。当内存缓存队列达到此值时，缓存中的数据将被发送。默认值为 50。
+SensorsData SDK 中触发刷新操作的阈值。当内存缓存队列达到此值时，缓存中的数据将被发送。默认值为 50。该值必须大于 0；小于或等于 0 的值会在选项校验阶段被拒绝。
 
 ### max_cache_row_size [int]
 
-SensorsData SDK 的最大缓存刷新大小。如果超过此值，将立即触发刷新操作。默认值为 0，取决于 bulkSize。
+SensorsData SDK 的最大缓存刷新大小。如果超过此值，将立即触发刷新操作。默认值为 0，取决于 bulkSize。该值必须大于或等于 0；负值会在选项校验阶段被拒绝。
 
 ### consumer [string]
 

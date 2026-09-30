@@ -5,6 +5,28 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Helm Chart: Zeta REST API v1 disabled by default
+
+- **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
+  - **Affected component**: Helm chart `deploy/kubernetes/seatunnel` (`conf/hazelcast-master.yaml`,
+    `conf/hazelcast-worker.yaml`, `values.yaml`)
+  - **Description**: The chart previously set `hazelcast.network.rest-api.enabled: true`, exposing the
+    deprecated Zeta REST API v1 (including `submit-job`, `stop-job`, `encrypt-config`, logs and thread
+    dump) on the Hazelcast member port (5801) without authentication. It is now `false`, matching the
+    standalone `config/hazelcast.yaml` default and the v1 documentation. The default Prometheus pod
+    annotations are repointed from `5801` (`/hazelcast/rest/instance/metrics`) to the REST API v2 /
+    Jetty listener on `8080` (`/metrics`), which returns the same samples.
+  - **Impact**: Deployments that called REST API v1 on port 5801 must switch to REST API v2 on port
+    8080. Prometheus setups that scraped `5801/hazelcast/rest/instance/metrics` directly (rather than
+    through the pod annotations) must update the target to `8080/metrics`. Job submission through the
+    Hazelcast client protocol and REST API v2 on 8080 are unaffected. Because the ConfigMap is mounted
+    with `subPath` and the Deployments carry no config checksum annotation, running pods keep the old
+    setting until restarted, so restart the master/worker pods after `helm upgrade`.
+  - **Migration Guide**: Use REST API v2 on port 8080 (the chart's documented interface). If Zeta REST
+    API v1 is genuinely required, set `rest-api.enabled: true` in a custom ConfigMap
+    (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
+    after upgrading so the new configuration is applied.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
@@ -29,6 +51,18 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
+
+### FakeSource (connector-fake)
+
+- Declarative option constraints are now enforced at factory validation time instead of
+  silently passing and failing only at runtime. Affected options: `split.num`,
+  `vector.dimension` and `binary.vector.dimension` must be > 0; `row.num`,
+  `split.read-interval`, `map.size`, `array.size`, `bytes.length` and `string.length` must be
+  >= 0; `tinyint.min/max`, `smallint.min/max`, `int.min/max`, `bigint.min/max`,
+  `float.min/max`, `double.min/max` and `vector.float.min/max` must satisfy min <= max.
+  Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
+  values and previously ran successfully will now fail fast at startup with a validation
+  error.
 
 ### Zeta REST Pagination Parameter Validation
 
@@ -80,6 +114,15 @@ You need to check this document before you upgrade to related version.
       - **DB column-typed sinks without native timezone support (Doris, StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
       - **String/text-based sinks (Text file, Kafka, Pulsar, RocketMQ, RabbitMQ, Redis, etc.)**: The full ISO 8601 offset is preserved (e.g., `"2024-01-01T03:00:00+09:00"`). These formats can represent timezone offsets as strings, so no information is lost. If you need wall-clock behavior for a string sink, use a SQL Transform to cast `TIMESTAMP_TZ` to `TIMESTAMP` before writing.
     - **Xugu TIMESTAMP_TZ (lossy)**: Xugu `TIMESTAMP WITH TIME ZONE` columns are exposed as `TIMESTAMP_TZ` at the type layer, but the actual write path drops the timezone offset and stores only the wall-clock value due to a Xugu JDBC driver batch limitation (bug [E19138]). A warning is logged on the first write.
+
+### SensorsData Sink
+
+- **Behavior change: `bulk_size` and `max_cache_row_size` are now range-checked at option-validation time**
+  - **Affected component**: `seatunnel-connectors-v2/connector-sensorsdata` (sink)
+  - **Description**: Neither option had a value-range constraint, so `bulk_size = 0`, `bulk_size = -5` or `max_cache_row_size = -1` passed configuration validation and only misbehaved once they reached the SensorsData SDK `BatchConsumer`. Both are now declared in `optionRule()` as `bulk_size > 0` and `max_cache_row_size >= 0`, so an out-of-range value is rejected before the writer is built.
+  - **Impact**: A job that sets an out-of-range value now fails at job-creation time with an `OptionValidationException` instead of starting. The defaults (50 and 0), every in-range value, and configs that omit the options are unaffected.
+  - **Migration Guide**: Remove the option, or set `bulk_size` to a positive value and `max_cache_row_size` to `0` or greater.
+
 
 ### API Changes
 
