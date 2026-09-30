@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，也支持并发写入。此连接器使用的 DuckDB JDBC 驱动没有提供 XA 数据源，因此 DuckDB 无法使用 JDBC Sink 基于 XA 的精确一次选项。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。
+通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，也支持并发写入。此连接器使用的 DuckDB JDBC 驱动没有提供 XA 数据源，因此 DuckDB 无法使用 JDBC Sink 基于 XA 的精确一次选项。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。生成的 DECIMAL DDL 与默认 locale 无关。
 
 ## 需要的依赖项
 
