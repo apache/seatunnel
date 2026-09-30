@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,13 +63,16 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                             resolutions.incrementAndGet();
                             return Collections.singletonList(localJar.toUri().toURL());
                         });
-        try {
-            SeaTunnelChildFirstClassLoader loader =
-                    (SeaTunnelChildFirstClassLoader)
-                            service.getClassLoader(7L, Collections.singletonList(original));
+        try (SeaTunnelChildFirstClassLoader loader =
+                (SeaTunnelChildFirstClassLoader)
+                        service.getClassLoader(7L, Collections.singletonList(original))) {
             Assertions.assertEquals(localJar.toUri().toURL(), loader.getURLs()[0]);
-            try (InputStream resource = loader.getResourceAsStream("resolver-marker.txt")) {
-                Assertions.assertNotNull(resource);
+            URL marker = loader.getResource("resolver-marker.txt");
+            Assertions.assertNotNull(marker);
+            URLConnection connection = marker.openConnection();
+            // This test-owned connection must not retain a global cached JarFile on Windows.
+            connection.setUseCaches(false);
+            try (InputStream resource = connection.getInputStream()) {
                 Assertions.assertEquals('w', resource.read());
             }
             Assertions.assertSame(
@@ -84,6 +88,7 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
         } finally {
             service.close();
         }
+        Files.delete(localJar);
     }
 
     @Test
