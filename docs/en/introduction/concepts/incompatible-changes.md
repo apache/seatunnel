@@ -5,14 +5,6 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### Application Mode CLI
-
-- The experimental `seatunnel-application.sh` now uses positional `submit`, `status` and `cancel` commands. The old `-p` / `--operation`, `-d` / `--deploy-type` and `-dc` / `--deployment-config` options are removed, without compatibility aliases.
-- Migrate `-p submit -d yarn -c job.conf -dc application.config` to `submit -t yarn -c job.conf -a application.config`. Long names are `--target`, `--config` and `--application-config`. Replace the previously documented `--restore-from-checkpoint` with `--restore-job-id`.
-- Deployment files remain HOCON and existing configuration keys are unchanged. The deployment file is now optional when SDK defaults and `-i` provide the required settings. See [Application commands](../../application/overview.md#commands).
-- Replace deployment overrides `-Dkey=value` with `-ikey=value`; `-D` is no longer a CLI alias. JVM system properties are unchanged.
-- Experimental embedding APIs now pass platform options separately: replace `run(specification)` with `run(target, options, specification)`, and construct the typed specification through `SeatunnelApplicationConfig.parse(jobConfig, options)`. Platform configuration classes own localization using `format.version=V1`; resubmit applications instead of reusing localized files from the earlier experimental format.
-
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
