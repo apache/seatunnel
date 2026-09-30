@@ -44,6 +44,12 @@ class InfluxDBFactoryTest {
         ConfigValidator.of(ReadonlyConfig.fromMap(map)).validate(sinkFactory.optionRule());
     }
 
+    private void assertRejected(String key, Object value) {
+        Map<String, Object> map = validSinkConfig();
+        map.put(key, value);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+    }
+
     @Test
     void optionRule() {
         Assertions.assertNotNull((new InfluxDBSourceFactory()).optionRule());
@@ -128,15 +134,9 @@ class InfluxDBFactoryTest {
 
     @Test
     void negativeOptionalValuesAreRejected() {
-        Map<String, Object> map = validSinkConfig();
-        map.put("connect_timeout_ms", -1L);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
-        map = validSinkConfig();
-        map.put("query_timeout_sec", -1);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
-        map = validSinkConfig();
-        map.put("batch_size", -1);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+        assertRejected("connect_timeout_ms", -1L);
+        assertRejected("query_timeout_sec", -1);
+        assertRejected("batch_size", -1);
     }
 
     @Test
