@@ -54,10 +54,9 @@ public class AbstractSchema implements Serializable {
     public AbstractSchema(List<Column> columns) {
         // Copy the lists so later mutation of the caller's list cannot change this schema or
         // invalidate the lazily built lookup caches.
-        this.columns =
-                columns == null
-                        ? Collections.emptyList()
-                        : Collections.unmodifiableList(new ArrayList<>(columns));
+        // Kryo populates collections during deserialization. Keep the internal copy mutable;
+        // getColumns() still exposes a read-only view.
+        this.columns = columns == null ? new ArrayList<>() : new ArrayList<>(columns);
         this.columnNames = this.columns.stream().map(Column::getName).collect(Collectors.toList());
     }
 
