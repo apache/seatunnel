@@ -17,23 +17,16 @@
 
 package org.apache.seatunnel.resource.yarn.cli;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
-
-import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriverFactory;
@@ -164,7 +157,7 @@ public final class SeatunnelYarnMasterCli {
                         }
                     }) {
                 Runtime.getRuntime().addShutdownHook(shutdown);
-                executeJob(server, specification);
+                new ApplicationJobRunner(server, specification).run();
             } finally {
                 try {
                     Runtime.getRuntime().removeShutdownHook(shutdown);
@@ -178,59 +171,6 @@ public final class SeatunnelYarnMasterCli {
                 Runtime.getRuntime().removeShutdownHook(cleanup);
             } catch (IllegalStateException ignored) {
                 // The VM already started the hook, which performs the same idempotent cleanup.
-            }
-        }
-    }
-
-    /** Runs the job between resource readiness and resource cleanup; the caller owns the master. */
-    private static void executeJob(SeaTunnelServer server, ApplicationSpecification specification)
-            throws Exception {
-        ApplicationResourceManager<?> resources =
-                (ApplicationResourceManager<?>) server.getCoordinatorService().getResourceManager();
-        CompletableFuture<Void> cancellation = new CompletableFuture<>();
-        CompletableFuture<JobResult> execution = null;
-        JobResult result = null;
-        Exception failure = null;
-        try {
-            resources.awaitWorkerRegistration();
-            JobConfig jobConfig = new JobConfig();
-            jobConfig.setName(specification.getName());
-            execution =
-                    new ApplicationJobExecutionEnvironment(
-                                    jobConfig,
-                                    ConfigFactory.parseString(
-                                            specification.getJobConfig(),
-                                            ConfigParseOptions.defaults()
-                                                    .setSyntax(ConfigSyntax.JSON)),
-                                    server,
-                                    specification.getJobId(),
-                                    specification.getOption(ApplicationOptions.RESTORE_JOB_ID))
-                            .execute(cancellation);
-            result =
-                    (JobResult)
-                            CompletableFuture.anyOf(execution, resources.getFailureFuture()).get();
-        } catch (Exception e) {
-            failure = e;
-        } finally {
-            boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
-            try {
-                if (execution != null && !execution.isDone()) {
-                    cancellation.complete(null);
-                    try {
-                        execution.get(10, TimeUnit.SECONDS);
-                    } catch (Exception cleanup) {
-                        if (failure == null) {
-                            failure = cleanup;
-                        } else {
-                            failure.addSuppressed(cleanup);
-                        }
-                    }
-                }
-                resources.finishApplication(result, failure);
-            } finally {
-                if (interrupted) {
-                    Thread.currentThread().interrupt();
-                }
             }
         }
     }

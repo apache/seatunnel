@@ -284,6 +284,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
                 awaitWorkersRemoved(application);
                 assertEquals(
+                        ApplicationStatus.SUCCEEDED,
+                        application.getStatus(),
+                        "Runner cleanup must preserve the successful application result");
+                assertEquals(
                         1,
                         batch.readNamespacedJob(application.getClusterId(), namespace, null)
                                 .getStatus()

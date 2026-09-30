@@ -18,10 +18,11 @@
 package org.apache.seatunnel.engine.client.application;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
-import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -255,7 +256,18 @@ class ApplicationLifecycleTest {
     @Test
     void malformedJobFailsAndCleansWorker() throws Exception {
         LocalDriver driver = new LocalDriver();
-        assertThrows(Exception.class, () -> run("not valid {", driver, 30000));
+        ApplicationSpecification valid = specification(JOB, 30000);
+        ApplicationSpecification malformed =
+                new ApplicationSpecification(
+                        valid.getDeployType(),
+                        valid.getName(),
+                        "not valid {",
+                        valid.getWorkerCount(),
+                        valid.getWorkerSpecification(),
+                        valid.getOptions());
+        assertThrows(
+                Exception.class,
+                () -> runApplication("test-application", malformed, driver, engineConfig()));
         assertEquals(ApplicationStatus.FAILED, driver.finalStatus);
         assertEquals(1, driver.releases);
         assertTrue(driver.closed);
@@ -743,7 +755,10 @@ class ApplicationLifecycleTest {
         SeaTunnelServer server =
                 master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         try {
-            executeJob(server, specification);
+            new ApplicationJobRunner(server, specification).run();
+            assertTrue(
+                    master.getLifecycleService().isRunning(),
+                    "The runner must leave master shutdown to its caller");
         } finally {
             boolean interrupted = Thread.interrupted();
             try {
@@ -774,7 +789,10 @@ class ApplicationLifecycleTest {
         return new ApplicationSpecification(
                 DeployType.KUBERNETES,
                 "application-test",
-                config,
+                ConfigFactory.parseString(config)
+                        .resolve()
+                        .root()
+                        .render(ConfigRenderOptions.concise()),
                 1,
                 new WorkerSpecification(1024, 1, 2),
                 options);
@@ -875,58 +893,6 @@ class ApplicationLifecycleTest {
             closed = true;
             if (worker != null) {
                 worker.shutdown();
-            }
-        }
-    }
-
-    /** Runs the job between resource readiness and resource cleanup; the caller owns the master. */
-    private static void executeJob(SeaTunnelServer server, ApplicationSpecification specification)
-            throws Exception {
-        ApplicationResourceManager<?> resources =
-                (ApplicationResourceManager<?>) server.getCoordinatorService().getResourceManager();
-        CompletableFuture<Void> cancellation = new CompletableFuture<>();
-        CompletableFuture<JobResult> execution = null;
-        JobResult result = null;
-        Exception failure = null;
-        try {
-            resources.awaitWorkerRegistration();
-            JobConfig jobConfig = new JobConfig();
-            jobConfig.setName(specification.getName());
-            execution =
-                    new ApplicationJobExecutionEnvironment(
-                                    jobConfig,
-                                    ConfigShadeUtils.decryptConfig(
-                                            ConfigFactory.parseString(specification.getJobConfig())
-                                                    .resolve()),
-                                    server,
-                                    specification.getJobId(),
-                                    specification.getOption(ApplicationOptions.RESTORE_JOB_ID))
-                            .execute(cancellation);
-            result =
-                    (JobResult)
-                            CompletableFuture.anyOf(execution, resources.getFailureFuture()).get();
-        } catch (Exception e) {
-            failure = e;
-        } finally {
-            boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
-            try {
-                if (execution != null && !execution.isDone()) {
-                    cancellation.complete(null);
-                    try {
-                        execution.get(10, TimeUnit.SECONDS);
-                    } catch (Exception cleanup) {
-                        if (failure == null) {
-                            failure = cleanup;
-                        } else {
-                            failure.addSuppressed(cleanup);
-                        }
-                    }
-                }
-                resources.finishApplication(result, failure);
-            } finally {
-                if (interrupted) {
-                    Thread.currentThread().interrupt();
-                }
             }
         }
     }

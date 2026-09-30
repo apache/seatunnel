@@ -58,9 +58,9 @@ flowchart LR
 
 Driver 初始化时接收 `ResourceEventHandler<WorkerType>`、单线程 `ScheduledExecutorService`、IO 执行器和 Master 地址获取函数，不再使用 `ResourceManagerContext`、事件对象层次或事件类型注册表。Handler 只提供 `onWorkerTerminated(WorkerType, String)` 和 `onError(Throwable)`，本次不包含上一轮 Worker 恢复与节点屏蔽策略。Driver 通过传入的主线程执行器分发回调，异步平台操作使用 IO 执行器。两个执行器由 manager 持有，在 driver 停止任务并关闭 SDK 连接后统一关闭。地址按需从 `NodeEngine` 读取。YARN 退出码为 0、Kubernetes Pod 为 `Succeeded` 或主动释放 Worker 时不报错；成员离开只注销资源，由平台判断是否异常退出。异常退出仍使应用失败，不补拉 Worker。manager 保留首次意外故障，并在清理开始后忽略晚到的回调。应用 ID、集群名和部署配置仍在构造平台 driver 时传入。
 
-运行时不再保留独立的 `ApplicationClusterEntrypoint`。平台 CLI 通过 `SeaTunnelServerStarter.createHazelcastInstance` 创建已配置的节点并负责关闭 Master。`ApplicationJobExecutionEnvironment` 位于 engine-client 的 `client.job` 包，与 `ClientJobExecutionEnvironment` 一样继承 `AbstractJobEnvironment`，只负责解析配置、构建 DAG、在进程内提交作业并返回 `CompletableFuture<JobResult>`；不等待 Worker，不清理集群，也不创建客户端连接自己。
+运行时不再保留独立的 `ApplicationClusterEntrypoint`。平台 CLI 通过 `SeaTunnelServerStarter.createHazelcastInstance` 创建已配置的节点，调用 `new ApplicationJobRunner(server, specification).run()`，并负责关闭 Master。公共 Runner 位于 `engine-client/cluster/application`，沿用现有 client 到 server 的依赖，不引入反向依赖。`ApplicationJobExecutionEnvironment` 位于 engine-client 的 `client.job` 包，与 `ClientJobExecutionEnvironment` 一样继承 `AbstractJobEnvironment`，只负责解析配置、构建 DAG、在进程内提交作业并返回 `CompletableFuture<JobResult>`；不等待 Worker，不清理集群，也不创建客户端连接自己。
 
-`ApplicationResourceManager` 负责 driver 初始化、有启动超时约束的 Worker 就绪等待、异步资源故障通知、Worker 释放、应用终态发布及 driver 关闭。平台 CLI 等待资源就绪后执行作业，在中断或资源失败时发出取消信号；执行环境在提交确认后落实该信号，避免迟到提交逃过取消。仅取消结果 Future 不会取消实际作业。CLI 等待作业终止（取消等待有超时），再调用资源管理器完成清理，最后关闭 Master。清理异常附加到原始异常，取消超时会使应用按失败处理。
+`ApplicationResourceManager` 负责 driver 初始化、有启动超时约束的 Worker 就绪等待、异步资源故障通知、Worker 释放、应用终态发布及 driver 关闭。`ApplicationJobRunner` 等待资源就绪后执行作业，在中断或资源失败时发出取消信号；执行环境在提交确认后落实该信号，避免迟到提交逃过取消。仅取消结果 Future 不会取消实际作业。Runner 等待作业终止（取消等待有超时），再调用资源管理器完成清理；平台 CLI 最后关闭 Master。清理异常附加到原始异常，取消超时会使应用按失败处理。
 
 resource-manager core 模块已删除。部署选项放在 engine-common 的 `config.server` 包，引擎配置准备类放在其 `config` 包，应用和 Worker 的不可变规格放在其 `config.spec` 包；部署和客户端契约放在 engine-client，运行时资源归 engine-server 管理。
 

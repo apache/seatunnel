@@ -232,6 +232,10 @@ public class YarnApplicationIT extends TestSuiteBase {
                     outputRows(client.getClusterId().toString()),
                     "Both parallel readers must emit both splits to the Console sink");
             assertCleaned(client);
+            assertEquals(
+                    ApplicationStatus.SUCCEEDED,
+                    client.getStatus(),
+                    "Runner cleanup must preserve the successful application result");
         }
     }
 

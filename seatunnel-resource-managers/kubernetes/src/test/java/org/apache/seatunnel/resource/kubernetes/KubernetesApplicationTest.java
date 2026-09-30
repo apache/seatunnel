@@ -65,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -149,17 +150,18 @@ class KubernetesApplicationTest {
     }
 
     @Test
-    void rejectsIncompleteWorkerArgumentsBeforeStartingResources() {
+    void rejectsInvalidEntrypointArgumentsBeforeStartingResources() throws Exception {
         try (MockedStatic<SeaTunnelServerStarter> starter =
                 mockStatic(SeaTunnelServerStarter.class)) {
             assertThrows(
                     IllegalArgumentException.class,
                     () -> SeatunnelKubernetesWorkerCli.main(new String[] {"kubernetes-app"}));
-            assertThrows(
-                    IllegalArgumentException.class,
-                    () ->
-                            SeatunnelKubernetesMasterCli.main(
-                                    new String[] {"kubernetes-app", "master:5801", "2"}));
+            assertEquals(
+                    1,
+                    catchSystemExit(
+                            () ->
+                                    SeatunnelKubernetesMasterCli.main(
+                                            new String[] {"kubernetes-app", "master:5801", "2"})));
             starter.verifyNoInteractions();
         }
     }

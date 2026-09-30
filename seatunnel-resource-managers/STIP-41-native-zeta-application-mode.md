@@ -103,6 +103,7 @@ There is no `seatunnel-resource-managers/core` module. Shared types belong to th
 | `engine-core/classloader` | `ApplicationJarPathResolver`: resolve distribution-local connector/plugin paths |
 | `engine-client/deployment` | `ClusterDescriptor`, `SeatunnelClientProvider`, `ApplicationClusterDescriptorFactory`, `ClusterClientServiceLoader`, `ApplicationClusterDeployer` |
 | `engine-client/job` | `ApplicationJobExecutionEnvironment`: parse, build DAG, submit one native job, expose native completion |
+| `engine-client/cluster/application` | `ApplicationJobRunner`: await resources, execute/cancel the job, and invoke resource cleanup |
 | `engine-server/resourcemanager` | `ApplicationResourceManager`, driver/event contracts, registration and resource lifecycle |
 | `seatunnel-starter` | Parse application CLI arguments and delegate submit/status/cancel |
 | `resource-managers/yarn` | YARN descriptor, uploader/localization, driver, platform options, master/worker CLIs |
@@ -195,7 +196,7 @@ YARN and Kubernetes each have distinct master and worker entrypoints:
 | YARN | `SeatunnelYarnMasterCli` | `SeatunnelYarnWorkerCli` |
 | Kubernetes | `SeatunnelKubernetesMasterCli` | `SeatunnelKubernetesWorkerCli` |
 
-There is no `ApplicationClusterEntrypoint` or `ApplicationWorkerRunner`, and no replacement catch-all runner.
+There is no `ApplicationClusterEntrypoint` or `ApplicationWorkerRunner`. A shared `ApplicationJobRunner` in `engine-client/cluster/application` owns only execution orchestration on an existing master, not platform configuration or member creation/shutdown.
 
 The existing `SeaTunnelServerStarter.main` remains unchanged. Application entrypoints prepare configuration externally and invoke `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)`. This overload only passes dependencies through to member construction. It must not acquire application orchestration responsibilities. Worker entrypoints pass `new ResourceManagerFactory()` and do not receive platform drivers.
 
@@ -204,12 +205,10 @@ The existing `SeaTunnelServerStarter.main` remains unchanged. Application entryp
 1. Read localized application configuration and initialize platform-specific dependencies.
 2. Prepare master membership, checkpoint retention, and distribution-local jar resolution.
 3. Construct the driver and unified ResourceManagerFactory externally, then pass the factory into native master creation. The coordinator supplies its NodeEngine and EngineConfig when asking that factory for a manager.
-4. Wait for `ApplicationResourceManager.awaitWorkerRegistration()`.
-5. Construct and execute `ApplicationJobExecutionEnvironment`.
-6. Observe native completion together with the resource manager's asynchronous failure future.
-7. On interruption/resource failure, signal native cancellation and wait within a bounded shutdown interval.
-8. Ask the resource manager to finish the application.
-9. Finally shut down the master and close remaining entrypoint-owned resources.
+4. Invoke `new ApplicationJobRunner(server, specification).run()`.
+5. Finally shut down the master and close remaining entrypoint-owned resources.
+
+The shared runner waits for `ApplicationResourceManager.awaitWorkerRegistration()`, constructs `ApplicationJobExecutionEnvironment`, and observes native completion together with the resource failure future. On interruption/resource failure it signals native cancellation and waits within the existing bounded interval, then asks the resource manager to finish the application. Its caller retains ownership of the master. Both platform CLIs and the native lifecycle tests use this one implementation.
 
 The entrypoint owns the master member and shutdown hook. Before the Engine resource manager assumes the driver lifecycle, a member-creation failure must close the partially initialized driver. YARN's outer lifecycle also owns post-submission staging cleanup.
 
@@ -289,6 +288,7 @@ void close() throws Exception;
 | Local submission API client | ClusterDescriptor |
 | Partial submission rollback | Platform descriptor, with uploader/resource helper handling its own partial creation |
 | Master member and shutdown hook | Platform master CLI |
+| Resource readiness, job execution/cancellation and cleanup orchestration | ApplicationJobRunner |
 | Driver startup/readiness/failure/terminal sequence | ApplicationResourceManager |
 | External worker requests, launches, release and late allocations | Platform driver |
 | Engine membership, worker registration and slots | Existing Engine resource manager / SlotService |
@@ -303,6 +303,7 @@ void close() throws Exception;
 ```mermaid
 sequenceDiagram
     participant CLI as Platform master CLI
+    participant R as ApplicationJobRunner
     participant RM as ApplicationResourceManager
     participant D as ResourceManagerDriver
     participant W as Workers
@@ -313,20 +314,22 @@ sequenceDiagram
     RM->>D: request fixed workers
     D->>W: allocate and launch
     W->>RM: join and register slots
-    CLI->>RM: awaitWorkerRegistration
-    RM-->>CLI: all requested workers ready
-    CLI->>E: execute(cancellation signal)
+    CLI->>R: run(existing master, specification)
+    R->>RM: awaitWorkerRegistration
+    RM-->>R: all requested workers ready
+    R->>E: execute(cancellation signal)
     E->>Z: submit native job
     Z-->>E: submission acknowledged
     E->>Z: wait for native completion
-    Note over CLI,Z: Resource failure/interruption signals cancellation after submission acknowledgement
+    Note over R,Z: Resource failure/interruption signals cancellation after submission acknowledgement
     Z-->>E: native terminal result
-    E-->>CLI: CompletableFuture completes
-    CLI->>RM: finishApplication(result, failure)
+    E-->>R: CompletableFuture completes
+    R->>RM: finishApplication(result, failure)
     RM->>D: cancel pending requests / release known workers
     RM->>D: stopWorkers (drain late allocations)
     RM->>D: finish(platform status, diagnostics)
     RM->>D: close
+    R-->>CLI: return or throw
     CLI->>CLI: finally shut down master
 ```
 
