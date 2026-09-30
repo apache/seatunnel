@@ -30,10 +30,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Built-in AES crypto functions for the Zeta SQL transform.
@@ -69,20 +69,13 @@ public class CryptoFunction {
     private static final int IV_SIZE = 16;
     private static final String BASE64_PREFIX = "base64:";
 
-    // Bounded access-ordered LRU cache for derived keys, keyed by the key string. A constant key
-    // (the common case) is derived once instead of on every row. Eviction removes only the
-    // least-recently-used entry, so a workload that exceeds the cap no longer triggers the full
-    // clear-and-rebuild thrash of a plain map, and residency stays at most KEY_CACHE_MAX_SIZE.
+    // Bounded cache for derived keys, keyed by the key string. A constant key (the common case)
+    // is derived once instead of on every row. Cache hits are lock-free (ConcurrentHashMap.get);
+    // only a miss derives and inserts, and eviction removes a single entry when the cap is exceeded
+    // rather than clearing the whole map, so residency stays at most roughly KEY_CACHE_MAX_SIZE.
     private static final int KEY_CACHE_MAX_SIZE = 64;
-    private static final Map<String, SecretKeySpec> KEY_CACHE =
-            Collections.synchronizedMap(
-                    new LinkedHashMap<String, SecretKeySpec>(KEY_CACHE_MAX_SIZE, 0.75f, true) {
-                        @Override
-                        protected boolean removeEldestEntry(
-                                Map.Entry<String, SecretKeySpec> eldest) {
-                            return size() > KEY_CACHE_MAX_SIZE;
-                        }
-                    });
+    private static final ConcurrentHashMap<String, SecretKeySpec> KEY_CACHE =
+            new ConcurrentHashMap<>(KEY_CACHE_MAX_SIZE);
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -104,12 +97,13 @@ public class CryptoFunction {
         if (value == null) {
             return null;
         }
-        rejectNonScalar(value, operation);
+        rejectNonScalar(value, "value", operation);
         String plainText = value.toString();
         Object keyArg = args.get(1);
         if (keyArg == null) {
             throw CommonError.illegalArgument("key", operation + ": key must not be null");
         }
+        rejectNonScalar(keyArg, "key", operation);
         SecretKeySpec keySpec = cachedKey(keyArg.toString(), operation);
 
         byte[] iv = resolveIv(args, operation, true);
@@ -147,12 +141,13 @@ public class CryptoFunction {
         if (value == null) {
             return null;
         }
-        rejectNonScalar(value, operation);
+        rejectNonScalar(value, "value", operation);
         String cipherText = value.toString();
         Object keyArg = args.get(1);
         if (keyArg == null) {
             throw CommonError.illegalArgument("key", operation + ": key must not be null");
         }
+        rejectNonScalar(keyArg, "key", operation);
         SecretKeySpec keySpec = cachedKey(keyArg.toString(), operation);
 
         byte[] decoded;
@@ -217,6 +212,7 @@ public class CryptoFunction {
                     "iv",
                     operation + ": iv must not be null (omit the argument to use a random IV)");
         }
+        rejectNonScalar(ivArg, "iv", operation);
         return buildIv(ivArg.toString(), operation);
     }
 
@@ -271,25 +267,42 @@ public class CryptoFunction {
     }
 
     /** Rejects array / {@code byte[]} / map inputs that would otherwise be encrypted as garbage. */
-    private static void rejectNonScalar(Object value, String operation) {
+    private static void rejectNonScalar(Object value, String argName, String operation) {
         if (value.getClass().isArray() || value instanceof Map) {
             throw CommonError.illegalArgument(
                     value.getClass().getName(),
-                    operation + ": unsupported input type, value must be a scalar string");
+                    operation
+                            + ": unsupported input type, "
+                            + argName
+                            + " must be a scalar string");
         }
     }
 
     private static SecretKeySpec cachedKey(String key, String operation) {
-        // Compound get-then-put must be atomic against concurrent callers; synchronize on the
-        // wrapper, which is also required for access-order mutation under synchronizedMap.
-        synchronized (KEY_CACHE) {
-            SecretKeySpec cached = KEY_CACHE.get(key);
-            if (cached != null) {
-                return cached;
-            }
-            SecretKeySpec derived = buildKey(key, operation);
-            KEY_CACHE.put(key, derived);
-            return derived;
+        // Lock-free fast path on a hit; on a miss, putIfAbsent atomically inserts (per-key, not a
+        // global lock). A concurrent double-derivation is harmless since buildKey is deterministic.
+        SecretKeySpec cached = KEY_CACHE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        SecretKeySpec derived = buildKey(key, operation);
+        SecretKeySpec prior = KEY_CACHE.putIfAbsent(key, derived);
+        if (prior != null) {
+            return prior;
+        }
+        if (KEY_CACHE.size() > KEY_CACHE_MAX_SIZE) {
+            evictOne();
+        }
+        return derived;
+    }
+
+    private static void evictOne() {
+        // Weakly-consistent iterator; removing one entry keeps residency approximately bounded
+        // without a global lock and without strict LRU ordering.
+        Iterator<String> it = KEY_CACHE.keySet().iterator();
+        if (it.hasNext()) {
+            it.next();
+            it.remove();
         }
     }
 }

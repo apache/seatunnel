@@ -371,6 +371,50 @@ public class CryptoFunctionTest {
     }
 
     @Test
+    public void testEncryptByteArrayKeyThrows() {
+        // A byte[] key would be stringified as "[B@..." and silently derive a different AES key
+        // per row (each byte[] is a distinct object), so it must be rejected like a byte[] value.
+        byte[] bytes = PLAINTEXT.getBytes(StandardCharsets.UTF_8);
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(PLAINTEXT, bytes)));
+        assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+    }
+
+    @Test
+    public void testDecryptByteArrayKeyThrows() {
+        byte[] bytes = PASSPHRASE.getBytes(StandardCharsets.UTF_8);
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesDecrypt(args("ciphertext", bytes)));
+        assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+    }
+
+    @Test
+    public void testEncryptByteArrayIvThrows() {
+        byte[] bytes = new byte[16];
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, bytes)));
+        assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+    }
+
+    @Test
+    public void testDecryptByteArrayIvThrows() {
+        // The value must be valid Base64 so the decode succeeds and execution reaches the IV check.
+        String validBase64 = Base64.getEncoder().encodeToString(new byte[32]);
+        byte[] bytes = new byte[16];
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesDecrypt(args(validBase64, PASSPHRASE, bytes)));
+        assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+    }
+
+    @Test
     public void testInteropWithAesCbcEncryptor() {
         // The base64: key form must be wire-compatible with FieldEncrypt's AesCbcEncryptor:
         // same algorithm, same Base64(IV || ciphertext) layout.
