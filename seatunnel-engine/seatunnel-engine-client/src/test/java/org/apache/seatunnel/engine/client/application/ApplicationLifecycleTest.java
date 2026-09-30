@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -54,6 +55,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
@@ -66,6 +69,7 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -325,6 +329,9 @@ class ApplicationLifecycleTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Local Hadoop checkpoint storage requires winutils on Windows")
     void restoresPersistentCheckpointAfterOriginalApplicationStops() throws Exception {
         String streamingJob =
                 "env { parallelism = 1, job.mode = STREAMING, checkpoint.interval = 500 }\n"
@@ -509,21 +516,29 @@ class ApplicationLifecycleTest {
                             .getNodeEngine()
                             .getService(SeaTunnelServer.SERVICE_NAME);
             URL original = masterHome.resolve("connectors/plugin.jar").toUri().toURL();
-            ClassLoader loader =
-                    server.getClassLoaderService()
-                            .getClassLoader(17L, Collections.singletonList(original));
-            try (InputStream resource = loader.getResourceAsStream("localized-artifact.txt")) {
-                assertNotNull(resource);
-                assertEquals('w', resource.read());
+            try (SeaTunnelChildFirstClassLoader loader =
+                    (SeaTunnelChildFirstClassLoader)
+                            server.getClassLoaderService()
+                                    .getClassLoader(17L, Collections.singletonList(original))) {
+                URL marker = loader.getResource("localized-artifact.txt");
+                assertNotNull(marker);
+                URLConnection connection = marker.openConnection();
+                // This test-owned connection must not retain a global cached JarFile on Windows.
+                connection.setUseCaches(false);
+                try (InputStream resource = connection.getInputStream()) {
+                    assertEquals('w', resource.read());
+                }
+            } finally {
+                server.getClassLoaderService()
+                        .releaseClassLoader(17L, Collections.singletonList(original));
             }
-            server.getClassLoaderService()
-                    .releaseClassLoader(17L, Collections.singletonList(original));
         } finally {
             if (worker != null) {
                 worker.shutdown();
             }
             master.shutdown();
         }
+        Files.delete(jar);
     }
 
     @Test
