@@ -44,7 +44,7 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
@@ -75,9 +75,12 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
@@ -373,7 +376,8 @@ class ApplicationLifecycleTest {
             if (failWorker) {
                 // The external driver can report failure before Hazelcast or the native job does.
                 // Cleanup then cancels that running job; its persisted state must remain usable.
-                driver.context.onWorkerTerminated("local-worker", "simulated platform failure");
+                driver.events.onWorkerTerminated(
+                        new ResourceID("local-worker"), "simulated platform failure");
                 application.join(30000);
             }
         } finally {
@@ -538,22 +542,28 @@ class ApplicationLifecycleTest {
     @Test
     void canceledAllocationThatLaunchesLateIsDrainedBeforeMasterStops() throws Exception {
         CompletableFuture<ResourceID> pending = new CompletableFuture<>();
-        AtomicReference<ResourceManagerContext> context = new AtomicReference<>();
+        AtomicReference<Supplier<String>> masterAddress = new AtomicReference<>();
+        AtomicReference<ResourceEventHandler<ResourceID>> events = new AtomicReference<>();
         AtomicReference<HazelcastInstance> lateWorker = new AtomicReference<>();
         AtomicBoolean joinedExistingMaster = new AtomicBoolean();
         AtomicBoolean futureWasCanceledBeforeLaunch = new AtomicBoolean();
         LocalDriver driver =
                 new LocalDriver() {
                     @Override
-                    public void initialize(ResourceManagerContext runtimeContext) {
-                        super.initialize(runtimeContext);
-                        context.set(runtimeContext);
+                    public void initialize(
+                            ResourceEventHandler<ResourceID> publisher,
+                            ScheduledExecutorService mainThreadExecutor,
+                            Executor ioExecutor,
+                            Supplier<String> address) {
+                        super.initialize(publisher, mainThreadExecutor, ioExecutor, address);
+                        masterAddress.set(address);
+                        events.set(publisher);
                     }
 
                     @Override
                     public CompletableFuture<ResourceID> requestWorker(
                             WorkerSpecification specification) {
-                        context.get()
+                        events.get()
                                 .onError(
                                         new IllegalStateException(
                                                 "stop while allocation is pending"));
@@ -568,7 +578,7 @@ class ApplicationLifecycleTest {
                         HazelcastInstance worker =
                                 startWorker(
                                         ApplicationClusterConfig.clusterName("test-application"),
-                                        context.get().getMasterAddress(),
+                                        masterAddress.get().get(),
                                         2,
                                         engineConfig(),
                                         JarPathResolver.identity());
@@ -604,7 +614,11 @@ class ApplicationLifecycleTest {
         LocalDriver driver =
                 new LocalDriver() {
                     @Override
-                    public void initialize(ResourceManagerContext context) {
+                    public void initialize(
+                            ResourceEventHandler<ResourceID> events,
+                            ScheduledExecutorService mainThreadExecutor,
+                            Executor ioExecutor,
+                            Supplier<String> masterAddress) {
                         try {
                             new CountDownLatch(1).await();
                         } catch (InterruptedException e) {
@@ -805,7 +819,8 @@ class ApplicationLifecycleTest {
 
     private static class LocalDriver implements ResourceManagerDriver<ResourceID> {
         private final String clusterName;
-        private ResourceManagerContext context;
+        private Supplier<String> masterAddress;
+        private ResourceEventHandler<ResourceID> events;
         private HazelcastInstance worker;
         private int requests;
         private int releases;
@@ -821,8 +836,13 @@ class ApplicationLifecycleTest {
         }
 
         @Override
-        public void initialize(ResourceManagerContext context) {
-            this.context = context;
+        public void initialize(
+                ResourceEventHandler<ResourceID> events,
+                ScheduledExecutorService mainThreadExecutor,
+                Executor ioExecutor,
+                Supplier<String> masterAddress) {
+            this.masterAddress = masterAddress;
+            this.events = events;
         }
 
         @Override
@@ -831,7 +851,7 @@ class ApplicationLifecycleTest {
             worker =
                     startWorker(
                             clusterName,
-                            context.getMasterAddress(),
+                            masterAddress.get(),
                             specification.getSlots(),
                             engineConfig(),
                             JarPathResolver.identity());

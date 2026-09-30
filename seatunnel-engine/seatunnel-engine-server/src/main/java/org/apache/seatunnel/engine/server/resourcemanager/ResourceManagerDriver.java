@@ -22,6 +22,10 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
+
 /**
  * Owns external worker allocations for one application independently of SeaTunnel's slot scheduler.
  *
@@ -37,19 +41,30 @@ public interface ResourceManagerDriver<WorkerType extends ResourceIDRetrievable>
     /**
      * Initializes platform clients and registers the application master where required.
      *
-     * @param context bound master endpoint and thread-safe asynchronous failure callbacks
+     * @param resourceEventHandler receives unexpected worker terminations and driver failures
+     * @param mainThreadExecutor serializes resource callbacks and schedules observation; never run
+     *     blocking platform calls on this executor
+     * @param ioExecutor executes blocking platform calls; owned by the resource manager, like the
+     *     main-thread executor, and must not be shut down by the driver
+     * @param masterAddress supplies the current bound master endpoint, including IPv6 brackets
      * @throws Exception if initialization fails; close is still invoked to clean partial state
      */
-    void initialize(ResourceManagerContext context) throws Exception;
+    void initialize(
+            ResourceEventHandler<WorkerType> resourceEventHandler,
+            ScheduledExecutorService mainThreadExecutor,
+            Executor ioExecutor,
+            Supplier<String> masterAddress)
+            throws Exception;
 
     /**
      * Requests and launches one worker with the supplied resource requirements.
      *
      * <p>Successful completion means the external process was launched, not that it registered with
      * Hazelcast or SeaTunnel's slot scheduler. The runtime checks registration separately. Complete
-     * exceptionally on allocation or launch failure and report later worker death through the
-     * context. Cancellation means the allocation is no longer required; pending requests and any
-     * resources allocated concurrently with cancellation must be reclaimed no later than close.
+     * exceptionally on allocation or launch failure and publish a worker-terminated event for later
+     * unexpected worker death. Cancellation means the allocation is no longer required; pending
+     * requests and any resources allocated concurrently with cancellation must be reclaimed no
+     * later than close.
      *
      * @param specification immutable memory, CPU, and slot requirements for this worker
      * @return a non-null future containing the launched worker's platform identity

@@ -59,7 +59,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter public final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
-    private final NodeEngine nodeEngine;
+    protected final NodeEngine nodeEngine;
 
     private final ExecutionMode mode;
 

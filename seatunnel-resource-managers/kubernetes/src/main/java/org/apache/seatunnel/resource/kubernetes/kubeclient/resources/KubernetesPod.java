@@ -46,6 +46,11 @@ public final class KubernetesPod extends KubernetesResource<V1Pod> {
         return RUNNING.equals(getPhase());
     }
 
+    /** @return whether all containers completed successfully */
+    public boolean isSucceeded() {
+        return SUCCEEDED.equals(getPhase());
+    }
+
     /** @return whether the Pod has reached a terminal phase */
     public boolean isTerminated() {
         String phase = getPhase();

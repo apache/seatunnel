@@ -103,7 +103,7 @@ There is no `seatunnel-resource-managers/core` module. Shared types belong to th
 | `engine-core/classloader` | `ApplicationJarPathResolver`: resolve distribution-local connector/plugin paths |
 | `engine-client/deployment` | `ClusterDescriptor`, `SeatunnelClientProvider`, `ApplicationClusterDescriptorFactory`, `ClusterClientServiceLoader`, `ApplicationClusterDeployer` |
 | `engine-client/job` | `ApplicationJobExecutionEnvironment`: parse, build DAG, submit one native job, expose native completion |
-| `engine-server/resourcemanager` | `ApplicationResourceManager`, driver/context contracts, registration and resource lifecycle |
+| `engine-server/resourcemanager` | `ApplicationResourceManager`, driver/event contracts, registration and resource lifecycle |
 | `seatunnel-starter` | Parse application CLI arguments and delegate submit/status/cancel |
 | `resource-managers/yarn` | YARN descriptor, uploader/localization, driver, platform options, master/worker CLIs |
 | `resource-managers/kubernetes` | Kubernetes descriptor, API/object construction, driver, platform options, master/worker CLIs |
@@ -234,24 +234,32 @@ Application-mode asynchronous APIs use SeaTunnel's `org.apache.seatunnel.engine.
 
 ## 6. Resource lifecycle and driver contract
 
-### Runtime context is deliberately small
+### Local resource events and the master endpoint
 
 ```java
-public interface ResourceManagerContext {
-    String getMasterAddress();
-    void onError(Throwable error);
-    void onWorkerTerminated(String workerId, String diagnostics);
+public interface ResourceEventHandler<WorkerType extends ResourceIDRetrievable> {
+    void onWorkerTerminated(WorkerType worker, String diagnostics);
+    void onError(Throwable exception);
 }
 ```
 
-There is no `getApplicationId()`, `getSpecification()`, or `getClusterName()` in this context. Fixed platform identity, cluster name, and deployment settings are supplied when constructing the driver. The context provides only the bound master endpoint and runtime failure callbacks.
+The callback carries the platform worker type; the manager accesses its identity only through `ResourceIDRetrievable.getResourceID()`, without platform casts. There is no runtime context object or event-type registry. The handler is installed before driver initialization and exposes only worker-termination and fatal-error callbacks. Previous-attempt recovery and node blocking are not introduced. Fixed platform identity, cluster name, and deployment settings remain driver constructor inputs. A separate supplier reads the current bound endpoint from NodeEngine, without caching an address or exposing NodeEngine to the driver.
+
+ApplicationResourceManager owns a single-threaded scheduled executor for callbacks and an IO executor for asynchronous platform operations. Drivers borrow these executors, cancel their own scheduled tasks, and drain in-flight allocation work during shutdown; they must not shut down the executors. The manager closes both after the driver closes. YARN heartbeat scheduling submits at most one blocking heartbeat to the IO executor at a time. Kubernetes allocation uses the IO executor; SDK watch callbacks are forwarded to the main-thread executor.
+
+The manager retains the first unexpected failure and completes its SeaTunnel future without blocking a callback on cancellation or shutdown. Callbacks received after worker cleanup starts are ignored. The best-effort job event forwarding queue is not used.
 
 ### Platform driver
 
 The essential operations are:
 
 ```java
-void initialize(ResourceManagerContext context) throws Exception;
+void initialize(
+        ResourceEventHandler<WorkerType> resourceEventHandler,
+        ScheduledExecutorService mainThreadExecutor,
+        Executor ioExecutor,
+        Supplier<String> masterAddress)
+        throws Exception;
 
 CompletableFuture<WorkerType> requestWorker(WorkerSpecification specification);
 
@@ -324,7 +332,7 @@ sequenceDiagram
 
 The worker-readiness deadline includes driver initialization, allocation, launch, and Engine registration. It is one provisioning deadline for the whole fixed worker set, not a fresh timeout per worker. Submitter-side waiting for the master has its own startup deadline using the same configured duration.
 
-First unexpected driver/worker failure wakes the application lifecycle. Expected worker exits during cleanup must not be reported as new application failures. Shutdown and callbacks must coordinate without holding a platform callback thread while waiting for the entire shutdown.
+First unexpected driver/worker failure wakes the application lifecycle. YARN exit code 0, Kubernetes Succeeded Pods, and intentional worker release are not reported as failures. A successfully completed Pod is no longer monitored as a live worker; application cleanup still deletes it. Membership departure only unregisters the worker, leaving exit classification to the platform. There is no worker recovery or replacement. Expected worker exits during cleanup must not be reported as new application failures. Shutdown and callbacks must coordinate without holding a platform callback thread while waiting for the entire shutdown.
 
 Cleanup must attempt remaining steps after a failure, preserve the original cause, and attach cleanup failures. Worker-release/drain failure can turn an otherwise successful result into FAILED. Cancellation timeout is not clean cancellation. Once a platform has accepted an immutable terminal report, a later client-close failure cannot be represented as if that report had been changed; it must remain visible in diagnostics/process failure.
 
@@ -350,7 +358,7 @@ An upload failure removes only the directory created by that upload. A submit fa
 
 `SeatunnelYarnMasterCli` creates the driver externally and captures it, the application ID and specification in ResourceManagerFactory with `DeployType.YARN`, then passes that factory into master creation. The unified `ResourceManagerFactory` creates `ApplicationResourceManager`. `YarnResourceManagerDriver` uses AMRMClient for registration, heartbeats, requests and release, and NMClient for worker launch/stop.
 
-The driver registers the actual bound master host/port for later discovery. It requests the fixed worker count, launches `SeatunnelYarnWorkerCli`, and reports allocation/launch/worker-exit failures through the runtime context.
+The driver registers the actual bound master host/port for later discovery. It requests the fixed worker count, launches `SeatunnelYarnWorkerCli`, and invokes resource callbacks for driver failures and unexpected worker exits.
 
 Master and workers use the same localized archive. Worker arguments carry the cluster name, advertised master endpoint, fixed slot count, and the master's distribution root. `ApplicationJarPathResolver` maps master-local jar paths to each worker's localized distribution root; no assumption is made that YARN container work directories match.
 
@@ -604,7 +612,9 @@ SPI selection must be testable with no provider, one provider, and duplicate pro
 | Driver initialization failure | Fail readiness and close partial driver state |
 | Allocation/launch failure | Fail application; cancel pending requests and reclaim all allocated workers |
 | Worker registration timeout | Fail within the shared provisioning deadline |
-| Worker process exit / cluster departure | Fail the application without replacement |
+| Normal worker completion / intentional release | Do not report a resource failure; no replacement |
+| Abnormal worker exit | Fail the application without replacement |
+| Cluster departure | Unregister the worker; let the platform classify termination |
 | Cancellation before submission acknowledgement | Ensure a subsequently accepted native job is canceled |
 | Native job failure | Preserve native diagnostics; perform resource cleanup |
 | Owner-thread interruption | Signal cancellation, perform bounded cleanup, restore interrupt status |
@@ -644,7 +654,7 @@ The internal draft evolves as follows:
 | `ApplicationClusterDescriptors` | Constructor-injected ApplicationClusterDeployer + ClusterClientServiceLoader |
 | Catch-all ApplicationClusterEntrypoint | Platform master CLI + job environment + resource manager, each with an explicit lifecycle |
 | ApplicationWorkerRunner / role-dispatch entrypoint | Separate platform MasterCli and WorkerCli calling native member creation |
-| Context exposes identity/specification/cluster name | Constructor-supplied fixed settings; context only endpoint and callbacks |
+| Runtime context mixes endpoint lookup and failure callbacks | Constructor-supplied fixed settings, live endpoint supplier and typed resource callbacks |
 | Platform allocation mixed with Engine slots | Driver owns external resources; Engine retains registration/scheduling |
 
 These are draft API/module migrations, not permission to silently break a released public API. Any published compatibility impact must be listed in the project's incompatible-changes documentation with migration guidance. Option names/defaults are stable contracts once accepted.

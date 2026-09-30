@@ -334,6 +334,10 @@ public class YarnApplicationIT extends TestSuiteBase {
                                     "Injected worker failure"));
             assertEquals(ApplicationStatus.FAILED, awaitTerminal(client));
             assertCleaned(client);
+            assertEquals(
+                    ApplicationStatus.FAILED,
+                    client.getStatus(),
+                    "Worker cleanup must preserve the original application failure");
         }
     }
 

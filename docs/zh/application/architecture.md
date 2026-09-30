@@ -56,7 +56,7 @@ flowchart LR
 
 统一的具体类 `ResourceManagerFactory` 只选择 `StandaloneResourceManager` 或 `ApplicationResourceManager`，不再保留 YARN/Kubernetes 专属的 Engine manager 子类和工厂。平台 Master CLI 在外层构造应用规格和 driver，连同应用 ID、部署类型放入统一 factory；节点创建链只透传 factory。Coordinator 将 NodeEngine 和 EngineConfig 传给 factory 创建对应 manager，初始化成功后才发布实例。两个具体 manager 分别负责初始化，ApplicationResourceManager 直接调用注入的 driver。
 
-`ResourceManagerContext` 只提供绑定后的 Master 地址及故障回调。应用 ID、集群名和部署配置在构造平台 driver 时传入，不再通过运行时 Context 获取。
+Driver 初始化时接收 `ResourceEventHandler<WorkerType>`、单线程 `ScheduledExecutorService`、IO 执行器和 Master 地址获取函数，不再使用 `ResourceManagerContext`、事件对象层次或事件类型注册表。Handler 只提供 `onWorkerTerminated(WorkerType, String)` 和 `onError(Throwable)`，本次不包含上一轮 Worker 恢复与节点屏蔽策略。Driver 通过传入的主线程执行器分发回调，异步平台操作使用 IO 执行器。两个执行器由 manager 持有，在 driver 停止任务并关闭 SDK 连接后统一关闭。地址按需从 `NodeEngine` 读取。YARN 退出码为 0、Kubernetes Pod 为 `Succeeded` 或主动释放 Worker 时不报错；成员离开只注销资源，由平台判断是否异常退出。异常退出仍使应用失败，不补拉 Worker。manager 保留首次意外故障，并在清理开始后忽略晚到的回调。应用 ID、集群名和部署配置仍在构造平台 driver 时传入。
 
 运行时不再保留独立的 `ApplicationClusterEntrypoint`。平台 CLI 通过 `SeaTunnelServerStarter.createHazelcastInstance` 创建已配置的节点并负责关闭 Master。`ApplicationJobExecutionEnvironment` 位于 engine-client 的 `client.job` 包，与 `ClientJobExecutionEnvironment` 一样继承 `AbstractJobEnvironment`，只负责解析配置、构建 DAG、在进程内提交作业并返回 `CompletableFuture<JobResult>`；不等待 Worker，不清理集群，也不创建客户端连接自己。
 
@@ -66,7 +66,7 @@ resource-manager core 模块已删除。部署选项放在 engine-common 的 `co
 
 提交端通过构造器向 `ApplicationClusterDeployer` 注入 `ClusterClientServiceLoader`，再调用 `run(specification)`。loader 发现唯一的平台 factory；deployer 创建并关闭 `ClusterDescriptor<ID>`，返回平台原生 ID（YARN 为 Hadoop `ApplicationId`，Kubernetes 为 `String` 类型的 Job 名称）。factory 同时负责将 CLI 的 `--id` 字符串转换为平台 ID。descriptor 的 `getApplicationStatus` 和 `cancelApplication` 在内部调用资源平台 API，不连接 Master，也不需要 Zeta job ID。
 
-`retrieve(applicationId)` 发现运行中 Master 的连接配置，返回无泛型的 `SeatunnelClientProvider`，不建立 Engine 连接。每次调用 `provider.getClusterClient()` 才创建一个新的 `SeaTunnelClient` 操作 Zeta 作业；调用方必须能访问 Master 的网络地址，应用结束后不能再建立连接。deployment 契约放在 `engine-client`，engine-common 不依赖客户端。部署、CLI 状态查询（包括 `--wait`）和取消应用均不依赖 Engine 连接。每个 client 都由调用方独立于 descriptor 关闭；关闭任意一方只释放各自连接，不会取消应用。公共运行时上下文直接保存平台 ID 字符串，不再使用自定义 ID 包装。
+`retrieve(applicationId)` 发现运行中 Master 的连接配置，返回无泛型的 `SeatunnelClientProvider`，不建立 Engine 连接。每次调用 `provider.getClusterClient()` 才创建一个新的 `SeaTunnelClient` 操作 Zeta 作业；调用方必须能访问 Master 的网络地址，应用结束后不能再建立连接。deployment 契约放在 `engine-client`，engine-common 不依赖客户端。部署、CLI 状态查询（包括 `--wait`）和取消应用均不依赖 Engine 连接。每个 client 都由调用方独立于 descriptor 关闭；关闭任意一方只释放各自连接，不会取消应用。公共运行时直接保存平台 ID 字符串，不再使用自定义 ID 包装。
 
 接口不再返回 `ApplicationResult` 包装对象：查询直接返回 `ApplicationStatus`，集群内执行入口成功时正常返回，执行或可报告的清理失败时抛出异常。平台入口将失败映射为非零进程退出码，最终的平台状态及诊断信息仍由资源管理器 driver 发布。
 
@@ -92,7 +92,7 @@ sequenceDiagram
 
 ## 故障与恢复
 
-当前版本只有一个 Master，且 `backup-count=0`。Master 或 Worker 丢失会使当前 application 失败，不会在同一个 application 中自动接管或补建。
+当前版本只有一个 Master，且 `backup-count=0`。Master 丢失或 Worker 异常退出会使当前 application 失败；Worker 正常结束本身不触发应用失败，不会在同一个 application 中自动接管或补建。
 
 持久化 checkpoint 与在线 HA 是两个不同能力。作业可以把 checkpoint 写入 HDFS、OSS、S3、COS 或 Kubernetes 持久卷。故障后创建新的 application，并指定历史 Zeta job ID，新 Master 会读取最近一次有效 checkpoint 恢复 Source 和 task 状态。
 

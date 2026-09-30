@@ -68,12 +68,7 @@ public class ResourceManagerFactory {
                         "Application specification does not match deployment type " + deployType);
             }
             return new ApplicationResourceManager<>(
-                    nodeEngine,
-                    engineConfig,
-                    applicationId,
-                    specification,
-                    nodeEngine.getClusterService().getLocalMember().getAddress(),
-                    driver);
+                    nodeEngine, engineConfig, applicationId, specification, driver);
         }
         throw new UnsupportedDeployTypeException(deployType);
     }

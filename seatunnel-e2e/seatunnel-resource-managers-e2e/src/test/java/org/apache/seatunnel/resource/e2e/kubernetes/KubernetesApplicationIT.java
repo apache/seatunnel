@@ -403,6 +403,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         null);
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
+                assertEquals(
+                        ApplicationStatus.FAILED,
+                        application.getStatus(),
+                        "Worker cleanup must preserve the original application failure");
             } finally {
                 deployer.cancelApplication(application.getClusterId());
             }

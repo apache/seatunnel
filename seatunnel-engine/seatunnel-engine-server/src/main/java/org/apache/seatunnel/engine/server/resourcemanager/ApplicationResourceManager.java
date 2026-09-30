@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,16 +55,17 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Slf4j
 public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable>
-        extends AbstractResourceManager implements ResourceManagerContext {
+        extends AbstractResourceManager implements ResourceEventHandler<WorkerType> {
 
     private final String applicationId;
     private final ApplicationSpecification specification;
-    private final Address masterAddress;
     private final ResourceManagerDriver<WorkerType> driver;
     private final List<CompletableFuture<WorkerType>> requests = new CopyOnWriteArrayList<>();
     private final List<WorkerType> workers = new CopyOnWriteArrayList<>();
     private final CompletableFuture<Void> workersReady = new CompletableFuture<>();
     private final ExecutorService startup;
+    private final ScheduledExecutorService mainThreadExecutor;
+    private final ExecutorService ioExecutor;
     private long startupDeadline;
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
     /**
@@ -80,13 +81,26 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
             EngineConfig engineConfig,
             String applicationId,
             ApplicationSpecification specification,
-            Address masterAddress,
             ResourceManagerDriver<WorkerType> driver) {
         super(nodeEngine, engineConfig);
         this.applicationId = Objects.requireNonNull(applicationId, "applicationId");
         this.specification = Objects.requireNonNull(specification, "specification");
-        this.masterAddress = Objects.requireNonNull(masterAddress, "masterAddress");
         this.driver = Objects.requireNonNull(driver, "driver");
+        this.mainThreadExecutor =
+                Executors.newSingleThreadScheduledExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "seatunnel-resource-events");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        this.ioExecutor =
+                Executors.newFixedThreadPool(
+                        Math.min(8, specification.getWorkerCount()),
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "seatunnel-resource-io");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         this.startup =
                 Executors.newSingleThreadExecutor(
                         runnable -> {
@@ -126,7 +140,8 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
         startup.execute(
                 () -> {
                     try {
-                        driver.initialize(this);
+                        driver.initialize(
+                                this, mainThreadExecutor, ioExecutor, this::getMasterAddress);
                         for (int index = 0; index < specification.getWorkerCount(); index++) {
                             if (workersStopped.get()) {
                                 throw new CancellationException("Application resources stopped");
@@ -362,28 +377,22 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
             driver.close();
         } catch (Exception e) {
             cleanupFailure = collect(cleanupFailure, e);
+        } finally {
+            mainThreadExecutor.shutdownNow();
+            ioExecutor.shutdownNow();
         }
         if (cleanupFailure != null) {
             throw cleanupFailure;
         }
     }
 
-    @Override
-    public void memberRemoved(MembershipServiceEvent event) {
-        super.memberRemoved(event);
-        if (!workersStopped.get() && event.getMember().isLiteMember()) {
-            onWorkerTerminated(
-                    event.getMember().getAddress().toString(),
-                    "Worker left the application cluster");
-        }
-    }
-
-    @Override
-    public String getMasterAddress() {
+    private String getMasterAddress() {
+        Address masterAddress = nodeEngine.getThisAddress();
         String host = masterAddress.getHost();
         return (host.contains(":") ? "[" + host + "]" : host) + ":" + masterAddress.getPort();
     }
 
+    /** Records the first failure without blocking a driver callback on resource cleanup. */
     @Override
     public void onError(Throwable error) {
         if (!workersStopped.get() && failure.compareAndSet(null, error)) {
@@ -391,11 +400,15 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
         }
     }
 
+    /** Converts an unexpected worker exit into an application failure. */
     @Override
-    public void onWorkerTerminated(String workerId, String diagnostics) {
+    public void onWorkerTerminated(WorkerType worker, String diagnostics) {
         onError(
                 new IllegalStateException(
-                        "Application worker " + workerId + " terminated: " + diagnostics));
+                        "Application worker "
+                                + worker.getResourceID().getResourceIdString()
+                                + " terminated: "
+                                + diagnostics));
     }
 
     private <T> T await(java.util.concurrent.Future<T> future, long deadlineNanos)

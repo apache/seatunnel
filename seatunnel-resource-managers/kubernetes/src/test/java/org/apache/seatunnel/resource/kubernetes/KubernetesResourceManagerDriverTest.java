@@ -21,7 +21,7 @@ import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
@@ -31,8 +31,12 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import io.kubernetes.client.openapi.ApiException;
@@ -41,33 +45,63 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class KubernetesResourceManagerDriverTest {
+    private final ScheduledExecutorService mainThreadExecutor =
+            mock(ScheduledExecutorService.class);
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+
+    @BeforeEach
+    void setUpExecutors() {
+        doAnswer(
+                        invocation -> {
+                            ((Runnable) invocation.getArgument(0)).run();
+                            return null;
+                        })
+                .when(mainThreadExecutor)
+                .execute(any());
+    }
+
+    @AfterEach
+    void closeExecutors() throws Exception {
+        verify(mainThreadExecutor, never()).shutdown();
+        verify(mainThreadExecutor, never()).shutdownNow();
+        assertFalse(ioExecutor.isShutdown());
+        ioExecutor.shutdownNow();
+        assertTrue(ioExecutor.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
     @Test
     void returnsPodIdentityAndReleasesOnlyOwnedWorkerOnce() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        ResourceManagerContext context = context();
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
@@ -75,7 +109,7 @@ class KubernetesResourceManagerDriverTest {
                         KubernetesApplicationParameters.from(specification()),
                         "app",
                         "isolated-app")) {
-            driver.initialize(context);
+            driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
             KubernetesWorkerNode worker =
                     driver.requestWorker(specification().getWorkerSpecification())
                             .get(5, TimeUnit.SECONDS);
@@ -113,21 +147,24 @@ class KubernetesResourceManagerDriverTest {
             driver.checkWorkers();
             verify(api, times(1)).deletePod("app-worker-1");
             verify(api, never()).deletePod("other-worker");
-            verify(context, never()).onWorkerTerminated(anyString(), anyString());
+            verify(events, never()).onWorkerTerminated(any(), anyString());
         }
     }
 
-    @Test
-    void reportsWorkerFailureAndCleansEveryPod() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"Succeeded", "Failed"})
+    void reportsOnlyFailedWorkersAndCleansEveryPod(String terminalPhase) throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        ResourceManagerContext context = context();
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
         AtomicBoolean failed = new AtomicBoolean();
         when(api.listPods(anyString()))
                 .thenAnswer(
                         invocation ->
                                 Arrays.asList(
-                                        pod("app-worker-1", failed.get() ? "Failed" : "Running"),
+                                        pod(
+                                                "app-worker-1",
+                                                failed.get() ? terminalPhase : "Running"),
                                         pod("app-worker-2", "Running")));
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
@@ -135,14 +172,30 @@ class KubernetesResourceManagerDriverTest {
                         KubernetesApplicationParameters.from(specification()),
                         "app",
                         "isolated-app");
-        driver.initialize(context);
+        driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
         KubernetesWorkerNode first =
                 driver.requestWorker(specification().getWorkerSpecification()).get();
         driver.requestWorker(specification().getWorkerSpecification()).get();
         failed.set(true);
         driver.checkWorkers();
-        verify(context)
-                .onWorkerTerminated(eq(first.getResourceID().getResourceIdString()), anyString());
+        if ("Succeeded".equals(terminalPhase)) {
+            verifyNoInteractions(events);
+            // A previously successful Pod may later disappear through garbage collection.
+            when(api.listPods(anyString()))
+                    .thenReturn(Collections.singletonList(pod("app-worker-2", "Running")));
+            driver.checkWorkers();
+            verifyNoInteractions(events);
+        } else {
+            ArgumentCaptor<KubernetesWorkerNode> terminated =
+                    ArgumentCaptor.forClass(KubernetesWorkerNode.class);
+            ArgumentCaptor<String> diagnostics = ArgumentCaptor.forClass(String.class);
+            verify(events).onWorkerTerminated(terminated.capture(), diagnostics.capture());
+            assertSame(first, terminated.getValue());
+            assertEquals(
+                    first.getResourceID().getResourceIdString(),
+                    terminated.getValue().getResourceID().getResourceIdString());
+            assertTrue(diagnostics.getValue().contains("Failed"));
+        }
         driver.close();
         driver.checkWorkers();
         verify(api).deleteWorkers("app");
@@ -159,7 +212,11 @@ class KubernetesResourceManagerDriverTest {
                         KubernetesApplicationParameters.from(specification()),
                         "app",
                         "isolated-app");
-        driver.initialize(context());
+        driver.initialize(
+                mock(ResourceEventHandler.class),
+                mainThreadExecutor,
+                ioExecutor,
+                () -> "10.0.0.1:5801");
         doThrow(new ApiException(0, "connection interrupted")).when(api).createPod(any());
         assertThrows(
                 Exception.class,
@@ -171,6 +228,31 @@ class KubernetesResourceManagerDriverTest {
         assertThrows(ApiException.class, driver::close);
         verify(api).deleteWorkers("app");
         verify(api).close();
+    }
+
+    @Test
+    void watchFailurePublishesDriverErrorOnlyWhileRunning() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
+        when(api.getJob("app")).thenReturn(job());
+        ApiException failure = new ApiException(500, "watch failed");
+        when(api.listPods(anyString())).thenThrow(failure);
+        doNothing().when(mainThreadExecutor).execute(any());
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationParameters.from(specification()),
+                        "app",
+                        "isolated-app")) {
+            driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
+            driver.checkWorkers();
+            driver.checkWorkers();
+            verify(events, never()).onError(any());
+            ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
+            verify(mainThreadExecutor).execute(callback.capture());
+            callback.getValue().run();
+            verify(events, times(1)).onError(failure);
+        }
     }
 
     @Test
@@ -213,7 +295,11 @@ class KubernetesResourceManagerDriverTest {
                         KubernetesApplicationParameters.from(specification()),
                         "app",
                         "isolated-app");
-        driver.initialize(context());
+        driver.initialize(
+                mock(ResourceEventHandler.class),
+                mainThreadExecutor,
+                ioExecutor,
+                () -> "10.0.0.1:5801");
         CompletableFuture<KubernetesWorkerNode> allocation =
                 driver.requestWorker(specification().getWorkerSpecification());
         assertTrue(creating.await(2, TimeUnit.SECONDS));
@@ -236,12 +322,6 @@ class KubernetesResourceManagerDriverTest {
         closing.get(3, TimeUnit.SECONDS);
         assertTrue(created.get());
         assertTrue(deleted.get());
-    }
-
-    private static ResourceManagerContext context() {
-        ResourceManagerContext context = mock(ResourceManagerContext.class);
-        when(context.getMasterAddress()).thenReturn("10.0.0.1:5801");
-        return context;
     }
 
     private static ApplicationSpecification specification() {

@@ -20,7 +20,7 @@ package org.apache.seatunnel.resource.yarn;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
@@ -30,6 +30,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
@@ -44,13 +45,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
-/** Fixed worker allocation: a lost container fails the application, without replacement or HA. */
+/**
+ * Fixed worker allocation: abnormal container termination fails the application, without recovery.
+ */
 public final class YarnResourceManagerDriver implements ResourceManagerDriver<YarnWorkerNode> {
     /** Allocation priority shared by all fixed-capacity workers in one application. */
     private static final int WORKER_PRIORITY = 0;
@@ -69,8 +73,12 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private final String workerNodeLabel;
     private final Queue<PendingWorker> pending = new ArrayDeque<>();
     private final Map<String, YarnWorkerNode> workers = new HashMap<>();
-    private ScheduledExecutorService heartbeats;
-    private ResourceManagerContext context;
+    private ScheduledFuture<?> heartbeats;
+    private CompletableFuture<Void> heartbeatExecution = CompletableFuture.completedFuture(null);
+    private ScheduledExecutorService mainThreadExecutor;
+    private Executor ioExecutor;
+    private Supplier<String> masterAddress;
+    private ResourceEventHandler<YarnWorkerNode> resourceEventHandler;
     private boolean active;
     private boolean registered;
     private boolean finished;
@@ -104,14 +112,22 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
 
     /** Registers this AM before requesting workers and keeps its allocation lease alive. */
     @Override
-    public synchronized void initialize(ResourceManagerContext context) throws Exception {
-        this.context = context;
+    public synchronized void initialize(
+            ResourceEventHandler<YarnWorkerNode> resourceEventHandler,
+            ScheduledExecutorService mainThreadExecutor,
+            Executor ioExecutor,
+            Supplier<String> masterAddress)
+            throws Exception {
+        this.masterAddress = masterAddress;
+        this.resourceEventHandler = resourceEventHandler;
+        this.mainThreadExecutor = mainThreadExecutor;
+        this.ioExecutor = ioExecutor;
         resourceManager.init(configuration);
         resourceManager.start();
         nodeManagerInitialized = true;
         nodeManager.init(configuration);
         nodeManager.start();
-        String address = context.getMasterAddress();
+        String address = masterAddress.get();
         int separator = address.lastIndexOf(':');
         resourceManager.registerApplicationMaster(
                 address.substring(0, separator),
@@ -120,14 +136,22 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         registered = true;
         active = true;
         heartbeats =
-                Executors.newSingleThreadScheduledExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "seatunnel-yarn-heartbeat");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
-        heartbeats.scheduleWithFixedDelay(
-                this::heartbeat, 0, HEARTBEAT_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
+                mainThreadExecutor.scheduleWithFixedDelay(
+                        this::scheduleHeartbeat,
+                        0,
+                        HEARTBEAT_INTERVAL_MILLIS,
+                        TimeUnit.MILLISECONDS);
+    }
+
+    /** Keeps at most one blocking heartbeat in flight without blocking resource callbacks. */
+    private synchronized void scheduleHeartbeat() {
+        if (active && heartbeatExecution.isDone()) {
+            try {
+                heartbeatExecution = CompletableFuture.runAsync(this::heartbeat, ioExecutor);
+            } catch (RuntimeException failure) {
+                reportError(failure);
+            }
+        }
     }
 
     @Override
@@ -163,17 +187,20 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
             AllocateResponse response = resourceManager.allocate(APPLICATION_PROGRESS);
             for (ContainerStatus status : response.getCompletedContainersStatuses()) {
                 String id = status.getContainerId().toString();
-                boolean unexpected;
+                YarnWorkerNode terminatedWorker;
                 synchronized (this) {
-                    unexpected = active && workers.remove(id) != null;
+                    terminatedWorker = active ? workers.remove(id) : null;
                 }
-                if (unexpected) {
-                    context.onWorkerTerminated(
-                            id,
-                            "YARN container exited with status "
-                                    + status.getExitStatus()
-                                    + ": "
-                                    + status.getDiagnostics());
+                if (terminatedWorker != null
+                        && status.getExitStatus() != ContainerExitStatus.SUCCESS) {
+                    mainThreadExecutor.execute(
+                            () ->
+                                    resourceEventHandler.onWorkerTerminated(
+                                            terminatedWorker,
+                                            "YARN container exited with status "
+                                                    + status.getExitStatus()
+                                                    + ": "
+                                                    + status.getDiagnostics()));
                 }
             }
             for (Container container : response.getAllocatedContainers()) {
@@ -198,7 +225,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                                     configuration,
                                     staging,
                                     clusterName,
-                                    context.getMasterAddress(),
+                                    masterAddress.get(),
                                     worker.specification));
                     synchronized (this) {
                         if (active
@@ -229,17 +256,21 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 }
             }
         } catch (Exception failure) {
-            boolean report;
-            synchronized (this) {
-                report = active;
-                active = false;
-                for (PendingWorker worker : pending) {
-                    worker.result.completeExceptionally(failure);
-                }
+            reportError(failure);
+        }
+    }
+
+    private void reportError(Exception failure) {
+        boolean report;
+        synchronized (this) {
+            report = active;
+            active = false;
+            for (PendingWorker worker : pending) {
+                worker.result.completeExceptionally(failure);
             }
-            if (report) {
-                context.onError(failure);
-            }
+        }
+        if (report) {
+            mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
         }
     }
 
@@ -291,11 +322,13 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     public void stopWorkers() throws Exception {
         List<PendingWorker> waiting;
         List<YarnWorkerNode> allocated;
+        CompletableFuture<Void> heartbeat;
         synchronized (this) {
             active = false;
             if (heartbeats != null) {
-                heartbeats.shutdownNow();
+                heartbeats.cancel(false);
             }
+            heartbeat = heartbeatExecution;
             waiting = new ArrayList<>(pending);
             pending.clear();
             allocated = new ArrayList<>(workers.values());
@@ -310,26 +343,15 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 failure = accumulate(failure, error);
             }
         }
-        if (!allocated.isEmpty()) {
-            ExecutorService releases =
-                    Executors.newFixedThreadPool(
-                            Math.min(32, allocated.size()),
-                            runnable -> {
-                                Thread thread =
-                                        new Thread(runnable, "seatunnel-yarn-worker-release");
-                                thread.setDaemon(true);
-                                return thread;
-                            });
+        if (!allocated.isEmpty() || !heartbeat.isDone()) {
             List<Future<?>> stopping = new ArrayList<>();
+            stopping.add(heartbeat);
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             try {
                 for (YarnWorkerNode worker : allocated) {
                     stopping.add(
-                            releases.submit(
-                                    () -> {
-                                        releaseWorker(worker).get();
-                                        return null;
-                                    }));
+                            CompletableFuture.runAsync(
+                                    () -> releaseWorker(worker).join(), ioExecutor));
                 }
                 for (Future<?> stop : stopping) {
                     try {
@@ -340,7 +362,6 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 }
             } finally {
                 stopping.forEach(stop -> stop.cancel(true));
-                releases.shutdownNow();
             }
         }
         if (failure != null) {

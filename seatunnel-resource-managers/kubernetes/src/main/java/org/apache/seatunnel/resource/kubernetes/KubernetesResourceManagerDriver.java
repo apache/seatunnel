@@ -20,7 +20,7 @@ package org.apache.seatunnel.resource.kubernetes;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
@@ -36,9 +36,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
 public final class KubernetesResourceManagerDriver
@@ -49,17 +50,14 @@ public final class KubernetesResourceManagerDriver
     private final KubernetesApplicationParameters parameters;
     private final String applicationId;
     private final String clusterName;
-    private final Set<String> workers = new HashSet<>();
+    private final Map<String, KubernetesWorkerNode> workers = new HashMap<>();
     private final Set<String> releasing = new HashSet<>();
-    private final ExecutorService launches =
-            Executors.newSingleThreadExecutor(
-                    r -> {
-                        Thread thread = new Thread(r, "seatunnel-kubernetes-worker-launch");
-                        thread.setDaemon(true);
-                        return thread;
-                    });
+    private final Set<CompletableFuture<Void>> launches = new HashSet<>();
     private final Map<String, CompletableFuture<KubernetesWorkerNode>> pending = new HashMap<>();
-    private ResourceManagerContext context;
+    private Supplier<String> masterAddress;
+    private ResourceEventHandler<KubernetesWorkerNode> resourceEventHandler;
+    private ScheduledExecutorService mainThreadExecutor;
+    private Executor ioExecutor;
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
     private final IdGenerator idGenerator;
@@ -86,16 +84,27 @@ public final class KubernetesResourceManagerDriver
     /**
      * Resolves the owner Job and starts asynchronous observation before admitting workers.
      *
-     * @param context the bound master endpoint and runtime failure callbacks
+     * @param resourceEventHandler receives unexpected worker exits and driver failures
+     * @param mainThreadExecutor serializes resource callbacks
+     * @param ioExecutor executes worker creation; owned by the caller
+     * @param masterAddress supplies the bound master endpoint for each worker launch
      * @throws Exception if the owner cannot be read or the driver is already initialized
      */
     @Override
-    public synchronized void initialize(ResourceManagerContext context) throws Exception {
-        if (closed || this.context != null) {
+    public synchronized void initialize(
+            ResourceEventHandler<KubernetesWorkerNode> resourceEventHandler,
+            ScheduledExecutorService mainThreadExecutor,
+            Executor ioExecutor,
+            Supplier<String> masterAddress)
+            throws Exception {
+        if (closed || this.resourceEventHandler != null) {
             throw new IllegalStateException(
                     "Kubernetes driver has already been initialized or closed");
         }
-        this.context = context;
+        this.masterAddress = masterAddress;
+        this.resourceEventHandler = resourceEventHandler;
+        this.mainThreadExecutor = mainThreadExecutor;
+        this.ioExecutor = ioExecutor;
         this.job = api.getJob(applicationId);
         this.running = true;
         this.workerWatch =
@@ -123,16 +132,34 @@ public final class KubernetesResourceManagerDriver
         }
         String name = job.getName() + "-worker-" + idGenerator.getNextId();
         // Register before creation: ambiguous HTTP failures must still be deleted on close.
-        workers.add(name);
+        KubernetesWorkerNode worker = new KubernetesWorkerNode(new ResourceID(name));
+        workers.put(name, worker);
         pending.put(name, future);
-        launches.execute(() -> launchWorker(name, resources, future));
+        try {
+            CompletableFuture<Void> launch =
+                    CompletableFuture.runAsync(
+                            () -> launchWorker(worker, resources, future), ioExecutor);
+            launches.add(launch);
+            launch.whenComplete(
+                    (ignored, failure) -> {
+                        synchronized (this) {
+                            launches.remove(launch);
+                        }
+                        if (failure != null) {
+                            future.completeExceptionally(failure);
+                        }
+                    });
+        } catch (RuntimeException failure) {
+            future.completeExceptionally(failure);
+        }
         return future;
     }
 
     private void launchWorker(
-            String name,
+            KubernetesWorkerNode worker,
             WorkerSpecification resources,
             CompletableFuture<KubernetesWorkerNode> future) {
+        String name = worker.getResourceID().getResourceIdString();
         synchronized (this) {
             if (!running) {
                 future.completeExceptionally(new CancellationException("Application is stopping"));
@@ -142,14 +169,9 @@ public final class KubernetesResourceManagerDriver
         try {
             api.createPod(
                     KubernetesResourceFactory.worker(
-                            job,
-                            name,
-                            parameters,
-                            resources,
-                            clusterName,
-                            context.getMasterAddress()));
+                            job, name, parameters, resources, clusterName, masterAddress.get()));
             synchronized (this) {
-                if (running && future.complete(new KubernetesWorkerNode(new ResourceID(name)))) {
+                if (running && future.complete(worker)) {
                     pending.remove(name);
                     return;
                 }
@@ -174,7 +196,7 @@ public final class KubernetesResourceManagerDriver
         CompletableFuture<Void> result = new CompletableFuture<>();
         String name = worker.getResourceID().getResourceIdString();
         synchronized (this) {
-            if (!workers.contains(name)) {
+            if (!workers.containsKey(name)) {
                 return CompletableFuture.completedFuture(null);
             }
             releasing.add(name);
@@ -209,7 +231,7 @@ public final class KubernetesResourceManagerDriver
             if (!running) {
                 return;
             }
-            observed = new HashSet<>(workers);
+            observed = new HashSet<>(workers.keySet());
             observed.removeAll(pending.keySet());
             observed.removeAll(releasing);
             if (observed.isEmpty()) {
@@ -225,17 +247,25 @@ public final class KubernetesResourceManagerDriver
                 return;
             }
             for (String name : observed) {
-                if (!workers.contains(name) || releasing.contains(name)) {
+                KubernetesWorkerNode worker = workers.get(name);
+                if (worker == null || releasing.contains(name)) {
                     continue;
                 }
                 KubernetesPod pod = current.get(name);
+                if (pod != null && pod.isSucceeded()) {
+                    workers.remove(name);
+                    continue;
+                }
                 if (pod == null || pod.isTerminating() || pod.isTerminated()) {
                     running = false;
-                    context.onWorkerTerminated(
-                            name,
-                            pod == null
-                                    ? "Worker pod disappeared"
-                                    : "Worker pod terminated with phase " + pod.getPhase());
+                    mainThreadExecutor.execute(
+                            () ->
+                                    resourceEventHandler.onWorkerTerminated(
+                                            worker,
+                                            pod == null
+                                                    ? "Worker pod disappeared"
+                                                    : "Worker pod terminated with phase "
+                                                            + pod.getPhase()));
                     return;
                 }
             }
@@ -246,7 +276,7 @@ public final class KubernetesResourceManagerDriver
         synchronized (this) {
             if (running) {
                 running = false;
-                context.onError(failure);
+                mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
             }
         }
     }
@@ -266,12 +296,14 @@ public final class KubernetesResourceManagerDriver
      */
     @Override
     public void stopWorkers() throws Exception {
+        CompletableFuture<?>[] pendingLaunches;
         synchronized (this) {
             if (workersStopped) {
                 return;
             }
             workersStopped = true;
             running = false;
+            pendingLaunches = launches.toArray(new CompletableFuture[0]);
             for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
                 future.completeExceptionally(new CancellationException("Application is stopping"));
             }
@@ -279,18 +311,15 @@ public final class KubernetesResourceManagerDriver
         if (workerWatch != null) {
             workerWatch.close();
         }
-        launches.shutdownNow();
         Exception failure = null;
         try {
             // SDK calls have a 10s total timeout; a racing create may issue one compensating
             // delete.
-            if (!launches.awaitTermination(25, TimeUnit.SECONDS)) {
-                failure =
-                        new IllegalStateException(
-                                "Timed out draining Kubernetes worker allocations");
-            }
+            CompletableFuture.allOf(pendingLaunches).get(25, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            failure = e;
+        } catch (Exception e) {
             failure = e;
         }
         if (job != null) {
