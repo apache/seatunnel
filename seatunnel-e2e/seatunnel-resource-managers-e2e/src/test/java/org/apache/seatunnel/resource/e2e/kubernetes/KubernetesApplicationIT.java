@@ -349,8 +349,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
-                String masterLogs =
-                        podLogs(application, masterPod(application).getMetadata().getName());
+                String masterLogs = podLogs(masterPod(application).getMetadata().getName());
                 assertTrue(
                         masterLogs.contains("ConnectorThatDoesNotExist"),
                         "The application must reach job parsing, not fail during runtime startup");
@@ -636,6 +635,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             throw new IllegalStateException(
                     "Application stopped while waiting for Pod " + name + " logs: " + status);
         }
+        return podLogs(name);
+    }
+
+    /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
+    private String podLogs(String name) throws Exception {
         try {
             return core.readNamespacedPodLog(
                     name,
