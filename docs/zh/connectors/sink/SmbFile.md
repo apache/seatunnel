@@ -67,9 +67,10 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | is_enable_transaction                 | boolean | 否   | true                                      |                                                                                        |
 | batch_size                            | int     | 否   | 1000000                                   |                                                                                        |
 | compress_codec                        | string  | 否   | none                                      |                                                                                        |
+| multi_table_sink_replica         | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                                                                                                                                                                                                                                             |
 | common-options                        | object  | 否   | -                                         |                                                                                        |
 | max_rows_in_memory                    | int     | 否   | -                                         | 仅在 file_format_type 为 excel 时使用                                                       |
-| sheet_name                            | string  | 否   | Sheet${Random number}                     | 仅在 file_format_type 为 excel 时使用                                                       |
+| sheet_name                            | string  | 否   | Sheet0                     | 仅在 file_format_type 为 excel 时使用                                                       |
 | xml_root_tag                          | string  | 否   | RECORDS                                   | 仅在 file_format 为 xml 时使用                                                              |
 | xml_row_tag                           | string  | 否   | RECORD                                    | 仅在 file_format 为 xml 时使用                                                              |
 | xml_use_attr_format                   | boolean | 否   | -                                         | 仅在 file_format 为 xml 时使用                                                              |
