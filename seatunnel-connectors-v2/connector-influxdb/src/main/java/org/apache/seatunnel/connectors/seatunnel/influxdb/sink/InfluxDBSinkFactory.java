@@ -54,10 +54,10 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                 .bundled(InfluxDBSinkOptions.USERNAME, InfluxDBSinkOptions.PASSWORD)
                 .optional(
                         InfluxDBSinkOptions.CONNECT_TIMEOUT_MS,
-                        Conditions.greaterThan(InfluxDBSinkOptions.CONNECT_TIMEOUT_MS, 0L))
+                        Conditions.greaterOrEqual(InfluxDBSinkOptions.CONNECT_TIMEOUT_MS, 0L))
                 .optional(
                         InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
-                        Conditions.greaterThan(InfluxDBSinkOptions.QUERY_TIMEOUT_SEC, 0))
+                        Conditions.greaterOrEqual(InfluxDBSinkOptions.QUERY_TIMEOUT_SEC, 0))
                 .optional(
                         InfluxDBSinkOptions.BATCH_SIZE,
                         Conditions.greaterThan(InfluxDBSinkOptions.BATCH_SIZE, 0))

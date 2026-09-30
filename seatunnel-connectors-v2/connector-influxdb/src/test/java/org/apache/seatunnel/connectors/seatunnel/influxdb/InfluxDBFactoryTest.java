@@ -104,17 +104,12 @@ class InfluxDBFactoryTest {
     }
 
     @Test
-    void nonPositiveConnectTimeoutIsRejected() {
+    void zeroTimeoutsStayValid() {
+        // 0 keeps the "no timeout" meaning of the underlying HTTP client, so it stays accepted
         Map<String, Object> map = validSinkConfig();
         map.put("connect_timeout_ms", 0L);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
-    }
-
-    @Test
-    void nonPositiveQueryTimeoutIsRejected() {
-        Map<String, Object> map = validSinkConfig();
         map.put("query_timeout_sec", 0);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+        validateSink(map);
     }
 
     @Test
@@ -159,9 +154,20 @@ class InfluxDBFactoryTest {
     }
 
     @Test
+    void usernameWithoutPasswordIsRejected() {
+        Map<String, Object> map = validSinkConfig();
+        map.put("username", "user");
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+    }
+
+    @Test
     void multiTableSinkReplicaPassesValidation() {
         Map<String, Object> map = validSinkConfig();
         map.put("multi_table_sink_replica", 2);
         validateSink(map);
+        // validate() alone stays green if the option is dropped from the rule,
+        // so pin the declaration with the unknown-keys check as well
+        ConfigValidator.validateUnknownKeys(
+                ReadonlyConfig.fromMap(map), sinkFactory.optionRule(), "InfluxDB");
     }
 }
