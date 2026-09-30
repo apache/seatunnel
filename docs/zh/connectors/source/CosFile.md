@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | secret_key                 | string  | 是  | -                   |
 | region                     | string  | 是  | -                   |
 | read_columns               | list    | 否  | -                   |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否  | \001                |
 | row_delimiter              | string  | 否  | \n                  |
 | parse_partition_from_path  | boolean | 否  | true                |
@@ -77,7 +78,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
 | file_filter_pattern        | string  | 否  |                     |
-| filename_extension         | string  | 否  | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| filename_extension         | string  | 否  | -                   |
 | compress_codec             | string  | 否  | none                |
 | archive_compress_codec     | string  | 否  | none                |
 | encoding                   | string  | 否  | UTF-8               |
@@ -89,7 +90,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | quote_char                 | string  | 否  | "                   | 
 | escape_char                | string  | 否  | -                   |
 | recursive_file_scan        | boolean | 否  | true                |
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| sort_files_by_modification_time | boolean | 否 | false               |
 
 ### path [string]
 
