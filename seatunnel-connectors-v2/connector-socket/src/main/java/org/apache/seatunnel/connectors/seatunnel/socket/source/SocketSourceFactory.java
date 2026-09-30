@@ -30,6 +30,9 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SocketSourceFactory implements TableSourceFactory {
     @Override
@@ -40,7 +43,8 @@ public class SocketSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SocketSourceOptions.HOST, SocketSourceOptions.PORT)
+                .required(SocketSourceOptions.HOST, notBlank(SocketSourceOptions.HOST))
+                .required(SocketSourceOptions.PORT, greaterThan(SocketSourceOptions.PORT, 0))
                 .build();
     }
 
