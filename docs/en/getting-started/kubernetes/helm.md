@@ -31,7 +31,7 @@ minikube start --kubernetes-version=v1.23.3
 Install with default settings.
 ```bash
 # Choose the corresponding version yourself
-export VERSION=2.3.10
+export VERSION=3.0.1
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm

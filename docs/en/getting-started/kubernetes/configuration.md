@@ -346,7 +346,7 @@ Common loading approaches:
 For stable production environments, build custom connector plugin jars, Transform plugin jars, and required runtime extension jars into the SeaTunnel image:
 
 ```Dockerfile
-FROM seatunnel:3.0.0
+FROM seatunnel:3.0.1
 
 # Optional: custom connector plugin jars or plugin packages.
 COPY plugins/ /opt/seatunnel/plugins/

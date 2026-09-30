@@ -205,7 +205,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **Default behavior:** If `SEATUNNEL_HOME` is not set, the CLI auto-detects from its package location. In the distribution tarball the CLI lives at `cli/seatunnel_cli/`, so it resolves two levels up to the tarball root:
 
 ```
-apache-seatunnel-3.0.0/          <-- auto-detected as SEATUNNEL_HOME
+apache-seatunnel-3.0.1/          <-- auto-detected as SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI package location

@@ -173,7 +173,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **默认行为：** 如果未设置 `SEATUNNEL_HOME`，CLI 会根据自身包位置自动检测。在发行版压缩包中，CLI 位于 `cli/seatunnel_cli/`，因此会向上解析两级到压缩包根目录：
 
 ```
-apache-seatunnel-3.0.0/          <-- 自动检测为 SEATUNNEL_HOME
+apache-seatunnel-3.0.1/          <-- 自动检测为 SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI 包位置

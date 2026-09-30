@@ -22,7 +22,7 @@ import TabItem from '@theme/TabItem';
 或者您也可以通过终端下载：
 
 ```shell
-export version="3.0.0"
+export version="3.0.1"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -35,17 +35,17 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 sh bin/install-plugin.sh
 ```
 
-如果您需要指定的连接器版本，以3.0.0为例，您需要执行如下命令：
+如果您需要指定的连接器版本，以3.0.1为例，您需要执行如下命令：
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.0.1
 ```
 
 对于正式发布的连接器版本，`install-plugin.sh` 通过 HTTPS 直接下载 JAR 及其校验文件，因此 Linux 和 macOS 不需要 Maven。该方式需要 `curl`、`mktemp`，以及 `sha512sum`、`sha1sum`、`shasum` 或 `openssl` 中的任意一个。Windows 的 `install-plugin.cmd` 仍使用发行包内置的 Maven Wrapper。如果需要为 `install-plugin.sh` 使用 Maven 兼容的 HTTPS 镜像，可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定仓库根地址：
 
 ```bash
 SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
-  sh bin/install-plugin.sh 3.0.0
+  sh bin/install-plugin.sh 3.0.1
 ```
 
 直接下载仅支持提供 `.sha512` 或 `.sha1` 校验文件的不可变正式版本。`SNAPSHOT`、`LATEST`、`RELEASE` 和版本范围需要解析 Maven 元数据，因此脚本会自动使用发行包内置的 Maven Wrapper。如果需要继续使用 Maven `settings.xml` 中的镜像、认证仓库、代理或自定义 TLS 策略，也可以设置 `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven`。
