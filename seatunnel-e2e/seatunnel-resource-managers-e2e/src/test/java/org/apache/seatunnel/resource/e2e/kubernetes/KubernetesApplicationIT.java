@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -53,7 +50,6 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import io.kubernetes.client.Exec;
-import io.kubernetes.client.custom.Quantity;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
@@ -63,22 +59,16 @@ import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim;
-import io.kubernetes.client.openapi.models.V1PersistentVolumeClaimSpec;
 import io.kubernetes.client.openapi.models.V1Pod;
-import io.kubernetes.client.openapi.models.V1PolicyRule;
 import io.kubernetes.client.openapi.models.V1ResourceQuota;
-import io.kubernetes.client.openapi.models.V1ResourceQuotaSpec;
-import io.kubernetes.client.openapi.models.V1ResourceRequirements;
 import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
-import io.kubernetes.client.openapi.models.V1RoleRef;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
-import io.kubernetes.client.openapi.models.V1Subject;
 import io.kubernetes.client.util.Config;
+import io.kubernetes.client.util.Yaml;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -93,7 +83,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -116,12 +105,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
     private static final String APPLICATION_SPECIFICATION_FILE = "application.properties";
     private static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
-    private final String namespace =
-            "seatunnel-app-it-" + UUID.randomUUID().toString().substring(0, 8);
+    private String namespace;
     private CoreV1Api core;
     private BatchV1Api batch;
     private ClusterDescriptor<String> deployer;
-    private Map<String, String> options;
     private boolean namespaceCreated;
     private ApiClient apiClient;
     private KubernetesClient platformMonitor;
@@ -131,18 +118,22 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @BeforeAll
     void prepareApplicationEnvironment() throws Exception {
-        String image = System.getProperty("seatunnel.kubernetes.test.image");
-        if (image == null) {
-            image = buildApplicationImage();
-        }
+        applicationConfig = getResourcesFile("/kubernetes/batch/application.config").toPath();
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(applicationConfig, Collections.emptyMap());
+        namespace = options.get(KubernetesOptions.NAMESPACE.key());
+        kubeconfig = Paths.get(options.get(KubernetesOptions.KUBE_CONFIG.key()));
+        String image = options.get(KubernetesOptions.IMAGE.key());
+        buildApplicationImage(image);
         k3s =
                 new K3sContainer(DockerImageName.parse("rancher/k3s:v1.31.6-k3s1"))
                         .withStartupTimeout(Duration.ofMinutes(3));
         k3s.start();
-        kubeconfig = Files.createTempFile("seatunnel-k3s-", ".yaml");
+        Files.createDirectories(kubeconfig.getParent());
         Files.write(kubeconfig, k3s.getKubeConfigYaml().getBytes(StandardCharsets.UTF_8));
         importImage(image);
-        // These short tests need four schedulable CPUs for one master and three workers. Remove
+        // The isolation case runs two masters and two workers: four CPUs and 3 GiB in total.
+        // Keep this within the standard public GitHub Actions runner's four CPUs. Remove
         // only CPU reservations from system deployments in this disposable cluster; actual CPU
         // use remains shared, memory reservations and application quotas are unchanged.
         Container.ExecResult systemCpuRequests =
@@ -171,7 +162,9 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         namespaceCreated = true;
         core.createNamespacedServiceAccount(
                 namespace,
-                new V1ServiceAccount().metadata(new V1ObjectMeta().name("application")),
+                Yaml.loadAs(
+                        getResourcesFile("/kubernetes/service-account.yaml"),
+                        V1ServiceAccount.class),
                 null,
                 null,
                 null,
@@ -200,65 +193,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
         rbac.createNamespacedRole(
                 namespace,
-                new V1Role()
-                        .metadata(new V1ObjectMeta().name("application"))
-                        .addRulesItem(
-                                new V1PolicyRule()
-                                        .apiGroups(Collections.singletonList(""))
-                                        .resources(Collections.singletonList("pods"))
-                                        .verbs(
-                                                Arrays.asList(
-                                                        "create",
-                                                        "get",
-                                                        "list",
-                                                        "delete",
-                                                        "deletecollection")))
-                        .addRulesItem(
-                                new V1PolicyRule()
-                                        .apiGroups(Collections.singletonList("batch"))
-                                        .resources(Collections.singletonList("jobs"))
-                                        .verbs(Collections.singletonList("get"))),
+                Yaml.loadAs(getResourcesFile("/kubernetes/role.yaml"), V1Role.class),
                 null,
                 null,
                 null,
                 null);
-        rbac.createNamespacedRoleBinding(
-                namespace,
-                new V1RoleBinding()
-                        .metadata(new V1ObjectMeta().name("application"))
-                        .roleRef(
-                                new V1RoleRef()
-                                        .apiGroup("rbac.authorization.k8s.io")
-                                        .kind("Role")
-                                        .name("application"))
-                        .addSubjectsItem(
-                                new V1Subject()
-                                        .kind("ServiceAccount")
-                                        .name("application")
-                                        .namespace(namespace)),
-                null,
-                null,
-                null,
-                null);
-        options = new HashMap<>();
-        options.put(KubernetesOptions.NAMESPACE.key(), namespace);
-        options.put(KubernetesOptions.KUBE_CONFIG.key(), kubeconfig.toString());
-        options.put(KubernetesOptions.IMAGE.key(), image);
-        options.put(KubernetesOptions.IMAGE_PULL_POLICY.key(), "Never");
-        options.put(KubernetesOptions.SERVICE_ACCOUNT.key(), "application");
-        options.put(KubernetesOptions.CONFIG_MAP.key(), RUNTIME_CONFIG_MAP);
-        options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
-        options.put(ApplicationOptions.WORKER_MEMORY_MB.key(), "768");
-        options.put(ApplicationOptions.MASTER_MEMORY_MB.key(), "768");
-        options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "180000");
-        applicationConfig = temporary.resolve("application.config");
-        Files.write(
-                applicationConfig,
-                ConfigFactory.parseMap(options)
-                        .root()
-                        .render(ConfigRenderOptions.concise())
-                        .getBytes(StandardCharsets.UTF_8));
-        options = SeatunnelApplicationConfig.load(applicationConfig, Collections.emptyMap());
+        V1RoleBinding roleBinding =
+                Yaml.loadAs(getResourcesFile("/kubernetes/role-binding.yaml"), V1RoleBinding.class);
+        rbac.createNamespacedRoleBinding(namespace, roleBinding, null, null, null, null);
         deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
         platformMonitor = KubernetesClientFactory.create(options, false);
     }
@@ -294,8 +236,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void fakeSourceSubmissionCompletesWithAssertAndReleasesWorkers() throws Exception {
-        ApplicationSpecification specification = specification(assertSubmissionJob());
-        try (KubernetesApplicationClient application = deployApplication(specification)) {
+        ApplicationSpecification specification = specification("batch");
+        try (KubernetesApplicationClient application = deployApplication(specification, "batch")) {
             try {
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
                 awaitWorkersRemoved(application);
@@ -344,8 +286,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void invalidJobFailsAndReleasesWorkers() throws Exception {
-        try (KubernetesApplicationClient application =
-                deployApplication(specification(job("BATCH", "NonexistentSink")))) {
+        try (KubernetesApplicationClient application = deployApplication("invalid-job")) {
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
@@ -364,12 +305,12 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void simultaneousApplicationsAreIsolatedAndCancellationRemovesEverything() throws Exception {
-        ApplicationSpecification firstSpecification = specification(job("STREAMING", "Console"));
-        try (KubernetesApplicationClient first = deployApplication(firstSpecification)) {
-            try (KubernetesApplicationClient second =
-                    deployApplication(singleWorkerSpecification(job("STREAMING", "Console", 1)))) {
+        ApplicationSpecification firstSpecification = specification("isolation");
+        try (KubernetesApplicationClient first =
+                deployApplication(firstSpecification, "isolation")) {
+            try (KubernetesApplicationClient second = deployApplication("isolation")) {
                 try {
-                    awaitWorkersRunning(first, 2);
+                    awaitWorkersRunning(first, 1);
                     awaitWorkersRunning(second, 1);
                     awaitJobRunning(first);
                     awaitJobRunning(second);
@@ -425,8 +366,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void workerLossFailsApplicationAndCleansRemainingWorkers() throws Exception {
-        try (KubernetesApplicationClient application =
-                deployApplication(specification(job("STREAMING", "Console")))) {
+        try (KubernetesApplicationClient application = deployApplication("worker-loss")) {
             try {
                 awaitWorkersRunning(application, 2);
                 awaitJobRunning(application);
@@ -454,32 +394,17 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void durableCheckpointRestoresSourceProgressAfterWorkerFailure() throws Exception {
-        String claim = "application-checkpoints";
+        V1PersistentVolumeClaim checkpointVolume =
+                Yaml.loadAs(
+                        getResourcesFile("/kubernetes/checkpoints-pvc.yaml"),
+                        V1PersistentVolumeClaim.class);
+        String claim = checkpointVolume.getMetadata().getName();
         core.createNamespacedPersistentVolumeClaim(
-                namespace,
-                new V1PersistentVolumeClaim()
-                        .metadata(new V1ObjectMeta().name(claim))
-                        .spec(
-                                new V1PersistentVolumeClaimSpec()
-                                        .accessModes(Collections.singletonList("ReadWriteOnce"))
-                                        .resources(
-                                                new V1ResourceRequirements()
-                                                        .requests(
-                                                                Collections.singletonMap(
-                                                                        "storage",
-                                                                        Quantity.fromString(
-                                                                                "1Gi"))))),
-                null,
-                null,
-                null,
-                null);
-        Map<String, String> recovery = new HashMap<>(options);
-        recovery.put(ApplicationOptions.WORKER_COUNT.key(), "1");
-        recovery.put(KubernetesOptions.CHECKPOINT_PVC.key(), claim);
-        String marker = "checkpoint-progress-marker";
-        String config = readJobTemplate("checkpoint_recovery.conf", 1, marker);
-        ApplicationSpecification firstSpecification = specification(config, recovery);
-        try (KubernetesApplicationClient first = deployApplication(firstSpecification, recovery)) {
+                namespace, checkpointVolume, null, null, null, null);
+        String marker = "APPLICATION_E2E_DATA";
+        ApplicationSpecification firstSpecification = specification("checkpoint");
+        try (KubernetesApplicationClient first =
+                deployApplication(firstSpecification, "checkpoint")) {
             try {
                 awaitWorkersRunning(first, 1);
                 String worker = workers(first).get(0).getMetadata().getName();
@@ -511,13 +436,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         assertTrue(
                 retained.getMetadata().getOwnerReferences() == null
                         || retained.getMetadata().getOwnerReferences().isEmpty());
-        recovery.put(
-                ApplicationOptions.RESTORE_JOB_ID.key(),
-                Long.toString(firstSpecification.getJobId()));
-        ApplicationSpecification restoredSpecification = specification(config, recovery);
+        ApplicationSpecification restoredSpecification = specification("checkpoint-restore");
+        assertEquals(firstSpecification.getJobId(), restoredSpecification.getRestoreJobId());
         assertNotEquals(firstSpecification.getJobId(), restoredSpecification.getJobId());
         try (KubernetesApplicationClient restored =
-                deployApplication(restoredSpecification, recovery)) {
+                deployApplication(restoredSpecification, "checkpoint-restore")) {
             try {
                 awaitWorkersRunning(restored, 1);
                 awaitDurableCheckpoint(restored, restoredSpecification.getJobId(), 1);
@@ -681,20 +604,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void quotaFailureDuringWorkerAllocationCleansPartialApplication() throws Exception {
-        String quota = "partial-worker-allocation";
-        core.createNamespacedResourceQuota(
-                namespace,
-                new V1ResourceQuota()
-                        .metadata(new V1ObjectMeta().name(quota))
-                        .spec(
-                                new V1ResourceQuotaSpec()
-                                        .hard(
-                                                Collections.singletonMap(
-                                                        "pods", Quantity.fromString("2")))),
-                null,
-                null,
-                null,
-                null);
+        V1ResourceQuota workerQuota =
+                Yaml.loadAs(
+                        getResourcesFile("/kubernetes/worker-quota.yaml"), V1ResourceQuota.class);
+        String quota = workerQuota.getMetadata().getName();
+        core.createNamespacedResourceQuota(namespace, workerQuota, null, null, null, null);
         try {
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
@@ -705,8 +619,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 return current.getStatus() != null
                                         && current.getStatus().getHard() != null;
                             });
-            try (KubernetesApplicationClient application =
-                    deployApplication(specification(job("STREAMING", "Console")))) {
+            try (KubernetesApplicationClient application = deployApplication("quota")) {
                 try {
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
@@ -721,18 +634,25 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private KubernetesApplicationClient deployApplication(ApplicationSpecification specification)
-            throws Exception {
-        return deployApplication(specification, options);
+    private KubernetesApplicationClient deployApplication(String scenario) throws Exception {
+        return deployApplication(specification(scenario), scenario);
     }
 
     private KubernetesApplicationClient deployApplication(
-            ApplicationSpecification specification, Map<String, String> deploymentOptions)
-            throws Exception {
+            ApplicationSpecification specification, String scenario) throws Exception {
         return new KubernetesApplicationClient(
                 platformMonitor,
                 new ApplicationClusterDeployer(new ClusterClientServiceLoader())
-                        .<String>run(DeployType.KUBERNETES, deploymentOptions, specification));
+                        .<String>run(
+                                DeployType.KUBERNETES,
+                                SeatunnelApplicationConfig.load(
+                                        getResourcesFile(
+                                                        "/kubernetes/"
+                                                                + scenario
+                                                                + "/application.config")
+                                                .toPath(),
+                                        Collections.emptyMap()),
+                                specification));
     }
 
     private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {
@@ -927,10 +847,6 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 .getItems();
     }
 
-    private ApplicationSpecification specification(String config) throws IOException {
-        return specification(config, Collections.emptyMap());
-    }
-
     /** Queries a finished application through the packaged CLI without connecting to its master. */
     private void assertStatusFromApplicationCli(String applicationId) throws Exception {
         String classpath =
@@ -951,8 +867,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 "--id",
                                 applicationId,
                                 "-a",
-                                applicationConfig.toString(),
-                                "-ikubernetes.namespace=" + namespace)
+                                applicationConfig.toString())
                         .redirectErrorStream(true)
                         .redirectOutput(output.toFile())
                         .start();
@@ -966,18 +881,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    /** Loads the real application file, applies overrides, then reads a separate job file. */
-    private ApplicationSpecification specification(String config, Map<String, String> overrides)
-            throws IOException {
-        Path jobConfig = Files.createTempFile(temporary, "job-", ".config");
-        Files.write(jobConfig, config.getBytes(StandardCharsets.UTF_8));
+    /** Reads the two complete scenario files directly, without option overrides or templates. */
+    private ApplicationSpecification specification(String scenario) {
         return SeatunnelApplicationConfig.parse(
-                jobConfig, SeatunnelApplicationConfig.load(applicationConfig, overrides));
-    }
-
-    private ApplicationSpecification singleWorkerSpecification(String config) throws IOException {
-        return specification(
-                config, Collections.singletonMap(ApplicationOptions.WORKER_COUNT.key(), "1"));
+                getResourcesFile("/kubernetes/" + scenario + "/job.conf").toPath(),
+                SeatunnelApplicationConfig.load(
+                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
+                                .toPath(),
+                        Collections.emptyMap()));
     }
 
     private void importImage(String image) throws Exception {
@@ -1006,37 +917,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         }
     }
 
-    private static String job(String mode, String sink) throws IOException {
-        return job(mode, sink, 2);
-    }
-
-    private static String job(String mode, String sink, int parallelism) throws IOException {
-        String template =
-                "NonexistentSink".equals(sink)
-                        ? "invalid_sink.conf"
-                        : "STREAMING".equals(mode) ? "fake_streaming.conf" : "fake_batch.conf";
-        return readJobTemplate(template, parallelism, "APPLICATION_E2E_DATA");
-    }
-
-    private static String assertSubmissionJob() throws IOException {
-        return readJobTemplate("fake_batch.conf", 2, "APPLICATION_E2E_DATA");
-    }
-
-    private static String readJobTemplate(String name, int parallelism, String marker)
-            throws IOException {
-        String configuration =
-                new String(
-                                Files.readAllBytes(getResourcesFile("/common/" + name).toPath()),
-                                StandardCharsets.UTF_8)
-                        .replace("{{parallelism}}", Integer.toString(parallelism))
-                        .replace("{{row_count}}", Integer.toString(parallelism))
-                        .replace("{{split_count}}", Integer.toString(parallelism))
-                        .replace("{{marker}}", marker);
-        assertFalse(configuration.contains("{{"), "Unresolved job configuration variable");
-        return configuration;
-    }
-
-    private String buildApplicationImage() throws Exception {
+    private void buildApplicationImage(String image) throws Exception {
         LOG.info("Building application image from staged Maven test dependencies");
         Path context = Files.createTempDirectory("seatunnel-kubernetes-image-");
         try {
@@ -1048,9 +929,9 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             Files.copy(
                     DependencyJar.staged("seatunnel-starter.jar").path(),
                     starter.resolve("seatunnel-starter.jar"));
-            for (String name : Arrays.asList("seatunnel-shade-hadoop3-uber.jar")) {
-                Files.copy(DependencyJar.staged(name).path(), lib.resolve(name));
-            }
+            Files.copy(
+                    DependencyJar.staged("seatunnel-shade-hadoop3-uber.jar").path(),
+                    lib.resolve("seatunnel-shade-hadoop3-uber.jar"));
             for (String connector : Arrays.asList("fake", "console", "assert")) {
                 String name = "connector-" + connector + ".jar";
                 Files.copy(DependencyJar.staged(name).path(), connectors.resolve(name));
@@ -1068,22 +949,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
-            Files.write(
-                    context.resolve("Dockerfile"),
-                    Arrays.asList(
-                            "FROM eclipse-temurin:8-jdk",
-                            "COPY seatunnel/ /opt/seatunnel/",
-                            "ENV SEATUNNEL_HOME=/opt/seatunnel",
-                            "WORKDIR /opt/seatunnel"),
-                    StandardCharsets.UTF_8);
-            String image =
-                    "seatunnel-application-it:" + UUID.randomUUID().toString().substring(0, 8);
+            Files.copy(
+                    getResourcesFile("/kubernetes/Dockerfile").toPath(),
+                    context.resolve("Dockerfile"));
             dockerClient
                     .buildImageCmd(context.toFile())
                     .withTags(Collections.singleton(image))
                     .start()
                     .awaitImageId();
-            return image;
         } finally {
             FileUtils.deleteDirectory(context.toFile());
         }

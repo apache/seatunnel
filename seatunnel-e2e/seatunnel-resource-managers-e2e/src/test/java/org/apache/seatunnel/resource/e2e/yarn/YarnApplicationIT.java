@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.resource.e2e.yarn;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
@@ -58,14 +55,12 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -94,31 +89,25 @@ public class YarnApplicationIT extends TestSuiteBase {
     private Configuration configuration;
     private ClusterDescriptor<ApplicationId> deployer;
     private final ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
-    private String distribution;
     private File distributionHome;
     private java.nio.file.Path applicationConfig;
 
     @BeforeAll
     void startCluster() throws Exception {
-        distribution = prepareDistribution().getAbsolutePath();
+        applicationConfig =
+                ContainerUtil.getResourcesFile("/yarn/batch/application.config").toPath();
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(applicationConfig, Collections.emptyMap());
+        prepareDistribution();
         Configuration hdfsConfiguration = new HdfsConfiguration();
+        hdfsConfiguration.addResource(
+                new Path(ContainerUtil.getResourcesFile("/yarn/mini-cluster.xml").toURI()));
         hdfsConfiguration.set(
                 MiniDFSCluster.HDFS_MINIDFS_BASEDIR, temporary.toPath().resolve("hdfs").toString());
-        hdfsConfiguration.setBoolean("dfs.permissions.enabled", false);
         hdfs = new MiniDFSCluster.Builder(hdfsConfiguration).numDataNodes(1).build();
         hdfs.waitActive();
         YarnConfiguration yarnConfiguration = new YarnConfiguration(hdfsConfiguration);
         yarnConfiguration.set("fs.defaultFS", hdfs.getFileSystem().getUri().toString());
-        yarnConfiguration.setInt(YarnConfiguration.NM_PMEM_MB, 8192);
-        yarnConfiguration.setInt(YarnConfiguration.NM_VCORES, 16);
-        yarnConfiguration.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 128);
-        yarnConfiguration.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 4096);
-        yarnConfiguration.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES, 8);
-        yarnConfiguration.setBoolean(YarnConfiguration.NM_PMEM_CHECK_ENABLED, false);
-        yarnConfiguration.setBoolean(YarnConfiguration.NM_VMEM_CHECK_ENABLED, false);
-        yarnConfiguration.setFloat("yarn.scheduler.capacity.maximum-am-resource-percent", 1.0f);
-        yarnConfiguration.setInt("yarn.nodemanager.delete.debug-delay-sec", 600);
-        yarnConfiguration.set(YarnConfiguration.NM_ENV_WHITELIST, "JAVA_HOME,PATH,LANG");
         yarn = new MiniYARNCluster("seatunnel-yarn-application", 1, 1, 1);
         yarn.init(yarnConfiguration);
         yarn.start();
@@ -128,37 +117,20 @@ public class YarnApplicationIT extends TestSuiteBase {
         // MiniYARN's StaticMapping lives only in a Hadoop test jar, unavailable to real containers.
         configuration.set(
                 "net.topology.node.switch.mapping.impl", ScriptBasedMapping.class.getName());
-        File hadoopDirectory = new File(temporary, "hadoop-conf");
+        File hadoopDirectory = new File(options.get("yarn.config-dir"));
         Files.createDirectories(hadoopDirectory.toPath());
         try (OutputStream output =
                 Files.newOutputStream(new File(hadoopDirectory, "core-site.xml").toPath())) {
             configuration.writeXml(output);
         }
-        Map<String, String> options = new HashMap<>();
-        options.put("yarn.config-dir", hadoopDirectory.getAbsolutePath());
-        options.put("yarn.staging-dir", "/seatunnel-applications");
-        options.put("yarn.distribution", distribution);
-        options.put("application.name", "seatunnel-yarn-e2e");
-        options.put("application.master.memory-mb", "1024");
-        options.put("application.worker.memory-mb", "1024");
-        options.put("application.worker.slots", "4");
-        applicationConfig = temporary.toPath().resolve("application.config");
-        Files.write(
-                applicationConfig,
-                ConfigFactory.parseMap(options)
-                        .root()
-                        .render(ConfigRenderOptions.concise())
-                        .getBytes(StandardCharsets.UTF_8));
         deployer =
                 clientServiceLoader
                         .<ApplicationId>getClusterClientFactory(DeployType.YARN)
-                        .create(
-                                SeatunnelApplicationConfig.load(
-                                        applicationConfig, Collections.emptyMap()));
+                        .create(options);
     }
 
     /** Prepares only the native layout needed for real YARN archive localization. */
-    private File prepareDistribution() throws Exception {
+    private void prepareDistribution() throws Exception {
         distributionHome = new File(temporary, "seatunnel");
         File repository = new File(ContainerUtil.PROJECT_ROOT_PATH);
         FileUtils.copyDirectory(
@@ -189,12 +161,13 @@ public class YarnApplicationIT extends TestSuiteBase {
                 new File(repository, ContainerUtil.PLUGIN_MAPPING_FILE).toPath(),
                 new File(distributionHome, "connectors/" + ContainerUtil.PLUGIN_MAPPING_FILE)
                         .toPath());
-        return archiveDistribution(distributionHome, "distribution.tar.gz");
+        archiveDistribution(distributionHome, "distribution.tar.gz");
     }
 
     /** Creates a YARN-localizable archive from an exploded SeaTunnel distribution. */
-    private File archiveDistribution(File home, String archiveName) throws Exception {
-        File archive = new File(temporary, archiveName);
+    private void archiveDistribution(File home, String archiveName) throws Exception {
+        File archive = new File("target/yarn-application-e2e", archiveName);
+        Files.createDirectories(archive.toPath().getParent());
         try (TarArchiveOutputStream output =
                         new TarArchiveOutputStream(
                                 new GZIPOutputStream(Files.newOutputStream(archive.toPath())));
@@ -219,7 +192,6 @@ public class YarnApplicationIT extends TestSuiteBase {
                 output.closeArchiveEntry();
             }
         }
-        return archive;
     }
 
     @AfterAll
@@ -237,8 +209,7 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void batchRunsInAllocatedWorkersAndCleansHdfsArtifacts() throws Exception {
-        try (YarnApplicationClient client =
-                deployApplication(specification(false, false, 120000, 2))) {
+        try (YarnApplicationClient client = deployApplication("batch")) {
             ApplicationStatus status = awaitTerminal(client);
             assertEquals(ApplicationStatus.SUCCEEDED, status, diagnostics(client));
             assertEquals(
@@ -272,8 +243,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                         "--id",
                         applicationId,
                         "-a",
-                        applicationConfig.toString(),
-                        "-iyarn.staging-dir=/seatunnel-applications");
+                        applicationConfig.toString());
         builder.environment().put("JAVA_HOME", System.getProperty("java.home"));
         Process process = builder.redirectErrorStream(true).redirectOutput(output).start();
         try {
@@ -288,7 +258,7 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void invalidJobReportsFailureAndReleasesWorkers() throws Exception {
-        try (YarnApplicationClient client = deployApplication(specification(false, true, 120000))) {
+        try (YarnApplicationClient client = deployApplication("invalid-job")) {
             ApplicationStatus status = awaitTerminal(client);
             assertEquals(ApplicationStatus.FAILED, status, diagnostics(client));
             assertTrue(diagnostics(client).contains("NonexistentSink"), diagnostics(client));
@@ -299,8 +269,8 @@ public class YarnApplicationIT extends TestSuiteBase {
     @Test
     void cancelStopsTheRunningApplicationAndWorkers() throws Exception {
         String id;
-        ApplicationSpecification specification = specification(true, false, 120000, 2);
-        try (YarnApplicationClient client = deployApplication(specification)) {
+        ApplicationSpecification specification = specification("cancel");
+        try (YarnApplicationClient client = deployApplication(specification, "cancel")) {
             ContainerId worker = awaitWorker(client);
             String workerCommand =
                     yarn.getNodeManager(0)
@@ -369,7 +339,7 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void workerLossFailsTheApplicationWithoutReplacement() throws Exception {
-        try (YarnApplicationClient client = deployApplication(specification(true, false, 120000))) {
+        try (YarnApplicationClient client = deployApplication("worker-loss")) {
             ContainerId worker = awaitWorker(client);
             yarn.getNodeManager(0)
                     .getNMContext()
@@ -391,8 +361,7 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void startupDeadlineFailsAndRemovesStagedConfiguration() throws Exception {
-        assertThrows(
-                TimeoutException.class, () -> deployApplication(specification(false, false, 1)));
+        assertThrows(TimeoutException.class, () -> deployApplication("startup-timeout"));
         assertEquals(
                 0, hdfs.getFileSystem().listStatus(new Path("/seatunnel-applications")).length);
         await().atMost(Duration.ofSeconds(60))
@@ -401,27 +370,18 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void checkpointRestoresSourceProgressInANewApplication() throws Exception {
-        Map<String, String> variables = new HashMap<>();
-        variables.put("default_fs", hdfs.getFileSystem().getUri().toString());
-        assertCheckpointRecovery(checkpointDistribution("hdfs", variables), this::latestCheckpoint);
-    }
-
-    private void assertCheckpointRecovery(File archive, CheckpointProbe checkpoints)
-            throws Exception {
-        long originalJobId = System.currentTimeMillis();
-        long restoredJobId = originalJobId + 1;
+        prepareCheckpointDistribution();
+        ApplicationSpecification originalSpecification = specification("checkpoint");
+        ApplicationSpecification restoredSpecification = specification("checkpoint-restore");
+        long originalJobId = originalSpecification.getJobId();
+        long restoredJobId = restoredSpecification.getJobId();
         long checkpoint;
         try (YarnApplicationClient original =
-                deployApplication(
-                        checkpointSpecification(originalJobId, null), archive.getAbsolutePath())) {
+                deployApplication(originalSpecification, "checkpoint")) {
             try {
                 ContainerId worker = awaitWorker(original);
                 // Wait beyond any snapshot that could have started before the first emitted row.
-                awaitCheckpoint(
-                        original,
-                        originalJobId,
-                        checkpoints.latest(originalJobId) + 1,
-                        checkpoints);
+                awaitCheckpoint(original, originalJobId, latestCheckpoint(originalJobId) + 1);
                 assertEquals(1, outputRows(original.getClusterId().toString()));
                 yarn.getNodeManager(0)
                         .getNMContext()
@@ -434,7 +394,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                                         "Fail application after a durable checkpoint"));
                 assertEquals(ApplicationStatus.FAILED, awaitTerminal(original));
                 assertCleaned(original);
-                checkpoint = checkpoints.latest(originalJobId);
+                checkpoint = latestCheckpoint(originalJobId);
                 assertTrue(checkpoint > 0, "Application cleanup deleted retained checkpoints");
             } finally {
                 if (!original.getStatus().isTerminal()) {
@@ -443,11 +403,9 @@ public class YarnApplicationIT extends TestSuiteBase {
             }
         }
         try (YarnApplicationClient restored =
-                deployApplication(
-                        checkpointSpecification(restoredJobId, originalJobId),
-                        archive.getAbsolutePath())) {
+                deployApplication(restoredSpecification, "checkpoint-restore")) {
             try {
-                awaitCheckpoint(restored, restoredJobId, checkpoint, checkpoints);
+                awaitCheckpoint(restored, restoredJobId, checkpoint);
                 assertEquals(ApplicationStatus.RUNNING, restored.getStatus());
                 assertTrue(
                         applicationLogContains(
@@ -461,8 +419,8 @@ public class YarnApplicationIT extends TestSuiteBase {
                 cancelApplication(deployer, restored.getClusterId().toString());
                 assertEquals(ApplicationStatus.CANCELED, awaitTerminal(restored));
                 assertCleaned(restored);
-                assertTrue(checkpoints.latest(originalJobId) > 0);
-                assertTrue(checkpoints.latest(restoredJobId) > checkpoint);
+                assertTrue(latestCheckpoint(originalJobId) > 0);
+                assertTrue(latestCheckpoint(restoredJobId) > checkpoint);
             } finally {
                 if (!restored.getStatus().isTerminal()) {
                     cancelApplication(deployer, restored.getClusterId().toString());
@@ -471,15 +429,7 @@ public class YarnApplicationIT extends TestSuiteBase {
         }
     }
 
-    private ApplicationSpecification checkpointSpecification(long jobId, Long restoreJobId)
-            throws Exception {
-        ApplicationSpecification base =
-                specification(loadJobConfiguration("checkpoint_recovery.conf", 1), 120000, 1);
-        return base.toBuilder().jobId(jobId).restoreJobId(restoreJobId).build();
-    }
-
-    private void awaitCheckpoint(
-            YarnApplicationClient client, long jobId, long previous, CheckpointProbe checkpoints) {
+    private void awaitCheckpoint(YarnApplicationClient client, long jobId, long previous) {
         await().atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofMillis(250))
                 .until(
@@ -488,7 +438,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                                     client.getStatus().isTerminal(),
                                     "Application terminated before persisting a checkpoint: "
                                             + diagnostics(client));
-                            return checkpoints.latest(jobId) > previous;
+                            return latestCheckpoint(jobId) > previous;
                         });
     }
 
@@ -511,88 +461,49 @@ public class YarnApplicationIT extends TestSuiteBase {
         return Long.parseLong(name.substring(name.lastIndexOf('-') + 1, name.length() - 4));
     }
 
-    @FunctionalInterface
-    private interface CheckpointProbe {
-        long latest(long jobId) throws Exception;
-    }
-
-    /** Replaces seatunnel.yaml with a backend-specific test resource. */
-    private File checkpointDistribution(String backend, Map<String, String> variables)
-            throws Exception {
-        File home = new File(temporary, "seatunnel-" + backend);
+    /** Only the MiniDFS address is dynamic; checkpoint settings live in seatunnel_hdfs.yaml. */
+    private void prepareCheckpointDistribution() throws Exception {
+        File home = new File(temporary, "seatunnel-hdfs");
         FileUtils.copyDirectory(distributionHome, home);
-        String configuration =
-                new String(
-                        Files.readAllBytes(
-                                ContainerUtil.getResourcesFile(
-                                                "/yarn/seatunnel_" + backend + ".yaml")
-                                        .toPath()),
-                        StandardCharsets.UTF_8);
-        for (Map.Entry<String, String> variable : variables.entrySet()) {
-            configuration =
-                    configuration.replace("{{" + variable.getKey() + "}}", variable.getValue());
-        }
-        assertFalse(configuration.contains("{{"), "Unresolved engine configuration variable");
-        Files.write(
-                new File(home, "config/seatunnel.yaml").toPath(),
-                configuration.getBytes(StandardCharsets.UTF_8));
-        return archiveDistribution(home, "distribution-" + backend + ".tar.gz");
-    }
-
-    private ApplicationSpecification specification(boolean streaming, boolean invalid, long timeout)
-            throws IOException {
-        return specification(streaming, invalid, timeout, 1);
-    }
-
-    private ApplicationSpecification specification(
-            boolean streaming, boolean invalid, long timeout, int workers) throws IOException {
-        String template =
-                invalid
-                        ? "invalid_sink.conf"
-                        : streaming ? "fake_streaming.conf" : "fake_batch.conf";
-        return specification(loadJobConfiguration(template, workers), timeout, workers);
-    }
-
-    private String loadJobConfiguration(String template, int workers) throws IOException {
-        String configuration =
+        String engineConfiguration =
                 new String(
                                 Files.readAllBytes(
-                                        ContainerUtil.getResourcesFile("/common/" + template)
+                                        ContainerUtil.getResourcesFile("/yarn/seatunnel_hdfs.yaml")
                                                 .toPath()),
                                 StandardCharsets.UTF_8)
-                        .replace("{{parallelism}}", String.valueOf(workers))
-                        .replace("{{row_count}}", String.valueOf(workers))
-                        .replace("{{split_count}}", String.valueOf(workers))
-                        .replace("{{marker}}", "APPLICATION_E2E_DATA");
-        assertFalse(configuration.contains("{{"), "Unresolved job configuration variable");
-        return configuration;
+                        .replace("{{default_fs}}", hdfs.getFileSystem().getUri().toString());
+        Files.write(
+                new File(home, "config/seatunnel.yaml").toPath(),
+                engineConfiguration.getBytes(StandardCharsets.UTF_8));
+        archiveDistribution(home, "distribution-hdfs.tar.gz");
     }
 
-    /** Exercises the same separate application/job inputs as the submit command. */
-    private ApplicationSpecification specification(String job, long timeout, int workers)
-            throws IOException {
-        Map<String, String> overrides = new HashMap<>();
-        overrides.put("application.worker-count", String.valueOf(workers));
-        overrides.put("application.startup-timeout-millis", String.valueOf(timeout));
-        java.nio.file.Path jobConfig = Files.createTempFile(temporary.toPath(), "job-", ".config");
-        Files.write(jobConfig, job.getBytes(StandardCharsets.UTF_8));
+    /** Each scenario has complete application and job files; no options are rewritten here. */
+    private ApplicationSpecification specification(String scenario) {
         return SeatunnelApplicationConfig.parse(
-                jobConfig, SeatunnelApplicationConfig.load(applicationConfig, overrides));
+                ContainerUtil.getResourcesFile("/yarn/" + scenario + "/job.conf").toPath(),
+                SeatunnelApplicationConfig.load(
+                        ContainerUtil.getResourcesFile("/yarn/" + scenario + "/application.config")
+                                .toPath(),
+                        Collections.emptyMap()));
     }
 
-    private YarnApplicationClient deployApplication(ApplicationSpecification specification)
-            throws Exception {
-        return deployApplication(specification, distribution);
+    private YarnApplicationClient deployApplication(String scenario) throws Exception {
+        return deployApplication(specification(scenario), scenario);
     }
 
     private YarnApplicationClient deployApplication(
-            ApplicationSpecification specification, String archive) throws Exception {
-        Map<String, String> deploymentOptions =
-                SeatunnelApplicationConfig.load(
-                        applicationConfig, Collections.singletonMap("yarn.distribution", archive));
+            ApplicationSpecification specification, String scenario) throws Exception {
         ApplicationId id =
                 new ApplicationClusterDeployer(clientServiceLoader)
-                        .run(DeployType.YARN, deploymentOptions, specification);
+                        .run(
+                                DeployType.YARN,
+                                SeatunnelApplicationConfig.load(
+                                        ContainerUtil.getResourcesFile(
+                                                        "/yarn/" + scenario + "/application.config")
+                                                .toPath(),
+                                        Collections.emptyMap()),
+                                specification);
         return platformMonitor(id.toString());
     }
 
