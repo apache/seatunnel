@@ -85,6 +85,11 @@ public class ClickhouseFactoryTest {
     public void emptyDelimiterIsRejected() {
         Map<String, Object> map = validFileSinkConfig();
         map.put("file_fields_delimiter", "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateFileSink(map));
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateFileSink(map));
+        Assertions.assertTrue(
+                exception.getMessage().contains("file_fields_delimiter"),
+                () -> "missing file_fields_delimiter in: " + exception.getMessage());
     }
 }

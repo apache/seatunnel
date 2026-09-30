@@ -111,8 +111,9 @@ you need to use this mode to take other ways to realize the `--path` parameter f
 ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value
 of csv, it may cause program exceptions.
 Avoid this with this configuration. Value string has to be an exactly one character long.
-This is validated during option-rule checking, so a value longer than one character is rejected at
-job submission (`--check`) instead of at runtime.
+The constraint is declared in the sink's option rule, so an empty value or a value longer than one
+character is rejected during option-rule validation, before the sink connects to ClickHouse.
+`--check` reports it too.
 
 ### file_temp_path [string]
 

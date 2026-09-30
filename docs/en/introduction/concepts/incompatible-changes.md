@@ -237,11 +237,11 @@ You need to check this document before you upgrade to related version.
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
-- **Behavior change: ClickhouseFile sink validates `file_fields_delimiter` at option-rule check time**
+- **Behavior change: ClickhouseFile sink declares the `file_fields_delimiter` constraint in its option rule**
   - **Affected component**: `seatunnel-connectors-v2/connector-clickhouse` (`ClickhouseFileSinkFactory`)
-  - **Description**: The `file_fields_delimiter` option must be exactly one character long, because it is used as the csv separator when ClickhouseFile temporarily writes data. Previously this was enforced by an imperative check inside `createSink`, so it only fired when a job actually started a sink writer. The check is now declared in `optionRule()` through `Conditions.extension(...)`, so it runs during configuration validation.
-  - **Impact**: A job that sets a `file_fields_delimiter` longer than one character now fails option validation at `--check` / `--dry-run` time instead of later at runtime. Jobs that do not set the option, or set a single-character value, are unaffected.
-  - **Migration Guide**: No configuration change is required for valid configs. If you have a value longer than one character, shorten it to a single character before upgrading.
+  - **Description**: The `file_fields_delimiter` option must be exactly one character long, because it is used as the csv separator when ClickhouseFile temporarily writes data. The constraint is now declared in `optionRule()` through `Conditions.extension(...)` instead of being an imperative check at the end of `createSink`. Invalid values were rejected before this change as well; what changes is where and how they are rejected. Validation now runs as part of the option-rule check, before the sink opens the ClickHouse connection and resolves shards, and `--check` / `--dry-run` run it too.
+  - **Impact**: A job that sets an empty `file_fields_delimiter`, or one longer than a single character, still fails, just earlier, and with `OptionValidationException` instead of `ClickhouseConnectorException(CONFIG_VALIDATION_FAILED)`. Anything that matches on the old exception type has to be updated. Jobs that do not set the option, or set a single-character value, are unaffected.
+  - **Migration Guide**: No configuration change is required for valid configs. If you have a value longer than one character, shorten it to a single character before upgrading. If you match on the exception type, match on `OptionValidationException` instead.
 
 ### Transform Changes
 
