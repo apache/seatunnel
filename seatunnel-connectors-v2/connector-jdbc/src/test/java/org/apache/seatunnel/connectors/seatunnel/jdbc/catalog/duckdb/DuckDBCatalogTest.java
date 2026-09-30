@@ -151,6 +151,7 @@ public class DuckDBCatalogTest {
         Assertions.assertEquals(10L, decimalColumn.getColumnLength());
         Assertions.assertEquals(new DecimalType(10, 2), decimalColumn.getDataType());
         Assertions.assertEquals(2, decimalColumn.getScale());
+        Assertions.assertEquals("DECIMAL(10,2)", decimalColumn.getSourceType());
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
         catalog.createTable(copyPath, catalogTable, true);
         Assertions.assertTrue(catalog.tableExists(copyPath));
@@ -162,6 +163,7 @@ public class DuckDBCatalogTest {
                                 .get();
         Assertions.assertEquals(10L, copiedDecimalColumn.getColumnLength());
         Assertions.assertEquals(new DecimalType(10, 2), copiedDecimalColumn.getDataType());
+        Assertions.assertEquals("DECIMAL(10,2)", copiedDecimalColumn.getSourceType());
     }
 
     @Test
