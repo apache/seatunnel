@@ -70,7 +70,7 @@ Read data from Apache Paimon.
 
 ### warehouse [string]
 
-Paimon warehouse path
+Paimon warehouse path. Must not be blank.
 
 ### catalog_type [string]
 
