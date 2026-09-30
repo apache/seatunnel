@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
@@ -131,7 +132,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
-    void testApplicationFactoryRejectsIncompleteOrMismatchedDependencies() {
+    void testApplicationFactoryRejectsIncompleteDependencies() {
         ResourceManagerFactory incomplete =
                 new ResourceManagerFactory(DeployType.YARN, null, null, null);
         Assertions.assertThrows(
@@ -142,17 +143,6 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                 () ->
                         new ResourceManagerFactory(null, null, null, null)
                                 .createResourceManager(nodeEngine, new EngineConfig()));
-        ResourceManagerDriver<?> driver = mock(ResourceManagerDriver.class);
-        ResourceManagerFactory application =
-                new ResourceManagerFactory(
-                        DeployType.YARN,
-                        "test-application",
-                        applicationSpecification(DeployType.KUBERNETES),
-                        driver);
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> application.createResourceManager(nodeEngine, new EngineConfig()));
-        verifyNoInteractions(driver);
     }
 
     @Test
@@ -332,8 +322,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     private ApplicationSpecification applicationSpecification(DeployType type) {
-        return ApplicationSpecification.fromOptions(
-                type,
+        return SeatunnelApplicationConfig.parse(
                 "env { job.mode = BATCH }",
                 Collections.singletonMap(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "10000"));
     }

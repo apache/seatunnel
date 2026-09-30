@@ -18,17 +18,18 @@
 package org.apache.seatunnel.resource.kubernetes.cli;
 
 import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.KubernetesResourceManagerDriver;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -67,21 +69,23 @@ public final class SeatunnelKubernetesMasterCli {
             throw new IllegalArgumentException("Expected application id and specification path");
         }
         String id = args[0];
-        ApplicationSpecification specification = ApplicationSpecification.read(Paths.get(args[1]));
+        // args[1] is application.properties mounted from the application Secret, not the user's
+        // HOCON input file. Decode once and pass the resolved objects to the runtime components.
         KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(specification);
+                KubernetesApplicationParameters.read(Paths.get(args[1]));
+        ApplicationSpecification specification = parameters.getSpecification();
         SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
-        String clusterName = ApplicationClusterConfig.clusterName(id);
-        ApplicationClusterConfig.configure(
+        String clusterName = SeatunnelApplicationConfig.clusterName(id);
+        SeatunnelApplicationConfig.configure(
                 engineConfiguration,
                 clusterName,
                 null,
                 specification.getWorkerSpecification().getSlots());
-        ApplicationClusterConfig.configureCheckpointRetention(engineConfiguration);
+        SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
         engineConfiguration
                 .getHazelcastConfig()
                 .getNetworkConfig()
-                .setPort(specification.getOption(ApplicationOptions.MASTER_PORT))
+                .setPort(specification.getMasterPort())
                 .setPortAutoIncrement(false);
         String host = System.getenv("SEATUNNEL_APPLICATION_MASTER_HOST");
         if (host != null && !host.trim().isEmpty()) {
@@ -91,12 +95,16 @@ public final class SeatunnelKubernetesMasterCli {
                     .setPublicAddress(
                             (host.contains(":") ? "[" + host + "]" : host)
                                     + ":"
-                                    + specification.getOption(ApplicationOptions.MASTER_PORT));
+                                    + specification.getMasterPort());
         }
 
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
-                        KubernetesClientFactory.create(specification.getOptions(), true),
+                        KubernetesClientFactory.create(
+                                Collections.singletonMap(
+                                        KubernetesOptions.NAMESPACE.key(),
+                                        parameters.getNamespace()),
+                                true),
                         parameters,
                         id,
                         clusterName);
@@ -108,7 +116,7 @@ public final class SeatunnelKubernetesMasterCli {
                             null,
                             JarPathResolver.identity(),
                             new ResourceManagerFactory(
-                                    specification.getDeployType(), id, specification, driver));
+                                    DeployType.KUBERNETES, id, specification, driver));
         } catch (Exception failure) {
             try {
                 driver.close();

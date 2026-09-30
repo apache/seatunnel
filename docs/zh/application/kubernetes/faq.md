@@ -9,10 +9,10 @@ title: FAQ
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
-  --id ACTUAL_APPLICATION_ID --deployment-config kubernetes.conf
+  --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 
 bin/seatunnel-application.sh cancel --target kubernetes \
-  --id ACTUAL_APPLICATION_ID --deployment-config kubernetes.conf
+  --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
 `cancel` 删除 Job，并显式清理带 application 标签的 Pod、Service 和 Secret。取消不创建 savepoint。资源删除后再次查询返回 `UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
@@ -52,5 +52,5 @@ Master 退出码形成 Job 的 `Complete` 或 `Failed` condition。结束后的 
 - 私有镜像凭据通过 ServiceAccount 或集群配置管理。
 - 限制 application Secret 的读取权限；集群安全策略要求时，为 Kubernetes Secret 启用静态加密。
 - 不在日志中暴露 Connector 凭据，优先使用 Connector、文件系统或集群支持的凭据机制。
-- 将 `kubernetes.kubeconfig` 写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认配置。不要通过 `-D` 传递，因为提交主机上的其他用户可能看到命令行参数。
+- 将 `kubernetes.kubeconfig` 写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认配置。不要通过 `-i` 传递，因为提交主机上的其他用户可能看到命令行参数。
 - 使用 NetworkPolicy 时仅放行需要的 Hazelcast 与外部数据系统流量。

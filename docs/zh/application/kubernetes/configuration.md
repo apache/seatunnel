@@ -16,7 +16,7 @@ title: 配置参考
 | `kubernetes.service-account` | `default` | Master 使用的已有 ServiceAccount。 |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
 | `kubernetes.config-map` | 未设置 | 已有 ConfigMap，以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。 |
-| `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-D` 传递。 |
+| `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
 | `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `/opt/seatunnel/checkpoints`。 |
 | `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
@@ -54,7 +54,7 @@ title: 配置参考
 
 解析后的作业配置会存入 Namespace 内的 Kubernetes Secret，并以只读方式仅挂载给 Master。Secret 可能包含 Connector 凭据，应限制 Secret 的 `get` 和 `list` 权限，并按集群安全要求启用 Kubernetes 静态加密；Secret 的 base64 表示本身不等于加密。优先使用 Connector、文件系统或集群支持的凭据机制。
 
-命令行参数可能被提交主机上的其他用户看到，因此 `-Dkey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
+命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 
 ## 容量规划
 

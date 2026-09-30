@@ -4,6 +4,14 @@
 
 ## dev
 
+### Application Mode 命令行
+
+- 实验性的 `seatunnel-application.sh` 改为使用位置命令 `submit`、`status`、`cancel`。删除 `-p` / `--operation`、`-d` / `--deploy-type`、`-dc` / `--deployment-config`，不保留兼容别名。
+- 将 `-p submit -d yarn -c job.conf -dc application.config` 改为 `submit -t yarn -c job.conf -a application.config`。对应长参数为 `--target`、`--config`、`--application-config`。原文档中的 `--restore-from-checkpoint` 统一改为 `--restore-job-id`。
+- 部署文件仍使用 HOCON，已有配置项名称不变。SDK 默认配置和 `-i` 已提供所需设置时，可以省略部署文件。完整说明见 [Application 命令](../../application/overview.md#命令)。
+- 部署覆盖参数由 `-Dkey=value` 改为 `-ikey=value`，不保留 `-D` 命令行别名；JVM 系统属性不变。
+- 实验性的嵌入式 API 改为独立传递平台参数：`run(specification)` 替换为 `run(target, options, specification)`，通过 `SeatunnelApplicationConfig.parse(jobConfig, options)` 构造强类型规格。平台配置类负责本地化，格式为 `format.version=V1`；不要复用早期实验格式的本地化文件，应重新提交应用。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

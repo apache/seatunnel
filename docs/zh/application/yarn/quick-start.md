@@ -85,7 +85,7 @@ yarn {
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config job.conf --deployment-config yarn-deployment.conf --wait
+  --config job.conf --application-config yarn-deployment.conf --wait
 ```
 
 命令会打印 YARN application ID 和原生 Zeta job ID。保留 application ID 用于状态与取消；需要 checkpoint 恢复时还要保留 Zeta job ID。
@@ -97,13 +97,13 @@ bin/seatunnel-application.sh submit --target yarn \
 ```bash
 bin/seatunnel-application.sh status --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 
 bin/seatunnel-application.sh cancel --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 ```
 
-查询和取消应使用相同的 Hadoop 配置和 `yarn.staging-dir`。命令行 `-Dkey=value` 可以覆盖部署配置，例如 `-Dapplication.worker-count=3`。
+查询和取消应使用相同的 Hadoop 配置和 `yarn.staging-dir`。命令行 `-ikey=value` 可以覆盖部署配置，例如 `-iapplication.worker-count=3`。
 
 下一步请阅读[配置参考](configuration.md)、[Checkpoint 恢复](checkpoint-recovery.md)和 [FAQ](faq.md)。

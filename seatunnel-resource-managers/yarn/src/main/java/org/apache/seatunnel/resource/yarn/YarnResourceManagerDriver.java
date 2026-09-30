@@ -84,7 +84,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private boolean finished;
     private boolean nodeManagerInitialized;
 
-    YarnResourceManagerDriver(
+    public YarnResourceManagerDriver(
             Configuration configuration, Path staging, String clusterName, String workerNodeLabel) {
         this(
                 configuration,
@@ -95,7 +95,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 new DefaultYarnNodeManagerClientFactory().create());
     }
 
-    YarnResourceManagerDriver(
+    public YarnResourceManagerDriver(
             Configuration configuration,
             Path staging,
             String clusterName,

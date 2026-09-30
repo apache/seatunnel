@@ -48,7 +48,7 @@ Application Mode 默认在取消后保留 checkpoint。作业显式设置 `check
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config streaming-job.conf --deployment-config yarn-deployment.conf \
+  --config streaming-job.conf --application-config yarn-deployment.conf \
   --job-id 10001
 ```
 
@@ -60,8 +60,8 @@ bin/seatunnel-application.sh submit --target yarn \
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config streaming-job.conf --deployment-config yarn-deployment.conf \
-  --job-id 10002 --restore-from-checkpoint 10001 --wait
+  --config streaming-job.conf --application-config yarn-deployment.conf \
+  --job-id 10002 --restore-job-id 10001 --wait
 ```
 
 新 application 会读取 Job `10001` 的最新有效 checkpoint，并把后续 checkpoint 写入 Job `10002` 的目录。找不到有效 checkpoint 时提交失败，不会静默从头执行。

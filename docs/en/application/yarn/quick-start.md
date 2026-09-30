@@ -85,7 +85,7 @@ From the extracted SeaTunnel directory:
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config job.conf --deployment-config yarn-deployment.conf --wait
+  --config job.conf --application-config yarn-deployment.conf --wait
 ```
 
 The command prints the YARN application ID and native Zeta job ID. Keep the application ID for status and cancellation. Keep the Zeta job ID for checkpoint recovery.
@@ -97,13 +97,13 @@ Remove `--wait` to exit the client after application startup. Closing the client
 ```bash
 bin/seatunnel-application.sh status --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 
 bin/seatunnel-application.sh cancel --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 ```
 
-Use the same Hadoop configuration and `yarn.staging-dir` for status and cancellation. A command-line `-Dkey=value` overrides deployment configuration, for example `-Dapplication.worker-count=3`.
+Use the same Hadoop configuration and `yarn.staging-dir` for status and cancellation. A command-line `-ikey=value` overrides deployment configuration, for example `-iapplication.worker-count=3`.
 
 Continue with [Configuration](configuration.md), [Checkpoint recovery](checkpoint-recovery.md), and [FAQ](faq.md).

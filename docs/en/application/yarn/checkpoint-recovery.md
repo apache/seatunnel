@@ -48,7 +48,7 @@ Record the Zeta job ID printed during submission, or assign one explicitly:
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config streaming-job.conf --deployment-config yarn-deployment.conf \
+  --config streaming-job.conf --application-config yarn-deployment.conf \
   --job-id 10001
 ```
 
@@ -60,8 +60,8 @@ Use a new job ID and the historical ID as the restore source:
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config streaming-job.conf --deployment-config yarn-deployment.conf \
-  --job-id 10002 --restore-from-checkpoint 10001 --wait
+  --config streaming-job.conf --application-config yarn-deployment.conf \
+  --job-id 10002 --restore-job-id 10001 --wait
 ```
 
 The new application loads the latest eligible checkpoint for Job `10001` and writes later checkpoints below Job `10002`. Missing checkpoints fail submission instead of silently starting over.

@@ -16,7 +16,7 @@ title: Configuration
 | `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
 | `kubernetes.config-map` | Unset | Existing ConfigMap mounted read-only at `<seatunnel-home>/config` in both master and worker Pods. |
-| `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-D`. |
+| `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `/opt/seatunnel/checkpoints` in the master. |
 | `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
@@ -54,7 +54,7 @@ Set `kubernetes.config-map` to the name of an existing ConfigMap containing the 
 
 The resolved job configuration is stored in a namespace-scoped Kubernetes Secret and mounted read-only only by the master. The Secret may contain connector credentials. Restrict Secret `get` and `list` permissions and enable Kubernetes encryption at rest when required; a Secret's base64 representation alone is not encryption. Prefer credential mechanisms supported by the connector, filesystem, or cluster.
 
-Use command-line `-Dkey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
+Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 
 ## Capacity planning
 

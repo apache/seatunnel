@@ -9,10 +9,10 @@ title: FAQ
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
-  --id ACTUAL_APPLICATION_ID --deployment-config kubernetes.conf
+  --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 
 bin/seatunnel-application.sh cancel --target kubernetes \
-  --id ACTUAL_APPLICATION_ID --deployment-config kubernetes.conf
+  --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
 Cancellation deletes the Job and labeled Pods, Service, and Secret. It does not create a savepoint. Status returns `UNKNOWN` after deletion or Job TTL expiry.
@@ -52,5 +52,5 @@ If the master is forcibly terminated before cleanup, workers exit after losing t
 - Manage private image credentials through the ServiceAccount or cluster.
 - Restrict application Secret access and enable Kubernetes encryption at rest for Secrets when required by the cluster's security policy.
 - Keep connector credentials out of logs and prefer credential mechanisms supported by the connector, filesystem, or cluster.
-- Put `kubernetes.kubeconfig` in a permission-restricted deployment configuration file, or use the Kubernetes SDK default. Do not pass it with `-D` because command-line arguments may be visible to other users on the submission host.
+- Put `kubernetes.kubeconfig` in a permission-restricted deployment configuration file, or use the Kubernetes SDK default. Do not pass it with `-i` because command-line arguments may be visible to other users on the submission host.
 - Allow only required Hazelcast and external-system traffic in NetworkPolicy.

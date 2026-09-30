@@ -137,7 +137,7 @@ kubernetes {
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --deployment-config kubernetes.conf --wait
+  --config job.conf --application-config kubernetes.conf --wait
 ```
 
 命令打印 Kubernetes application ID（生成的 Job 名称）和原生 Zeta job ID。去掉 `--wait` 可 detached 提交，关闭客户端不会取消远端 Job。
@@ -146,10 +146,10 @@ bin/seatunnel-application.sh submit --target kubernetes \
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
-  --id example-01234567-abc --deployment-config kubernetes.conf
+  --id example-01234567-abc --application-config kubernetes.conf
 
 bin/seatunnel-application.sh cancel --target kubernetes \
-  --id example-01234567-abc --deployment-config kubernetes.conf
+  --id example-01234567-abc --application-config kubernetes.conf
 ```
 
 继续阅读[配置参考](configuration.md)、[Checkpoint 恢复](checkpoint-recovery.md)和 [FAQ](faq.md)。

@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes.cli;
 
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -39,7 +39,7 @@ public final class SeatunnelKubernetesWorkerCli {
             throw new IllegalArgumentException("Expected <cluster-name> <master-address> <slots>");
         }
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        ApplicationClusterConfig.configure(config, args[0], args[1], Integer.parseInt(args[2]));
+        SeatunnelApplicationConfig.configure(config, args[0], args[1], Integer.parseInt(args[2]));
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");

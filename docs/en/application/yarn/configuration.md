@@ -49,11 +49,11 @@ Plan worker count, slots per worker, and job parallelism together. Sources, tran
 
 ## Command-line overrides
 
-Command-line `-Dkey=value` takes precedence:
+Command-line `-ikey=value` takes precedence:
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config job.conf --deployment-config yarn-deployment.conf \
-  -Dapplication.worker-count=3 \
-  -Dapplication.worker.slots=4
+  --config job.conf --application-config yarn-deployment.conf \
+  -iapplication.worker-count=3 \
+  -iapplication.worker.slots=4
 ```

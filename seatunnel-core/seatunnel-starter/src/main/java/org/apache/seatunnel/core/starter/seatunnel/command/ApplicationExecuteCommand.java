@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.ApplicationOperation;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -29,11 +25,13 @@ import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -61,40 +59,33 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
 
     private void executeApplication() throws Exception {
         ApplicationOperation operation = applicationCommandArgs.getOperation();
-        Map<String, String> options =
-                TypesafeConfigUtils.configToMap(
-                        ConfigFactory.parseFile(
-                                        Paths.get(applicationCommandArgs.getDeploymentConfig())
-                                                .toFile())
-                                .resolve());
-        options.putAll(applicationCommandArgs.getOptions());
+        // Named job-ID flags take precedence over -i. Shared loading applies these values over
+        // the application file before resolving substitutions; it has no dependency on CLI args.
+        Map<String, String> overrides = new LinkedHashMap<>(applicationCommandArgs.getOptions());
         if (applicationCommandArgs.getJobId() != null) {
-            options.put(
+            overrides.put(
                     ApplicationOptions.JOB_ID.key(), applicationCommandArgs.getJobId().toString());
         }
         if (applicationCommandArgs.getRestoreJobId() != null) {
-            options.put(
+            overrides.put(
                     ApplicationOptions.RESTORE_JOB_ID.key(),
                     applicationCommandArgs.getRestoreJobId().toString());
         }
-
-        ApplicationSpecification specification = null;
-        if (operation == ApplicationOperation.SUBMIT) {
-            String jobConfig =
-                    ConfigFactory.parseFile(Paths.get(applicationCommandArgs.getConfig()).toFile())
-                            .resolve()
-                            .root()
-                            .render(ConfigRenderOptions.concise());
-            specification =
-                    ApplicationSpecification.fromOptions(
-                            applicationCommandArgs.getDeployType(), jobConfig, options);
-        }
+        String applicationConfig = applicationCommandArgs.getApplicationConfig();
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(
+                        applicationConfig == null ? null : Paths.get(applicationConfig), overrides);
 
         ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
         String applicationId = applicationCommandArgs.getId();
-        if (specification != null) {
+        if (operation == ApplicationOperation.SUBMIT) {
+            // Only submit reads a job file. Status/cancel need platform connection settings only.
+            ApplicationSpecification specification =
+                    SeatunnelApplicationConfig.parse(
+                            Paths.get(applicationCommandArgs.getConfig()), options);
             Object submittedId =
-                    new ApplicationClusterDeployer(clientServiceLoader).run(specification);
+                    new ApplicationClusterDeployer(clientServiceLoader)
+                            .run(applicationCommandArgs.getTarget(), options, specification);
             applicationId = submittedId.toString();
             System.out.println("Application ID: " + applicationId);
             System.out.println("Job ID: " + specification.getJobId());
@@ -104,13 +95,13 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         } else {
             System.out.println("Application ID: " + applicationId);
         }
-        executeApplication(
-                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getDeployType()),
+        manageApplication(
+                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget()),
                 options,
                 applicationId);
     }
 
-    private <ID> void executeApplication(
+    private <ID> void manageApplication(
             ApplicationClusterDescriptorFactory<ID> factory, Map<String, String> options, String id)
             throws Exception {
         ID applicationId = factory.parseApplicationId(id);

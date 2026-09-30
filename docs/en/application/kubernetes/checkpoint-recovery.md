@@ -79,8 +79,8 @@ After the original application has stopped and a completed checkpoint exists:
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --deployment-config kubernetes.conf \
-  --restore-from-checkpoint PREVIOUS_JOB_ID --wait
+  --config job.conf --application-config kubernetes.conf \
+  --restore-job-id PREVIOUS_JOB_ID --wait
 ```
 
 The new submission uses a new job ID and loads the historical job's latest eligible checkpoint. Missing checkpoints fail submission instead of silently starting over.

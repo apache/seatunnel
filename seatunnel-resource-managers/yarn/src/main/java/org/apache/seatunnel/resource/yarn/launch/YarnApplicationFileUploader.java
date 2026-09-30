@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
-import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 
 import org.apache.hadoop.conf.Configuration;
@@ -114,7 +113,7 @@ public final class YarnApplicationFileUploader implements Closeable {
                     applicationDir,
                     distribution,
                     deployment.getDistribution(),
-                    deployment.getSpecification(),
+                    deployment,
                     configuration);
             registerLocalResource(
                     YarnConstants.LOCALIZED_DISTRIBUTION_NAME,
@@ -166,7 +165,7 @@ public final class YarnApplicationFileUploader implements Closeable {
      * @param staging application-private staging directory
      * @param distribution validated distribution archive layout
      * @param archive local SeaTunnel distribution archive
-     * @param specification immutable application configuration
+     * @param deployment resolved application and platform configuration
      * @param hadoopConfiguration merged Hadoop settings required inside containers
      * @throws Exception when any file cannot be uploaded completely
      */
@@ -175,7 +174,7 @@ public final class YarnApplicationFileUploader implements Closeable {
             Path staging,
             YarnDistribution distribution,
             File archive,
-            ApplicationSpecification specification,
+            YarnApplicationConfiguration deployment,
             Configuration hadoopConfiguration)
             throws Exception {
         distribution.stage(fileSystem, staging, archive);
@@ -185,7 +184,7 @@ public final class YarnApplicationFileUploader implements Closeable {
                                 new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME),
                                 false),
                         StandardCharsets.UTF_8)) {
-            specification.write(specificationWriter);
+            deployment.write(specificationWriter);
         }
         try (FSDataOutputStream output =
                 fileSystem.create(

@@ -26,16 +26,18 @@ fi
 application_target=""
 application_previous=""
 for application_argument in "$@"; do
-    if [[ "${application_previous}" == "--target" ]]; then
-        application_target="${application_argument}"
-    fi
-    if [[ "${application_argument}" == --target=* ]]; then
-        application_target="${application_argument#--target=}"
-    fi
+    case "${application_previous}" in
+        --target|-t) application_target="${application_argument}" ;;
+    esac
+    case "${application_argument}" in
+        --target=*|-t=*) application_target="${application_argument#*=}" ;;
+    esac
     application_previous="${application_argument}"
 done
 case "${application_target}" in
-    yarn|kubernetes|"") ;;
+    [Yy][Aa][Rr][Nn]) application_target="yarn" ;;
+    [Kk][Uu][Bb][Ee][Rr][Nn][Ee][Tt][Ee][Ss]) application_target="kubernetes" ;;
+    "") ;;
     *) echo "Unsupported --target: ${application_target}" >&2; exit 1 ;;
 esac
 application_classpath="${APPLICATION_HOME}/starter/seatunnel-starter.jar:${APPLICATION_HOME}/starter/logging/*:${APPLICATION_HOME}/lib/*:${APPLICATION_HOME}/config"

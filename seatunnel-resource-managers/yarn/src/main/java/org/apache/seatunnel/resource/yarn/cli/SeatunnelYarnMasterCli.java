@@ -18,18 +18,19 @@
 package org.apache.seatunnel.resource.yarn.cli;
 
 import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriverFactory;
+import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriver;
+import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
@@ -91,24 +92,31 @@ public final class SeatunnelYarnMasterCli {
                             .getApplicationAttemptId()
                             .getApplicationId()
                             .toString();
-            ApplicationSpecification specification =
-                    ApplicationSpecification.read(
+            // Read the runtime file localized by YARN, never the submitter's application.config.
+            // The restored objects are passed down; runner/driver do not reload input files.
+            YarnApplicationConfiguration applicationConfiguration =
+                    YarnApplicationConfiguration.read(
                             Paths.get(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
+            ApplicationSpecification specification = applicationConfiguration.getSpecification();
             SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
-            String clusterName = ApplicationClusterConfig.clusterName(id);
-            ApplicationClusterConfig.configure(
+            String clusterName = SeatunnelApplicationConfig.clusterName(id);
+            SeatunnelApplicationConfig.configure(
                     engineConfiguration,
                     clusterName,
                     null,
                     specification.getWorkerSpecification().getSlots());
-            ApplicationClusterConfig.configureCheckpointRetention(engineConfiguration);
+            SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
             engineConfiguration
                     .getHazelcastConfig()
                     .getNetworkConfig()
-                    .setPort(specification.getOption(ApplicationOptions.MASTER_PORT))
+                    .setPort(specification.getMasterPort())
                     .setPortAutoIncrement(true);
             ResourceManagerDriver<?> driver =
-                    new YarnResourceManagerDriverFactory().create(specification, clusterName);
+                    new YarnResourceManagerDriver(
+                            configuration,
+                            staging,
+                            clusterName,
+                            applicationConfiguration.getWorkerNodeLabel());
             HazelcastInstanceImpl master;
             try {
                 master =
@@ -117,7 +125,7 @@ public final class SeatunnelYarnMasterCli {
                                 null,
                                 JarPathResolver.identity(),
                                 new ResourceManagerFactory(
-                                        specification.getDeployType(), id, specification, driver));
+                                        DeployType.YARN, id, specification, driver));
             } catch (Exception failure) {
                 try {
                     driver.close();

@@ -12,11 +12,11 @@ title: FAQ
 ```bash
 bin/seatunnel-application.sh status --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 
 bin/seatunnel-application.sh cancel --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 ```
 
 关闭客户端连接不会取消 application。`cancel` 会终止 YARN application，并清理本次提交的 staging 文件；它不会创建 savepoint。

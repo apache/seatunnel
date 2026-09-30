@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
-import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
-import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -159,25 +156,14 @@ public final class KubernetesResourceFactory {
      * Serializes the application into a Secret owned by the already-created Job.
      *
      * @param job owner Job containing its server-assigned UID
-     * @param specification immutable job content and deployment options
+     * @param parameters resolved application and Kubernetes runtime settings
      * @return mounted configuration model with the submitter's local kubeconfig path removed
      * @throws IOException if in-memory serialization fails
      */
-    public static KubernetesSecret secret(KubernetesJob job, ApplicationSpecification specification)
-            throws IOException {
-        // A submitter's local kubeconfig path must never be used by the in-cluster driver.
-        Map<String, String> options = new HashMap<>(specification.getOptions());
-        options.remove(KubernetesOptions.KUBE_CONFIG.key());
-        ApplicationSpecification localizedSpecification =
-                new ApplicationSpecification(
-                        specification.getDeployType(),
-                        specification.getName(),
-                        specification.getJobConfig(),
-                        specification.getWorkerCount(),
-                        specification.getWorkerSpecification(),
-                        options);
+    public static KubernetesSecret secret(
+            KubernetesJob job, KubernetesApplicationParameters parameters) throws IOException {
         StringWriter serialized = new StringWriter();
-        localizedSpecification.write(serialized);
+        parameters.write(serialized);
         return new KubernetesSecret(
                 new V1Secret()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
@@ -201,7 +187,7 @@ public final class KubernetesResourceFactory {
     public static KubernetesService service(
             KubernetesJob job, KubernetesApplicationParameters parameters) {
         String id = job.getName();
-        int port = parameters.getSpecification().getOption(ApplicationOptions.MASTER_PORT);
+        int port = parameters.getSpecification().getMasterPort();
         return new HeadlessClusterIPService(
                 metadata(job, id, KubernetesConstants.MASTER_ROLE),
                 ownershipLabels(id, KubernetesConstants.MASTER_ROLE),

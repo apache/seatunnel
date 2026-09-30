@@ -36,6 +36,47 @@ flowchart LR
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
+## 命令
+
+```bash
+# 提交：返回平台 application ID 和原生 Zeta job ID
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config
+bin/seatunnel-application.sh submit -t kubernetes -c job.conf -a application.config --wait
+
+# 使用平台 application ID 查询、等待或取消
+bin/seatunnel-application.sh status -t yarn --id application_... -a application.config
+bin/seatunnel-application.sh status -t yarn --id application_... -a application.config --wait
+bin/seatunnel-application.sh cancel -t kubernetes --id seatunnel-... -a application.config
+
+# 从历史 checkpoint 创建新 application，也可指定新 Zeta job ID
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
+  --restore-job-id 10001 --job-id 10002 --wait
+
+# 不修改部署文件，覆盖 Worker 数量和 slot 数
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
+  -iapplication.worker-count=3 -iapplication.worker.slots=4
+
+bin/seatunnel-application.sh --help
+```
+
+| 参数 | 含义 |
+| --- | --- |
+| `submit`、`status`、`cancel` | 必填的位置命令，操作 application，不是单独的 Zeta 作业 |
+| `-t`、`--target` | 必填的资源平台：`yarn` 或 `kubernetes` |
+| `-c`、`--config` | 作业文件，仅 `submit` 必填 |
+| `-a`、`--application-config` | 可选的 HOCON 部署文件，支持 `application.config` 等文件名 |
+| `--id` | 平台 application ID，`status`、`cancel` 必填 |
+| `--job-id` | 提交时可选的新 Zeta job ID，必须为正数，省略时自动生成 |
+| `--restore-job-id` | 用于恢复的历史 Zeta job ID，不能与新 job ID 相同 |
+| `--wait` | 等待平台终态，仅用于 `submit` 或 `status` |
+| `-ikey=value` | 非敏感的公共或平台部署配置，例如 Worker 资源、YARN 队列、Kubernetes namespace |
+
+作业配置与部署配置分别传入。如果 SDK 默认配置和 `-i` 已提供所需的平台设置，可以省略 `-a`；不会自动寻找部署文件。提交仍需要 YARN 发行包、Kubernetes 镜像等平台必需设置。查询、取消应使用与提交相同的连接、namespace 和 staging 配置，但不需要作业文件。
+
+优先级为显式 `--job-id` / `--restore-job-id` > `-i` > 部署文件 > 配置项默认值。先合并覆盖项，再解析 HOCON `${...}` 引用。`--target yarn` 和 `--target=yarn` 均可使用；含空格的路径需要加引号。凭据放在权限受限的文件中，不要放在命令行。
+
+不加 `--wait` 时，submit 在完成部署后返回，status 返回当前状态。查询到 `FAILED`、`CANCELED`、`UNKNOWN` 时进程退出码非零；cancel 确认取消请求。关闭 CLI 不会取消 application。全部部署选项见 [YARN 配置](yarn/configuration.md)和 [Kubernetes 配置](kubernetes/configuration.md)。
+
 ## 适用场景
 
 - 希望一个作业独占一组 Master 和 Worker，隔离资源、依赖和故障。

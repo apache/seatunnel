@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ApplicationClusterConfigTest {
+class SeatunnelApplicationConfigTest {
     @Test
     void applicationRetentionPreservesNativeCheckpointSettings() {
         SeaTunnelConfig config = new SeaTunnelConfig();
@@ -53,7 +53,7 @@ class ApplicationClusterConfigTest {
         original.setStorage(storage);
         config.getEngineConfig().setCheckpointConfig(original);
 
-        ApplicationClusterConfig.configureCheckpointRetention(config);
+        SeatunnelApplicationConfig.configureCheckpointRetention(config);
 
         CheckpointConfig actual = config.getEngineConfig().getCheckpointConfig();
         assertEquals(1500, actual.getCheckpointInterval());
@@ -86,7 +86,7 @@ class ApplicationClusterConfigTest {
             checkpoint.setStorage(storage);
             config.getEngineConfig().setCheckpointConfig(checkpoint);
 
-            ApplicationClusterConfig.configureCheckpointRetention(config);
+            SeatunnelApplicationConfig.configureCheckpointRetention(config);
 
             CheckpointConfig actual = config.getEngineConfig().getCheckpointConfig();
             assertEquals(storage.getStorage(), actual.getStorage().getStorage());
@@ -110,7 +110,7 @@ class ApplicationClusterConfigTest {
                 .getJoin()
                 .getKubernetesConfig()
                 .setEnabled(true);
-        ApplicationClusterConfig.configure(config, "unique-application", null, 2);
+        SeatunnelApplicationConfig.configure(config, "unique-application", null, 2);
         JoinConfig join = config.getHazelcastConfig().getNetworkConfig().getJoin();
         assertFalse(join.getMulticastConfig().isEnabled());
         assertFalse(join.getAutoDetectionConfig().isEnabled());
@@ -127,7 +127,7 @@ class ApplicationClusterConfigTest {
     @Test
     void workerRequiresMasterAndUsesFixedSlots() {
         SeaTunnelConfig config = new SeaTunnelConfig();
-        ApplicationClusterConfig.configure(config, "unique-application", "master:5801", 3);
+        SeatunnelApplicationConfig.configure(config, "unique-application", "master:5801", 3);
         JoinConfig join = config.getHazelcastConfig().getNetworkConfig().getJoin();
         assertTrue(join.getTcpIpConfig().isEnabled());
         assertEquals("master:5801", join.getTcpIpConfig().getRequiredMember());
@@ -138,6 +138,6 @@ class ApplicationClusterConfigTest {
         assertEquals(3, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ApplicationClusterConfig.configure(config, "app", "", 1));
+                () -> SeatunnelApplicationConfig.configure(config, "app", "", 1));
     }
 }

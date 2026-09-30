@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -24,7 +27,7 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
 import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
@@ -40,6 +43,7 @@ import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -76,6 +80,7 @@ import io.kubernetes.client.util.Config;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -87,6 +92,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -104,6 +110,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         value = {},
         type = {EngineType.FLINK, EngineType.SPARK, EngineType.SEATUNNEL})
 public class KubernetesApplicationIT extends TestSuiteBase {
+    @TempDir static Path temporary;
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationIT.class);
     private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
@@ -120,6 +127,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private KubernetesClient platformMonitor;
     private K3sContainer k3s;
     private Path kubeconfig;
+    private Path applicationConfig;
 
     @BeforeAll
     void prepareApplicationEnvironment() throws Exception {
@@ -243,6 +251,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         options.put(ApplicationOptions.WORKER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.MASTER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "180000");
+        applicationConfig = temporary.resolve("application.config");
+        Files.write(
+                applicationConfig,
+                ConfigFactory.parseMap(options)
+                        .root()
+                        .render(ConfigRenderOptions.concise())
+                        .getBytes(StandardCharsets.UTF_8));
+        options = SeatunnelApplicationConfig.load(applicationConfig, Collections.emptyMap());
         deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
         platformMonitor = KubernetesClientFactory.create(options, false);
     }
@@ -278,8 +294,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     @Test
     void fakeSourceSubmissionCompletesWithAssertAndReleasesWorkers() throws Exception {
-        try (KubernetesApplicationClient application =
-                deployApplication(specification(assertSubmissionJob()))) {
+        ApplicationSpecification specification = specification(assertSubmissionJob());
+        try (KubernetesApplicationClient application = deployApplication(specification)) {
             try {
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
                 awaitWorkersRemoved(application);
@@ -297,6 +313,23 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 assertEquals(1, applicationSecret.getMetadata().getOwnerReferences().size());
                 assertEquals("Opaque", applicationSecret.getType());
                 assertTrue(applicationSecret.getData().containsKey(APPLICATION_SPECIFICATION_FILE));
+                Properties runtime = new Properties();
+                runtime.load(
+                        new StringReader(
+                                new String(
+                                        applicationSecret
+                                                .getData()
+                                                .get(APPLICATION_SPECIFICATION_FILE),
+                                        StandardCharsets.UTF_8)));
+                assertEquals("V1", runtime.getProperty("format.version"));
+                assertEquals(
+                        Long.toString(specification.getJobId()),
+                        runtime.getProperty(ApplicationOptions.JOB_ID.key()));
+                assertEquals(namespace, runtime.getProperty(KubernetesOptions.NAMESPACE.key()));
+                assertEquals(
+                        "Never", runtime.getProperty(KubernetesOptions.IMAGE_PULL_POLICY.key()));
+                assertFalse(runtime.containsKey(KubernetesOptions.KUBE_CONFIG.key()));
+                assertStatusFromApplicationCli(application.getClusterId());
                 assertTrue(
                         missing(
                                 () ->
@@ -353,7 +386,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         int entrypoint =
                                 command.indexOf(SeatunnelKubernetesWorkerCli.class.getName());
                         assertEquals(
-                                ApplicationClusterConfig.clusterName(first.getClusterId()),
+                                SeatunnelApplicationConfig.clusterName(first.getClusterId()),
                                 command.get(entrypoint + 1));
                         assertEquals(firstMaster, command.get(entrypoint + 2));
                         assertEquals(
@@ -444,9 +477,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         recovery.put(KubernetesOptions.CHECKPOINT_PVC.key(), claim);
         String marker = "checkpoint-progress-marker";
         String config = readJobTemplate("checkpoint_recovery.conf", 1, marker);
-        ApplicationSpecification firstSpecification =
-                ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, recovery);
-        try (KubernetesApplicationClient first = deployApplication(firstSpecification)) {
+        ApplicationSpecification firstSpecification = specification(config, recovery);
+        try (KubernetesApplicationClient first = deployApplication(firstSpecification, recovery)) {
             try {
                 awaitWorkersRunning(first, 1);
                 String worker = workers(first).get(0).getMetadata().getName();
@@ -481,10 +513,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         recovery.put(
                 ApplicationOptions.RESTORE_JOB_ID.key(),
                 Long.toString(firstSpecification.getJobId()));
-        ApplicationSpecification restoredSpecification =
-                ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, recovery);
+        ApplicationSpecification restoredSpecification = specification(config, recovery);
         assertNotEquals(firstSpecification.getJobId(), restoredSpecification.getJobId());
-        try (KubernetesApplicationClient restored = deployApplication(restoredSpecification)) {
+        try (KubernetesApplicationClient restored =
+                deployApplication(restoredSpecification, recovery)) {
             try {
                 awaitWorkersRunning(restored, 1);
                 awaitDurableCheckpoint(restored, restoredSpecification.getJobId(), 1);
@@ -685,10 +717,16 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     private KubernetesApplicationClient deployApplication(ApplicationSpecification specification)
             throws Exception {
+        return deployApplication(specification, options);
+    }
+
+    private KubernetesApplicationClient deployApplication(
+            ApplicationSpecification specification, Map<String, String> deploymentOptions)
+            throws Exception {
         return new KubernetesApplicationClient(
                 platformMonitor,
                 new ApplicationClusterDeployer(new ClusterClientServiceLoader())
-                        .<String>run(specification));
+                        .<String>run(DeployType.KUBERNETES, deploymentOptions, specification));
     }
 
     private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {
@@ -883,14 +921,57 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 .getItems();
     }
 
-    private ApplicationSpecification specification(String config) {
-        return ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, options);
+    private ApplicationSpecification specification(String config) throws IOException {
+        return specification(config, Collections.emptyMap());
     }
 
-    private ApplicationSpecification singleWorkerSpecification(String config) {
-        Map<String, String> singleWorker = new HashMap<>(options);
-        singleWorker.put(ApplicationOptions.WORKER_COUNT.key(), "1");
-        return ApplicationSpecification.fromOptions(DeployType.KUBERNETES, config, singleWorker);
+    /** Queries a finished application through the packaged CLI without connecting to its master. */
+    private void assertStatusFromApplicationCli(String applicationId) throws Exception {
+        String classpath =
+                DependencyJar.staged("seatunnel-starter.jar").path()
+                        + java.io.File.pathSeparator
+                        + DependencyJar.staged("seatunnel-resource-manager-kubernetes.jar").path();
+        Path output = temporary.resolve("application-status.log");
+        Process process =
+                new ProcessBuilder(
+                                Paths.get(System.getProperty("java.home"), "bin", "java")
+                                        .toString(),
+                                "-cp",
+                                classpath,
+                                "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication",
+                                "status",
+                                "-t",
+                                "kubernetes",
+                                "--id",
+                                applicationId,
+                                "-a",
+                                applicationConfig.toString(),
+                                "-ikubernetes.namespace=" + namespace)
+                        .redirectErrorStream(true)
+                        .redirectOutput(output.toFile())
+                        .start();
+        try {
+            assertTrue(process.waitFor(30, TimeUnit.SECONDS), "Application CLI did not finish");
+            String text = new String(Files.readAllBytes(output), StandardCharsets.UTF_8);
+            assertEquals(0, process.exitValue(), text);
+            assertTrue(text.contains("Status: SUCCEEDED"), text);
+        } finally {
+            process.destroyForcibly();
+        }
+    }
+
+    /** Loads the real application file, applies overrides, then reads a separate job file. */
+    private ApplicationSpecification specification(String config, Map<String, String> overrides)
+            throws IOException {
+        Path jobConfig = Files.createTempFile(temporary, "job-", ".config");
+        Files.write(jobConfig, config.getBytes(StandardCharsets.UTF_8));
+        return SeatunnelApplicationConfig.parse(
+                jobConfig, SeatunnelApplicationConfig.load(applicationConfig, overrides));
+    }
+
+    private ApplicationSpecification singleWorkerSpecification(String config) throws IOException {
+        return specification(
+                config, Collections.singletonMap(ApplicationOptions.WORKER_COUNT.key(), "1"));
     }
 
     private void importImage(String image) throws Exception {

@@ -79,8 +79,8 @@ env {
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --deployment-config kubernetes.conf \
-  --restore-from-checkpoint PREVIOUS_JOB_ID --wait
+  --config job.conf --application-config kubernetes.conf \
+  --restore-job-id PREVIOUS_JOB_ID --wait
 ```
 
 新提交使用新的 job ID，并从历史 ID 的最新有效 checkpoint 恢复。找不到 checkpoint 时提交失败，不会静默从头执行。

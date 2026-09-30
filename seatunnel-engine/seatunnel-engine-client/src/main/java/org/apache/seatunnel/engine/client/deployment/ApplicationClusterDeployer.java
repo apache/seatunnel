@@ -18,10 +18,12 @@
 package org.apache.seatunnel.engine.client.deployment;
 
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Objects;
 
 /** Submits an application through the platform factory selected by the injected service loader. */
@@ -38,16 +40,24 @@ public final class ApplicationClusterDeployer {
     /**
      * Deploys one application and closes the local descriptor without stopping the application.
      *
-     * @param specification resolved job content and platform deployment options
+     * <p>Platform connection/deployment options select and configure the descriptor. The separate
+     * specification contains only the resolved application fields that must reach the master; the
+     * deployer does not copy arbitrary options into that runtime payload.
+     *
+     * @param target resource platform to deploy to
+     * @param options platform deployment settings, owned by the platform descriptor
+     * @param specification resolved, platform-independent application requirements
      * @param <ID> native ID type of the selected platform
      * @return the platform ID, without opening an Engine client
      */
-    public <ID> ID run(ApplicationSpecification specification) throws Exception {
+    public <ID> ID run(
+            DeployType target, Map<String, String> options, ApplicationSpecification specification)
+            throws Exception {
         Objects.requireNonNull(specification, "specification");
         LOG.info("Submitting application in Application Mode.");
         ApplicationClusterDescriptorFactory<ID> clientFactory =
-                clientServiceLoader.getClusterClientFactory(specification.getDeployType());
-        try (ClusterDescriptor<ID> descriptor = clientFactory.create(specification.getOptions())) {
+                clientServiceLoader.getClusterClientFactory(target);
+        try (ClusterDescriptor<ID> descriptor = clientFactory.create(options)) {
             return descriptor.deployApplication(specification);
         }
     }

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# Deployment settings; use a separate job file with --config.
+# Pass this deployment file with -a / --application-config; pass the job separately with -c / --config.
 # Replace platform paths/image and prepare permissions before submission.
 application {
   name = "example-batch"

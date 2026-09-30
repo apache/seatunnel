@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.deployment.SeatunnelClientProvider;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -175,7 +176,7 @@ class KubernetesApplicationTest {
         SeatunnelClientProvider provider;
         SeaTunnelClient first;
         try (KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api)) {
+                new KubernetesApplicationClusterDescriptor(api, options())) {
             provider = descriptor.retrieve("existing-job");
             assertTrue(nativeClients.constructed().isEmpty());
             first = provider.getClusterClient();
@@ -207,7 +208,7 @@ class KubernetesApplicationTest {
     void rejectsEmptyJobNameWithoutPlatformRequests() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         try (KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api)) {
+                new KubernetesApplicationClusterDescriptor(api, options())) {
             assertThrows(IllegalArgumentException.class, () -> descriptor.retrieve(" "));
         }
         verify(api, never()).getJob(anyString());
@@ -227,7 +228,7 @@ class KubernetesApplicationTest {
         when(api.listPods(anyString()))
                 .thenReturn(Collections.singletonList(pod("master", "Running")));
         KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api);
+                new KubernetesApplicationClusterDescriptor(api, options());
         String applicationId = descriptor.deployApplication(specification());
         assertTrue(nativeClients.constructed().isEmpty());
         InOrder order = inOrder(api);
@@ -249,7 +250,7 @@ class KubernetesApplicationTest {
         assertThrows(
                 ApiException.class,
                 () ->
-                        new KubernetesApplicationClusterDescriptor(api)
+                        new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification()));
         verify(api).deleteApplication(anyString());
         KubernetesClient interrupted = mock(KubernetesClient.class);
@@ -257,7 +258,7 @@ class KubernetesApplicationTest {
         assertThrows(
                 ApiException.class,
                 () ->
-                        new KubernetesApplicationClusterDescriptor(interrupted)
+                        new KubernetesApplicationClusterDescriptor(interrupted, options())
                                 .deployApplication(specification()));
         verify(interrupted).deleteApplication(anyString());
     }
@@ -269,14 +270,14 @@ class KubernetesApplicationTest {
         when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
         when(api.listPods(anyString()))
                 .thenReturn(Collections.singletonList(pod("master", "Pending")));
-        Map<String, String> options = new HashMap<>(specification().getOptions());
+        Map<String, String> options = options();
         options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "5");
         ApplicationSpecification specification =
-                ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
+                SeatunnelApplicationConfig.parse("env {}", options);
         assertThrows(
                 TimeoutException.class,
                 () ->
-                        new KubernetesApplicationClusterDescriptor(api)
+                        new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification));
         verify(api).deleteApplication(anyString());
     }
@@ -324,7 +325,7 @@ class KubernetesApplicationTest {
                                                         .type("Complete")
                                                         .status("True"))));
         try (KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api)) {
+                new KubernetesApplicationClusterDescriptor(api, options())) {
             assertEquals(ApplicationStatus.SUCCEEDED, descriptor.getApplicationStatus("finished"));
             assertThrows(IllegalStateException.class, () -> descriptor.retrieve("finished"));
             descriptor.cancelApplication("finished");
@@ -349,7 +350,7 @@ class KubernetesApplicationTest {
                                                         .type("Complete")
                                                         .status("True"))));
         try (KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api)) {
+                new KubernetesApplicationClusterDescriptor(api, options())) {
             String id = descriptor.deployApplication(specification());
             verify(api).startJob(id);
             assertTrue(nativeClients.constructed().isEmpty());
@@ -361,12 +362,12 @@ class KubernetesApplicationTest {
     void rejectsMissingImageBeforeCreatingResources() throws Exception {
         Map<String, String> options = new HashMap<>();
         ApplicationSpecification specification =
-                ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
+                SeatunnelApplicationConfig.parse("env {}", options);
         KubernetesClient api = mock(KubernetesClient.class);
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        new KubernetesApplicationClusterDescriptor(api)
+                        new KubernetesApplicationClusterDescriptor(api, options)
                                 .deployApplication(specification));
         verify(api, never()).createJob(any());
         for (String name :
@@ -381,13 +382,16 @@ class KubernetesApplicationTest {
     }
 
     private static ApplicationSpecification specification() {
+        return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+    }
+
+    private static Map<String, String> options() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
         options.put(KubernetesOptions.CONFIG_MAP.key(), "seatunnel-runtime");
         options.put(KubernetesOptions.KUBE_CONFIG.key(), "/submitter-kubeconfig");
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
-        return ApplicationSpecification.fromOptions(
-                DeployType.KUBERNETES, "env { job.mode = BATCH }", options);
+        return options;
     }
 
     private static KubernetesJob job() {
@@ -399,7 +403,8 @@ class KubernetesApplicationTest {
                 KubernetesResourceFactory.job(
                         "app",
                         SeatunnelKubernetesMasterCli.class.getName(),
-                        KubernetesApplicationParameters.from(specification()));
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
         job.getInternalResource().getMetadata().setUid("uid-1");
         job.getInternalResource().setStatus(status);
         return job;

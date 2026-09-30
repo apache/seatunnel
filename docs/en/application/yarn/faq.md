@@ -12,11 +12,11 @@ Use the YARN application ID returned by submission:
 ```bash
 bin/seatunnel-application.sh status --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 
 bin/seatunnel-application.sh cancel --target yarn \
   --id application_0000000000000_0001 \
-  --deployment-config yarn-deployment.conf
+  --application-config yarn-deployment.conf
 ```
 
 Closing the client does not cancel the application. `cancel` terminates the YARN application and removes this submission's staging files. It does not create a savepoint.

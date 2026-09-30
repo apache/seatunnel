@@ -36,6 +36,47 @@ flowchart LR
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
+## Commands
+
+```bash
+# Submit; returns the platform application ID and native Zeta job ID
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config
+bin/seatunnel-application.sh submit -t kubernetes -c job.conf -a application.config --wait
+
+# Query / wait / cancel using the platform application ID
+bin/seatunnel-application.sh status -t yarn --id application_... -a application.config
+bin/seatunnel-application.sh status -t yarn --id application_... -a application.config --wait
+bin/seatunnel-application.sh cancel -t kubernetes --id seatunnel-... -a application.config
+
+# Recover into a new application, optionally selecting its new Zeta job ID
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
+  --restore-job-id 10001 --job-id 10002 --wait
+
+# Override worker capacity without editing the deployment file
+bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
+  -iapplication.worker-count=3 -iapplication.worker.slots=4
+
+bin/seatunnel-application.sh --help
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `submit`, `status`, `cancel` | Required positional operation; these operate on applications, not individual Zeta jobs |
+| `-t`, `--target` | Required resource platform: `yarn` or `kubernetes` |
+| `-c`, `--config` | Job file, required only for `submit` |
+| `-a`, `--application-config` | Optional HOCON deployment file; filenames such as `application.config` are supported |
+| `--id` | Platform application ID, required for `status` and `cancel` |
+| `--job-id` | Optional positive new Zeta job ID for `submit`; generated when omitted |
+| `--restore-job-id` | Historical Zeta job ID to restore from; must differ from the new job ID |
+| `--wait` | Wait for the platform's terminal state, for `submit` or `status` only |
+| `-ikey=value` | Non-sensitive common or platform deployment option, e.g. worker resources, YARN queue or Kubernetes namespace |
+
+Job configuration and deployment configuration remain separate. `-a` is not required when SDK defaults and `-i` supply the needed platform settings; no deployment file is auto-discovered. Submission still requires platform-specific settings such as a YARN distribution or Kubernetes image. For status/cancel, supply the same connection, namespace and staging settings used at submission; the job file is not needed.
+
+Precedence is explicit `--job-id` / `--restore-job-id`, then `-i`, then deployment file, then option defaults. Deployment overrides are merged before resolving HOCON `${...}` substitutions. Both `--target yarn` and `--target=yarn` are accepted; quote paths containing spaces. Keep credentials in permission-restricted files, not command-line arguments.
+
+Without `--wait`, submit returns after deployment and status returns the current state. Status reporting exits nonzero for `FAILED`, `CANCELED` or `UNKNOWN`; cancel acknowledges the cancellation request. Closing the CLI does not cancel an application. See [YARN configuration](yarn/configuration.md) and [Kubernetes configuration](kubernetes/configuration.md) for available deployment options.
+
 ## When to use Application Mode
 
 - A job should own its master, workers, dependencies, and failure boundary.

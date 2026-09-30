@@ -49,11 +49,11 @@ Container JVM 堆使用申请内存的 75%，剩余空间用于堆外内存和 J
 
 ## 配置覆盖
 
-命令行 `-Dkey=value` 的优先级高于部署配置：
+命令行 `-ikey=value` 的优先级高于部署配置：
 
 ```bash
 bin/seatunnel-application.sh submit --target yarn \
-  --config job.conf --deployment-config yarn-deployment.conf \
-  -Dapplication.worker-count=3 \
-  -Dapplication.worker.slots=4
+  --config job.conf --application-config yarn-deployment.conf \
+  -iapplication.worker-count=3 \
+  -iapplication.worker.slots=4
 ```

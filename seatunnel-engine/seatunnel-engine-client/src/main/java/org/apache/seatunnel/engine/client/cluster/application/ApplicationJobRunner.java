@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
 import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -71,7 +70,7 @@ public final class ApplicationJobRunner {
                                                     .setSyntax(ConfigSyntax.JSON)),
                                     server,
                                     specification.getJobId(),
-                                    specification.getOption(ApplicationOptions.RESTORE_JOB_ID))
+                                    specification.getRestoreJobId())
                             .execute(cancellation);
             result =
                     (JobResult)

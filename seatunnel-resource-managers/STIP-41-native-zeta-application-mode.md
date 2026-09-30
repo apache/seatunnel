@@ -96,9 +96,9 @@ There is no `seatunnel-resource-managers/core` module. Shared types belong to th
 
 | Module / package | Responsibility |
 | --- | --- |
-| `engine-common/config/spec` | Immutable `ApplicationSpecification` and `WorkerSpecification`; job content, fixed resource requirements, resolved deployment options |
+| `engine-common/config/spec` | Immutable `ApplicationSpecification` and `WorkerSpecification`; job content, native job IDs and fixed resources only; no raw options or platform settings |
 | `engine-common/config/server` | Common `ApplicationOptions` |
-| `engine-common/config` | `ApplicationClusterConfig`: prepare caller-owned configuration before member creation; no process lifecycle |
+| `engine-common/config` | `SeatunnelApplicationConfig`: load/merge inputs, resolve/serialize application fields and prepare caller-owned Engine configuration; no process lifecycle |
 | `engine-common/runtime` | `ApplicationStatus` and existing deployment/role types |
 | `engine-core/classloader` | `ApplicationJarPathResolver`: resolve distribution-local connector/plugin paths |
 | `engine-client/deployment` | `ClusterDescriptor`, `SeatunnelClientProvider`, `ApplicationClusterDescriptorFactory`, `ClusterClientServiceLoader`, `ApplicationClusterDeployer` |
@@ -149,6 +149,16 @@ Application status and cancellation use platform APIs. They do not require a liv
 
 `close()` releases descriptor-owned local connections. It does not stop the remote application.
 
+### Application settings and platform settings
+
+`ApplicationSpecification` is immutable and platform-independent. It contains typed application fields, including job content, job/restore IDs, worker count/resources, master resources/port and startup timeout. It has no deployment-type field, raw options map, generic option getter or file I/O.
+
+The CLI maps `-i` and explicit job-ID flags to overrides. Shared `SeatunnelApplicationConfig.load(path, overrides)` reads the optional HOCON application file, merges overrides and resolves substitutions. `SeatunnelApplicationConfig.parse(jobPath, options)` independently reads the job file and resolves common option defaults and the job ID once. Java callers use the same methods, or `parse(resolvedJobContent, options)` for in-memory job content. The selected descriptor consumes platform settings separately, through `YarnApplicationConfiguration` or `KubernetesApplicationParameters`.
+
+Localization uses `format.version=V1`. `SeatunnelApplicationConfig` encodes application fields, while each platform writes only its required runtime fields: YARN adds the resolved worker node label; Kubernetes adds its validated runtime settings. Submission-only values such as local archive paths, staging configuration and kubeconfig are not copied into the application specification. The localized job content may contain credentials, so the existing private YARN artifacts and Kubernetes Secret protections remain required.
+
+The platform Master CLI constructs its driver directly. There is no `ResourceManagerDriverFactory` SPI.
+
 ### SPI and Deployer
 
 `ClusterClientServiceLoader` discovers `ApplicationClusterDescriptorFactory<ID>` through `ServiceLoader`. Exactly one installed provider must match the selected deployment type. Missing or ambiguous providers fail explicitly; discovery itself must not allocate remote resources.
@@ -159,7 +169,7 @@ The platform factory:
 - parses a textual application ID;
 - creates a descriptor from deployment options.
 
-`ApplicationClusterDeployer` receives the loader through its constructor. Its `run(specification)` method selects a factory, opens a descriptor, calls `deployApplication`, closes the descriptor, and returns the native ID. It does not own the remotely running master or wait for the native job to finish.
+`ApplicationClusterDeployer` receives the loader through its constructor. Its `run(target, options, specification)` method selects a factory, opens a descriptor, calls `deployApplication`, closes the descriptor, and returns the native ID. It does not own the remotely running master or wait for the native job to finish.
 
 There is no parallel `ApplicationClusterDescriptors` utility with overlapping responsibility.
 
@@ -557,29 +567,31 @@ The dedicated launcher is `bin/seatunnel-application.sh`. Job configuration and 
 
 ```bash
 # Submit YARN application
-bin/seatunnel-application.sh -p submit -d yarn \
-  -c job.conf -dc yarn.conf
+bin/seatunnel-application.sh submit -t yarn \
+  -c job.conf -a application.config
 
 # Submit Kubernetes application
-bin/seatunnel-application.sh -p submit -d kubernetes \
-  -c job.conf -dc kubernetes.conf
+bin/seatunnel-application.sh submit -t kubernetes \
+  -c job.conf -a application.config
 
 # Query / wait for a detached application
-bin/seatunnel-application.sh -p status -d yarn \
-  -dc yarn.conf --id application_... --wait
+bin/seatunnel-application.sh status -t yarn \
+  -a application.config --id application_... --wait
 
 # Cancel by platform application identity
-bin/seatunnel-application.sh -p cancel -d kubernetes \
-  -dc kubernetes.conf --id seatunnel-...
+bin/seatunnel-application.sh cancel -t kubernetes \
+  -a application.config --id seatunnel-...
 
 # Restore into a new application / new native job ID
-bin/seatunnel-application.sh -p submit -d yarn \
-  -c job.conf -dc yarn.conf --restore-job-id 123456789
+bin/seatunnel-application.sh submit -t yarn \
+  -c job.conf -a application.config --restore-job-id 123456789
 ```
 
-Deployment configuration is HOCON. Non-sensitive `-Dkey=value` arguments override file options; explicit `--job-id` / `--restore-job-id` populate their corresponding common options. Secrets should not be placed in command-line arguments.
+The positional command and `-t` / `--target` are required. `-c` / `--config` selects the job file; `-a` / `--application-config` selects the optional deployment file. Both separate and equals-style option values are accepted. Old `--operation`, `--deploy-type`, `--deployment-config` and their short forms are removed, without aliases.
 
-Submit needs job/deployment configuration and no existing application ID. Status/cancel need the platform ID and deployment connection settings, not the job file or a job ID. `--wait` is for submit/status. Validation should be performed at the responsible parsing/configuration boundary without redundant lifecycle checks.
+Deployment configuration is HOCON regardless of the filename suffix, including `.config`. Non-sensitive `-ikey=value` arguments override file options; explicit `--job-id` / `--restore-job-id` take precedence over both. Overrides are merged before resolving HOCON substitutions. Secrets should not be placed in command-line arguments.
+
+Submit needs a job file and the selected platform's required deployment settings, but no existing application ID. Status/cancel need the platform ID and deployment connection settings, not the job file or a job ID. The deployment file may be omitted when SDK defaults and `-i` supply the needed settings; there is no automatic file discovery. `--wait` is for submit/status. Validation is performed at the responsible parsing/configuration boundary without redundant lifecycle checks.
 
 ## 12. Distribution and dependencies
 
@@ -668,7 +680,7 @@ Validation evidence must distinguish unit/runtime tests, module compilation, rea
 
 ### Contract and unit tests
 
-- Option parsing/precedence/validation and immutable specification serialization.
+- Option parsing/precedence/validation and application-only specification and platform-runtime serialization.
 - SPI discovery and native ID parsing.
 - Descriptor close does not cancel an application.
 - Lazy client provider creates independently owned native clients.

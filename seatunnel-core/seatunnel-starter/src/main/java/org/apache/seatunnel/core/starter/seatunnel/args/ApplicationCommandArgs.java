@@ -26,6 +26,8 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 import com.beust.jcommander.DynamicParameter;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.Parameters;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -36,26 +38,25 @@ import java.util.Map;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
+@Parameters(separators = "=")
 public class ApplicationCommandArgs extends CommandArgs {
 
     @Parameter(
-            names = {"-p", "--operation"},
-            description =
-                    "Application operation: submit (deploy a new application), "
-                            + "status (query application state from the resource platform), "
-                            + "or cancel (stop the application and release its resources)",
+            description = "submit | status | cancel",
+            required = true,
             converter = ApplicationOperationConverter.class)
     private ApplicationOperation operation;
 
     @Parameter(
-            names = {"-d", "--deploy-type"},
+            names = {"-t", "--target"},
             description = "External resource platform: yarn or kubernetes",
+            required = true,
             converter = DeployTypeConverter.class)
-    private DeployType deployType;
+    private DeployType target;
 
     @Parameter(
             names = {"-c", "--config"},
-            description = "SeaTunnel job configuration file")
+            description = "SeaTunnel job configuration file (required for submit only)")
     private String config;
 
     @Parameter(names = "--job-id", description = "Optional native Zeta job ID for submit")
@@ -68,19 +69,22 @@ public class ApplicationCommandArgs extends CommandArgs {
     private Long restoreJobId;
 
     @Parameter(
-            names = {"-dc", "--deployment-config"},
-            description = "Platform deployment options in HOCON format")
-    private String deploymentConfig;
+            names = {"-a", "--application-config"},
+            description =
+                    "Optional HOCON deployment file, e.g. application.config (not the job file)")
+    private String applicationConfig;
 
-    @Parameter(names = "--id", description = "External application ID returned by submit")
+    @Parameter(names = "--id", description = "Platform application ID (required for status/cancel)")
     private String id;
 
-    @Parameter(names = "--wait", description = "Wait for the application to reach a terminal state")
+    @Parameter(
+            names = "--wait",
+            description = "Wait for completion (submit/status only; default: return immediately)")
     private boolean wait;
 
     @DynamicParameter(
-            names = "-D",
-            description = "Override a non-sensitive deployment option: -Dkey=value")
+            names = "-i",
+            description = "Override a non-sensitive deployment option: -ikey=value")
     private Map<String, String> options = new LinkedHashMap<>();
 
     @Override
@@ -89,26 +93,20 @@ public class ApplicationCommandArgs extends CommandArgs {
         return new ApplicationExecuteCommand(this);
     }
 
+    /**
+     * Validates command-specific arguments before reading files or opening platform connections.
+     */
     public void validateCommandOptions() {
-        if (!Files.isRegularFile(Paths.get(deploymentConfig))) {
-            throw new IllegalArgumentException(
-                    "Deployment configuration file does not exist: " + deploymentConfig);
+        if (applicationConfig != null) {
+            requireFile(applicationConfig, "--application-config");
         }
         if (operation == ApplicationOperation.SUBMIT) {
             if (config == null) {
                 throw new IllegalArgumentException("submit requires --config");
             }
-            if (!Files.isRegularFile(Paths.get(config))) {
-                throw new IllegalArgumentException(
-                        "Job configuration file does not exist: " + config);
-            }
+            requireFile(config, "--config");
             if (id != null) {
                 throw new IllegalArgumentException("submit does not accept --id");
-            }
-            requirePositive(jobId, "--job-id");
-            requirePositive(restoreJobId, "--restore-job-id");
-            if (jobId != null && jobId.equals(restoreJobId)) {
-                throw new IllegalArgumentException("--job-id must differ from --restore-job-id");
             }
             return;
         }
@@ -127,9 +125,9 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
     }
 
-    private static void requirePositive(Long value, String option) {
-        if (value != null && value <= 0) {
-            throw new IllegalArgumentException(option + " must be positive");
+    private static void requireFile(String path, String option) {
+        if (!Files.isRegularFile(Paths.get(path))) {
+            throw new IllegalArgumentException(option + " file does not exist: " + path);
         }
     }
 
@@ -145,7 +143,7 @@ public class ApplicationCommandArgs extends CommandArgs {
                     }
                 }
             }
-            throw new IllegalArgumentException(
+            throw new ParameterException(
                     "Unsupported operation '"
                             + value
                             + "'. Currently only [submit, cancel, status] are supported!");
@@ -163,11 +161,11 @@ public class ApplicationCommandArgs extends CommandArgs {
                 return DeployType.KUBERNETES;
             }
             if (value != null && DeployType.STANDALONE.name().equalsIgnoreCase(value.trim())) {
-                throw new IllegalArgumentException(
+                throw new ParameterException(
                         "Use seatunnel.sh for standalone jobs; application targets are yarn and kubernetes");
             }
-            throw new IllegalArgumentException(
-                    "Unsupported deploy-type '"
+            throw new ParameterException(
+                    "Unsupported target '"
                             + value
                             + "'. Currently only [yarn, kubernetes] are supported!");
         }

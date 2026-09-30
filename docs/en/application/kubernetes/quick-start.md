@@ -137,7 +137,7 @@ kubernetes {
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --deployment-config kubernetes.conf --wait
+  --config job.conf --application-config kubernetes.conf --wait
 ```
 
 The command prints the Kubernetes application ID, which is the generated Job name, and the native Zeta job ID. Remove `--wait` for detached submission. Closing the client does not cancel the remote Job.
@@ -146,10 +146,10 @@ The command prints the Kubernetes application ID, which is the generated Job nam
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
-  --id example-01234567-abc --deployment-config kubernetes.conf
+  --id example-01234567-abc --application-config kubernetes.conf
 
 bin/seatunnel-application.sh cancel --target kubernetes \
-  --id example-01234567-abc --deployment-config kubernetes.conf
+  --id example-01234567-abc --application-config kubernetes.conf
 ```
 
 Continue with [Configuration](configuration.md), [Checkpoint recovery](checkpoint-recovery.md), and [FAQ](faq.md).

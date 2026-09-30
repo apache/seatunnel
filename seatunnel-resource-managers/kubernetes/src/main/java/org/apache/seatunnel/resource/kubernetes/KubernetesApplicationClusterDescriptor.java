@@ -21,12 +21,11 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.client.deployment.SeatunnelClientProvider;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
@@ -74,11 +73,8 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
-        if (specification.getDeployType() != DeployType.KUBERNETES) {
-            throw new IllegalArgumentException("Expected Kubernetes specification");
-        }
         KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(specification);
+                KubernetesApplicationParameters.from(specification, options);
         if (parameters.getConfigMap() != null) {
             // Fail before creating application-owned resources when the user-owned runtime
             // configuration does not exist or is not readable by the submitting client.
@@ -90,7 +86,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         try {
 
             job = api.createJob(KubernetesResourceFactory.job(id, mainClass, parameters));
-            api.createSecret(KubernetesResourceFactory.secret(job, specification));
+            api.createSecret(KubernetesResourceFactory.secret(job, parameters));
             api.createService(KubernetesResourceFactory.service(job, parameters));
             api.startJob(id);
             awaitDeployment(id, specification.getStartupTimeoutMillis());
@@ -167,7 +163,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                         + ":"
                         + options.get(ApplicationOptions.MASTER_PORT);
         ClientConfig config = ConfigProvider.locateAndGetClientConfig();
-        config.setClusterName(ApplicationClusterConfig.clusterName(applicationId));
+        config.setClusterName(SeatunnelApplicationConfig.clusterName(applicationId));
         config.getNetworkConfig().setAddresses(Collections.singletonList(address));
         config.getConnectionStrategyConfig()
                 .getConnectionRetryConfig()

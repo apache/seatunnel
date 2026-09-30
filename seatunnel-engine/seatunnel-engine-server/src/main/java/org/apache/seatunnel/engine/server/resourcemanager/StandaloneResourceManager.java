@@ -36,7 +36,6 @@ public class StandaloneResourceManager extends AbstractResourceManager {
         log.info("Init standalone ResourceManager");
         try {
             syncExistingWorkerProfiles();
-
         } catch (Exception e) {
             IllegalStateException initializationFailure =
                     new IllegalStateException(

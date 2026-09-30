@@ -52,6 +52,10 @@ flowchart LR
 
 两个平台都使用独立的 Master、Worker 入口：YARN 分别为 `SeatunnelYarnMasterCli`、`SeatunnelYarnWorkerCli`；Kubernetes 分别为 `SeatunnelKubernetesMasterCli`、`SeatunnelKubernetesWorkerCli`。Worker 入口设置集群名、Master 地址和固定 slot 数，再将配置传给 `SeaTunnelServerStarter.createHazelcastInstance`。YARN 额外使用 Master 的发行包根目录，解析各个 Worker 本地化目录中的 jar 路径。Worker 启动不初始化平台客户端，也不承担整个应用的清理。`SeaTunnelServerStarter.main` 保持原有的按配置启动行为。Worker 进程退出时使用 Hazelcast 自带的 shutdown hook。Worker 的回收由外层 application 生命周期和平台 driver 负责，启动器不会因集群成员变化主动关闭 Worker。如果 Master 进程在清理前异常死亡，需要由平台层负责回收 Worker。
 
+提交时分离应用配置与平台配置：`SeatunnelApplicationConfig.load(path, overrides)` 读取可选应用文件、合并覆盖值并解析引用；`SeatunnelApplicationConfig.parse(jobPath, options)` 单独读取作业文件，构建强类型、不可变的 `ApplicationSpecification`。CLI 和 Java 调用方共用这些方法。`YarnApplicationConfiguration`、`KubernetesApplicationParameters` 分别持有平台参数。规格对象不保留原始 options map、平台类型，也不负责文件读写。本地化配置使用 `format.version=V1`，只写入应用字段和平台运行所需参数，不携带提交端本地分发包路径或 kubeconfig。Master 入口直接构造 driver，不再需要 driver factory SPI。
+
+`-a application.config` 只在提交机器上读取。提交时生成 `application.properties`：YARN 将其上传到 `<yarn.staging-dir>/<applicationId>/application.properties`，再本地化到容器工作目录；Kubernetes 将其写入应用的 Secret，挂载到 `/etc/seatunnel-application/application.properties`。平台 Master CLI 读取该文件，再把强类型对象传给 Runner、ResourceManager 和 Driver。这些组件及 Worker 入口不会自行寻找原始 `application.config` 文件。
+
 ## 运行流程
 
 统一的具体类 `ResourceManagerFactory` 只选择 `StandaloneResourceManager` 或 `ApplicationResourceManager`，不再保留 YARN/Kubernetes 专属的 Engine manager 子类和工厂。平台 Master CLI 在外层构造应用规格和 driver，连同应用 ID、部署类型放入统一 factory；节点创建链只透传 factory。Coordinator 将 NodeEngine 和 EngineConfig 传给 factory 创建对应 manager，初始化成功后才发布实例。两个具体 manager 分别负责初始化，ApplicationResourceManager 直接调用注入的 driver。
@@ -64,7 +68,7 @@ Driver 初始化时接收 `ResourceEventHandler<WorkerType>`、单线程 `Schedu
 
 resource-manager core 模块已删除。部署选项放在 engine-common 的 `config.server` 包，引擎配置准备类放在其 `config` 包，应用和 Worker 的不可变规格放在其 `config.spec` 包；部署和客户端契约放在 engine-client，运行时资源归 engine-server 管理。
 
-提交端通过构造器向 `ApplicationClusterDeployer` 注入 `ClusterClientServiceLoader`，再调用 `run(specification)`。loader 发现唯一的平台 factory；deployer 创建并关闭 `ClusterDescriptor<ID>`，返回平台原生 ID（YARN 为 Hadoop `ApplicationId`，Kubernetes 为 `String` 类型的 Job 名称）。factory 同时负责将 CLI 的 `--id` 字符串转换为平台 ID。descriptor 的 `getApplicationStatus` 和 `cancelApplication` 在内部调用资源平台 API，不连接 Master，也不需要 Zeta job ID。
+提交端通过构造器向 `ApplicationClusterDeployer` 注入 `ClusterClientServiceLoader`，再调用 `run(target, options, specification)`。loader 发现唯一的平台 factory；deployer 创建并关闭 `ClusterDescriptor<ID>`，返回平台原生 ID（YARN 为 Hadoop `ApplicationId`，Kubernetes 为 `String` 类型的 Job 名称）。factory 同时负责将 CLI 的 `--id` 字符串转换为平台 ID。descriptor 的 `getApplicationStatus` 和 `cancelApplication` 在内部调用资源平台 API，不连接 Master，也不需要 Zeta job ID。
 
 `retrieve(applicationId)` 发现运行中 Master 的连接配置，返回无泛型的 `SeatunnelClientProvider`，不建立 Engine 连接。每次调用 `provider.getClusterClient()` 才创建一个新的 `SeaTunnelClient` 操作 Zeta 作业；调用方必须能访问 Master 的网络地址，应用结束后不能再建立连接。deployment 契约放在 `engine-client`，engine-common 不依赖客户端。部署、CLI 状态查询（包括 `--wait`）和取消应用均不依赖 Engine 连接。每个 client 都由调用方独立于 descriptor 关闭；关闭任意一方只释放各自连接，不会取消应用。公共运行时直接保存平台 ID 字符串，不再使用自定义 ID 包装。
 

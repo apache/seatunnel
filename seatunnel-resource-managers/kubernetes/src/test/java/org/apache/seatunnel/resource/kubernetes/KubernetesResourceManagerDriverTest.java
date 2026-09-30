@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
@@ -106,7 +107,8 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(specification()),
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
             driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
@@ -169,7 +171,8 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(specification()),
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
         driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
@@ -209,7 +212,8 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(specification()),
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
         driver.initialize(
@@ -241,7 +245,8 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(specification()),
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
             driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
@@ -292,7 +297,8 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(specification()),
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
         driver.initialize(
@@ -325,12 +331,15 @@ class KubernetesResourceManagerDriverTest {
     }
 
     private static ApplicationSpecification specification() {
+        return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+    }
+
+    private static Map<String, String> options() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
         options.put(KubernetesOptions.KUBE_CONFIG.key(), "/submitter-kubeconfig");
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
-        return ApplicationSpecification.fromOptions(
-                DeployType.KUBERNETES, "env { job.mode = BATCH }", options);
+        return options;
     }
 
     private static KubernetesJob job() {
@@ -338,7 +347,8 @@ class KubernetesResourceManagerDriverTest {
                 KubernetesResourceFactory.job(
                         "app",
                         SeatunnelKubernetesMasterCli.class.getName(),
-                        KubernetesApplicationParameters.from(specification()));
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
         job.getInternalResource().getMetadata().setUid("uid-1");
         return job;
     }

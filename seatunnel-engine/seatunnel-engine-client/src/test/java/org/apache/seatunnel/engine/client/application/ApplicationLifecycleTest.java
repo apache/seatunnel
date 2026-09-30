@@ -24,9 +24,9 @@ import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorag
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -257,14 +257,7 @@ class ApplicationLifecycleTest {
     void malformedJobFailsAndCleansWorker() throws Exception {
         LocalDriver driver = new LocalDriver();
         ApplicationSpecification valid = specification(JOB, 30000);
-        ApplicationSpecification malformed =
-                new ApplicationSpecification(
-                        valid.getDeployType(),
-                        valid.getName(),
-                        "not valid {",
-                        valid.getWorkerCount(),
-                        valid.getWorkerSpecification(),
-                        valid.getOptions());
+        ApplicationSpecification malformed = valid.toBuilder().jobConfig("not valid {").build();
         assertThrows(
                 Exception.class,
                 () -> runApplication("test-application", malformed, driver, engineConfig()));
@@ -438,9 +431,9 @@ class ApplicationLifecycleTest {
     @Test
     void applicationWorkerIsStoppedByItsOwner() throws Exception {
         String applicationId = "worker-lifecycle-" + UUID.randomUUID();
-        String clusterName = ApplicationClusterConfig.clusterName(applicationId);
+        String clusterName = SeatunnelApplicationConfig.clusterName(applicationId);
         SeaTunnelConfig masterConfig = engineConfig();
-        ApplicationClusterConfig.configure(masterConfig, clusterName, null, 2);
+        SeatunnelApplicationConfig.configure(masterConfig, clusterName, null, 2);
         HazelcastInstance master = SeaTunnelServerStarter.createHazelcastInstance(masterConfig);
         HazelcastInstance worker = null;
         try {
@@ -496,7 +489,7 @@ class ApplicationLifecycleTest {
         }
         String clusterName = "application-artifact-" + UUID.randomUUID();
         SeaTunnelConfig masterConfig = engineConfig();
-        ApplicationClusterConfig.configure(masterConfig, clusterName, null, 2);
+        SeatunnelApplicationConfig.configure(masterConfig, clusterName, null, 2);
         HazelcastInstance master = SeaTunnelServerStarter.createHazelcastInstance(masterConfig);
         HazelcastInstance worker = null;
         try {
@@ -589,7 +582,7 @@ class ApplicationLifecycleTest {
                         // canceled.
                         HazelcastInstance worker =
                                 startWorker(
-                                        ApplicationClusterConfig.clusterName("test-application"),
+                                        SeatunnelApplicationConfig.clusterName("test-application"),
                                         masterAddress.get().get(),
                                         2,
                                         engineConfig(),
@@ -736,14 +729,14 @@ class ApplicationLifecycleTest {
             LocalDriver driver,
             SeaTunnelConfig config)
             throws Exception {
-        String clusterName = ApplicationClusterConfig.clusterName(id);
+        String clusterName = SeatunnelApplicationConfig.clusterName(id);
         assertEquals(clusterName, driver.clusterName);
-        ApplicationClusterConfig.configure(
+        SeatunnelApplicationConfig.configure(
                 config, clusterName, null, specification.getWorkerSpecification().getSlots());
-        ApplicationClusterConfig.configureCheckpointRetention(config);
+        SeatunnelApplicationConfig.configureCheckpointRetention(config);
         config.getHazelcastConfig()
                 .getNetworkConfig()
-                .setPort(specification.getOption(ApplicationOptions.MASTER_PORT))
+                .setPort(specification.getMasterPort())
                 .setPortAutoIncrement(false);
         HazelcastInstanceImpl master =
                 SeaTunnelServerStarter.createHazelcastInstance(
@@ -751,7 +744,7 @@ class ApplicationLifecycleTest {
                         null,
                         JarPathResolver.identity(),
                         new ResourceManagerFactory(
-                                specification.getDeployType(), id, specification, driver));
+                                DeployType.KUBERNETES, id, specification, driver));
         SeaTunnelServer server =
                 master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         try {
@@ -786,15 +779,12 @@ class ApplicationLifecycleTest {
         }
         options.put("application.startup-timeout-millis", Long.toString(timeout));
         options.putAll(additionalOptions);
-        return new ApplicationSpecification(
-                DeployType.KUBERNETES,
-                "application-test",
+        options.put(ApplicationOptions.NAME.key(), "application-test");
+        return SeatunnelApplicationConfig.parse(
                 ConfigFactory.parseString(config)
                         .resolve()
                         .root()
                         .render(ConfigRenderOptions.concise()),
-                1,
-                new WorkerSpecification(1024, 1, 2),
                 options);
     }
 
@@ -827,7 +817,7 @@ class ApplicationLifecycleTest {
             int slots,
             SeaTunnelConfig config,
             JarPathResolver resolver) {
-        ApplicationClusterConfig.configure(config, clusterName, address, slots);
+        SeatunnelApplicationConfig.configure(config, clusterName, address, slots);
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
@@ -850,7 +840,7 @@ class ApplicationLifecycleTest {
         }
 
         private LocalDriver(String applicationId) {
-            this.clusterName = ApplicationClusterConfig.clusterName(applicationId);
+            this.clusterName = SeatunnelApplicationConfig.clusterName(applicationId);
         }
 
         @Override

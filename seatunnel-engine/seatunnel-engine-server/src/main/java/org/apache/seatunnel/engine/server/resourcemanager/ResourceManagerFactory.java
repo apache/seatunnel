@@ -63,10 +63,6 @@ public class ResourceManagerFactory {
                 throw new IllegalStateException(
                         "Application deployment requires an application ID, specification and driver");
             }
-            if (specification.getDeployType() != deployType) {
-                throw new IllegalArgumentException(
-                        "Application specification does not match deployment type " + deployType);
-            }
             return new ApplicationResourceManager<>(
                     nodeEngine, engineConfig, applicationId, specification, driver);
         }

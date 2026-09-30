@@ -21,12 +21,11 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.client.deployment.SeatunnelClientProvider;
-import org.apache.seatunnel.engine.common.config.ApplicationClusterConfig;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationStatusMonitor;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
@@ -102,12 +101,8 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
     @Override
     public ApplicationId deployApplication(ApplicationSpecification specification)
             throws Exception {
-        if (specification.getDeployType() != DeployType.YARN) {
-            throw new IllegalArgumentException(
-                    "YARN deployer requires a YARN application specification");
-        }
         YarnApplicationConfiguration deployment =
-                YarnApplicationConfiguration.forSubmission(specification);
+                YarnApplicationConfiguration.forSubmission(specification, options);
         if (deployment.getDeploymentTarget() != YarnDeploymentTarget.APPLICATION) {
             throw new UnsupportedOperationException(
                     "Unsupported YARN deployment target: " + deployment.getDeploymentTarget());
@@ -120,8 +115,8 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             YarnClientApplication application = client.createApplication();
             ApplicationSubmissionContext submission = application.getApplicationSubmissionContext();
             yarnId = submission.getApplicationId();
-            int masterMemory = specification.getOption(ApplicationOptions.MASTER_MEMORY_MB);
-            int masterCores = specification.getOption(ApplicationOptions.MASTER_CPU_CORES);
+            int masterMemory = specification.getMasterMemoryMb();
+            int masterCores = specification.getMasterCpuCores();
             Resource maximum =
                     application.getNewApplicationResponse().getMaximumResourceCapability();
             if (masterMemory > maximum.getMemorySize()
@@ -233,7 +228,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                         + ":"
                         + port;
         ClientConfig config = ConfigProvider.locateAndGetClientConfig();
-        config.setClusterName(ApplicationClusterConfig.clusterName(id.toString()));
+        config.setClusterName(SeatunnelApplicationConfig.clusterName(id.toString()));
         config.getNetworkConfig().setAddresses(Collections.singletonList(address));
         config.getConnectionStrategyConfig()
                 .getConnectionRetryConfig()
