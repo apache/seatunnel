@@ -60,6 +60,8 @@ import org.apache.hadoop.yarn.util.Records;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
@@ -276,6 +278,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void deploymentReturnsIdWhenApplicationFinishesBeforeConnecting() throws Exception {
         YarnClient client = client();
         ApplicationReport report = client.getApplicationReport(ApplicationId.newInstance(1, 1));
@@ -311,6 +316,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void queueStartupTimeoutKillsApplicationAndCleansArtifacts() throws Exception {
         YarnClient client = client();
         ApplicationReport report = Records.newRecord(ApplicationReport.class);
@@ -367,6 +375,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void submitStagesPrivateArtifactsAndDisablesRetries() throws Exception {
         Configuration configuration = localConfiguration();
         configuration.set("seatunnel.test.hadoop-option", "localized-value");
@@ -441,6 +452,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void failedUploadRemovesOnlyItsNewStagingDirectory() throws Exception {
         ApplicationSpecification specification = specification();
         YarnApplicationConfiguration deployment =
@@ -474,6 +488,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void uploaderCloseRetainsFilesAndRegisteredResources() throws Exception {
         Configuration configuration = localConfiguration();
         YarnApplicationConfiguration deployment =
@@ -534,6 +551,9 @@ class YarnApplicationTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local file system requires winutils on Windows")
     void lostSubmissionResponseKillsPotentiallyAcceptedApplicationAndCleansStaging()
             throws Exception {
         YarnClient client = client();
