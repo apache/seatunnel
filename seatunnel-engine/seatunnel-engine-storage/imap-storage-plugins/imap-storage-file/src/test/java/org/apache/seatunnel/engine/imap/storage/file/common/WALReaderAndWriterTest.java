@@ -20,7 +20,9 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -172,7 +174,69 @@ public class WALReaderAndWriterTest {
         Map<Object, Object> data = reader.loadAllData(LEGACY_JOB_STATUS_PATH, new HashSet<>());
 
         Assertions.assertEquals(JobStatus.class, data.get(key).getClass());
-        Assertions.assertEquals(JobStatus.RUNNING.name(), data.get(key).toString());
+        // ProtoStuff returns a non-canonical enum instance, so compare by value, not identity.
+        Assertions.assertEquals(JobStatus.RUNNING.name(), ((JobStatus) data.get(key)).name());
+    }
+
+    @Test
+    public void testReaderLoadsAllLegacyJobModelClassNames() throws Exception {
+        String jobStatusKey = "legacy-job-status";
+        String jobResultKey = "legacy-job-result";
+        String jobStatusDataKey = "legacy-job-status-data";
+        JobStatusData jobStatusData =
+                new JobStatusData(1L, "legacy-job", JobStatus.FINISHED, 1L, 2L, 3L);
+        JobResult jobResult = new JobResult(JobStatus.CANCELED, "legacy error");
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, LEGACY_JOB_STATUS_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobStatusKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(JobStatus.RUNNING))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatus")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobResultKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(jobResult))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobResult")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(jobStatusDataKey))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(jobStatusData))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatusData")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> data = reader.loadAllData(LEGACY_JOB_STATUS_PATH, new HashSet<>());
+
+        Assertions.assertEquals(
+                JobStatus.RUNNING.name(), ((JobStatus) data.get(jobStatusKey)).name());
+
+        JobResult replayedResult = (JobResult) data.get(jobResultKey);
+        Assertions.assertEquals(JobResult.class, replayedResult.getClass());
+        Assertions.assertEquals(JobStatus.CANCELED.name(), replayedResult.getStatus().name());
+        Assertions.assertEquals("legacy error", replayedResult.getError());
+
+        JobStatusData replayedStatusData = (JobStatusData) data.get(jobStatusDataKey);
+        Assertions.assertEquals(JobStatusData.class, replayedStatusData.getClass());
+        Assertions.assertEquals(jobStatusData.getJobId(), replayedStatusData.getJobId());
+        Assertions.assertEquals(jobStatusData.getJobName(), replayedStatusData.getJobName());
+        Assertions.assertEquals(
+                jobStatusData.getJobStatus().name(), replayedStatusData.getJobStatus().name());
+        Assertions.assertEquals(jobStatusData.getSubmitTime(), replayedStatusData.getSubmitTime());
+        Assertions.assertEquals(jobStatusData.getStartTime(), replayedStatusData.getStartTime());
+        Assertions.assertEquals(jobStatusData.getFinishTime(), replayedStatusData.getFinishTime());
     }
 
     @AfterAll
