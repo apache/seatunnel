@@ -248,4 +248,50 @@ public class SeaTunnelRowTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
         Assertions.assertEquals(8, row.getBytesSize());
     }
+
+    @Test
+    void testSetFieldInvalidatesCachedBytesSize() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow typed = new SeaTunnelRow(new Object[] {"abc"});
+        Assertions.assertEquals(3, typed.getBytesSize(rowType));
+        typed.setField(0, "abcdef");
+        Assertions.assertEquals(6, typed.getBytesSize(rowType));
+        typed.setField(0, "a");
+        Assertions.assertEquals(1, typed.getBytesSize(rowType));
+        typed.setField(0, null);
+        Assertions.assertEquals(0, typed.getBytesSize(rowType));
+
+        SeaTunnelRow untyped = new SeaTunnelRow(new Object[] {"abc"});
+        Assertions.assertEquals(3, untyped.getBytesSize());
+        untyped.setField(0, "abcdef");
+        Assertions.assertEquals(6, untyped.getBytesSize());
+        untyped.setField(0, "a");
+        Assertions.assertEquals(1, untyped.getBytesSize());
+        untyped.setField(0, null);
+        Assertions.assertEquals(0, untyped.getBytesSize());
+    }
+
+    @Test
+    void testCopyCachedSizeIndependentAfterSetField() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        SeaTunnelRow original = new SeaTunnelRow(new Object[] {"abc"});
+        SeaTunnelRow copy = original.copy();
+
+        Assertions.assertNotSame(original.getFields(), copy.getFields());
+        Assertions.assertEquals("abc", copy.getField(0));
+
+        Assertions.assertEquals(3, original.getBytesSize(rowType));
+        Assertions.assertEquals(3, copy.getBytesSize(rowType));
+
+        original.setField(0, "abcdef");
+        Assertions.assertEquals("abcdef", original.getField(0));
+        Assertions.assertEquals("abc", copy.getField(0));
+        Assertions.assertEquals(6, original.getBytesSize(rowType));
+        Assertions.assertEquals(3, copy.getBytesSize(rowType));
+    }
 }

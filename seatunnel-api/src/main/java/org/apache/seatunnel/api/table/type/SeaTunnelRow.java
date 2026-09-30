@@ -51,6 +51,7 @@ public final class SeaTunnelRow implements Serializable {
 
     public void setField(int pos, Object value) {
         this.fields[pos] = value;
+        this.size = 0;
     }
 
     public void setTableId(String tableId) {
