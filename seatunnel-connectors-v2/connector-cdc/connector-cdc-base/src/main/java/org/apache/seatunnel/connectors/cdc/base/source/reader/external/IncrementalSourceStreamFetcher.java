@@ -340,6 +340,14 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 tableIdBinlogPositionMap.put(tableId, highWatermark);
             }
         }
+        // Restored tables may already be in the pure binlog phase and therefore have no
+        // completed snapshot split metadata in this split. Keep them eligible for emission
+        // from the split's checkpoint offset while newly added tables finish their snapshots.
+        if (splitStartWatermark != null) {
+            for (TableId tableId : currentIncrementalSplit.getTableIds()) {
+                tableIdBinlogPositionMap.putIfAbsent(tableId, splitStartWatermark);
+            }
+        }
         this.finishedSplitsInfo = splitsInfoMap;
         this.maxSplitHighWatermarkMap = tableIdBinlogPositionMap;
         this.pureBinlogPhaseTables.clear();

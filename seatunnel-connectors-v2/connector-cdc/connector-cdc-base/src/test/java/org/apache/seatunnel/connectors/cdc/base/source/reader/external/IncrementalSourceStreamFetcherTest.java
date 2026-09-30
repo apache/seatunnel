@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -393,6 +395,10 @@ public class IncrementalSourceStreamFetcherTest {
     }
 
     static SourceRecord createDataEventWithSource() {
+        return createDataEventWithSource(new TableId("testdb", "public", "test_table"));
+    }
+
+    static SourceRecord createDataEventWithSource(TableId tableId) {
         Schema sourceSchema =
                 SchemaBuilder.struct()
                         .name("io.debezium.connector.postgresql.Source")
@@ -402,9 +408,9 @@ public class IncrementalSourceStreamFetcherTest {
                         .field(DEBEZIUM_CONNECTOR_KEY, Schema.STRING_SCHEMA)
                         .build();
         Struct sourceStruct = new Struct(sourceSchema);
-        sourceStruct.put("db", "testdb");
-        sourceStruct.put("schema", "public");
-        sourceStruct.put("table", "test_table");
+        sourceStruct.put("db", tableId.catalog());
+        sourceStruct.put("schema", tableId.schema());
+        sourceStruct.put("table", tableId.table());
         sourceStruct.put(DEBEZIUM_CONNECTOR_KEY, "postgresql");
 
         Schema valueSchema =
@@ -596,6 +602,50 @@ public class IncrementalSourceStreamFetcherTest {
 
         SourceRecord record = createDataEventWithSource();
         Assertions.assertFalse(fetcher.shouldEmit(record));
+    }
+
+    @Test
+    public void testShouldEmitRestoredTableRecordsWhenOtherTablesAreSnapshotting()
+            throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createPlainFetcher();
+        TableId restoredTable = new TableId("testdb", "public", "restored_table");
+        TableId addedTable = new TableId("testdb", "public", "added_table");
+        Offset checkpointOffset = mock(Offset.class);
+        Offset addedTableHighWatermark = mock(Offset.class);
+        Offset recordOffset = mock(Offset.class);
+        when(recordOffset.isAtOrAfter(checkpointOffset)).thenReturn(true);
+
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-0",
+                        Arrays.asList(restoredTable, addedTable),
+                        checkpointOffset,
+                        null,
+                        Collections.singletonList(
+                                new CompletedSnapshotSplitInfo(
+                                        "added-table-split",
+                                        addedTable,
+                                        null,
+                                        null,
+                                        null,
+                                        new SnapshotSplitWatermark(
+                                                "added-table-split",
+                                                null,
+                                                addedTableHighWatermark))));
+        setField(fetcher, "currentIncrementalSplit", split);
+        java.lang.reflect.Method configureFilter =
+                IncrementalSourceStreamFetcher.class.getDeclaredMethod("configureFilter");
+        configureFilter.setAccessible(true);
+        configureFilter.invoke(fetcher);
+
+        FetchTask.Context taskContext = mock(FetchTask.Context.class);
+        when(taskContext.isDataChangeRecord(any())).thenReturn(true);
+        when(taskContext.isExactlyOnce()).thenReturn(true);
+        when(taskContext.getStreamOffset(any())).thenReturn(recordOffset);
+        setField(fetcher, "taskContext", taskContext);
+
+        SourceRecord record = createDataEventWithSource(restoredTable);
+        Assertions.assertTrue(fetcher.shouldEmit(record));
     }
 
     public static class TestConnectorConfig extends CommonConnectorConfig {
