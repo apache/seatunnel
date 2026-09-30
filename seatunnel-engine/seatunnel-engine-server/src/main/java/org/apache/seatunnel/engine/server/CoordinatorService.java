@@ -132,6 +132,14 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 /** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
+
+    /**
+     * Bounded wait for the per job state lock during cleanup; pairs with the shorter wait used by
+     * {@code CheckpointCoordinator#updateStatus}, which yields the lock after a few milliseconds of
+     * work.
+     */
+    private static final long JOB_STATE_LOCK_TIMEOUT_SECONDS = 30;
+
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
     private final ILogger logger;
@@ -889,8 +897,7 @@ public class CoordinatorService {
 
         JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
         if (currentJobInfo == null) {
-            cleanupPendingJobStateMaps(record);
-            removePendingJobCleanupRecord(jobId, record);
+            finishPendingJobCleanup(jobId, record);
             return;
         }
         if (!isCleanupOwnedByCurrentJob(currentJobInfo, jobId, record)) {
@@ -901,8 +908,7 @@ public class CoordinatorService {
         if (!runningJobInfoIMap.remove(jobId, currentJobInfo)) {
             JobInfo latestJobInfo = runningJobInfoIMap.get(jobId);
             if (latestJobInfo == null) {
-                cleanupPendingJobStateMaps(record);
-                removePendingJobCleanupRecord(jobId, record);
+                finishPendingJobCleanup(jobId, record);
             } else if (!Objects.equals(
                     latestJobInfo.getInitializationTimestamp(),
                     record.getOwnerInitializationTimestamp())) {
@@ -911,8 +917,20 @@ public class CoordinatorService {
             return;
         }
 
-        cleanupPendingJobStateMaps(record);
-        removePendingJobCleanupRecord(jobId, record);
+        finishPendingJobCleanup(jobId, record);
+    }
+
+    /**
+     * Removes the state maps of a pending job cleanup and, only when the cleanup succeeded, the
+     * pending cleanup record itself. When the cleanup is skipped because the job state lock is not
+     * available, the record is kept and rescheduled so the cleanup is retried later.
+     */
+    private void finishPendingJobCleanup(long jobId, JobCleanupRecord record) {
+        if (cleanupPendingJobStateMaps(jobId, record)) {
+            removePendingJobCleanupRecord(jobId, record);
+        } else {
+            schedulePendingJobCleanup(jobId, record);
+        }
     }
 
     private void removePendingJobCleanupRecord(long jobId, JobCleanupRecord record) {
@@ -955,9 +973,65 @@ public class CoordinatorService {
         return jobState instanceof JobStatus && ((JobStatus) jobState).isEndState();
     }
 
-    private void cleanupPendingJobStateMaps(JobCleanupRecord record) {
-        removeKeys(runningJobStateIMap, record.getStateKeys());
+    /**
+     * Cleanup is called only after the owner job has been confirmed terminal, or after the owner
+     * CAS against runningJobInfoIMap has succeeded.
+     *
+     * <p>The job key and the {@code checkpoint_state_*} keys are removed while holding the per job
+     * lock of {@code runningJobStateIMap}, pairing with {@code CheckpointCoordinator#updateStatus}:
+     * both sides do their check-and-write under the same lock, so a late coordinator callback can
+     * never recreate a {@code checkpoint_state_*} key that this cleanup already removed.
+     *
+     * <p>The remaining keys (pipeline/task-group locations and the state timestamps) are not
+     * written under that lock, so they are removed outside of it to keep the critical section
+     * short.
+     *
+     * @return {@code true} when the cleanup finished; {@code false} when it was skipped because the
+     *     job state lock could not be acquired. Callers must keep the pending cleanup record in
+     *     that case so the cleanup is retried later.
+     */
+    private boolean cleanupPendingJobStateMaps(long jobId, JobCleanupRecord record) {
+        if (runningJobStateIMap == null) {
+            return true;
+        }
+        boolean locked = false;
+        try {
+            locked =
+                    runningJobStateIMap.tryLock(
+                            jobId, JOB_STATE_LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Acquire the job state lock of job %s failed: %s",
+                            jobId, ExceptionUtils.getMessage(e)),
+                    e);
+        }
+        if (!locked) {
+            logger.warning(
+                    String.format(
+                            "The job state lock of job %s is not available now, retry the job state cleanup later",
+                            jobId));
+            return false;
+        }
+        Set<Object> lockFreeKeys = new HashSet<>();
+        try {
+            if (record.getStateKeys() != null) {
+                for (Object key : record.getStateKeys()) {
+                    if (key instanceof Long || key instanceof String) {
+                        // The job key and the checkpoint_state_* keys: they are the only keys
+                        // also written under the job lock by the checkpoint coordinator.
+                        runningJobStateIMap.remove(key);
+                    } else {
+                        lockFreeKeys.add(key);
+                    }
+                }
+            }
+        } finally {
+            runningJobStateIMap.unlock(jobId);
+        }
+        removeKeys(runningJobStateIMap, lockFreeKeys);
         removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        return true;
     }
 
     private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
@@ -1175,14 +1249,31 @@ public class CoordinatorService {
         JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
         cleanupTerminalZombieCheckpointIfNecessary(jobId, jobImmutableInformation, finalStatus);
         persistTerminalZombieHistoryIfNecessary(jobId, jobImmutableInformation, finalStatus);
-        cleanupPendingJobStateMaps(createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus));
+        if (!cleanupPendingJobStateMaps(
+                jobId, createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus))) {
+            // Keep the job info so the zombie cleanup runs again on the next master switch
+            // instead of leaving the state keys behind with no owner.
+            logger.warning(
+                    String.format(
+                            "The zombie state cleanup of job %s is skipped because the job state lock is not available now, it will be retried on the next master switch",
+                            jobId));
+            return;
+        }
         runningJobInfoIMap.remove(jobId);
     }
 
     private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
-        removeKeys(runningJobStateIMap, record.getStateKeys());
-        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
-        removePendingJobCleanupRecord(jobId, record);
+        if (cleanupPendingJobStateMaps(jobId, record)) {
+            removePendingJobCleanupRecord(jobId, record);
+        } else {
+            // Keep the record so the leftover state keys of the previous job instance are
+            // removed when the record fires again; the restarted job reuses the same state
+            // keys and overwrites the stale values with its own transitions anyway.
+            logger.warning(
+                    String.format(
+                            "The state cleanup before restore of job %s is skipped because the job state lock is not available now, the leftover state is cleaned later by the pending cleanup record",
+                            jobId));
+        }
         runningJobInfoIMap.remove(jobId);
     }
 
