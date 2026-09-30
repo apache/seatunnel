@@ -34,7 +34,7 @@ own.
 |----------------|---------|----------|---------|-----------------------------------------------------------------------------------------------------------------|
 | host           | String  | Yes      |         | socket server host                                                                                              |
 | port           | Integer | Yes      |         | socket server port                                                                                              |
-| max_retries    | Integer | No       | 3       | The number of retries to send record failed. Set to `-1` to retry indefinitely, or `0` to fail immediately.      |
+| max_retries    | Integer | No       | 3       | The number of retries to send record failed. Must be `>= 0`; set to `0` to fail immediately on the first write error. |
 | common-options |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 :::tip
@@ -97,7 +97,7 @@ No. The sink serializes each SeaTunnel row to JSON via `JsonSerializationSchema`
 
 ### What does `max_retries` control exactly?
 
-`max_retries` is the number of times the writer retries a failed send after the TCP connection is established (connection refused, broken pipe, write timeouts, etc.). Default is `3`. Set it to `-1` to retry indefinitely, or `0` to fail the record immediately on the first write failure.
+`max_retries` is the number of times the writer retries a failed send after the TCP connection is established (connection refused, broken pipe, write timeouts, etc.). Default is `3`. It must be `>= 0` (negative values are rejected during config validation); set it to `0` to fail the record immediately on the first write failure.
 
 ### Can several Socket sink writers run in parallel?
 
