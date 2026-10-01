@@ -74,7 +74,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | file_name_expression             | string  | 否    | "${transactionId}"                         | 描述将在“路径”中创建的文件表达式。仅在custom_filename为true时使用。[提示](#file_name_expression)                                                                |
 | filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示](#filename_time_format)                                                          |
 | file_format_type                 | string  | 否    | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`canal_json`、`debezium_json`、`maxwell_json`。[提示](#file_format_type)                            |
-| field_delimiter                  | string  | 否    | '\001'                                     | 数据行中列之间的分隔符。仅在file_format_type为 text 和 csv 时使用。                                                                              |
+| field_delimiter                  | string  | 否    | '\001' for text and ',' for csv            | 数据行中列之间的分隔符。仅在file_format_type为 text 和 csv 时使用。                                                                              |
 | row_delimiter                    | string  | 否    | "\n"                                       | 文件中行之间的分隔符。仅被 `text`、`csv`、`json` 文件格式需要。                                                                          |
 | have_partition                   | boolean | 否    | false                                      | 是否需要处理分区。                                                                                                                       |
 | partition_by                     | array   | 否    | -                                          | 根据所选字段对数据进行分区。只有在have_partition为true时才使用。                                                                          |
@@ -88,7 +88,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。[提示](#compress_codec)                                                                        |
 | common-options                   | object  | 否    | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。[提示](#common_options)                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format_type为excel时使用。                                                                |
-| sheet_name                       | string  | 否    | Sheet${Random number}                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
+| sheet_name                       | string  | 否    | Sheet0                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。     |
 | schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
