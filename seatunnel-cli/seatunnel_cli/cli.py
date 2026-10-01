@@ -1210,7 +1210,21 @@ class SeaTunnelCLI:
         # Phase 1 result
         phase1 = result["phase1_local"]
         if phase1.startswith("VALID"):
-            self.console.print("  [1] Local validation: [bold green]PASS[/bold green]", style="info")
+            label = "PASS"
+            if "WARNING:" in phase1:
+                self.console.print(
+                    "  [1] Local validation: [bold green]PASS[/bold green] "
+                    "[yellow](with warnings)[/yellow]",
+                    style="info",
+                )
+                for line in phase1.splitlines():
+                    if line.startswith("WARNING:"):
+                        self.console.print(f"      {line}", style="warning")
+            else:
+                self.console.print(
+                    "  [1] Local validation: [bold green]PASS[/bold green]",
+                    style="info",
+                )
         else:
             self.console.print("  [1] Local validation: [bold red]FAIL[/bold red]", style="error")
             self.console.print(f"      {phase1}", style="error")
@@ -1250,7 +1264,26 @@ class SeaTunnelCLI:
             self.console.print("  No config to run. Generate one first.", style="warning")
             return
 
+        from .agents import validate_hocon
         from .connectors import _check_engine, _ENGINE_API_BASE
+
+        # Block execution when credential/env placeholders are unset in this shell.
+        strict = validate_hocon(self.last_config, strict_env=True)
+        if strict.startswith("INVALID") and "Unresolved environment variables" in strict:
+            self.console.print()
+            self.console.print(
+                "[error]Cannot /run: required environment variables are not set "
+                "in the current shell.[/error]"
+            )
+            for line in strict.splitlines():
+                if line.startswith("ERROR:"):
+                    self.console.print(f"  {line}", style="error")
+            self.console.print(
+                "  Export the variables above, then retry /run. "
+                "Use /check to validate structure without requiring exports.",
+                style="info",
+            )
+            return
 
         # ── Security: mandatory confirmation before execution ──
         self.console.print()

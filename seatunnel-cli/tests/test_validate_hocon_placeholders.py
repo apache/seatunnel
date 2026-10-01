@@ -62,22 +62,31 @@ def test_partition_dir_expression_engine_placeholders_accepted():
     ('topic = "${transactionId}"', "transactionId"),
     ('path = "/data/${k0}"', "k0"),
 ])
-def test_engine_placeholder_names_rejected_outside_their_fields(field_line, var):
+def test_engine_placeholder_names_warned_outside_their_fields(field_line, var):
     assert var not in os.environ
     config = _config_with_sink(field_line)
     result = validate_hocon(config)
+    assert result.startswith("VALID")
     assert "Unresolved environment variables" in result
+    assert "WARNING:" in result
     assert var in result
+    strict = validate_hocon(config, strict_env=True)
+    assert strict.startswith("INVALID")
+    assert "ERROR:" in strict
+    assert var in strict
 
 
-def test_unset_env_var_still_rejected_in_expression_fields():
+def test_unset_env_var_still_diagnosed_in_expression_fields():
     # A non-engine placeholder inside file_name_expression is still an env var
     assert "MY_UNSET_PREFIX" not in os.environ
     config = _config_with_sink(
+        'custom_filename = true\n  '
         'file_name_expression = "${MY_UNSET_PREFIX}_${now}"')
     result = validate_hocon(config)
+    assert result.startswith("VALID")
     assert "Unresolved environment variables" in result
     assert "MY_UNSET_PREFIX" in result
+    assert validate_hocon(config, strict_env=True).startswith("INVALID")
 
 
 def test_set_env_var_accepted_anywhere():
@@ -98,11 +107,30 @@ def test_colon_separator_engine_placeholders_accepted():
     assert "Unresolved environment variables" not in result
 
 
-def test_colon_separator_still_rejects_env_vars_elsewhere():
+def test_colon_separator_still_diagnoses_env_vars_elsewhere():
     assert "now" not in os.environ
     config = _config_with_sink('topic: "${now}"')
     result = validate_hocon(config)
+    assert result.startswith("VALID")
     assert "Unresolved environment variables" in result
+    assert validate_hocon(config, strict_env=True).startswith("INVALID")
+
+
+def test_credential_placeholders_are_warnings_by_default():
+    assert "MYSQL_USER" not in os.environ
+    assert "MYSQL_PASSWORD" not in os.environ
+    config = _config_with_sink(
+        'user = "${MYSQL_USER}"\n  password = "${MYSQL_PASSWORD}"'
+    )
+    result = validate_hocon(config)
+    assert result.startswith("VALID (with warnings)")
+    assert "MYSQL_USER" in result
+    assert "MYSQL_PASSWORD" in result
+    assert not result.startswith("INVALID")
+
+    strict = validate_hocon(config, strict_env=True)
+    assert strict.startswith("INVALID")
+    assert "ERROR:" in strict
 
 
 # ── transform-mediated routing (regression for transform blocks being ──
