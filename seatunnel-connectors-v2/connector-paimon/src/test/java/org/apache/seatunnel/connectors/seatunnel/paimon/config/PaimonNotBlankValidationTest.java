@@ -36,8 +36,6 @@ import java.util.Map;
  */
 class PaimonNotBlankValidationTest {
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-
     private static void validateSink(Map<String, Object> cfg) {
         ConfigValidator.of(ReadonlyConfig.fromMap(cfg))
                 .validate(new PaimonSinkFactory().optionRule());
@@ -68,41 +66,49 @@ class PaimonNotBlankValidationTest {
         return m;
     }
 
-    // ── notBlank tests ────────────────────────────────────────────────────────
-
-    // ── Sink: warehouse ──────────────────────────────────────────────────────
-
     @Test
-    void notBlank_sinkValidConfig() {
+    void notBlankSinkValidConfig() {
         Assertions.assertDoesNotThrow(
                 () -> validateSink(validSink()),
                 "Valid sink config must pass after notBlank change");
     }
 
     @Test
-    void notBlank_sinkMissingWarehouse() {
+    void notBlankSinkMissingWarehouse() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonSinkOptions.DATABASE.key(), "db");
         cfg.put(PaimonSinkOptions.TABLE.key(), "t");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkEmptyWarehouse() {
+    void notBlankSinkEmptyWarehouse() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.WAREHOUSE.key(), "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkWhitespaceWarehouse() {
+    void notBlankSinkWhitespaceWarehouse() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.WAREHOUSE.key(), "   ");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkPaddedWarehousePasses() {
+    void notBlankSinkPaddedWarehousePasses() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.WAREHOUSE.key(), " file:///tmp/paimon ");
         Assertions.assertDoesNotThrow(
@@ -110,96 +116,116 @@ class PaimonNotBlankValidationTest {
                 "Padded warehouse (' file:///tmp/paimon ') must pass — notBlank trims internally");
     }
 
-    // ── Sink: database ───────────────────────────────────────────────────────
-
     @Test
-    void notBlank_sinkEmptyDatabase() {
+    void notBlankSinkEmptyDatabase() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.DATABASE.key(), "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("database"),
+                "Expected failure to mention 'database', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkWhitespaceDatabase() {
+    void notBlankSinkWhitespaceDatabase() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.DATABASE.key(), "  \t  ");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("database"),
+                "Expected failure to mention 'database', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkPaddedDatabasePasses() {
+    void notBlankSinkPaddedDatabasePasses() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.DATABASE.key(), " db ");
         Assertions.assertDoesNotThrow(
                 () -> validateSink(cfg), "Padded database ' db ' must pass notBlank");
     }
 
-    // ── Sink: table ──────────────────────────────────────────────────────────
-
     @Test
-    void notBlank_sinkEmptyTable() {
+    void notBlankSinkEmptyTable() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.TABLE.key(), "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("table"),
+                "Expected failure to mention 'table', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkWhitespaceTable() {
+    void notBlankSinkWhitespaceTable() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.TABLE.key(), "   ");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("table"),
+                "Expected failure to mention 'table', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sinkPaddedTablePasses() {
+    void notBlankSinkPaddedTablePasses() {
         Map<String, Object> cfg = validSink();
         cfg.put(PaimonSinkOptions.TABLE.key(), " t ");
         Assertions.assertDoesNotThrow(
                 () -> validateSink(cfg), "Padded table ' t ' must pass notBlank");
     }
 
-    // ── Source: warehouse ─────────────────────────────────────────────────────
-
     @Test
-    void notBlank_sourceValidConfig() {
+    void notBlankSourceValidConfig() {
         Assertions.assertDoesNotThrow(
                 () -> validateSource(validSource()),
                 "Valid source config must pass after notBlank change");
     }
 
     @Test
-    void notBlank_sourceMissingWarehouse() {
+    void notBlankSourceMissingWarehouse() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonBaseOptions.TABLE.key(), "t");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sourceEmptyWarehouse() {
+    void notBlankSourceEmptyWarehouse() {
         Map<String, Object> cfg = validSource();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sourceWhitespaceWarehouse() {
+    void notBlankSourceWhitespaceWarehouse() {
         Map<String, Object> cfg = validSource();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "   ");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateSource(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_sourcePaddedWarehousePasses() {
+    void notBlankSourcePaddedWarehousePasses() {
         Map<String, Object> cfg = validSource();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), " file:///tmp/paimon ");
         Assertions.assertDoesNotThrow(
                 () -> validateSource(cfg), "Padded source warehouse must pass notBlank");
     }
 
-    // ── Catalog: warehouse, database, table ───────────────────────────────────
-
     @Test
-    void notBlank_catalogValidConfig() {
+    void notBlankCatalogValidConfig() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "file:///tmp/paimon");
         cfg.put(PaimonBaseOptions.DATABASE.key(), "db");
@@ -209,29 +235,41 @@ class PaimonNotBlankValidationTest {
     }
 
     @Test
-    void notBlank_catalogEmptyWarehouse() {
+    void notBlankCatalogEmptyWarehouse() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "");
         cfg.put(PaimonBaseOptions.DATABASE.key(), "db");
         cfg.put(PaimonBaseOptions.TABLE.key(), "t");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("warehouse"),
+                "Expected failure to mention 'warehouse', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_catalogWhitespaceDatabase() {
+    void notBlankCatalogWhitespaceDatabase() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "file:///tmp/paimon");
         cfg.put(PaimonBaseOptions.DATABASE.key(), "  ");
         cfg.put(PaimonBaseOptions.TABLE.key(), "t");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("database"),
+                "Expected failure to mention 'database', got: " + ex.getMessage());
     }
 
     @Test
-    void notBlank_catalogEmptyTable() {
+    void notBlankCatalogEmptyTable() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(PaimonBaseOptions.WAREHOUSE.key(), "file:///tmp/paimon");
         cfg.put(PaimonBaseOptions.DATABASE.key(), "db");
         cfg.put(PaimonBaseOptions.TABLE.key(), "");
-        Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+        Assertions.assertTrue(
+                ex.getMessage().contains("table"),
+                "Expected failure to mention 'table', got: " + ex.getMessage());
     }
 }
