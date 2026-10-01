@@ -241,7 +241,8 @@ class PaimonNotBlankValidationTest {
         cfg.put(PaimonBaseOptions.DATABASE.key(), "db");
         cfg.put(PaimonBaseOptions.TABLE.key(), "t");
         OptionValidationException ex =
-                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateCatalog(cfg));
         Assertions.assertTrue(
                 ex.getMessage().contains("warehouse"),
                 "Expected failure to mention 'warehouse', got: " + ex.getMessage());
@@ -254,7 +255,8 @@ class PaimonNotBlankValidationTest {
         cfg.put(PaimonBaseOptions.DATABASE.key(), "  ");
         cfg.put(PaimonBaseOptions.TABLE.key(), "t");
         OptionValidationException ex =
-                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateCatalog(cfg));
         Assertions.assertTrue(
                 ex.getMessage().contains("database"),
                 "Expected failure to mention 'database', got: " + ex.getMessage());
@@ -267,7 +269,8 @@ class PaimonNotBlankValidationTest {
         cfg.put(PaimonBaseOptions.DATABASE.key(), "db");
         cfg.put(PaimonBaseOptions.TABLE.key(), "");
         OptionValidationException ex =
-                Assertions.assertThrows(OptionValidationException.class, () -> validateCatalog(cfg));
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateCatalog(cfg));
         Assertions.assertTrue(
                 ex.getMessage().contains("table"),
                 "Expected failure to mention 'table', got: " + ex.getMessage());
