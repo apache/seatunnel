@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### DuckDB timestamp source values
+
+DuckDB `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` table columns now map to SeaTunnel `TIMESTAMP` instead of falling back to `STRING`. DuckDB timestamp reads preserve the stored local date and time rather than shifting it through a UTC calendar. Review downstream schemas and remove any time-zone compensation previously applied to these values. If a downstream field must remain a string, cast the timestamp to `VARCHAR` in the source query.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**

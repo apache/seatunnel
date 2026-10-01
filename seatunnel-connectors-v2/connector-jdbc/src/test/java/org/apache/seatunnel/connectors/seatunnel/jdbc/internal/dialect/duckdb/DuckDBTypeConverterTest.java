@@ -525,4 +525,14 @@ public class DuckDBTypeConverterTest {
         }
         return DuckDBTypeConverter.INSTANCE.convert(builder.build());
     }
+
+    @Test
+    void testConvertTimestampAliases() {
+        for (String nativeType : new String[] {"TIMESTAMP_S", "TIMESTAMP_MS", "TIMESTAMP_NS"}) {
+            Column column = convert("f_" + nativeType.toLowerCase(), nativeType);
+            Assertions.assertEquals(
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType(), nativeType);
+            Assertions.assertEquals(nativeType, column.getSourceType(), nativeType);
+        }
+    }
 }

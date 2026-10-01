@@ -50,6 +50,8 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
+`TIMESTAMP`, `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` are read as `TIMESTAMP` values with their stored local date and time, independent of the JVM default time zone. Source reads retain the fractional precision exposed by the JDBC driver.
+
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
