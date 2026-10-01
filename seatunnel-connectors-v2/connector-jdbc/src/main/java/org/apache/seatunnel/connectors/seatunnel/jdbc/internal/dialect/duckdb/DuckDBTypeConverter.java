@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 @Slf4j
 @AutoService(TypeConverter.class)
 public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -98,7 +100,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
-        String duckDBType = typeDefine.getDataType().toUpperCase();
+        String duckDBType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         Long length = typeDefine.getLength();
         long lengthValue = length == null ? 0L : length;
         switch (duckDBType) {
