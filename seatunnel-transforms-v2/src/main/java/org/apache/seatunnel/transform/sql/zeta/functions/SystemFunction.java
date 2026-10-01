@@ -105,6 +105,40 @@ public class SystemFunction {
         return castAs(args);
     }
 
+    /**
+     * Narrows a numeric value to {@code INT}, rejecting values the type cannot represent.
+     *
+     * <p>{@code Number.intValue()} keeps only the low-order 32 bits, so a value outside the range
+     * silently changed, and could change sign: {@code 3000000000} arrived as {@code -1294967296}
+     * and {@code Integer.MIN_VALUE - 1} as {@code Integer.MAX_VALUE}. The string path already
+     * reported the overflow through {@code Integer.parseInt}, so the same expression either failed
+     * or corrupted the value depending only on the source type. Failing here is also what makes
+     * {@code TRY_CAST} usable, since it turns the failure into a null.
+     *
+     * <p>{@code TINYINT}, {@code SMALLINT} and {@code BYTE} need no equivalent: they convert with
+     * {@code Byte.parseByte} and {@code Short.parseShort}, which already reject an out-of-range
+     * value.
+     *
+     * @param value the numeric value being cast
+     * @param targetType the SQL type name, used in the error message
+     * @return the value as an int, guaranteed not to have wrapped
+     */
+    private static int numberToInt(Number value, String targetType) {
+        long widened = value.longValue();
+        if (widened < Integer.MIN_VALUE || widened > Integer.MAX_VALUE) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "CAST of %s to %s is out of range, %s accepts %d to %d",
+                            value,
+                            targetType,
+                            targetType,
+                            (long) Integer.MIN_VALUE,
+                            (long) Integer.MAX_VALUE));
+        }
+        return (int) widened;
+    }
+
     public static Object castAs(List<Object> args) {
         Object v1 = args.get(0);
         String v2 = (String) args.get(1);
@@ -124,7 +158,7 @@ public class SystemFunction {
                 if (v1 instanceof String) {
                     return Integer.parseInt(v1.toString());
                 } else if (v1 instanceof Number) {
-                    return ((Number) v1).intValue();
+                    return numberToInt((Number) v1, v2);
                 } else {
                     throw new TransformException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

@@ -1120,6 +1120,16 @@ Converts a value to a BOOLEAN data type according to the following rules:
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
+NOTE:
+Casting to an integral type rejects a value the target type cannot represent. Use `TRY_CAST` to get
+`NULL` instead of an error for those values.
+
+`TINYINT`, `SMALLINT` and `BYTE` already behaved this way. `INT` | `INTEGER` did not when the source
+was numeric: the value was truncated to its low-order 32 bits, so `CAST(bigint_col AS INT)` on
+`3000000000` returned `-1294967296`, and a value just below `Integer.MIN_VALUE` came back as
+`2147483647`. A string source already reported the overflow, so the same expression failed or
+corrupted the value depending only on the source column type. Both now fail.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

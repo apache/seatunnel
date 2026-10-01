@@ -4,6 +4,26 @@
 
 ## dev
 
+### Zeta SQL Transform：数值来源转换为 INT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `INT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：将数值转换为 `INT` | `INTEGER` 时会经由 `Number.intValue()`，它只保留低 32 位，
+    因此 `CAST(bigint_col AS INT)` 对 `3000000000` 返回 `-1294967296`，略小于 `Integer.MIN_VALUE`
+    的值会变成 `2147483647`，符号发生翻转。而字符串来源已经经由 `Integer.parseInt` 报告溢出，
+    所以同一个表达式究竟是失败还是损坏数据，仅取决于来源列的类型。现在数值路径也会报告该情况。
+    `TINYINT`、`SMALLINT` 与 `BYTE` 不受影响，因为它们使用 `Byte.parseByte` 与 `Short.parseShort`
+    转换，本来就会拒绝超出范围的值。规划阶段的接受范围保持不变：每个目标类型允许的来源类型与此前完全一致。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、扩宽转换和同类型转换均不受影响。本次变更不涉及 `FLOAT` 与 `DOUBLE`，它们对无法表示的值
+    仍返回 `Infinity`。
+  - **同样影响 `COALESCE` 与 `IFNULL`**：它们会走到同一个转换边界，且其结果类型是按第一个非空参数推断的，
+    而不是按最宽的类型推断。因此 `COALESCE(int_col, bigint_col)` 的目标类型是 `INT`，取自 `BIGINT`
+    参数的超范围值此前同样会被静默截断，现在也会失败。`CASE` 表达式不受影响，因为它的类型按最宽的分支推断，
+    不会发生收窄。
+  - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
+    扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
