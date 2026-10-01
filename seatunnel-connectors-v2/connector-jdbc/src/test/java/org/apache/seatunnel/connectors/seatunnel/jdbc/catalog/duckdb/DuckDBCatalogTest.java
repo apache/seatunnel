@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -277,5 +279,36 @@ public class DuckDBCatalogTest {
 
     private String quoteTable(String tableName) {
         return String.format("\"%s\".\"%s\"", SCHEMA_NAME, tableName);
+    }
+
+    @Test
+    public void testBitAndLongEnumLabelBecomeLongText() throws Exception {
+        String label = String.join("", Collections.nCopies(400, "m"));
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("CREATE TABLE text_lengths (bits BIT, en ENUM('" + label + "'))");
+            statement.execute(
+                    "INSERT INTO text_lengths VALUES ('10110'::BIT, '"
+                            + label
+                            + "'), (NULL, NULL)");
+        }
+
+        CatalogTable table = catalog.getTable(getMainTablePath("text_lengths"));
+        Assertions.assertEquals(2, table.getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, table.getTableSchema().getColumns().get(0).getDataType());
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, table.getTableSchema().getColumns().get(1).getDataType());
+        Assertions.assertEquals(0L, table.getTableSchema().getColumns().get(0).getColumnLength());
+        Assertions.assertEquals(0L, table.getTableSchema().getColumns().get(1).getColumnLength());
+
+        String actualMySQLDDL =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of("test", "downstream_t"),
+                                table,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build("mysql");
+        Assertions.assertTrue(actualMySQLDDL.contains("`bits` LONGTEXT"), actualMySQLDDL);
+        Assertions.assertTrue(actualMySQLDDL.contains("`en` LONGTEXT"), actualMySQLDDL);
     }
 }

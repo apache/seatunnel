@@ -50,6 +50,8 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
+DuckDB `BIT` and `ENUM` values map to `STRING`. When the catalog reports no length, SeaTunnel leaves the length unspecified; it no longer assumes a one-character BIT or a 255-character ENUM. For example, MySQL automatic DDL uses `LONGTEXT` for these columns. Existing destination tables are not resized automatically.
+
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
