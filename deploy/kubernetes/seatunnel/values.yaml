@@ -55,8 +55,12 @@ master:
   ## You can use annotations to attach arbitrary non-identifying metadata to objects.
   ## Clients such as tools and libraries can retrieve this metadata.
   annotations:
-    prometheus.io/path: /hazelcast/rest/instance/metrics
-    prometheus.io/port: "5801"
+    ## Zeta REST API v1 on the Hazelcast member port (5801) is disabled by default
+    ## (see conf/hazelcast-master.yaml), so scrape metrics from the REST API v2 /
+    ## Jetty listener (8080) instead. The /metrics and /openmetrics paths there return
+    ## the same Prometheus samples. See docs/en/engines/zeta/telemetry.md.
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
     prometheus.io/scrape: "true"
     prometheus.io/role: "seatunnel-master"
   ## Affinity is a group of affinity scheduling rules. If specified, the pod's scheduling constraints.
@@ -115,8 +119,12 @@ worker:
   ## Clients such as tools and libraries can retrieve this metadata.
   ## Add enable prometheus scrape for metrics collection.
   annotations:
-    prometheus.io/path: /hazelcast/rest/instance/metrics
-    prometheus.io/port: "5801"
+    ## Zeta REST API v1 on the Hazelcast member port (5801) is disabled by default
+    ## (see conf/hazelcast-worker.yaml), so scrape metrics from the REST API v2 /
+    ## Jetty listener (8080) instead. The /metrics and /openmetrics paths there return
+    ## the same Prometheus samples. See docs/en/engines/zeta/telemetry.md.
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
     prometheus.io/scrape: "true"
     prometheus.io/role: "seatunnel-worker"
   ## Affinity is a group of affinity scheduling rules. If specified, the pod's scheduling constraints.
