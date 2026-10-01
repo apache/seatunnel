@@ -34,6 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /** Basic authentication filter for the web UI. */
 @Slf4j
@@ -83,9 +84,16 @@ public class BasicAuthFilter implements Filter {
                 String username = values[0];
                 String password = values[1];
 
-                // Check if the username and password match the configured values
-                if (username.equals(httpConfig.getBasicAuthUsername())
-                        && password.equals(httpConfig.getBasicAuthPassword())) {
+                // Both comparisons are evaluated before the branch, on purpose. String.equals
+                // returns at the first differing character, and && skips the password
+                // comparison entirely when the username is wrong, so response time separates a
+                // wrong username from a correct username with a wrong password, and grows with
+                // the number of leading characters guessed correctly (CWE-208).
+                boolean usernameMatches =
+                        credentialMatches(username, httpConfig.getBasicAuthUsername());
+                boolean passwordMatches =
+                        credentialMatches(password, httpConfig.getBasicAuthPassword());
+                if (usernameMatches && passwordMatches) {
                     // Authentication successful, proceed with the request
                     chain.doFilter(request, response);
                     return;
@@ -96,6 +104,28 @@ public class BasicAuthFilter implements Filter {
         // Authentication failed, send 401 Unauthorized response
         httpResponse.setHeader(WWW_AUTHENTICATE_HEADER, BASIC_REALM);
         httpResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+    }
+
+    /**
+     * Compares a credential taken from the request against the configured one without leaking,
+     * through timing, how many leading bytes matched.
+     *
+     * <p>MessageDigest.isEqual accumulates the difference over every byte instead of returning at
+     * the first mismatch. It reads exactly as many bytes as its first argument holds, so the
+     * request's own value is passed first: the loop length is then something the caller already
+     * knows, and the length of the configured credential is not revealed.
+     *
+     * @param provided the value supplied by the request, never null at the call sites below
+     * @param expected the configured value, which is null when the credential is not set
+     * @return true only when the credential is configured and the two values are equal
+     */
+    private static boolean credentialMatches(String provided, String expected) {
+        if (expected == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                provided.getBytes(StandardCharsets.UTF_8),
+                expected.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override

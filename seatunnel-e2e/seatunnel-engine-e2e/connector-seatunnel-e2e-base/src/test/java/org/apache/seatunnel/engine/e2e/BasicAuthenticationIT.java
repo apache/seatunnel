@@ -110,6 +110,41 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                 .statusCode(401);
     }
 
+    /**
+     * Test that a correct username paired with a wrong password returns 401 Unauthorized. The
+     * existing incorrect-credentials case gets both halves wrong, so it cannot tell whether the
+     * password is checked at all once the username fails to match.
+     */
+    @Test
+    public void testAccessWithCorrectUsernameAndWrongPassword() {
+        String credentials = USERNAME + COLON + "wrongpassword";
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
+                .then()
+                .statusCode(401);
+    }
+
+    /**
+     * Test that credentials which are a proper prefix of the configured ones return 401
+     * Unauthorized. A prefix is the shape a credential-guessing probe walks through one character
+     * at a time, so it is worth pinning that the matching leading characters buy nothing.
+     */
+    @Test
+    public void testAccessWithPrefixOfCorrectCredentials() {
+        String credentials =
+                USERNAME.substring(0, USERNAME.length() - 1)
+                        + COLON
+                        + PASSWORD.substring(0, PASSWORD.length() - 1);
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(HTTP + server.getHost() + COLON + server.getMappedPort(8080) + "/")
+                .then()
+                .statusCode(401);
+    }
+
     /** Test that accessing the web UI with correct credentials returns 200 OK. */
     @Test
     public void testAccessWithCorrectCredentials() {
