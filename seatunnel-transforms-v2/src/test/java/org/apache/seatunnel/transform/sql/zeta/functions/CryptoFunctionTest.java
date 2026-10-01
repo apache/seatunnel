@@ -400,6 +400,11 @@ public class CryptoFunctionTest {
                         SeaTunnelRuntimeException.class,
                         () -> CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, bytes)));
         assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+        // Pins the iv guard in resolveIv: without it a byte[] iv would be stringified to "[B@..."
+        // and rejected only for the wrong length, with a message that omits this phrase.
+        Assertions.assertTrue(
+                e.getMessage().contains("unsupported input type"),
+                "byte[] iv must be rejected by the non-scalar guard");
     }
 
     @Test
@@ -412,6 +417,11 @@ public class CryptoFunctionTest {
                         SeaTunnelRuntimeException.class,
                         () -> CryptoFunction.aesDecrypt(args(validBase64, PASSPHRASE, bytes)));
         assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+        // Pins the iv guard in resolveIv: without it a byte[] iv would be stringified to "[B@..."
+        // and rejected only for the wrong length, with a message that omits this phrase.
+        Assertions.assertTrue(
+                e.getMessage().contains("unsupported input type"),
+                "byte[] iv must be rejected by the non-scalar guard");
     }
 
     @Test
