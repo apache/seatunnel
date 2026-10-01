@@ -57,6 +57,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | file_format_type           | string  | 是    | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
 | fs.defaultFS               | string  | 是    | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                            |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                                           |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | hdfs_site_path             | string  | 否    | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                       |
 | delimiter/field_delimiter  | string  | 否    | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段。默认 `\001`，与 hive 的默认分隔符相同                                                                                                                            |
 | row_delimiter              | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何分割行。默认 `\n`。                                                                                                                                               |
@@ -79,7 +80,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | file_filter_pattern        | string  | 否    |                     | 过滤模式，用于过滤文件。                                                                                                                                                                     |
 | filename_extension         | string  | 否    | -                   | 过滤文件扩展名，用于过滤具有特定扩展名的文件。示例：`csv` `.txt` `json` `.xml`。                                                                                                                            |
 | compress_codec             | string  | 否    | none                | 文件的压缩编解码器                                                                                                                                                                        |
-| archive_compress_codec     | string  | 否    | none                |                                                                                                                                                                                  |
+| archive_compress_codec     | string  | 否    | none                | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding                   | string  | 否    | UTF-8               |                                                                                                                                                                                  |
 | null_format                | string  | 否    | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                             |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                       |
@@ -505,84 +506,6 @@ sink {
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
   # 请访问 https://seatunnel.apache.org/docs/connectors/sink
-}
-```
-
-### 增量同步（sync_mode=update，仅 binary）
-
-`sync_mode=update` 会对比 source 与 `target_path`，仅读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
-多数情况下，`target_path` 需要与 sink 的 `path` 对齐（同一文件系统、相同相对路径）。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/update/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/update/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/update/dst/"
-    tmp_path = "/seatunnel/update/tmp/"
-    file_format_type = "binary"
-  }
-}
-```
-
-### 持续发现（discovery_mode=continuous）
-
-`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
-
-**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/watch/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    discovery_mode = "continuous"
-    scan_interval = "10S"
-    start_mode = "latest"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/watch/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-
-    post_sync_action = "backup"
-    backup_path = "/seatunnel/watch/backup/"
-    retention_max_age = "7D"
-    retention_check_interval = "1H"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/watch/dst/"
-    tmp_path = "/seatunnel/watch/tmp/"
-    file_format_type = "binary"
-  }
 }
 ```
 
