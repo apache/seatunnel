@@ -109,7 +109,7 @@ transform {
 
 |      name       | type | required | default value | description       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
-| metadata_fields | map  |    no     |   empty map   | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name` |
+| metadata_fields | map  |    yes    |       -       | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name`. Must contain at least one entry. |
 
 ### metadata_fields [map]
 
