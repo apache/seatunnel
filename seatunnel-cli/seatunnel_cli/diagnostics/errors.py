@@ -40,8 +40,13 @@ from dataclasses import dataclass, field
 # The description itself may contain bracketed text (paths, SQL), so allow one
 # level of nesting before closing. Deeper nesting falls back to the shortest
 # match, which still yields a usable prefix.
+#
+# The namespace accepts mixed case on purpose: the prefix is whatever each
+# connector hardcoded, and 13 of the 69 namespaces in the tree are PascalCase
+# rather than SCREAMING_CASE (Doris, Hbase, GraphQL, AmazonSqs, SelectDB,
+# TDengine, ...), so an upper-case-only class silently drops them.
 _ERROR_CODE_RE = re.compile(
-    r"ErrorCode:\[(?P<ns>[A-Z][A-Z0-9_]*)-(?P<num>\d+)\],\s*"
+    r"ErrorCode:\[(?P<ns>[A-Za-z][A-Za-z0-9_]*)-(?P<num>\d+)\],\s*"
     r"ErrorDescription:\[(?P<desc>(?:[^\[\]]|\[[^\[\]]*\])*)\]"
 )
 
@@ -219,8 +224,12 @@ def _short_class(name: str) -> str:
 def _signature(code: str | None, exception: str | None, text: str) -> str:
     """Stable dedupe key: identity of the failure without its variable parts."""
     if code:
-        base = code
-    elif exception:
+        # An error code is already stable by construction, and its digits are
+        # exactly what tells one failure from another, so it must not go
+        # through _VOLATILE_RE -- that would turn JDBC-05 and JDBC-12 into the
+        # same "JDBC-?" key.
+        return code[:120]
+    if exception:
         base = _short_class(exception)
     else:
         base = next((line.strip() for line in text.splitlines() if line.strip()),
@@ -230,7 +239,10 @@ def _signature(code: str | None, exception: str | None, text: str) -> str:
 
 def parse_error(text: str | None) -> ParsedError:
     """Extract error code, root cause, and a category from a raw failure."""
-    if not text or not text.strip():
+    # Anything that is not a string is treated as no input rather than raised
+    # on: this runs while the CLI is already reporting a failure, and a parser
+    # that throws there would replace the user's real error with its own.
+    if not isinstance(text, str) or not text.strip():
         return ParsedError(signature="empty")
 
     codes: list[str] = []

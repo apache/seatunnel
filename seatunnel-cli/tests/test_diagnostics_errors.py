@@ -87,6 +87,40 @@ def test_infrastructure_namespace_maps_to_config_not_connector():
     assert parsed.hint and "option rule" in parsed.hint
 
 
+def test_mixed_case_namespace_is_recognized():
+    # Most namespaces are SCREAMING_CASE, but 13 of the 69 in the tree are
+    # PascalCase. Both spellings are equally real, so both must parse. Codes
+    # and descriptions below are verbatim from DorisErrorCode/GraphQLErrorCode.
+    for text, code, namespace, description in (
+        (
+            "ErrorCode:[Doris-06], ErrorDescription:[backend client error]",
+            "Doris-06",
+            "Doris",
+            "backend client error",
+        ),
+        (
+            "ErrorCode:[GraphQL-01], "
+            "ErrorDescription:[The operation of GraphQL is error]",
+            "GraphQL-01",
+            "GraphQL",
+            "The operation of GraphQL is error",
+        ),
+        (
+            "ErrorCode:[JDBC-02], ErrorDescription:[No suitable driver found]",
+            "JDBC-02",
+            "JDBC",
+            "No suitable driver found",
+        ),
+    ):
+        parsed = parse_error(text)
+        assert parsed.code == code
+        assert parsed.namespace == namespace
+        assert parsed.description == description
+        # None of these are infrastructure namespaces, so each names itself.
+        assert parsed.component == namespace
+        assert parsed.category == "connector"
+
+
 def test_description_may_contain_brackets():
     parsed = parse_error(NESTED_BRACKET_TRACE)
     assert parsed.code == "COMMON-22"
@@ -107,6 +141,17 @@ def test_blank_input_is_safe():
         assert parsed.signature == "empty"
 
 
+def test_non_string_input_does_not_raise():
+    # This parser runs while the CLI is already reporting a failure. Throwing
+    # there would hide the user's real error behind a parser bug, so anything
+    # that is not text degrades to "unknown" instead.
+    for value in (123, b"ErrorCode:[JDBC-02]", ["trace"], {"errorMsg": "x"}):
+        parsed = parse_error(value)
+        assert parsed.category == "unknown"
+        assert parsed.signature == "empty"
+        assert parsed.code is None
+
+
 def test_signature_collapses_volatile_detail():
     first = parse_error(
         "Caused by: java.sql.SQLException: Access denied for user 'a'@'10.0.0.4'"
@@ -117,6 +162,20 @@ def test_signature_collapses_volatile_detail():
     assert first.signature == second.signature
     # A different failure must not collapse into the same key.
     assert parse_error(MISSING_DRIVER_TRACE).signature != first.signature
+
+
+def test_signature_keeps_the_error_code_number():
+    # The digits in a code are what distinguish one failure from another, so
+    # two codes in the same namespace must not share a dedupe key.
+    driver = parse_error(
+        "ErrorCode:[JDBC-02], ErrorDescription:[No suitable driver found]"
+    )
+    transaction = parse_error(
+        "ErrorCode:[JDBC-05], ErrorDescription:[transaction operation failed]"
+    )
+    assert driver.signature == "JDBC-02"
+    assert transaction.signature == "JDBC-05"
+    assert driver.signature != transaction.signature
 
 
 def test_all_codes_are_retained_in_order():
