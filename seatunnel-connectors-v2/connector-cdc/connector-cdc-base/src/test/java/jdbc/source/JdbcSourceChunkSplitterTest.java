@@ -98,6 +98,48 @@ class JdbcSourceChunkSplitterTest {
         Assertions.assertEquals("bigint", splitColumn.typeName());
     }
 
+    @Test
+    void splitColumnSkipsNullableUniqueKey() throws SQLException {
+        TestSourceDialectWithNullableUniqueKey dialect =
+                new TestSourceDialectWithNullableUniqueKey();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, dialect);
+
+        // NULLs in a unique key never match a chunk range, so no split column is safe here and
+        // the table falls back to a single full-scan split.
+        Assertions.assertNull(
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", "")));
+    }
+
+    @Test
+    void splitColumnPrefersNotNullUniqueKeyOverNullableOne() throws SQLException {
+        TestSourceDialectWithNullableAndNotNullUniqueKeys dialect =
+                new TestSourceDialectWithNullableAndNotNullUniqueKeys();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, dialect);
+
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", ""));
+
+        Assertions.assertEquals("int", splitColumn.name());
+    }
+
+    @Test
+    void splitColumnIgnoresConfiguredNullableColumn() throws SQLException {
+        JdbcSourceConfig sourceConfig = mock(JdbcSourceConfig.class);
+        when(sourceConfig.getSplitColumn())
+                .thenReturn(Collections.singletonMap(".", "nullable_int"));
+        TestSourceDialectWithNullableAndNotNullUniqueKeys dialect =
+                new TestSourceDialectWithNullableAndNotNullUniqueKeys();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(sourceConfig, dialect);
+
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", ""));
+
+        Assertions.assertEquals("int", splitColumn.name());
+    }
+
     private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
         public TestJdbcSourceChunkSplitter(
@@ -223,31 +265,43 @@ class JdbcSourceChunkSplitterTest {
                                             .name("string_col")
                                             .jdbcType(Types.VARCHAR)
                                             .type("varchar")
+                                            .optional(false)
                                             .create(),
                                     Column.editor()
                                             .name("smallint")
                                             .jdbcType(Types.SMALLINT)
                                             .type("smallint")
+                                            .optional(false)
                                             .create(),
                                     Column.editor()
                                             .name("int")
                                             .jdbcType(Types.INTEGER)
                                             .type("int")
+                                            .optional(false)
                                             .create(),
                                     Column.editor()
                                             .name("decimal")
                                             .jdbcType(Types.DECIMAL)
                                             .type("decimal")
+                                            .optional(false)
                                             .create(),
                                     Column.editor()
                                             .name("tinyint_col")
                                             .jdbcType(Types.TINYINT)
                                             .type("tinyint")
+                                            .optional(false)
                                             .create(),
                                     Column.editor()
                                             .name("bigint_col")
                                             .jdbcType(Types.BIGINT)
                                             .type("bigint")
+                                            .optional(false)
+                                            .create(),
+                                    Column.editor()
+                                            .name("nullable_int")
+                                            .jdbcType(Types.INTEGER)
+                                            .type("int")
+                                            .optional(true)
                                             .create())
                             .create();
             return new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
@@ -283,6 +337,13 @@ class JdbcSourceChunkSplitterTest {
         public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
                 throws SQLException {
             return new ArrayList<ConstraintKey>();
+        }
+
+        @Override
+        public boolean isColumnNullable(
+                JdbcConnection jdbcConnection, TableId tableId, Column column) {
+            // no database here, the fixture columns carry the nullability
+            return column.isOptional();
         }
     }
 
@@ -344,6 +405,46 @@ class JdbcSourceChunkSplitterTest {
                                     ConstraintKey.ConstraintKeyColumn.of(
                                             "smallint", ConstraintKey.ColumnSortType.ASC))));
 
+            return keys;
+        }
+    }
+
+    private class TestSourceDialectWithNullableUniqueKey extends TestSourceDialect {
+
+        @Override
+        public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Collections.singletonList(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_nullable",
+                            Collections.singletonList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "nullable_int", ConstraintKey.ColumnSortType.ASC))));
+        }
+    }
+
+    private class TestSourceDialectWithNullableAndNotNullUniqueKeys
+            extends TestSourceDialectWithNullableUniqueKey {
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            List<ConstraintKey> keys =
+                    new ArrayList<>(super.getUniqueKeys(jdbcConnection, tableId));
+            keys.add(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_not_null",
+                            Collections.singletonList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "int", ConstraintKey.ColumnSortType.ASC))));
             return keys;
         }
     }
