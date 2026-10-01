@@ -25,7 +25,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -87,7 +89,7 @@ public class ConfigValueUtils {
                                         + "If you intended to pass a Map/List, please check the syntax. "
                                         + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
                                 value),
-                        e.getCause());
+                        e);
             }
         }
 
@@ -184,67 +186,48 @@ public class ConfigValueUtils {
 
     /**
      * Checks if the value is a balanced structured string (e.g., JSON/HOCON). Returns false if
-     * brackets are unbalanced, empty, or not starting with '{' or '['. Characters inside quotes are
-     * ignored for bracket counting.
+     * brackets are unbalanced, empty, or unpaired '{' or '['. Characters inside quotes are ignored
+     * for bracket counting.
      *
      * @param value user input string value
-     * @return {@code true} if the value is a balanced structured string
+     * @return {@code true} if the value is a structured string
      */
-    public static boolean isStructured(String value) {
-        if (value == null || value.isEmpty()) {
+    private static boolean isStructured(String value) {
+        if (value.length() < 2) return false;
+
+        char first = value.charAt(0);
+        char last = value.charAt(value.length() - 1);
+        if (!((first == '{' && last == '}') || (first == '[' && last == ']'))) {
             return false;
         }
 
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            return false;
-        }
+        Deque<Character> stack = new ArrayDeque<>();
+        boolean inQuote = false;
 
-        char firstChar = trimmed.charAt(0);
-        if (firstChar != '{' && firstChar != '[') {
-            return false;
-        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
 
-        int braceDepth = 0;
-        int bracketDepth = 0;
-        boolean insideQuotes = false;
-
-        for (int i = 0; i < trimmed.length(); i++) {
-            char c = trimmed.charAt(i);
-
-            if (c == '"') {
-                if (isEscapedQuote(trimmed, i)) {
-                    continue;
-                }
-                insideQuotes = updateQuoteState(trimmed, i, insideQuotes);
+            if (c == '"' && !isEscapedQuote(value, i)) {
+                inQuote = !inQuote;
+                continue;
+            }
+            if (inQuote) {
                 continue;
             }
 
-            if (insideQuotes) {
-                continue;
-            }
-
-            if (c == '{') {
-                braceDepth++;
-            } else if (c == '}') {
-                braceDepth--;
-                if (braceDepth < 0) {
+            if (c == '{' || c == '[') {
+                stack.push(c);
+            } else if (c == '}' || c == ']') {
+                if (stack.isEmpty()) {
                     return false;
                 }
-            } else if (c == '[') {
-                bracketDepth++;
-            } else if (c == ']') {
-                bracketDepth--;
-                if (bracketDepth < 0) {
+                char open = stack.pop();
+                if ((c == '}' && open != '{') || (c == ']' && open != '[')) {
                     return false;
                 }
             }
         }
 
-        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
-            return false;
-        }
-
-        return true;
+        return !inQuote && stack.isEmpty();
     }
 }

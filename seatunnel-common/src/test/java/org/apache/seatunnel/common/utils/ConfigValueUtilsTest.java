@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -99,7 +100,10 @@ public class ConfigValueUtilsTest {
         // right json format should end with '}]',not ']}'
         String value =
                 "[{\"table_path\":\"testdb.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"testdb.tt\"]}";
-        Assertions.assertThrows(ConfigException.class, () -> ConfigValueUtils.parseValue(value));
+
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        assertTrue(result instanceof String);
+        assertFalse(result instanceof Map);
     }
 
     @Test
@@ -108,6 +112,15 @@ public class ConfigValueUtilsTest {
         String value = "{\"k1\":\"v1\",\"k2\":\"v2\"";
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertInstanceOf(String.class, result);
+    }
+
+    @Test
+    void testParseValueAsMapWithCompatibleJsonFormat() {
+        // right json format should end with '}'
+        String value = "{\"k1\"=\"v1\",\"k2\":\"v2\"}";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+
+        Assertions.assertEquals(((Map) result).size(), 2);
     }
 
     @Test
