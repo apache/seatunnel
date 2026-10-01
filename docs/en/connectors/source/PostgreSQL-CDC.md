@@ -386,6 +386,15 @@ uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
 
+### Why does the job fail with "replication slot ... has been invalidated"?
+
+PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
+`max_slot_wal_keep_size` or stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18).
+`pg_replication_slots` then shows `wal_status = 'lost'` (and `invalidation_reason` on PostgreSQL 17 and later).
+The changes after the slot's confirmed position are gone, so SeaTunnel fails the job with error `POSTGRES-04`.
+Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
+again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
+
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
