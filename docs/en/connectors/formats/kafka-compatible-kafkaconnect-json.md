@@ -2,6 +2,14 @@
 
 Seatunnel connector kafka supports parsing data extracted through kafka connect source, especially data extracted from kafka connect jdbc and kafka connect debezium
 
+# Format Options
+
+| Option                        | Default | Required | Description                                              |
+|-------------------------------|---------|----------|----------------------------------------------------------|
+| format                        | (none)  | yes      | Specify what format to use, here should be `COMPATIBLE_KAFKA_CONNECT_JSON`. |
+| key_converter_schema_enabled  | true    | no       | Whether the Kafka Connect key converter carries its schema in the JSON payload. |
+| value_converter_schema_enabled| true    | no       | Whether the Kafka Connect value converter carries its schema in the JSON payload. |
+
 # How To Use
 
 ## Kafka Sink Mysql
