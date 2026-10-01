@@ -320,7 +320,22 @@ sink {
 ```
 
 ### Important Notes:
+- To avoid unexpected data synchronization errors, duplicate keys are not allowed in the `-i` parameters.
+- If a value contains commas, it must be wrapped with `\"`. For example: `-i read_cols=\"id,name\"`. However, array types do not require wrapping with `\"`; for example: `-i include_fields=[id,name]`.
 - If a value contains special characters like `(`, enclose it in single quotes (`'`).
+- If the value is a map type, you can pass it as a JSON string, which supports arrays and JSON objects nested to any depth. You can format the parameter value by enclosing in a pair of single quotes as follows:
+
+`-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
+- JSON parameter values are compatible with HOCON syntax: an equals sign (`=`) can be used instead of a colon (`:`). For example, a='{"k1"="v1","k2"="v2"}' is equivalent to a='{"k1":"v1","k2":"v2"}', but using a colon is still recommended.
+- If the value is an array with map inside, json parameters should be enclosed in single quotes (`\'`):
+
+  `-i table_list=['{"table_path":"movie_lens.tags_test"}','{"table_path":"movie_lens.ml_*","use_regex":"true"}']`
+
+- If the value is a map with array inside, the array parameter format inside the JSON must adhere to JSON format specifications. Keys must be enclosed in double quotes, while elements within the array can be either quoted or unquoted, as they will be parsed automatically:
+
+  `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
+
+- Placeholders within the JSON content of parameter values will not be resolved or replaced; they will be preserved as-is as part of the content.
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
 - The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
