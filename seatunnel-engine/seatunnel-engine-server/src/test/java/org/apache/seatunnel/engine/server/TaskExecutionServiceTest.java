@@ -67,10 +67,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -574,48 +575,134 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void testFinalMetricsRunOutsideInterruptedTaskWorker() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
-        TaskGroupLocation location = newTaskGroupLocation();
         Task task = new TestTask(new AtomicBoolean(true), 0, true);
-        TaskGroup taskGroup =
-                new TaskGroupDefaultImpl(
-                        location, "final-metrics-interrupt", Lists.newArrayList(task));
-        TaskGroupContext context = newTaskGroupContext(9L, taskGroup);
-        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
-        CountDownLatch metricsStarted = new CountDownLatch(1);
+        TaskGroupLocation firstLocation = newTaskGroupLocation();
+        TaskGroupLocation secondLocation = newTaskGroupLocation();
+        TaskGroupContext firstContext =
+                newTaskGroupContext(
+                        9L,
+                        new TaskGroupDefaultImpl(
+                                firstLocation, "first-final-metrics", Lists.newArrayList(task)));
+        TaskGroupContext secondContext =
+                newTaskGroupContext(
+                        10L,
+                        new TaskGroupDefaultImpl(
+                                secondLocation,
+                                "second-final-metrics",
+                                Lists.newArrayList(
+                                        new TestTask(new AtomicBoolean(true), 0, true))));
+        CompletableFuture<TaskExecutionState> firstResultFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> secondResultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(2);
         CountDownLatch releaseMetrics = new CountDownLatch(1);
-        AtomicReference<Thread> metricsThread = new AtomicReference<>();
+        List<Thread> metricsThreads = new CopyOnWriteArrayList<>();
         Mockito.doAnswer(
                         invocation -> {
-                            metricsThread.set(Thread.currentThread());
+                            metricsThreads.add(Thread.currentThread());
                             metricsStarted.countDown();
                             releaseMetrics.await();
                             return null;
                         })
                 .when(serviceSpy)
                 .updateMetricsContextInImap();
-        TaskExecutionService.TaskGroupExecutionTracker tracker =
-                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+        TaskExecutionService.TaskGroupExecutionTracker firstTracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(), firstContext, firstResultFuture);
+        TaskExecutionService.TaskGroupExecutionTracker secondTracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(), secondContext, secondResultFuture);
 
-        Thread worker =
+        Thread firstWorker =
                 new Thread(
                         () -> {
                             Thread.currentThread().interrupt();
-                            tracker.taskDone(task);
+                            firstTracker.taskDone(task);
                         });
+        Thread secondWorker = new Thread(() -> secondTracker.taskDone(task));
         try {
-            worker.start();
-            Assertions.assertTrue(metricsStarted.await(5, TimeUnit.SECONDS));
-            Assertions.assertTrue(metricsThread.get() != worker);
-            Assertions.assertFalse(resultFuture.isDone());
+            firstWorker.start();
+            secondWorker.start();
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Each task group should report metrics independently");
+            Assertions.assertFalse(firstResultFuture.isDone());
+            Assertions.assertFalse(secondResultFuture.isDone());
             releaseMetrics.countDown();
-            worker.join(TimeUnit.SECONDS.toMillis(5));
-            Assertions.assertFalse(worker.isAlive());
-            assertEquals(FINISHED, resultFuture.get().getExecutionState());
+            firstWorker.join(TimeUnit.SECONDS.toMillis(5));
+            secondWorker.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(firstWorker.isAlive());
+            Assertions.assertFalse(secondWorker.isAlive());
+            Assertions.assertEquals(2, metricsThreads.size());
+            Assertions.assertFalse(metricsThreads.contains(firstWorker));
+            Assertions.assertFalse(metricsThreads.contains(secondWorker));
+            assertEquals(FINISHED, firstResultFuture.get().getExecutionState());
+            assertEquals(FINISHED, secondResultFuture.get().getExecutionState());
         } finally {
             releaseMetrics.countDown();
-            worker.join(TimeUnit.SECONDS.toMillis(5));
+            firstWorker.join(TimeUnit.SECONDS.toMillis(5));
+            secondWorker.join(TimeUnit.SECONDS.toMillis(5));
         }
+    }
+
+    @Test
+    public void testFinalMetricsFailurePreservesFailedTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        11L,
+                        new TaskGroupDefaultImpl(
+                                location, "failed-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        RuntimeException taskFailure = new RuntimeException("task failed");
+        Mockito.doThrow(new RuntimeException("metrics unavailable"))
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+        tracker.exception(taskFailure);
+
+        tracker.taskDone(task);
+
+        await().atMost(5, TimeUnit.SECONDS).until(resultFuture::isDone);
+        assertEquals(FAILED, resultFuture.get().getExecutionState());
+        Assertions.assertTrue(resultFuture.get().getThrowableMsg().contains("task failed"));
+    }
+
+    @Test
+    public void testFinalMetricsExecutorRejectionStillCompletesTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        ExecutorService rejectingExecutor = Mockito.mock(ExecutorService.class);
+        Mockito.doThrow(new RejectedExecutionException("executor stopped"))
+                .when(rejectingExecutor)
+                .submit(Mockito.any(Runnable.class));
+        ReflectionUtils.setField(
+                serviceSpy,
+                TaskExecutionService.class,
+                "finalMetricsExecutorService",
+                rejectingExecutor);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        12L,
+                        new TaskGroupDefaultImpl(
+                                location, "rejected-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+
+        tracker.taskDone(task);
+
+        Assertions.assertTrue(resultFuture.isDone());
+        assertEquals(FINISHED, resultFuture.get().getExecutionState());
     }
 
     @Test

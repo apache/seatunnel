@@ -239,9 +239,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
-    /** Runs terminal task-group metrics reports without inheriting task cancellation interrupts. */
+    /** Runs terminal task-group metrics reports concurrently without inheriting task interrupts. */
     private final ExecutorService finalMetricsExecutorService =
-            Executors.newSingleThreadExecutor(
+            Executors.newCachedThreadPool(
                     runnable -> {
                         Thread thread = new Thread(runnable, "seatunnel.final-metrics");
                         thread.setDaemon(true);
@@ -1635,10 +1635,20 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
+        /**
+         * Reports final metrics off the task worker, then publishes the terminal state. The
+         * terminal state is always completed even if reporting fails or the executor rejects the
+         * submission.
+         */
         private void completeAfterFinalMetrics(
                 TaskGroupLocation taskGroupLocation,
                 ExecutionState executionState,
                 Throwable executionFailure) {
+            TaskExecutionState terminalState =
+                    executionFailure == null
+                            ? new TaskExecutionState(taskGroupLocation, executionState)
+                            : new TaskExecutionState(
+                                    taskGroupLocation, executionState, executionFailure);
             try {
                 finalMetricsExecutorService.submit(
                         () -> {
@@ -1647,23 +1657,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             } catch (Throwable t) {
                                 logger.severe("update metrics context in imap failed", t);
                             } finally {
-                                future.complete(
-                                        executionFailure == null
-                                                ? new TaskExecutionState(
-                                                        taskGroupLocation, executionState)
-                                                : new TaskExecutionState(
-                                                        taskGroupLocation,
-                                                        executionState,
-                                                        executionFailure));
+                                future.complete(terminalState);
                             }
                         });
             } catch (Throwable t) {
                 logger.severe("failed to schedule final metrics report", t);
-                future.complete(
-                        executionFailure == null
-                                ? new TaskExecutionState(taskGroupLocation, executionState)
-                                : new TaskExecutionState(
-                                        taskGroupLocation, executionState, executionFailure));
+                future.complete(terminalState);
             }
         }
 
