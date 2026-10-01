@@ -61,7 +61,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | node_urls                  | string  | 是    | -   | IoTDB 集群地址，格式为 `"host1:port"` 或 `"host1:port,host2:port"`                        |
 | username                   | string  | 是    | -   | IoTDB 用户名                                                                        |
 | password                   | string  | 是    | -   | IoTDB 用户密码                                                                       |
-| sql                        | string  | 条件必填 | - | 未配置 `tables_configs` 时，必须与 `schema` 一起配置。 |
+| sql                        | string  | 条件必填 | - | 未配置 `tables_configs` 时，必须与 `schema` 一起配置；根级别的 `sql` 不能为纯空白内容。 |
 | tables_configs             | array   | 否    | -   | 非空表配置列表。每项包含 `sql` 和 `schema`，且 `schema.table` 必须非空、唯一。 |
 | schema                     | config  | 条件必填 | - | 根级别 `sql` 配置需要此项；使用 `tables_configs` 时放在每项内。参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | fetch_size                 | int     | 否    | -   | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
