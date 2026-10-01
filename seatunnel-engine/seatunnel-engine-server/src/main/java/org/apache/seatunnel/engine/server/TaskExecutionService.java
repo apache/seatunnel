@@ -239,7 +239,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
-    /** Runs terminal task-group metrics reports concurrently without inheriting task interrupts. */
+    /**
+     * Runs all terminal task-group metrics reports concurrently without inheriting task interrupts.
+     */
     private final ExecutorService finalMetricsExecutorService =
             Executors.newCachedThreadPool(
                     runnable -> {
@@ -1636,9 +1638,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         /**
-         * Reports final metrics off the task worker, then publishes the terminal state. The
-         * terminal state is always completed even if reporting fails or the executor rejects the
-         * submission.
+         * Reports final metrics off the task worker, then publishes the terminal state for
+         * FINISHED, CANCELED, or FAILED task groups. Applying the same ordering to every terminal
+         * state keeps completion behavior consistent. The executor's orderly shutdown drains
+         * accepted reports; if submission races with shutdown or reporting fails, the terminal
+         * state is still completed.
          */
         private void completeAfterFinalMetrics(
                 TaskGroupLocation taskGroupLocation,

@@ -596,6 +596,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         CountDownLatch metricsStarted = new CountDownLatch(2);
         CountDownLatch releaseMetrics = new CountDownLatch(1);
         List<Thread> metricsThreads = new CopyOnWriteArrayList<>();
+        AtomicBoolean firstWorkerRemainedInterrupted = new AtomicBoolean();
         Mockito.doAnswer(
                         invocation -> {
                             metricsThreads.add(Thread.currentThread());
@@ -619,6 +620,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         () -> {
                             Thread.currentThread().interrupt();
                             firstTracker.taskDone(task);
+                            firstWorkerRemainedInterrupted.set(
+                                    Thread.currentThread().isInterrupted());
                         });
         Thread secondWorker = new Thread(() -> secondTracker.taskDone(task));
         try {
@@ -637,6 +640,9 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             Assertions.assertEquals(2, metricsThreads.size());
             Assertions.assertFalse(metricsThreads.contains(firstWorker));
             Assertions.assertFalse(metricsThreads.contains(secondWorker));
+            Assertions.assertTrue(
+                    firstWorkerRemainedInterrupted.get(),
+                    "Scheduling the metrics report must preserve the worker interrupt flag");
             assertEquals(FINISHED, firstResultFuture.get().getExecutionState());
             assertEquals(FINISHED, secondResultFuture.get().getExecutionState());
         } finally {
