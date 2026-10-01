@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -28,7 +29,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.NodePassConfig;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
@@ -77,11 +77,26 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         NODE_FREE_PASSWORD,
                         NODE_PASS,
                         COMPATIBLE_MODE,
-                        FILE_FIELDS_DELIMITER,
                         FILE_TEMP_PATH,
                         KEY_PATH,
                         SERVER_TIME_ZONE)
+                .optional(
+                        FILE_FIELDS_DELIMITER,
+                        Conditions.extension(FILE_FIELDS_DELIMITER, new SingleCharacterValidator()))
                 .build();
+    }
+
+    /** The {@code file_fields_delimiter} is a csv separator, so it must be exactly one char. */
+    static class SingleCharacterValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "must be a single character";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            return value != null && value.length() == 1;
+        }
     }
 
     @Override
@@ -147,11 +162,6 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
 
         proxy.close();
 
-        if (readonlyConfig.get(FILE_FIELDS_DELIMITER).length() != 1) {
-            throw new ClickhouseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    FILE_FIELDS_DELIMITER.key() + " must be a single character");
-        }
         FileReaderOption readerOption =
                 new FileReaderOption(
                         shardMetadata,
