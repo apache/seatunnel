@@ -54,14 +54,6 @@ public class SQLHashFunctionsTest {
         return Hashing.murmur3_128().hashString(input, StandardCharsets.UTF_8).asLong();
     }
 
-    @SuppressWarnings("deprecation") // Guava deprecates MD5; Hive parity requires it
-    private static String md5Direct(String input) {
-        if (input == null) {
-            return null;
-        }
-        return Hashing.md5().hashString(input, StandardCharsets.UTF_8).toString();
-    }
-
     @Test
     public void testMurmur64WithNormalString() {
         SeaTunnelRowType rowType =
@@ -126,7 +118,6 @@ public class SQLHashFunctionsTest {
 
         Assertions.assertInstanceOf(String.class, outRow.getField(0));
         Assertions.assertEquals("900150983cd24fb0d6963f7d28e17f72", outRow.getField(0));
-        Assertions.assertEquals(md5Direct("abc"), outRow.getField(0));
     }
 
     @Test
@@ -152,17 +143,15 @@ public class SQLHashFunctionsTest {
     }
 
     @Test
-    public void testMd5Consistency() {
+    public void testMd5WithMultibyteUtf8() {
+        // Multi-byte UTF-8 path: Hive md5 hashes the UTF-8 bytes of the string.
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
 
-        // Same input should always produce same hash
-        SeaTunnelRow outRow1 = runSql("select MD5(text) as hash from dual", rowType, "test123");
-        SeaTunnelRow outRow2 = runSql("select MD5(text) as hash from dual", rowType, "test123");
+        SeaTunnelRow outRow = runSql("select MD5(text) as hash from dual", rowType, "你好");
 
-        Assertions.assertEquals(outRow1.getField(0), outRow2.getField(0));
-        Assertions.assertEquals(md5Direct("test123"), outRow1.getField(0));
+        Assertions.assertEquals("7eca689f0d3389d9dea66ae112e5cfd7", outRow.getField(0));
     }
 
     @Test

@@ -354,9 +354,9 @@ MURMUR64(NAME)
 
 ### MD5
 
-```MD5(string) -> STRING```
+```MD5(string|binary) -> STRING```
 
-计算输入字符串的 MD5 哈希值，返回 32 字符的小写十六进制字符串，与 Hive 的 `md5` 函数兼容。如果输入参数为 null，则返回 null。
+计算输入字符串或二进制值的 MD5 哈希值，返回 32 字符的小写十六进制字符串，与 Hive 的 `md5` 函数兼容。如果输入参数为 null，则返回 null。
 
 示例:
 

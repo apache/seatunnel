@@ -353,9 +353,9 @@ MURMUR64(NAME)
 
 ### MD5
 
-```MD5(string) -> STRING```
+```MD5(string|binary) -> STRING```
 
-Calculate the MD5 hash of the input string and return the result as a 32-character lowercase hexadecimal string, compatible with Hive's `md5` function. This method returns null if the input parameter is null.
+Calculate the MD5 hash of the input string or binary value and return the result as a 32-character lowercase hexadecimal string, compatible with Hive's `md5` function. This method returns null if the input parameter is null.
 
 Example:
 
