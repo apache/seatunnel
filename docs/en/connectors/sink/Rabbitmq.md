@@ -85,7 +85,7 @@ When `url` uses an `amqps://` URI, the broker certificate is verified against th
 
 ### queue_name [string]
 
-the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
+the queue to write the message to. The value must not be empty or whitespace-only. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
 
 ### format [string]
 
