@@ -95,6 +95,26 @@ For more details, please refer to the [REST-API](rest-api-v2.md).
 For a workflow to collect, redact, and analyze runtime logs, see
 [Diagnose Runtime Logs with AI Tools](log-analysis-with-ai.md).
 
+### Change Log Levels at Runtime
+
+There are two ways to change a log level, and they behave differently:
+
+- **Edit `log4j2.properties`**: Log4j 2 picks the change up on its next scan of the file (every 60
+  seconds by default, see `monitorInterval`), the change survives a restart, and it has to be rolled
+  out to every node.
+- **Call the `/loggers` REST API**: the change takes effect immediately on the node that serves the
+  request, or on every node with `?scope=cluster`, and it is lost when the node restarts.
+
+**Usage examples:**
+- List the loggers of a node and where their level comes from: `http://localhost:8080/loggers`
+- Raise one connector to `DEBUG` on the whole cluster:
+  `curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+- Drop the override again: `curl -X DELETE 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?scope=cluster'`
+
+A logger that was changed through the API reports `"origin": "runtime-override"`, so an override is
+never mistaken for the configured level. For the full request and response format, please refer to
+the [REST-API](rest-api-v2.md).
+
 ## SeaTunnel Log Configuration
 
 ### Scheduled deletion of old logs

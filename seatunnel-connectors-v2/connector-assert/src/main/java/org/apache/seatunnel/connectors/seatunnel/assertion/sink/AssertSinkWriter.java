@@ -49,7 +49,6 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private static final Map<String, LongAccumulator> LONG_ACCUMULATOR = new ConcurrentHashMap<>();
     private static final Set<String> TABLE_NAMES = new CopyOnWriteArraySet<>();
     private final String catalogTableName;
-    private final long WAIT_SINK_WRITER_COMPLETE_TIME = 1000L;
 
     public AssertSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -103,16 +102,14 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
-        try {
-            // When there are multiple AssertSinkWriters, some Sinks will run first, so let it wait
-            // for other Sinks, otherwise it will make incorrect judgments
-            Thread.sleep(WAIT_SINK_WRITER_COMPLETE_TIME);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
         if (!assertRowRules.isEmpty()) {
             assertRowRules.entrySet().stream()
-                    .filter(entry -> !entry.getValue().isEmpty())
+                    .filter(
+                            entry ->
+                                    !entry.getValue().isEmpty()
+                                            && (assertRowRules.size() == 1
+                                                    || entry.getKey()
+                                                            .equals(this.catalogTableName)))
                     .forEach(
                             entry -> {
                                 List<AssertFieldRule.AssertRule> assertRules = entry.getValue();

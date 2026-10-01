@@ -78,7 +78,7 @@ Basic Configuration:
 | url | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username | String | Yes | - | Databend database username |
 | password | String | Yes | - | Databend database password |
-| database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
+| database | String | No | `default` | Databend database name. If not set, the source falls back to the `default` database |
 | table | String | No | - | Databend table name |
 | query | String | No | - | Databend query statement. If set, it overrides database and table settings |
 | sql | String | No | - | Alias-style custom SQL statement. If both `sql` and `query` are set, `sql` takes precedence |

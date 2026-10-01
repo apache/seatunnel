@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -113,6 +114,44 @@ class JdbcCoordinatedSchemaEvolutionTest {
         }
 
         assertEquals(Collections.singletonList("1:alice"), queryRows(jdbcUrl));
+        assertEquals(2, queryColumnCount(jdbcUrl));
+    }
+
+    @Test
+    void restoreEventRefreshesWriterWithoutApplyingPhysicalDdl() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("restore-schema.db");
+        createInitialTable(jdbcUrl);
+
+        CatalogTable evolvedTable = catalogTable(schemaWithoutAge());
+        JdbcSinkConfig sinkConfig = buildSinkConfig(jdbcUrl);
+        SqliteDialect dialect = new SqliteDialect();
+        AlterTableDropColumnEvent dropEvent =
+                new AlterTableDropColumnEvent(evolvedTable.getTableId(), "age");
+        dropEvent.setChangeAfter(evolvedTable);
+        // The physical DDL was already applied before the checkpoint being restored.
+        new JdbcSchemaChangeApplier(dialect, sinkConfig, SINK_TABLE).apply(dropEvent);
+
+        JdbcSinkWriter writer = createWriter(dialect, sinkConfig, schemaWithAge());
+        RestoreTableSchemaEvent restoreEvent = new RestoreTableSchemaEvent(evolvedTable);
+
+        try {
+            // Coordinated path: the applier must not replay DDL for a restore event.
+            new JdbcSchemaChangeApplier(dialect, sinkConfig, SINK_TABLE).apply(restoreEvent);
+            writer.refreshSchema(evolvedTable);
+            writer.write(row(1, "alice"));
+            writer.prepareCommit();
+
+            // Writer-local path: applySchemaChange delegates to the same applier.
+            writer.applySchemaChange(restoreEvent);
+            writer.write(row(2, "bob"));
+            writer.prepareCommit();
+
+            assertEquals(evolvedTable.getTableSchema(), writer.tableSchema);
+        } finally {
+            writer.close();
+        }
+
+        assertEquals(Arrays.asList("1:alice", "2:bob"), queryRows(jdbcUrl));
         assertEquals(2, queryColumnCount(jdbcUrl));
     }
 

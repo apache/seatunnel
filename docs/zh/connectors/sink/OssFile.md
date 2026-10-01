@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-hadoop3-3.1.4-uber.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
+1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
 
 ## 关键特性
 
@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | file_name_expression                  | string  | 否  | "${transactionId}"                         | 仅在custom_filename为true时使用                                                                                                                            |
 | filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                                            |
 | file_format_type                      | string  | 否  | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`。                                              |
-| field_delimiter                       | string  | 否  | '\001'                                     | 仅当file_format_type为文本时使用                                                                                                                            |
+| field_delimiter                       | string  | 否  | '\001' for text and ',' for csv            | 仅当file_format_type为文本时使用                                                                                                                            |
 | row_delimiter                         | string  | 否  | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用                                                                                                            |
 | have_partition                        | boolean | 否  | false                                      | 是否需要处理分区。                                                                                                                                              |
 | partition_by                          | array   | 否  | -                                          | 只有在have_partition为true时才使用                                                                                                                         |
@@ -122,7 +122,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | common-options                        | object  | 否  | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情。                                                                       |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅当file_format_type为excel时使用。                                                                                                                       |
 | sheet_max_rows                         | int     | 否  | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。                                                                       |
-| sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                                                                                                                       |
+| sheet_name                            | string  | 否  | Sheet0                      | 仅当file_format_type为excel时使用。                                                                                                                       |
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用。                                                                                                                                |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用。                                                                                                                                |
 | xml_row_tag                           | string  | 否  | RECORD                                     | 仅在file_format为xml时使用。                                                                                                                                |

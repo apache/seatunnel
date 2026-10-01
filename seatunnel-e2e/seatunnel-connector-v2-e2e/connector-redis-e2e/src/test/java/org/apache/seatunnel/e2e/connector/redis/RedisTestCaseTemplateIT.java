@@ -89,7 +89,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     private GenericContainer<?> redisContainer;
 
-    private Jedis jedis;
+    protected Jedis jedis;
 
     @BeforeAll
     @Override

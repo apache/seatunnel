@@ -58,7 +58,7 @@ Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 | epoch                       | string | no       | n                     | Time precision used by the client. Uppercase values `H`, `M`, `S`, `MS`, `U`, and `NS` are recognized for write precision. |
 | connect_timeout_ms          | long   | no       | 15000                 | Timeout for connecting to InfluxDB, in milliseconds.                                          |
 | query_timeout_sec           | int    | no       | 3                     | Read timeout used by the InfluxDB client, in seconds.                                         |
-| multi_table_sink_replica    | int    | no       | -                     | Replica count for multi-table sink writers.                                                   |
+| multi_table_sink_replica    | int    | no       | 1                     | Replica count for multi-table sink writers.                                                   |
 | common-options              | config | no       | -                     | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [string]
@@ -235,6 +235,43 @@ sink {
     database = "test"
     key_time = "time"
     batch_size = 1
+  }
+}
+```
+
+### Per-Table Measurement With Replicated Writers
+
+Use `multi_table_sink_replica` to spread multi-table writes across more writer instances when
+the upstream emits a large number of tables.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role", "seatunnel.user", "galileo.Bucket"]
+  }
+}
+
+sink {
+  InfluxDB {
+    url = "http://influxdb-host:8086"
+    database = "test"
+    key_time = "time"
+    key_tags = ["label"]
+    batch_size = 2048
+    max_retries = 3
+    retry_backoff_multiplier_ms = 100
+    max_retry_backoff_ms = 5000
+    write_timeout = 10
+    multi_table_sink_replica = 2
   }
 }
 ```

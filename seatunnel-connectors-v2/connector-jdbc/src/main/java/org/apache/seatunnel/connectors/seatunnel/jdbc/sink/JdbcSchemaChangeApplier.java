@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -26,10 +27,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.sql.Connection;
 
 /** Applies JDBC schema changes without mutating any sink writer-local state. */
+@Slf4j
 public class JdbcSchemaChangeApplier implements SchemaChangeApplier {
 
     private final JdbcDialect dialect;
@@ -45,6 +49,12 @@ public class JdbcSchemaChangeApplier implements SchemaChangeApplier {
 
     @Override
     public void apply(SchemaChangeEvent event) throws IOException {
+        if (event instanceof RestoreTableSchemaEvent) {
+            log.info(
+                    "Restore runtime schema for table {} without applying physical DDL",
+                    sinkTablePath);
+            return;
+        }
         JdbcConnectionProvider connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         try (Connection connection = connectionProvider.getOrEstablishConnection()) {

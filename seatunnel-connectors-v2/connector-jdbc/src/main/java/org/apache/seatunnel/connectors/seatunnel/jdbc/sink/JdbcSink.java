@@ -160,7 +160,8 @@ public class JdbcSink
                             jdbcSinkConfig,
                             tableSchema,
                             getDatabaseTableSchema().orElse(null),
-                            primaryKeyIndex);
+                            primaryKeyIndex,
+                            jobContext == null || jobContext.isEnableCheckpoint());
         }
         return sinkWriter;
     }

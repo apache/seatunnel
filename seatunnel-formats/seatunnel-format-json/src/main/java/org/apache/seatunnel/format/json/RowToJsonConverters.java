@@ -34,6 +34,7 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -112,49 +113,49 @@ public class RowToJsonConverters implements Serializable {
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((byte) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case SMALLINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((short) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case INT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((int) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case BIGINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((long) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case FLOAT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((float) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case DOUBLE:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((double) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case DECIMAL:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((BigDecimal) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case BYTES:
@@ -270,6 +271,59 @@ public class RowToJsonConverters implements Serializable {
                 return node;
             }
         };
+    }
+
+    /**
+     * Serializes a value declared as a numeric type in the catalog schema.
+     *
+     * <p>Multi-table jobs may match tables whose physical field types differ from the declared
+     * type, so the runtime representation takes precedence over the declared type instead of being
+     * blindly cast to it. Only numeric values and character sequences are accepted here: anything
+     * else still fails fast, so a genuine schema/runtime mismatch is not silently serialized as the
+     * {@code toString()} of an arbitrary object.
+     */
+    private JsonNode createNumericNode(ObjectMapper mapper, Object value, SqlType declaredType) {
+        if (value instanceof Byte) {
+            return mapper.getNodeFactory().numberNode((Byte) value);
+        }
+        if (value instanceof Short) {
+            return mapper.getNodeFactory().numberNode((Short) value);
+        }
+        if (value instanceof Integer) {
+            return mapper.getNodeFactory().numberNode((Integer) value);
+        }
+        if (value instanceof Long) {
+            return mapper.getNodeFactory().numberNode((Long) value);
+        }
+        if (value instanceof Float) {
+            return SqlType.DECIMAL.equals(declaredType)
+                    ? mapper.getNodeFactory().numberNode(BigDecimal.valueOf((Float) value))
+                    : mapper.getNodeFactory().numberNode((Float) value);
+        }
+        if (value instanceof Double) {
+            return SqlType.DECIMAL.equals(declaredType)
+                    ? mapper.getNodeFactory().numberNode(BigDecimal.valueOf((Double) value))
+                    : mapper.getNodeFactory().numberNode((Double) value);
+        }
+        if (value instanceof BigInteger) {
+            return mapper.getNodeFactory().numberNode((BigInteger) value);
+        }
+        if (value instanceof BigDecimal) {
+            return mapper.getNodeFactory().numberNode((BigDecimal) value);
+        }
+        if (value instanceof CharSequence) {
+            String text = value.toString();
+            try {
+                return mapper.getNodeFactory().numberNode(new BigDecimal(text));
+            } catch (NumberFormatException e) {
+                return mapper.getNodeFactory().textNode(text);
+            }
+        }
+        throw new SeaTunnelJsonFormatException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                String.format(
+                        "Cannot serialize value of type '%s' into the field declared as '%s'",
+                        value.getClass().getName(), declaredType));
     }
 
     private RowToJsonConverter createArrayConverter(ArrayType arrayType) {

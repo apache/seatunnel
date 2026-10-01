@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
@@ -93,6 +94,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
         List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
+        parsedEvents = normalizeTableIdentifiers(parsedEvents, tablePath);
         parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
 
@@ -241,6 +243,32 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                 .collect(Collectors.toList());
     }
 
+    List<AlterTableEvent> normalizeTableIdentifiers(
+            List<AlterTableEvent> events, TablePath tablePath) {
+        // The parser may lose the database while walking a SourceRecord. The SourceRecord table
+        // path is authoritative because it comes from the CDC event's captured source table.
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(
+                        StringUtils.EMPTY,
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName());
+        return events.stream()
+                .map(
+                        event -> {
+                            if (event instanceof AlterTableCommentEvent) {
+                                AlterTableCommentEvent commentEvent =
+                                        (AlterTableCommentEvent) event;
+                                return AlterTableCommentEvent.of(
+                                        tableIdentifier,
+                                        commentEvent.getOldComment(),
+                                        commentEvent.getNewComment());
+                            }
+                            return event;
+                        })
+                .collect(Collectors.toList());
+    }
+
     private CatalogTable findCatalogTable(List<CatalogTable> catalogTables, TablePath tablePath) {
         if (tablePath == null) {
             return null;
@@ -273,12 +301,27 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
     private boolean isSameColumnExceptComment(Column oldColumn, Column newColumn) {
         return StringUtils.equals(oldColumn.getName(), newColumn.getName())
                 && isSameDataType(oldColumn.getDataType(), newColumn.getDataType())
-                && Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())
+                && isSameColumnLength(oldColumn, newColumn)
                 && Objects.equals(oldColumn.getScale(), newColumn.getScale())
                 && oldColumn.isNullable() == newColumn.isNullable()
                 && Objects.equals(oldColumn.getDefaultValue(), newColumn.getDefaultValue())
                 && StringUtils.equals(oldColumn.getSourceType(), newColumn.getSourceType())
                 && Objects.equals(oldColumn.getOptions(), newColumn.getOptions());
+    }
+
+    private boolean isSameColumnLength(Column oldColumn, Column newColumn) {
+        if (Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())) {
+            return true;
+        }
+        // Some dialects canonicalize character lengths (for example MySQL converts character
+        // counts to a four-byte storage length). An identical source type is the stable semantic
+        // representation in that case; genuine length changes still have a different source type.
+        return oldColumn.getDataType() != null
+                && oldColumn.getDataType().getSqlType() == SqlType.STRING
+                && newColumn.getDataType() != null
+                && newColumn.getDataType().getSqlType() == SqlType.STRING
+                && StringUtils.isNotBlank(oldColumn.getSourceType())
+                && StringUtils.equals(oldColumn.getSourceType(), newColumn.getSourceType());
     }
 
     private boolean isSameDataType(
