@@ -16,9 +16,11 @@
  */
 
 import { get } from '@/service/service'
-import type { Monitor } from './types'
+import type { Monitor, WorkerResourceSnapshot } from './types'
 
 export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
+export const getWorkerResources = () => get<WorkerResourceSnapshot>('/resource/workers')
 export const managerService = {
-  getMonitors
+  getMonitors,
+  getWorkerResources
 }
