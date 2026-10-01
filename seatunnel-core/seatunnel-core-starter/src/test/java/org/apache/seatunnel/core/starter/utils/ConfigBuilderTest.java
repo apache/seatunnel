@@ -253,4 +253,12 @@ public class ConfigBuilderTest {
         Assertions.assertTrue(userConfigMap.containsKey("k2"));
         Assertions.assertFalse(userConfigMap.containsKey(" k2"));
     }
+
+    @Test
+    void testUserEmptyKeyThrowsConfigCheckException() {
+        List<String> variables = Arrays.asList(" =v1 , k2=v2".split(","));
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
+    }
 }
