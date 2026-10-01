@@ -841,7 +841,11 @@ public class StringFunction {
      * Computes the MD5 digest of the input and returns it as a 32-character lowercase hexadecimal
      * string, matching Hive's {@code md5(string|binary)}.
      *
-     * @param args list containing a single string or binary value
+     * <p>String inputs are hashed as UTF-8 bytes; binary (byte[]) inputs are hashed as raw bytes.
+     * Non-string, non-binary values are converted via {@code toString()} and hashed as UTF-8,
+     * mirroring Hive's implicit cast to string.
+     *
+     * @param args list containing a single string, binary, or implicitly castable value
      * @return 32-char lowercase hex MD5 digest, or null if the input is null
      */
     @SuppressWarnings(
