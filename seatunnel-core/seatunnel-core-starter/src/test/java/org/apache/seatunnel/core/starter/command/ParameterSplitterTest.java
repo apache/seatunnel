@@ -19,11 +19,10 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.junit.jupiter.api.Test;
 
-import com.beust.jcommander.ParameterException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ParameterSplitterTest {
 
@@ -115,20 +114,68 @@ public class ParameterSplitterTest {
     }
 
     @Test
-    void testSplitWithUnmatchedBracket() {
-        assertThrows(
-                ParameterException.class,
-                () -> {
-                    parameterSplitter.split("a=1]");
-                });
+    void testSingleBalancedBracesNotSplit() {
+        String value = "{abcd,1234}";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(result.toArray()[0], value);
     }
 
     @Test
-    void testSplitWithUnmatchedBrace() {
-        assertThrows(
-                ParameterException.class,
-                () -> {
-                    parameterSplitter.split("a=1}");
-                });
+    void testSplitWithMultiBalancedBraces() {
+        String value = "{abcd,1234},{21434,7786}";
+        List<String> result = parameterSplitter.split(value);
+
+        assertEquals(result.size(), 2);
+    }
+
+    @Test
+    void testSplitWithQuotedMultiBalancedBracesWillBeReserved() {
+        String value = "\"{abcd,1234},{21434,7786}\"";
+        List<String> result = parameterSplitter.split(value);
+
+        assertEquals(result.toArray()[0], value);
+    }
+
+    @Test
+    void testSplitWithSingleBalancedBrackets() {
+        String value = "[a-z]+";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(value, result.get(0).toString());
+    }
+
+    @Test
+    void testSplitWithMultiBalancedBrackets() {
+        String value = "[dbo].[orders]";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(value, result.get(0).toString());
+    }
+
+    @Test
+    void testSplitWithUnmatchedVariablesWillBeReserved() {
+        String value = "a=1],b={2";
+        List<String> result = parameterSplitter.split(value);
+        String[] splitted = value.split(",");
+        assertArrayEquals(splitted, result.toArray());
+    }
+
+    @Test
+    void testSplitWithUnmatchedBrackets() {
+        String value = "[a,\"b]\",c]";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(value, result.get(0).toString());
+    }
+
+    @Test
+    void testQuotedUnmatchedBracketsWillBeReservedWithQuotes() {
+        String value = "\"[a,b],c]\"";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(value, result.get(0).toString());
+    }
+
+    @Test
+    void testSplitWithMultiUnmatchedBrackets() {
+        String value = "[[[a,b],c][]";
+        List<String> result = parameterSplitter.split(value);
+        assertEquals(value, result.get(0).toString());
     }
 }
