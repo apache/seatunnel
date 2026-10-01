@@ -42,6 +42,8 @@ public class ConfEncryptCommand implements Command<AbstractCommandArgs> {
 
     private final AbstractCommandArgs abstractCommandArgs;
 
+    private Config encryptConfig;
+
     public ConfEncryptCommand(AbstractCommandArgs abstractCommandArgs) {
         this.abstractCommandArgs = abstractCommandArgs;
     }
@@ -63,11 +65,15 @@ public class ConfEncryptCommand implements Command<AbstractCommandArgs> {
         Map<String, String> userConfigMap = extractUserVariables(variables);
         Config resolvedConfig = substituteUserConfig(config, userConfigMap);
 
-        Config encryptConfig = ConfigShadeUtils.encryptConfig(resolvedConfig);
+        encryptConfig = ConfigShadeUtils.encryptConfig(resolvedConfig);
         log.info(
                 "Encrypt config: \n{}",
                 encryptConfig
                         .root()
                         .render(ConfigRenderOptions.defaults().setOriginComments(false)));
+    }
+
+    Config getEncryptedConfig() {
+        return this.encryptConfig;
     }
 }
