@@ -225,6 +225,8 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 ### query [string]
 
+自动生成的写入 SQL 按完整上游字段名绑定参数，支持字段名中的空格、冒号和问号。自定义 `query` 保留原有的命名参数和位置参数行为。SQL 包含方言特有的字符串转义或字面量冒号时，可使用 `?` 占位符原样传递 SQL。
+
 用于写入每条上游数据的参数化 SQL，例如 `INSERT INTO target(id, name) VALUES (?, ?)`。SeaTunnel 按上游字段顺序绑定 `?` 参数。该参数只用于自定义 SQL 模式，不能与 `generate_sink_sql = true` 同时使用。
 
 当前限制：当 sink 配置了 `query`（自定义写入 SQL）时，JDBC sink 不会执行 save mode 处理。此模式下 `schema_save_mode`、`data_save_mode`、`custom_sql` 不生效。如需使用 save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。

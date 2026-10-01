@@ -227,6 +227,8 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 ### query [string]
 
+Generated write SQL binds complete upstream field names, including spaces, colons and question marks. Configured `query` SQL retains its existing named and positional binding behavior. For SQL containing dialect-specific string escapes or literal colons, use `?` placeholders to pass the SQL through unchanged.
+
 The parameterized SQL statement used to write each upstream row, for example `INSERT INTO target(id, name) VALUES (?, ?)`. SeaTunnel binds the `?` parameters in upstream field order. Use this option only in custom SQL mode; do not combine it with `generate_sink_sql = true`.
 
 Current limitation: when sink `query` is configured (custom write SQL), JDBC sink does not apply save mode handling. `schema_save_mode`, `data_save_mode`, and `custom_sql` are not executed in this mode. If you need save mode handling, use `generate_sink_sql = true` with `database` and `table`.
