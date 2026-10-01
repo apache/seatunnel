@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.benchmark;
+package org.apache.seatunnel.benchmark.checkpoint;
 
 import org.apache.seatunnel.benchmark.storage.SeaTunnelStorageEnvironmentContext;
 import org.apache.seatunnel.engine.common.Constant;
@@ -68,7 +68,7 @@ import java.util.stream.Collectors;
  * anything is measured, so probe samples carry no such selection, and probe triggers still collide
  * freely with the load.
  */
-final class CheckpointSchedulingFixture {
+public final class CheckpointSchedulingFixture {
 
     /** Covers the per-pipeline pools and the member-wide scheduler threads alike. */
     static final String SCHEDULER_THREAD_NAME_PREFIX = "checkpoint-";
@@ -153,7 +153,7 @@ final class CheckpointSchedulingFixture {
      * @param pipelineNum number of jobs, each with one single-task pipeline
      * @param intervalMillis checkpoint interval of every job
      */
-    CheckpointSchedulingFixture(int pipelineNum, long intervalMillis) {
+    public CheckpointSchedulingFixture(int pipelineNum, long intervalMillis) {
         this.pipelineNum = pipelineNum;
         this.intervalMillis = intervalMillis;
         this.intervalNanos = TimeUnit.MILLISECONDS.toNanos(intervalMillis);
@@ -164,7 +164,7 @@ final class CheckpointSchedulingFixture {
      * interval, so due triggers arrive as a steady stream rather than a burst. Returns once every
      * coordinator's trigger phase is known.
      */
-    void setUp() throws Exception {
+    public void setUp() throws Exception {
         validateParameters();
         probeStride = probeStride(pipelineNum, intervalNanos);
         preexistingSchedulerThreads = new HashSet<>(liveSchedulerThreads());
@@ -181,7 +181,7 @@ final class CheckpointSchedulingFixture {
     }
 
     /** Resynchronises the coordinators that were taken out of the rotation, then resets counts. */
-    void beginIteration() {
+    public void beginIteration() {
         resync(probeStride);
         sampled = 0;
         skippedPending = 0;
@@ -194,7 +194,7 @@ final class CheckpointSchedulingFixture {
      * Picks the coordinator due soonest and returns exactly when its trigger is due, with its
      * previous checkpoint completed and the trigger not yet run. Not measured.
      */
-    void awaitNextDueTrigger() {
+    public void awaitNextDueTrigger() {
         checkFailure();
         while (true) {
             int next = soonestSynced();
@@ -249,7 +249,7 @@ final class CheckpointSchedulingFixture {
      *
      * @return the time the trigger was observed
      */
-    long awaitTrigger() {
+    public long awaitTrigger() {
         AtomicInteger pendingCounter = pendingCounters[current];
         long deadline = System.nanoTime() + intervalNanos;
         // The window starts slightly before the real deadline, and that is intended. The trigger
@@ -277,7 +277,7 @@ final class CheckpointSchedulingFixture {
      * Summarises the iteration's skips. Printed for every iteration, passing or not, so a run close
      * to the limit stays visible.
      */
-    String iterationReport() {
+    public String iterationReport() {
         return String.format(
                 "measured %d of %d due triggers; skipped %d with a checkpoint already pending "
                         + "before the due time, %d that came due while another trigger was being "
@@ -297,7 +297,7 @@ final class CheckpointSchedulingFixture {
      * than a number. Enforced once at least {@link #MIN_DUE_TRIGGERS_FOR_SKIP_CHECK} triggers were
      * due; shorter iterations still print their counts.
      */
-    void endIteration() {
+    public void endIteration() {
         checkFailure();
         if (isSkipShareTooHigh(dueTriggers(), dueTriggers() - sampled)) {
             throw new IllegalStateException(
@@ -316,7 +316,7 @@ final class CheckpointSchedulingFixture {
         return sampled + skippedPending + skippedCollided + skippedOverrun + skippedEarly;
     }
 
-    void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         try {
             // Executor first: a coordinator still finishing its asynchronous start would otherwise
             // arm its first trigger on the scheduler that cancelling just replaced, and that
@@ -349,7 +349,7 @@ final class CheckpointSchedulingFixture {
      * Counts this fixture's live checkpoint scheduler threads. This is the cost a shared scheduler
      * exists to remove, so it is reported rather than derived.
      */
-    long countSchedulerThreads() {
+    public long countSchedulerThreads() {
         return schedulerThreads().size();
     }
 
@@ -465,7 +465,7 @@ final class CheckpointSchedulingFixture {
         return soonest;
     }
 
-    long probeCount() {
+    public long probeCount() {
         return strideCount(probeStride);
     }
 

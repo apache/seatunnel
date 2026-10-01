@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.benchmark;
 
+import org.apache.seatunnel.benchmark.checkpoint.CheckpointSchedulingFixture;
+
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -68,7 +70,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 2, time = 10)
 @Measurement(iterations = 5, time = 10)
 @Fork(
-        value = 2,
+        value = 3,
         jvmArgsAppend = {
             "-Xms4g",
             "-Xmx4g",

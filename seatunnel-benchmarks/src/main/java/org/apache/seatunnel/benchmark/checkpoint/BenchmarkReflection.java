@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.benchmark;
+package org.apache.seatunnel.benchmark.checkpoint;
 
 import java.lang.reflect.Field;
 
