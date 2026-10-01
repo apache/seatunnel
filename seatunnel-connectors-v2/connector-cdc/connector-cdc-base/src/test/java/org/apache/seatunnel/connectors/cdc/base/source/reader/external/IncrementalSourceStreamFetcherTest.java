@@ -50,6 +50,7 @@ import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,6 +61,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static io.debezium.config.CommonConnectorConfig.TRANSACTION_TOPIC;
 import static io.debezium.connector.AbstractSourceInfo.DEBEZIUM_CONNECTOR_KEY;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -633,7 +635,7 @@ public class IncrementalSourceStreamFetcherTest {
                                                 null,
                                                 addedTableHighWatermark))));
         setField(fetcher, "currentIncrementalSplit", split);
-        java.lang.reflect.Method configureFilter =
+        Method configureFilter =
                 IncrementalSourceStreamFetcher.class.getDeclaredMethod("configureFilter");
         configureFilter.setAccessible(true);
         configureFilter.invoke(fetcher);
@@ -641,11 +643,29 @@ public class IncrementalSourceStreamFetcherTest {
         FetchTask.Context taskContext = mock(FetchTask.Context.class);
         when(taskContext.isDataChangeRecord(any())).thenReturn(true);
         when(taskContext.isExactlyOnce()).thenReturn(true);
-        when(taskContext.getStreamOffset(any())).thenReturn(recordOffset);
         setField(fetcher, "taskContext", taskContext);
 
-        SourceRecord record = createDataEventWithSource(restoredTable);
-        Assertions.assertTrue(fetcher.shouldEmit(record));
+        SourceRecord restoredRecord = createDataEventWithSource(restoredTable);
+        when(taskContext.getStreamOffset(same(restoredRecord))).thenReturn(recordOffset);
+
+        Offset beforeCheckpointOffset = mock(Offset.class);
+        when(beforeCheckpointOffset.isAtOrAfter(checkpointOffset)).thenReturn(false);
+        SourceRecord beforeCheckpointRecord = createDataEventWithSource(restoredTable);
+        when(taskContext.getStreamOffset(same(beforeCheckpointRecord)))
+                .thenReturn(beforeCheckpointOffset);
+        Assertions.assertFalse(fetcher.shouldEmit(beforeCheckpointRecord));
+        Assertions.assertTrue(fetcher.shouldEmit(restoredRecord));
+
+        Offset beforeAddedTableWatermarkOffset = mock(Offset.class);
+        when(beforeAddedTableWatermarkOffset.isAtOrAfter(addedTableHighWatermark))
+                .thenReturn(false);
+        when(beforeAddedTableWatermarkOffset.isAfter(addedTableHighWatermark)).thenReturn(false);
+        SourceRecord beforeAddedTableWatermarkRecord = createDataEventWithSource(addedTable);
+        when(taskContext.getStreamOffset(same(beforeAddedTableWatermarkRecord)))
+                .thenReturn(beforeAddedTableWatermarkOffset);
+        when(taskContext.isRecordBetween(same(beforeAddedTableWatermarkRecord), any(), any()))
+                .thenReturn(true);
+        Assertions.assertFalse(fetcher.shouldEmit(beforeAddedTableWatermarkRecord));
     }
 
     public static class TestConnectorConfig extends CommonConnectorConfig {
