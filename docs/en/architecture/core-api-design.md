@@ -85,8 +85,6 @@ Related docs:
 
 The source side is responsible for turning an external system into a stream of `SeaTunnelRow` records, plus schema and state metadata when needed.
 
-A `SeaTunnelRow` computes its estimated byte size lazily. Changing a field through `setField` clears the cached estimate, so the next `getBytesSize` call recomputes it. Mutating the array returned by `getFields`, or mutating nested objects in place, bypasses the setter and therefore does not invalidate the cached estimate. These byte counts are estimates for sizing purposes, not the sizes of the serialized wire format.
-
 Core interfaces:
 
 - `SeaTunnelSource`
@@ -175,6 +173,12 @@ This metadata layer is essential for:
 Related docs:
 
 - [CatalogTable and Metadata Management](./api-design/catalog-table.md)
+
+## Row Data Contract
+
+Sources, transforms, and sinks share the same `SeaTunnelRow` data contract.
+
+A `SeaTunnelRow` computes its estimated byte size lazily. Both `getBytesSize` overloads share one cache. Changing a field through `setField` clears the cached estimate, so the next `getBytesSize` call recomputes it. Mutating the array returned by `getFields`, or mutating nested objects in place, bypasses the setter and therefore does not invalidate the cached estimate. These byte counts are estimates for sizing purposes, not the sizes of the serialized wire format.
 
 ## How the Pieces Work Together
 

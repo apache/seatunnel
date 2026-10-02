@@ -49,9 +49,15 @@ public final class SeaTunnelRow implements Serializable {
         this.fields = fields;
     }
 
+    /**
+     * Sets a field and clears the cached byte-size estimate. Direct writes through {@link
+     * #getFields} or mutations of nested objects bypass this invalidation.
+     */
     public void setField(int pos, Object value) {
         this.fields[pos] = value;
-        this.size = 0;
+        if (size != 0) {
+            size = 0;
+        }
     }
 
     public void setTableId(String tableId) {
@@ -94,6 +100,7 @@ public final class SeaTunnelRow implements Serializable {
         return options;
     }
 
+    /** Returns the backing array; direct mutations do not clear the cached byte-size estimate. */
     public Object[] getFields() {
         return fields;
     }
@@ -142,6 +149,10 @@ public final class SeaTunnelRow implements Serializable {
         return this.fields[pos] == null;
     }
 
+    /**
+     * Estimates the row's byte size using the supplied field types. Shares the cached estimate with
+     * {@link #getBytesSize()}, and {@link #setField} clears that cache.
+     */
     public int getBytesSize(SeaTunnelRowType rowType) {
         if (size == 0) {
             int s = 0;
@@ -297,6 +308,10 @@ public final class SeaTunnelRow implements Serializable {
         return size;
     }
 
+    /**
+     * Estimates the row's byte size from its values. Shares the cached estimate with {@link
+     * #getBytesSize(SeaTunnelRowType)}, and {@link #setField} clears that cache.
+     */
     public int getBytesSize() {
         if (size == 0) {
             int s = 0;

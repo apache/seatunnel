@@ -258,6 +258,7 @@ public class SeaTunnelRowTest {
         SeaTunnelRow typed = new SeaTunnelRow(new Object[] {"abc"});
         Assertions.assertEquals(3, typed.getBytesSize(rowType));
         typed.setField(0, "abcdef");
+        Assertions.assertEquals(6, typed.getBytesSize());
         Assertions.assertEquals(6, typed.getBytesSize(rowType));
         typed.setField(0, "a");
         Assertions.assertEquals(1, typed.getBytesSize(rowType));
@@ -267,6 +268,7 @@ public class SeaTunnelRowTest {
         SeaTunnelRow untyped = new SeaTunnelRow(new Object[] {"abc"});
         Assertions.assertEquals(3, untyped.getBytesSize());
         untyped.setField(0, "abcdef");
+        Assertions.assertEquals(6, untyped.getBytesSize(rowType));
         Assertions.assertEquals(6, untyped.getBytesSize());
         untyped.setField(0, "a");
         Assertions.assertEquals(1, untyped.getBytesSize());
@@ -275,23 +277,41 @@ public class SeaTunnelRowTest {
     }
 
     @Test
-    void testCopyCachedSizeIndependentAfterSetField() {
+    void testDirectFieldMutationDoesNotInvalidateCachedBytesSize() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"f0"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
-        SeaTunnelRow original = new SeaTunnelRow(new Object[] {"abc"});
-        SeaTunnelRow copy = original.copy();
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"abc"});
+        Assertions.assertEquals(3, row.getBytesSize(rowType));
 
-        Assertions.assertNotSame(original.getFields(), copy.getFields());
-        Assertions.assertEquals("abc", copy.getField(0));
+        row.getFields()[0] = "abcdef";
+        Assertions.assertEquals("abcdef", row.getField(0));
+        Assertions.assertEquals(3, row.getBytesSize());
+        Assertions.assertEquals(3, row.getBytesSize(rowType));
 
-        Assertions.assertEquals(3, original.getBytesSize(rowType));
-        Assertions.assertEquals(3, copy.getBytesSize(rowType));
+        row.setField(0, row.getField(0));
+        Assertions.assertEquals(6, row.getBytesSize());
+    }
 
-        original.setField(0, "abcdef");
-        Assertions.assertEquals("abcdef", original.getField(0));
-        Assertions.assertEquals("abc", copy.getField(0));
-        Assertions.assertEquals(6, original.getBytesSize(rowType));
-        Assertions.assertEquals(3, copy.getBytesSize(rowType));
+    @Test
+    void testNestedFieldMutationDoesNotInvalidateParentCachedBytesSize() {
+        SeaTunnelRowType childType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType parentType =
+                new SeaTunnelRowType(
+                        new String[] {"child"}, new SeaTunnelDataType<?>[] {childType});
+        SeaTunnelRow child = new SeaTunnelRow(new Object[] {"abc"});
+        SeaTunnelRow parent = new SeaTunnelRow(new Object[] {child});
+        Assertions.assertEquals(3, child.getBytesSize(childType));
+        Assertions.assertEquals(3, parent.getBytesSize(parentType));
+
+        child.setField(0, "abcdef");
+        Assertions.assertEquals(6, child.getBytesSize());
+        Assertions.assertEquals(3, parent.getBytesSize());
+        Assertions.assertEquals(3, parent.getBytesSize(parentType));
+
+        parent.setField(0, child);
+        Assertions.assertEquals(6, parent.getBytesSize(parentType));
     }
 }

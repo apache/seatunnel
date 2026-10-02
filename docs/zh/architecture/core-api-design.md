@@ -85,8 +85,6 @@ Translation / Engine Runtime
 
 Source 侧的职责，是把外部系统转换成 `SeaTunnelRow` 记录流，并在需要时带上 schema 和 state 元数据。
 
-`SeaTunnelRow` 按需计算估算的字节大小。通过 `setField` 修改字段会清除缓存，下一次调用 `getBytesSize` 时重新计算。直接修改 `getFields` 返回的数组，或就地修改嵌套对象，不会经过 setter，因此不会使缓存的估算值失效。这些字节数只是用于估算容量的近似值，并不等于序列化后在链路上传输的字节大小。
-
 核心接口包括：
 
 - `SeaTunnelSource`
@@ -175,6 +173,12 @@ Transform 契约的意义，是让作业保持声明式，而不因底层执行�
 相关文档：
 
 - [CatalogTable 与元数据管理](./api-design/catalog-table.md)
+
+## 行数据契约
+
+Source、Transform 和 Sink 共享同一套 `SeaTunnelRow` 行数据契约。
+
+`SeaTunnelRow` 按需计算估算的字节大小，两个 `getBytesSize` 重载共享同一个缓存。通过 `setField` 修改字段会清除缓存，下一次调用 `getBytesSize` 时重新计算。直接修改 `getFields` 返回的数组，或就地修改嵌套对象，不会经过 setter，因此不会使缓存的估算值失效。这些字节数只是用于估算容量的近似值，并不等于序列化后在链路上传输的字节大小。
 
 ## 这些 API 如何协同工作
 
