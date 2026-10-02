@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

@@ -17,6 +17,7 @@
 """Regression tests for connector E2E module sharding."""
 
 import io
+import json
 import re
 import unittest
 from collections import Counter
@@ -27,6 +28,8 @@ from update_modules_check import (
     ALL_CONNECTORS_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
+    STANDALONE_MODULE_PATHS,
+    build_standalone_modules,
     build_sub_it_modules,
     get_sub_it_modules,
     get_sub_update_it_modules,
@@ -274,6 +277,79 @@ class ConnectorItShardingTest(unittest.TestCase):
                     f"shard index {current_num} out of range \\[0, 7\\)",
                 ):
                     build_sub_it_modules("connector-normal-e2e", 7, current_num)
+
+    @staticmethod
+    def repo_root():
+        return Path(__file__).resolve().parents[2]
+
+    @staticmethod
+    def pom_artifact_id(pom):
+        text = re.sub(r"<parent>.*?</parent>", "", pom.read_text(encoding="utf-8"), flags=re.S)
+        return re.search(r"<artifactId>([^<]+)</artifactId>", text).group(1)
+
+    def workflow_pl_modules(self):
+        modules = set()
+        for pl in re.findall(
+            r"-pl\s+(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)", self.workflow_text()
+        ):
+            modules.update(module.lstrip(":") for module in pl.split(",") if module)
+        return modules
+
+    def test_standalone_paths_map_to_their_test_modules(self) -> None:
+        self.assertEqual(
+            ["seatunnel-trace-analyzer", "seatunnel-starter-e2e"],
+            build_standalone_modules(
+                json.dumps(
+                    [
+                        "seatunnel-trace/seatunnel-trace-analyzer/src/main/java/A.java",
+                        "seatunnel-trace/pom.xml",
+                        "seatunnel-e2e/seatunnel-core-e2e/seatunnel-starter-e2e/pom.xml",
+                    ]
+                )
+            ),
+        )
+        self.assertEqual([], build_standalone_modules("[]"))
+
+    def test_standalone_modules_exist_and_match_workflow_filter(self) -> None:
+        workflow = self.workflow_text()
+        filter_line = next(
+            line for line in workflow.splitlines() if line.strip().startswith("standalone_files=")
+        )
+        self.assertEqual(
+            [prefix + "**" for prefix, _ in STANDALONE_MODULE_PATHS],
+            re.findall(r'"([^"]+)"', filter_line),
+        )
+        for path_prefix, module in STANDALONE_MODULE_PATHS:
+            with self.subTest(module=module):
+                poms = [
+                    pom
+                    for pom in (self.repo_root() / path_prefix).rglob("pom.xml")
+                    if "target" not in pom.parts
+                ]
+                self.assertIn(module, {self.pom_artifact_id(pom) for pom in poms})
+
+    def test_engine_changes_run_the_k8s_integration_test(self) -> None:
+        job = re.search(
+            r"^  engine-k8s-it:\n(.*?)(?=^  \S)", self.workflow_text(), re.M | re.S
+        ).group(1)
+        self.assertTrue(
+            "needs.changes.outputs.engine == 'true'" in job,
+            "engine-k8s-it must run for engine changes",
+        )
+
+    def test_every_non_connector_e2e_it_module_has_a_workflow_job(self) -> None:
+        e2e_root = self.repo_root() / "seatunnel-e2e"
+        workflow_modules = self.workflow_pl_modules()
+        for pom in sorted(e2e_root.rglob("pom.xml")):
+            relative = pom.relative_to(e2e_root).parts
+            if relative[0] in ("seatunnel-connector-v2-e2e", "seatunnel-e2e-common") or "target" in relative:
+                continue
+            test_root = pom.parent / "src" / "test" / "java"
+            if not test_root.is_dir() or not any(test_root.rglob("*IT.java")):
+                continue
+            module = self.pom_artifact_id(pom)
+            with self.subTest(module=module):
+                self.assertIn(module, workflow_modules)
 
 if __name__ == "__main__":
     unittest.main()
