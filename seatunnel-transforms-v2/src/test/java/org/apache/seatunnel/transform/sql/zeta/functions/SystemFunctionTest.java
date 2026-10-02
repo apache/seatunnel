@@ -559,4 +559,71 @@ public class SystemFunctionTest {
                 org.apache.seatunnel.transform.exception.TransformException.class,
                 () -> SystemFunction.castAs(args));
     }
+
+    @Test
+    public void testCastAsIntRejectsOutOfRangeNumericInput() {
+        // The defect this covers: Number.intValue() keeps only the low-order 32 bits, so these
+        // used to come back wrapped, and with a flipped sign at the low end.
+        for (long out :
+                new long[] {
+                    Integer.MIN_VALUE - 1L, Integer.MAX_VALUE + 1L, 3000000000L, Long.MAX_VALUE
+                }) {
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INT")),
+                    "INT should reject " + out);
+            Assertions.assertThrows(
+                    org.apache.seatunnel.transform.exception.TransformException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "INTEGER")),
+                    "INTEGER should reject " + out);
+        }
+
+        // The exact boundaries and an ordinary value still convert.
+        Assertions.assertEquals(
+                Integer.MIN_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MIN_VALUE, "INT")));
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                SystemFunction.castAs(Arrays.asList((long) Integer.MAX_VALUE, "INT")));
+        Assertions.assertEquals(0, SystemFunction.castAs(Arrays.asList(0L, "INT")));
+    }
+
+    @Test
+    public void testCastAsTinyintAndSmallintAlreadyRejectOutOfRangeNumericInput() {
+        // Direct coverage for the numeric path into TINYINT and SMALLINT, which the planner does
+        // not route a narrowing source to today. These targets convert with Byte.parseByte and
+        // Short.parseShort, which already reject an out-of-range value, which is why the INT fix
+        // is not extended to them: doing so would have to go through Number.longValue() and would
+        // start accepting fractional input that is rejected today.
+        for (Object out : new Object[] {300L, -300L, 70000, Long.MAX_VALUE}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "TINYINT")),
+                    "TINYINT should reject " + out);
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "BYTE")),
+                    "BYTE should reject " + out);
+        }
+        for (Object out : new Object[] {70000L, -70000L, 2147483647}) {
+            Assertions.assertThrows(
+                    NumberFormatException.class,
+                    () -> SystemFunction.castAs(Arrays.asList(out, "SMALLINT")),
+                    "SMALLINT should reject " + out);
+        }
+
+        // In-range numeric input is unaffected, and so is fractional input, which these targets
+        // reject today and must keep rejecting.
+        Assertions.assertEquals((byte) 5, SystemFunction.castAs(Arrays.asList(5L, "TINYINT")));
+        Assertions.assertEquals(
+                (short) 5000, SystemFunction.castAs(Arrays.asList(5000L, "SMALLINT")));
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "TINYINT")),
+                "TINYINT must keep rejecting a fractional source");
+        Assertions.assertThrows(
+                NumberFormatException.class,
+                () -> SystemFunction.castAs(Arrays.asList(5.7d, "SMALLINT")),
+                "SMALLINT must keep rejecting a fractional source");
+    }
 }
