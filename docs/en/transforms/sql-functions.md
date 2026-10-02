@@ -466,6 +466,16 @@ Example:
 
 ATAN(D)
 
+### ATAN2
+
+```ATAN2(numeric, numeric) -> DOUBLE```
+
+Calculate the arc tangent of the quotient of the two arguments. See also Java Math.atan2.
+
+Example:
+
+ATAN2(Y, X)
+
 ### COS
 
 ```COS(numeric) -> DOUBLE```
@@ -1108,7 +1118,7 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY, BOOLEAN
 
 Example:
 * CAST(NAME AS INT)
@@ -1126,7 +1136,7 @@ Converts a value to a BOOLEAN data type according to the following rules:
 
 This function is similar to CAST, but when the conversion fails, it returns NULL instead of throwing an exception.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY
 
 Example:
 
@@ -1259,6 +1269,17 @@ select ARRAY('c_1',2,3.12) as arrays
 select ARRAY(column1,column2,column3) as arrays
 
 notes: Currently only string, double, long, int types are supported
+
+### MAP
+
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<STRING, V>```
+
+Create a map from alternating key/value arguments. The number of arguments must be even and keys cannot be NULL; keys are converted to strings.
+
+Example:
+
+select MAP('a', 1, 'b', 2) as maps
+select MAP('k1', column1, 'k2', column2) as maps
 
 ### LATERAL VIEW
 #### EXPLODE

@@ -13,8 +13,8 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | 名称                             | 类型     | 是否必填 | 默认值    | 描述                                                               |
 |--------------------------------|--------|------|--------|------------------------------------------------------------------|
 | model_provider                 | enum   | 是    | -      | embedding模型的提供商。可选项包括 `AMAZON`、`QIANFAN`、`OPENAI` 等。             |
-| api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。                                           |
-| secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
+| api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。`AMAZON`、`OPENAI`、`DOUBAO`、`QIANFAN`、`ZHIPU` 需要配置；`CUSTOM` 不使用。|
+| secret_key                     | string | 是    | -      | 用于额外验证的密钥。仅 `AMAZON` 和 `QIANFAN` 需要此密钥。                          |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |

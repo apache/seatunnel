@@ -23,7 +23,7 @@
 
 获取定时调度检查点的时间间隔(毫秒)。
 
-在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，默认值为30000毫秒。
+在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，如果`seatunnel.yaml`中也没有配置，默认值为300000毫秒（5分钟）。
 
 ### checkpoint.timeout
 
