@@ -25,6 +25,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -105,38 +106,77 @@ public class SystemFunction {
         return castAs(args);
     }
 
+    private static final BigInteger INT_MIN_BIG = BigInteger.valueOf(Integer.MIN_VALUE);
+    private static final BigInteger INT_MAX_BIG = BigInteger.valueOf(Integer.MAX_VALUE);
+
     /**
-     * Narrows a numeric value to {@code INT}, rejecting values the type cannot represent.
+     * Narrows a numeric value to {@code int}, throwing when it cannot be represented. See <a
+     * href="https://github.com/apache/seatunnel/issues/12571">#12571</a>.
      *
-     * <p>{@code Number.intValue()} keeps only the low-order 32 bits, so a value outside the range
-     * silently changed, and could change sign: {@code 3000000000} arrived as {@code -1294967296}
-     * and {@code Integer.MIN_VALUE - 1} as {@code Integer.MAX_VALUE}. The string path already
-     * reported the overflow through {@code Integer.parseInt}, so the same expression either failed
-     * or corrupted the value depending only on the source type. Failing here is also what makes
-     * {@code TRY_CAST} usable, since it turns the failure into a null.
+     * <p>Each numeric family is truncated towards zero first and the result is range-checked,
+     * rather than widening everything through {@link Number#longValue()}, which is itself lossy: it
+     * keeps only the low-order 64 bits of a {@link BigDecimal} or {@link BigInteger} and maps
+     * {@code NaN} to zero, so the check would inspect an already-corrupted value.
      *
-     * <p>{@code TINYINT}, {@code SMALLINT} and {@code BYTE} need no equivalent: they convert with
-     * {@code Byte.parseByte} and {@code Short.parseShort}, which already reject an out-of-range
-     * value.
+     * <p>Truncation of a fractional source is unchanged, so a value whose truncation fits still
+     * converts. {@code NaN} and the infinities are rejected.
      *
-     * @param value the numeric value being cast
+     * @param value the numeric value being converted, never null at the call site
      * @param targetType the SQL type name, used in the error message
-     * @return the value as an int, guaranteed not to have wrapped
+     * @return the value as an int
+     * @throws TransformException if the value cannot be represented as an int
      */
     private static int numberToInt(Number value, String targetType) {
+        if (value instanceof BigDecimal) {
+            return intFromExact(((BigDecimal) value).toBigInteger(), value, targetType);
+        }
+        if (value instanceof BigInteger) {
+            return intFromExact((BigInteger) value, value, targetType);
+        }
+        if (value instanceof Double || value instanceof Float) {
+            double d = value.doubleValue();
+            if (Double.isNaN(d) || Double.isInfinite(d)) {
+                throw outOfIntRange(value, targetType);
+            }
+            // Truncate before range-checking, not after: narrowing a double to long rounds
+            // towards zero, so a fractional value whose truncation fits, such as 2147483647.5,
+            // must still convert. Comparing the raw double against the bounds would reject it.
+            long truncated = (long) d;
+            if (truncated < Integer.MIN_VALUE || truncated > Integer.MAX_VALUE) {
+                throw outOfIntRange(value, targetType);
+            }
+            return (int) truncated;
+        }
+        // Byte, Short, Integer and Long widen to long exactly.
         long widened = value.longValue();
         if (widened < Integer.MIN_VALUE || widened > Integer.MAX_VALUE) {
-            throw new TransformException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format(
-                            "CAST of %s to %s is out of range, %s accepts %d to %d",
-                            value,
-                            targetType,
-                            targetType,
-                            (long) Integer.MIN_VALUE,
-                            (long) Integer.MAX_VALUE));
+            throw outOfIntRange(value, targetType);
         }
         return (int) widened;
+    }
+
+    /** Range-checks an already-integral value, reporting the original in any failure. */
+    private static int intFromExact(BigInteger truncated, Number original, String targetType) {
+        if (truncated.compareTo(INT_MIN_BIG) < 0 || truncated.compareTo(INT_MAX_BIG) > 0) {
+            throw outOfIntRange(original, targetType);
+        }
+        return truncated.intValue();
+    }
+
+    /**
+     * Builds the out-of-range failure for a numeric conversion.
+     *
+     * <p>The wording names the conversion rather than the {@code CAST} keyword, because this is
+     * also reached from {@code COALESCE} and {@code IFNULL}, where the user wrote no cast and the
+     * target type was inferred. The surrounding expression is supplied by the engine's error
+     * wrapper.
+     */
+    private static TransformException outOfIntRange(Number value, String targetType) {
+        return new TransformException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format(
+                        "Value %s cannot be converted to %s: out of range [%d, %d]",
+                        value, targetType, Integer.MIN_VALUE, Integer.MAX_VALUE));
     }
 
     public static Object castAs(List<Object> args) {

@@ -27,6 +27,17 @@ You need to check this document before you upgrade to related version.
     `COALESCE(int_col, bigint_col)` targets `INT`, and an out-of-range value taken from the
     `BIGINT` argument was silently truncated in the same way. It now fails too. `CASE` expressions
     are not affected, because their type is inferred as the widest branch, so no narrowing occurs.
+  - **Covers wide and non-finite numeric sources**: the range check runs per numeric family rather
+    than after a single widening step, because `Number.longValue()` is itself lossy for some of
+    them. A `DECIMAL` beyond 64 bits (reachable as `COALESCE(int_col, decimal_col)`), a
+    `BigInteger`, and `NaN` or an infinity from a `DOUBLE` are each rejected now instead of
+    arriving as a truncated value.
+  - **Fractional sources are unchanged**: a value such as `5.7` is still truncated towards zero
+    rather than rejected, which is what this conversion has always done. Only the range behaviour
+    changes. Note this still differs from a string source, where `Integer.parseInt("5.7")` fails;
+    aligning those is a separate decision.
+  - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
+    by this change.
   - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
     cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
     compute it explicitly rather than relying on `CAST`.

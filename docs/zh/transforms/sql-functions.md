@@ -1127,13 +1127,9 @@ CAST(FLAG AS BOOLEAN)
 2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
 3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
 
-注意：转换为整数类型时，如果目标类型无法表示该值，将会失败。若希望在这种情况下得到 NULL 而不是异常，
-请使用 TRY_CAST。
-
-TINYINT、SMALLINT 与 BYTE 此前即已如此。但 INT | INTEGER 在来源为数值时并非如此：该值会被截断为低 32 位，
-因此 `CAST(bigint_col AS INT)` 对 `3000000000` 返回 `-1294967296`，而略小于 `Integer.MIN_VALUE` 的值
-会变成 `2147483647`。字符串来源则已经会报告溢出，所以同一个表达式究竟是失败还是损坏数据，仅取决于来源列的
-类型。现在两者都会失败。
+注意：转换为 TINYINT、SMALLINT、BYTE 或 INT | INTEGER 时，如果该值超出目标类型的取值范围，将抛出
+TransformException，例如 `CAST(3000000000 AS INT)`。若希望在这种情况下得到 NULL 而不是异常，请使用
+TRY_CAST。小数来源会向零截断，而不是被拒绝。
 
 ### TRY_CAST
 
