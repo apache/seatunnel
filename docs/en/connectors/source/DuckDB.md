@@ -69,6 +69,21 @@ and reading multiple tables in one job through `table_list`.
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
+## Query schema discovery
+
+For `query` (including aliases and expressions), DuckDB native result metadata determines the
+schema. `DECIMAL(p,s)` preserves its precision and scale, and `TIMESTAMP WITH TIME ZONE` produces
+`TIMESTAMP_TZ` / `OffsetDateTime`. `TIMESTAMP_S`, `TIMESTAMP_MS`, and `TIMESTAMP_NS` remain
+`TIMESTAMP` / `LocalDateTime`. UUID, JSON, INTERVAL, ARRAY/LIST, STRUCT, and MAP are returned as
+DuckDB-provided text (`STRING`), not nested SeaTunnel values.
+
+Query unsigned values use `SMALLINT` for UTINYINT, `INT` for USMALLINT, `BIGINT` for UINTEGER,
+and `DECIMAL(20,0)` for UBIGINT. UHUGEINT uses `STRING` because its full range requires 39 digits,
+which exceeds SeaTunnel's maximum decimal precision. This query mapping does not alter existing
+`table_path` discovery. When upgrading a query job, align downstream schemas with the corrected
+decimal and timezone types; cast expressions explicitly in SQL if the previous output type is
+required.
+
 ## Source Options
 
 | Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                         |

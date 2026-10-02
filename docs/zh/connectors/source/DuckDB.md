@@ -66,6 +66,20 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
+## 查询模式发现
+
+`query`（包括别名和表达式）使用 DuckDB 原生结果元数据推断模式。
+`DECIMAL(p,s)` 保留精度和小数位数，`TIMESTAMP WITH TIME ZONE` 输出
+`TIMESTAMP_TZ` / `OffsetDateTime`。`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS`
+仍输出 `TIMESTAMP` / `LocalDateTime`。UUID、JSON、INTERVAL、ARRAY/LIST、STRUCT 和 MAP
+以 DuckDB 提供的文本（`STRING`）输出，而非 SeaTunnel 嵌套类型。
+
+查询中的无符号类型 UTINYINT、USMALLINT、UINTEGER 和 UBIGINT 分别映射为
+`SMALLINT`、`INT`、`BIGINT` 和 `DECIMAL(20,0)`。UHUGEINT 使用 `STRING`，因为完整范围
+需要 39 位数字，超过 SeaTunnel 的最大小数精度。查询映射不改变现有的 `table_path`
+模式发现。升级查询作业时，请同步下游的小数及带时区类型；如需旧输出类型，请在 SQL
+中显式转换表达式。
+
 ## 源选项
 
 | 名称                           | 类型         | 是否必需 | 默认值             | 描述                                                                                                                                                   |

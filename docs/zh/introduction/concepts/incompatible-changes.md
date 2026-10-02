@@ -4,6 +4,16 @@
 
 ## dev
 
+### DuckDB 查询模式元数据
+
+DuckDB JDBC `query` 模式发现现在保留原生小数精度和小数位数，并将带时区时间映射为
+`TIMESTAMP_TZ`，而非 `TIMESTAMP`。查询中的无符号类型保留完整范围；UHUGEINT 的
+39 位范围超过 SeaTunnel 小数精度上限，因此使用文本。已有的
+`TIMESTAMP_S`/`TIMESTAMP_MS`/`TIMESTAMP_NS` 查询值仍为 `LocalDateTime`，`table_path`
+模式发现保持不变。升级前请调整下游模式，或显式将查询表达式转换为旧类型。
+完整映射见 DuckDB Source 指南中的查询模式发现章节。
+
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
