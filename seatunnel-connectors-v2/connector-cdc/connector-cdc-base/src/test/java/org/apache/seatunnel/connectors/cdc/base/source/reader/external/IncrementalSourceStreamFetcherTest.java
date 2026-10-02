@@ -50,12 +50,13 @@ import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.debezium.config.CommonConnectorConfig.TRANSACTION_TOPIC;
@@ -613,9 +614,17 @@ public class IncrementalSourceStreamFetcherTest {
         TableId restoredTable = new TableId("testdb", "public", "restored_table");
         TableId addedTable = new TableId("testdb", "public", "added_table");
         Offset checkpointOffset = mock(Offset.class);
+        Offset restoredTableCheckpointOffset = mock(Offset.class);
         Offset addedTableHighWatermark = mock(Offset.class);
         Offset recordOffset = mock(Offset.class);
-        when(recordOffset.isAtOrAfter(checkpointOffset)).thenReturn(true);
+        when(recordOffset.isAtOrAfter(restoredTableCheckpointOffset)).thenReturn(true);
+
+        Offset replayedRecordOffset = mock(Offset.class);
+        when(replayedRecordOffset.isAtOrAfter(checkpointOffset)).thenReturn(true);
+        when(replayedRecordOffset.isAtOrAfter(restoredTableCheckpointOffset)).thenReturn(false);
+
+        Map<TableId, Offset> tableStartupOffsets = new HashMap<>();
+        tableStartupOffsets.put(restoredTable, restoredTableCheckpointOffset);
 
         IncrementalSplit split =
                 new IncrementalSplit(
@@ -633,12 +642,10 @@ public class IncrementalSourceStreamFetcherTest {
                                         new SnapshotSplitWatermark(
                                                 "added-table-split",
                                                 null,
-                                                addedTableHighWatermark))));
+                                                addedTableHighWatermark))),
+                        tableStartupOffsets);
         setField(fetcher, "currentIncrementalSplit", split);
-        Method configureFilter =
-                IncrementalSourceStreamFetcher.class.getDeclaredMethod("configureFilter");
-        configureFilter.setAccessible(true);
-        configureFilter.invoke(fetcher);
+        fetcher.configureFilter();
 
         FetchTask.Context taskContext = mock(FetchTask.Context.class);
         when(taskContext.isDataChangeRecord(any())).thenReturn(true);
@@ -647,6 +654,10 @@ public class IncrementalSourceStreamFetcherTest {
 
         SourceRecord restoredRecord = createDataEventWithSource(restoredTable);
         when(taskContext.getStreamOffset(same(restoredRecord))).thenReturn(recordOffset);
+
+        SourceRecord replayedRecord = createDataEventWithSource(restoredTable);
+        when(taskContext.getStreamOffset(same(replayedRecord))).thenReturn(replayedRecordOffset);
+        Assertions.assertFalse(fetcher.shouldEmit(replayedRecord));
 
         Offset beforeCheckpointOffset = mock(Offset.class);
         when(beforeCheckpointOffset.isAtOrAfter(checkpointOffset)).thenReturn(false);

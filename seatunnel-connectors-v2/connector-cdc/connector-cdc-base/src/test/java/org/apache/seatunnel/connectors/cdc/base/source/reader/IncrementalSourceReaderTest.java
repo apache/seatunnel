@@ -453,10 +453,16 @@ class IncrementalSourceReaderTest {
     }
 
     private static SourceRecord dataRecord(int position) {
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .field("db", Schema.STRING_SCHEMA)
+                        .field("table", Schema.STRING_SCHEMA)
+                        .build();
         Schema valueSchema =
                 SchemaBuilder.struct()
                         .name("test.Envelope")
                         .field("op", Schema.STRING_SCHEMA)
+                        .field("source", sourceSchema)
                         .build();
         return new SourceRecord(
                 Collections.singletonMap("server", "test"),
@@ -465,7 +471,13 @@ class IncrementalSourceReaderTest {
                 null,
                 null,
                 valueSchema,
-                new Struct(valueSchema).put("op", "c"));
+                new Struct(valueSchema)
+                        .put("op", "c")
+                        .put(
+                                "source",
+                                new Struct(sourceSchema)
+                                        .put("db", KEPT_TABLE.catalog())
+                                        .put("table", KEPT_TABLE.table())));
     }
 
     private static final class TestOffset extends Offset {
