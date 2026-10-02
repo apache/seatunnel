@@ -65,6 +65,9 @@ The tested kudu version is 1.11.1.
 
 ## Option Notes
 
+- `kudu_masters` is required and must not be empty or contain only whitespace. Use one master
+  address or a comma-separated list, for example `kudu-master-1:7051,kudu-master-2:7051`.
+  This validation does not trim the configured value or validate the address format.
 - Configure exactly one of `table_name` and `table_list`.
 - `filter` is pushed down to Kudu scans and can use Kudu predicate expressions such as `id >= 1 AND id <= 2`.
 - `use_regex = true` treats `table_name` as a Java regular expression. This can be used either at the top level or inside each `table_list` item.
