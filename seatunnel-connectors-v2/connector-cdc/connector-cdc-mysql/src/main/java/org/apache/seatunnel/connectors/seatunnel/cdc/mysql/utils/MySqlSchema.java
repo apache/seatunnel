@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
@@ -29,6 +30,7 @@ import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
+import io.debezium.relational.TableEditor;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.relational.history.TableChanges.TableChange;
@@ -40,7 +42,9 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /** A component used to get schema by table path. */
 @Slf4j
@@ -164,12 +168,52 @@ public class MySqlSchema implements AutoCloseable {
                 Table table =
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 tableChange.getTable(), tableMap.get(tableId));
+                table = restoreNullableColumns(table, tableMap.get(tableId));
                 TableChange newTableChange =
                         new TableChange(TableChanges.TableChangeType.CREATE, table);
                 tableChangeMap.put(tableId, newTableChange);
             }
         }
         return tableChangeMap;
+    }
+
+    /**
+     * Re-applies the column nullability read from the database.
+     *
+     * <p>For a table without a primary key, Debezium promotes the first unique key to the primary
+     * key and marks all of its columns NOT NULL, although the database allows NULL in them. The
+     * value converters then emit the type default (for example {@code 0}) instead of NULL, in the
+     * snapshot and in binlog events. The catalog table is read from the database metadata, so a
+     * column it reports as nullable is made optional again.
+     *
+     * @param table the table parsed by Debezium
+     * @param catalogTable the catalog table of the same table, may be null
+     * @return the table with the nullable columns marked optional
+     */
+    @VisibleForTesting
+    static Table restoreNullableColumns(Table table, CatalogTable catalogTable) {
+        if (catalogTable == null) {
+            return table;
+        }
+        Set<String> nullableColumns =
+                catalogTable.getTableSchema().getColumns().stream()
+                        .filter(Column::isNullable)
+                        .map(Column::getName)
+                        .collect(Collectors.toSet());
+        TableEditor editor = null;
+        for (io.debezium.relational.Column column : table.columns()) {
+            if (!column.isOptional() && nullableColumns.contains(column.name())) {
+                if (editor == null) {
+                    editor = table.edit();
+                }
+                editor.addColumn(column.edit().optional(true).create());
+                log.info(
+                        "Column {} of table {} is nullable in the database, mark it optional",
+                        column.name(),
+                        table.id());
+            }
+        }
+        return editor == null ? table : editor.create();
     }
 
     @Override

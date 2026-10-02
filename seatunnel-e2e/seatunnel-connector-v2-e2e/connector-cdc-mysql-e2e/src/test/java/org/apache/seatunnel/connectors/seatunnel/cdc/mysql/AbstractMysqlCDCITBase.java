@@ -363,6 +363,65 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK},
             disabledReason = "Currently SPARK do not support cdc")
+    public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
+        // Tables without a primary key whose unique key (single, and composite with one nullable
+        // column) holds NULLs: the NULLs must reach the sink as NULL, not as 0.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        String singleQuery = "select id, code, name from %s.uk_null_single order by id";
+        String compositeQuery = "select id, a, b, name from %s.uk_null_composite order by id";
+        String sinkDatabase = "mysql_cdc_null_sink";
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(String.format(singleQuery, MYSQL_DATABASE)),
+                                    query(String.format(singleQuery, sinkDatabase)));
+                            Assertions.assertIterableEquals(
+                                    query(String.format(compositeQuery, MYSQL_DATABASE)),
+                                    query(String.format(compositeQuery, sinkDatabase)));
+                        });
+
+        // binlog phase
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_null_single VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_null_composite VALUES (4, 3, NULL, 'binlog-null'), (5, 3, 5, 'binlog-coded')");
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(String.format(singleQuery, MYSQL_DATABASE)),
+                                    query(String.format(singleQuery, sinkDatabase)));
+                            Assertions.assertIterableEquals(
+                                    query(String.format(compositeQuery, MYSQL_DATABASE)),
+                                    query(String.format(compositeQuery, sinkDatabase)));
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiTableE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);

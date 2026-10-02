@@ -141,6 +141,74 @@ public class MySqlSchemaTest {
         Assertions.assertEquals("DATETIME", table.columnWithName("ts").typeName());
     }
 
+    @Test
+    public void testNullableUniqueKeyColumnStaysOptionalWithoutPrimaryKey() {
+        Table table =
+                parseTable(
+                        "CREATE TABLE `no_pk` (\n"
+                                + "    `id` int NOT NULL,\n"
+                                + "    `code` int DEFAULT NULL,\n"
+                                + "    UNIQUE KEY `uk_code` (`code`)\n"
+                                + ")",
+                        column("id", false),
+                        column("code", true));
+
+        // Debezium promotes the unique key to the primary key and marks `code` NOT NULL
+        Assertions.assertEquals(Arrays.asList("code"), table.primaryKeyColumnNames());
+        Assertions.assertTrue(table.columnWithName("code").isOptional());
+        Assertions.assertFalse(table.columnWithName("id").isOptional());
+    }
+
+    @Test
+    public void testNullableColumnOfCompositeUniqueKeyStaysOptional() {
+        Table table =
+                parseTable(
+                        "CREATE TABLE `no_pk` (\n"
+                                + "    `id` int NOT NULL,\n"
+                                + "    `a` int NOT NULL,\n"
+                                + "    `b` int DEFAULT NULL,\n"
+                                + "    UNIQUE KEY `uk_ab` (`a`, `b`)\n"
+                                + ")",
+                        column("id", false),
+                        column("a", false),
+                        column("b", true));
+
+        Assertions.assertFalse(table.columnWithName("a").isOptional());
+        Assertions.assertTrue(table.columnWithName("b").isOptional());
+    }
+
+    private static Table parseTable(String createTableSql, PhysicalColumn... columns) {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        TableId tableId = TableId.parse("db1.no_pk");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                "test", TablePath.of(tableId.catalog(), tableId.table())),
+                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+        MySqlSchema schema =
+                new MySqlSchema(
+                        factory.create(0), false, Collections.singletonMap(tableId, catalogTable));
+        return schema.getTableSchema(
+                        new MockJdbcConnection(
+                                createTableSql, Collections.<DescTableField>emptyIterator()),
+                        tableId)
+                .getTable();
+    }
+
+    private static PhysicalColumn column(String name, boolean nullable) {
+        return PhysicalColumn.builder()
+                .name(name)
+                .dataType(BasicType.INT_TYPE)
+                .nullable(nullable)
+                .build();
+    }
+
     private static class MockJdbcConnection extends JdbcConnection {
         private String showCreateTableSQL;
         private Iterator<DescTableField> fields;
