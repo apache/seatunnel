@@ -17,13 +17,76 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Collections;
+import java.util.Locale;
 
 public class PostgresSourceConfigFactoryTest {
+
+    @Test
+    public void shouldDeclareStopModeInRuntimeFactoryRule() {
+        Option<?> stopMode =
+                new PostgresIncrementalSourceFactory()
+                        .optionRule().getOptionalOptions().stream()
+                                .filter(option -> "stop.mode".equals(option.key()))
+                                .findFirst()
+                                .orElseThrow(
+                                        () -> new AssertionError("Factory must declare stop.mode"));
+        Assertions.assertEquals(PostgresSourceOptions.STOP_MODE, stopMode);
+        Assertions.assertTrue(stopMode instanceof SingleChoiceOption);
+        Assertions.assertEquals(
+                Collections.singletonList(StopMode.NEVER),
+                ((SingleChoiceOption<?>) stopMode).getOptionValues());
+    }
+
+    @Test
+    public void shouldKeepNeverAsDefaultStopMode() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.emptyMap());
+
+        Assertions.assertEquals(StopMode.NEVER, config.get(PostgresSourceOptions.STOP_MODE));
+        Assertions.assertDoesNotThrow(() -> ConfigValidator.of(config).validate(stopModeRule()));
+    }
+
+    @Test
+    public void shouldAcceptExplicitNeverStopMode() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(Collections.singletonMap("stop.mode", "never"));
+
+        Assertions.assertDoesNotThrow(() -> ConfigValidator.of(config).validate(stopModeRule()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"specific", "latest", "timestamp"})
+    public void shouldRejectUnsupportedBoundedStopMode(String mode) {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("stop.mode", mode));
+
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(config).validate(stopModeRule()));
+        Assertions.assertTrue(error.getMessage().contains("stop.mode"));
+        Assertions.assertTrue(error.getMessage().contains(mode.toUpperCase(Locale.ROOT)));
+    }
+
+    private static OptionRule stopModeRule() {
+        return OptionRule.builder().optional(PostgresSourceOptions.STOP_MODE).build();
+    }
 
     @Test
     public void shouldDisableDebeziumSnapshotForCommittedOffsetStartup() {
