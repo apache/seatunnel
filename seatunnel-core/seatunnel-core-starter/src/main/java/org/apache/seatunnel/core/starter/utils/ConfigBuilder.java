@@ -297,8 +297,10 @@ public class ConfigBuilder {
      * <p>Inputs like {@code -i 'k1= , k2=v2'} or {@code -i ' =v1,k2=v2'} have ambiguous semantics,
      * so both key and value are trimmed.
      *
-     * <p>Empty values are allowed, but empty keys, duplicate keys, system placeholder keys, and
-     * entries without '=' are rejected.
+     * <p>Empty values are allowed, but empty keys, duplicate keys, system placeholder keys are
+     * rejected.
+     *
+     * <p>Entries without '=' are silently skipped.
      *
      * @param variables the {@code -i} variables from CLI
      * @return map stores trimmed key and value
