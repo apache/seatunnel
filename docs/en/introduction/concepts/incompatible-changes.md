@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Kudu Master Address Validation
+
+- The Kudu source, sink, and catalog now reject an empty or whitespace-only `kudu_masters`
+  during option validation. A missing value was already rejected. Nonblank values are passed
+  through unchanged; address parsing and client construction are unchanged.
+- Before upgrading, replace blank values with the intended Kudu master address or a
+  comma-separated list of master addresses, for example `kudu-master-1:7051,kudu-master-2:7051`.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
