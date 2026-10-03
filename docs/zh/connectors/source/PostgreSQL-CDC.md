@@ -369,6 +369,10 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 
 默认需要主键。如果表有可作为唯一标识的列，可以通过 `table-names-config` 中的 `primaryKeys` 字段自定义主键。
 
+### 如何处理生成列？
+
+使用 `pgoutput` 时，只会捕获发布（publication）中发布的列。PostgreSQL 18 之前不发布生成列，虚拟生成列始终不会发布，发布的列列表也可以排除任意列。这些列会从表结构中排除，因此既不会在快照阶段读取，也不会在自动创建的目标表中创建。在 PostgreSQL 18 中，如果发布使用 `publish_generated_columns = stored` 创建，则会捕获存储生成列。
+
 ### 复制槽如何管理？
 
 SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。当 `startup.mode` 为
