@@ -132,6 +132,8 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-2-connecto
 docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connector-v2.sh -c config/v2.batch.config.template
 ```
 
+对于 Spark 3.5.x，请改用 `start-seatunnel-spark-3.5-connector-v2.sh`。容器必须包含 Spark 3.5.x 和匹配的 SeaTunnel 启动器，并将 `SPARK_HOME` 指向该 Spark 安装目录；仅更改启动器名称不会升级镜像。验证范围请参阅 [Spark 引擎兼容性](../../engines/spark.md)。
+
 - Flink
   在提交作业之前，您需要先启动 Flink 集群。
 
