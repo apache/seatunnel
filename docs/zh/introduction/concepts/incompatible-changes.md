@@ -4,6 +4,13 @@
 
 ## dev
 
+### DuckDB JDBC catalog 选择
+
+- DuckDB Source/Sink 现在会使用显式选择的挂载 catalog。`database = main` 和 `database = default` 仍表示当前 catalog。
+- 其他 `database` 值必须对应已挂载的 catalog，不再被静默忽略。Sink 省略 `database` 并继承非 DuckDB 上游数据库名时也受影响，包括 `schema_save_mode = IGNORE`；未知 catalog 会在保存模式修改之前报错并提示迁移方法。
+- 显式设置 `database = main`（或 `default`）可保留之前写入当前 catalog 的行为；写入挂载 catalog 时，请指定目标别名并在每个连接上挂载。显式 `query` 仍使用自身的 SQL 路由。本次修改不改变 checkpoint 状态格式。
+- Catalog 表查询和 `--dry-run connect` 也会对未挂载的 catalog 报错，不再将其视为表不存在。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

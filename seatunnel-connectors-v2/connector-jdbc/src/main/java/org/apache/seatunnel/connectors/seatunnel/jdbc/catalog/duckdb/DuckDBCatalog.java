@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBDialect.isDefaultDatabaseAlias;
+
 /**
  * Catalog implementation for DuckDB.
  *
@@ -79,16 +81,25 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     + "    c.is_nullable              AS is_nullable\n"
                     + "FROM information_schema.columns c\n"
                     + "LEFT JOIN duckdb_columns dc\n"
-                    + "       ON dc.schema_name = c.table_schema\n"
+                    + "       ON dc.database_name = c.table_catalog\n"
+                    + "      AND dc.schema_name = c.table_schema\n"
                     + "      AND dc.table_name  = c.table_name\n"
                     + "      AND dc.column_name = c.column_name\n"
-                    + "WHERE c.table_schema = '%s'\n"
+                    + "WHERE lower(c.table_catalog) = lower(%s)\n"
+                    + "  AND c.table_schema = '%s'\n"
                     + "  AND c.table_name   = '%s'\n"
                     + "ORDER BY c.ordinal_position;\n";
 
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
         super(catalogName, "duckdb", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
         this.typeConverter = new DuckDBTypeConverter();
+    }
+
+    @Override
+    protected Properties getConnectionProperties() {
+        // Embedded DuckDB has no JDBC user/password authentication. The superclass placeholders
+        // would make catalog and writer connections use different database configurations.
+        return new Properties();
     }
 
     @Override
@@ -159,7 +170,10 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL_TEMPLATE,
+                databaseExpression(tablePath.getDatabaseName()),
+                escapeSqlLiteral(tablePath.getSchemaName()),
+                escapeSqlLiteral(tablePath.getTableName()));
     }
 
     @Override
@@ -220,15 +234,30 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        return true;
+        return StringUtils.isNotBlank(databaseName)
+                && (isDefaultDatabaseAlias(databaseName) || super.databaseExists(databaseName));
+    }
+
+    @Override
+    protected String getListDatabaseSql() {
+        return "SELECT database_name FROM duckdb_databases()";
+    }
+
+    @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(
+                "SELECT database_name FROM duckdb_databases() WHERE lower(database_name) = lower('%s')",
+                escapeSqlLiteral(databaseName));
     }
 
     @Override
     public String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 "SELECT table_schema, table_name FROM information_schema.tables "
-                        + "WHERE table_schema = '%s' AND table_name = '%s'",
-                tablePath.getSchemaName(), tablePath.getTableName());
+                        + "WHERE lower(table_catalog) = lower(%s) AND table_schema = '%s' AND table_name = '%s'",
+                databaseExpression(tablePath.getDatabaseName()),
+                escapeSqlLiteral(tablePath.getSchemaName()),
+                escapeSqlLiteral(tablePath.getTableName()));
     }
 
     @Override
@@ -240,17 +269,53 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT table_schema, table_name FROM information_schema.tables";
+        return "SELECT table_schema, table_name FROM information_schema.tables "
+                + "WHERE lower(table_catalog) = lower("
+                + databaseExpression(databaseName)
+                + ")";
     }
 
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
+        validateDatabase(databaseName);
         return defaultUrl;
+    }
+
+    public void validateDatabase(String databaseName) {
+        if (!isDefaultDatabaseAlias(databaseName) && !databaseExists(databaseName)) {
+            throw unattachedDatabase(databaseName);
+        }
+    }
+
+    @Override
+    protected void createDatabaseInternal(String databaseName) {
+        throw unattachedDatabase(databaseName);
+    }
+
+    private CatalogException unattachedDatabase(String databaseName) {
+        return new CatalogException(
+                String.format(
+                        "DuckDB database '%s' is not an attached catalog; set database to main/default for the current catalog, or attach the requested catalog on every connection.",
+                        databaseName));
     }
 
     @Override
     protected String getOptionTableName(TablePath tablePath) {
+        if (!isDefaultDatabaseAlias(tablePath.getDatabaseName())) {
+            return tablePath.getFullName();
+        }
         return tablePath.getSchemaAndTableName();
+    }
+
+    private String databaseExpression(String databaseName) {
+        if (isDefaultDatabaseAlias(databaseName)) {
+            return "current_database()";
+        }
+        return "'" + escapeSqlLiteral(databaseName) + "'";
+    }
+
+    private String escapeSqlLiteral(String value) {
+        return String.valueOf(value).replace("'", "''");
     }
 
     private boolean isDuckDBDecimal(String typeName) {

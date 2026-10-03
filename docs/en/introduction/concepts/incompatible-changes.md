@@ -27,6 +27,13 @@ You need to check this document before you upgrade to related version.
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### DuckDB JDBC catalog selection
+
+- DuckDB Source/Sink now respect an explicitly selected attached catalog. `database = main` and `database = default` remain aliases for the current catalog.
+- A different `database` value must identify an attached catalog; it is no longer silently ignored. This also affects a Sink that inherits a non-DuckDB upstream database name when `database` is omitted, including `schema_save_mode = IGNORE`. Unknown catalogs fail with a migration hint before save-mode changes.
+- Set `database = main` (or `default`) explicitly to retain the previous current-catalog Sink target, or configure the intended attached alias and attach it on every connection. Explicit `query` retains its own SQL routing. This change does not alter checkpoint state formats.
+- Catalog table lookup and `--dry-run connect` also reject an unattached catalog instead of reporting that its tables do not exist.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and

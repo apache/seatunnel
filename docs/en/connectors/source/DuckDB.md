@@ -31,6 +31,30 @@ and reading multiple tables in one job through `table_list`.
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
+## Reading an attached DuckLake catalog
+
+DuckLake tables can be read through DuckDB JDBC after every connection attaches the lake. With a DuckDB JDBC driver that supports `session_init_sql_file` (verified with 1.3.1), put the following in `/etc/duckdb/lake-init.sql` on each worker:
+
+```sql
+/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
+LOAD ducklake;
+LOAD sqlite_scanner;
+ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+```
+
+Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. Use `ATTACH IF NOT EXISTS` in the init file because a worker can open multiple connections to the same DuckDB database; a repeated plain `ATTACH` fails. The init file and required extensions must be available to every worker.
+
+If the job uses only attached DuckLake tables, `url = "jdbc:duckdb:;session_init_sql_file=/etc/duckdb/lake-init.sql"` can use a connection-private in-memory DuckDB instance instead (Source/Sink and reconnect verified with JDBC 1.3.1). The lake still persists in its metadata database and data path. If you use a file-backed `work.db`, keep it private to one worker JVM; do not open the same file read-write from multiple worker processes or place it on a shared volume for that purpose. See [DuckDB concurrency](https://duckdb.org/docs/stable/connect/concurrency.html).
+
+For an **existing** DuckLake with PostgreSQL metadata, replace the SQLite lines in the init file with `LOAD postgres` and, for example:
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=lake_catalog host=pg.example.com port=5432'
+    AS lake (METADATA_SCHEMA 'lake_meta');
+```
+
+`lake_catalog` is the PostgreSQL database, `lake_meta` is the PostgreSQL schema holding DuckLake metadata, and `lake.main.events` remains the DuckLake catalog/schema/table path. Create the PostgreSQL database and metadata schema before attaching. When **creating** a lake, also provide `DATA_PATH 's3://bucket/prefix/'`; DuckLake stores that location in its metadata, so a later connection to the existing lake can omit `DATA_PATH` (verified with DuckDB JDBC 1.3.1). PostgreSQL authentication and object-store credentials still have to be available to every worker; the metadata does not supply credentials. See the [DuckLake connection parameters](https://ducklake.select/docs/stable/duckdb/usage/connecting) for credential options, and keep secrets out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -288,6 +312,19 @@ sink {
   Console {}
 }
 ```
+### DuckLake snapshot consistency
+
+JDBC source splits use separate reads; the connector does not automatically pin a DuckLake snapshot for the entire job. For a stable batch extraction, resolve a retained snapshot ID once and use the same `SNAPSHOT_VERSION` in the Source initialization script on every Worker:
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=ducklake_catalog host=metadata-host user=reader'
+AS lake (METADATA_SCHEMA 'lake_meta', SNAPSHOT_VERSION 2);
+```
+
+Replace `2` with an existing snapshot ID from `SELECT * FROM lake.snapshots()`. Keep that snapshot available until the job and any retries complete. Use a separate initialization script for a writable Sink; the snapshot-pinned catalog is for historical reads. See [DuckLake time travel](https://ducklake.select/docs/stable/duckdb/usage/time_travel).
+
+Catalog discovery with `table_pattern` or a regular-expression `table_path` searches only the current DuckDB catalog. List attached-catalog tables explicitly with three-part `table_path` or `table_names` values, such as `lake.main.events`. Catalog matching is case-insensitive. `main` and `default` are reserved aliases for the current catalog; choose a different alias when attaching a lake.
+
 ## Change Log
 
 <ChangeLog />

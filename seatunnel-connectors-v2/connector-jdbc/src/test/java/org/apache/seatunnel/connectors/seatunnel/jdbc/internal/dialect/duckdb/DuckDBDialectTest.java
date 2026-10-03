@@ -85,6 +85,15 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testCurrentCatalogAliasesAreCaseInsensitive() {
+        Assertions.assertEquals(
+                "\"main\".\"dialect_test\"", dialect.tableIdentifier("MAIN", TABLE_NAME));
+        Assertions.assertEquals(
+                "\"main\".\"dialect_test\"",
+                dialect.tableIdentifier("DEFAULT", "main." + TABLE_NAME));
+    }
+
+    @Test
     void testInsertStatementExecution() throws Exception {
         Assertions.assertEquals(
                 "INSERT INTO \"main\".\"dialect_test\" (\"id\", \"name\") VALUES (:id, :name)",
@@ -92,6 +101,31 @@ public class DuckDBDialectTest {
         executeSql(insertTemplate, params("id", 1, "name", "duck-1"));
         executeSql(insertTemplate, params("id", 2, "name", "duck-2"));
         Assertions.assertEquals(2, countRows());
+    }
+
+    @Test
+    void testAttachedDatabaseTableIdentifier() throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ATTACH ':memory:' AS lake");
+            try {
+                statement.execute("CREATE TABLE lake.main.dialect_test (id INTEGER, name VARCHAR)");
+                statement.execute("INSERT INTO lake.main.dialect_test VALUES (42, 'lake')");
+                TablePath attached = dialect.parse("lake.main.dialect_test");
+                Assertions.assertEquals(
+                        "\"lake\".\"main\".\"dialect_test\"", dialect.tableIdentifier(attached));
+                Assertions.assertEquals(
+                        "\"lake\".\"main\".\"dialect_test\"",
+                        dialect.tableIdentifier("lake", "main.dialect_test"));
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT id FROM " + dialect.tableIdentifier(attached))) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(42, resultSet.getInt(1));
+                }
+            } finally {
+                statement.execute("DETACH lake");
+            }
+        }
     }
 
     @Test
