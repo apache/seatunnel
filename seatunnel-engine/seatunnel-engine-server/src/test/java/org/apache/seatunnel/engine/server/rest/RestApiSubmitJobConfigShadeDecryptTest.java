@@ -125,6 +125,23 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     @Test
+    public void testSubmitJobWithRegexFieldInJson() throws Exception {
+        String body =
+                "{\"env\":{\"job.mode\":\"BATCH\"},"
+                        + "\"source\":[{\"plugin_name\":\"FakeSource\",\"row.num\":2,"
+                        + "\"schema\":{\"fields\":{\"^t_nova_.*$\":\"string\"}}}],"
+                        + "\"sink\":[{\"plugin_name\":\"Console\"}]}";
+
+        HttpResponse response =
+                post(
+                        "http://localhost:" + restPort + "/submit-job?jobName=regex_json_test",
+                        "application/json",
+                        body);
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("jobId"));
+    }
+
+    @Test
     public void testSubmitJobWithHoconFormatMissingShadeIdentifier() throws Exception {
         String bodyWithoutShade =
                 "env {\n"
