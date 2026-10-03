@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -212,5 +213,17 @@ public interface JdbcDialectTypeMapper extends Serializable {
                 bitLength,
                 Collections.emptyMap(),
                 longColumnLength);
+    }
+
+    /**
+     * Maps a column from ResultSetMetaData with an optional JDBC Connection and SQL query. Dialects
+     * can use the connection to query additional metadata (e.g., PostgreSQL vector dimension from
+     * pg_attribute) and the SQL query to extract table names when ResultSetMetaData doesn't provide
+     * them. The default implementation delegates to {@link #mappingColumn(ResultSetMetaData, int)}.
+     */
+    default Column mappingColumn(
+            ResultSetMetaData metadata, int colIndex, Connection connection, String sqlQuery)
+            throws SQLException {
+        return mappingColumn(metadata, colIndex);
     }
 }
