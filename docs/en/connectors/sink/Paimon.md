@@ -741,7 +741,7 @@ sink {
 
 ### Does Paimon sink support automatic table creation and schema evolution?
 
-Yes. When `paimon.auto-create-table = true` or `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
+Yes. When `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
 
 ### How does Paimon sink achieve exactly-once writes?
 

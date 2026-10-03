@@ -28,6 +28,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] ORC
   - [x] JSON
   - [x] Excel
+  - [x] XML
+  - [x] 二进制
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json

@@ -188,7 +188,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | max_commit_attempts                       | Int     | 否    | 3                            |
 | transaction_timeout_sec                   | Int     | 否    | -1                           |
 | auto_commit                               | Boolean | 否    | true                         |
-| field_ide                                 | String  | 否    | -                            |
+| field_ide                                 | Enum    | 否    | -                            |
 | properties                                | Map     | 否    | -                            |
 | common-options                            |         | 否    | -                            |
 | schema_save_mode                          | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST |
@@ -356,7 +356,7 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 这样可以保证失败批次的原子性，避免原始数据错误被后续的主键重复错误掩盖。
 关闭 checkpoint 时，每次由 `batch_size` / `batch_interval_ms` 触发并成功的批量写入会立即提交事务，避免已刷出的数据一直停留在同一个未结束的事务中直到 writer 关闭；开启 checkpoint 时，提交边界仍然是 checkpoint。
 
-### field_ide [String]
+### field_ide [Enum]
 
 字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE'
 表示转换为大写，'LOWERCASE' 表示转换为小写

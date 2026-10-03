@@ -188,7 +188,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | max_commit_attempts                       | Int     | No       | 3                            |
 | transaction_timeout_sec                   | Int     | No       | -1                           |
 | auto_commit                               | Boolean | No       | true                         |
-| field_ide                                 | String  | No       | -                            |
+| field_ide                                 | Enum    | No       | -                            |
 | properties                                | Map     | No       | -                            |
 | common-options                            |         | No       | -                            |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST |
@@ -359,7 +359,7 @@ For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_co
 This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
 When checkpointing is disabled, the transaction is committed after every successful `batch_size` / `batch_interval_ms` triggered flush, so flushed rows are not held in one unbounded transaction until the writer closes. When checkpointing is enabled, the commit boundary remains the checkpoint.
 
-### field_ide [String]
+### field_ide [Enum]
 
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
 synchronizing from the source to the sink. "ORIGINAL" indicates no conversion is needed, "UPPERCASE" indicates

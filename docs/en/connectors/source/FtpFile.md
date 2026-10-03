@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] file format type
   - [x] text
   - [x] csv
+  - [x] parquet
+  - [x] orc
   - [x] json
   - [x] excel
   - [x] xml
@@ -680,8 +682,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
     password = tianchao
     file_format_type = "text"
     schema = {
-      name = string
-      age = int
+      fields {
+        name = string
+        age = int
+      }
     }
     field_delimiter = "#"
   }
@@ -906,30 +910,9 @@ sink {
 }
 ```
 
-### Reading via SFTP (SSH File Transfer)
+### Reading from an SFTP server
 
-`FtpFile` reads from FTP and SFTP servers through the same Hadoop FileSystem URI scheme; switch to `sftp://` to use SSH instead of plain FTP. SFTP requires an SSH key (or a password) for authentication, and the host key must be trusted by the running JVM (either via `~/.ssh/known_hosts` or a custom `known_hosts` file passed through `ftp_properties`).
-
-```hocon
-source {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "csv"
-    delimiter = ","
-    ftp_properties = {
-      "fs.sftp.user." = "seatunnel"
-      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"   = "sftp.example.example.com"
-      "fs.sftp.port"   = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
-
-If the SFTP server uses a self-signed host key, add it to `known_hosts` ahead of time — otherwise the first read throws a `SftpException` complaining about host verification. The connector does not cache or refresh `known_hosts` itself; updating the file and restarting the job is enough.
+The `FtpFile` connector only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To read files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) connector instead, which configures the server through `host`/`port`/`user`/`password` (and optional SSH `keyfile`) options.
 
 ## Changelog
 
