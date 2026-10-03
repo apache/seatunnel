@@ -25,6 +25,10 @@ import java.io.Serializable;
 
 @Data
 public class TaskDeployState implements Serializable {
+    // Same as the default value computed before this field was declared, so serialized bytes
+    // do not change.
+    private static final long serialVersionUID = 2646079648150626562L;
+
     private final boolean success;
     private final String throwableMsg;
 

@@ -23,6 +23,10 @@ import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
 
+    // Same as the default value computed before this field was declared, so serialized bytes
+    // do not change.
+    private static final long serialVersionUID = -108652017022658969L;
+
     private final TaskGroupLocation taskGroupLocation;
 
     private final ExecutionState executionState;
