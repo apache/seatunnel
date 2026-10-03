@@ -69,6 +69,8 @@ and reading multiple tables in one job through `table_list`.
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
+For `table_path` schema discovery, the catalog retains the declared precision and scale of DECIMAL and NUMERIC columns. A table created from an inferred `DECIMAL(10,2)` schema therefore keeps `DECIMAL(10,2)`.
+
 ## Source Options
 
 | Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                         |

@@ -57,6 +57,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private final DuckDBTypeConverter typeConverter;
     private static final String DEFAULT_DATABASE_NAME = "default";
+    // DuckDB exposes DECIMAL precision via numeric_precision; character length is null.
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
                     + "    c.column_name AS column_name,\n"
@@ -72,7 +73,9 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     + "        ELSE\n"
                     + "            c.data_type\n"
                     + "    END AS full_type_name,\n"
-                    + "    c.character_maximum_length AS column_length,\n"
+                    + "    CASE WHEN c.data_type ILIKE 'DECIMAL%%' OR c.data_type ILIKE 'NUMERIC%%'\n"
+                    + "         THEN c.numeric_precision ELSE c.character_maximum_length END AS"
+                    + " column_length,\n"
                     + "    c.numeric_scale            AS column_scale,\n"
                     + "    dc.comment                 AS column_comment,\n"
                     + "    c.column_default           AS default_value,\n"
