@@ -54,6 +54,8 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
     private static final String TERADATA_DATE = "DATE";
     private static final String TERADATA_TIME = "TIME";
     private static final String TERADATA_TIMESTAMP = "TIMESTAMP";
+    /* Teradata timestamp type that preserves an explicit UTC offset. */
+    private static final String TERADATA_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
 
     // ------------------------------blob-------------------------
     private static final String TERADATA_BLOB = "BLOB";
@@ -90,6 +92,8 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case TERADATA_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case TERADATA_TIMESTAMP_WITH_TIME_ZONE:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw CommonError.convertToSeaTunnelTypeError(
