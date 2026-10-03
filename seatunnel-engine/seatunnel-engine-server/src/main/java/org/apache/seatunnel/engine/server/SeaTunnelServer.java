@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
+import org.apache.seatunnel.engine.server.observability.cluster.ClusterObservabilityService;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -104,6 +105,7 @@ public class SeaTunnelServer
     private TaskLogManagerService taskLogManagerService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
+    @Getter private ClusterObservabilityService clusterObservabilityService;
 
     private final SeaTunnelConfig seaTunnelConfig;
 
@@ -144,6 +146,8 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        this.clusterObservabilityService =
+                new ClusterObservabilityService(((NodeEngineImpl) engine).getNode());
         BaseService.retainRunningJobDagJsonCache();
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
@@ -257,10 +261,17 @@ public class SeaTunnelServer
     }
 
     @Override
-    public void memberAdded(MembershipServiceEvent event) {}
+    public void memberAdded(MembershipServiceEvent event) {
+        if (clusterObservabilityService != null) {
+            clusterObservabilityService.recordMemberAdded();
+        }
+    }
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
+        if (clusterObservabilityService != null) {
+            clusterObservabilityService.recordMemberRemoved();
+        }
         try {
             if (isMasterNode()) {
                 this.getCoordinatorService().memberRemoved(event);
