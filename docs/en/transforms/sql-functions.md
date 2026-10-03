@@ -1286,6 +1286,8 @@ SELECT * FROM dual
 
 ## Vector Functions
 
+Vector functions do not consume or modify their input vector buffers. The same vector field can be used in multiple expressions or as both arguments to a distance function, and remains available to downstream transforms and sinks.
+
 ### VECTOR_DIMS
 
 ```VECTOR_DIMS(vector) -> INT```
