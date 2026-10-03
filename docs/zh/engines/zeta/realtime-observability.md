@@ -300,6 +300,16 @@ UpstreamFlow
 - `SourceReadNs#{sourceId}`：累计 read 时间（ns）
 - `SourceIdleNs#{sourceId}`：累计 idle 时间（ns）
 
+开启引擎可观测性后，Zeta 还会注册以下 Phase 0 运行时诊断指标：
+
+- Poll：`SourcePollTotal`、`SourcePollNs`、`SourcePollMaxNs` 和 `SourcePollBudgetExceededTotal`。完整 `pollNext()` 调用超过 5 ms 时，记为一次诊断软预算越界。
+- Reader 控制回调：`SourceReaderCallbackTotal`、`SourceReaderCallbackNs`、`SourceReaderCallbackMaxNs` 和 `SourceReaderCallbackBudgetExceededTotal`。当前口径覆盖 split assignment、no-more-splits、checkpoint-complete 和 checkpoint-abort 回调；回调超过 5 ms 时，记为一次 operation thread 诊断软预算越界。
+- Checkpoint 锁：`SourceCheckpointTotal`、`SourceCheckpointLockWaitNs` 和 `SourceCheckpointLockWaitMaxNs`。锁等待从 barrier 进入 `SourceFlowLifeCycle.triggerBarrier()` 开始，到取得 reader checkpoint lock 结束。
+- Checkpoint 快照：`SourceCheckpointSnapshotTotal`、`SourceCheckpointSnapshotNs` 和 `SourceCheckpointSnapshotMaxNs`。该阶段包含 `snapshotState()`、状态序列化和 task state 注册。
+- Barrier 转发：`SourceBarrierForwardNs` 和 `SourceBarrierForwardMaxNs`。该阶段包含 checkpoint ACK 和向下游转发 barrier。
+
+以上指标同样追加 `#{sourceId}` 后缀。`Total` 和 `Ns` 是单次 task attempt 的累计值，`MaxNs` 是单次 task attempt 内的最大值。5 ms 仅用于诊断：越界不会中断 legacy connector，也不会改变其执行通道。
+
 说明与建议：
 
 - `SourceReadNs` 当前以 `pollNext()` 调用耗时为口径；当 Source 与下游 **无队列直连**（未配置 async boundary）时，`pollNext()` 内部的 `collector.collect()` 会同步执行下游逻辑，导致 `SourceReadNs` 会包含一部分“写出/下游执行”的时间。

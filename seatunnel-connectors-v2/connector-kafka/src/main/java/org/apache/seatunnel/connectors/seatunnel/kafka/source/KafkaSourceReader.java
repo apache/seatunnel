@@ -39,9 +39,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaSourceReader
         extends SingleThreadMultiplexSourceReaderBase<
@@ -51,12 +53,17 @@ public class KafkaSourceReader
                 KafkaSourceSplitState> {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaSourceReader.class);
+    private static final int MAX_PENDING_COMMIT_COMPLETIONS = 1024;
     private final SourceReader.Context context;
 
     private final KafkaSourceConfig kafkaSourceConfig;
     private final SortedMap<Long, Map<TopicPartition, OffsetAndMetadata>> checkpointOffsetMap;
 
     private final ConcurrentMap<TopicPartition, OffsetAndMetadata> offsetsOfFinishedSplits;
+    private final BlockingQueue<CommitCompletion> commitCompletions =
+            new ArrayBlockingQueue<>(MAX_PENDING_COMMIT_COMPLETIONS);
+    private final AtomicReference<RuntimeException> commitCompletionFailure =
+            new AtomicReference<>();
 
     KafkaSourceReader(
             BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue,
@@ -150,23 +157,69 @@ public class KafkaSourceReader
                 .commitOffsets(
                         committedPartitions,
                         (ignored, e) -> {
-                            if (e != null) {
-                                logger.warn(
-                                        "Failed to commit consumer offsets for checkpoint {}",
-                                        checkpointId,
-                                        e);
-                                return;
+                            CommitCompletion completion =
+                                    new CommitCompletion(
+                                            checkpointId, new HashMap<>(committedPartitions), e);
+                            if (isManagedRuntimeActive()) {
+                                if (!commitCompletions.offer(completion)) {
+                                    commitCompletionFailure.compareAndSet(
+                                            null,
+                                            new IllegalStateException(
+                                                    "Kafka managed commit completion mailbox "
+                                                            + "exhausted at checkpoint "
+                                                            + checkpointId));
+                                }
+                                signalAvailable();
+                            } else {
+                                // Preserve the legacy lane's historical callback timing.
+                                applyCommitCompletion(completion);
                             }
-                            offsetsOfFinishedSplits
-                                    .keySet()
-                                    .removeIf(committedPartitions::containsKey);
-                            removeAllOffsetsToCommitUpToCheckpoint(checkpointId);
                         });
+    }
+
+    @Override
+    protected void drainAsyncCompletions() {
+        RuntimeException asynchronousFailure = commitCompletionFailure.getAndSet(null);
+        if (asynchronousFailure != null) {
+            throw asynchronousFailure;
+        }
+        CommitCompletion completion;
+        while ((completion = commitCompletions.poll()) != null) {
+            applyCommitCompletion(completion);
+        }
+    }
+
+    /** Applies one commit result on either the legacy callback or managed Reader owner thread. */
+    private void applyCommitCompletion(CommitCompletion completion) {
+        if (completion.failure != null) {
+            logger.warn(
+                    "Failed to commit consumer offsets for checkpoint {}",
+                    completion.checkpointId,
+                    completion.failure);
+            return;
+        }
+        offsetsOfFinishedSplits.keySet().removeIf(completion.committedPartitions::containsKey);
+        removeAllOffsetsToCommitUpToCheckpoint(completion.checkpointId);
     }
 
     private void removeAllOffsetsToCommitUpToCheckpoint(long checkpointId) {
         while (!checkpointOffsetMap.isEmpty() && checkpointOffsetMap.firstKey() <= checkpointId) {
             checkpointOffsetMap.remove(checkpointOffsetMap.firstKey());
+        }
+    }
+
+    private static final class CommitCompletion {
+        private final long checkpointId;
+        private final Map<TopicPartition, OffsetAndMetadata> committedPartitions;
+        private final Throwable failure;
+
+        private CommitCompletion(
+                long checkpointId,
+                Map<TopicPartition, OffsetAndMetadata> committedPartitions,
+                Throwable failure) {
+            this.checkpointId = checkpointId;
+            this.committedPartitions = committedPartitions;
+            this.failure = failure;
         }
     }
 }

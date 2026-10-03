@@ -55,6 +55,10 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends TracingOpe
                 () -> {
                     SourceSeaTunnelTask<?, SplitT> task =
                             server.getTaskExecutionService().getTask(taskID);
+                    if (task.isManagedReaderRuntime()) {
+                        task.receivedSerializedSourceSplit(this.splits);
+                        return null;
+                    }
                     ClassLoader taskClassLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(taskID.getTaskGroupLocation())
