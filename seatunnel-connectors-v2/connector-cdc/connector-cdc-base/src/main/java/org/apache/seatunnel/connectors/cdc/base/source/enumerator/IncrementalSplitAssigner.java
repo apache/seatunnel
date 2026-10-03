@@ -185,7 +185,17 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                                 if (!context.getCapturedTables().contains(tableId)) {
                                     continue;
                                 }
-                                tableWatermarks.put(tableId, startupOffset);
+                                Map<TableId, Offset> tableStartupOffsets =
+                                        incrementalSplit.getTableStartupOffsets();
+                                Offset tableStartupOffset =
+                                        tableStartupOffsets == null
+                                                ? null
+                                                : tableStartupOffsets.get(tableId);
+                                tableWatermarks.put(
+                                        tableId,
+                                        tableStartupOffset == null
+                                                ? startupOffset
+                                                : tableStartupOffset);
                             }
                             if (this.startupOffset == null) {
                                 this.startupOffset = startupOffset;
@@ -296,6 +306,13 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
         }
         Offset incrementalSplitStartOffset = minOffset != null ? minOffset : startupOffset;
+        Map<TableId, Offset> tableStartupOffsets = new HashMap<>();
+        for (TableId tableId : capturedTables) {
+            Offset tableStartupOffset = tableWatermarks.get(tableId);
+            if (tableStartupOffset != null) {
+                tableStartupOffsets.put(tableId, tableStartupOffset);
+            }
+        }
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
@@ -303,7 +320,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 sourceConfig.getStopConfig().getStopOffset(offsetFactory),
                 completedSnapshotSplitInfos,
                 checkpointTables,
-                historyTableChanges);
+                historyTableChanges,
+                tableStartupOffsets);
     }
 
     @VisibleForTesting

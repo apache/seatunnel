@@ -25,7 +25,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** The state of split to describe the change log of table(s). */
 @Getter
@@ -36,6 +38,8 @@ public class IncrementalSplitState extends SourceSplitStateBase {
 
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private Offset startupOffset;
+
+    private Map<TableId, Offset> tableStartupOffsets;
 
     /** Obtained by configuration, may not end */
     private Offset stopOffset;
@@ -48,6 +52,10 @@ public class IncrementalSplitState extends SourceSplitStateBase {
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
+        this.tableStartupOffsets =
+                split.getTableStartupOffsets() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(split.getTableStartupOffsets());
 
         if (split.getCompletedSnapshotSplitInfos().isEmpty()) {
             this.maxSnapshotSplitsHighWatermark = null;
@@ -71,7 +79,25 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getTableIds(),
                 getStartupOffset(),
                 getStopOffset(),
-                incrementalSplit.getCompletedSnapshotSplitInfos());
+                incrementalSplit.getCompletedSnapshotSplitInfos(),
+                getTableStartupOffsets());
+    }
+
+    public void setStartupOffset(Offset startupOffset, TableId tableId) {
+        if (this.startupOffset == null || startupOffset.isAfter(this.startupOffset)) {
+            this.startupOffset = startupOffset;
+        }
+        if (startupOffset == null) {
+            return;
+        }
+        if (tableId == null) {
+            // Heartbeats have a source-wide offset that safely advances every captured table.
+            for (TableId capturedTableId : tableIds) {
+                tableStartupOffsets.put(capturedTableId, startupOffset);
+            }
+        } else if (tableIds.contains(tableId)) {
+            tableStartupOffsets.put(tableId, startupOffset);
+        }
     }
 
     public synchronized boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {
