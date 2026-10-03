@@ -1450,8 +1450,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 例子
 
-获取当前节点的日志列表：`http://localhost:5801/log`
-获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+获取当前节点的日志列表：`http://localhost:8080/log`
+获取日志文件内容：`http://localhost:8080/log/job-898380162133917698.log`
 
 </details>
 

@@ -291,7 +291,7 @@ Use the `tables_configs` configuration array. Each item defines its own `topics`
 
 ### Which starting offset modes are supported?
 
-RocketMQ source supports starting from earliest offsets (`CONSUME_FROM_FIRST_OFFSET`), latest offsets (`CONSUME_FROM_LAST_OFFSET`), or timestamp-based offsets (`CONSUME_FROM_TIMESTAMP`) using the `start.mode` parameter.
+RocketMQ source supports starting from the group offset (`CONSUME_FROM_GROUP_OFFSETS`, the default), earliest offsets (`CONSUME_FROM_FIRST_OFFSET`), latest offsets (`CONSUME_FROM_LAST_OFFSET`), timestamp-based offsets (`CONSUME_FROM_TIMESTAMP`, with `start.mode.timestamp`), or specific offsets (`CONSUME_FROM_SPECIFIC_OFFSETS`, with `start.mode.offsets`) using the `start.mode` parameter.
 
 ### How is fault tolerance achieved during job failover?
 

@@ -1470,8 +1470,8 @@ Returns a list of logs from the requested node.
 
 #### Examples
 
-To get a list of logs from the current node: `http://localhost:5801/log`
-To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+To get a list of logs from the current node: `http://localhost:8080/log`
+To get the content of a log file: `http://localhost:8080/log/job-898380162133917698.log`
 
 </details>
 

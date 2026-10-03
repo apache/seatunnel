@@ -154,6 +154,47 @@ sink {
 }
 ```
 
+### 通过 `kv` 格式将 CDC 记录写入 Aerospike
+
+对于流式作业（例如 MySQL CDC），可以使用 `data_format = "kv"` 将每个配置的字段作为独立的
+Aerospike bin 写入。这样每个字段单独存储，而不是打包进单个 JSON 或 map bin，下游查询成本更低。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.user"]
+  }
+}
+
+sink {
+  Aerospike {
+    host = "aerospike-host"
+    port = 3000
+    namespace = "test"
+    set = "user"
+    key = "id"
+    data_format = "kv"
+    write_timeout = 500
+    schema {
+      field {
+        id = "INTEGER"
+        name = "STRING"
+        email = "STRING"
+      }
+    }
+  }
+}
+```
+
 ## 更新日志
 
 <ChangeLog />
