@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceOptions;
 
 import org.tikv.kvproto.Coprocessor;
 import org.tikv.shade.com.google.protobuf.ByteString;
@@ -48,6 +49,11 @@ public class TiDBSourceSplit implements SourceSplit {
     public String splitId() {
         return String.format(
                 "%s:%s:%s-%s", database, table, keyRange.getStart(), keyRange.getEnd());
+    }
+
+    /** @return full name of the table this split belongs to, in {@code database.table} form. */
+    public String tableFullName() {
+        return TiDBSourceOptions.tableFullName(database, table);
     }
 
     @Override
