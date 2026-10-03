@@ -61,6 +61,14 @@ the CQL should return the columns that downstream steps need.
 | set                 | ARRAY               |
 | map                 | MAP                 |
 
+## Connectivity dry-run
+
+`--dry-run connect` connects to Cassandra and prepares each configured SELECT to infer its projected schema without executing the data query. Single-table and `tables_configs` configurations use the same column conversion and table identifiers as normal execution. No source reader is created.
+
+CQL must begin with `SELECT` (case-insensitive, with optional leading whitespace); leading comments, non-SELECT statements and unbound parameters are rejected. The driver may read system metadata and populate its prepared-statement cache, but the connector does not read application rows or issue writes. Preparing successfully does not prove SELECT permissions, consistency-level availability or successful later execution.
+
+Connection and metadata/request waits are limited to 10 seconds per operation; initialization does not reconnect indefinitely. This is not a global deadline across all nodes and tables. Other driver configuration is preserved. Normal job execution is unchanged.
+
 ## Source Options
 
 | Name              | Type       | Required | Default     | Description |
@@ -78,6 +86,8 @@ the CQL should return the columns that downstream steps need.
 > \* Exactly one of `cql` or `tables_configs` must be provided.
 
 ### host [string]
+
+All configured hosts are passed to the driver as bootstrap contact points. The driver can try another configured host when one is unavailable during initial connection. This does not change consistency levels or guarantee availability when no suitable node is reachable.
 
 `Cassandra` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as
 `"cassandra1:9042,cassandra2:9042"`.
