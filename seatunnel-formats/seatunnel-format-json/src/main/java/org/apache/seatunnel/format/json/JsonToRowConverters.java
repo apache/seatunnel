@@ -21,6 +21,7 @@ package org.apache.seatunnel.format.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -79,11 +80,27 @@ public class JsonToRowConverters implements Serializable {
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
     private final boolean ignoreParseErrors;
 
-    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    /** Optional column metadata used to apply defaultValue when a field is missing or null. */
+    private Column[] columns;
+
+    /**
+     * Cached date/timestamp formatters per field name. Transient because it may be populated at
+     * converter construction time (default value pre-computation) with non-serializable {@link
+     * DateTimeFormatter} instances, before the object graph is serialized to workers;
+     * re-initialized lazily on the worker side.
+     */
+    public transient Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+    }
+
+    public JsonToRowConverters(
+            boolean failOnMissingField, boolean ignoreParseErrors, Column[] columns) {
+        this.failOnMissingField = failOnMissingField;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.columns = columns;
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -190,7 +207,12 @@ public class JsonToRowConverters implements Serializable {
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToBytes(jsonNode);
+                        // Return a fresh copy: jsonNode.binaryValue() returns the
+                        // internal array reference for a BinaryNode, so converting a
+                        // cached default node would otherwise share one byte[] across
+                        // every row that takes the default.
+                        byte[] bytes = convertToBytes(jsonNode);
+                        return bytes == null ? null : bytes.clone();
                     }
                 };
             case DECIMAL:
@@ -212,7 +234,7 @@ public class JsonToRowConverters implements Serializable {
             case MAP:
                 return createMapConverter((MapType<?, ?>) type);
             case ROW:
-                return createRowConverter((SeaTunnelRowType) type);
+                return createRowConverter((SeaTunnelRowType) type, null);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -271,6 +293,11 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateFormatter = fieldFormatterMap.get(fieldName);
         }
 
@@ -299,6 +326,11 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateTimeFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateTimeFormatter = fieldFormatterMap.get(fieldName);
         }
 
@@ -398,6 +430,10 @@ public class JsonToRowConverters implements Serializable {
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {
+        return createRowConverter(rowType, this.columns);
+    }
+
+    private JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType, Column[] columns) {
         final JsonToObjectConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(
@@ -415,6 +451,48 @@ public class JsonToRowConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
+
+        // Pre-convert each column default once at converter construction so the hot path
+        // does not repeat toJsonNode/conversion per record, and misconfigured defaults
+        // fail fast at job start instead of at first record. The unwrapped converter is
+        // used so a bad default always fails at construction, regardless of
+        // ignoreParseErrors. Only known-immutable types are pre-converted and cached;
+        // everything else (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, and any future type not
+        // explicitly listed) keeps its JsonNode and is converted per record so no
+        // single mutable instance is ever shared across rows.
+        final Object[] defaultValues = new Object[fieldNames.length];
+        final JsonNode[] defaultNodes = new JsonNode[fieldNames.length];
+        if (columns != null) {
+            for (int i = 0; i < fieldNames.length && i < columns.length; i++) {
+                Object defaultValue = columns[i].getDefaultValue();
+                if (defaultValue != null) {
+                    JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
+                    SqlType sqlType = rowType.getFieldType(i).getSqlType();
+                    try {
+                        if (isImmutableType(sqlType)) {
+                            defaultValues[i] =
+                                    createNotNullConverter(rowType.getFieldType(i))
+                                            .convert(defaultNode, fieldNames[i]);
+                        } else {
+                            // Validate at construction but convert per record to avoid
+                            // sharing one mutable instance across rows (e.g. a cached
+                            // FLOAT_VECTOR ByteBuffer or ROW object would be corrupted by
+                            // downstream in-place mutation of any other row's default)
+                            createNotNullConverter(rowType.getFieldType(i))
+                                    .convert(defaultNode, fieldNames[i]);
+                            defaultNodes[i] = defaultNode;
+                        }
+                    } catch (RuntimeException e) {
+                        throw CommonError.jsonOperationError(
+                                FORMAT,
+                                String.format(
+                                        "Invalid defaultValue for column '%s' of type %s: %s",
+                                        fieldNames[i], sqlType, defaultValue),
+                                e);
+                    }
+                }
+            }
+        }
 
         return new JsonToObjectConverter() {
             @Override
@@ -436,7 +514,14 @@ public class JsonToRowConverters implements Serializable {
                         if (StringUtils.isNotBlank(rowFieldName)) {
                             fieldName = rowFieldName + "." + fieldName;
                         }
-                        Object convertedField = convertField(fieldConverters[i], fieldName, field);
+                        Object convertedField =
+                                convertField(
+                                        fieldConverters[i],
+                                        fieldName,
+                                        field,
+                                        i,
+                                        defaultValues,
+                                        defaultNodes);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -448,6 +533,36 @@ public class JsonToRowConverters implements Serializable {
                 return row;
             }
         };
+    }
+
+    /**
+     * Whether a default value of the given SQL type is safe to pre-convert once and cache.
+     *
+     * <p>Only types whose converted Java representation is genuinely immutable belong here.
+     * Anything not explicitly listed (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, or a future type) is
+     * treated as mutable and re-converted per record, so no single instance is ever shared across
+     * rows. An exhaustive switch without a default keeps the compiler/reviewer from silently
+     * missing a new type.
+     */
+    private boolean isImmutableType(SqlType sqlType) {
+        switch (sqlType) {
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case NULL:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private JsonToObjectConverter createArrayConverter(ArrayType<?, ?> type) {
@@ -498,9 +613,29 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private Object convertField(
-            JsonToObjectConverter fieldConverter, String fieldName, JsonNode field) {
-        if (field == null) {
-            if (failOnMissingField) {
+            JsonToObjectConverter fieldConverter,
+            String fieldName,
+            JsonNode field,
+            int fieldIndex,
+            Object[] defaultValues,
+            JsonNode[] defaultNodes) {
+        if (field == null || field.isNull()) {
+            // Apply defaultValue if available (for both missing fields and explicit nulls).
+            // Mutable types (ARRAY/MAP/BYTES) are converted per record so no single
+            // instance is shared across rows; immutable scalars use the pre-converted value.
+            if (defaultNodes != null
+                    && fieldIndex < defaultNodes.length
+                    && defaultNodes[fieldIndex] != null) {
+                return fieldConverter.convert(defaultNodes[fieldIndex], fieldName);
+            }
+            if (defaultValues != null
+                    && fieldIndex < defaultValues.length
+                    && defaultValues[fieldIndex] != null) {
+                return defaultValues[fieldIndex];
+            }
+            // failOnMissingField only throws for a genuinely missing field (field == null);
+            // an explicit JSON null without a default keeps returning null as before
+            if (field == null && failOnMissingField) {
                 throw new IllegalArgumentException(
                         String.format("Could not find field with name %s .", fieldName));
             } else {
