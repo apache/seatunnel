@@ -41,6 +41,7 @@ def _run_main_until_provider(argv):
         captured["OPENAI_MODEL"] = os.environ.get("OPENAI_MODEL")
         captured["ANTHROPIC_MODEL"] = os.environ.get("ANTHROPIC_MODEL")
         captured["ORCAROUTER_MODEL"] = os.environ.get("ORCAROUTER_MODEL")
+        captured["CHEAPER_INFERENCE_MODEL"] = os.environ.get("CHEAPER_INFERENCE_MODEL")
         raise _Stop()
 
     with mock.patch.object(sys, "argv", ["seatunnel"] + argv), \
@@ -55,7 +56,8 @@ def _clean_env():
     saved = {k: os.environ.pop(k, None) for k in
              ("AI_PROVIDER", "OPENAI_MODEL", "ANTHROPIC_MODEL",
               "OPENAI_SMALL_FAST_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
-              "ORCAROUTER_MODEL", "ORCAROUTER_SMALL_FAST_MODEL")}
+              "ORCAROUTER_MODEL", "ORCAROUTER_SMALL_FAST_MODEL",
+              "CHEAPER_INFERENCE_MODEL", "CHEAPER_INFERENCE_SMALL_FAST_MODEL")}
     yield
     for k, v in saved.items():
         if v is None:
@@ -84,6 +86,15 @@ def test_orcarouter_accepted_by_argparse_and_routes_own_model():
         ["--provider", "orcarouter", "--model", "deepseek/deepseek-v4-pro", "hi"])
     assert captured["AI_PROVIDER"] == "orcarouter"
     assert captured["ORCAROUTER_MODEL"] == "deepseek/deepseek-v4-pro"
+    assert captured["OPENAI_MODEL"] is None
+    assert captured["ANTHROPIC_MODEL"] is None
+
+
+def test_cheaperinference_accepted_by_argparse_and_routes_own_model():
+    captured = _run_main_until_provider(
+        ["--provider", "cheaperinference", "--model", "claude-sonnet-5", "hi"])
+    assert captured["AI_PROVIDER"] == "cheaperinference"
+    assert captured["CHEAPER_INFERENCE_MODEL"] == "claude-sonnet-5"
     assert captured["OPENAI_MODEL"] is None
     assert captured["ANTHROPIC_MODEL"] is None
 

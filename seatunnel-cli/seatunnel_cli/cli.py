@@ -517,20 +517,24 @@ class SeaTunnelCLI:
         console.print("    [bold]5[/bold]. orcarouter — OrcaRouter AI gateway (OpenAI-compatible)")
         console.print("       Requires: ORCAROUTER_API_KEY + pip install \".[openai]\"")
         console.print("       Note: many models behind one endpoint, e.g. orcarouter/auto\n")
+        console.print("    [bold]6[/bold]. cheaperinference — Cheaper Inference LLM gateway (OpenAI-compatible)")
+        console.print("       Requires: CHEAPER_INFERENCE_API_KEY + pip install \".[openai]\"")
+        console.print("       Note: many models behind one endpoint, e.g. gpt-5.4-mini\n")
 
         try:
-            choice = pt_prompt("  Enter your choice (1/2/3/4/5): ").strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3/4/5/6): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
         choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
-                      "4": "bedrock-mantle", "5": "orcarouter"}
+                      "4": "bedrock-mantle", "5": "orcarouter",
+                      "6": "cheaperinference"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
             console.print(
-                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, 4, or 5.[/error]"
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, 4, 5, or 6.[/error]"
             )
             return
 
@@ -630,6 +634,30 @@ class SeaTunnelCLI:
                         "  [success]Key set for this session (NOT saved to disk).[/success]"
                     )
 
+        elif choice == "cheaperinference":
+            existing = os.environ.get("CHEAPER_INFERENCE_API_KEY")
+            if existing:
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  CHEAPER_INFERENCE_API_KEY: [bold green]detected[/bold green] ({masked})")
+            else:
+                console.print("  CHEAPER_INFERENCE_API_KEY not found in environment.\n")
+                console.print(
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export CHEAPER_INFERENCE_API_KEY=ci_live_...\n"
+                    "  [dim]Get a key: https://cheaperinference.com/signup[/dim]\n",
+                )
+                try:
+                    key_input = pt_prompt(
+                        "  Enter API key for this session (or Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["CHEAPER_INFERENCE_API_KEY"] = key_input
+                    console.print(
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
+                    )
+
         elif choice in ("bedrock", "bedrock-mantle"):
             console.print("  AWS Bedrock requires AWS credentials.\n")
             if choice == "bedrock-mantle":
@@ -697,6 +725,11 @@ class SeaTunnelCLI:
             default_fast = "orcarouter/auto"
             model_env = "ORCAROUTER_MODEL"
             fast_env = "ORCAROUTER_SMALL_FAST_MODEL"
+        elif choice == "cheaperinference":
+            default_model = "gpt-5.4-mini"
+            default_fast = "gpt-5.4-mini"
+            model_env = "CHEAPER_INFERENCE_MODEL"
+            fast_env = "CHEAPER_INFERENCE_SMALL_FAST_MODEL"
         elif choice == "bedrock-mantle":
             default_model = "openai.gpt-5.6-terra"
             default_fast = "openai.gpt-5.6-terra"
@@ -921,6 +954,15 @@ class SeaTunnelCLI:
                 self.console.print("[error]ORCAROUTER_API_KEY not set.[/error]")
             self.console.print(
                 "  Base URL: [bold]https://api.orcarouter.ai/v1[/bold]", style="info"
+            )
+        elif provider_name == "cheaperinference":
+            if os.environ.get("CHEAPER_INFERENCE_API_KEY"):
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
+            else:
+                creds_ok = False
+                self.console.print("[error]CHEAPER_INFERENCE_API_KEY not set.[/error]")
+            self.console.print(
+                "  Base URL: [bold]https://api.cheaperinference.com/v1[/bold]", style="info"
             )
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
@@ -1568,7 +1610,8 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter",
+                 "cheaperinference"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1620,12 +1663,15 @@ def main():
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
     # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
-    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter has its own.
+    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter and cheaperinference
+    # have their own.
     _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "orcarouter":
             os.environ["ORCAROUTER_MODEL"] = args.model
+        elif provider == "cheaperinference":
+            os.environ["CHEAPER_INFERENCE_MODEL"] = args.model
         elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
@@ -1634,6 +1680,8 @@ def main():
         provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "orcarouter":
             os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
+        elif provider == "cheaperinference":
+            os.environ["CHEAPER_INFERENCE_SMALL_FAST_MODEL"] = args.fast_model
         elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:

@@ -13,6 +13,7 @@ sidebar_position: 2
   - **Anthropic API** — `ANTHROPIC_API_KEY`
   - **OpenAI API** (or compatible) — `OPENAI_API_KEY`
   - **OrcaRouter** — `ORCAROUTER_API_KEY`
+  - **Cheaper Inference** — `CHEAPER_INFERENCE_API_KEY`
 - (Optional) a SeaTunnel installation for engine-level validation and job execution
 
 ## Install
@@ -68,6 +69,14 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+
+# Option E: Cheaper Inference LLM gateway
+export AI_PROVIDER=cheaperinference
+export CHEAPER_INFERENCE_API_KEY=ci_live_...
+# Model IDs are bare (e.g. gpt-5.4-mini, gpt-5.4, claude-sonnet-5).
+# export CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
 
 ### OrcaRouter AI gateway
@@ -96,6 +105,32 @@ The provider speaks the OpenAI Chat Completions protocol, so it fully supports
 the CLI's internal tool-calling loop (connector lookups during planning),
 streaming output, multi-turn sessions, and reasoning-content replay for
 compatible reasoning models.
+
+### Cheaper Inference LLM gateway
+
+[Cheaper Inference](https://cheaperinference.com) is an OpenAI-compatible LLM
+gateway that exposes models from several labs — including GPT, Claude, Gemini,
+DeepSeek and GLM — behind a single endpoint (`https://api.cheaperinference.com/v1`).
+Each model costs 15–60% less than the list price of its lab.
+Model IDs are bare, e.g. `gpt-5.4-mini`, `gpt-5.4` or `claude-sonnet-5`.
+Configure it as a first-class provider:
+
+```bash
+# Requires the openai package (shares the ".[openai]" extra)
+pip install -e ".[openai]"
+
+export AI_PROVIDER=cheaperinference
+export CHEAPER_INFERENCE_API_KEY=ci_live_...
+# export CHEAPER_INFERENCE_MODEL=claude-sonnet-5            # optional override
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini    # optional override
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true      # optional: replay reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+The provider speaks the OpenAI Chat Completions protocol, so it supports the
+CLI's internal tool-calling loop, streaming output, multi-turn sessions, and
+reasoning-content replay for compatible reasoning models.
 
 ### bedrock-mantle: OpenAI-family models on Bedrock
 
