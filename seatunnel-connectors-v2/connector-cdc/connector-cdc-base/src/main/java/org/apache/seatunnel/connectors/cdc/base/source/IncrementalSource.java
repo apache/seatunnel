@@ -44,12 +44,15 @@ import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.HybridSplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSplitAssigner;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.MixedSplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.SnapshotOnlySplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.SplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.MixedPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceReader;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
@@ -250,6 +253,17 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     public abstract Optional<String> driverName();
 
+    /**
+     * Resolves the captured tables that must be initialized with snapshot splits in mixed mode.
+     *
+     * <p>Only connectors that expose {@link StartupMode#MIXED} need to override this method.
+     */
+    protected Set<TableId> getMixedSnapshotTables(
+            List<TableId> capturedTables, boolean isTableIdCaseSensitive) {
+        throw new UnsupportedOperationException(
+                "The mixed startup mode is not supported by " + getPluginName());
+    }
+
     @Override
     public Boundedness getBoundedness() {
         return stopMode == StopMode.NEVER
@@ -320,13 +334,34 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashSet<>(remainingTables),
                         new HashMap<>(),
                         new HashMap<>());
-        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL
-                || sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
+        if (startupMode == StartupMode.MIXED) {
+            try {
+                boolean isTableIdCaseSensitive =
+                        dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                Set<TableId> snapshotTables =
+                        getMixedSnapshotTables(remainingTables, isTableIdCaseSensitive);
+                Map<TableId, Offset> tableStartOffsets =
+                        createMixedTableStartOffsets(sourceConfig, remainingTables, snapshotTables);
+                splitAssigner =
+                        new MixedSplitAssigner<>(
+                                assignerContext,
+                                enumeratorContext.currentParallelism(),
+                                incrementalParallelism,
+                                snapshotTables,
+                                tableStartOffsets,
+                                isTableIdCaseSensitive,
+                                dataSourceDialect,
+                                offsetFactory);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create mixed startup split assigner", e);
+            }
+        } else if (startupMode == StartupMode.INITIAL || startupMode == StartupMode.SNAPSHOT_ONLY) {
             try {
 
                 boolean isTableIdCaseSensitive =
                         dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
-                if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+                if (startupMode == StartupMode.SNAPSHOT_ONLY) {
                     splitAssigner =
                             new SnapshotOnlySplitAssigner<>(
                                     assignerContext,
@@ -375,7 +410,40 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
 
         final SplitAssigner splitAssigner;
-        if (checkpointState instanceof HybridPendingSplitsState) {
+        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.MIXED
+                && !(checkpointState instanceof MixedPendingSplitsState)) {
+            throw new IllegalArgumentException(
+                    "The restored checkpoint was not created with the mixed startup mode.");
+        }
+        if (checkpointState instanceof MixedPendingSplitsState) {
+            MixedPendingSplitsState mixedCheckpointState =
+                    (MixedPendingSplitsState) checkpointState;
+            boolean isTableIdCaseSensitive =
+                    dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
+            Set<TableId> snapshotTables =
+                    getMixedSnapshotTables(new ArrayList<>(capturedTables), isTableIdCaseSensitive);
+            Map<TableId, Offset> tableStartOffsets =
+                    createMixedTableStartOffsets(
+                            sourceConfig, new ArrayList<>(capturedTables), snapshotTables);
+            validateMixedRestore(
+                    capturedTables, snapshotTables, tableStartOffsets, mixedCheckpointState);
+            SnapshotPhaseState checkpointSnapshotState =
+                    mixedCheckpointState.getSnapshotPhaseState();
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig,
+                            capturedTables,
+                            checkpointSnapshotState.getAssignedSplits(),
+                            checkpointSnapshotState.getSplitCompletedOffsets());
+            splitAssigner =
+                    new MixedSplitAssigner<>(
+                            assignerContext,
+                            enumeratorContext.currentParallelism(),
+                            incrementalParallelism,
+                            mixedCheckpointState,
+                            dataSourceDialect,
+                            offsetFactory);
+        } else if (checkpointState instanceof HybridPendingSplitsState) {
             checkpointState = restore(capturedTables, (HybridPendingSplitsState) checkpointState);
             SnapshotPhaseState checkpointSnapshotState =
                     ((HybridPendingSplitsState) checkpointState).getSnapshotPhaseState();
@@ -422,6 +490,71 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     "Unsupported restored PendingSplitsState: " + checkpointState);
         }
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
+    }
+
+    /**
+     * Builds the fixed lower bounds for mixed-mode tables that do not receive a snapshot.
+     *
+     * <p>The first incremental reader starts from the minimum of these bounds and the snapshot
+     * watermarks. The stream fetcher then applies the per-table bounds before emitting records.
+     */
+    private Map<TableId, Offset> createMixedTableStartOffsets(
+            C sourceConfig, List<TableId> capturedTables, Set<TableId> snapshotTables) {
+        if (!sourceConfig.isExactlyOnce()) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires exactly_once to be true.");
+        }
+        if (incrementalParallelism != 1) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires incremental.parallelism to be 1.");
+        }
+        if (snapshotTables.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires at least one snapshot table.");
+        }
+        if (!capturedTables.containsAll(snapshotTables)) {
+            throw new IllegalArgumentException(
+                    "The configured mixed startup snapshot tables are not captured by this source.");
+        }
+        Set<TableId> incrementalTables = new HashSet<>(capturedTables);
+        incrementalTables.removeAll(snapshotTables);
+        if (incrementalTables.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires at least one table without a snapshot.");
+        }
+        Offset startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
+        if (startupOffset == null) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires a specific startup offset.");
+        }
+        Map<TableId, Offset> tableStartOffsets = new HashMap<>();
+        incrementalTables.forEach(tableId -> tableStartOffsets.put(tableId, startupOffset));
+        return tableStartOffsets;
+    }
+
+    /**
+     * Rejects a restore when table membership or table-specific boundaries changed since the
+     * checkpoint was created.
+     */
+    private void validateMixedRestore(
+            Set<TableId> capturedTables,
+            Set<TableId> snapshotTables,
+            Map<TableId, Offset> tableStartOffsets,
+            MixedPendingSplitsState checkpointState) {
+        Set<TableId> checkpointCapturedTables = new HashSet<>(checkpointState.getSnapshotTables());
+        checkpointCapturedTables.addAll(checkpointState.getTableStartOffsets().keySet());
+        if (!checkpointCapturedTables.equals(capturedTables)) {
+            throw new IllegalArgumentException(
+                    "The captured tables changed since the mixed startup checkpoint was created.");
+        }
+        if (!checkpointState.getSnapshotTables().equals(snapshotTables)) {
+            throw new IllegalArgumentException(
+                    "The configured mixed startup snapshot tables changed since the checkpoint was created.");
+        }
+        if (!checkpointState.getTableStartOffsets().equals(tableStartOffsets)) {
+            throw new IllegalArgumentException(
+                    "The configured mixed startup offsets changed since the checkpoint was created.");
+        }
     }
 
     private HybridPendingSplitsState restore(

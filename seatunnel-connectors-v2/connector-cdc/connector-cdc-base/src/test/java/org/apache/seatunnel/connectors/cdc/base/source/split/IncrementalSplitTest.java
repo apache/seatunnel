@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,63 @@ public class IncrementalSplitTest {
                 pruned.getCheckpointTables().get(0).getTablePath());
         Assertions.assertEquals(
                 Collections.singleton(KEPT_TABLE), pruned.getHistoryTableChanges().keySet());
+    }
+
+    /**
+     * Verifies the per-table lower bounds survive a prune for tables that are still captured and
+     * are dropped together with tables that are not, so a checkpoint restore does not silently
+     * reset them.
+     */
+    @Test
+    public void testPruneTablesKeepsTableStartOffsetsOfCapturedTables() {
+        Offset keptOffset = new TestOffset(7);
+        Map<TableId, Offset> tableStartOffsets = new HashMap<>();
+        tableStartOffsets.put(KEPT_TABLE, keptOffset);
+        tableStartOffsets.put(REMOVED_TABLE, new TestOffset(9));
+
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-start-offsets",
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                        new TestOffset(1),
+                        null,
+                        Collections.emptyList(),
+                        tableStartOffsets,
+                        Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(REMOVED_TABLE)),
+                        new HashMap<>());
+
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Collections.singletonList(KEPT_TABLE), DEFAULT_TABLE_ID_CONVERTER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap(KEPT_TABLE, keptOffset), pruned.getTableStartOffsets());
+        Assertions.assertEquals(new TestOffset(1), pruned.getStartupOffset());
+    }
+
+    /** Verifies pruning leaves the start offsets untouched when every table is still captured. */
+    @Test
+    public void testPruneTablesKeepsAllTableStartOffsetsWhenTablesUnchanged() {
+        Map<TableId, Offset> tableStartOffsets = new HashMap<>();
+        tableStartOffsets.put(KEPT_TABLE, new TestOffset(7));
+        tableStartOffsets.put(REMOVED_TABLE, new TestOffset(9));
+
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-all-start-offsets",
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                        null,
+                        null,
+                        Collections.emptyList(),
+                        tableStartOffsets,
+                        Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(REMOVED_TABLE)),
+                        new HashMap<>());
+
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE), DEFAULT_TABLE_ID_CONVERTER);
+
+        Assertions.assertEquals(tableStartOffsets, pruned.getTableStartOffsets());
     }
 
     @Test
@@ -185,5 +243,29 @@ public class IncrementalSplitTest {
                 Collections.emptyMap(),
                 Collections.emptyList(),
                 "");
+    }
+
+    /** Minimal comparable offset that lets tests tell restored lower bounds apart. */
+    private static class TestOffset extends Offset {
+        private final int position;
+
+        private TestOffset(int position) {
+            this.position = position;
+        }
+
+        @Override
+        public int compareTo(Offset o) {
+            return Integer.compare(position, ((TestOffset) o).position);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof TestOffset && position == ((TestOffset) o).position;
+        }
+
+        @Override
+        public int hashCode() {
+            return Integer.hashCode(position);
+        }
     }
 }
