@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -30,9 +37,13 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOp
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.internal.services.MembershipServiceEvent;
+import com.hazelcast.spi.impl.NodeEngine;
 
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,7 +53,23 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceManagerTest> {
 
@@ -60,6 +87,244 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     @Test
     public void testHaveWorkerWhenUseHybridDeployment() {
         Assertions.assertEquals(1, resourceManager.workerCount(null));
+    }
+
+    @Test
+    void testFactorySelectsStandaloneWithoutApplicationDependencies() {
+        ResourceManager manager =
+                new ResourceManagerFactory().createResourceManager(nodeEngine, new EngineConfig());
+        try {
+            Assertions.assertEquals(StandaloneResourceManager.class, manager.getClass());
+            manager.init();
+            Assertions.assertEquals(1, manager.workerCount(Collections.emptyMap()));
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
+        for (DeployType type : new DeployType[] {DeployType.YARN, DeployType.KUBERNETES}) {
+            ApplicationSpecification specification = applicationSpecification(type);
+            ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+            ResourceID worker = new ResourceID("test-worker");
+            when(driver.requestWorker(specification.getWorkerSpecification()))
+                    .thenReturn(CompletableFuture.completedFuture(worker));
+            when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
+            ResourceManager manager =
+                    new ResourceManagerFactory(type, "test-application", specification, driver)
+                            .createResourceManager(nodeEngine, new EngineConfig());
+            try {
+                Assertions.assertEquals(ApplicationResourceManager.class, manager.getClass());
+                verifyNoInteractions(driver);
+                manager.init();
+                ((ApplicationResourceManager<?>) manager).awaitWorkerRegistration();
+                verify(driver, times(1)).initialize(any(), any(), any(), any());
+                verify(driver, times(1)).requestWorker(specification.getWorkerSpecification());
+            } finally {
+                manager.close();
+                manager.close();
+            }
+            verify(driver, times(1)).releaseWorker(worker);
+            verify(driver, times(1)).close();
+            Assertions.assertThrows(IllegalStateException.class, manager::init);
+        }
+    }
+
+    @Test
+    void testApplicationFactoryRejectsIncompleteDependencies() {
+        ResourceManagerFactory incomplete =
+                new ResourceManagerFactory(DeployType.YARN, null, null, null);
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> incomplete.createResourceManager(nodeEngine, new EngineConfig()));
+        Assertions.assertThrows(
+                UnsupportedDeployTypeException.class,
+                () ->
+                        new ResourceManagerFactory(null, null, null, null)
+                                .createResourceManager(nodeEngine, new EngineConfig()));
+    }
+
+    @Test
+    void testHandlerAndExecutorsAreAvailableDuringInitializationAndAddressIsReadFromNode()
+            throws Exception {
+        NodeEngine node = mock(NodeEngine.class);
+        when(node.getThisAddress()).thenReturn(new Address("127.0.0.1", 5801));
+        ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+        AtomicReference<Supplier<String>> address = new AtomicReference<>();
+        AtomicReference<ScheduledExecutorService> mainThreadExecutor = new AtomicReference<>();
+        AtomicReference<ExecutorService> ioExecutor = new AtomicReference<>();
+        IllegalStateException cause = new IllegalStateException("driver initialization failed");
+        doAnswer(
+                        invocation -> {
+                            address.set(invocation.getArgument(3));
+                            mainThreadExecutor.set(invocation.getArgument(1));
+                            ioExecutor.set(invocation.getArgument(2));
+                            ResourceEventHandler<ResourceID> events = invocation.getArgument(0);
+                            events.onError(cause);
+                            return null;
+                        })
+                .when(driver)
+                .initialize(any(), any(), any(), any());
+        doAnswer(
+                        invocation -> {
+                            Assertions.assertFalse(mainThreadExecutor.get().isShutdown());
+                            Assertions.assertFalse(ioExecutor.get().isShutdown());
+                            return null;
+                        })
+                .when(driver)
+                .close();
+        ApplicationResourceManager<ResourceID> manager =
+                new ApplicationResourceManager<ResourceID>(
+                        node,
+                        new EngineConfig(),
+                        "test-application",
+                        applicationSpecification(DeployType.YARN),
+                        driver) {
+                    @Override
+                    protected void syncExistingWorkerProfiles() {}
+                };
+        try {
+            manager.init();
+            Assertions.assertThrows(Exception.class, manager::awaitWorkerRegistration);
+            Assertions.assertSame(
+                    cause,
+                    Assertions.assertThrows(
+                                    ExecutionException.class,
+                                    () -> manager.getFailureFuture().get())
+                            .getCause());
+            Assertions.assertEquals("127.0.0.1:5801", address.get().get());
+            Address updated = mock(Address.class);
+            when(updated.getHost()).thenReturn("::1");
+            when(updated.getPort()).thenReturn(5802);
+            when(node.getThisAddress()).thenReturn(updated);
+            Assertions.assertEquals("[::1]:5802", address.get().get());
+            verify(driver, never()).requestWorker(any());
+        } finally {
+            manager.close();
+        }
+        Assertions.assertTrue(mainThreadExecutor.get().isShutdown());
+        Assertions.assertTrue(ioExecutor.get().isShutdown());
+    }
+
+    @Test
+    void testWorkerEventsPreserveFirstFailureAndIgnoreEventsAfterClose() throws Exception {
+        for (boolean closeFirst : new boolean[] {false, true}) {
+            ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+            ResourceID worker = new ResourceID("event-worker");
+            when(driver.requestWorker(any())).thenReturn(CompletableFuture.completedFuture(worker));
+            when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
+            ApplicationResourceManager<?> manager =
+                    (ApplicationResourceManager<?>)
+                            new ResourceManagerFactory(
+                                            DeployType.YARN,
+                                            "event-application",
+                                            applicationSpecification(DeployType.YARN),
+                                            driver)
+                                    .createResourceManager(nodeEngine, new EngineConfig());
+            try {
+                manager.init();
+                manager.awaitWorkerRegistration();
+                ArgumentCaptor<ResourceEventHandler<ResourceID>> events =
+                        ArgumentCaptor.forClass(ResourceEventHandler.class);
+                verify(driver).initialize(events.capture(), any(), any(), any());
+                if (closeFirst) {
+                    manager.close();
+                }
+                events.getValue().onWorkerTerminated(worker, "unexpected exit");
+                events.getValue().onError(new IOException("later failure"));
+                if (closeFirst) {
+                    Assertions.assertFalse(manager.getFailureFuture().isDone());
+                } else {
+                    Throwable failure =
+                            Assertions.assertThrows(
+                                            ExecutionException.class,
+                                            () -> manager.getFailureFuture().get())
+                                    .getCause();
+                    Assertions.assertEquals(
+                            "Application worker event-worker terminated: unexpected exit",
+                            failure.getMessage());
+                }
+            } finally {
+                manager.close();
+            }
+            verify(driver, times(1)).close();
+        }
+    }
+
+    @Test
+    void testMemberRemovalOnlyUnregistersWorkerUntilPlatformReportsItsExit() throws Exception {
+        ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+        ApplicationResourceManager<?> manager =
+                (ApplicationResourceManager<?>)
+                        new ResourceManagerFactory(
+                                        DeployType.YARN,
+                                        "test-application",
+                                        applicationSpecification(DeployType.YARN),
+                                        driver)
+                                .createResourceManager(nodeEngine, new EngineConfig());
+        Address workerAddress = new Address("127.0.0.1", 5802);
+        MembershipServiceEvent event = mock(MembershipServiceEvent.class, RETURNS_DEEP_STUBS);
+        when(event.getMember().getAddress()).thenReturn(workerAddress);
+        manager.registerWorker.put(workerAddress, mock(WorkerProfile.class));
+        try {
+            manager.memberRemoved(event);
+            Assertions.assertFalse(manager.registerWorker.containsKey(workerAddress));
+            Assertions.assertFalse(manager.getFailureFuture().isDone());
+        } finally {
+            manager.close();
+        }
+    }
+
+    @Test
+    void testApplicationInitializationFailureClosesDriverAndPreservesCause() throws Exception {
+        ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+        IllegalStateException syncFailure = new IllegalStateException("profile sync failed");
+        Exception cleanupFailure = new Exception("driver close failed");
+        doThrow(cleanupFailure).when(driver).close();
+        ApplicationResourceManager<ResourceID> manager =
+                new ApplicationResourceManager<ResourceID>(
+                        nodeEngine,
+                        new EngineConfig(),
+                        "test-application",
+                        applicationSpecification(DeployType.YARN),
+                        driver) {
+                    @Override
+                    protected void syncExistingWorkerProfiles() {
+                        throw syncFailure;
+                    }
+                };
+        IllegalStateException failure =
+                Assertions.assertThrows(IllegalStateException.class, manager::init);
+        Assertions.assertSame(syncFailure, failure.getCause());
+        Assertions.assertEquals(1, failure.getSuppressed().length);
+        Assertions.assertSame(cleanupFailure, failure.getSuppressed()[0].getCause());
+        verify(driver, never()).initialize(any(), any(), any(), any());
+        verify(driver, times(1)).close();
+        manager.close();
+        Assertions.assertThrows(IllegalStateException.class, manager::init);
+    }
+
+    @Test
+    void testStandaloneInitializationSynchronizesProfilesAndCannotRestartAfterClose() {
+        AtomicInteger synchronizations = new AtomicInteger();
+        StandaloneResourceManager manager =
+                new StandaloneResourceManager(nodeEngine, new EngineConfig()) {
+                    @Override
+                    protected void syncExistingWorkerProfiles() {
+                        synchronizations.incrementAndGet();
+                    }
+                };
+        manager.init();
+        Assertions.assertEquals(1, synchronizations.get());
+        manager.close();
+        Assertions.assertThrows(IllegalStateException.class, manager::init);
+    }
+
+    private ApplicationSpecification applicationSpecification(DeployType type) {
+        return SeatunnelApplicationConfig.parse(
+                "env { job.mode = BATCH }",
+                Collections.singletonMap(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "10000"));
     }
 
     @Test

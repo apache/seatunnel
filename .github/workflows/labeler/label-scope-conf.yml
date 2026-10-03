@@ -463,3 +463,15 @@ firebase:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
+
+deployment:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/**'
+
+kubernetes:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/kubernetes/**'
+
+yarn:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/yarn/**'
