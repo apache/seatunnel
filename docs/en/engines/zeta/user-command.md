@@ -29,6 +29,7 @@ Usage: seatunnel.sh [options]
     -d, --dry-run                               Validate or preview without running sinks. Supported modes: [static, connect, sample].
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
+    --format                                    Validation output format. Supported values: [text, json] (default: text).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
     -h, --help                                  Show the usage message.
     -j, --job-id                                Get the job status by JobId.
@@ -69,6 +70,14 @@ sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --d
 ```
 
 The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, so this is offline validation of the configuration file, not a strict zero-I/O sandbox.
+
+For machine-readable validation, add `--format json` to `--check`, `--dry-run static`, or `--dry-run connect`. The validation result is written to standard output on both success and validation failure; a failed validation still exits with a non-zero status. Existing diagnostic messages from the validation path may also be written to standard output, so callers should select the result line as the machine-readable record.
+
+The JSON contract contains `schemaVersion`, `valid`, `phase` (`static` or `connectivity`), and `errors`. Each entry in `errors` has `location`, `plugin`, `optionPath`, `ruleCategory`, and a sanitized `message`; unavailable fields are `null`.
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --check --format json
+```
 
 ```shell
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
