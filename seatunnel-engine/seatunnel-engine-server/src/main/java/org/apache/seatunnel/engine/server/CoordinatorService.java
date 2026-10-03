@@ -2129,23 +2129,57 @@ public class CoordinatorService {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     Address deployAddress = physicalVertex.getCurrentExecutionAddress();
-                    ExecutionState executionState = physicalVertex.getExecutionState();
+                    ExecutionState terminalState =
+                            resolveLostMemberState(physicalVertex.getExecutionState());
                     if (null != deployAddress
                             && deployAddress.equals(lostAddress)
-                            && (executionState.equals(ExecutionState.DEPLOYING)
-                                    || executionState.equals(ExecutionState.RUNNING)
-                                    || executionState.equals(ExecutionState.CANCELING))) {
+                            && terminalState != null) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
                                         taskGroupLocation,
-                                        ExecutionState.FAILED,
+                                        terminalState,
                                         new JobException(
                                                 String.format(
                                                         "The taskGroup(%s) deployed node(%s) offline",
                                                         taskGroupLocation, lostAddress))));
                     }
                 });
+    }
+
+    /**
+     * Decides the terminal state the master assigns to a task vertex whose worker left the cluster
+     * before reporting one itself.
+     *
+     * <p>A vertex that was still DEPLOYING or RUNNING genuinely failed: its work was cut short. A
+     * vertex that was already CANCELING is different: a cancel was requested for it and the worker
+     * acknowledged the {@code CancelTaskOperation} (the ack is sent as soon as the task's
+     * cancellation future is cancelled, before the task actually stops), so the only thing the
+     * member loss took away is the terminal callback. Resolving it as CANCELED keeps the outcome
+     * the cancel request was going to produce anyway; resolving it as FAILED would turn a
+     * user-cancelled job into a failed one purely because a worker went away while honoring the
+     * cancel. {@code PhysicalVertex#noticeTaskExecutionServiceCancel} only self-resolves the
+     * narrower case where the member leaves before the ack arrives, so this is the path that covers
+     * the ack-then-lost window. Restore is unaffected: a CANCELING job already disabled restore via
+     * {@code JobMaster#neverNeedRestore}, and a FAILING pipeline that cancels its siblings already
+     * counts the original failed task.
+     *
+     * @param executionState the vertex's state at the time the member was removed
+     * @return the terminal state to assign, or {@code null} when the vertex must be left alone
+     */
+    static ExecutionState resolveLostMemberState(ExecutionState executionState) {
+        if (executionState == null) {
+            return null;
+        }
+        switch (executionState) {
+            case DEPLOYING:
+            case RUNNING:
+                return ExecutionState.FAILED;
+            case CANCELING:
+                return ExecutionState.CANCELED;
+            default:
+                return null;
+        }
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
