@@ -41,6 +41,12 @@ seatunnel:
 
 注意: namespace必须以"/"结尾。
 
+在官方二进制发行包中，SeaTunnel 会把 Zeta 的 checkpoint 和 IMAP 存储依赖复制到
+`starter/zeta/` 目录。初始化时，SeaTunnel 会始终加载 `starter/zeta/common`，然后按
+`plugin-config.storage.type` 加载对应的子目录，比如 `s3` 或 `oss`。如果没有配置
+`storage.type`，SeaTunnel 会回退为扫描整个 `starter/zeta` 目录。COS 相关 jar 仍然不会内置，
+需要手动放到 `lib/` 目录下。
+
 #### OSS
 
 阿里云OSS是基于hdfs-file，所以你可以参考[Hadoop OSS文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.

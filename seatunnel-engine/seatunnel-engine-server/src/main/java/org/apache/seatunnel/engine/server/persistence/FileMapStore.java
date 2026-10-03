@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
@@ -30,9 +34,14 @@ import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -43,6 +52,19 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        init(hazelcastInstance, properties, mapName, Common.appStarterDir().resolve("zeta"));
+    }
+
+    /**
+     * Initializes the map store with an explicit Zeta starter directory for isolated classloader
+     * verification.
+     */
+    @VisibleForTesting
+    void init(
+            HazelcastInstance hazelcastInstance,
+            Properties properties,
+            String mapName,
+            Path zetaDirectory) {
         if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
             this.mapStorage = NoOpMapStorage.INSTANCE;
             log.info(
@@ -54,21 +76,37 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         String storageType = (String) initMap.get("type");
+        ClassLoader storageClassLoader = Thread.currentThread().getContextClassLoader();
         try {
-            this.mapStorage =
-                    FactoryUtil.discoverFactory(
-                                    Thread.currentThread().getContextClassLoader(),
-                                    IMapStorageFactory.class,
-                                    storageType)
-                            .create(initMap);
-        } catch (RuntimeException e) {
-            log.error(
-                    "Failed to initialize IMap storage for map '{}', type='{}'. "
-                            + "Cluster state will NOT be persisted.",
-                    mapName,
-                    storageType,
-                    e);
-            throw e;
+            List<URL> storageJars =
+                    FileUtils.searchJarFilesForStorage(
+                            zetaDirectory, properties.getProperty("storage.type"));
+            if (!storageJars.isEmpty()) {
+                storageClassLoader =
+                        new URLClassLoader(storageJars.toArray(new URL[0]), storageClassLoader);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load Zeta storage jars", e);
+        }
+
+        try (TemporaryClassLoaderContext ignored =
+                TemporaryClassLoaderContext.of(storageClassLoader)) {
+            try {
+                this.mapStorage =
+                        FactoryUtil.discoverFactory(
+                                        Thread.currentThread().getContextClassLoader(),
+                                        IMapStorageFactory.class,
+                                        storageType)
+                                .create(initMap);
+            } catch (RuntimeException e) {
+                log.error(
+                        "Failed to initialize IMap storage for map '{}', type='{}'. "
+                                + "Cluster state will NOT be persisted.",
+                        mapName,
+                        storageType,
+                        e);
+                throw e;
+            }
         }
     }
 
