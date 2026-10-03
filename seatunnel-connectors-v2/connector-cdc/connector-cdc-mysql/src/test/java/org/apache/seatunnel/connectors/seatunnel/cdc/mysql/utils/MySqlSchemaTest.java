@@ -33,6 +33,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlDatabaseSchema;
+import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
@@ -43,6 +47,7 @@ import lombok.Getter;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -175,6 +180,61 @@ public class MySqlSchemaTest {
 
         Assertions.assertFalse(table.columnWithName("a").isOptional());
         Assertions.assertTrue(table.columnWithName("b").isOptional());
+    }
+
+    @Test
+    public void testNullableUniqueKeyColumnStaysOptionalInStreamingDdl() {
+        MySqlDatabaseSchema schema = createDatabaseSchema();
+        parseStreamingDdl(
+                schema,
+                "CREATE TABLE t1 (id int NOT NULL, code int DEFAULT NULL, name varchar(10))");
+        parseStreamingDdl(schema, "ALTER TABLE t1 ADD UNIQUE KEY uk_code (code)");
+        Table altered = schema.tableFor(TableId.parse("db1.t1"));
+        Assertions.assertEquals(Arrays.asList("code"), altered.primaryKeyColumnNames());
+        Assertions.assertTrue(altered.columnWithName("code").isOptional());
+
+        parseStreamingDdl(
+                schema,
+                "CREATE TABLE t2 (id int NOT NULL, code int DEFAULT NULL, name varchar(10))");
+        parseStreamingDdl(schema, "CREATE UNIQUE INDEX uk_code ON t2 (code)");
+        Table indexed = schema.tableFor(TableId.parse("db1.t2"));
+        Assertions.assertEquals(Arrays.asList("code"), indexed.primaryKeyColumnNames());
+        Assertions.assertTrue(indexed.columnWithName("code").isOptional());
+    }
+
+    @Test
+    public void testRealPrimaryKeyColumnIsNotOptionalInStreamingDdl() {
+        MySqlDatabaseSchema schema = createDatabaseSchema();
+        parseStreamingDdl(schema, "CREATE TABLE t1 (id int, name varchar(10), PRIMARY KEY (id))");
+        Assertions.assertFalse(
+                schema.tableFor(TableId.parse("db1.t1")).columnWithName("id").isOptional());
+
+        parseStreamingDdl(schema, "CREATE TABLE t2 (id int, name varchar(10))");
+        parseStreamingDdl(schema, "ALTER TABLE t2 ADD PRIMARY KEY (id)");
+        Assertions.assertFalse(
+                schema.tableFor(TableId.parse("db1.t2")).columnWithName("id").isOptional());
+    }
+
+    private static MySqlDatabaseSchema createDatabaseSchema() {
+        return MySqlConnectionUtils.createMySqlDatabaseSchema(streamingConfig(), false);
+    }
+
+    private static void parseStreamingDdl(MySqlDatabaseSchema schema, String ddl) {
+        MySqlConnectorConfig config = streamingConfig();
+        schema.parseStreamingDdl(
+                new MySqlPartition(config.getLogicalName()),
+                ddl,
+                "db1",
+                MySqlOffsetContext.initial(config),
+                Instant.now());
+    }
+
+    private static MySqlConnectorConfig streamingConfig() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        return factory.create(0).getDbzConnectorConfig();
     }
 
     private static Table parseTable(String createTableSql, PhysicalColumn... columns) {

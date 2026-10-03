@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### MySQL-CDC: NULL in a nullable unique key column is emitted as NULL
+
+- **Behavior change: MySQL-CDC emits NULL instead of the type default for nullable unique key columns of tables without a primary key**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **Description**: For a table without a primary key, the MySQL DDL parser (Debezium 1.9.8) promoted the first unique key to the primary key and marked its columns NOT NULL, although the database allows NULL in them. NULL values in these columns were emitted as the type default (for example `0`, `''` or the epoch) in the snapshot and binlog phases, including after a binlog DDL such as `ALTER TABLE ... ADD UNIQUE KEY` or `CREATE UNIQUE INDEX`. These columns now keep their declared nullability and NULL is emitted as NULL. Real primary key columns are unchanged.
+  - **Impact**: Sinks now receive NULL where they previously received the type default. A sink column declared `NOT NULL`, or a sink `primary_keys` that includes such a column, can reject these rows.
+  - **Migration Guide**: Make the affected sink columns nullable, and do not use a nullable column as the sink primary key. A job restored from a checkpoint that already holds the schema of such a table (saved after a binlog DDL on it) keeps the old behavior for that table until it is started without that checkpoint.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**

@@ -513,6 +513,8 @@ source {
 
 Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
 
+NULL values in a nullable unique key column, or in a nullable column configured in `table-names-config.primaryKeys`, are emitted as NULL in the snapshot and binlog phases. A NULL cannot identify a row, so choose a NOT NULL column as the key when UPDATE/DELETE events must be applied by key.
+
 ### Start From a Specific Binlog Offset
 
 Use `startup.mode = "specific"` when the first record must be read from a known binlog file and position.

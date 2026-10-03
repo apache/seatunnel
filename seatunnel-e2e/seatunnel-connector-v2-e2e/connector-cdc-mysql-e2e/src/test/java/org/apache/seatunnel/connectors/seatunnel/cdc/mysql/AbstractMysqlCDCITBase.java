@@ -367,6 +367,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         // Tables without a primary key whose unique key (single, and composite with one nullable
         // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
         // Controls: a table with a real primary key, and a table whose unique key is NOT NULL.
+        // uk_added_null gets its unique key in the binlog phase, parsed from the binlog DDL.
         inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
 
         CompletableFuture.supplyAsync(
@@ -386,6 +387,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
 
         // binlog phase
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_added_null VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
         executeSql(
                 "INSERT INTO "
                         + MYSQL_DATABASE
@@ -412,7 +419,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             {"uk_null_single", "id, code, name", "code"},
             {"uk_null_composite", "id, a, b, name", "b"},
             {"pk_null_control", "id, code, name", "code"},
-            {"uk_notnull_control", "id, code, name", null}
+            {"uk_notnull_control", "id, code, name", null},
+            {"uk_added_null", "id, code, name", "code"}
         };
         for (String[] table : tables) {
             String rowQuery = "select " + table[1] + " from %s." + table[0] + " order by id";

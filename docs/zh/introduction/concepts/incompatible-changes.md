@@ -4,6 +4,14 @@
 
 ## dev
 
+### MySQL-CDC：可空唯一键列中的 NULL 按 NULL 输出
+
+- **行为变更：对于没有主键的表，MySQL-CDC 对可空唯一键列输出 NULL，而不是类型默认值**
+  - **影响组件**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **描述**：对于没有主键的表，MySQL DDL 解析器（Debezium 1.9.8）会把第一个唯一键提升为主键，并把其中的列标记为 NOT NULL，尽管数据库允许这些列为 NULL。这些列中的 NULL 值在快照阶段和 binlog 阶段会被输出为类型默认值（例如 `0`、`''` 或纪元时间），在 binlog 中出现 `ALTER TABLE ... ADD UNIQUE KEY` 或 `CREATE UNIQUE INDEX` 等 DDL 之后也是如此。现在这些列保持声明时的可空性，NULL 按 NULL 输出。真正的主键列不受影响。
+  - **影响**：Sink 现在会在原来收到类型默认值的位置收到 NULL。如果 Sink 列声明为 `NOT NULL`，或 Sink 的 `primary_keys` 包含这样的列，这些行可能会被拒绝。
+  - **迁移指南**：将受影响的 Sink 列改为可空，并且不要使用可空列作为 Sink 主键。如果作业从一个已经保存了此类表结构的 checkpoint 恢复（该表在 binlog 中出现过 DDL 之后保存），该表会保持旧行为，直到作业不使用该 checkpoint 重新启动。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
