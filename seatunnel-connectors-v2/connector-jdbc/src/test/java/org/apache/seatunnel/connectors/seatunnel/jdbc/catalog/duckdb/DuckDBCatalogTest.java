@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.AfterAll;
@@ -282,7 +283,7 @@ public class DuckDBCatalogTest {
     }
 
     @Test
-    public void testBitAndLongEnumLabelBecomeLongText() throws Exception {
+    public void testBitAndLongEnumLabelUseUnboundedSinkTypes() throws Exception {
         String label = String.join("", Collections.nCopies(400, "m"));
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
             statement.execute("CREATE TABLE text_lengths (bits BIT, en ENUM('" + label + "'))");
@@ -310,5 +311,11 @@ public class DuckDBCatalogTest {
                         .build("mysql");
         Assertions.assertTrue(actualMySQLDDL.contains("`bits` LONGTEXT"), actualMySQLDDL);
         Assertions.assertTrue(actualMySQLDDL.contains("`en` LONGTEXT"), actualMySQLDDL);
+
+        String actualPostgresDDL =
+                new PostgresCreateTableSqlBuilder(table, false)
+                        .build(TablePath.of("test", "public", "downstream_t"));
+        Assertions.assertTrue(actualPostgresDDL.contains("\"bits\" text"), actualPostgresDDL);
+        Assertions.assertTrue(actualPostgresDDL.contains("\"en\" text"), actualPostgresDDL);
     }
 }
