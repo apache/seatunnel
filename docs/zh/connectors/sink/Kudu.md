@@ -62,6 +62,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - `kudu_masters` 为必填参数，不能为空字符串或仅包含空白字符。可以配置单个 master 地址，
   也可以配置以逗号分隔的多个地址，例如 `kudu-master-1:7051,kudu-master-2:7051`。
   此校验不会去除配置值两端的空白字符，也不会校验地址格式。
+  各个 master 地址前后的空白字符会原样传递给 Kudu 客户端，因此请避免在逗号分隔的地址项
+  前后添加空白字符。
 - `table_name` 是可选参数。不配置时，Sink 会写入上游数据行携带的表名。
 - 多表写入时，可以在 `table_name` 中使用占位符，把不同来源表的数据写入不同 Kudu 表。
 - 支持 CDC 数据：插入记录会追加写入，更新记录会按 upsert 写入，删除记录会按主键删除。

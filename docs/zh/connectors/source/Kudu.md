@@ -68,6 +68,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - `kudu_masters` 为必填参数，不能为空字符串或仅包含空白字符。可以配置单个 master 地址，
   也可以配置以逗号分隔的多个地址，例如 `kudu-master-1:7051,kudu-master-2:7051`。
   此校验不会去除配置值两端的空白字符，也不会校验地址格式。
+  各个 master 地址前后的空白字符会原样传递给 Kudu 客户端，因此请避免在逗号分隔的地址项
+  前后添加空白字符。
 - `table_name` 和 `table_list` 只能配置其中一个。
 - `filter` 会下推到 Kudu 扫描中，可以使用类似 `id >= 1 AND id <= 2` 的 Kudu 过滤表达式。
 - `use_regex = true` 会把 `table_name` 当作 Java 正则表达式处理，可以配置在顶层，也可以配置在 `table_list` 的每个条目中。

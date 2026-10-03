@@ -4,6 +4,14 @@
 
 ## dev
 
+### Kudu Master 地址校验
+
+- Kudu Source、Sink 和 Catalog 现在会在选项校验阶段拒绝空字符串或仅包含空白字符的
+  `kudu_masters`。这类值此前会通过选项校验，并在创建 Kudu 客户端时失败；现在会更早以
+  `Option validation failed` 错误失败，并明确指出 `kudu_masters` 不能为空白值。
+- 缺失的 `kudu_masters` 原本就会被拒绝。非空白值仍会原样传递；地址解析和客户端构建逻辑
+  保持不变。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
