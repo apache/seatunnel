@@ -92,7 +92,7 @@ public class DorisStreamLoad implements Serializable {
     private final ExecutorService executorService;
     private volatile boolean loadBatchFirstRecord;
     private volatile boolean loading = false;
-    private String label;
+    @Getter private String label;
     @Getter private long recordCount = 0;
 
     public DorisStreamLoad(

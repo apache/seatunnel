@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+import org.apache.seatunnel.connectors.doris.sink.HttpGetBuilder;
 import org.apache.seatunnel.connectors.doris.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.util.DorisRedirectExceptionBuilder;
@@ -33,6 +34,8 @@ import org.apache.seatunnel.connectors.doris.util.ResponseUtil;
 import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +47,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** The committer to commit transaction. */
 @Slf4j
 public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private static final String COMMIT_PATTERN = "http://%s/api/%s/_stream_load_2pc";
+    private static final String GET_LOAD_STATE_URL_PATTERN =
+            "http://%s/api/%s/get_load_state?label=%s";
+    private static final String TX_STATE_VISIBLE = "VISIBLE";
     private static final int HTTP_OK = 200;
     private static final int HTTP_TEMPORARY_REDIRECT = 307;
     private final CloseableHttpClient httpClient;
@@ -147,6 +154,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     continue;
                 }
                 handleCommitSuccess(committable, hostPort, closeableResponse);
+                getStreamLoadState(committable, hostPort);
                 return;
             }
         }
@@ -258,6 +266,53 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             } else {
                 log.info("load result {}", loadResult);
             }
+        }
+    }
+
+    private void getStreamLoadState(DorisCommitInfo committable, String hostPort)
+            throws IOException {
+        String label = committable.getLabel();
+        ObjectMapper mapper = new ObjectMapper();
+        log.info("label: {}", label);
+        String state = "";
+        while (!Objects.equals(state, TX_STATE_VISIBLE)) {
+            String loadState =
+                    sendGetWithAuth(
+                            String.format(
+                                    GET_LOAD_STATE_URL_PATTERN,
+                                    hostPort,
+                                    committable.getDb(),
+                                    label),
+                            dorisSinkConfig.getUsername(),
+                            dorisSinkConfig.getPassword());
+            Map<String, String> res =
+                    mapper.readValue(loadState, new TypeReference<HashMap<String, String>>() {});
+            if (!res.get("msg").equalsIgnoreCase(LoadStatus.SUCCESS)) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.GET_LOAD_STATE_FAILED, loadState);
+            }
+            state = res.get("data");
+            log.info("load state: {}", state);
+            try {
+                Thread.sleep(500);
+            } catch (Exception ignored) {
+
+            }
+        }
+    }
+
+    private static String sendGetWithAuth(String urlStr, String username, String password) {
+        try {
+            HttpGetBuilder getBuilder = new HttpGetBuilder();
+            getBuilder.addCommonHeader().baseAuth(username, password).setUrl(urlStr);
+            CloseableHttpClient httpClient =
+                    HttpClientBuilder.create()
+                            .setRedirectStrategy(new DefaultRedirectStrategy()) // 允许重定向
+                            .build();
+            CloseableHttpResponse response = httpClient.execute(getBuilder.build());
+            return EntityUtils.toString(response.getEntity());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
