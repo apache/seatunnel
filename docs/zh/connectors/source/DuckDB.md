@@ -66,6 +66,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
+> 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
+
 ## 源选项
 
 | 名称                           | 类型         | 是否必需 | 默认值             | 描述                                                                                                                                                   |
