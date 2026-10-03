@@ -548,7 +548,20 @@ public class CheckpointCoordinator {
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
-                () -> tryTriggerPendingCheckpoint(checkpointType),
+                () -> {
+                    try {
+                        tryTriggerPendingCheckpoint(checkpointType);
+                    } catch (Throwable e) {
+                        // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                        // silently; fail the coordinator so the job can handle the error.
+                        handleCoordinatorError(
+                                String.format(
+                                        "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                        checkpointType, jobId, pipelineId),
+                                e,
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                    }
+                },
                 delayMills,
                 TimeUnit.MILLISECONDS);
     }
