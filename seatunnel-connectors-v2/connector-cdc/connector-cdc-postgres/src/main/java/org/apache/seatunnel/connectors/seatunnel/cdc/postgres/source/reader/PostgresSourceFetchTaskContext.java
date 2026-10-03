@@ -128,16 +128,40 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             PostgresConnection dataConnection,
             Collection<TableChanges.TableChange> engineHistory,
             List<CatalogTable> relationSchemaBaseline) {
+        this(
+                sourceConfig,
+                dataSourceDialect,
+                dataConnection,
+                engineHistory,
+                relationSchemaBaseline,
+                newPostgresValueConverterBuilder(
+                        (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig(),
+                        "postgres-source-fetch-task-context",
+                        sourceConfig.getServerTimeZone()));
+    }
+
+    /**
+     * Creates a context with a caller-supplied value converter builder. PostgreSQL-compatible
+     * dialects whose servers fail Debezium's stock connection validation (for example GaussDB,
+     * which reports PostgreSQL 9.2) must resolve the database charset through their own connection
+     * type instead of the default helper, which opens a stock {@link PostgresConnection}.
+     *
+     * @param postgresValueConverterBuilder builder producing the value converter for the task's
+     *     type registry; it must reflect the charset of the database behind {@code dataConnection}
+     */
+    public PostgresSourceFetchTaskContext(
+            JdbcSourceConfig sourceConfig,
+            JdbcDataSourceDialect dataSourceDialect,
+            PostgresConnection dataConnection,
+            Collection<TableChanges.TableChange> engineHistory,
+            List<CatalogTable> relationSchemaBaseline,
+            PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder) {
         super(sourceConfig, dataSourceDialect);
         this.dataConnection = dataConnection;
         this.metadataProvider = PostgresObjectUtils.newEventMetadataProvider();
         this.engineHistory = engineHistory;
         this.relationSchemaBaseline = relationSchemaBaseline;
-        this.postgresValueConverterBuilder =
-                newPostgresValueConverterBuilder(
-                        getDbzConnectorConfig(),
-                        "postgres-source-fetch-task-context",
-                        sourceConfig.getServerTimeZone());
+        this.postgresValueConverterBuilder = postgresValueConverterBuilder;
     }
 
     @Override
