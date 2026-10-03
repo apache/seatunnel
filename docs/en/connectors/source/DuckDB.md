@@ -69,6 +69,8 @@ and reading multiple tables in one job through `table_list`.
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
+
 ## Source Options
 
 | Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                         |
