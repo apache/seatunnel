@@ -51,6 +51,10 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleC
 @Slf4j
 public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunkSplitter {
 
+    private static final String NULLABLE_SPLIT_COLUMN_HINT =
+            "To read the snapshot in parallel, declare a NOT NULL unique column or configure a "
+                    + "non-nullable snapshotSplitColumn.";
+
     private final JdbcSourceConfig sourceConfig;
     private final JdbcDataSourceDialect dialect;
 
@@ -86,7 +90,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 if (sourceConfig.isExactlyOnce()) {
                     throw new UnsupportedOperationException(
                             String.format(
-                                    "Exactly once is enabled, but not found primary key or unique key for table %s",
+                                    "Exactly once is enabled, but not found primary key or non-nullable unique key for table %s",
                                     tableId));
                 }
                 SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
@@ -435,7 +439,14 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
             if (isPrimaryOrUniqueKey.get()) {
                 Column column = table.columnWithName(tableSc);
-                if (isEvenlySplitColumn(column)) {
+                if (dialect.isColumnNullable(jdbc, tableId, column)) {
+                    log.warn(
+                            "Config snapshotSplitColumn {} of table {} is nullable, rows with NULL in it "
+                                    + "cannot be assigned to any snapshot chunk, ignore it. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
+                            tableSc,
+                            tableId);
+                } else if (isEvenlySplitColumn(column)) {
                     return column;
                 } else {
                     log.warn(
@@ -468,6 +479,17 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             for (ConstraintKey uniqueKey : uniqueKeys) {
                 Column firstColumn =
                         table.columnWithName(uniqueKey.getColumnNames().get(0).getColumnName());
+                // A unique key may hold any number of NULLs, and NULL never matches a chunk
+                // range predicate, so such rows would be silently skipped by the snapshot.
+                if (dialect.isColumnNullable(jdbc, tableId, firstColumn)) {
+                    log.warn(
+                            "Skip unique key {} of table {} as snapshot split column: column {} is nullable. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
+                            uniqueKey.getConstraintName(),
+                            tableId,
+                            firstColumn.name());
+                    continue;
+                }
                 if (isEvenlySplitColumn(firstColumn)) {
                     splitColumn = columnComparable(splitColumn, firstColumn);
                     if (sqlTypePriority(splitColumn) == 1) {
