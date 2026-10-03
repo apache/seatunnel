@@ -4,6 +4,18 @@
 
 ## dev
 
+### 作业事件 HTTP 上报
+
+- **行为变更：不再跟随 HTTP 重定向**
+  - **影响范围**：Zeta 作业事件 HTTP 上报（`JobEventHttpReportHandler`）。
+  - **变更说明**：重定向响应被视为上报失败，不再将请求转发到其他地址，避免转发配置的请求头，也避免重定向将事件 POST 请求改为 GET 请求。
+  - **升级指南**：直接配置最终的事件上报 URL，确保该地址接受 POST 请求并返回成功的 2xx 响应。配置项名称不变。
+
+- **行为变更：HTTPS 事件上报要求 TLS 1.2 或更高版本**
+  - **影响范围**：Zeta 作业事件 HTTP 上报（`JobEventHttpReportHandler`）。
+  - **变更说明**：升级后的 HTTP 客户端保留更强的默认 TLS 策略，支持 TLS 1.2 和 TLS 1.3，不再兼容旧客户端支持的 TLS 1.0/1.1。仅支持 TLS 1.0 或 TLS 1.1 的端点将无法接收 HTTPS 事件上报。普通 HTTP 端点不受此 TLS 变更影响。
+  - **升级指南**：升级 HTTPS 收集器或网关以支持 TLS 1.2 或 TLS 1.3，并使用 SeaTunnel JVM 支持的协议和密码套件。不要依赖旧版 TLS 回退；配置项名称不变。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
