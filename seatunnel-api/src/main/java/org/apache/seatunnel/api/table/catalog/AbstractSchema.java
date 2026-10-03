@@ -22,12 +22,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.AccessLevel;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Represent a physical table schema. */
@@ -39,9 +44,20 @@ public class AbstractSchema implements Serializable {
     @Getter(AccessLevel.PRIVATE)
     protected final List<String> columnNames;
 
+    /** Lazily built column name to index cache, keeps schema lookups constant time. */
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private transient volatile Map<String, Integer> columnIndexCache;
+
     public AbstractSchema(List<Column> columns) {
-        this.columns = columns;
-        this.columnNames = columns.stream().map(Column::getName).collect(Collectors.toList());
+        // Copy the lists so later mutation of the caller's list cannot change this schema or
+        // invalidate the lazily built lookup caches.
+        // Kryo populates collections during deserialization. Keep the internal copy mutable;
+        // getColumns() still exposes a read-only view.
+        this.columns = columns == null ? new ArrayList<>() : new ArrayList<>(columns);
+        this.columnNames = this.columns.stream().map(Column::getName).collect(Collectors.toList());
     }
 
     // Lombok requires a no-arg constructor for @Data annotation to work properly
@@ -69,7 +85,8 @@ public class AbstractSchema implements Serializable {
     }
 
     public int indexOf(String columnName) {
-        return columnNames.indexOf(columnName);
+        Integer index = getColumnIndexCache().get(columnName);
+        return index == null ? -1 : index;
     }
 
     public Column getColumn(String columnName) {
@@ -77,10 +94,32 @@ public class AbstractSchema implements Serializable {
     }
 
     public boolean contains(String columnName) {
-        return columnNames.contains(columnName);
+        return indexOf(columnName) != -1;
     }
 
     public List<Column> getColumns() {
         return Collections.unmodifiableList(columns);
+    }
+
+    /**
+     * Builds the name to index cache only after the whole map is ready. Duplicate names keep the
+     * first column so lookups match the former linear scan semantics.
+     */
+    private Map<String, Integer> getColumnIndexCache() {
+        Map<String, Integer> cache = columnIndexCache;
+        if (cache == null) {
+            synchronized (this) {
+                cache = columnIndexCache;
+                if (cache == null) {
+                    Map<String, Integer> indexes = new HashMap<>(columnNames.size());
+                    for (int i = 0; i < columnNames.size(); i++) {
+                        indexes.putIfAbsent(columnNames.get(i), i);
+                    }
+                    cache = indexes;
+                    columnIndexCache = cache;
+                }
+            }
+        }
+        return cache;
     }
 }
