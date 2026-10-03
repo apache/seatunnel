@@ -30,9 +30,11 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkDataPartitioner;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportSinkDataPartition;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -49,7 +51,9 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscov
 import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
+import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 
@@ -220,6 +224,14 @@ public class SinkExecuteProcessor
                                 .name("BroadcastSchemaHandler")
                                 .setParallelism(parallelism);
             }
+            if (sink instanceof SupportSinkDataPartition) {
+                Optional<SinkDataPartitioner<SeaTunnelRow>> partitioner =
+                        ((SupportSinkDataPartition<SeaTunnelRow>) sink)
+                                .getSinkDataPartitioner(parallelism);
+                if (partitioner.isPresent()) {
+                    ds = partitionBySinkDataPartitioner(ds, partitioner.get());
+                }
+            }
             DataStreamSink<SeaTunnelRow> dataStreamSink =
                     ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
                             .name(String.format("%s-Sink", sink.getPluginName()));
@@ -238,6 +250,13 @@ public class SinkExecuteProcessor
         }
         // the sink is the last stream
         return null;
+    }
+
+    private DataStream<SeaTunnelRow> partitionBySinkDataPartitioner(
+            DataStream<SeaTunnelRow> stream, SinkDataPartitioner<SeaTunnelRow> partitioner) {
+        return stream.partitionCustom(
+                (Partitioner<Integer>) (partition, numberOfPartitions) -> partition,
+                (KeySelector<SeaTunnelRow, Integer>) partitioner::select);
     }
 
     // if not support multi table, rollback

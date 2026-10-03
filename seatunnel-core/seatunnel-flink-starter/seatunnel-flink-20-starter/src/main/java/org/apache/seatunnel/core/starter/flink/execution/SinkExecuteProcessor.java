@@ -21,17 +21,22 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkDataPartitioner;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportSinkDataPartition;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
+import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.seatunnel.common.constants.JobMode.STREAMING;
 
@@ -63,7 +68,22 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
                             .name("BroadcastSchemaHandler")
                             .setParallelism(parallelism);
         }
+        if (sink instanceof SupportSinkDataPartition) {
+            Optional<SinkDataPartitioner<SeaTunnelRow>> partitioner =
+                    ((SupportSinkDataPartition<SeaTunnelRow>) sink)
+                            .getSinkDataPartitioner(parallelism);
+            if (partitioner.isPresent()) {
+                ds = partitionBySinkDataPartitioner(ds, partitioner.get());
+            }
+        }
         return ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
                 .name(String.format("%s-Sink", sink.getPluginName()));
+    }
+
+    private DataStream<SeaTunnelRow> partitionBySinkDataPartitioner(
+            DataStream<SeaTunnelRow> stream, SinkDataPartitioner<SeaTunnelRow> partitioner) {
+        return stream.partitionCustom(
+                (Partitioner<Integer>) (partition, numberOfPartitions) -> partition,
+                (KeySelector<SeaTunnelRow, Integer>) partitioner::select);
     }
 }
