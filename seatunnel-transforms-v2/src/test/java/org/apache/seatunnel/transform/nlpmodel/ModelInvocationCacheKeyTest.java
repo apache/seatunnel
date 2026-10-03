@@ -20,6 +20,8 @@ package org.apache.seatunnel.transform.nlpmodel;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
+
 public class ModelInvocationCacheKeyTest {
 
     @Test
@@ -140,5 +142,38 @@ public class ModelInvocationCacheKeyTest {
                 .format(format)
                 .input("same chunk")
                 .build();
+    }
+
+    @Test
+    void keyIsStableAcrossSpellingsUnderAnyDefaultLocale() {
+        // Tokens are lower-cased so that equivalent spellings collapse to one key. Under a Turkish
+        // default locale the I in "OpenAI" lower-cases to a dotless i while "openai" is already
+        // lower case, so two equivalent configurations would produce two different keys.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            String mixedCase =
+                    ModelInvocationCacheKey.builder()
+                            .provider("OpenAI")
+                            .model("text-embedding-3-small")
+                            .dimension(1536)
+                            .modality("Image")
+                            .format("BINARY")
+                            .input("same chunk")
+                            .build();
+            String lowerCase =
+                    ModelInvocationCacheKey.builder()
+                            .provider("openai")
+                            .model("text-embedding-3-small")
+                            .dimension(1536)
+                            .modality("image")
+                            .format("binary")
+                            .input("same chunk")
+                            .build();
+
+            Assertions.assertEquals(mixedCase, lowerCase);
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }
