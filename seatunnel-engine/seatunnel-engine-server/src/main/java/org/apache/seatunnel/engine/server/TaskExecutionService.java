@@ -1311,7 +1311,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (result == null || !result.isDone()) {
                     try {
                         tracker.task.close();
-                    } catch (Throwable e) {
+                    } catch (Exception e) {
                         logger.severe("Close task error", e);
                     }
                 }

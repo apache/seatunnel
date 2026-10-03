@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -139,6 +140,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
     private SeaTunnelMetricsContext metricsContext;
 
     private transient boolean observabilityEnabled;
+
+    /** Guards {@link #close()} so BlockingWorker fallback cannot re-close lifecycles. */
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public SeaTunnelTask(
             long jobID,
@@ -290,14 +294,20 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 }
                 break;
             case CLOSED:
-                this.close();
-                progress.done();
+                try {
+                    this.close();
+                } finally {
+                    progress.done();
+                }
                 return;
                 // TODO support cancel by outside
             case CANCELLING:
-                this.close();
-                currState = CANCELED;
-                progress.done();
+                try {
+                    this.close();
+                } finally {
+                    currState = CANCELED;
+                    progress.done();
+                }
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
@@ -437,45 +447,61 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     /**
-     * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
+     * Performs an ordered, idempotent teardown of all {@link FlowLifeCycle} objects in this task.
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order with teardown
      * order preserved. A failure in one lifecycle — checked ({@link IOException}) or unchecked
-     * ({@link RuntimeException}) or even an {@link Error} — is collected and does not prevent the
-     * remaining lifecycles from being closed. The first failure is preserved and re-thrown, with
-     * any subsequent failures attached to it as {@linkplain Throwable#addSuppressed suppressed}.
+     * ({@link RuntimeException}) — is collected and does not prevent the remaining lifecycles from
+     * being closed. Fatal JVM {@link Error}s are not swallowed and propagate immediately. The first
+     * failure is preserved and re-thrown, with any subsequent failures attached to it as
+     * {@linkplain Throwable#addSuppressed suppressed}. A second {@code close()} is a no-op so the
+     * BlockingWorker fallback cannot re-close already-closed lifecycles.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} fails
-     * @throws RuntimeException if an unchecked lifecycle close failure is the first failure
+     * @throws IOException if the first failing close threw an {@link IOException}
+     * @throws RuntimeException if an unchecked close failure is the first failure (via sneakyThrow)
      */
     @Override
     public void close() throws IOException {
-        Throwable[] closeException = {null};
-        try {
-            super.close();
-        } catch (Throwable t) {
-            closeException[0] = t;
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
-        MDCTracer.tracing(allCycles.stream())
-                .forEach(
-                        flowLifeCycle -> {
-                            try {
-                                flowLifeCycle.close();
-                            } catch (Throwable t) {
-                                log.error("Close FlowLifeCycle error.", t);
-                                if (closeException[0] == null) {
-                                    closeException[0] = t;
-                                } else if (t != closeException[0]) {
-                                    closeException[0].addSuppressed(t);
+        Exception[] closeException = {null};
+        try {
+            closeSuper();
+        } catch (Exception e) {
+            closeException[0] = e;
+        }
+        if (allCycles != null) {
+            MDCTracer.tracing(allCycles.stream())
+                    .forEach(
+                            flowLifeCycle -> {
+                                try {
+                                    flowLifeCycle.close();
+                                } catch (Exception e) {
+                                    log.error(
+                                            "Task {} close FlowLifeCycle {} error.",
+                                            taskLocation,
+                                            flowLifeCycle.getClass().getSimpleName(),
+                                            e);
+                                    if (closeException[0] == null) {
+                                        closeException[0] = e;
+                                    } else if (e != closeException[0]) {
+                                        closeException[0].addSuppressed(e);
+                                    }
                                 }
-                            }
-                        });
+                            });
+        }
         if (closeException[0] != null) {
             if (closeException[0] instanceof IOException) {
                 throw (IOException) closeException[0];
             }
             sneakyThrow(closeException[0]);
         }
+    }
+
+    /** Invokes {@link AbstractTask#close()}. Package-visible for unit tests. */
+    void closeSuper() throws IOException {
+        super.close();
     }
 
     /**

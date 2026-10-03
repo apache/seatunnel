@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
+import org.apache.seatunnel.engine.server.execution.CallAndCloseThrowRuntimeExceptionTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -381,6 +382,31 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         // Check that each Task is only Done once
         assertEquals(count, stopTime.size());
+    }
+
+    @Test
+    public void testBlockingWorkerFallbackCloseWhenCallAndCloseThrowRuntimeException() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        CallAndCloseThrowRuntimeExceptionTask task = new CallAndCloseThrowRuntimeExceptionTask();
+
+        CompletableFuture<TaskExecutionState> future =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                new TaskGroupLocation(
+                                        jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                                "call-and-close-throw",
+                                Lists.newArrayList(task)));
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // Worker completed (future done) after call()+close() both threw
+                            // RuntimeException; fallback close was logged and did not abort the
+                            // worker before classloader restore.
+                            assertEquals(FAILED, future.get().getExecutionState());
+                            assertTrue(task.getCloseCalled().get());
+                        });
     }
 
     @Test

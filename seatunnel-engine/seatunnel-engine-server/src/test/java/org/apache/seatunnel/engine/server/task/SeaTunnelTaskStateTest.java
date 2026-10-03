@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -95,6 +96,7 @@ public class SeaTunnelTaskStateTest {
 
         setField(SeaTunnelTask.class, "currState", task, SeaTunnelTaskState.INIT);
         setField(SeaTunnelTask.class, "allCycles", task, cycles);
+        setField(SeaTunnelTask.class, "closed", task, new AtomicBoolean(false));
 
         doNothing().when(task).reportTaskStatus(any());
         doNothing().when(task).collect();
@@ -550,7 +552,7 @@ public class SeaTunnelTaskStateTest {
     }
 
     @Test
-    void testCloseCanBeCalledRepeatedlyClosingEachLifecycleEachTime() throws Exception {
+    void testCloseIsIdempotentAndClosesEachLifecycleOnlyOnce() throws Exception {
         doCallRealMethod().when(task).close();
         FlowLifeCycle first = mock(FlowLifeCycle.class);
         FlowLifeCycle second = mock(FlowLifeCycle.class);
@@ -563,8 +565,8 @@ public class SeaTunnelTaskStateTest {
         task.close();
         task.close();
 
-        verify(first, times(2)).close();
-        verify(second, times(2)).close();
+        verify(first, times(1)).close();
+        verify(second, times(1)).close();
     }
 
     @Test
@@ -592,7 +594,7 @@ public class SeaTunnelTaskStateTest {
     }
 
     @Test
-    void testCloseAttemptsEveryCycleWhenCycleThrowsError() throws Exception {
+    void testCloseRethrowsErrorImmediatelyWithoutClosingLaterCycles() throws Exception {
         doCallRealMethod().when(task).close();
         FlowLifeCycle failing = mock(FlowLifeCycle.class);
         FlowLifeCycle later = mock(FlowLifeCycle.class);
@@ -608,7 +610,7 @@ public class SeaTunnelTaskStateTest {
         Assertions.assertSame(error, ex);
 
         verify(failing, times(1)).close();
-        verify(later, times(1)).close();
+        verify(later, never()).close();
     }
 
     @Test
@@ -651,6 +653,54 @@ public class SeaTunnelTaskStateTest {
 
         verify(first, times(1)).close();
         verify(second, times(1)).close();
+    }
+
+    @Test
+    void testClosePreservesSuperCloseFailureAndAttachesLifecycleFailuresAsSuppressed()
+            throws Exception {
+        doCallRealMethod().when(task).close();
+        doThrow(new IOException("parent-close")).when(task).closeSuper();
+        FlowLifeCycle later = mock(FlowLifeCycle.class);
+        IllegalStateException lifecycleFailure = new IllegalStateException("lifecycle-close");
+        doThrow(lifecycleFailure).when(later).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(later);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IOException ex = assertThrows(IOException.class, task::close);
+        Assertions.assertEquals("parent-close", ex.getMessage());
+        Assertions.assertEquals(1, ex.getSuppressed().length);
+        Assertions.assertSame(lifecycleFailure, ex.getSuppressed()[0]);
+        verify(later, times(1)).close();
+    }
+
+    @Test
+    void testCloseSkipsLifecycleLoopWhenAllCyclesNull() throws Exception {
+        doCallRealMethod().when(task).close();
+        setField(SeaTunnelTask.class, "allCycles", task, null);
+
+        task.close();
+    }
+
+    @Test
+    void testClosedStateProcessMarksProgressDoneEvenWhenCloseThrows() throws Exception {
+        doCallRealMethod().when(task).close();
+        doCallRealMethod().when(task).stateProcess();
+        FlowLifeCycle failing = mock(FlowLifeCycle.class);
+        doThrow(new IllegalStateException("close-fail")).when(failing).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failing);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+        setField(SeaTunnelTask.class, "currState", task, SeaTunnelTaskState.CLOSED);
+        Progress progress = new Progress();
+        progress.start();
+        setField(AbstractTask.class, "progress", task, progress);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, task::stateProcess);
+        Assertions.assertEquals("close-fail", ex.getMessage());
+        Assertions.assertTrue(progress.toState().isDone());
     }
 
     private void advanceTo(SeaTunnelTaskState target) throws Exception {
