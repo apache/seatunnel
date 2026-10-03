@@ -1266,15 +1266,25 @@ class Orchestrator:
         client: LLMProvider,
         on_status: Callable | None = None,
         on_stream: Callable[[str, dict], None] | None = None,
+        on_debug: Callable[..., None] | None = None,
         memory_store: MemoryStore | None = None,
     ):
         self.client = client
         self.conversation_history: list[dict] = []
         self.on_status = on_status or (lambda *a: None)
         self.on_stream = on_stream or (lambda *a: None)
+        self.on_debug = on_debug or (lambda *a, **k: None)
         self.memory_store = memory_store
         self.pending_question: str | None = None
         self._connector_metadata_block: str = ""
+
+    def _debug(self, stage: str, **fields) -> None:
+        """Emit a pipeline debug event when SEATUNNEL_CLI_DEBUG / --debug is on."""
+        from .debug import is_debug_enabled
+
+        if not is_debug_enabled():
+            return
+        self.on_debug(stage, **fields)
 
     # ─── Context window management ───
     # conversation_history always holds the FULL session (saved to disk as-is).
@@ -1381,16 +1391,26 @@ class Orchestrator:
                 "explanation": str | None,  # explanation if type=="config"
             }
         """
+        from .debug import error_message, is_debug_enabled
+
         self.conversation_history.append({
             "role": "user",
             "content": [{"text": user_input}],
         })
+
+        self._debug(
+            "start",
+            provider=getattr(self.client, "provider_name", None),
+            model=getattr(self.client, "model_id", None),
+            fast_model=getattr(self.client, "fast_model_id", None),
+        )
 
         # Phase 1: Planning
         self.on_status("thinking", "Analyzing your request...")
         plan_result = self._run_planner()
 
         if plan_result["type"] == "question":
+            self._debug("result", type="question", outcome="ask_user")
             return plan_result
 
         if plan_result["type"] == "chat":
@@ -1398,6 +1418,7 @@ class Orchestrator:
                 "role": "assistant",
                 "content": [{"text": plan_result["content"]}],
             })
+            self._debug("result", type="chat", outcome="chat")
             return plan_result
 
         # Phase 1.5: Skill-based prompt enrichment (Match → Read → Execute)
@@ -1408,6 +1429,11 @@ class Orchestrator:
         # Trigger-based skill matching: uses plan + user input keywords
         matched_skills = SkillRouter.match(structured_plan, user_input)
         skill = SkillExecutor(structured_plan, matched_skills)
+        self._debug(
+            "skill",
+            matched=",".join(s.name for s in matched_skills) or "-",
+            outcome="matched",
+        )
 
         # Fill slots (with pipeline expansion) and check for missing info
         missing = skill.fill_and_check(user_input, self.memory_store, self.client)
@@ -1416,15 +1442,24 @@ class Orchestrator:
                 "I need a few more details to generate the config:\n"
                 + "\n".join(f"- {m}" for m in missing)
             )
+            self._debug("skill", missing=len(missing), outcome="missing_info")
+            self._debug("result", type="question", outcome="missing_info")
             return {
                 "type": "question",
                 "content": question,
                 "config": None,
                 "explanation": None,
             }
+        self._debug("skill", missing=0, outcome="ready")
 
         # Fetch metadata and build enriched prompt
         self._connector_metadata_block = skill.fetch_all_metadata(self.on_status)
+        meta_chars = len(self._connector_metadata_block or "")
+        self._debug(
+            "metadata",
+            outcome="ok" if meta_chars else "empty",
+            chars=meta_chars,
+        )
         enriched_prompt = skill.build_enriched_prompt(
             user_input, self.on_status, self.memory_store,
         )
@@ -1434,31 +1469,86 @@ class Orchestrator:
         config_result = self._run_config_generator(enriched_prompt, enriched=True)
 
         if not config_result.get("config"):
-            return {"type": "error", "content": "Failed to generate config.", "config": None, "explanation": None}
+            error_code = config_result.get("error_code") or "no_hocon_block"
+            msg = error_message(error_code)
+            content = f"Failed to generate config: {msg}."
+            if not is_debug_enabled():
+                content += (
+                    "\nHint: re-run with --debug (or SEATUNNEL_CLI_DEBUG=1) "
+                    "to see the pipeline trace and a redacted model snippet."
+                )
+            snippet = config_result.get("raw_text") or ""
+            self._debug(
+                "generator",
+                model=getattr(self.client, "model_id", None),
+                stop_reason=config_result.get("stop_reason"),
+                tools=config_result.get("tool_rounds", 0),
+                outcome=error_code,
+                snippet=snippet if snippet.strip() else None,
+            )
+            self._debug("result", type="error", code=error_code)
+            return {
+                "type": "error",
+                "content": content,
+                "config": None,
+                "explanation": None,
+                "error_code": error_code,
+            }
 
         # Phase 3: Validation loop (max 3 rounds)
         config = config_result["config"]
         explanation = config_result.get("explanation", "")
+        self._debug(
+            "generator",
+            model=getattr(self.client, "model_id", None),
+            stop_reason=config_result.get("stop_reason"),
+            tools=config_result.get("tool_rounds", 0),
+            outcome="ok",
+        )
 
         for round_num in range(3):
             self.on_status("validating", f"Validating config (round {round_num + 1})...")
             validation = self._run_validator(config)
+            passed = validation.startswith("PASS")
+            # Local + LLM breakdown is emitted inside _run_validator as validator_detail.
+            from .debug import first_line_reason
 
-            if validation.startswith("PASS"):
+            self._debug(
+                "validator",
+                round=round_num + 1,
+                outcome="pass" if passed else "fail",
+                reason=(
+                    None
+                    if passed
+                    else (first_line_reason(validation) or "non-PASS verdict")
+                ),
+            )
+
+            if passed:
                 # Phase 4: Dry-run validation (engine-level)
                 self.on_status("validating", "Running dry-run check...")
                 dryrun = dry_run_config(config)
                 dryrun_note = ""
                 if dryrun["phase2_check"] and dryrun["phase2_check"] != "PASS":
                     dryrun_note = f"\n\n**Dry-run note:** {dryrun['phase2_check']}"
+                    self._debug(
+                        "dryrun",
+                        outcome="warn",
+                        phase2=dryrun["phase2_check"],
+                        snippet=dryrun["phase2_check"],
+                    )
                 elif dryrun["valid"]:
                     dryrun_note = "\n\n**Dry-run:** PASSED"
+                    self._debug("dryrun", outcome="pass")
+                else:
+                    self._debug("dryrun", outcome="skip")
 
                 # Add assistant message to history
                 self.conversation_history.append({
                     "role": "assistant",
                     "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
                 })
+                self._debug("result", type="config", outcome="ok")
                 return {
                     "type": "config",
                     "content": validation,
@@ -1474,7 +1564,14 @@ class Orchestrator:
                 config = fix_result["config"]
                 if fix_result.get("explanation"):
                     explanation = fix_result["explanation"]
+                self._debug("fix", round=round_num + 1, outcome="ok")
             else:
+                self._debug(
+                    "fix",
+                    round=round_num + 1,
+                    outcome=fix_result.get("error_code") or "failed",
+                    snippet=fix_result.get("raw_text"),
+                )
                 break
 
         # Return best effort after max rounds
@@ -1482,6 +1579,7 @@ class Orchestrator:
             "role": "assistant",
             "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
         })
+        self._debug("result", type="config", outcome="warnings")
         return {
             "type": "config",
             "content": "Config generated (validation had warnings)",
@@ -1493,6 +1591,8 @@ class Orchestrator:
         """Run the planner agent with tool use loop (streaming)."""
         messages = self._trimmed_history()
         planner_system = self._build_planner_system()
+        tool_rounds = 0
+        last_stop_reason = ""
 
         for _ in range(5):  # max 5 tool-use rounds
             events: list[dict] = []
@@ -1533,8 +1633,10 @@ class Orchestrator:
             response = LLMProvider.collect_stream(events)
             assistant_content = response.get("output", {}).get("message", {}).get("content", [])
             stop_reason = response.get("stopReason", "")
+            last_stop_reason = stop_reason
 
             if stop_reason == "tool_use":
+                tool_rounds += 1
                 tool_results = []
                 question_to_ask = None
 
@@ -1562,6 +1664,13 @@ class Orchestrator:
                             })
 
                 if question_to_ask:
+                    self._debug(
+                        "planner",
+                        model=getattr(self.client, "model_id", None),
+                        stop_reason=last_stop_reason,
+                        tools=tool_rounds,
+                        outcome="ask_user",
+                    )
                     return {"type": "question", "content": question_to_ask, "config": None, "explanation": None}
 
                 messages.append({"role": "assistant", "content": assistant_content})
@@ -1576,10 +1685,31 @@ class Orchestrator:
             if plan_text.strip().startswith("CHAT:"):
                 chat_text = plan_text.strip().removeprefix("CHAT:").strip()
                 self.on_stream("chat", {"type": "message_stop", "stop_reason": "end_turn"})
+                self._debug(
+                    "planner",
+                    model=getattr(self.client, "model_id", None),
+                    stop_reason=last_stop_reason or "end_turn",
+                    tools=tool_rounds,
+                    outcome="chat",
+                )
                 return {"type": "chat", "content": chat_text, "config": None, "explanation": None}
 
+            self._debug(
+                "planner",
+                model=getattr(self.client, "model_id", None),
+                stop_reason=last_stop_reason or "end_turn",
+                tools=tool_rounds,
+                outcome="plan",
+            )
             return {"type": "plan", "content": plan_text, "config": None, "explanation": None}
 
+        self._debug(
+            "planner",
+            model=getattr(self.client, "model_id", None),
+            stop_reason=last_stop_reason,
+            tools=tool_rounds,
+            outcome="fallback",
+        )
         return {"type": "plan", "content": "Direct generation mode.", "config": None, "explanation": None}
 
     def _run_config_generator(self, plan: str, enriched: bool = False) -> dict:
@@ -1613,6 +1743,8 @@ class Orchestrator:
 Generate the SeaTunnel HOCON config now. Use tools if you need connector details."""
 
         messages = [{"role": "user", "content": [{"text": prompt}]}]
+        tool_rounds = 0
+        last_stop_reason = ""
 
         for _ in range(5):
             events: list[dict] = []
@@ -1634,8 +1766,10 @@ Generate the SeaTunnel HOCON config now. Use tools if you need connector details
             response = LLMProvider.collect_stream(events)
             assistant_content = response.get("output", {}).get("message", {}).get("content", [])
             stop_reason = response.get("stopReason", "")
+            last_stop_reason = stop_reason
 
             if stop_reason == "tool_use":
+                tool_rounds += 1
                 tool_results = []
                 for block in assistant_content:
                     if "toolUse" in block:
@@ -1658,13 +1792,29 @@ Generate the SeaTunnel HOCON config now. Use tools if you need connector details
                 if "text" in block:
                     full_text += block["text"]
 
-            return self._parse_config_response(full_text)
+            parsed = self._parse_config_response(full_text)
+            parsed["stop_reason"] = last_stop_reason or "end_turn"
+            parsed["tool_rounds"] = tool_rounds
+            return parsed
 
-        return {}
+        return {
+            "config": None,
+            "explanation": None,
+            "error_code": "tool_loop_exhausted",
+            "raw_text": "",
+            "stop_reason": last_stop_reason,
+            "tool_rounds": tool_rounds,
+        }
 
     def _run_validator(self, config: str) -> str:
-        """Run the validator agent."""
+        """Run the validator agent.
+
+        Returns the LLM verdict string (must start with PASS/FAIL for the loop).
+        When debug is enabled, also emits local + LLM detail events.
+        """
         from .cli import _replace_creds_with_placeholders
+        from .debug import first_line_reason
+
         # First do local validation
         local_result = validate_hocon(config)
 
@@ -1683,7 +1833,25 @@ Local validation result: {local_result}
 Check for semantic correctness, required parameters, and best practices."""
 
         result = self.client.quick_chat(prompt, system=VALIDATOR_SYSTEM)
-        return result.strip()
+        llm_result = (result or "").strip()
+        local_ok = local_result.startswith("PASS") or local_result.upper().startswith(
+            "OK"
+        )
+        # Always surface both layers under debug so fail loops are diagnosable.
+        self._debug(
+            "validator_detail",
+            local="pass" if local_ok else "fail",
+            reason=first_line_reason(local_result) or local_result[:120],
+            snippet=None if local_ok else local_result,
+        )
+        self._debug(
+            "validator_detail",
+            model=getattr(self.client, "fast_model_id", None),
+            outcome="pass" if llm_result.startswith("PASS") else "fail",
+            reason=first_line_reason(llm_result) or "(empty LLM verdict)",
+            snippet=None if llm_result.startswith("PASS") else llm_result,
+        )
+        return llm_result
 
     def _run_fix(self, config: str, validation_errors: str) -> dict:
         """Attempt to fix config based on validation errors."""
@@ -1804,4 +1972,10 @@ Fix ALL the issues and return the corrected config. Keep all existing correct pa
                 )
                 explanation = (explanation or "") + warning
 
-        return {"config": config, "explanation": explanation}
+        result = {"config": config, "explanation": explanation}
+        if not config:
+            result["error_code"] = (
+                "empty_response" if not (text or "").strip() else "no_hocon_block"
+            )
+            result["raw_text"] = text or ""
+        return result
