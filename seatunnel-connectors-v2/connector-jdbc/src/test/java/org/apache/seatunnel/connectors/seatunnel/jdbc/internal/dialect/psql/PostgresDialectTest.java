@@ -17,10 +17,52 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.Statement;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 public class PostgresDialectTest {
+
+    @Test
+    void testAddColumnWithSchemaQualifiedUserDefinedType() throws Exception {
+        PostgresDialect dialect = new PostgresDialect();
+        Connection connection = mock(Connection.class);
+        Statement statement = mock(Statement.class);
+        when(connection.createStatement()).thenReturn(statement);
+        PhysicalColumn column =
+                (PhysicalColumn)
+                        dialect.getTypeConverter()
+                                .convert(
+                                        BasicTypeDefine.builder()
+                                                .name("status")
+                                                .dataType("app.order status")
+                                                .columnType("app.order status")
+                                                .sqlType(java.sql.Types.OTHER)
+                                                .nullable(true)
+                                                .build());
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "db", "app", "orders"), column);
+        event.setSourceDialectName(dialect.dialectName());
+
+        dialect.applySchemaChange(connection, TablePath.of("db", "app", "orders"), event);
+
+        verify(statement)
+                .execute(
+                        "ALTER TABLE \"db\".\"app\".\"orders\" ADD \"status\" \"app\".\"order status\" NULL");
+    }
 
     @Test
     void testUpsertStatement() {
