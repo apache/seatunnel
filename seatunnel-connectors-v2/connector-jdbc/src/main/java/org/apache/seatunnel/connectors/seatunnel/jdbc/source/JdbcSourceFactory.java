@@ -96,6 +96,7 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE,
                         JdbcSourceOptions.PROPERTIES,
                         JdbcSourceOptions.QUERY,
+                        JdbcSourceOptions.QUERY_TABLE_METADATA_MERGE,
                         JdbcSourceOptions.USE_SELECT_COUNT,
                         JdbcSourceOptions.SKIP_ANALYZE,
                         JdbcSourceOptions.USE_REGEX,
