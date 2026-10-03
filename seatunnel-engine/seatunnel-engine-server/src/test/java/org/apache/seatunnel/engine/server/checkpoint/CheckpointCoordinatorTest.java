@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -60,11 +62,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -73,6 +77,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
+import static org.awaitility.Awaitility.await;
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
@@ -397,6 +402,186 @@ public class CheckpointCoordinatorTest
         Assertions.assertEquals(1, checkpointManager.operations.size());
 
         executor.shutdownNow();
+    }
+
+    /**
+     * A savepoint waits for the in-flight checkpoint to finish before it creates its own. That wait
+     * must not hold the coordinator lock: a trigger of any type that arrives during it has to
+     * return at once, create nothing, and re-arm, as it does behind any other pending checkpoint.
+     */
+    @Test
+    void testTriggerDuringSavepointDrainReturnsAndRearmsWithoutCreatingACheckpoint()
+            throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        ExecutorService triggerCaller = Executors.newSingleThreadExecutor();
+        CheckpointCoordinator coordinator = Mockito.spy(buildMinimalCoordinator(executor));
+        try {
+            List<CheckpointType> rearmed = new CopyOnWriteArrayList<>();
+            Mockito.doAnswer(
+                            invocation -> {
+                                rearmed.add(invocation.getArgument(0));
+                                return null;
+                            })
+                    .when(coordinator)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+            DrainingSavepoint savepoint = startSavepointBehindInFlightCheckpoint(coordinator);
+
+            for (CheckpointType type :
+                    new CheckpointType[] {
+                        CheckpointType.CHECKPOINT_TYPE,
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE,
+                        CheckpointType.SCHEMA_CHANGE_AFTER_POINT_TYPE
+                    }) {
+                Future<?> trigger =
+                        triggerCaller.submit(() -> coordinator.tryTriggerPendingCheckpoint(type));
+                Assertions.assertDoesNotThrow(
+                        () -> trigger.get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                        "a " + type + " trigger blocked behind the savepoint drain");
+                Assertions.assertEquals(
+                        1,
+                        pendingCounter(coordinator).get(),
+                        "a " + type + " trigger created a checkpoint during the savepoint drain");
+                Assertions.assertTrue(
+                        rearmed.contains(type),
+                        "a " + type + " trigger was dropped instead of re-armed");
+            }
+
+            // the in-flight checkpoint finishes, so the savepoint goes ahead
+            pendingCounter(coordinator).set(0);
+            Assertions.assertFalse(
+                    savepoint
+                            .call
+                            .get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                            .isCompletedExceptionally());
+            Assertions.assertEquals(
+                    CheckpointType.SAVEPOINT_TYPE,
+                    coordinator.getSavepointPendingCheckpoint().getCheckpointType());
+            Assertions.assertEquals(1, pendingCounter(coordinator).get());
+            Mockito.verify(checkpointIdCounter(coordinator), Mockito.times(1)).getAndIncrement();
+        } finally {
+            shutDown(coordinator);
+            triggerCaller.shutdownNow();
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * A second savepoint request that arrives while the first is still waiting for the in-flight
+     * checkpoint must return straight away with the same outcome, and only one savepoint may be
+     * created.
+     */
+    @Test
+    void testConcurrentSavepointsDuringDrainShareOneSavepoint() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        ExecutorService secondCaller = Executors.newSingleThreadExecutor();
+        CheckpointCoordinator coordinator = buildMinimalCoordinator(executor);
+        try {
+            DrainingSavepoint first = startSavepointBehindInFlightCheckpoint(coordinator);
+
+            Future<PassiveCompletableFuture<CompletedCheckpoint>> second =
+                    secondCaller.submit(coordinator::startSavepoint);
+            PassiveCompletableFuture<CompletedCheckpoint> secondResult =
+                    Assertions.assertDoesNotThrow(
+                            () -> second.get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                            "a second savepoint request blocked behind the first one's drain");
+            Assertions.assertFalse(secondResult.isDone());
+
+            pendingCounter(coordinator).set(0);
+            PassiveCompletableFuture<CompletedCheckpoint> firstResult =
+                    first.call.get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Mockito.verify(checkpointIdCounter(coordinator), Mockito.times(1)).getAndIncrement();
+
+            // both callers observe the outcome of the one savepoint that was created
+            coordinator
+                    .getSavepointPendingCheckpoint()
+                    .abortCheckpoint(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR, null);
+            await().dontCatchUncaughtExceptions()
+                    .atMost(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    firstResult.isCompletedExceptionally()
+                                            && secondResult.isCompletedExceptionally());
+        } finally {
+            shutDown(coordinator);
+            secondCaller.shutdownNow();
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * An interrupted savepoint caller must fail its request and lift the gate that holds other
+     * triggers back, so that periodic checkpointing resumes afterwards.
+     */
+    @Test
+    void testInterruptedSavepointDrainFailsTheRequestAndResumesTriggering() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = Mockito.spy(buildMinimalCoordinator(executor));
+        try {
+            Mockito.doNothing()
+                    .when(coordinator)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+            DrainingSavepoint savepoint = startSavepointBehindInFlightCheckpoint(coordinator);
+
+            savepoint.thread.interrupt();
+            Assertions.assertTrue(
+                    savepoint
+                            .call
+                            .get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                            .isCompletedExceptionally());
+
+            assertPeriodicTriggeringResumes(coordinator);
+        } finally {
+            shutDown(coordinator);
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * A coordinator reset while a savepoint is draining, as on master failover, must fail the
+     * savepoint request without waiting for the drain, and the restored coordinator must be able to
+     * trigger checkpoints again.
+     */
+    @Test
+    void testCoordinatorResetDuringSavepointDrainFailsTheRequestAndResumesTriggering()
+            throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        ExecutorService resetCaller = Executors.newSingleThreadExecutor();
+        CheckpointCoordinator coordinator = Mockito.spy(buildMinimalCoordinator(executor));
+        try {
+            Mockito.doNothing()
+                    .when(coordinator)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+            DrainingSavepoint savepoint = startSavepointBehindInFlightCheckpoint(coordinator);
+
+            Future<?> reset =
+                    resetCaller.submit(
+                            () ->
+                                    coordinator.cleanPendingCheckpoint(
+                                            CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET));
+            Assertions.assertDoesNotThrow(
+                    () -> reset.get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                    "a coordinator reset blocked behind the savepoint drain");
+            PassiveCompletableFuture<CompletedCheckpoint> result =
+                    savepoint.call.get(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Throwable failure = Assertions.assertThrows(Exception.class, result::join);
+            // JobMaster restores RUNNING only for this reason, as for a savepoint never started
+            Assertions.assertEquals(
+                    CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN,
+                    ((CheckpointException) ExceptionUtils.getRootException(failure))
+                            .getCheckpointFailureReason());
+
+            // restoreCoordinator clears the shutdown flag once the reset is done
+            ReflectionUtils.setField(coordinator, CheckpointCoordinator.class, "shutdown", false);
+            assertPeriodicTriggeringResumes(coordinator);
+        } finally {
+            shutDown(coordinator);
+            resetCaller.shutdownNow();
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -922,6 +1107,77 @@ public class CheckpointCoordinatorTest
                 mockIMap,
                 false,
                 null);
+    }
+
+    /**
+     * Bound on a call that must not wait for a savepoint drain, which in these tests never ends.
+     * Awaits against it ignore uncaught exceptions: other tests in this class leave timers that
+     * fire later on executors they have shut down.
+     */
+    private static final long UNBLOCKED_CALL_TIMEOUT_SECONDS = 10;
+
+    /** A {@code startSavepoint()} call running on its own thread. */
+    private static final class DrainingSavepoint {
+        private final Thread thread;
+        private final FutureTask<PassiveCompletableFuture<CompletedCheckpoint>> call;
+
+        private DrainingSavepoint(
+                Thread thread, FutureTask<PassiveCompletableFuture<CompletedCheckpoint>> call) {
+            this.thread = thread;
+            this.call = call;
+        }
+    }
+
+    /**
+     * Holds one checkpoint in flight on {@code coordinator} and starts a savepoint behind it,
+     * returning once the savepoint caller is parked in its drain wait. The in-flight checkpoint is
+     * the test-owned drain signal: the drain lasts until the test sets {@code pendingCounter} back
+     * to 0.
+     */
+    private static DrainingSavepoint startSavepointBehindInFlightCheckpoint(
+            CheckpointCoordinator coordinator) {
+        isAllTaskReady(coordinator).set(true);
+        pendingCounter(coordinator).set(1);
+        FutureTask<PassiveCompletableFuture<CompletedCheckpoint>> call =
+                new FutureTask<>(coordinator::startSavepoint);
+        Thread thread = new Thread(call, "savepoint-caller-" + coordinator.getPipelineId());
+        thread.setDaemon(true);
+        thread.start();
+        await().dontCatchUncaughtExceptions()
+                .atMost(UNBLOCKED_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .until(() -> thread.getState() == Thread.State.TIMED_WAITING);
+        return new DrainingSavepoint(thread, call);
+    }
+
+    /** Once the in-flight checkpoint is gone, a periodic trigger must create a checkpoint again. */
+    private static void assertPeriodicTriggeringResumes(CheckpointCoordinator coordinator) {
+        isAllTaskReady(coordinator).set(true);
+        pendingCounter(coordinator).set(0);
+        coordinator.tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+        Assertions.assertEquals(
+                1,
+                pendingCounter(coordinator).get(),
+                "periodic triggering stayed suppressed after the savepoint drain ended");
+    }
+
+    /** Ends a coordinator whose savepoint may still be draining, and drops its timers. */
+    private static void shutDown(CheckpointCoordinator coordinator) {
+        // the flag alone ends a drain; cleanPendingCheckpoint then needs the coordinator lock
+        ReflectionUtils.setField(coordinator, CheckpointCoordinator.class, "shutdown", true);
+        coordinator.cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
+    }
+
+    private static AtomicInteger pendingCounter(CheckpointCoordinator coordinator) {
+        return (AtomicInteger) ReflectionUtils.getField(coordinator, "pendingCounter").get();
+    }
+
+    private static AtomicBoolean isAllTaskReady(CheckpointCoordinator coordinator) {
+        return (AtomicBoolean) ReflectionUtils.getField(coordinator, "isAllTaskReady").get();
+    }
+
+    private static CheckpointIDCounter checkpointIdCounter(CheckpointCoordinator coordinator) {
+        return (CheckpointIDCounter)
+                ReflectionUtils.getField(coordinator, "checkpointIdCounter").get();
     }
 
     @Test
