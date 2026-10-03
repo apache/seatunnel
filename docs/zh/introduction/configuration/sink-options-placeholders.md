@@ -139,6 +139,14 @@ primary_keys = ["${primary_key}", "tenant_id"]
 
 只有当 `${primary_key}` 是列表中的唯一元素时，才会执行列表占位符替换。
 
+上述限制仅针对顶层 `primary_keys` 选项。JDBC Sink 额外支持在
+`multi_table_config.primary_keys` 中将 `${primary_key}`（以及 `${unique_key}`）与静态列名混用，
+详见 JDBC Sink 文档。
+
+两个阶段的执行顺序是固定的：上文的引擎层替换先执行，且只处理顶层的 `String` 值和单元素 `String` 列表，
+因此嵌套的 `multi_table_config.primary_keys` 映射会原样传给 Sink；随后由 JDBC Sink 在创建每个表时
+展开其中的 `${primary_key}` / `${unique_key}`。
+
 单表任务和多表任务中的行为保持一致。
 
 占位符的替换将在连接器启动之前完成，确保 Sink 参数在使用前已准备就绪。
