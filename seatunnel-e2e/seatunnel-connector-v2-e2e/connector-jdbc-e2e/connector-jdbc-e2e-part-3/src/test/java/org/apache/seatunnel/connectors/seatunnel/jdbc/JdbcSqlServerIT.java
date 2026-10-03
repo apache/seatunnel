@@ -374,11 +374,14 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         // database name that must be quoted
         TablePath specialTablePath = TablePath.of("test-db", "dbo", "sink_lw");
         sqlServerCatalog.createDatabase(specialTablePath, true);
-        sqlServerCatalog.createTable(specialTablePath, catalogTable, true);
-        Assertions.assertTrue(sqlServerCatalog.tableExists(specialTablePath));
-        sqlServerCatalog.dropTable(specialTablePath, true);
-        Assertions.assertFalse(sqlServerCatalog.tableExists(specialTablePath));
-        sqlServerCatalog.dropDatabase(specialTablePath, true);
+        try {
+            sqlServerCatalog.createTable(specialTablePath, catalogTable, true);
+            Assertions.assertTrue(sqlServerCatalog.tableExists(specialTablePath));
+            sqlServerCatalog.dropTable(specialTablePath, true);
+            Assertions.assertFalse(sqlServerCatalog.tableExists(specialTablePath));
+        } finally {
+            sqlServerCatalog.dropDatabase(specialTablePath, true);
+        }
         sqlServerCatalog.close();
     }
 }
