@@ -340,6 +340,10 @@ def _load_runtime_metadata() -> dict | None:
                 logger.debug(f"Failed to load runtime metadata from {p}: {e}")
 
     _RUNTIME_METADATA = {}  # Empty dict = tried but not found
+    logger.warning(
+        "No connector_metadata.json found. Connector KB will be empty. "
+        "Run `seatunnel --export-metadata` or set SEATUNNEL_HOME to generate it."
+    )
     return _RUNTIME_METADATA
 
 
@@ -1070,8 +1074,17 @@ def get_connector_detail(name: str, connector_type: str | None = None) -> str | 
 
     # ── 4. Suggest ──
     suggestions = route_by_keyword(name)
+    # Filter out the queried name itself from suggestions
+    suggestions = [s for s in suggestions if s.lower() != name.lower()]
     if suggestions:
         return f"Connector '{name}' not found. Did you mean: {', '.join(suggestions)}?\nUse get_connector_info with the exact name."
+
+    # Check if the name matches a known connector alias (even without metadata)
+    all_known_connectors = set()
+    for aliases in KEYWORD_ALIASES.values():
+        all_known_connectors.update(a.lower() for a in aliases)
+    if name.lower() in all_known_connectors:
+        return f"Connector '{name}' is a known connector but its metadata is not available. Run `seatunnel --export-metadata` to generate connector metadata."
     return f"Connector '{name}' not found. Use list_connectors to see all available connectors."
 
 
