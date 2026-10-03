@@ -123,6 +123,43 @@ public class JdbcOutputFormatReconnectTest {
         Mockito.verify(provider, Mockito.never()).isConnectionValid();
     }
 
+    /**
+     * When the batch failure is not identifiable from its SQLState and connection validation itself
+     * throws, the connection has to be treated as broken and re-established. Before this behaviour
+     * was added, that {@link SQLException} escaped from the validation call and the retry was given
+     * up as a reconnect failure.
+     */
+    @Test
+    public void testFlushRetryShouldReconnectWhenConnectionValidationThrows() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.reestablishConnection()).thenReturn(connection);
+        Mockito.when(provider.isConnectionValid())
+                .thenThrow(new SQLException("connection validation failed", "08006"));
+
+        TrackingJdbcBatchExecutor executor =
+                new TrackingJdbcBatchExecutor(
+                        batchException(
+                                "batch failed",
+                                "HY000",
+                                new SQLException("transient execution failure")));
+
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        outputFormat.flush();
+
+        Assertions.assertEquals(2, executor.prepareStatementsCalls);
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+        Assertions.assertEquals(1, executor.closeStatementsCalls);
+        Mockito.verify(provider).isConnectionValid();
+        Mockito.verify(provider).reestablishConnection();
+    }
+
     private JdbcConnectionConfig buildConnectionConfig() {
         return JdbcConnectionConfig.builder()
                 .url("jdbc:postgresql://localhost:5432/test")
