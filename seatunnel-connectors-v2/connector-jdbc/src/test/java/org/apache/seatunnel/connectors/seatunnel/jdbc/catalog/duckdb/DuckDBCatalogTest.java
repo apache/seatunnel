@@ -211,6 +211,29 @@ public class DuckDBCatalogTest {
         Assertions.assertFalse(catalog.tableExists(copyPath));
     }
 
+    @Test
+    @Order(8)
+    public void testMetadataLookupWithApostrophes() throws Exception {
+        TablePath tablePath = TablePath.of(DATABASE_NAME, "odd'schema", "odd'table");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("CREATE SCHEMA \"odd'schema\"");
+            statement.execute("CREATE TABLE \"odd'schema\".\"odd'table\" (id INTEGER)");
+            try {
+                Assertions.assertTrue(catalog.tableExists(tablePath));
+                Assertions.assertFalse(
+                        catalog.tableExists(TablePath.of(DATABASE_NAME, null, "odd'table")));
+                CatalogTable table = catalog.getTable(tablePath);
+                Assertions.assertEquals("id", table.getTableSchema().getColumns().get(0).getName());
+                Assertions.assertFalse(
+                        catalog.tableExists(
+                                TablePath.of(DATABASE_NAME, "odd'schema", "x' OR 1=1 --")));
+            } finally {
+                statement.execute("DROP TABLE \"odd'schema\".\"odd'table\"");
+                statement.execute("DROP SCHEMA \"odd'schema\"");
+            }
+        }
+    }
+
     private void createTestTable(String tableName) throws Exception {
         Connection connection = catalog.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {
