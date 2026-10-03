@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.base.Supplier;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.DynamicLookupSourceCapability;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -37,14 +38,17 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
-                SupportParallelism {
+                SupportParallelism,
+                DynamicLookupSourceCapability {
 
     private final ReadonlyConfig readonlyConfig;
     private JobContext jobContext;
@@ -66,6 +70,11 @@ public class KafkaSource
     @Override
     public String getPluginName() {
         return KafkaBaseOptions.CONNECTOR_IDENTITY;
+    }
+
+    @Override
+    public Set<String> dynamicLookupCapabilities() {
+        return Collections.singleton(DynamicLookupSourceCapability.FACT_SOURCE_GATE_V1);
     }
 
     @Override
