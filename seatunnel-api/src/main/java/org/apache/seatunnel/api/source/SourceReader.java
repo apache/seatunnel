@@ -37,6 +37,30 @@ public interface SourceReader<T, SplitT extends SourceSplit>
     void open() throws Exception;
 
     /**
+     * Request cancellation of an in-flight source operation, such as a query blocked in an external
+     * system.
+     *
+     * <p>Contract for implementations:
+     *
+     * <ul>
+     *   <li>Called from an engine thread that is not the task thread, while {@link #open()}, {@link
+     *       #pollNext(Collector)} or {@link #close()} may be running concurrently.
+     *   <li>May be invoked multiple times, before {@link #open()}, between splits, or after {@link
+     *       #close()}; implementations must be idempotent and thread-safe.
+     *   <li>Must not acquire locks that the reader methods hold (e.g. the checkpoint lock), or the
+     *       cancellation would deadlock behind the very operation it is meant to abort.
+     *   <li>Must treat the request as sticky: a cancellation that arrives before the blocking
+     *       operation starts must still take effect.
+     * </ul>
+     *
+     * <p>The default implementation keeps existing source connectors source-compatible. Sources
+     * that can block in an external client should override this method to abort the external
+     * operation. Currently only the Zeta engine calls this hook; the Flink and Spark translation
+     * layers do not.
+     */
+    default void cancel() {}
+
+    /**
      * Called to close the reader, in case it holds on to any resources, like threads or network
      * connections.
      */
