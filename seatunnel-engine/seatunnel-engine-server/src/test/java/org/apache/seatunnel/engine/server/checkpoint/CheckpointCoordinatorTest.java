@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -31,6 +32,7 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -38,6 +40,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -70,12 +73,41 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
+import static org.awaitility.Awaitility.await;
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
+
+    /** Stands in for the member-wide scheduler that {@code SeaTunnelEngineContext} owns. */
+    private static final SharedCheckpointScheduler TEST_CHECKPOINT_SCHEDULER =
+            new SharedCheckpointScheduler();
+
+    /**
+     * Thread name prefix of the shared dispatch pool, as {@code SharedCheckpointScheduler} sets it.
+     */
+    private static final String CHECKPOINT_DISPATCH_THREAD_PREFIX = "checkpoint-dispatcher-";
+
+    @AfterAll
+    static void closeTestCheckpointScheduler() {
+        TEST_CHECKPOINT_SCHEDULER.close();
+    }
+
+    /**
+     * A mocked manager that still hands out real timer leases, so coordinators built on it can
+     * schedule and cancel checkpoints as they do in production.
+     */
+    private static CheckpointManager mockCheckpointManager() {
+        CheckpointManager manager = Mockito.mock(CheckpointManager.class);
+        Mockito.when(manager.leaseCheckpointScheduler(Mockito.anyInt()))
+                .thenAnswer(
+                        invocation ->
+                                TEST_CHECKPOINT_SCHEDULER.lease(1L, invocation.getArgument(0)));
+        return manager;
+    }
 
     @Test
     void testACKNotExistPendingCheckpoint() {
@@ -399,6 +431,139 @@ public class CheckpointCoordinatorTest
         executor.shutdownNow();
     }
 
+    /**
+     * The trigger body blocks on {@code allOf(...).get()} while the caller holds the coordinator
+     * lock, so it must never run on the thread that registers it. That thread is a shared
+     * checkpoint dispatch thread, and a pending checkpoint future that is already complete at
+     * registration time is exactly the case that would run the body inline.
+     */
+    @Test
+    void testTriggerBodyNeverRunsOnTheRegisteringThread() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            mockCheckpointManager(),
+                            null,
+                            checkpointConfig,
+                            1L,
+                            CheckpointPlan.builder().pipelineId(1).build(),
+                            null,
+                            null,
+                            executor,
+                            Mockito.mock(IMap.class),
+                            false,
+                            null);
+
+            AtomicReference<Thread> bodyThread = new AtomicReference<>();
+            PendingCheckpoint pendingCheckpoint = Mockito.mock(PendingCheckpoint.class);
+            Mockito.when(pendingCheckpoint.getCheckpointType())
+                    .thenReturn(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.when(pendingCheckpoint.getCompletableFuture())
+                    .thenAnswer(
+                            invocation -> {
+                                bodyThread.set(Thread.currentThread());
+                                return new PassiveCompletableFuture<>(
+                                        new CompletableFuture<CompletedCheckpoint>());
+                            });
+
+            CompletableFuture<PendingCheckpoint> pending = new CompletableFuture<>();
+            pending.complete(pendingCheckpoint);
+
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "startTriggerPendingCheckpoint",
+                    new Class[] {CompletableFuture.class},
+                    new Object[] {pending});
+
+            await().atMost(10, TimeUnit.SECONDS).until(() -> bodyThread.get() != null);
+            Assertions.assertNotSame(
+                    Thread.currentThread(),
+                    bodyThread.get(),
+                    "the trigger body must not run on the thread that registers it");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * The timeout watchdog fires on a shared checkpoint dispatch thread, so only the cheap "is this
+     * checkpoint still pending" lookup may run there. Expiry handling itself drives IMap reads and
+     * writes with retries and takes the coordinator lock, which a savepoint can hold for seconds,
+     * so holding a member-wide dispatch thread for it would couple unrelated pipelines.
+     */
+    @Test
+    void testCheckpointExpiryHandlingNeverRunsOnTheDispatchThread() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        // fire the watchdog as soon as the barrier round-trip is done
+        checkpointConfig.setCheckpointTimeout(10);
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            AtomicReference<String> expiryThreadName = new AtomicReference<>();
+            CheckpointManager checkpointManager = mockCheckpointManager();
+            Mockito.doAnswer(
+                            invocation -> {
+                                expiryThreadName.set(Thread.currentThread().getName());
+                                return null;
+                            })
+                    .when(checkpointManager)
+                    .handleCheckpointError(Mockito.anyInt(), Mockito.anyBoolean());
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            checkpointManager,
+                            null,
+                            checkpointConfig,
+                            1L,
+                            CheckpointPlan.builder().pipelineId(1).build(),
+                            null,
+                            null,
+                            executor,
+                            Mockito.mock(IMap.class),
+                            false,
+                            null);
+
+            PendingCheckpoint pendingCheckpoint = Mockito.mock(PendingCheckpoint.class);
+            Mockito.when(pendingCheckpoint.getCheckpointId()).thenReturn(1L);
+            Mockito.when(pendingCheckpoint.getCheckpointType())
+                    .thenReturn(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.when(pendingCheckpoint.getCompletableFuture())
+                    .thenReturn(
+                            new PassiveCompletableFuture<>(
+                                    new CompletableFuture<CompletedCheckpoint>()));
+            Mockito.when(pendingCheckpoint.isFullyAcknowledged()).thenReturn(false);
+
+            // the watchdog only expires a checkpoint the coordinator still tracks
+            @SuppressWarnings("unchecked")
+            Map<Long, PendingCheckpoint> pendingCheckpoints =
+                    (Map<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(coordinator, "pendingCheckpoints").get();
+            pendingCheckpoints.put(pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
+
+            CompletableFuture<PendingCheckpoint> pending = new CompletableFuture<>();
+            pending.complete(pendingCheckpoint);
+
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "startTriggerPendingCheckpoint",
+                    new Class[] {CompletableFuture.class},
+                    new Object[] {pending});
+
+            await().atMost(30, TimeUnit.SECONDS).until(() -> expiryThreadName.get() != null);
+            Assertions.assertFalse(
+                    expiryThreadName.get().startsWith(CHECKPOINT_DISPATCH_THREAD_PREFIX),
+                    "checkpoint expiry handling must not run on a shared dispatch thread, but ran on "
+                            + expiryThreadName.get());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     @Test
     void testReadyToClosePartialProgressPersistedAndRestoredCorrectly() {
         ExecutorService executorService = Executors.newCachedThreadPool();
@@ -423,7 +588,7 @@ public class CheckpointCoordinatorTest
             String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
             realIMap.remove(readyToCloseKey);
 
-            CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+            CheckpointManager mockManager = mockCheckpointManager();
             CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
             CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
 
@@ -551,7 +716,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -614,7 +779,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -664,7 +829,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -766,7 +931,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -850,7 +1015,7 @@ public class CheckpointCoordinatorTest
             // Restore from persisted IMap state and verify merged set is fully recoverable.
             CheckpointCoordinator restoredCoordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -904,7 +1069,7 @@ public class CheckpointCoordinatorTest
                         .startingSubtasks(Collections.singleton(taskLocation))
                         .build();
 
-        CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+        CheckpointManager mockManager = mockCheckpointManager();
         CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
         CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
         @SuppressWarnings("unchecked")
