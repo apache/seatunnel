@@ -300,6 +300,66 @@ sink {
 }
 ```
 
+### CDC 变更日志写入
+
+当上游是变更日志类数据源时，可以将 `upsert-enable` 设为 `true` 并配置 `primary-key`，让 `UPDATE`、`DELETE`
+事件匹配已有文档而不是作为新文档重复插入。接收端还提供 `buffer-flush.max-rows`、`buffer-flush.interval` 和
+`retry.max` 用于控制批量刷新与重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "alice"] }
+      { kind = INSERT,        fields = [2, "bob"] }
+      { kind = UPDATE_BEFORE, fields = [1, "alice"] }
+      { kind = UPDATE_AFTER,  fields = [1, "alice_1"] }
+      { kind = DELETE,        fields = [2, "bob"] }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "users"
+    upsert-enable = true
+    primary-key = ["id"]
+    buffer-flush.max-rows = 2000
+    buffer-flush.interval = 1000
+  }
+}
+```
+
+### 事务写入（MongoDB 4.2+）
+
+将 `transaction` 设为 `true` 时，批量写入会被包装成 MongoDB 多文档事务。该选项需要 MongoDB 4.2 及以上版本，
+并按 checkpoint 边界提交。注意在事务模式下，引擎层的定时刷新会被自动禁用，以保证 checkpoint 提交边界不被
+打散。
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?replicaSet=rs0"
+    database = "test_db"
+    collection = "orders"
+    transaction = true
+  }
+}
+```
+
 ## 更新日志
 
 <ChangeLog />
