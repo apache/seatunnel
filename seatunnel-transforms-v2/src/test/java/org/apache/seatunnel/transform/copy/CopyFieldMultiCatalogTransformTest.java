@@ -58,6 +58,36 @@ class CopyFieldMultiCatalogTransformTest {
         Assertions.assertEquals("name-value", output.getField(3));
     }
 
+    /**
+     * Verifies that Copy accepts JSON logical fields without changing their String value or type.
+     *
+     * <p>Native JSON source pipelines can therefore retain JSON semantics after copying a field.
+     */
+    @Test
+    void copyJsonFieldPreservesTypeAndValue() {
+        String json = "{\"id\":1,\"nested\":[true,2]}";
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "catalog",
+                        "database",
+                        "schema",
+                        "json_table",
+                        new SeaTunnelRowType(
+                                new String[] {"payload"},
+                                new SeaTunnelDataType[] {BasicType.JSON_TYPE}));
+        Map<String, Object> config = new HashMap<>();
+        config.put("fields", Collections.singletonMap("payload_copy", "payload"));
+        CopyFieldTransform transform =
+                new CopyFieldTransform(
+                        CopyTransformConfig.of(ReadonlyConfig.fromMap(config)), table);
+        SeaTunnelRowType outputType = transform.getProducedCatalogTable().getSeaTunnelRowType();
+
+        SeaTunnelRow output = transform.map(new SeaTunnelRow(new Object[] {json}));
+
+        Assertions.assertEquals(BasicType.JSON_TYPE, outputType.getFieldType(1));
+        Assertions.assertEquals(json, output.getField(1));
+    }
+
     private static ReadonlyConfig allMatchConfig(String tablePath) {
         Map<String, Object> firstRule = copyRule(tablePath, "name", "name2");
         Map<String, Object> secondRule = copyRule(tablePath, "name2", "name3");

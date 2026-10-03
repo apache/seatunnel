@@ -328,6 +328,52 @@ public class CsvTextFormatSchemaTest {
         }
     }
 
+    /**
+     * Verifies that CSV preserves JSON logical values as quoted String-backed fields.
+     *
+     * <p>Embedded delimiters and quotes must survive a complete serialization round trip.
+     */
+    @Test
+    void testJsonRoundTrip() throws IOException {
+        String json = "{\"id\":1,\"message\":\"a,b\",\"nested\":[true,2]}";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {BasicType.JSON_TYPE});
+        CsvSerializationSchema serializer =
+                CsvSerializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+        CsvDeserializationSchema deserializer =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        byte[] serialized = serializer.serialize(new SeaTunnelRow(new Object[] {json}));
+        SeaTunnelRow deserialized = deserializer.deserialize(serialized);
+
+        Assertions.assertEquals(json, deserialized.getField(0));
+    }
+
+    /**
+     * Verifies that CSV preserves JSON arrays whose elements contain CSV-sensitive characters.
+     *
+     * <p>The outer complex field must be quoted while its nested JSON strings retain commas and
+     * quotes.
+     */
+    @Test
+    void testJsonArrayRoundTrip() throws IOException {
+        String[] jsonValues = {"{\"id\":1,\"message\":\"a,b\"}", "[\"quoted\",{\"nested\":true}]"};
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payloads"},
+                        new SeaTunnelDataType<?>[] {ArrayType.of(BasicType.JSON_TYPE)});
+        CsvSerializationSchema serializer =
+                CsvSerializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+        CsvDeserializationSchema deserializer =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        byte[] serialized = serializer.serialize(new SeaTunnelRow(new Object[] {jsonValues}));
+        SeaTunnelRow deserialized = deserializer.deserialize(serialized);
+
+        Assertions.assertArrayEquals(jsonValues, (String[]) deserialized.getField(0));
+    }
+
     @Test
     void testTimestampTzBackwardCompatFallback() throws IOException {
         SeaTunnelRowType rowType =

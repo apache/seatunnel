@@ -243,6 +243,7 @@ public class CsvDeserializationSchema implements Serializable {
                 }
                 switch (elementType.getSqlType()) {
                     case STRING:
+                    case JSON:
                         return objectArrayList.toArray(new String[0]);
                     case BOOLEAN:
                         return objectArrayList.toArray(new Boolean[0]);
@@ -292,6 +293,7 @@ public class CsvDeserializationSchema implements Serializable {
                 }
                 return objectMap;
             case STRING:
+            case JSON:
                 return field;
             case BOOLEAN:
                 return Boolean.parseBoolean(field);
