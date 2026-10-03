@@ -35,6 +35,35 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class HybridSplitAssignerTest {
+
+    @Test
+    void lateCompletionReachesBothAssigners() {
+        SnapshotPhaseState state =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        createAssignedSplits(),
+                        createSplitCompletedOffsets(),
+                        true,
+                        Collections.emptyList(),
+                        false,
+                        true);
+        SplitAssigner.Context context =
+                new SplitAssigner.Context<>(
+                        null,
+                        Collections.emptySet(),
+                        state.getAssignedSplits(),
+                        state.getSplitCompletedOffsets());
+        HybridSplitAssigner assigner =
+                new HybridSplitAssigner<>(
+                        context, 1, 1, new HybridPendingSplitsState(state, null), null, null);
+        SnapshotSplitWatermark late = new SnapshotSplitWatermark("late", null, null);
+        assigner.onCompletedSplits(Collections.singletonList(late));
+        Assertions.assertSame(
+                late, assigner.getSnapshotSplitAssigner().getSplitCompletedOffsets().get("late"));
+        Assertions.assertSame(late, context.getSplitCompletedOffsets().get("late"));
+    }
+
     @Test
     public void testCompletedSnapshotPhase() {
         Map<String, SnapshotSplit> assignedSplits = createAssignedSplits();
