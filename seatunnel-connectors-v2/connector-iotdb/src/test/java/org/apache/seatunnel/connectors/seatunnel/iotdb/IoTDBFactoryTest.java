@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.sink.IoTDBSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBSource;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBSourceFactory;
@@ -33,6 +34,53 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class IoTDBFactoryTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\\t"})
+    void rejectsBlankRootSql(String sql) {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(
+                        ConfigFactory.parseString(
+                                "node_urls = \"localhost:6667\"\nusername = root\npassword = root\n"
+                                        + "sql = \""
+                                        + sql
+                                        + "\"\nschema {fields {ts = bigint}}"));
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(config)
+                                        .validate(new IoTDBSourceFactory().optionRule()));
+        Assertions.assertTrue(exception.getMessage().contains("sql"));
+    }
+
+    @Test
+    void acceptsPaddedRootSqlWithoutChangingIt() {
+        String sql = "  select value from root.test  ";
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(
+                        ConfigFactory.parseString(
+                                "node_urls = \"localhost:6667\"\nusername = root\npassword = root\n"
+                                        + "sql = \""
+                                        + sql
+                                        + "\"\nschema {fields {ts = bigint}}"));
+
+        ConfigValidator.of(config).validate(new IoTDBSourceFactory().optionRule());
+        Assertions.assertEquals(sql, config.get(IoTDBSourceOptions.SQL));
+    }
+
+    @Test
+    void acceptsTablesConfigsWithoutRootSql() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(
+                        ConfigFactory.parseString(
+                                "node_urls = \"localhost:6667\"\nusername = root\npassword = root\n"
+                                        + "tables_configs = [{sql = x, schema {table = a, fields {ts = bigint}}}]"));
+
+        ConfigValidator.of(config).validate(new IoTDBSourceFactory().optionRule());
+        Assertions.assertFalse(config.getOptional(IoTDBSourceOptions.SQL).isPresent());
+    }
 
     @ParameterizedTest
     @ValueSource(
