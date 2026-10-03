@@ -30,14 +30,19 @@ import org.apache.seatunnel.connectors.doris.util.DorisRedirectExceptionBuilder;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.ResponseUtil;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,11 +54,16 @@ import java.util.Map;
 @Slf4j
 public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private static final String COMMIT_PATTERN = "http://%s/api/%s/_stream_load_2pc";
+    private static final String LOAD_STATE_PATTERN = "http://%s/api/%s/get_load_state?label=%s";
     private static final int HTTP_OK = 200;
     private static final int HTTP_TEMPORARY_REDIRECT = 307;
+    private static final String LOAD_STATE_VISIBLE = "VISIBLE";
+    private static final String LOAD_STATE_ABORTED = "ABORTED";
+    private static final String LOAD_STATE_CANCELLED = "CANCELLED";
     private final CloseableHttpClient httpClient;
     private final DorisSinkConfig dorisSinkConfig;
     private final int maxRetry;
+    private final long visibilityTimeoutMs;
     private final RetrySleeper retrySleeper;
 
     public DorisCommitter(DorisSinkConfig dorisSinkConfig) {
@@ -71,6 +81,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         this.dorisSinkConfig = dorisSinkConfig;
         this.httpClient = client;
         this.maxRetry = dorisSinkConfig.getMaxRetries();
+        this.visibilityTimeoutMs = dorisSinkConfig.getVisibilityTimeoutMs();
         this.retrySleeper = retrySleeper;
     }
 
@@ -147,6 +158,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     continue;
                 }
                 handleCommitSuccess(committable, hostPort, closeableResponse);
+                waitUntilLoadVisible(committable, retryHosts);
                 return;
             }
         }
@@ -258,6 +270,100 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             } else {
                 log.info("load result {}", loadResult);
             }
+        }
+    }
+
+    /**
+     * Waits until the 2PC load is visible before reporting the checkpoint as committed. Bounded by
+     * {@link DorisSinkConfig#getVisibilityTimeoutMs()} so a stuck or unknown state cannot block the
+     * checkpoint forever; ABORTED / CANCELLED remain terminal failures.
+     */
+    private void waitUntilLoadVisible(DorisCommitInfo committable, List<String> retryHosts)
+            throws IOException {
+        if (committable.getLabel() == null) {
+            log.warn(
+                    "Skip waiting for Doris load visibility because the restored commit info has no label. txnId: {}",
+                    committable.getTxbID());
+            return;
+        }
+
+        long deadlineNanos = System.nanoTime() + visibilityTimeoutMs * 1_000_000L;
+        int attempt = 0;
+        while (true) {
+            String hostPort = retryHosts.get(attempt % retryHosts.size());
+            try {
+                if (isLoadVisible(committable, hostPort)) {
+                    return;
+                }
+            } catch (DorisConnectorException e) {
+                throw e;
+            } catch (IOException e) {
+                log.warn(
+                        "Failed to get Doris load state for label {} from {}. Retrying.",
+                        committable.getLabel(),
+                        hostPort,
+                        e);
+            }
+            if (System.nanoTime() >= deadlineNanos) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.COMMIT_FAILED,
+                        "Timed out after "
+                                + visibilityTimeoutMs
+                                + "ms waiting for Doris load label "
+                                + committable.getLabel()
+                                + " to reach VISIBLE state.");
+            }
+            retrySleeper.sleep(Math.min(++attempt, 5));
+        }
+    }
+
+    private boolean isLoadVisible(DorisCommitInfo committable, String hostPort) throws IOException {
+        String encodedLabel =
+                URLEncoder.encode(committable.getLabel(), StandardCharsets.UTF_8.name());
+        String requestUrl =
+                String.format(LOAD_STATE_PATTERN, hostPort, committable.getDb(), encodedLabel);
+        HttpGet get = new HttpGet(requestUrl);
+        String authInfo = dorisSinkConfig.getUsername() + ":" + dorisSinkConfig.getPassword();
+        get.setHeader(
+                HttpHeaders.AUTHORIZATION,
+                "Basic "
+                        + new String(
+                                Base64.encodeBase64(authInfo.getBytes(StandardCharsets.UTF_8)),
+                                StandardCharsets.UTF_8));
+        try (CloseableHttpResponse response =
+                HttpUtil.executeWithRedirectTracking(
+                        httpClient,
+                        get,
+                        requestUrl,
+                        dorisSinkConfig.isDirectToBe(),
+                        dorisSinkConfig.getEnable2PC(),
+                        "get-load-state")) {
+            if (response.getStatusLine().getStatusCode() != HTTP_OK
+                    || response.getEntity() == null) {
+                throw new IOException(
+                        "Failed to get Doris load state, response: " + response.getStatusLine());
+            }
+            String responseBody = EntityUtils.toString(response.getEntity());
+            Map<String, Object> result =
+                    new ObjectMapper()
+                            .readValue(
+                                    responseBody, new TypeReference<HashMap<String, Object>>() {});
+            String loadState = String.valueOf(result.get("data"));
+            if (LOAD_STATE_VISIBLE.equalsIgnoreCase(loadState)) {
+                log.info("Doris load label {} is visible", committable.getLabel());
+                return true;
+            }
+            if (LOAD_STATE_ABORTED.equalsIgnoreCase(loadState)
+                    || LOAD_STATE_CANCELLED.equalsIgnoreCase(loadState)) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.COMMIT_FAILED,
+                        "Doris load label "
+                                + committable.getLabel()
+                                + " reached terminal state "
+                                + loadState);
+            }
+            log.info("Doris load label {} is in state {}", committable.getLabel(), loadState);
+            return false;
         }
     }
 

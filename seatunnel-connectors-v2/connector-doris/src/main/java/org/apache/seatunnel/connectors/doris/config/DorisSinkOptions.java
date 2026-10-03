@@ -50,6 +50,13 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .intType()
                     .defaultValue(3)
                     .withDescription("the max retry times if writing records to database failed.");
+
+    public static final Option<Long> SINK_VISIBILITY_TIMEOUT_MS =
+            Options.key("sink.visibility-timeout-ms")
+                    .longType()
+                    .defaultValue(300000L)
+                    .withDescription(
+                            "Maximum time in milliseconds to wait for a 2PC load to reach the VISIBLE state on Doris FE after a successful stream-load commit. ABORTED and CANCELLED remain terminal failures. Must be greater than 0.");
     public static final Option<Integer> SINK_BUFFER_SIZE =
             Options.key("sink.buffer-size")
                     .intType()

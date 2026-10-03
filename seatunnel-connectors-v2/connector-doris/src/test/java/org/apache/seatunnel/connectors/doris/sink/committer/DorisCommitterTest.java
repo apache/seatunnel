@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.http.Header;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
@@ -158,6 +159,137 @@ public class DorisCommitterTest {
     }
 
     @Test
+    void testCommitWaitsUntilLoadIsVisible() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse commitResponse = successResponse();
+        CloseableHttpResponse committedResponse = loadStateResponse("COMMITTED");
+        CloseableHttpResponse visibleResponse = loadStateResponse("VISIBLE");
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(commitResponse)
+                .thenReturn(committedResponse)
+                .thenReturn(visibleResponse);
+        List<Integer> sleepRetries = new ArrayList<>();
+        DorisCommitter committer =
+                new DorisCommitter(createSinkConfig(true, true), httpClient, sleepRetries::add);
+
+        committer.commit(
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 12L, "job_label")));
+
+        ArgumentCaptor<HttpUriRequest> requestCaptor =
+                ArgumentCaptor.forClass(HttpUriRequest.class);
+        verify(httpClient, times(3)).execute(requestCaptor.capture(), any(HttpContext.class));
+        Assertions.assertTrue(requestCaptor.getAllValues().get(0) instanceof HttpPut);
+        Assertions.assertTrue(requestCaptor.getAllValues().get(1) instanceof HttpGet);
+        Assertions.assertEquals(
+                "http://fe1:8030/api/test_db/get_load_state?label=job_label",
+                requestCaptor.getAllValues().get(1).getURI().toString());
+        Assertions.assertEquals(Collections.singletonList(1), sleepRetries);
+    }
+
+    @Test
+    void testCommitFailsWhenLoadStateIsAborted() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse commitResponse = successResponse();
+        CloseableHttpResponse abortedResponse = loadStateResponse("ABORTED");
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(commitResponse)
+                .thenReturn(abortedResponse);
+        DorisCommitter committer =
+                new DorisCommitter(createSinkConfig(true, true), httpClient, attempts -> {});
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () ->
+                                committer.commit(
+                                        Collections.singletonList(
+                                                new DorisCommitInfo(
+                                                        "fe1:8030", "test_db", 13L, "job_label"))));
+
+        Assertions.assertTrue(exception.getMessage().contains("ABORTED"));
+        Assertions.assertTrue(exception.getMessage().contains("job_label"));
+    }
+
+    @Test
+    void testCommitFailsWhenLoadStateIsCancelled() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse commitResponse = successResponse();
+        CloseableHttpResponse cancelledResponse = loadStateResponse("CANCELLED");
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(commitResponse)
+                .thenReturn(cancelledResponse);
+        DorisCommitter committer =
+                new DorisCommitter(createSinkConfig(true, true), httpClient, attempts -> {});
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () ->
+                                committer.commit(
+                                        Collections.singletonList(
+                                                new DorisCommitInfo(
+                                                        "fe1:8030", "test_db", 14L, "job_label"))));
+
+        Assertions.assertTrue(exception.getMessage().contains("CANCELLED"));
+    }
+
+    @Test
+    void testCommitTimesOutWhenLoadStateStaysUnresolved() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse commitResponse = successResponse();
+        CloseableHttpResponse pendingResponse = loadStateResponse("PRE_COMMIT");
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(commitResponse)
+                .thenReturn(pendingResponse);
+        List<Integer> sleepRetries = new ArrayList<>();
+        DorisCommitter committer =
+                new DorisCommitter(
+                        createSinkConfigWithVisibilityTimeout(true, true, 1L),
+                        httpClient,
+                        sleepRetries::add);
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () ->
+                                committer.commit(
+                                        Collections.singletonList(
+                                                new DorisCommitInfo(
+                                                        "fe1:8030", "test_db", 15L, "job_label"))));
+
+        Assertions.assertTrue(exception.getMessage().contains("Timed out"));
+        Assertions.assertTrue(exception.getMessage().contains("1ms"));
+        Assertions.assertTrue(exception.getMessage().contains("job_label"));
+    }
+
+    @Test
+    void testCommitRetriesLoadStatePollOnIOExceptionBeforeDeadline() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse commitResponse = successResponse();
+        CloseableHttpResponse visibleResponse = loadStateResponse("VISIBLE");
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(commitResponse)
+                .thenThrow(new IOException("transient fe failure"))
+                .thenReturn(visibleResponse);
+        List<Integer> sleepRetries = new ArrayList<>();
+        DorisCommitter committer =
+                new DorisCommitter(
+                        createSinkConfigWithVisibilityTimeout(true, true, 60000L),
+                        httpClient,
+                        sleepRetries::add);
+
+        committer.commit(
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 16L, "job_label")));
+
+        ArgumentCaptor<HttpUriRequest> requestCaptor =
+                ArgumentCaptor.forClass(HttpUriRequest.class);
+        verify(httpClient, times(3)).execute(requestCaptor.capture(), any(HttpContext.class));
+        Assertions.assertEquals(Arrays.asList(1), sleepRetries);
+    }
+
+    @Test
     void testAbortRetriesNextFrontendOnIOException() throws IOException {
         CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
         CloseableHttpResponse successResponse = successResponse();
@@ -278,6 +410,24 @@ public class DorisCommitterTest {
         return DorisSinkConfig.of(ReadonlyConfig.fromMap(options));
     }
 
+    private DorisSinkConfig createSinkConfigWithVisibilityTimeout(
+            boolean directToBe, boolean enable2PC, long visibilityTimeoutMs) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("fenodes", "fe1:8030");
+        options.put("benodes", "be1:8040");
+        options.put("direct_to_be", directToBe);
+        options.put("sink.enable-2pc", enable2PC);
+        options.put("sink.max-retries", 3);
+        options.put("sink.visibility-timeout-ms", visibilityTimeoutMs);
+        options.put("username", "root");
+        options.put("password", "");
+        options.put("database", "test_db");
+        options.put("table", "test_table");
+        options.put("sink.label-prefix", "test_job");
+        options.put("doris.config", createStreamLoadProperties());
+        return DorisSinkConfig.of(ReadonlyConfig.fromMap(options));
+    }
+
     private DorisSinkConfig createMultiFrontendConfig(boolean directToBe, boolean enable2PC) {
         Map<String, Object> options = new HashMap<>();
         options.put("fenodes", "fe1:8030,fe2:8030");
@@ -320,6 +470,14 @@ public class DorisCommitterTest {
     private CloseableHttpResponse successResponse() throws IOException {
         return responseWithStatus(
                 200, "OK", new StringEntity("{\"status\":\"Success\",\"msg\":\"\"}"));
+    }
+
+    private CloseableHttpResponse loadStateResponse(String state) throws IOException {
+        return responseWithStatus(
+                200,
+                "OK",
+                new StringEntity(
+                        String.format("{\"msg\":\"success\",\"code\":0,\"data\":\"%s\"}", state)));
     }
 
     private CloseableHttpResponse responseWithStatus(
