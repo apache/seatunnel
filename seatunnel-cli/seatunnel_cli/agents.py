@@ -553,7 +553,12 @@ def validate_hocon(config_str: str) -> str:
             var_name = m.group(1)
             if allowed and allowed.fullmatch(var_name):
                 continue
-            if not os.environ.get(var_name):
+            # Test that the variable is set, not that it is non-empty: an
+            # empty value is a resolved value. Passwordless accounts are
+            # normal (Doris and StarRocks default to root with no password,
+            # Elasticsearch to no auth), and `export DORIS_PASSWORD=` must
+            # not be reported as something still to be exported.
+            if os.environ.get(var_name) is None:
                 unresolved_vars.add(var_name)
     if unresolved_vars:
         var_list = ", ".join(sorted(unresolved_vars))

@@ -45,6 +45,12 @@ public class FileCollectReaderBehaviorTest {
     private static final long CLOSE_INACTIVE_MS = 500L;
     private static final long GLOB_SCAN_INTERVAL_MS = 20L;
 
+    // Ceiling for the wall-clock choreography below. The common case finishes in milliseconds,
+    // but the conditions depend on real filesystem scans plus the idle windows above, so keep
+    // the ceiling well above both: stalled CI runners (Windows runners have shown multi-second
+    // scheduling stalls) must fail on reader behavior, not on scheduling delay.
+    private static final long AWAIT_BUDGET_SECONDS = 10L;
+
     @TempDir Path tempDir;
 
     @Test
@@ -86,7 +92,7 @@ public class FileCollectReaderBehaviorTest {
                     "second\n".getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.APPEND);
 
-            await().atMost(3, TimeUnit.SECONDS)
+            await().atMost(AWAIT_BUDGET_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(10, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
