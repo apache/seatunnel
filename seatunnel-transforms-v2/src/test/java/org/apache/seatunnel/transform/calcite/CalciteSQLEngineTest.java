@@ -4056,6 +4056,42 @@ class CalciteSQLEngineTest {
                 });
     }
 
+    @Test
+    void testFiniteVectorArithmetic() {
+        double value = Float.MAX_VALUE;
+        String[] expressions = {
+            "VECTOR_NORM(vec1)",
+            "INNER_PRODUCT(vec1, vec2)",
+            "COSINE_DISTANCE(vec1, vec2)",
+            "L1_DISTANCE(vec1, vec2)",
+            "L2_DISTANCE(vec1, vec2)",
+            "VECTOR_NORM(VECTOR_NORMALIZE(vec1))"
+        };
+        double[] expected = {value, -value * value, 2.0, 2 * value, 2 * value, 1.0};
+        for (int i = 0; i < expressions.length; i++) {
+            CalciteSQLEngine engine =
+                    createAndInit(
+                            "SELECT " + expressions[i] + " AS vector_result FROM t",
+                            "t",
+                            twoVectorRowType());
+            try {
+                Object actual =
+                        singleField(
+                                engine,
+                                new Object[] {
+                                    floatVec(Float.MAX_VALUE), floatVec(-Float.MAX_VALUE)
+                                });
+                Assertions.assertEquals(
+                        expected[i],
+                        ((Number) actual).doubleValue(),
+                        Math.abs(expected[i]) * 1e-14,
+                        expressions[i]);
+            } finally {
+                engine.close();
+            }
+        }
+    }
+
     private SeaTunnelRowType singleVectorRowType() {
         return new SeaTunnelRowType(
                 new String[] {"vec"}, new SeaTunnelDataType[] {VectorType.VECTOR_FLOAT_TYPE});

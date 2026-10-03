@@ -1290,6 +1290,12 @@ SELECT * FROM dual
 
 ## 向量函数
 
+`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、`L2_DISTANCE` 和
+`VECTOR_NORMALIZE` 对 float 向量元素使用 double 精度计算中间乘积和差值，
+避免有限的大数或小数在 float 中间运算中溢出或下溢。`VECTOR_NORMALIZE` 仍返回 float
+元素，输出表示仍可能发生舍入或下溢。空输入和实际零向量的处理方式保持不变。
+未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
+
 ### VECTOR_DIMS
 
 ```VECTOR_DIMS(vector) -> INT```

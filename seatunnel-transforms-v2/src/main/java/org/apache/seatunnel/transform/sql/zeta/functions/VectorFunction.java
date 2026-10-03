@@ -54,9 +54,11 @@ public class VectorFunction {
                             vector1.length, vector2.length));
         }
         double dotProduct =
-                IntStream.range(0, vector1.length).mapToDouble(i -> vector1[i] * vector2[i]).sum();
-        double norm1 = Arrays.stream(vector1).mapToDouble(v -> v * v).sum();
-        double norm2 = Arrays.stream(vector2).mapToDouble(v -> v * v).sum();
+                IntStream.range(0, vector1.length)
+                        .mapToDouble(i -> (double) vector1[i] * vector2[i])
+                        .sum();
+        double norm1 = Arrays.stream(vector1).mapToDouble(v -> (double) v * v).sum();
+        double norm2 = Arrays.stream(vector2).mapToDouble(v -> (double) v * v).sum();
         if (norm1 == 0.0 || norm2 == 0.0) {
             return 1.0;
         }
@@ -87,7 +89,9 @@ public class VectorFunction {
                             "Vectors must have the same dimension: %d vs %d",
                             v1.length, v2.length));
         }
-        return IntStream.range(0, v1.length).mapToDouble(i -> Math.abs(v1[i] - v2[i])).sum();
+        return IntStream.range(0, v1.length)
+                .mapToDouble(i -> Math.abs((double) v1[i] - v2[i]))
+                .sum();
     }
 
     public static Object l2Distance(List<Object> args) {
@@ -116,7 +120,7 @@ public class VectorFunction {
                 IntStream.range(0, v1.length)
                         .mapToDouble(
                                 i -> {
-                                    double diff = v1[i] - v2[i];
+                                    double diff = (double) v1[i] - v2[i];
                                     return diff * diff;
                                 })
                         .sum();
@@ -152,7 +156,7 @@ public class VectorFunction {
             return null;
         }
         Float[] vector = convertToFloatArray(arg);
-        return Math.sqrt(Arrays.stream(vector).mapToDouble(v -> v * v).sum());
+        return Math.sqrt(Arrays.stream(vector).mapToDouble(v -> (double) v * v).sum());
     }
 
     public static Object innerProduct(List<Object> args) {
@@ -178,7 +182,7 @@ public class VectorFunction {
                             v1.length, v2.length));
         }
 
-        return IntStream.range(0, v1.length).mapToDouble(i -> v1[i] * v2[i]).sum();
+        return IntStream.range(0, v1.length).mapToDouble(i -> (double) v1[i] * v2[i]).sum();
     }
 
     private static Float[] convertToFloatArray(Object obj) {
@@ -289,7 +293,7 @@ public class VectorFunction {
         double magnitude = 0.0;
         for (Float value : vector) {
             if (value != null) {
-                magnitude += value * value;
+                magnitude += (double) value * value;
             }
         }
         magnitude = Math.sqrt(magnitude);
