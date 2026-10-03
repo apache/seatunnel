@@ -4,6 +4,13 @@
 
 ## dev
 
+### Transform 依赖解析
+
+- **行为变更：拒绝多 Transform 作业中无法解析的输入**
+  - **影响范围**：Zeta 作业配置解析和 `--dry-run connect`。
+  - **变更说明**：Transform 现在会等待所有声明的 `plugin_input` 依赖就绪。多 Transform 配置中存在无法解析的输入时，会被拒绝，而不再静默丢弃不可用的输入，或将最后一个未解析的 Transform 连接到非预期的上游表。此前导致无限重试的依赖图，现在会在 Zeta 解析时报 `JobDefineCheckException`，或在 connect dry-run 校验时报 `ConfigCheckException`。没有已就绪输入的显式自引用也会被拒绝，包括单 Transform 作业。
+  - **迁移指南**：修正 `plugin_input`，使其引用预期的 Source 或 Transform 的 `plugin_output`，并消除循环依赖。对于依赖关系本身有效的图，无需调整 Transform 的声明顺序。原有的单 Transform 输入不匹配回退逻辑和末尾显式空输入列表的回退逻辑仍然保留。省略 `plugin_input` 时仍优先解析默认输出 ID，而不是始终选择前一个 Transform。只有默认 ID 不可用且仅剩该省略输入的 Transform 时，解析器才回退到最后插入的表。复杂作业图校验对显式 ID 的原有要求不变。此前能够正确解析依赖的有效图，其求值顺序和默认 Transform Action 名称保持不变。 (#12079)
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
