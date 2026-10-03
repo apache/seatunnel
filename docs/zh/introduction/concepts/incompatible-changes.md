@@ -4,6 +4,22 @@
 
 ## dev
 
+### SQL ARRAY_MAX 和 ARRAY_MIN 精度
+
+- **行为修正：整数和 DECIMAL 数组极值的精确比较**
+  - **影响范围**：`seatunnel-transforms-v2`，使用 `engine = ZETA`（默认值）或
+    `INTERNAL` 的 `Sql` 转换，适用于 Zeta、Flink 和 Spark 执行引擎。
+  - **变更说明**：仅包含 Byte、Short、Integer、Long 和 BigDecimal 值的数组采用精确比较，
+    包括整数和 DECIMAL 值混合的情况。例如，对 BIGINT 值
+    `[9007199254740992, 9007199254740993]` 使用 `ARRAY_MAX`，现在选择 `9007199254740993`。
+    Long 值 `1` 与 BigDecimal 值 `1.00000000000000000001` 不再被视为相等。
+    只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍采用
+    原有的 double 排序，可能损失精度。
+  - **影响**：依赖舍入比较结果的作业可能选择不同的值。结果保留所选原始元素的类型和
+    DECIMAL 小数位数，因此不同的结果也可能具有不同的原始小数位数。值相等时保留第一个
+    元素。声明的输出类型、输入类型转换、null 处理和浮点排序规则保持不变。
+  - **迁移指南**：不需要迁移配置或状态。请检查依赖旧舍入结果的下游预期值。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
