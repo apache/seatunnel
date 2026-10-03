@@ -171,6 +171,50 @@ sink {
 }
 ```
 
+## ClickhouseFile Sink
+
+除了上面的 `Clickhouse` sink 插件外，本连接器还提供 `ClickhouseFile` sink 插件（工厂标识符为
+`ClickhouseFile`）。它不通过 JDBC 逐行写入，而是把数据交给本地的 `clickhouse-local` 程序生成
+ClickHouse part 文件，再将生成的文件复制（`scp` 或 `rsync`）到目标 ClickHouse 服务节点并 attach 到
+目标表。对于大批量写入，这种方式通常比逐行插入快得多。
+
+上方 [Sink 选项](#sink-选项) 中的所有选项同样适用于 `ClickhouseFile`（包括 `host`、`database`、
+`table`、`username`、`password`、`clickhouse.config`、`sharding_key` 和 `server_time_zone`）。
+该插件特有的选项如下：
+
+| 名称                  | 类型    | 是否必须 | 默认值                               | 描述                                                                                          |
+|-----------------------|---------|------|--------------------------------------|-----------------------------------------------------------------------------------------------|
+| clickhouse_local_path | String  | 是   | -                                    | ClickhouseFile sink 使用的 `clickhouse-local` 程序路径。                                            |
+| copy_method           | Enum    | 否   | scp                                  | 将生成的 part 文件复制到 ClickHouse 服务节点的方式，支持 `scp`、`rsync`。                              |
+| compatible_mode       | Boolean | 否   | false                                | 低版本 ClickHouse 的 `clickhouse-local` 程序不支持 `--path` 参数，需要启用此模式用其他方式实现 `--path` 的功能。 |
+| node_free_password    | Boolean | 否   | false                                | SeaTunnel 节点与 ClickHouse 服务节点之间是否配置了免密登录。文件传输使用 `scp`/`rsync`，因此 SeaTunnel 需要访问 ClickHouse 服务节点；已配置免密登录时设为 `true`，否则需在 `node_pass` 中配置对应节点的密码。 |
+| node_pass             | Array   | 否   | -                                    | 各 ClickHouse 服务节点的密码，例如 `[{node_address = "node1", password = "pwd"}]`。                    |
+| key_path              | String  | 否   | -                                    | 文件传输使用的 `rsync`/`ssh` 密钥文件路径。                                                                 |
+| file_fields_delimiter | String  | 否   | `\t`                                 | ClickhouseFile 以 CSV 格式临时保存数据。如果行数据中包含该分隔符，可能导致生成的文件异常，可通过该选项更换分隔符。值必须恰好为一个字符。 |
+| file_temp_path        | String  | 否   | /tmp/seatunnel/clickhouse-local/file | ClickhouseFile 本地临时文件目录。                                                                            |
+
+### ClickhouseFile 任务示例
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+sink {
+  ClickhouseFile {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
+    copy_method = "rsync"
+    file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
+  }
+}
+```
+
 ## 示例配置与案例
 
 ### 如何创建一个clickhouse 同步任务
