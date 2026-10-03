@@ -47,6 +47,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
+`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 按存储的本地日期时间读取为 `TIMESTAMP`，不受 JVM 默认时区影响。Source 读取保留 JDBC 驱动提供的小数秒精度。
+
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |

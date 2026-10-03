@@ -69,6 +69,9 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DUCKDB_DATE = "DATE";
     public static final String DUCKDB_TIME = "TIME";
     public static final String DUCKDB_TIMESTAMP = "TIMESTAMP";
+    public static final String DUCKDB_TIMESTAMP_S = "TIMESTAMP_S";
+    public static final String DUCKDB_TIMESTAMP_MS = "TIMESTAMP_MS";
+    public static final String DUCKDB_TIMESTAMP_NS = "TIMESTAMP_NS";
     public static final String DUCKDB_TIMESTAMP_WITH_TZ = "TIMESTAMP WITH TIME ZONE";
 
     // Other
@@ -164,6 +167,9 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 break;
             case DUCKDB_TIMESTAMP:
+            case DUCKDB_TIMESTAMP_S:
+            case DUCKDB_TIMESTAMP_MS:
+            case DUCKDB_TIMESTAMP_NS:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 break;
             case DUCKDB_TIMESTAMP_WITH_TZ:

@@ -114,9 +114,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = readTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
-                    // Use getLocalDateTime() which avoids JVM-default-timezone influence.
-                    // See JdbcFieldTypeUtils.getLocalDateTime() for full strategy details.
-                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
+                    fields[fieldIndex] = readTimestamp(rs, resultSetIndex);
                     break;
                 case TIMESTAMP_TZ:
                     OffsetDateTime offsetDateTime =
@@ -146,6 +144,11 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
         Time sqlTime = JdbcFieldTypeUtils.getTime(rs, resultSetIndex);
         return Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+    }
+
+    /** Reads an unzoned timestamp; default keeps the existing getter, dialects may override. */
+    protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
+        return JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
     }
 
     public Object[] convertToArray(

@@ -22,8 +22,21 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+
 @Slf4j
 public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    @Override
+    protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
+        // DuckDB's Calendar overload shifts unzoned timestamps. Use the plain getter to
+        // preserve the stored local date and time.
+        Timestamp value = rs.getTimestamp(resultSetIndex);
+        return value == null ? null : value.toLocalDateTime();
+    }
 
     @Override
     public String converterName() {
