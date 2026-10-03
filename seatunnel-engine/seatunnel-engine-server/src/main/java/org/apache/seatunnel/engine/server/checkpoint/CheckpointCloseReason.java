@@ -26,6 +26,8 @@ public enum CheckpointCloseReason {
     CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
     CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error."),
     AGGREGATE_COMMIT_ERROR("Aggregate commit error."),
+    RESTORE_PROGRESS_TIMEOUT(
+            "Pipeline returned to RUNNING after restore but still had no post-restore checkpoint progress before timeout."),
     TASK_NOT_ALL_READY_WHEN_SAVEPOINT("Task not all ready, savepoint error"),
     CHECKPOINT_NOTIFY_COMPLETE_FAILED("Checkpoint notify complete failed");
 
