@@ -1120,6 +1120,16 @@ Converts a value to a BOOLEAN data type according to the following rules:
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
+NOTE:
+Casting to `TINYINT`, `SMALLINT`, `BYTE` or `INT` | `INTEGER` throws a `TransformException` when the
+value is outside the target's range, for example `CAST(3000000000 AS INT)`. Use `TRY_CAST` to get
+`NULL` instead of an error.
+
+A floating-point source is handled differently per target. Casting to `INT` | `INTEGER` truncates
+it towards zero, so `CAST(5.7 AS INT)` gives `5`. Casting to `TINYINT`, `SMALLINT` or `BYTE`
+rejects it, including a whole value such as `5.0`, because those targets parse the value's string
+form as an integer.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

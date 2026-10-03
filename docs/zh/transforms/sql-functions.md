@@ -1127,6 +1127,14 @@ CAST(FLAG AS BOOLEAN)
 2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
 3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
 
+注意：转换为 TINYINT、SMALLINT、BYTE 或 INT | INTEGER 时，如果该值超出目标类型的取值范围，将抛出
+TransformException，例如 `CAST(3000000000 AS INT)`。若希望在这种情况下得到 NULL 而不是异常，请使用
+TRY_CAST。
+
+浮点来源的处理因目标类型而异：转换为 INT | INTEGER 时会向零截断，因此 `CAST(5.7 AS INT)` 得到 `5`；
+转换为 TINYINT、SMALLINT 或 BYTE 时则会被拒绝，即使该值是 `5.0` 这样的整数值也一样，因为这些目标类型是
+按该值的字符串形式解析为整数的。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
