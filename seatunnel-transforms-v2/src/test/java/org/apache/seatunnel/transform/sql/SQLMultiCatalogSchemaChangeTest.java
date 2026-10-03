@@ -24,7 +24,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -131,5 +134,73 @@ public class SQLMultiCatalogSchemaChangeTest {
         Assertions.assertEquals("Premium A", postSql.getField(1));
         Assertions.assertEquals(10.00d, postSql.getField(2), "discount_pct preserved");
         Assertions.assertEquals(Boolean.TRUE, postSql.getField(3), "is_featured preserved");
+    }
+
+    /**
+     * A table that no SQL rule matches goes through the identity path. Its produced table and the
+     * event's changeAfter must follow the change, and a rename handed over by the engine before the
+     * event, as happens at chain positions greater than zero, must not be re-applied.
+     */
+    @Test
+    void unmatchedTableIdentityPathRefreshesProducedTableAndChangeAfter() {
+        CatalogTable matched = buildBaseTable();
+        TableIdentifier otherId =
+                TableIdentifier.of("catalog", TablePath.of("ricky_test", "other_table"));
+        CatalogTable other = CatalogTable.of(otherId, matched);
+
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("query", "select * from " + TBL.getTableName());
+        cfg.put("table_match_regex", "ricky_test\\.static_inventory");
+        SQLMultiCatalogFlatMapTransform wrapper =
+                new SQLMultiCatalogFlatMapTransform(
+                        Arrays.asList(matched, other), ReadonlyConfig.fromMap(cfg));
+
+        PhysicalColumn discount =
+                PhysicalColumn.of(
+                        "discount_pct", BasicType.DOUBLE_TYPE, (Long) null, true, null, null);
+        TableSchema afterAdd =
+                TableSchema.builder()
+                        .columns(matched.getTableSchema().getColumns())
+                        .column(discount)
+                        .build();
+        AlterTableColumnsEvent add =
+                new AlterTableColumnsEvent(otherId)
+                        .addEvent(AlterTableAddColumnEvent.add(otherId, discount));
+        // Like the CDC source, the event carries the table after the change.
+        add.setChangeAfter(
+                CatalogTable.of(otherId, afterAdd, new HashMap<>(), new ArrayList<>(), "test"));
+
+        SchemaChangeEvent addOut = wrapper.mapSchemaChangeEvent(add);
+        Assertions.assertNotNull(addOut);
+        CatalogTable producedAfterAdd = wrapper.getProducedCatalogTables().get(1);
+        Assertions.assertArrayEquals(
+                new String[] {"id", "name", "discount_pct"},
+                producedAfterAdd.getTableSchema().getFieldNames());
+        Assertions.assertSame(producedAfterAdd, addOut.getChangeAfter());
+
+        PhysicalColumn fullName =
+                PhysicalColumn.of(
+                        "full_name", BasicType.STRING_TYPE, (Long) null, true, null, null);
+        TableSchema afterRename =
+                TableSchema.builder()
+                        .column(matched.getTableSchema().getColumns().get(0))
+                        .column(fullName)
+                        .column(discount)
+                        .build();
+        CatalogTable handedOver =
+                CatalogTable.of(otherId, afterRename, new HashMap<>(), new ArrayList<>(), "test");
+        AlterTableColumnsEvent rename =
+                new AlterTableColumnsEvent(otherId)
+                        .addEvent(AlterTableChangeColumnEvent.change(otherId, "name", fullName));
+        rename.setChangeAfter(handedOver);
+
+        wrapper.setInputCatalogTables(Arrays.asList(matched, handedOver));
+        SchemaChangeEvent renameOut = wrapper.mapSchemaChangeEvent(rename);
+        Assertions.assertNotNull(renameOut);
+        CatalogTable producedAfterRename = wrapper.getProducedCatalogTables().get(1);
+        Assertions.assertArrayEquals(
+                new String[] {"id", "full_name", "discount_pct"},
+                producedAfterRename.getTableSchema().getFieldNames());
+        Assertions.assertSame(producedAfterRename, renameOut.getChangeAfter());
     }
 }
