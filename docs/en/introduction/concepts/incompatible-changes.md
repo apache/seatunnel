@@ -115,6 +115,15 @@ You need to check this document before you upgrade to related version.
       - **String/text-based sinks (Text file, Kafka, Pulsar, RocketMQ, RabbitMQ, Redis, etc.)**: The full ISO 8601 offset is preserved (e.g., `"2024-01-01T03:00:00+09:00"`). These formats can represent timezone offsets as strings, so no information is lost. If you need wall-clock behavior for a string sink, use a SQL Transform to cast `TIMESTAMP_TZ` to `TIMESTAMP` before writing.
     - **Xugu TIMESTAMP_TZ (lossy)**: Xugu `TIMESTAMP WITH TIME ZONE` columns are exposed as `TIMESTAMP_TZ` at the type layer, but the actual write path drops the timezone offset and stores only the wall-clock value due to a Xugu JDBC driver batch limitation (bug [E19138]). A warning is logged on the first write.
 
+### SensorsData Sink
+
+- **Behavior change: `bulk_size` and `max_cache_row_size` are now range-checked at option-validation time**
+  - **Affected component**: `seatunnel-connectors-v2/connector-sensorsdata` (sink)
+  - **Description**: Neither option had a value-range constraint, so `bulk_size = 0`, `bulk_size = -5` or `max_cache_row_size = -1` passed configuration validation and only misbehaved once they reached the SensorsData SDK `BatchConsumer`. Both are now declared in `optionRule()` as `bulk_size > 0` and `max_cache_row_size >= 0`, so an out-of-range value is rejected before the writer is built.
+  - **Impact**: A job that sets an out-of-range value now fails at job-creation time with an `OptionValidationException` instead of starting. The defaults (50 and 0), every in-range value, and configs that omit the options are unaffected.
+  - **Migration Guide**: Remove the option, or set `bulk_size` to a positive value and `max_cache_row_size` to `0` or greater.
+
+
 ### API Changes
 
 - **Breaking Change: Engine REST table metrics key format**

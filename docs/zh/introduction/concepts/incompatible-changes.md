@@ -72,6 +72,15 @@
       - **基于字符串/文本的 Sink（Text 文件、Kafka、Pulsar、RocketMQ、RabbitMQ、Redis 等）**：保留完整的 ISO 8601 偏移（例如 `"2024-01-01T03:00:00+09:00"`）。这些格式可以用字符串表示时区偏移，不会丢失信息。如果需要在这类 Sink 中使用 wall-clock 行为，请在写入前通过 SQL Transform 将 `TIMESTAMP_TZ` 转换为 `TIMESTAMP`。
     - **Xugu TIMESTAMP_TZ（有损写入）**：Xugu `TIMESTAMP WITH TIME ZONE` 列在类型层面暴露为 `TIMESTAMP_TZ`，但由于 Xugu JDBC 驱动批量执行缺陷（[E19138]），实际写入时会丢弃时区偏移，仅存储时钟时间。首次写入时会输出 WARN 日志。
 
+### SensorsData Sink
+
+- **行为变更：`bulk_size` 与 `max_cache_row_size` 在选项校验阶段新增范围校验**
+  - **影响范围**：`seatunnel-connectors-v2/connector-sensorsdata`（Sink）
+  - **变更说明**：这两个选项此前没有取值范围约束，`bulk_size = 0`、`bulk_size = -5` 或 `max_cache_row_size = -1` 都能通过配置校验，直到传入 SensorsData SDK 的 `BatchConsumer` 后才在运行时表现异常。现在它们在 `optionRule()` 中声明为 `bulk_size > 0` 与 `max_cache_row_size >= 0`，超出范围的值会在构建 Writer 之前被拒绝。
+  - **影响**：设置了越界值的作业现在会在作业创建阶段以 `OptionValidationException` 失败，而不是启动后才出问题。默认值（50 和 0）、所有合法取值，以及未设置这两个选项的配置均不受影响。
+  - **迁移指南**：移除该选项，或将 `bulk_size` 设为正数、`max_cache_row_size` 设为 `0` 或更大。
+
+
 ### API 变更
 
 - **破坏性变更：Engine REST 表级指标 key 格式变化**
