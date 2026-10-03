@@ -381,7 +381,7 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复制槽落后超过 `max_slot_wal_keep_size`、
 空闲时间超过 `idle_replication_slot_timeout`（PostgreSQL 18），或在备库上与恢复冲突。此时 `pg_replication_slots` 中的
 `wal_status` 为 `lost`、`conflicting` 为 `true`（PostgreSQL 16 及以上版本），或显示 `invalidation_reason`（PostgreSQL 17 及以上版本）。复制槽已确认位置之后的变更已无法读取，
-因此 SeaTunnel 会以错误 `POSTGRES-04` 使任务失败。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
+因此需要从复制槽读取变更的任务会以错误 `POSTGRES-04` 失败；`snapshot-only` 任务不使用复制槽，不受影响。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
 删除该复制槽，并在不从 checkpoint 或 savepoint 恢复的情况下重新启动任务；如需重新做快照，请使用 `startup.mode = initial`。
 
 ### PostgreSQL CDC 为什么会滞后？
