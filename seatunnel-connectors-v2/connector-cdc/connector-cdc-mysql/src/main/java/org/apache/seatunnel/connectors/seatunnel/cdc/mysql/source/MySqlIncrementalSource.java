@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
+import org.apache.seatunnel.api.source.SupportTableOperation;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -36,6 +38,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
+import org.apache.seatunnel.connectors.cdc.base.schema.TableOperationEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -67,7 +70,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism, SupportSchemaEvolution {
+        implements SupportParallelism, SupportSchemaEvolution, SupportTableOperation {
     static final String IDENTIFIER = "MySQL-CDC";
 
     public MySqlIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
@@ -273,8 +276,13 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .setSchemaChangeResolver(
-                                new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
+                                new MySqlSchemaChangeResolver(
+                                        createSourceConfigFactory(config),
+                                        Boolean.TRUE.equals(
+                                                config.get(SourceOptions.TABLE_OPERATIONS_ENABLED)),
+                                        isUserSchemaChangesEnabled(config)))
                         .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
+                        .setTableOperationEventFilter(TableOperationEventFilter.fromConfig(config))
                         .build();
     }
 
@@ -287,6 +295,30 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new BinlogOffsetFactory(
                 (MySqlSourceConfigFactory) configFactory, (MySqlDialect) dataSourceDialect);
+    }
+
+    /**
+     * User-facing schema-evolution switch, including the legacy {@code
+     * debezium.include.schema.changes} property. Does not include {@code table-operations.enabled}:
+     * that flag only opens Debezium schema-history so {@code TRUNCATE} is visible.
+     */
+    private static boolean isUserSchemaChangesEnabled(ReadonlyConfig config) {
+        return config.getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                .orElseGet(
+                        () ->
+                                config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                                        .map(
+                                                properties ->
+                                                        properties.getOrDefault(
+                                                                MySqlSourceConfigFactory
+                                                                        .SCHEMA_CHANGE_KEY,
+                                                                SourceOptions.SCHEMA_CHANGES_ENABLED
+                                                                        .defaultValue()
+                                                                        .toString()))
+                                        .map(Boolean::parseBoolean)
+                                        .orElse(
+                                                SourceOptions.SCHEMA_CHANGES_ENABLED
+                                                        .defaultValue()));
     }
 
     private Map<TableId, Struct> tableChanges() {
@@ -325,6 +357,11 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                 SchemaChangeType.UPDATE_COLUMN,
                 SchemaChangeType.ALTER_TABLE_COMMENT,
                 SchemaChangeType.ALTER_COLUMN_COMMENT);
+    }
+
+    @Override
+    public List<TableOperationType> supportedTableOperations() {
+        return Arrays.asList(TableOperationType.TRUNCATE_TABLE);
     }
 
     @Override

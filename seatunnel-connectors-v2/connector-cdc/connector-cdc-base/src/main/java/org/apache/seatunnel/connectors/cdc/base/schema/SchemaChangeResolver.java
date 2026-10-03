@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.schema;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 
@@ -40,4 +41,15 @@ public interface SchemaChangeResolver extends Serializable {
      * compatibility and may log and skip them.
      */
     SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables);
+
+    /**
+     * Resolve a table-operation event such as {@code TRUNCATE TABLE}. Default is unsupported.
+     *
+     * @return the operation event, or {@code null} when the record is not a captured table
+     *     operation
+     */
+    default TableOperationEvent resolveTableOperation(
+            SourceRecord record, List<CatalogTable> catalogTables) {
+        return null;
+    }
 }
