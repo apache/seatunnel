@@ -624,8 +624,11 @@ def main() -> None:
     # where the user exports them before running seatunnel.sh).
     from benchmark.execution import CREDENTIALS
     for key, value in CREDENTIALS.items():
-        if value:
-            os.environ.setdefault(key, value)
+        # Export empty values too: the benchmark Doris, StarRocks and
+        # Elasticsearch services genuinely have no password, and skipping
+        # them left ${DORIS_PASSWORD} looking unresolved, so those tasks
+        # failed on validation rather than on anything the model produced.
+        os.environ.setdefault(key, value)
 
     results = run_benchmark(models, tasks, levels, args.max_repairs,
                             args.trials, Path(args.out), suite=args.suite)
