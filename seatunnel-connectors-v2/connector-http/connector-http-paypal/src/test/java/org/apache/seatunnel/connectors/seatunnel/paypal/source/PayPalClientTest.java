@@ -404,10 +404,15 @@ class PayPalClientTest {
         result.get(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS);
     }
 
+    /** Verifies that closing the client wakes a pending retry without waiting for its delay. */
     @Test
     void closeWakesRetryWait() throws Exception {
         options.put("retry_delay_ms", 60000);
-        replies.add(new Reply(503, "{}"));
+        // The client aborts transient responses after their headers, so avoid a body-write race.
+        // See apache/seatunnel#12444 for the general arrival-latch fix.
+        Reply unavailable = new Reply(503, "");
+        unavailable.bodyless = true;
+        replies.add(unavailable);
         PayPalClient transport = client();
         CountDownLatch complete = new CountDownLatch(1);
         Thread worker =
