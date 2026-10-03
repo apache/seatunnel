@@ -1136,7 +1136,7 @@ Converts a value to a BOOLEAN data type according to the following rules:
 
 This function is similar to CAST, but when the conversion fails, it returns NULL instead of throwing an exception.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY, BOOLEAN
 
 Example:
 
@@ -1272,9 +1272,9 @@ notes: Currently only string, double, long, int types are supported
 
 ### MAP
 
-```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<STRING, V>```
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<K, V>```
 
-Create a map from alternating key/value arguments. The number of arguments must be even and keys cannot be NULL; keys are converted to strings.
+Create a map from alternating key/value arguments. The number of arguments must be even and keys cannot be NULL. Keys are converted to strings at runtime, but the declared key type of the result follows the key expressions' types, so prefer string key expressions; the declared value type follows the value expressions.
 
 Example:
 

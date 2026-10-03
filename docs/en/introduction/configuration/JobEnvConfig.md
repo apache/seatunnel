@@ -23,7 +23,7 @@ You can configure whether the task is in batch or stream mode through `job.mode`
 
 Gets the interval (milliseconds) in which checkpoints are periodically scheduled.
 
-In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, if it is not set in `seatunnel.yaml` either, the default value is 300000 milliseconds (5 minutes).
+In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, if it is not set in `seatunnel.yaml` either, the engine falls back to 300000 milliseconds (5 minutes); note that the default `seatunnel.yaml` shipped with SeaTunnel already sets it to 10000 milliseconds, so most installations see 10-second checkpoints.
 
 ### checkpoint.timeout
 
