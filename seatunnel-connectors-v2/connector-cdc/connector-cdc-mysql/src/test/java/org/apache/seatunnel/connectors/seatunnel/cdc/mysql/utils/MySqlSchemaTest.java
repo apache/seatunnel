@@ -33,6 +33,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlDatabaseSchema;
+import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
@@ -43,6 +47,7 @@ import lombok.Getter;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -139,6 +144,129 @@ public class MySqlSchemaTest {
         Assertions.assertEquals("BIGINT", table.columnWithName("id").typeName());
         Assertions.assertEquals("VARCHAR", table.columnWithName("name").typeName());
         Assertions.assertEquals("DATETIME", table.columnWithName("ts").typeName());
+    }
+
+    @Test
+    public void testNullableUniqueKeyColumnStaysOptionalWithoutPrimaryKey() {
+        Table table =
+                parseTable(
+                        "CREATE TABLE `no_pk` (\n"
+                                + "    `id` int NOT NULL,\n"
+                                + "    `code` int DEFAULT NULL,\n"
+                                + "    UNIQUE KEY `uk_code` (`code`)\n"
+                                + ")",
+                        column("id", false),
+                        column("code", true));
+
+        // Debezium promotes the unique key to the primary key and marks `code` NOT NULL
+        Assertions.assertEquals(Arrays.asList("code"), table.primaryKeyColumnNames());
+        Assertions.assertTrue(table.columnWithName("code").isOptional());
+        Assertions.assertFalse(table.columnWithName("id").isOptional());
+    }
+
+    @Test
+    public void testNullableColumnOfCompositeUniqueKeyStaysOptional() {
+        Table table =
+                parseTable(
+                        "CREATE TABLE `no_pk` (\n"
+                                + "    `id` int NOT NULL,\n"
+                                + "    `a` int NOT NULL,\n"
+                                + "    `b` int DEFAULT NULL,\n"
+                                + "    UNIQUE KEY `uk_ab` (`a`, `b`)\n"
+                                + ")",
+                        column("id", false),
+                        column("a", false),
+                        column("b", true));
+
+        Assertions.assertFalse(table.columnWithName("a").isOptional());
+        Assertions.assertTrue(table.columnWithName("b").isOptional());
+    }
+
+    @Test
+    public void testNullableUniqueKeyColumnStaysOptionalInStreamingDdl() {
+        MySqlDatabaseSchema schema = createDatabaseSchema();
+        parseStreamingDdl(
+                schema,
+                "CREATE TABLE t1 (id int NOT NULL, code int DEFAULT NULL, name varchar(10))");
+        parseStreamingDdl(schema, "ALTER TABLE t1 ADD UNIQUE KEY uk_code (code)");
+        Table altered = schema.tableFor(TableId.parse("db1.t1"));
+        Assertions.assertEquals(Arrays.asList("code"), altered.primaryKeyColumnNames());
+        Assertions.assertTrue(altered.columnWithName("code").isOptional());
+
+        parseStreamingDdl(
+                schema,
+                "CREATE TABLE t2 (id int NOT NULL, code int DEFAULT NULL, name varchar(10))");
+        parseStreamingDdl(schema, "CREATE UNIQUE INDEX uk_code ON t2 (code)");
+        Table indexed = schema.tableFor(TableId.parse("db1.t2"));
+        Assertions.assertEquals(Arrays.asList("code"), indexed.primaryKeyColumnNames());
+        Assertions.assertTrue(indexed.columnWithName("code").isOptional());
+    }
+
+    @Test
+    public void testRealPrimaryKeyColumnIsNotOptionalInStreamingDdl() {
+        MySqlDatabaseSchema schema = createDatabaseSchema();
+        parseStreamingDdl(schema, "CREATE TABLE t1 (id int, name varchar(10), PRIMARY KEY (id))");
+        Assertions.assertFalse(
+                schema.tableFor(TableId.parse("db1.t1")).columnWithName("id").isOptional());
+
+        parseStreamingDdl(schema, "CREATE TABLE t2 (id int, name varchar(10))");
+        parseStreamingDdl(schema, "ALTER TABLE t2 ADD PRIMARY KEY (id)");
+        Assertions.assertFalse(
+                schema.tableFor(TableId.parse("db1.t2")).columnWithName("id").isOptional());
+    }
+
+    private static MySqlDatabaseSchema createDatabaseSchema() {
+        return MySqlConnectionUtils.createMySqlDatabaseSchema(streamingConfig(), false);
+    }
+
+    private static void parseStreamingDdl(MySqlDatabaseSchema schema, String ddl) {
+        MySqlConnectorConfig config = streamingConfig();
+        schema.parseStreamingDdl(
+                new MySqlPartition(config.getLogicalName()),
+                ddl,
+                "db1",
+                MySqlOffsetContext.initial(config),
+                Instant.now());
+    }
+
+    private static MySqlConnectorConfig streamingConfig() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        return factory.create(0).getDbzConnectorConfig();
+    }
+
+    private static Table parseTable(String createTableSql, PhysicalColumn... columns) {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        TableId tableId = TableId.parse("db1.no_pk");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                "test", TablePath.of(tableId.catalog(), tableId.table())),
+                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+        MySqlSchema schema =
+                new MySqlSchema(
+                        factory.create(0), false, Collections.singletonMap(tableId, catalogTable));
+        return schema.getTableSchema(
+                        new MockJdbcConnection(
+                                createTableSql, Collections.<DescTableField>emptyIterator()),
+                        tableId)
+                .getTable();
+    }
+
+    private static PhysicalColumn column(String name, boolean nullable) {
+        return PhysicalColumn.builder()
+                .name(name)
+                .dataType(BasicType.INT_TYPE)
+                .nullable(nullable)
+                .build();
     }
 
     private static class MockJdbcConnection extends JdbcConnection {

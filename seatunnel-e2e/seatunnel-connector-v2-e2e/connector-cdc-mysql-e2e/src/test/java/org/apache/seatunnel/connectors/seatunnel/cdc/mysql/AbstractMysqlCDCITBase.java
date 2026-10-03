@@ -363,6 +363,96 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK},
             disabledReason = "Currently SPARK do not support cdc")
+    public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
+        // Tables without a primary key whose unique key (single, and composite with one nullable
+        // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
+        // Controls: a table with a real primary key, and a table whose unique key is NOT NULL.
+        // uk_added_null gets its unique key in the binlog phase, parsed from the binlog DDL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+
+        // binlog phase
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_added_null VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_null_single VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_null_composite VALUES (4, 3, NULL, 'binlog-null'), (5, 3, 5, 'binlog-coded')");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".pk_null_control VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + ".uk_notnull_control VALUES (4, 4, 'binlog-coded'), (5, 5, 'binlog-coded')");
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+    }
+
+    private void assertNullableUniqueKeyTablesSynced(int expectedNullRows) {
+        String sinkDatabase = "mysql_cdc_null_sink";
+        String[][] tables = {
+            {"uk_null_single", "id, code, name", "code"},
+            {"uk_null_composite", "id, a, b, name", "b"},
+            {"pk_null_control", "id, code, name", "code"},
+            {"uk_notnull_control", "id, code, name", null},
+            {"uk_added_null", "id, code, name", "code"}
+        };
+        for (String[] table : tables) {
+            String rowQuery = "select " + table[1] + " from %s." + table[0] + " order by id";
+            Assertions.assertIterableEquals(
+                    query(String.format(rowQuery, MYSQL_DATABASE)),
+                    query(String.format(rowQuery, sinkDatabase)),
+                    table[0]);
+            if (table[2] != null) {
+                // NULL must stay SQL NULL in the sink, not become the type default 0
+                String nullCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " is null";
+                String zeroCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " = 0";
+                Assertions.assertEquals(
+                        expectedNullRows,
+                        ((Number) query(String.format(nullCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " NULL rows in sink");
+                Assertions.assertEquals(
+                        0,
+                        ((Number) query(String.format(zeroCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " rows with 0 in sink");
+            }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiTableE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
