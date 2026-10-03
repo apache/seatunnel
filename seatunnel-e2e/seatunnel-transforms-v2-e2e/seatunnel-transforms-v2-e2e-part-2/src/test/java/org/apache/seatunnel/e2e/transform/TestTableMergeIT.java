@@ -33,4 +33,11 @@ public class TestTableMergeIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/table_merge_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testOriginalTableIdPreservedAcrossBranches(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/table_merge_fanout.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
