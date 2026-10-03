@@ -123,6 +123,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-secure-xml</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>provided</scope>

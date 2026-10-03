@@ -28,6 +28,8 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.apache.commons.xml.secure.SecureDocumentBuilderFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -40,7 +42,6 @@ import groovy.lang.Tuple2;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -245,8 +246,8 @@ public final class ContainerUtil {
 
     private static String getProjectVersion() {
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
+            DocumentBuilder builder =
+                    SecureDocumentBuilderFactory.newDefaultInstance().newDocumentBuilder();
             Document doc = builder.parse(getProjectRootPath() + "/pom.xml");
             doc.getDocumentElement().normalize();
             NodeList propertiesList = doc.getElementsByTagName("properties");

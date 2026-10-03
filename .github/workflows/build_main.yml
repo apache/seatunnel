@@ -24,10 +24,15 @@ on:
     branches-ignore:
       - 'gh-readonly-queue/**'
 
+# Default permissions for each job.
+# Additional permissions should be assigned on a per-job basis.
+permissions: { }
+
 jobs:
   call-build-and-test:
     permissions:
+      # Not needed to check out a public repository, but a reusable workflow
+      # cannot exceed the permissions of its caller and `backend.yml` declares it.
       contents: read
-      packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
