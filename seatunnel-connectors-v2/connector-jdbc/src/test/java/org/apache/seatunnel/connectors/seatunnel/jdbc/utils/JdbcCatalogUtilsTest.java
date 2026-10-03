@@ -56,6 +56,56 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 public class JdbcCatalogUtilsTest {
+
+    @Test
+    public void testUnsignedNumericColumnTypeIsDetected() {
+        Assertions.assertTrue(JdbcCatalogUtils.isNumericUnsignedColumnType("tinyint(1) unsigned"));
+        Assertions.assertTrue(JdbcCatalogUtils.isNumericUnsignedColumnType("int(10) unsigned"));
+        Assertions.assertTrue(JdbcCatalogUtils.isNumericUnsignedColumnType("bigint(20) unsigned"));
+        Assertions.assertTrue(
+                JdbcCatalogUtils.isNumericUnsignedColumnType("decimal(10,2) unsigned zerofill"));
+        // FLOAT / DOUBLE are reported without a length part when declared without precision.
+        Assertions.assertTrue(JdbcCatalogUtils.isNumericUnsignedColumnType("float unsigned"));
+        Assertions.assertTrue(JdbcCatalogUtils.isNumericUnsignedColumnType("double unsigned"));
+    }
+
+    @Test
+    public void testSignedNumericColumnTypeIsNotDetected() {
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("tinyint(1)"));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("int(10)"));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("bigint(20)"));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("decimal(10,2)"));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("float"));
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     * {@code mysql.event.sql_mode} is a SET whose value list contains {@code
+     * NO_UNSIGNED_SUBTRACTION}; the literal word inside that list is not the UNSIGNED attribute.
+     */
+    @Test
+    public void testSetColumnTypeWithUnsignedWordInValueListIsNotDetected() {
+        String columnType =
+                "set('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED',"
+                        + "'ONLY_FULL_GROUP_BY','NO_UNSIGNED_SUBTRACTION','NO_DIR_IN_CREATE')";
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType(columnType));
+    }
+
+    /** Same failure class as above, for the sibling ENUM type. */
+    @Test
+    public void testEnumColumnTypeWithUnsignedWordInValueListIsNotDetected() {
+        Assertions.assertFalse(
+                JdbcCatalogUtils.isNumericUnsignedColumnType(
+                        "enum('unsigned','signed','anything_else')"));
+    }
+
+    @Test
+    public void testBlankColumnTypeIsNotDetected() {
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType(null));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType(""));
+        Assertions.assertFalse(JdbcCatalogUtils.isNumericUnsignedColumnType("   "));
+    }
+
     private static final CatalogTable DEFAULT_TABLE =
             CatalogTable.of(
                     TableIdentifier.of("mysql-1", "database-x", null, "table-x"),

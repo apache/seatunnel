@@ -65,6 +65,7 @@ import com.mysql.cj.jdbc.ConnectionImpl;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -486,6 +487,51 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Assertions.assertEquals(
                     exceptType,
                     tableFromSQL.getTableSchema().getColumn("c_tinyint_1").getDataType());
+        }
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>A SET or ENUM value list containing the word "unsigned" - MySQL's own {@code
+     * mysql.event.sql_mode} holds {@code NO_UNSIGNED_SUBTRACTION} - used to be read as the UNSIGNED
+     * attribute of the column. The type converters then appended a " UNSIGNED" suffix, producing a
+     * type that does not exist in MySQL and failing table discovery for the whole job.
+     */
+    @Test
+    public void testSetAndEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "set_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + MYSQL_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_set` set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
         }
     }
 

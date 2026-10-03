@@ -55,9 +55,13 @@ import java.sql.Connection;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -68,6 +72,29 @@ import java.util.stream.Collectors;
 public class JdbcCatalogUtils {
     private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
     private static final String DOT_PLACEHOLDER = "__$DOT$__";
+
+    /**
+     * MySQL data types that accept the {@code UNSIGNED} attribute. This is the set of {@code
+     * *_UNSIGNED} type names handled by {@code MySqlTypeConverter}, which is a superset of the ones
+     * {@code OceanBaseMySqlTypeConverter} handles ({@code BIT} and {@code YEAR} are missing there).
+     * Keeping the superset is deliberate: the guard decides whether a column is unsigned, and
+     * narrowing it per dialect would silently drop the attribute for the shared numeric types.
+     */
+    private static final Set<String> UNSIGNED_TYPE_NAMES =
+            Collections.unmodifiableSet(
+                    new HashSet<>(
+                            Arrays.asList(
+                                    "BIT",
+                                    "TINYINT",
+                                    "SMALLINT",
+                                    "MEDIUMINT",
+                                    "INT",
+                                    "INTEGER",
+                                    "BIGINT",
+                                    "DECIMAL",
+                                    "FLOAT",
+                                    "DOUBLE",
+                                    "YEAR")));
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig,
@@ -593,5 +620,35 @@ public class JdbcCatalogUtils {
             log.warn("Error processing table path with regex: {}", tablePath, e);
             throw new SQLException("Failed to process regex table path: " + tablePath, e);
         }
+    }
+
+    /**
+     * Tells whether a {@code COLUMN_TYPE} declares the {@code UNSIGNED} attribute of a numeric
+     * type.
+     *
+     * <p>MySQL and its compatible dialects only allow {@code UNSIGNED} on numeric types, and the
+     * attribute always follows an optional length / precision part, for example {@code int(10)
+     * unsigned} or {@code bigint(20) unsigned zerofill}.
+     *
+     * <p>Searching the whole {@code COLUMN_TYPE} for the word "unsigned" is not safe, because a
+     * {@code SET} or {@code ENUM} column keeps its value list in the same string. {@code
+     * mysql.event.sql_mode}, for example, is declared as {@code
+     * set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION',...)}: the literal value name inside that list
+     * used to be mistaken for the attribute, which turned the column into the non-existent type
+     * {@code SET UNSIGNED} and failed the job during catalog discovery.
+     *
+     * @param columnType the raw {@code COLUMN_TYPE} reported by the JDBC driver
+     * @return true only when columnType is a numeric type carrying the {@code UNSIGNED} attribute
+     * @see <a href="https://github.com/apache/seatunnel/issues/10451">issue #10451</a>
+     */
+    public static boolean isNumericUnsignedColumnType(String columnType) {
+        if (StringUtils.isBlank(columnType)) {
+            return false;
+        }
+        // The type name is the leading word: "int" in "int(10) unsigned", "float" in
+        // "float unsigned". Everything after it is either a length part or a modifier.
+        String dataType = columnType.trim().split("[\\s(]", 2)[0].toUpperCase(Locale.ROOT);
+        return UNSIGNED_TYPE_NAMES.contains(dataType)
+                && columnType.toLowerCase(Locale.ROOT).contains("unsigned");
     }
 }
