@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 
@@ -52,6 +53,16 @@ import static org.mockito.Mockito.when;
 
 public class MySqlSchemaTest {
     private static final String QUOTED_CHARACTER = "`";
+
+    /** Ensures source-controlled runtime identifiers cannot be propagated into downstream SQL. */
+    @Test
+    public void testRuntimeCatalogTableRejectsUnsafeIdentifier() {
+        Table unsafeTable = Table.editor().tableId(TableId.parse("db1.unsafe-table")).create();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MySqlCatalogTableUtils.toRuntimeCatalogTable(unsafeTable, null));
+    }
 
     @Test
     public void testReadSchemaFallbackDescTable() {
@@ -128,6 +139,16 @@ public class MySqlSchemaTest {
         Assertions.assertEquals("INT", actualTable.columnWithName("id").typeName());
         Assertions.assertEquals("VARCHAR", actualTable.columnWithName("name").typeName());
         Assertions.assertEquals("DATETIME", actualTable.columnWithName("ts").typeName());
+        Assertions.assertSame(
+                actualTable, CatalogTableUtils.mergeCatalogTableConfig(actualTable, null));
+
+        CatalogTable dynamicCatalogTable =
+                MySqlCatalogTableUtils.toCatalogTable(
+                        actualTable, sourceConfig.getDbzConnectorConfig());
+        Assertions.assertEquals(TablePath.of("db1", "test"), dynamicCatalogTable.getTablePath());
+        Assertions.assertEquals(
+                Arrays.asList("id"),
+                dynamicCatalogTable.getTableSchema().getPrimaryKey().getColumnNames());
 
         // check data
         TableChanges.TableChange tableChangeByDesc =
