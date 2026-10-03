@@ -47,7 +47,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
-DuckDB 的 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。
+DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
+
+MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。如果 `BIT` 或 `ENUM` 列属于主键，请提前创建兼容的目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-bit-和-enum-自动建表)。
 
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
@@ -63,6 +65,7 @@ DuckDB 的 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，Se
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
 | DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
+| BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |

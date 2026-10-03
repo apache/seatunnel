@@ -591,6 +591,7 @@ public class DuckDBTypeConverterTest {
 
     @Test
     void testEnumArrayKeepsFallbackLength() {
+        // Scalar ENUM handling does not change the existing fallback for list declarations.
         Column column = convert("f_enum_array", "ENUM('a','b')[]");
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(255L, column.getColumnLength());

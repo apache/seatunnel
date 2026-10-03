@@ -283,39 +283,59 @@ public class DuckDBCatalogTest {
     }
 
     @Test
+    @Order(8)
     public void testBitAndLongEnumLabelUseUnboundedSinkTypes() throws Exception {
         String label = String.join("", Collections.nCopies(400, "m"));
         try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
-            statement.execute("CREATE TABLE text_lengths (bits BIT, en ENUM('" + label + "'))");
-            statement.execute(
-                    "INSERT INTO text_lengths VALUES ('10110'::BIT, '"
-                            + label
-                            + "'), (NULL, NULL)");
+            statement.execute("CREATE TYPE text_lengths_enum AS ENUM ('short', '" + label + "')");
+            try {
+                statement.execute(
+                        "CREATE TABLE text_lengths (bits BIT, en ENUM('"
+                                + label
+                                + "'), named_en text_lengths_enum)");
+                try {
+                    statement.execute(
+                            "INSERT INTO text_lengths VALUES ('10110'::BIT, '"
+                                    + label
+                                    + "', '"
+                                    + label
+                                    + "'), (NULL, NULL, NULL)");
+
+                    CatalogTable table = catalog.getTable(getMainTablePath("text_lengths"));
+                    Assertions.assertEquals(3, table.getTableSchema().getColumns().size());
+                    for (Column column : table.getTableSchema().getColumns()) {
+                        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+                        Assertions.assertEquals(0L, column.getColumnLength());
+                    }
+
+                    String actualMySQLDDL =
+                            MysqlCreateTableSqlBuilder.builder(
+                                            TablePath.of("test", "downstream_t"),
+                                            table,
+                                            MySqlTypeConverter.DEFAULT_INSTANCE,
+                                            false)
+                                    .build("mysql");
+                    Assertions.assertTrue(
+                            actualMySQLDDL.contains("`bits` LONGTEXT"), actualMySQLDDL);
+                    Assertions.assertTrue(actualMySQLDDL.contains("`en` LONGTEXT"), actualMySQLDDL);
+                    Assertions.assertTrue(
+                            actualMySQLDDL.contains("`named_en` LONGTEXT"), actualMySQLDDL);
+
+                    String actualPostgresDDL =
+                            new PostgresCreateTableSqlBuilder(table, false)
+                                    .build(TablePath.of("test", "public", "downstream_t"));
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"bits\" text"), actualPostgresDDL);
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"en\" text"), actualPostgresDDL);
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"named_en\" text"), actualPostgresDDL);
+                } finally {
+                    statement.execute("DROP TABLE text_lengths");
+                }
+            } finally {
+                statement.execute("DROP TYPE text_lengths_enum");
+            }
         }
-
-        CatalogTable table = catalog.getTable(getMainTablePath("text_lengths"));
-        Assertions.assertEquals(2, table.getTableSchema().getColumns().size());
-        Assertions.assertEquals(
-                BasicType.STRING_TYPE, table.getTableSchema().getColumns().get(0).getDataType());
-        Assertions.assertEquals(
-                BasicType.STRING_TYPE, table.getTableSchema().getColumns().get(1).getDataType());
-        Assertions.assertEquals(0L, table.getTableSchema().getColumns().get(0).getColumnLength());
-        Assertions.assertEquals(0L, table.getTableSchema().getColumns().get(1).getColumnLength());
-
-        String actualMySQLDDL =
-                MysqlCreateTableSqlBuilder.builder(
-                                TablePath.of("test", "downstream_t"),
-                                table,
-                                MySqlTypeConverter.DEFAULT_INSTANCE,
-                                false)
-                        .build("mysql");
-        Assertions.assertTrue(actualMySQLDDL.contains("`bits` LONGTEXT"), actualMySQLDDL);
-        Assertions.assertTrue(actualMySQLDDL.contains("`en` LONGTEXT"), actualMySQLDDL);
-
-        String actualPostgresDDL =
-                new PostgresCreateTableSqlBuilder(table, false)
-                        .build(TablePath.of("test", "public", "downstream_t"));
-        Assertions.assertTrue(actualPostgresDDL.contains("\"bits\" text"), actualPostgresDDL);
-        Assertions.assertTrue(actualPostgresDDL.contains("\"en\" text"), actualPostgresDDL);
     }
 }
