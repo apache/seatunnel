@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -29,10 +30,12 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.Mockito;
 
 import com.hazelcast.map.IMap;
 
@@ -95,6 +98,103 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    /**
+     * Pins the single-snapshot property of the {@code cancelJob()} decision: the status that
+     * decides the branch is the same one {@code isEndState()} validated, not a second read.
+     *
+     * <p>A quiescent test cannot tell the two apart, because both reads observe the same value.
+     * This one swaps in a map that answers {@code PENDING} on the first read and {@code RUNNING}
+     * afterwards, so the pre-fix double read picks up {@code RUNNING} and transitions to {@code
+     * CANCELING}, while branching on the validated local transitions to {@code CANCELED}. The
+     * divergence is what makes the assertion deterministic rather than dependent on a race.
+     */
+    @Test
+    void testCancelJobCommitsToTheJobStatusSnapshotItValidated() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> divergingStateMap = Mockito.mock(IMap.class);
+        Mockito.when(divergingStateMap.get(jobId)).thenReturn(JobStatus.PENDING, JobStatus.RUNNING);
+        // PhysicalPlan holds the map as a final field wired by PlanUtils; replacement is the only
+        // way to hand it a per-read divergence without rebuilding the plan.
+        ReflectionUtils.setField(
+                planWithStateMaps.physicalPlan, "runningJobStateIMap", divergingStateMap);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        // CANCELED is only reachable by consuming the first (PENDING) read; a second read of the
+        // same key would have seen RUNNING and landed on CANCELING.
+        Mockito.verify(divergingStateMap).set(jobId, JobStatus.CANCELED);
+        Mockito.verify(divergingStateMap, Mockito.never()).set(jobId, JobStatus.CANCELING);
+    }
+
+    // These two pin the NOT_STARTED_STATUSES classification in PhysicalPlan: cancel on a
+    // not-started job goes straight to CANCELED, cancel on a running job goes through
+    // CANCELING. The single-snapshot property of the decision itself is covered separately by
+    // testCancelJobCommitsToTheJobStatusSnapshotItValidated above.
+    @Test
+    void testCancelOnNotStartedJobGoesStraightToCanceled() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.PENDING);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        Assertions.assertEquals(JobStatus.CANCELED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    @Test
+    void testCancelOnRunningJobGoesThroughCanceling() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.RUNNING);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        Assertions.assertEquals(JobStatus.CANCELING, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    /**
+     * Pins what {@code cancelJob()} does when the job status entry has already been cleared.
+     *
+     * <p>{@code getJobStatus()} is a plain map read, so a cleared entry yields {@code null} and the
+     * {@code isEndState()} guard dereferences it. That NPE predates the single-snapshot change and
+     * is unchanged by it, but it is the one input the {@code NOT_STARTED_STATUSES} branch cannot
+     * answer, so it is asserted rather than left implicit.
+     *
+     * <p>Note: this test pins pre-existing behaviour rather than a desired design contract; it
+     * serves as a regression tripwire so any future change to cleared-state handling is deliberate.
+     */
+    @Test
+    void testCancelJobOnClearedJobStatusFailsAtTheEndStateGuard() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.remove(jobId);
+
+        Assertions.assertThrows(
+                NullPointerException.class, () -> planWithStateMaps.physicalPlan.cancelJob());
+    }
+
+    /**
+     * cancelJob() completes the job-end future and reports a state event, both of which need a job
+     * master and an initialized future; PlanUtils alone does not wire those up.
+     */
+    private void prepareForCancel(PlanWithStateMaps planWithStateMaps) {
+        JobMaster jobMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(jobMaster.getEngineConfig()).thenReturn(new EngineConfig());
+        Mockito.when(jobMaster.getExecutorService()).thenReturn(Executors.newCachedThreadPool());
+        planWithStateMaps.physicalPlan.setJobMaster(jobMaster);
+        planWithStateMaps.physicalPlan.initStateFuture();
     }
 
     private PlanWithStateMaps createPhysicalPlan(long jobId) throws MalformedURLException {
