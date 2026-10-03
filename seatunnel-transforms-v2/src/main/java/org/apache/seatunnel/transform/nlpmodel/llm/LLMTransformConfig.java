@@ -43,6 +43,15 @@ public class LLMTransformConfig extends ModelTransformConfig {
                     .defaultValue("llm_output")
                     .withDescription("custom field name for the llm output data");
 
+    public static final Option<Boolean> STRICT_BOOLEAN_OUTPUT =
+            Options.key("strict_boolean_output")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Require exactly one non-null true or false result for BOOLEAN output. "
+                                    + "Matching is case-insensitive and does not trim whitespace. "
+                                    + "The default false preserves legacy boolean conversion.");
+
     public static final Option<Integer> INFERENCE_BATCH_SIZE =
             Options.key("inference_batch_size")
                     .intType()

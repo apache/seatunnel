@@ -14,6 +14,7 @@ more.
 |------------------------|--------|----------|---------------|
 | model_provider         | enum   | yes      |               |
 | output_data_type       | enum   | no       | String        |
+| strict_boolean_output  | boolean | no      | false         |
 | output_column_name     | string | no       | llm_output    |
 | prompt                 | string | yes      |               |
 | inference_columns      | list   | no       |               |
@@ -37,6 +38,24 @@ OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
 The data type of the output data. The available options are:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 Default value is STRING.
+
+### strict_boolean_output
+
+Optional validation for `output_data_type = BOOLEAN`. The default is `false` and preserves
+the existing conversion: only `true` (case-insensitive) becomes `true`; other values,
+including an empty string or a null element, become `false`.
+
+Set `strict_boolean_output = true` to require exactly one non-null `true` or `false`
+value from the model for each input row. Matching is case-insensitive and does not trim
+whitespace. Values such as `"unknown"`, `""`, `" true "`, `1`, null, an empty result, or
+multiple results fail the transform instead of producing a boolean value. The validation
+error does not include the input row or model response. This option does not add row
+skipping or error-table routing, and has no effect on other output data types.
+
+```hocon
+output_data_type = BOOLEAN
+strict_boolean_output = true
+```
 
 ### output_column_name
 
