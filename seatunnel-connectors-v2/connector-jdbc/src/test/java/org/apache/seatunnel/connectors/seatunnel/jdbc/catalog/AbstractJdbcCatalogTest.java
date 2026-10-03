@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 import static org.mockito.Mockito.doThrow;
@@ -49,6 +50,49 @@ class AbstractJdbcCatalogTest {
         verify(failedConnection).close();
         verify(remainingConnection).close();
         Assertions.assertEquals(1, exception.getSuppressed().length);
+    }
+
+    @Test
+    void testDriverDisambiguationInGetConnection() throws Exception {
+        String testUrl = "jdbc:test://localhost/test";
+        String driverClass = ConfigurableDriver.class.getName();
+
+        // Register two drivers with the same class name: one rejecting, one accepting.
+        // This simulates the PostgreSQL/OpenGauss conflict where both register as
+        // org.postgresql.Driver but only one accepts the target URL.
+        ConfigurableDriver rejectingDriver = new ConfigurableDriver(false, null);
+        Connection mockConnection = mock(Connection.class);
+        ConfigurableDriver acceptingDriver = new ConfigurableDriver(true, mockConnection);
+
+        DriverManager.registerDriver(rejectingDriver);
+        DriverManager.registerDriver(acceptingDriver);
+
+        try {
+            CatalogTestCatalog catalog = new CatalogTestCatalog(driverClass, testUrl);
+            Connection result = catalog.getConnection(testUrl);
+
+            Assertions.assertNotNull(result);
+            Assertions.assertSame(
+                    mockConnection,
+                    result,
+                    "Should return connection from the accepting driver, not the rejecting one");
+        } finally {
+            DriverManager.deregisterDriver(rejectingDriver);
+            DriverManager.deregisterDriver(acceptingDriver);
+        }
+    }
+
+    private static class CatalogTestCatalog extends AbstractJdbcCatalog {
+
+        private CatalogTestCatalog(String driverClass, String url) {
+            super(
+                    "test",
+                    "user",
+                    "password",
+                    new JdbcUrlUtil.UrlInfo(url, "jdbc:test:", "localhost", 0, "test", null),
+                    null,
+                    driverClass);
+        }
     }
 
     private static class TestJdbcCatalog extends AbstractJdbcCatalog {
