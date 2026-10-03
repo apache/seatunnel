@@ -76,29 +76,35 @@ public class ConfEncryptCommandTest {
         List<? extends ConfigObject> sourceConfigs = encryptedConfig.getObjectList("source");
         for (ConfigObject configObject : sourceConfigs) {
             Config sourceConfig = configObject.toConfig();
-            if (sourceConfig.hasPath("password")) {
-                String mysql_password = sourceConfig.getString("password");
-                Assertions.assertNotEquals(mysql_password, "123456");
-            }
+            Assertions.assertTrue(
+                    sourceConfig.hasPath("password"),
+                    "password key should exist in encrypted config");
 
-            if (sourceConfig.hasPath("properties")) {
-                Map<String, Object> mysqlProperties =
-                        sourceConfig.getObject("properties").unwrapped();
-                Assertions.assertTrue(
-                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
-                        "properties should contain key: 'allowPublicKeyRetrieval'");
+            Assertions.assertTrue(
+                    sourceConfig.hasPath("properties"),
+                    "properties key should exist in encrypted config");
 
-                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
-                boolean useRegex =
-                        tableList.stream()
-                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
-                                .findFirst()
-                                .get();
+            Assertions.assertTrue(
+                    sourceConfig.hasPath("table_list"),
+                    "table_list key should exist in encrypted config");
 
-                Assertions.assertTrue(
-                        useRegex,
-                        "useRegex should contain replaced placeholder value: " + useRegex);
-            }
+            String mysql_password = sourceConfig.getString("password");
+            Assertions.assertNotEquals(mysql_password, "123456");
+
+            Map<String, Object> mysqlProperties = sourceConfig.getObject("properties").unwrapped();
+            Assertions.assertTrue(
+                    mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                    "properties should contain key: 'allowPublicKeyRetrieval'");
+
+            List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+            boolean useRegex =
+                    tableList.stream()
+                            .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                            .findFirst()
+                            .get();
+
+            Assertions.assertTrue(
+                    useRegex, "useRegex should contain replaced placeholder value: " + useRegex);
         }
     }
 
