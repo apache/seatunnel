@@ -41,8 +41,8 @@ Socket Source 会把每一行输入读取为字符串。
 
 | 参数名 | 类型 | 必须 | 默认值 | 描述 |
 |--------|------|------|--------|------|
-| host | String | 是 | - | socket 服务器主机 |
-| port | Integer | 是 | - | socket 服务器端口 |
+| host | String | 是 | - | Socket 服务器主机；不能为空或仅包含空白字符。 |
+| port | Integer | 是 | - | Socket 服务器端口；必须大于 0。 |
 | common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。 |
 
 :::tip
