@@ -41,13 +41,18 @@ import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -138,6 +143,91 @@ class JdbcSourceChunkSplitterTest {
                 testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", ""));
 
         Assertions.assertEquals("int", splitColumn.name());
+    }
+
+    @Test
+    void isColumnNullableReadsDatabaseMetadata() throws SQLException {
+        TestSourceDialect dialect = new TestSourceDialect();
+        TableId tableId = new TableId("db", null, "no_pk");
+        // the parsed column says NOT NULL, the database metadata decides
+        Column code = intColumn("code", false);
+
+        Assertions.assertTrue(
+                dialect.isColumnNullableFromMetadata(
+                        jdbcWithColumns(tableId, "code", row("no_pk", "code", "YES")),
+                        tableId,
+                        code));
+        Assertions.assertFalse(
+                dialect.isColumnNullableFromMetadata(
+                        jdbcWithColumns(tableId, "code", row("no_pk", "code", "NO")),
+                        tableId,
+                        intColumn("code", true)));
+    }
+
+    @Test
+    void isColumnNullableFallsBackToParsedColumnWithoutMetadataRow() throws SQLException {
+        TestSourceDialect dialect = new TestSourceDialect();
+        TableId tableId = new TableId("db", null, "no_pk");
+
+        Assertions.assertTrue(
+                dialect.isColumnNullableFromMetadata(
+                        jdbcWithColumns(tableId, "code"), tableId, intColumn("code", true)));
+        Assertions.assertFalse(
+                dialect.isColumnNullableFromMetadata(
+                        jdbcWithColumns(tableId, "code"), tableId, intColumn("code", false)));
+    }
+
+    @Test
+    void isColumnNullableIgnoresRowsMatchedOnlyByNamePattern() throws SQLException {
+        TestSourceDialect dialect = new TestSourceDialect();
+        TableId tableId = new TableId("db", null, "no_pk");
+        // getColumns takes LIKE patterns: `_` also matches the column of table `noXpk`
+        JdbcConnection jdbc = jdbcWithColumns(tableId, "code", row("noXpk", "code", "YES"));
+
+        Assertions.assertFalse(
+                dialect.isColumnNullableFromMetadata(jdbc, tableId, intColumn("code", false)));
+    }
+
+    private static Column intColumn(String name, boolean optional) {
+        return Column.editor()
+                .name(name)
+                .jdbcType(Types.INTEGER)
+                .type("int")
+                .optional(optional)
+                .create();
+    }
+
+    private static String[] row(String tableName, String columnName, String isNullable) {
+        return new String[] {tableName, columnName, isNullable};
+    }
+
+    /** A connection whose metadata returns the given TABLE_NAME, COLUMN_NAME, IS_NULLABLE rows. */
+    private static JdbcConnection jdbcWithColumns(
+            TableId tableId, String columnName, String[]... rows) throws SQLException {
+        Iterator<String[]> iterator = Arrays.asList(rows).iterator();
+        AtomicReference<String[]> current = new AtomicReference<>();
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next())
+                .thenAnswer(
+                        invocation -> {
+                            if (!iterator.hasNext()) {
+                                return false;
+                            }
+                            current.set(iterator.next());
+                            return true;
+                        });
+        when(resultSet.getString("TABLE_NAME")).thenAnswer(invocation -> current.get()[0]);
+        when(resultSet.getString("COLUMN_NAME")).thenAnswer(invocation -> current.get()[1]);
+        when(resultSet.getString("IS_NULLABLE")).thenAnswer(invocation -> current.get()[2]);
+
+        DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+        when(metaData.getColumns(tableId.catalog(), tableId.schema(), tableId.table(), columnName))
+                .thenReturn(resultSet);
+        Connection connection = mock(Connection.class);
+        when(connection.getMetaData()).thenReturn(metaData);
+        JdbcConnection jdbc = mock(JdbcConnection.class);
+        when(jdbc.connection()).thenReturn(connection);
+        return jdbc;
     }
 
     private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
@@ -344,6 +434,12 @@ class JdbcSourceChunkSplitterTest {
                 JdbcConnection jdbcConnection, TableId tableId, Column column) {
             // no database here, the fixture columns carry the nullability
             return column.isOptional();
+        }
+
+        /** Runs the default, metadata based implementation of the dialect. */
+        boolean isColumnNullableFromMetadata(
+                JdbcConnection jdbcConnection, TableId tableId, Column column) throws SQLException {
+            return JdbcDataSourceDialect.super.isColumnNullable(jdbcConnection, tableId, column);
         }
     }
 

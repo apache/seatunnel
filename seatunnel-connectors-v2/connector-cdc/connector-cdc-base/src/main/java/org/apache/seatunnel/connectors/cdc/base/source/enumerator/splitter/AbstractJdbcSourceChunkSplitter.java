@@ -51,6 +51,10 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleC
 @Slf4j
 public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunkSplitter {
 
+    private static final String NULLABLE_SPLIT_COLUMN_HINT =
+            "To read the snapshot in parallel, declare a NOT NULL unique column or configure a "
+                    + "non-nullable snapshotSplitColumn.";
+
     private final JdbcSourceConfig sourceConfig;
     private final JdbcDataSourceDialect dialect;
 
@@ -438,7 +442,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 if (dialect.isColumnNullable(jdbc, tableId, column)) {
                     log.warn(
                             "Config snapshotSplitColumn {} of table {} is nullable, rows with NULL in it "
-                                    + "cannot be assigned to any snapshot chunk, ignore it",
+                                    + "cannot be assigned to any snapshot chunk, ignore it. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
                             tableSc,
                             tableId);
                 } else if (isEvenlySplitColumn(column)) {
@@ -478,7 +483,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 // range predicate, so such rows would be silently skipped by the snapshot.
                 if (dialect.isColumnNullable(jdbc, tableId, firstColumn)) {
                     log.warn(
-                            "Skip unique key {} of table {} as snapshot split column: column {} is nullable",
+                            "Skip unique key {} of table {} as snapshot split column: column {} is nullable. "
+                                    + NULLABLE_SPLIT_COLUMN_HINT,
                             uniqueKey.getConstraintName(),
                             tableId,
                             firstColumn.name());
