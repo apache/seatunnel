@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.net.URL;
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Worker-side runtime context for one deployment of a task group.
@@ -76,6 +79,17 @@ public class TaskGroupContext {
      */
     private ConcurrentHashMap<Long, Collection<URL>> jars;
 
+    /**
+     * Ensures only one cleanup path releases this context's classloader references.
+     *
+     * <p>Post-publish deploy rollback and normal {@code recycleClassLoader} on task completion can
+     * both reach the same context concurrently. {@code ClassLoaderService} ref-counts are
+     * job-scoped (shared across task groups that use the same jars), so a double release can evict
+     * a classloader still held by a sibling task group. First claim wins; later callers no-op.
+     */
+    @Getter(AccessLevel.NONE)
+    private final AtomicBoolean classLoaderResourcesReleased = new AtomicBoolean(false);
+
     public TaskGroupContext(
             long executionId,
             TaskGroup taskGroup,
@@ -88,11 +102,30 @@ public class TaskGroupContext {
     }
 
     public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
+        ConcurrentHashMap<Long, ClassLoader> loaders = classLoaders;
+        if (loaders != null) {
+            return loaders.get(taskId);
         } else {
             return null;
         }
+    }
+
+    /**
+     * Atomically claims ownership to release this context's classloader resources.
+     *
+     * <p>Clears {@code classLoaders}/{@code jars} and returns the jars map that must be passed to
+     * {@code ClassLoaderService#releaseClassLoader}. Returns {@code null} when another caller
+     * already claimed release (mirrors the "first remove wins" idiom used for cancellation /
+     * async-function / timer-flush maps).
+     */
+    public Map<Long, Collection<URL>> claimJarsForClassLoaderRelease() {
+        if (!classLoaderResourcesReleased.compareAndSet(false, true)) {
+            return null;
+        }
+        this.classLoaders = null;
+        Map<Long, Collection<URL>> jarsByTask = this.jars;
+        this.jars = null;
+        return jarsByTask;
     }
 
     @Override
