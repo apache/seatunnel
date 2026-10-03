@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -73,6 +74,54 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    @Test
+    void testNullableMapArrayAccountingAfterDeserialization() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"items"},
+                        new SeaTunnelDataType<?>[] {
+                            new ArrayType<>(Map[].class, new MapType<>(STRING_TYPE, INT_TYPE))
+                        });
+        JsonDeserializationSchema deserializer =
+                new JsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("", "", "", "test", schema), false, false);
+        byte[] json = "{\"items\":[null,{\"a\":1}]}".getBytes(StandardCharsets.UTF_8);
+
+        SeaTunnelRow row = deserializer.deserialize(json);
+        Map<?, ?>[] items = (Map<?, ?>[]) row.getField(0);
+        assertNull(items[0]);
+        assertEquals(1, items[1].get("a"));
+        assertEquals(5, row.getBytesSize(schema));
+        assertEquals(5, row.getBytesSize());
+        assertEquals(5, deserializer.deserialize(json).getBytesSize());
+    }
+
+    @Test
+    void testRowArrayAccountingAfterDeserialization() throws Exception {
+        SeaTunnelRowType elementType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {STRING_TYPE});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"id", "items"},
+                        new SeaTunnelDataType<?>[] {
+                            INT_TYPE, new ArrayType<>(SeaTunnelRow[].class, elementType)
+                        });
+        JsonDeserializationSchema deserializer =
+                new JsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("", "", "", "test", schema), false, false);
+        byte[] json =
+                "{\"id\":7,\"items\":[null,{\"value\":\"abcd\"}]}".getBytes(StandardCharsets.UTF_8);
+
+        SeaTunnelRow row = deserializer.deserialize(json);
+        SeaTunnelRow[] items = (SeaTunnelRow[]) row.getField(1);
+        assertNull(items[0]);
+        assertEquals("abcd", items[1].getField(0));
+        assertEquals(8, row.getBytesSize(schema));
+        assertEquals(8, row.getBytesSize());
+        assertEquals(8, deserializer.deserialize(json).getBytesSize());
+    }
 
     @Test
     public void testSerDe() throws Exception {
