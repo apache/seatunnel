@@ -106,20 +106,26 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case DUCKDB_TINYINT:
-            case DUCKDB_UTINYINT:
                 builder.dataType(BasicType.BYTE_TYPE);
                 break;
+                // Unsigned values need a wider signed type; UBIGINT exceeds LONG and needs
+                // DECIMAL(20,0).
+            case DUCKDB_UTINYINT:
             case DUCKDB_SMALLINT:
-            case DUCKDB_USMALLINT:
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
+            case DUCKDB_USMALLINT:
             case DUCKDB_INTEGER:
-            case DUCKDB_UINTEGER:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
+            case DUCKDB_UINTEGER:
             case DUCKDB_BIGINT:
-            case DUCKDB_UBIGINT:
                 builder.dataType(BasicType.LONG_TYPE);
+                break;
+            case DUCKDB_UBIGINT:
+                builder.dataType(new DecimalType(20, 0));
+                builder.columnLength(20L);
+                builder.scale(0);
                 break;
             case DUCKDB_HUGEINT:
             case DUCKDB_UHUGEINT:

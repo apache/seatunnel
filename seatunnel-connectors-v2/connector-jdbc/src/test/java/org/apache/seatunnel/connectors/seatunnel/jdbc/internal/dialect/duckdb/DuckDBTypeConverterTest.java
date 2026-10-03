@@ -58,7 +58,7 @@ public class DuckDBTypeConverterTest {
     @Test
     void testConvertUnsignedTinyint() {
         Assertions.assertEquals(
-                BasicType.BYTE_TYPE, convert("f_utinyint", "utinyint").getDataType());
+                BasicType.SHORT_TYPE, convert("f_utinyint", "utinyint").getDataType());
     }
 
     @Test
@@ -70,7 +70,7 @@ public class DuckDBTypeConverterTest {
     @Test
     void testConvertUnsignedSmallint() {
         Assertions.assertEquals(
-                BasicType.SHORT_TYPE, convert("f_usmallint", "usmallint").getDataType());
+                BasicType.INT_TYPE, convert("f_usmallint", "usmallint").getDataType());
     }
 
     @Test
@@ -81,7 +81,7 @@ public class DuckDBTypeConverterTest {
     @Test
     void testConvertUnsignedInteger() {
         Assertions.assertEquals(
-                BasicType.INT_TYPE, convert("f_uinteger", "uinteger").getDataType());
+                BasicType.LONG_TYPE, convert("f_uinteger", "uinteger").getDataType());
     }
 
     @Test
@@ -91,7 +91,10 @@ public class DuckDBTypeConverterTest {
 
     @Test
     void testConvertUnsignedBigint() {
-        Assertions.assertEquals(BasicType.LONG_TYPE, convert("f_ubigint", "ubigint").getDataType());
+        Column column = convert("f_ubigint", "ubigint");
+        Assertions.assertEquals(new DecimalType(20, 0), column.getDataType());
+        Assertions.assertEquals(20L, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
     }
 
     @Test

@@ -69,6 +69,8 @@ and reading multiple tables in one job through `table_list`.
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
+Unsigned integers are widened to preserve their full range: UTINYINT → SMALLINT, USMALLINT → INT, UINTEGER → BIGINT, and UBIGINT → DECIMAL(20,0). Signed integer mappings remain unchanged.
+
 ## Source Options
 
 | Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                         |

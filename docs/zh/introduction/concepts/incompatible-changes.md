@@ -4,6 +4,14 @@
 
 ## dev
 
+### DuckDB 无符号整数 Source 类型映射
+
+DuckDB JDBC Source 现在将 UTINYINT 映射为 SMALLINT、USMALLINT 映射为 INT、UINTEGER 映射为 BIGINT，
+并将 UBIGINT 映射为 DECIMAL(20,0)，以保留此前溢出为负数的值。
+自动推断的 SeaTunnel schema 及据此创建的目标表因此会使用更宽的类型。
+升级前，请检查依赖原窄类型的下游 schema 和转换逻辑，确保目标类型能够容纳完整的无符号整数范围。
+有符号整数 Source 的映射保持不变。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
