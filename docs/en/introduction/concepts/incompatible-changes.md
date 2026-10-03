@@ -37,7 +37,7 @@ You need to check this document before you upgrade to related version.
     changes. Note this still differs from a string source, where `Integer.parseInt("5.7")` fails;
     aligning those is a separate decision.
   - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
-    by this change.
+    by this change; that gap is tracked separately in #12612.
   - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
     cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
     compute it explicitly rather than relying on `CAST`.
