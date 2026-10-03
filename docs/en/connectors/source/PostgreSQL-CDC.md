@@ -389,8 +389,9 @@ CDC job is permanently decommissioned, drop the unused replication slot manually
 ### Why does the job fail with "replication slot ... has been invalidated"?
 
 PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
-`max_slot_wal_keep_size` or stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18).
-`pg_replication_slots` then shows `wal_status = 'lost'` (and `invalidation_reason` on PostgreSQL 17 and later).
+`max_slot_wal_keep_size`, stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18),
+or, on a standby, conflicts with recovery. `pg_replication_slots` then shows `wal_status = 'lost'`,
+`conflicting = true` (PostgreSQL 16 and later) or `invalidation_reason` (PostgreSQL 17 and later).
 The changes after the slot's confirmed position are gone, so SeaTunnel fails the job with error `POSTGRES-04`.
 Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
 again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.

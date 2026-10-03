@@ -23,13 +23,22 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.Postgres
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.config.Configuration;
+import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ServerInfo;
+import io.debezium.connector.postgresql.spi.OffsetState;
+import io.debezium.connector.postgresql.spi.SlotState;
+import io.debezium.connector.postgresql.spi.Snapshotter;
+import io.debezium.relational.TableId;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -39,54 +48,79 @@ import static org.mockito.Mockito.when;
 
 public class PostgresSourceFetchTaskContextTest {
 
+    private static final String SLOT_NAME = "seatunnel";
+    private static final String PLUGIN_NAME = "pgoutput";
+
+    private final PostgresConnectorConfig connectorConfig =
+            new PostgresConnectorConfig(
+                    Configuration.create()
+                            .with(PostgresConnectorConfig.SLOT_NAME, SLOT_NAME)
+                            .with(PostgresConnectorConfig.PLUGIN_NAME, PLUGIN_NAME)
+                            .with("database.server.name", "postgres_cdc_source")
+                            .build());
+
     @Test
-    public void testSlotIsNotCheckedWhenJobDoesNotStream() throws SQLException {
-        PostgresConnection dataConnection = mock(PostgresConnection.class);
+    public void testSnapshotterIsInitializedBeforeItIsAsked() throws SQLException {
+        SlotState slotState = new SlotState(null, null, 0L, true);
+        PostgresConnection dataConnection = connectionReturningSlot(null);
+        when(dataConnection.getReplicationSlotState(SLOT_NAME, PLUGIN_NAME)).thenReturn(slotState);
+        InitRequiredSnapshotter snapshotter = new InitRequiredSnapshotter(true);
 
-        PostgresSourceFetchTaskContext.checkReplicationSlotNotInvalidated(
-                false, dataConnection, "seatunnel");
-
-        verify(dataConnection, never()).connection();
+        Assertions.assertSame(
+                slotState,
+                PostgresSourceFetchTaskContext.initSnapshotter(
+                        snapshotter, connectorConfig, null, dataConnection));
+        Assertions.assertSame(slotState, snapshotter.slotState);
     }
 
     @Test
     public void testInvalidatedSlotFailsBeforeStreaming() throws SQLException {
         PostgresConnection dataConnection = connectionReturningSlot("idle_timeout");
+        InitRequiredSnapshotter snapshotter = new InitRequiredSnapshotter(true);
 
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () ->
-                                PostgresSourceFetchTaskContext.checkReplicationSlotNotInvalidated(
-                                        true, dataConnection, "seatunnel"));
+                                PostgresSourceFetchTaskContext.initSnapshotter(
+                                        snapshotter, connectorConfig, null, dataConnection));
         Assertions.assertEquals(
                 PostgresConnectorErrorCode.REPLICATION_SLOT_INVALIDATED,
                 exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(snapshotter.initialized);
+        verify(dataConnection, never()).getReplicationSlotState(anyString(), anyString());
     }
 
     @Test
-    public void testHealthySlotPasses() throws SQLException {
-        PostgresConnection dataConnection = connectionReturningSlot(null);
+    public void testInvalidatedSlotDoesNotBlockSnapshotOnlyJob() throws SQLException {
+        PostgresConnection dataConnection = connectionReturningSlot("wal_removed");
+        InitRequiredSnapshotter snapshotter = new InitRequiredSnapshotter(false);
 
-        Assertions.assertDoesNotThrow(
-                () ->
-                        PostgresSourceFetchTaskContext.checkReplicationSlotNotInvalidated(
-                                true, dataConnection, "seatunnel"));
-        verify(dataConnection, never()).rollback();
+        Assertions.assertNull(
+                PostgresSourceFetchTaskContext.initSnapshotter(
+                        snapshotter, connectorConfig, null, dataConnection));
+        Assertions.assertTrue(snapshotter.initialized);
+        Assertions.assertNull(snapshotter.slotState);
+        verify(dataConnection, never()).getReplicationSlotState(anyString(), anyString());
     }
 
     @Test
-    public void testFailedCheckRollsBackAndContinues() throws SQLException {
+    public void testFailedCheckRollsBackAndReadsSlotState() throws SQLException {
+        SlotState slotState = new SlotState(null, null, 0L, true);
         Connection connection = mock(Connection.class);
         when(connection.prepareStatement(anyString())).thenThrow(new SQLException("denied"));
         PostgresConnection dataConnection = mock(PostgresConnection.class);
         when(dataConnection.connection()).thenReturn(connection);
+        when(dataConnection.serverInfo()).thenReturn(mock(ServerInfo.class));
+        when(dataConnection.getReplicationSlotState(SLOT_NAME, PLUGIN_NAME)).thenReturn(slotState);
+        InitRequiredSnapshotter snapshotter = new InitRequiredSnapshotter(true);
 
-        Assertions.assertDoesNotThrow(
-                () ->
-                        PostgresSourceFetchTaskContext.checkReplicationSlotNotInvalidated(
-                                true, dataConnection, "seatunnel"));
+        Assertions.assertSame(
+                slotState,
+                PostgresSourceFetchTaskContext.initSnapshotter(
+                        snapshotter, connectorConfig, null, dataConnection));
         verify(dataConnection).rollback();
+        Assertions.assertSame(slotState, snapshotter.slotState);
     }
 
     private static PostgresConnection connectionReturningSlot(String invalidationReason)
@@ -105,6 +139,49 @@ public class PostgresSourceFetchTaskContextTest {
         when(connection.prepareStatement(anyString())).thenReturn(statement);
         PostgresConnection dataConnection = mock(PostgresConnection.class);
         when(dataConnection.connection()).thenReturn(connection);
+        when(dataConnection.serverInfo()).thenReturn(mock(ServerInfo.class));
         return dataConnection;
+    }
+
+    /** A custom snapshotter that, like many real ones, decides from the state given to init. */
+    private static class InitRequiredSnapshotter implements Snapshotter {
+        private final boolean stream;
+        private boolean initialized;
+        private SlotState slotState;
+
+        private InitRequiredSnapshotter(boolean stream) {
+            this.stream = stream;
+        }
+
+        @Override
+        public void init(
+                PostgresConnectorConfig config, OffsetState sourceInfo, SlotState slotState) {
+            this.initialized = true;
+            this.slotState = slotState;
+        }
+
+        @Override
+        public boolean shouldSnapshot() {
+            checkInitialized();
+            return !stream;
+        }
+
+        @Override
+        public boolean shouldStream() {
+            checkInitialized();
+            return stream;
+        }
+
+        @Override
+        public Optional<String> buildSnapshotQuery(
+                TableId tableId, List<String> snapshotSelectColumns) {
+            return Optional.empty();
+        }
+
+        private void checkInitialized() {
+            if (!initialized) {
+                throw new IllegalStateException("init must be called first");
+            }
+        }
     }
 }

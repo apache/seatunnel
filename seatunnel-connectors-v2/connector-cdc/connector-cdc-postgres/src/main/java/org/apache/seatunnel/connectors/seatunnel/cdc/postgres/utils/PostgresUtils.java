@@ -328,30 +328,32 @@ public class PostgresUtils {
     }
 
     /**
-     * Fails if the replication slot exists in the current database but PostgreSQL has invalidated
-     * it. Streaming from such a slot can never succeed, and Debezium would otherwise keep retrying.
+     * Returns why PostgreSQL invalidated the replication slot, or empty if the slot is usable or
+     * does not exist in the current database. Streaming from an invalidated slot can never succeed.
      */
-    public static void checkReplicationSlotNotInvalidated(Connection connection, String slotName)
-            throws SQLException {
+    public static Optional<String> getReplicationSlotInvalidationReason(
+            Connection connection, String slotName) throws SQLException {
         try (PreparedStatement statement =
                 connection.prepareStatement(
                         "SELECT * FROM pg_replication_slots WHERE slot_name = ? AND database = current_database()")) {
             statement.setString(1, slotName);
             try (ResultSet resultSet = statement.executeQuery()) {
-                Optional<String> reason = readSlotInvalidationReason(resultSet);
-                if (reason.isPresent()) {
-                    throw new SeaTunnelRuntimeException(
-                            PostgresConnectorErrorCode.REPLICATION_SLOT_INVALIDATED,
-                            String.format(
-                                    "PostgreSQL replication slot '%s' has been invalidated by the server (reason: %s), "
-                                            + "so the changes after its last confirmed position are no longer available. "
-                                            + "Drop the slot with SELECT pg_drop_replication_slot('%s') and restart the job "
-                                            + "without restoring from a checkpoint or savepoint; "
-                                            + "use startup.mode = initial to take a new snapshot.",
-                                    slotName, reason.get(), slotName));
-                }
+                return readSlotInvalidationReason(resultSet);
             }
         }
+    }
+
+    public static SeaTunnelRuntimeException replicationSlotInvalidated(
+            String slotName, String reason) {
+        return new SeaTunnelRuntimeException(
+                PostgresConnectorErrorCode.REPLICATION_SLOT_INVALIDATED,
+                String.format(
+                        "PostgreSQL replication slot '%s' has been invalidated by the server (reason: %s), "
+                                + "so the changes after its last confirmed position are no longer available. "
+                                + "Drop the slot with SELECT pg_drop_replication_slot('%s') and restart the job "
+                                + "without restoring from a checkpoint or savepoint; "
+                                + "use startup.mode = initial to take a new snapshot.",
+                        slotName, reason, slotName));
     }
 
     /**

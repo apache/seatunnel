@@ -163,34 +163,39 @@ public class PostgresUtilsTest {
     }
 
     @Test
-    public void testCheckReplicationSlotNotInvalidated() throws SQLException {
+    public void testGetReplicationSlotInvalidationReason() throws SQLException {
         Map<String, Object> row = slotRow("lost");
         row.put("invalidation_reason", "idle_timeout");
         Connection connection = mock(Connection.class);
         PreparedStatement statement = mock(PreparedStatement.class);
-        ResultSet resultSet = slotResultSet(row);
+        ResultSet invalidated = slotResultSet(row);
         when(connection.prepareStatement(anyString())).thenReturn(statement);
-        when(statement.executeQuery()).thenReturn(resultSet);
+        when(statement.executeQuery()).thenReturn(invalidated);
 
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () ->
-                                PostgresUtils.checkReplicationSlotNotInvalidated(
-                                        connection, "st_idle"));
+        Assertions.assertEquals(
+                Optional.of("idle_timeout"),
+                PostgresUtils.getReplicationSlotInvalidationReason(connection, "st_idle"));
         verify(statement).setString(1, "st_idle");
-        Assertions.assertTrue(exception.getMessage().contains("POSTGRES-04"));
-        Assertions.assertTrue(exception.getMessage().contains("'st_idle' has been invalidated"));
-        Assertions.assertTrue(exception.getMessage().contains("reason: idle_timeout"));
-        Assertions.assertTrue(
-                exception.getMessage().contains("pg_drop_replication_slot('st_idle')"));
 
         row = slotRow("reserved");
         row.put("invalidation_reason", null);
         ResultSet healthy = slotResultSet(row);
         when(statement.executeQuery()).thenReturn(healthy);
-        Assertions.assertDoesNotThrow(
-                () -> PostgresUtils.checkReplicationSlotNotInvalidated(connection, "st_idle"));
+        Assertions.assertEquals(
+                Optional.empty(),
+                PostgresUtils.getReplicationSlotInvalidationReason(connection, "st_idle"));
+    }
+
+    @Test
+    public void testReplicationSlotInvalidatedMessage() {
+        SeaTunnelRuntimeException exception =
+                PostgresUtils.replicationSlotInvalidated("st_idle", "idle_timeout");
+
+        Assertions.assertTrue(exception.getMessage().contains("POSTGRES-04"));
+        Assertions.assertTrue(exception.getMessage().contains("'st_idle' has been invalidated"));
+        Assertions.assertTrue(exception.getMessage().contains("reason: idle_timeout"));
+        Assertions.assertTrue(
+                exception.getMessage().contains("pg_drop_replication_slot('st_idle')"));
     }
 
     private static Map<String, Object> slotRow(String walStatus) {
