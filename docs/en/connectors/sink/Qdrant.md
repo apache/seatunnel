@@ -14,7 +14,15 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.
 
-The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Normal columns are written to the point payload, vector columns are written as named vectors, and the primary key column is used as the Qdrant point ID when one is present.
+The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Normal columns
+are written to the point payload, vector columns are written as named vectors, and the
+primary key column is used as the Qdrant point ID when one is present. It is a good fit for
+loading vector data from upstream CDC or batch sources, and for mirroring one Qdrant
+collection into another.
+
+The target collection must already exist with the matching vector names and dimensions;
+the sink does not create collections, vector indexes, or interpret `UPDATE`/`DELETE` row
+kinds. It buffers up to 64 points per writer before issuing an upsert batch.
 
 ## Key Features
 
