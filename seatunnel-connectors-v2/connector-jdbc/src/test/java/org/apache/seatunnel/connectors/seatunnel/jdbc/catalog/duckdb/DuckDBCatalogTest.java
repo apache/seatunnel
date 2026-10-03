@@ -211,6 +211,99 @@ public class DuckDBCatalogTest {
         Assertions.assertFalse(catalog.tableExists(copyPath));
     }
 
+    @Test
+    @Order(8)
+    public void testQueryDecimalPrecisionAndScale() throws Exception {
+        List<Column> columns =
+                catalog.getTable(
+                                "SELECT 12345678901234567890::DECIMAL(20,0) AS whole, "
+                                        + "123.456::DECIMAL(12,3) AS fractional")
+                        .getTableSchema()
+                        .getColumns();
+        Assertions.assertEquals(new DecimalType(20, 0), columns.get(0).getDataType());
+        Assertions.assertEquals(new DecimalType(12, 3), columns.get(1).getDataType());
+    }
+
+    @Test
+    @Order(8)
+    public void testQueryTimestampWithTimeZone() throws Exception {
+        Column column =
+                catalog.getTable("SELECT TIMESTAMPTZ '2024-01-01 12:34:56+08' AS tz")
+                        .getTableSchema()
+                        .getColumns()
+                        .get(0);
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+    }
+
+    @Test
+    @Order(8)
+    public void testNativeQueryMetadata() throws Exception {
+        CatalogTable table =
+                catalog.getTable(
+                        "SELECT CAST(12345678901234567890 AS DECIMAL(20,0)) AS decimal_alias, "
+                                + "CAST(123.456 AS DECIMAL(12,3)) AS decimal_expression, "
+                                + "TIMESTAMPTZ '2024-01-01 12:34:56+08' AS tz, "
+                                + "UUID '550e8400-e29b-41d4-a716-446655440000' AS uuid, "
+                                + "JSON '{\"key\":1}' AS json, INTERVAL '1 day' AS interval_value, "
+                                + "CAST(12345678901234567890 AS HUGEINT) AS huge, "
+                                + "[1, 2] AS list_value, {'key': 1} AS struct_value, "
+                                + "MAP(['key'], [1]) AS map_value");
+        List<Column> columns = table.getTableSchema().getColumns();
+        Assertions.assertEquals("decimal_alias", columns.get(0).getName());
+        Assertions.assertEquals(new DecimalType(20, 0), columns.get(0).getDataType());
+        Assertions.assertEquals(new DecimalType(12, 3), columns.get(1).getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, columns.get(2).getDataType());
+        for (int index : new int[] {3, 4, 5, 7, 8, 9}) {
+            Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(index).getDataType());
+        }
+        Assertions.assertEquals(new DecimalType(38, 0), columns.get(6).getDataType());
+    }
+
+    @Test
+    @Order(9)
+    public void testQueryTimestampAliasesAndUnsignedBoundaries() throws Exception {
+        CatalogTable table =
+                catalog.getTable(
+                        "SELECT CAST('2024-01-01 12:34:56' AS TIMESTAMP_S) AS seconds, "
+                                + "CAST('2024-01-01 12:34:56.123' AS TIMESTAMP_MS) AS millis, "
+                                + "CAST('2024-01-01 12:34:56.123456789' AS TIMESTAMP_NS) AS nanos, "
+                                + "255::UTINYINT AS u8, 65535::USMALLINT AS u16, "
+                                + "4294967295::UINTEGER AS u32, 18446744073709551615::UBIGINT AS u64, "
+                                + "340282366920938463463374607431768211455::UHUGEINT AS u128");
+        List<Column> columns = table.getTableSchema().getColumns();
+        for (int index = 0; index < 3; index++) {
+            Assertions.assertEquals(
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE, columns.get(index).getDataType());
+        }
+        Assertions.assertEquals(BasicType.SHORT_TYPE, columns.get(3).getDataType());
+        Assertions.assertEquals(BasicType.INT_TYPE, columns.get(4).getDataType());
+        Assertions.assertEquals(BasicType.LONG_TYPE, columns.get(5).getDataType());
+        Assertions.assertEquals(new DecimalType(20, 0), columns.get(6).getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(7).getDataType());
+    }
+
+    @Test
+    @Order(10)
+    public void testQueryDiscoveryLeavesTablePathMetadataUnchanged() throws Exception {
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute(
+                    "CREATE TABLE query_metadata (d DECIMAL(20,0), tz TIMESTAMPTZ, "
+                            + "u UTINYINT, ts TIMESTAMP_NS, arr INTEGER[], st STRUCT(key INTEGER))");
+        }
+        TablePath path = getMainTablePath("query_metadata");
+        CatalogTable before = catalog.getTable(path);
+        catalog.getTable("SELECT * FROM query_metadata");
+        CatalogTable after = catalog.getTable(path);
+        Assertions.assertEquals(
+                before.getTableSchema().getColumns(), after.getTableSchema().getColumns());
+        // Keep the existing table-path semantics; unsigned and timestamp fixes are query-scoped.
+        List<Column> columns = after.getTableSchema().getColumns();
+        Assertions.assertEquals(new DecimalType(38, 0), columns.get(0).getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, columns.get(1).getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(4).getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(5).getDataType());
+    }
+
     private void createTestTable(String tableName) throws Exception {
         Connection connection = catalog.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {

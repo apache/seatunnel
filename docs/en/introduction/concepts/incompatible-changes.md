@@ -5,6 +5,17 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### DuckDB query schema metadata
+
+DuckDB JDBC `query` discovery now preserves native decimal precision/scale and maps timezone
+values to `TIMESTAMP_TZ` instead of `TIMESTAMP`. Unsigned query types retain their full range;
+UHUGEINT is text because its 39-digit range exceeds SeaTunnel's decimal limit. Existing
+`TIMESTAMP_S`/`TIMESTAMP_MS`/`TIMESTAMP_NS` query values remain `LocalDateTime`, and `table_path`
+discovery is unchanged. Update downstream schemas for corrected query types, or explicitly cast
+query expressions to the previous types before upgrading. See the DuckDB source guide's query
+schema section for the full mapping.
+
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
