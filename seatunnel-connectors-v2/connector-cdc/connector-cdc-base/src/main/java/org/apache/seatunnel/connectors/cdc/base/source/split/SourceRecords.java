@@ -26,18 +26,48 @@ import java.util.List;
 /** Data structure to describe a set of {@link SourceRecord}. */
 public final class SourceRecords {
 
-    private final List<SourceRecord> sourceRecords;
+    private List<SourceRecord> sourceRecords;
+    private final Iterator<SourceRecord> sourceRecordIterator;
+    private AutoCloseable closeable;
 
     public SourceRecords(List<SourceRecord> sourceRecords) {
         this.sourceRecords = sourceRecords;
+        this.sourceRecordIterator = null;
+    }
+
+    /** Creates a lazily consumed record group backed by a closeable resource. */
+    public SourceRecords(Iterator<SourceRecord> sourceRecordIterator, AutoCloseable closeable) {
+        this.sourceRecordIterator = sourceRecordIterator;
+        this.closeable = closeable;
     }
 
     public List<SourceRecord> getSourceRecordList() {
+        if (sourceRecords == null) {
+            sourceRecords = new ArrayList<>();
+            try {
+                sourceRecordIterator.forEachRemaining(sourceRecords::add);
+            } finally {
+                close();
+            }
+        }
         return sourceRecords;
     }
 
     public Iterator<SourceRecord> iterator() {
-        return sourceRecords.iterator();
+        return sourceRecords == null ? sourceRecordIterator : sourceRecords.iterator();
+    }
+
+    public synchronized void close() {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (Exception ignored) {
+            // The backing store performs best-effort cleanup of temporary files.
+        } finally {
+            closeable = null;
+        }
     }
 
     public static SourceRecords fromSingleRecord(SourceRecord record) {
