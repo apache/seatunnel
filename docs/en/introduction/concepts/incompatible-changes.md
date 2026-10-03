@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### DuckDB BIT and ENUM automatic DDL
+
+- Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
+  instead of the previous 1/255 fallback. Positive lengths are unchanged. Automatically generated
+  columns use MySQL `LONGTEXT` or PostgreSQL `text` instead of the old bounded string types.
+- Existing target tables are not resized. Review their column definitions and widen them manually
+  before transferring values that exceed the existing limits.
+- With `create_index = true` (the default), MySQL automatic table creation fails when one of these
+  columns is a primary key: `LONGTEXT` cannot be used as a full-column primary key. Pre-create the
+  target table with an explicitly bounded key type that fits the source data and MySQL index limits,
+  and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` to preserve that schema. Do not use
+  `RECREATE_SCHEMA` for a manually defined target. An arbitrary key-prefix length can reject distinct
+  source keys that share that prefix, so it is not a semantics-preserving substitute.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
