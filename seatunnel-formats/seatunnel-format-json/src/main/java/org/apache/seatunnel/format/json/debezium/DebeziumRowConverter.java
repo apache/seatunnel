@@ -56,9 +56,13 @@ public class DebeziumRowConverter implements Serializable {
 
     private final Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
     private final SeaTunnelRowType rowType;
+    private final String[] rootFieldNames;
+    private final SeaTunnelDataType<?>[] rootFieldTypes;
 
     public DebeziumRowConverter(SeaTunnelRowType rowType) {
         this.rowType = rowType;
+        this.rootFieldNames = rowType.getFieldNames();
+        this.rootFieldTypes = rowType.getFieldTypes();
     }
 
     public SeaTunnelRow parse(JsonNode node) throws IOException {
@@ -161,7 +165,7 @@ public class DebeziumRowConverter implements Serializable {
             case TIMESTAMP:
                 String timestampStr = value.asText();
                 if (value.canConvertToLong()) {
-                    long timestamp = Long.parseLong(value.toString());
+                    long timestamp = value.asLong();
                     if (timestampStr.length() > 16) {
                         timestamp = TimeUnit.NANOSECONDS.toMillis(timestamp);
                     } else if (timestampStr.length() > 13) {
@@ -192,34 +196,41 @@ public class DebeziumRowConverter implements Serializable {
                 LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
                 return LocalDateTime.of(localDate, localTime);
             case ARRAY:
-                List<Object> arrayValue = new ArrayList<>();
-                for (JsonNode o : value) {
-                    arrayValue.add(getValue(fieldName, ((ArrayType) dataType).getElementType(), o));
+                {
+                    List<Object> arrayValue = new ArrayList<>(value.size());
+                    SeaTunnelDataType<?> elementType = ((ArrayType) dataType).getElementType();
+                    for (JsonNode o : value) {
+                        arrayValue.add(getValue(fieldName, elementType, o));
+                    }
+                    return arrayValue;
                 }
-                return arrayValue;
             case MAP:
                 Map<Object, Object> mapValue = new LinkedHashMap<>();
+                SeaTunnelDataType<?> mapValueType = ((MapType) dataType).getValueType();
                 for (Iterator<Map.Entry<String, JsonNode>> it = value.fields(); it.hasNext(); ) {
                     Map.Entry<String, JsonNode> entry = it.next();
-                    mapValue.put(
-                            entry.getKey(),
-                            getValue(null, ((MapType) dataType).getValueType(), entry.getValue()));
+                    mapValue.put(entry.getKey(), getValue(null, mapValueType, entry.getValue()));
                 }
                 return mapValue;
             case ROW:
-                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                SeaTunnelRow row = new SeaTunnelRow(rowType.getTotalFields());
-                for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    row.setField(
-                            i,
-                            getValue(
-                                    rowType.getFieldName(i),
-                                    rowType.getFieldType(i),
-                                    value.has(rowType.getFieldName(i))
-                                            ? value.get(rowType.getFieldName(i))
-                                            : null));
+                {
+                    SeaTunnelRowType nestedRowType = (SeaTunnelRowType) dataType;
+                    String[] fieldNames =
+                            nestedRowType == rowType
+                                    ? rootFieldNames
+                                    : nestedRowType.getFieldNames();
+                    SeaTunnelDataType<?>[] fieldTypes =
+                            nestedRowType == rowType
+                                    ? rootFieldTypes
+                                    : nestedRowType.getFieldTypes();
+                    int arity = fieldNames.length;
+                    Object[] fields = new Object[arity];
+                    for (int i = 0; i < arity; i++) {
+                        String name = fieldNames[i];
+                        fields[i] = getValue(name, fieldTypes[i], value.get(name));
+                    }
+                    return new SeaTunnelRow(fields);
                 }
-                return row;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + sqlType);
         }
