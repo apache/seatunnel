@@ -327,18 +327,15 @@ sink {
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
 - 如果值是map类型，可以使用json传参，参数值支持任意深度的数组和json嵌套。参数值使用单引号包裹标准json，如下：
 
-- `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
-
+  `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
 - json参数值兼容hocon语法，可以用等号(`=`)代替冒号(`:`), 如 `a='{"k1"="v1","k2"="v2"}'` 与`a='{"k1":"v1","k2":"v2"}'` 等效，但仍然建议用冒号。
 
 - 如果值是array中包含map类型，json参数需要用单引号(`\'`)包裹：
 
   `-i table_list=['{"table_path":"movie_lens.tags_test"}','{"table_path":"movie_lens.ml_*","use_regex":"true"}']`
-
 - 如果值是map中包含array类型，json内部的array参数格式需要遵循json格式规范，key要带上双引号，array中的元素可以带引号也可以不带，会自动解析：
 
   `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
-
 - 参数值的json内容中的占位符不会被解析，会作为内容的一部分原样保留。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
