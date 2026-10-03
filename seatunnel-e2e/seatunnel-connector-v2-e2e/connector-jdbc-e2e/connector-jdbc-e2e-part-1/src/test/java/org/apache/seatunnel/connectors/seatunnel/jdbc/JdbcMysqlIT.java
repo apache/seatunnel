@@ -37,6 +37,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -63,8 +64,12 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -800,5 +805,36 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         ReflectionUtils.getField(splitter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
         return connection.getProperties();
+    }
+
+    @Test
+    public void testGeneratedSpecialFieldBinding() throws Exception {
+        try (Connection conn =
+                        DriverManager.getConnection(getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD);
+                Statement ddl = conn.createStatement()) {
+            ddl.execute(
+                    "CREATE TABLE named_binding_case (`field?question` INT, `field:colon` INT)");
+            try {
+                try (FieldNamedPreparedStatement ps =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                conn,
+                                "INSERT INTO named_binding_case (`field?question`, `field:colon`) VALUES (:field?question,:field:colon)",
+                                new String[] {"field?question", "field:colon"})) {
+                    ps.setInt(1, 7);
+                    ps.setInt(2, 42);
+                    ps.executeUpdate();
+                }
+                try (ResultSet rs =
+                        ddl.executeQuery(
+                                "SELECT `field?question`,`field:colon` FROM named_binding_case")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(7, rs.getInt(1));
+                    Assertions.assertEquals(42, rs.getInt(2));
+                    Assertions.assertFalse(rs.next());
+                }
+            } finally {
+                ddl.execute("DROP TABLE named_binding_case");
+            }
+        }
     }
 }

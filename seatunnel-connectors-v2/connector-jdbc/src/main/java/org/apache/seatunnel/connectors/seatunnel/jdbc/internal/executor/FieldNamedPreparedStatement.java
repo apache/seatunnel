@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -60,6 +61,14 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class FieldNamedPreparedStatement implements PreparedStatement {
     private final PreparedStatement statement;
     private final int[][] indexMapping;
+
+    private static final String PARAMETER_CHARACTERS =
+            "[\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\$\\-\\.@%&*#~!?^+=<>|]";
+    // These tokens carry SQL text, not bind parameters, and must be copied verbatim.
+    private static final String SQL_TEXT_TOKENS =
+            "'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`(?:``|[^`])*`"
+                    + "|--[^\\r\\n]*|/\\*[\\s\\S]*?\\*/"
+                    + "|\\$(?<tag>[a-zA-Z_][a-zA-Z_0-9]*|)\\$[\\s\\S]*?\\$\\k<tag>\\$|::";
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
@@ -657,48 +666,76 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
         return statement.isWrapperFor(iface);
     }
 
+    /**
+     * Configured custom SQL keeps the previous binding grammar: positional SQL with question marks
+     * is passed through verbatim (preserving dialect literal escaping such as E'' strings), while
+     * named SQL is rewritten with the legacy literal-colon replacement behavior.
+     */
+    public static FieldNamedPreparedStatement prepareStatementForCustomSql(
+            Connection connection, String sql, String[] fieldNames) throws SQLException {
+        checkNotNull(connection, "connection must not be null.");
+        checkNotNull(sql, "sql must not be null.");
+        checkNotNull(fieldNames, "fieldNames must not be null.");
+        if (sql.contains("?")) {
+            return preparePositionalStatement(connection, sql, fieldNames.length);
+        }
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String parsedSQL = parseNamedStatement(sql, parameterMap);
+        return prepareNamedStatement(connection, sql, parsedSQL, parameterMap, fieldNames);
+    }
+
     public static FieldNamedPreparedStatement prepareStatement(
             Connection connection, String sql, String[] fieldNames) throws SQLException {
         checkNotNull(connection, "connection must not be null.");
         checkNotNull(sql, "sql must not be null.");
         checkNotNull(fieldNames, "fieldNames must not be null.");
 
-        int[][] indexMapping = new int[fieldNames.length][];
-        String parsedSQL;
-        if (sql.contains("?")) {
-            parsedSQL = sql;
-            for (int i = 0; i < fieldNames.length; i++) {
-                // SQL statement parameter index starts from 1
-                indexMapping[i] = new int[] {i + 1};
-            }
-        } else {
-            HashMap<String, List<Integer>> parameterMap = new HashMap<>();
-            parsedSQL = parseNamedStatement(sql, parameterMap);
-            // currently, the statements must contain all the field parameters
-            parameterMap
-                    .keySet()
-                    .forEach(
-                            namedParameter -> {
-                                boolean namedParameterExist =
-                                        Arrays.asList(fieldNames).stream()
-                                                .anyMatch(field -> field.equals(namedParameter));
-                                checkArgument(
-                                        namedParameterExist,
-                                        String.format(
-                                                "Named parameters [%s] not in source columns, check SQL: %s",
-                                                namedParameter, sql));
-                            });
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        ParsedStatement parsed = parseStatement(sql, parameterMap, fieldNames);
+        if (parsed.hasPositionalParameters) {
+            return preparePositionalStatement(connection, sql, fieldNames.length);
+        }
+        return prepareNamedStatement(connection, sql, parsed.sql, parameterMap, fieldNames);
+    }
 
-            for (int i = 0; i < fieldNames.length; i++) {
-                String fieldName = fieldNames[i];
-                boolean parameterExist =
-                        parameterMap.keySet().stream()
-                                .anyMatch(parameter -> parameter.equals(fieldName));
-                indexMapping[i] =
-                        parameterExist
-                                ? parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray()
-                                : new int[0];
-            }
+    private static FieldNamedPreparedStatement preparePositionalStatement(
+            Connection connection, String sql, int fieldCount) throws SQLException {
+        int[][] indexMapping = new int[fieldCount][];
+        for (int i = 0; i < fieldCount; i++) {
+            // SQL statement parameter index starts from 1.
+            indexMapping[i] = new int[] {i + 1};
+        }
+        log.info("PrepareStatement sql is:\n{}\n", sql);
+        return new FieldNamedPreparedStatement(connection.prepareStatement(sql), indexMapping);
+    }
+
+    private static FieldNamedPreparedStatement prepareNamedStatement(
+            Connection connection,
+            String sql,
+            String parsedSQL,
+            Map<String, List<Integer>> parameterMap,
+            String[] fieldNames)
+            throws SQLException {
+        // Every named parameter must reference a known source field.
+        parameterMap
+                .keySet()
+                .forEach(
+                        namedParameter -> {
+                            boolean namedParameterExist =
+                                    Arrays.asList(fieldNames).stream()
+                                            .anyMatch(field -> field.equals(namedParameter));
+                            checkArgument(
+                                    namedParameterExist,
+                                    String.format(
+                                            "Named parameters [%s] not in source columns, check SQL: %s",
+                                            namedParameter, sql));
+                        });
+
+        int[][] indexMapping = new int[fieldNames.length][];
+        for (int i = 0; i < fieldNames.length; i++) {
+            List<Integer> indexes = parameterMap.get(fieldNames[i]);
+            indexMapping[i] =
+                    indexes == null ? new int[0] : indexes.stream().mapToInt(v -> v).toArray();
         }
         log.info("PrepareStatement sql is:\n{}\n", parsedSQL);
         return new FieldNamedPreparedStatement(
@@ -726,5 +763,57 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
         matcher.appendTail(result);
 
         return result.toString();
+    }
+
+    /**
+     * Recognize exact source field names before falling back to the legacy parameter alphabet.
+     * Longer names win, but a prefix of an unknown name must not silently bind a shorter field.
+     * Quoted identifiers, string literals, comments and casts are copied verbatim.
+     */
+    private static ParsedStatement parseStatement(
+            String sql, Map<String, List<Integer>> paramMap, String[] fieldNames) {
+        String knownNames =
+                Arrays.stream(fieldNames)
+                        .filter(name -> name != null && !name.isEmpty())
+                        .distinct()
+                        .sorted((left, right) -> Integer.compare(right.length(), left.length()))
+                        .map(Pattern::quote)
+                        .collect(Collectors.joining("|"));
+        String parameterName = PARAMETER_CHARACTERS + "+";
+        if (!knownNames.isEmpty()) {
+            parameterName =
+                    "(?:" + knownNames + ")(?!" + PARAMETER_CHARACTERS + ")|" + parameterName;
+        }
+        Pattern pattern =
+                Pattern.compile(
+                        SQL_TEXT_TOKENS
+                                + "|:(?<parameter>"
+                                + parameterName
+                                + ")|(?<positional>\\?)");
+        Matcher matcher = pattern.matcher(sql);
+        StringBuilder result = new StringBuilder(sql.length());
+        int copiedUntil = 0;
+        int fieldIndex = 1;
+        boolean hasPositionalParameters = false;
+        while (matcher.find()) {
+            result.append(sql, copiedUntil, matcher.start());
+            String name = matcher.group("parameter");
+            if (name != null) {
+                paramMap.computeIfAbsent(name, n -> new ArrayList<>()).add(fieldIndex++);
+                result.append('?');
+            } else {
+                hasPositionalParameters |= matcher.group("positional") != null;
+                result.append(matcher.group());
+            }
+            copiedUntil = matcher.end();
+        }
+        result.append(sql, copiedUntil, sql.length());
+        return new ParsedStatement(result.toString(), hasPositionalParameters);
+    }
+
+    @RequiredArgsConstructor
+    private static class ParsedStatement {
+        private final String sql;
+        private final boolean hasPositionalParameters;
     }
 }
