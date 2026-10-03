@@ -67,6 +67,7 @@ public class SeaTunnelDataTypeHolder {
             case "timestamp2":
             case "timestampSec":
             case "timestampSecTz":
+            case "timestampMicroTz":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "time":
                 return LocalTimeType.LOCAL_TIME_TYPE;

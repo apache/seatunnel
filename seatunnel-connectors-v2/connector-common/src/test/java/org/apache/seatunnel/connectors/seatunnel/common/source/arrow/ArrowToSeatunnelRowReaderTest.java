@@ -34,6 +34,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.IntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.SmallIntVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeMicroVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampSecTZVector;
@@ -69,6 +70,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -89,6 +91,15 @@ public class ArrowToSeatunnelRowReaderTest {
     private static final LocalDateTime localDateTime =
             LocalDateTime.parse(
                     "2025-02-15 02:21:23", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    private static final LocalDateTime localDateTimeMicro =
+            LocalDateTime.parse(
+                    "2025-02-15 02:21:23.123456",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+
+    private static final ZoneId timestampTzZoneId =
+            ZoneId.systemDefault().equals(ZoneId.of("Asia/Shanghai"))
+                    ? ZoneId.of("America/New_York")
+                    : ZoneId.of("Asia/Shanghai");
 
     private static final List<String> stringData = new ArrayList<>();
     private static final List<Byte> byteData = new ArrayList<>();
@@ -127,6 +138,7 @@ public class ArrowToSeatunnelRowReaderTest {
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSec", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampSecTz", 0));
         seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("map", 0));
+        seaTunnelDataTypeHolder.add(new SeaTunnelDataTypeHolder("timestampMicroTz", 0));
     }
 
     private static VectorSchemaRoot buildVectorSchemaRoot(
@@ -161,6 +173,14 @@ public class ArrowToSeatunnelRowReaderTest {
                                     new ArrowType.Timestamp(
                                             TimeUnit.MILLISECOND, ZoneId.systemDefault().getId())),
                             rootAllocator));
+            // Microsecond timestamp with timezone
+            vectors.add(
+                    new TimeStampMicroTZVector(
+                            Field.nullable(
+                                    "timestampMicroTz",
+                                    new ArrowType.Timestamp(
+                                            TimeUnit.MICROSECOND, timestampTzZoneId.getId())),
+                            rootAllocator));
             vectors.add(new TimeMicroVector("time", rootAllocator));
             vectors.add(new DateMilliVector("date1", rootAllocator));
             vectors.add(new DateDayVector("date2", rootAllocator));
@@ -185,6 +205,9 @@ public class ArrowToSeatunnelRowReaderTest {
         vectors.forEach(FieldVector::allocateNew);
         long epochMilli = localDateTime.atZone(zoneId).toInstant().toEpochMilli();
         long epochSecond = localDateTime.atZone(zoneId).toInstant().getEpochSecond();
+
+        Instant instant = localDateTimeMicro.atZone(timestampTzZoneId).toInstant();
+        long epochMicro = instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1_000;
 
         byte byteStart = 'a';
 
@@ -239,6 +262,14 @@ public class ArrowToSeatunnelRowReaderTest {
                             ((TimeStampSecVector) vector).setSafe(i, epochSecond);
                         } else if (vector instanceof TimeStampSecTZVector) {
                             ((TimeStampSecTZVector) vector).setSafe(i, epochSecond);
+                        } else if (vector instanceof TimeStampMicroTZVector) {
+                            TimeStampMicroTZVector timestampVector =
+                                    (TimeStampMicroTZVector) vector;
+                            if (i == 0) {
+                                timestampVector.setNull(i);
+                            } else {
+                                timestampVector.setSafe(i, epochMicro);
+                            }
                         }
                     }
                 });
@@ -414,11 +445,18 @@ public class ArrowToSeatunnelRowReaderTest {
                     rows.stream().map(s -> s.getField(19)).distinct().collect(Collectors.toList());
             Assertions.assertEquals(
                     Collections.singletonList(localDateTime), actualTimestampSecTzData);
-
             // todo check map
             // The java api has problems building MapVectors,and there are no examples on the
             // official website
             // @see https://github.com/apache/arrow/issues/44664
+
+            // Check null microsecond timestamp with timezone
+            Assertions.assertNull(rows.get(0).getField(21));
+
+            // Check non-null microsecond timestamps with timezone
+            for (int i = 1; i < rows.size(); i++) {
+                Assertions.assertEquals(localDateTimeMicro, rows.get(i).getField(21));
+            }
         }
     }
 
