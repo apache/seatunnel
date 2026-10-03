@@ -63,11 +63,13 @@ Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 
 ### url [string]
 
-The URL to connect to InfluxDB, for example `http://influxdb-host:8086`.
+The URL to connect to InfluxDB, for example `http://influxdb-host:8086`. This option is required
+and must not be blank; a missing or blank value is rejected at config-validation time.
 
 ### database [string]
 
-The name of the InfluxDB database that points are written to.
+The name of the InfluxDB database that points are written to. This option is required and must not
+be blank; a missing or blank value is rejected at config-validation time.
 
 ### measurement [string]
 
@@ -97,7 +99,7 @@ written as point fields. When omitted, every field is written as a point field.
 ### batch_size [int]
 
 Number of points buffered before flushing to InfluxDB. The default is `1024`. The buffer is also
-flushed at each checkpoint and when the writer closes.
+flushed at each checkpoint and when the writer closes. Must be greater than `0`.
 
 ### max_retries [int]
 
@@ -129,11 +131,13 @@ are recognized for write precision. The default value `n` is treated as nanoseco
 
 ### query_timeout_sec [int]
 
-The read timeout used by the InfluxDB client, in seconds.
+The read timeout used by the InfluxDB client, in seconds. A negative value is rejected; `0`
+means no timeout.
 
 ### connect_timeout_ms [long]
 
-The timeout for connecting to InfluxDB, in milliseconds. The default is `15000`.
+The timeout for connecting to InfluxDB, in milliseconds. The default is `15000`. A negative
+value is rejected; `0` means no timeout.
 
 ### common options
 

@@ -26,6 +26,14 @@
   - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
     `host`/`port` + `ssl = true` 配置并正确设置信任库。
 
+### InfluxDB Sink
+
+- **行为变更：`batch_size <= 0` 现在会在配置校验阶段被拒绝**
+  - **影响范围**：`seatunnel-connectors-v2/connector-influxdb`（sink）
+  - **变更说明**：此前 `InfluxDB` 接受非正的 `batch_size`。设置 `batch_size = 0` 会关闭缓冲刷新，使 sink 仅在每次 checkpoint 或 writer 关闭时才 flush。现在该选项以 `batch_size > 0` 进行校验，依赖该“仅在 checkpoint/关闭时 flush”行为的作业将在提交时失败并抛出 `OptionValidationException`，而不再运行。
+  - **影响**：显式将 `batch_size` 设置为 `0` 或负数的作业将无法提交。默认值（`1024`）及任何正值不受影响。
+  - **迁移指南**：将 `batch_size` 设置为正值（例如默认值 `1024`）。如需降低 flush 频率，请增大 `batch_size` 和/或 `checkpoint.interval`，而不要关闭缓冲。
+
 ### FakeSource (connector-fake)
 
 - 声明式选项约束现在在工厂校验阶段即强制生效，而不再静默放行、直到运行时才失败。受影响选项：`split.num`、

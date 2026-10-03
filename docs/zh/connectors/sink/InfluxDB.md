@@ -62,11 +62,12 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ### url [string]
 
-连接到 InfluxDB 的 URL，例如 `http://influxdb-host:8086`。
+连接到 InfluxDB 的 URL，例如 `http://influxdb-host:8086`。该选项为必填项且不能为空白；
+缺失或空白值会在配置校验阶段被拒绝。
 
 ### database [string]
 
-InfluxDB 数据库的名称。
+InfluxDB 数据库的名称。该选项为必填项且不能为空白；缺失或空白值会在配置校验阶段被拒绝。
 
 ### measurement [string]
 
@@ -95,7 +96,7 @@ InfluxDB 用户密码。
 ### batch_size [int]
 
 批量写入时，当缓冲数量达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据会刷新到 InfluxDB。
-默认值为 `1024`，在每个 checkpoint 和 writer 关闭时也会触发 flush。
+默认值为 `1024`，在每个 checkpoint 和 writer 关闭时也会触发 flush。该值必须大于 `0`。
 
 ### max_retries [int]
 
@@ -126,11 +127,11 @@ InfluxDB 客户端使用的时间精度。用于 sink 写入精度时，当前�
 
 ### query_timeout_sec [int]
 
-InfluxDB 客户端读超时时间，单位秒。
+InfluxDB 客户端读超时时间，单位秒。负值会被拒绝；`0` 表示不超时。
 
 ### connect_timeout_ms [long]
 
-连接 InfluxDB 的超时时间，单位毫秒。默认值为 `15000`。
+连接 InfluxDB 的超时时间，单位毫秒。默认值为 `15000`。负值会被拒绝；`0` 表示不超时。
 
 ### 通用选项
 
