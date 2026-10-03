@@ -185,6 +185,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         LoggingContext.PreviousContext previousContext =
                 taskContext.configureLoggingContext(CONTEXT_NAME);
         try {
+            final String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
+            checkReplicationSlotNotInvalidated(
+                    snapshotter.shouldStream(), dataConnection, slotName);
+
             // Print out the server information
             SlotState slotInfo = null;
             try {
@@ -196,8 +200,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                 connectorConfig.getConfig().getString(PLUGIN_NAME));
                 slotInfo =
                         dataConnection.getReplicationSlotState(
-                                connectorConfig.getConfig().getString(SLOT_NAME),
-                                logicalDecoder.getPostgresPluginName());
+                                slotName, logicalDecoder.getPostgresPluginName());
             } catch (SQLException e) {
                 log.warn(
                         "unable to load info of replication slot, Debezium will try to create the slot");
@@ -305,6 +308,32 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             this.errorHandler = new PostgresErrorHandler(connectorConfig, queue);
         } finally {
             previousContext.restore();
+        }
+    }
+
+    /**
+     * An invalidated slot can never stream again. Fail before Debezium reads the slot state or
+     * starts replication, since both keep retrying on such a slot and the job would restart without
+     * ever recovering the lost changes.
+     */
+    static void checkReplicationSlotNotInvalidated(
+            boolean shouldStream, PostgresConnection dataConnection, String slotName) {
+        if (!shouldStream) {
+            return;
+        }
+        try {
+            PostgresUtils.checkReplicationSlotNotInvalidated(dataConnection.connection(), slotName);
+        } catch (SQLException e) {
+            log.warn(
+                    "Unable to check whether replication slot '{}' has been invalidated",
+                    slotName,
+                    e);
+            try {
+                // keep the connection usable for the slot state queries that follow
+                dataConnection.rollback();
+            } catch (SQLException rollbackException) {
+                log.warn("Failed to roll back the slot check transaction", rollbackException);
+            }
         }
     }
 
