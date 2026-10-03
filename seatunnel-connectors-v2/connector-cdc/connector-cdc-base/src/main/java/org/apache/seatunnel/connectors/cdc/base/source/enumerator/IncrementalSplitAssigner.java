@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
@@ -27,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.Incremen
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
 import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
@@ -39,6 +43,7 @@ import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,7 +57,8 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** Assigner for incremental split. */
-public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAssigner {
+public class IncrementalSplitAssigner<C extends SourceConfig>
+        implements SplitAssigner, CdcEnumeratorProgressSource {
 
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSplitAssigner.class);
     protected static final String INCREMENTAL_SPLIT_ID = "incremental-split-%d";
@@ -206,6 +212,20 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // nothing to do
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
+            String connectorType, String positionType) {
+        return new CdcEnumeratorProgressReport(
+                connectorType,
+                CdcSnapshotAssignmentStatus.NOT_APPLICABLE,
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                Collections.emptyList());
     }
 
     // ------------------------------------------------------------------------------------------

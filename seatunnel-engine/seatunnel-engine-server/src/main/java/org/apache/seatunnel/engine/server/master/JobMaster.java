@@ -79,6 +79,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
@@ -157,6 +158,10 @@ public class JobMaster {
 
     private SeaTunnelServer seaTunnelServer;
 
+    private final CdcProgressService.Generation cdcProgressGeneration;
+    private final CdcProgressService.Owner cdcProgressOwner;
+    private boolean cdcProgressClosed;
+
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.
@@ -211,6 +216,38 @@ public class JobMaster {
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
+        this(
+                jobId,
+                jobImmutableInformationData,
+                nodeEngine,
+                executorService,
+                resourceManager,
+                jobHistoryService,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                ownedSlotProfilesIMap,
+                runningJobInfoIMap,
+                engineConfig,
+                seaTunnelServer,
+                seaTunnelServer.getCdcProgressService().getGeneration(),
+                seaTunnelServer.getCdcProgressService().newOwner());
+    }
+
+    public JobMaster(
+            @NonNull Long jobId,
+            @NonNull Data jobImmutableInformationData,
+            @NonNull NodeEngine nodeEngine,
+            @NonNull ExecutorService executorService,
+            @NonNull ResourceManager resourceManager,
+            @NonNull JobHistoryService jobHistoryService,
+            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull IMap ownedSlotProfilesIMap,
+            @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+            EngineConfig engineConfig,
+            SeaTunnelServer seaTunnelServer,
+            CdcProgressService.Generation cdcProgressGeneration,
+            CdcProgressService.Owner cdcProgressOwner) {
         this.jobId = jobId;
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
@@ -227,10 +264,21 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.seaTunnelServer = seaTunnelServer;
+        this.cdcProgressGeneration = cdcProgressGeneration;
+        this.cdcProgressOwner = cdcProgressOwner;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
+        try {
+            initInternal(initializationTimestamp, restart);
+        } catch (Exception | Error failure) {
+            closeCdcProgressContexts();
+            throw failure;
+        }
+    }
+
+    private void initInternal(long initializationTimestamp, boolean restart) throws Exception {
         this.initializationTimestamp = initializationTimestamp;
         this.masterFailoverRestore = restart;
         jobImmutableInformation =
@@ -1263,6 +1311,9 @@ public class JobMaster {
 
     public void removeMetricsContext(
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
+        if (pipelineStatus.isEndState()) {
+            closeCdcProgressContext(pipelineLocation);
+        }
         if (pipelineStatus.equals(PipelineStatus.FAILED)
                 || (pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
@@ -1273,6 +1324,33 @@ public class JobMaster {
             } catch (Exception e) {
                 LOGGER.severe("failed to remove metrics", e);
             }
+        }
+    }
+
+    public void registerCdcProgressContext(PipelineLocation pipelineLocation) {
+        synchronized (cdcProgressOwner) {
+            if (!cdcProgressClosed) {
+                seaTunnelServer
+                        .getCdcProgressService()
+                        .registerPipeline(
+                                cdcProgressGeneration, pipelineLocation, cdcProgressOwner);
+            }
+        }
+    }
+
+    public void closeCdcProgressContext(PipelineLocation pipelineLocation) {
+        seaTunnelServer
+                .getCdcProgressService()
+                .removePipeline(cdcProgressGeneration, pipelineLocation, cdcProgressOwner);
+    }
+
+    /** Closes this owner's scopes without removing a replacement job master's observations. */
+    public void closeCdcProgressContexts() {
+        synchronized (cdcProgressOwner) {
+            cdcProgressClosed = true;
+            seaTunnelServer
+                    .getCdcProgressService()
+                    .removePipelines(cdcProgressGeneration, cdcProgressOwner);
         }
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -34,6 +35,8 @@ import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
@@ -45,17 +48,21 @@ import lombok.NonNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
 
-public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
+public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask
+        implements CdcProgressReportSource<CdcReaderProgressReport> {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
     private transient SeaTunnelSourceCollector<T> collector;
 
     private transient Object checkpointLock;
+    private transient AtomicLong cdcProgressSequence;
+    private transient volatile SourceFlowLifeCycle<T, SplitT> cdcProgressFlow;
     @Getter private transient Serializer<SplitT> splitSerializer;
     private final Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
@@ -75,6 +82,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     public void init() throws Exception {
         super.init();
         this.checkpointLock = new Object();
+        this.cdcProgressSequence = new AtomicLong();
         this.splitSerializer = sourceFlow.getAction().getSource().getSplitSerializer();
 
         LOGGER.info("starting seatunnel source task, index " + indexID);
@@ -118,6 +126,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                                     ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
                                             .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
+            cdcProgressFlow = (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         }
     }
 
@@ -167,5 +176,26 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
+    }
+
+    @Override
+    public CdcReaderProgressReport getCdcProgressReport() {
+        SourceFlowLifeCycle<T, SplitT> flow = cdcProgressFlow;
+        return flow == null ? null : flow.getCdcReaderProgress();
+    }
+
+    @Override
+    public CdcProgressOwner getCdcProgressOwner() {
+        return CdcProgressOwner.READER;
+    }
+
+    @Override
+    public long getCdcProgressSourceVertexId() {
+        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getSourceVertexId();
+    }
+
+    @Override
+    public long nextCdcProgressSequence() {
+        return cdcProgressSequence.incrementAndGet();
     }
 }
