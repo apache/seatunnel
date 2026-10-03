@@ -55,6 +55,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 TASKS_DIR = Path(__file__).resolve().parent / "tasks"
+PRESETS_FILE = Path(__file__).resolve().parent / "presets.json"
 TIER_FILES = {
     1: "tier1_simple.json",
     2: "tier2_medium.json",
@@ -65,6 +66,24 @@ CLARIFICATION_REPLY = (
     "Use sensible defaults for anything unspecified. Do not ask further "
     "questions — generate the config now."
 )
+
+
+def load_presets() -> dict[str, dict]:
+    data = json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
+    return data["presets"]
+
+
+def load_preset_task_ids(name: str) -> list[str]:
+    """Expand a named preset into its task id list."""
+    presets = load_presets()
+    if name not in presets:
+        raise ValueError(
+            f"Unknown preset: {name}. Available: {', '.join(sorted(presets))}"
+        )
+    task_ids = presets[name]["tasks"]
+    if not task_ids or len(task_ids) != len(set(task_ids)):
+        raise ValueError(f"Preset {name} must list distinct task ids")
+    return list(task_ids)
 
 
 def load_tasks(
@@ -478,16 +497,18 @@ def resolve_levels(args_levels: str, tasks: list[dict]) -> list[str]:
     from benchmark.execution import engine_backend, check_services_up
 
     wanted = ["l1"]
+    if args_levels == "l1":
+        # Static-only runs must not probe for an engine they will never use.
+        return wanted
     backend = engine_backend()
-    if args_levels in ("l2", "l3"):
-        if backend:
-            wanted.append("l2")
-            print(f"Engine backend for L2/L3: {backend}")
-        else:
-            print("WARN: no engine available (need SEATUNNEL_HOME dist or "
-                  "docker + apache/seatunnel image) — L2/L3 disabled, "
-                  "running static-only.", file=sys.stderr)
-            return wanted
+    if backend:
+        wanted.append("l2")
+        print(f"Engine backend for L2/L3: {backend}")
+    else:
+        print("WARN: no engine available (need SEATUNNEL_HOME dist or "
+              "docker + apache/seatunnel image) — L2/L3 disabled, "
+              "running static-only.", file=sys.stderr)
+        return wanted
     if args_levels == "l3":
         needed = sorted({
             s for t in tasks for s in t.get("execution", {}).get("services", [])
@@ -585,8 +606,13 @@ def main() -> None:
                         default="baseline",
                         help="Task suite: baseline (100 tasks, default) or "
                              "paraphrase (12 alternative-wording tasks only)")
-    parser.add_argument("--tasks", nargs="*", default=None,
-                        help="Optional task id filter")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--tasks", nargs="*", default=None,
+                           help="Optional task id filter")
+    selection.add_argument("--preset", default=None,
+                           help="Named task subset from benchmark/presets.json "
+                                "(e.g. smoke, a 12-task fast lane); expands "
+                                "into --tasks so repeated runs stay comparable")
     parser.add_argument("--level", default="l3", choices=["l1", "l2", "l3"],
                         help="Deepest gate to run: l1=static only, l2=+engine "
                              "dry-run, l3=+real execution (default; degrades "
@@ -600,16 +626,31 @@ def main() -> None:
     args = parser.parse_args()
 
     # Reject invalid task selections before provider setup can require credentials.
+    task_ids = args.tasks
     try:
-        tasks = load_tasks(args.tiers, args.tasks, args.suite)
+        if args.preset:
+            task_ids = load_preset_task_ids(args.preset)
+        tasks = load_tasks(args.tiers, task_ids, args.suite)
     except (ValueError, OSError) as error:
         parser.error(str(error))
+    # A preset is a fixed, checked-in set: silently dropping members would make
+    # its results incomparable with earlier runs, so refuse instead.
+    if args.preset:
+        missing = sorted(set(task_ids) - {task["id"] for task in tasks})
+        if missing:
+            parser.error(
+                f"Preset {args.preset} selects tasks outside --tiers "
+                f"{args.tiers} or --suite {args.suite}: {', '.join(missing)}"
+            )
     models = build_models_from_args(args)
     if not tasks:
         print("No tasks selected.", file=sys.stderr)
         sys.exit(1)
 
     levels = resolve_levels(args.level, tasks)
+    if args.preset:
+        print(f"Task preset: {args.preset} — "
+              f"{load_presets()[args.preset]['description']}")
     if args.suite == "paraphrase":
         print("Task suite: paraphrase (public alternative wording)")
     print(f"Running {len(tasks)} tasks × {len(models)} models × "
