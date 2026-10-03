@@ -88,6 +88,11 @@ Parameters:
 ##### LENGTH
 Validates the length of string, array, or collection values.
 
+Array length is the number of elements, including null elements. Nested arrays
+are measured by their outer length, and binary values by their number of bytes.
+String length uses Java UTF-16 code units; collection length uses its size.
+Null values pass this rule; combine it with `NOT_NULL` to reject nulls.
+
 Parameters:
 - `rule_type`: "LENGTH"
 - `min_length` (optional): Minimum allowed length
