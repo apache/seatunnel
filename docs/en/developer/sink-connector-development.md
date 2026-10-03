@@ -203,3 +203,7 @@ Before opening a PR, verify:
 3. [Exactly-Once](../architecture/fault-tolerance/exactly-once.md)
 4. [Plugin Discovery and Class Loading](../architecture/plugin-discovery-and-class-loading.md)
 5. [How to Create Your Connector](./how-to-create-your-connector.md)
+
+### Sink data partitioning
+
+Implement `SupportSinkDataPartition<T>` to return an optional serializable `SinkDataPartitioner<T>` bound to the sink writer count. `select(record)` must return a writer index in `[0, writerCount)`. It runs on data rows only; the Flink adapter preserves schema-control destinations separately. Provide `targetIdentifier()` when independent writers for the same physical target are unsafe. `MultiTableSink` resolves each table's policy once, then dispatches by source table ID without scanning tables per record. This capability does not opt into any different commit or recovery protocol.
