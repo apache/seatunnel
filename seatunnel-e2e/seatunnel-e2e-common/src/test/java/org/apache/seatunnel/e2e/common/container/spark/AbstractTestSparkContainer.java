@@ -75,6 +75,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
+        applyEnvironmentVariables(master);
 
         // In most case we can just use standalone mode to execute a spark job, if we want to use
         // cluster mode, we need to
