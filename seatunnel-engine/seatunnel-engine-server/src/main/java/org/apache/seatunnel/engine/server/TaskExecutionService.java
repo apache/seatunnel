@@ -1367,13 +1367,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.taskDone(t);
                 return;
             }
-            // Null-safe: concurrent rollback may have already claimed/cleared classLoaders.
-            ClassLoader classLoader = taskGroupContext.getClassLoader(t.getTaskID());
-            if (classLoader == null) {
+            // A null map (not a missing per-task entry) means a concurrent rollback has already
+            // claimed this context's classloaders; a missing entry must still run the task.
+            Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
+            if (classLoaders == null) {
                 startedLatch.countDown();
                 taskGroupExecutionTracker.taskDone(t);
                 return;
             }
+            ClassLoader classLoader = classLoaders.get(t.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             ProgressState result = null;
@@ -1505,10 +1507,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         continue;
                     }
                 }
-                // Null-safe: concurrent rollback may have already claimed/cleared classLoaders.
-                ClassLoader classLoader =
-                        taskGroupContext.getClassLoader(taskTracker.task.getTaskID());
-                if (classLoader == null) {
+                // A null map (not a missing per-task entry) means a concurrent rollback has
+                // already claimed this context's classloaders; a missing entry must still run.
+                Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
+                if (classLoaders == null) {
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         break;
@@ -1516,6 +1518,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         continue;
                     }
                 }
+                ClassLoader classLoader = classLoaders.get(taskTracker.task.getTaskID());
                 taskGroupExecutionTracker.currRunningTaskFuture.put(
                         taskTracker.task.getTaskID(), thisTaskFuture);
                 // start timer, if it's exclusive, don't need to start

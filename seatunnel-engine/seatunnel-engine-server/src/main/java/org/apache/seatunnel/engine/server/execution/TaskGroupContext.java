@@ -67,8 +67,12 @@ public class TaskGroupContext {
      * <p>The worker keeps these references for task execution and clears them when this deployment
      * finishes, allowing the deployment's classloaders to be reclaimed. This mutable cleanup state
      * must not affect the context's map-key identity.
+     *
+     * <p>A {@code null} map means the classloader references were already claimed for release (see
+     * {@link #claimJarsForClassLoaderRelease()}); task workers use that, not a missing per-task
+     * entry, to detect a rolled-back deployment.
      */
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
+    private volatile ConcurrentHashMap<Long, ClassLoader> classLoaders;
 
     /**
      * Connector/plugin jar URLs acquired for each task, indexed by task ID.
