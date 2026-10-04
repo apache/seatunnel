@@ -45,6 +45,7 @@
         <module>connector-file-bos-e2e</module>
         <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
+        <module>connector-file-smb-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
         <module>connector-file-gcs-e2e</module>
@@ -80,6 +81,7 @@
         <module>connector-google-analytics4-e2e</module>
         <module>connector-snmp-e2e</module>
         <module>connector-azure-queue-storage-e2e</module>
+        <module>connector-azure-event-hubs-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
