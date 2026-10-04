@@ -38,7 +38,8 @@ env:
   TESTCONTAINERS_RYUK_DISABLED: 'true'
   # The JDK 9+ module-opens flags Hazelcast and this project's reflective helpers need (see
   # config/jvm_options) no longer live here. Surefire/Failsafe-forked test JVMs get them from the
-  # jdk9-plus-test-opens profile in the root pom.xml, which also keeps a contributor's local
+  # surefire.module.args property in the root pom.xml (appended to the argLine next to
+  # surefire.jvm.args), which also keeps a contributor's local
   # `./mvnw test`/`./mvnw verify` on JDK 11/17 in parity with CI. The packaged launcher scripts
   # (seatunnel.sh, seatunnel-cluster.sh) inject the same flags themselves for the e2e Docker
   # containers this workflow spins up, independent of this workflow's own environment. Setting
@@ -591,18 +592,20 @@ jobs:
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          # This CLI -Dsurefire.jvm.args always overrides the pom's jdk9-plus-test-opens
-          # profile property, so the JDK 9+ --add-opens/--add-exports flags must be
-          # repeated here or JDK 17 unit tests hard-fail on reflective access (JEP 396).
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+          # This CLI -Dsurefire.jvm.args replaces the pom's surefire.jvm.args, so only heap,
+          # metaspace and encoding are set here. The JDK 9+ --add-opens/--add-exports flags
+          # (needed by JDK 17 unit tests, JEP 396) live in the separate surefire.module.args pom
+          # property, which this override cannot replace. They are deliberately not repeated
+          # here: CI must exercise the pom property, so a broken pom turns this lane red.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          # Keep in sync with the non-Windows step above; see its comment for why these
-          # module flags must be repeated instead of relying on the pom.xml profile alone.
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+          # Keep in sync with the non-Windows step above; see its comment for why the module
+          # flags come from the pom.xml surefire.module.args property and not from here.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
         if: runner.os == 'Windows'
       - name: Upload test reports
         if: failure()
