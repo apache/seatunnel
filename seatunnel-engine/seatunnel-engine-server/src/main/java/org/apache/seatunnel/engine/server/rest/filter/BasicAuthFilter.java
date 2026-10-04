@@ -115,6 +115,10 @@ public class BasicAuthFilter implements Filter {
      * request's own value is passed first: the loop length is then something the caller already
      * knows, and the length of the configured credential is not revealed.
      *
+     * <p>Verified against the OpenJDK 8u source and the JDK 17 bytecode. Both fold the length
+     * difference into the accumulator and run the loop for the full length of the first argument,
+     * so neither returns early on a length mismatch.
+     *
      * @param provided the value supplied by the request, never null at the call sites below
      * @param expected the configured value, which is null when the credential is not set
      * @return true only when the credential is configured and the two values are equal
