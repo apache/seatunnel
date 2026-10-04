@@ -67,6 +67,12 @@ FakeSource is a virtual source that generates rows from a user-defined schema. I
 | double.min              | double   | No       | 0                       | The min value of double data that connector generated                                                                                                                                 |
 | double.max              | double   | No       | 0x1.fffffffffffffP+1023 | The max value of double data that connector generated                                                                                                                                 |
 | double.template         | list     | No       | -                       | The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list                                       |
+| date.year.template      | list     | No       | -                       | The template list of year of date like `yyyy`, if user configured it, connector will randomly select an item from the template list   |
+| date.month.template     | list     | No       | -                       | The template list of month of date like `MM`, if user configured it, connector will randomly select an item from the template list    |
+| date.day.template       | list     | No       | -                       | The template list of day of date like `dd`, if user configured it, connector will randomly select an item from the template list      |
+| time.hour.template      | list     | No       | -                       | The template list of hour of time like `HH`, if user configured it, connector will randomly select an item from the template list     |
+| time.minute.template    | list     | No       | -                       | The template list of minute of time like `mm`, if user configured it, connector will randomly select an item from the template list   |
+| time.second.template    | list     | No       | -                       | The template list of second of time like `ss`, if user configured it, connector will randomly select an item from the template list   |
 | vector.dimension        | int      | No       | 4                       | Dimension of the generated vector, excluding binary vectors                                                                                                                           |
 | binary.vector.dimension | int      | No       | 8                       | Dimension of the generated binary vector                                                                                                                                              |
 | vector.float.min        | float    | No       | 0                       | The min value of float data in vector that connector generated                                                                                                                        |
@@ -385,25 +391,6 @@ rows = [
     fields = [1, "A_1", 100]
   }
 ]
-```
-
-### Options `table-names` Case
-
-```hocon
-
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
 ```
 
 ### Options `defaultValue` Case

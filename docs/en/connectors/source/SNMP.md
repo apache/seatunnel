@@ -43,6 +43,9 @@ The connector uses SNMP4J and supports SNMPv2c agents reachable over UDP.
 | timeout_millis       | Long         | No       | 5000    | Timeout in milliseconds for each request attempt. |
 | retries              | Int          | No       | 1       | Number of retries after the initial request attempt. A value of `0` sends one attempt. |
 | poll_interval_millis | Long         | No       | 60000   | Delay in milliseconds between completed streaming polls. Ignored by batch jobs. |
+| oid_field            | String       | No       | oid     | Name of the output column that carries the numeric OID returned by the agent. Rename it when the default `oid` column name conflicts with your schema. |
+| value_field          | String       | No       | value   | Name of the output column that carries the SNMP value string. |
+| value_type_field     | String       | No       | value_type | Name of the output column that carries the SMI type name of the returned value. |
 
 ## Output Schema
 

@@ -41,6 +41,9 @@ SNMP Source 通过 UDP 向 SNMP Agent 发送 SNMPv2c GET 请求，轮询显式�
 | timeout_millis       | Long         | 否   | 5000   | 每次请求尝试的超时时间，单位为毫秒。 |
 | retries              | Int          | 否   | 1      | 首次请求失败后的重试次数。`0` 表示总共只发送一次请求。 |
 | poll_interval_millis | Long         | 否   | 60000  | 两次流式轮询之间的延迟，单位为毫秒。批处理作业忽略此参数。 |
+| oid_field            | String       | 否   | oid    | 输出中承载数字 OID 的列名。当默认列名 `oid` 与您的 schema 冲突时可以重命名。 |
+| value_field          | String       | 否   | value  | 输出中承载 SNMP 值字符串的列名。 |
+| value_type_field     | String       | 否   | value_type | 输出中承载返回值 SMI 类型名的列名。 |
 
 ## 输出 Schema
 

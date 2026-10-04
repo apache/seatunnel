@@ -18,7 +18,6 @@ sidebar_position: 4
 | 名称           | 类型     | 是否需要 | 默认值 |
 |--------------|--------|------|-----|
 | plugin_input | string | 否    | -   |
-| parallelism  | int    | 否    | -   |
 | metadata_datasource_id | string | 否    | -   |
 
 ### metadata_datasource_id [string]
@@ -30,12 +29,6 @@ sidebar_position: 4
 当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`
 
 当指定了 `plugin_input` 时，当前插件正在处理该参数对应的数据集
-
-### parallelism [int]
-
-当没有指定`parallelism`时，默认使用 env 中的 `parallelism`。
-
-当指定 `parallelism` 时，它将覆盖 env 中的 `parallelism`。
 
 ## Examples
 
