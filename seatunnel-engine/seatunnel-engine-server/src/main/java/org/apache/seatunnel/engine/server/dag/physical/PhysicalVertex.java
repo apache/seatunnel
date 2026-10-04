@@ -541,10 +541,22 @@ public class PhysicalVertex {
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
+    /**
+     * Stops this task without waiting for it to report a terminal state, and completes its future
+     * with {@code CANCELED}.
+     *
+     * <p>A task that was reset for a pipeline restore, or that was never deployed, has its state
+     * process stopped. Moving it to {@code CANCELED} would then leave its future pending, and its
+     * pipeline would never see it end, so the state process is started first, as {@code SubPlan}
+     * does before cancelling its tasks.
+     */
     public synchronized void forceStop() {
         ExecutionState executionState = getExecutionState();
         if (executionState == null || executionState.isEndState()) {
             return;
+        }
+        if (!isRunning) {
+            startPhysicalVertex();
         }
         noticeTaskExecutionServiceCancel();
         if (!taskFuture.isDone()) {
