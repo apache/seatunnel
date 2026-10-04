@@ -26,8 +26,10 @@ import lombok.Setter;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** The state of split to describe the change log of table(s). */
 @Getter
@@ -36,9 +38,12 @@ public class IncrementalSplitState extends SourceSplitStateBase {
 
     private List<TableId> tableIds;
 
+    private final Set<TableId> capturedTableIds;
+
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private Offset startupOffset;
 
+    /** Last checkpoint position observed for each captured table in this split. */
     private Map<TableId, Offset> tableStartupOffsets;
 
     /** Obtained by configuration, may not end */
@@ -50,6 +55,7 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
+        this.capturedTableIds = new HashSet<>(tableIds);
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
         this.tableStartupOffsets =
@@ -83,19 +89,31 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getTableStartupOffsets());
     }
 
+    /**
+     * Advances the split and per-table checkpoint positions. Heartbeats advance every captured
+     * table, while records and schema changes advance only their own table; no watermark moves
+     * backwards when replayed records arrive out of order.
+     */
     public void setStartupOffset(Offset startupOffset, TableId tableId) {
-        if (this.startupOffset == null || startupOffset.isAfter(this.startupOffset)) {
-            this.startupOffset = startupOffset;
-        }
         if (startupOffset == null) {
             return;
         }
+        if (this.startupOffset == null || startupOffset.isAfter(this.startupOffset)) {
+            this.startupOffset = startupOffset;
+        }
         if (tableId == null) {
             // Heartbeats have a source-wide offset that safely advances every captured table.
-            for (TableId capturedTableId : tableIds) {
-                tableStartupOffsets.put(capturedTableId, startupOffset);
+            for (TableId capturedTableId : capturedTableIds) {
+                advanceTableStartupOffset(capturedTableId, startupOffset);
             }
-        } else if (tableIds.contains(tableId)) {
+        } else if (capturedTableIds.contains(tableId)) {
+            advanceTableStartupOffset(tableId, startupOffset);
+        }
+    }
+
+    private void advanceTableStartupOffset(TableId tableId, Offset startupOffset) {
+        Offset currentStartupOffset = tableStartupOffsets.get(tableId);
+        if (currentStartupOffset == null || startupOffset.isAfter(currentStartupOffset)) {
             tableStartupOffsets.put(tableId, startupOffset);
         }
     }

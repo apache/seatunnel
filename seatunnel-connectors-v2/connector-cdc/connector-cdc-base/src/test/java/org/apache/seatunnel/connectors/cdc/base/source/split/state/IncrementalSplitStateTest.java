@@ -170,6 +170,15 @@ public class IncrementalSplitStateTest {
                 heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(firstTable));
         Assertions.assertEquals(
                 heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(secondTable));
+
+        state.setStartupOffset(new TestOffset(390), firstTable);
+        state.setStartupOffset(new TestOffset(350), null);
+        checkpointSplit = state.toSourceSplit();
+        Assertions.assertEquals(heartbeatOffset, checkpointSplit.getStartupOffset());
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(firstTable));
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(secondTable));
     }
 
     private static IncrementalSplit createIncrementalSplit(
