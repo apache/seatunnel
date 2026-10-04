@@ -468,6 +468,16 @@ ASIN(D)
 
 ATAN(D)
 
+### ATAN2
+
+```ATAN2(numeric, numeric) -> DOUBLE```
+
+计算两个参数商的反正切值。另请参阅 Java Math.atan2。
+
+示例:
+
+ATAN2(Y, X)
+
 ### COS
 
 ```COS(numeric) -> DOUBLE```
@@ -1113,7 +1123,7 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 将一个值转换为另一个数据类型。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1133,7 +1143,7 @@ CAST(FLAG AS BOOLEAN)
 
 该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1263,6 +1273,17 @@ select ARRAY('c_1',2,3.12) as arrays
 select ARRAY(column1,column2,column3) as arrays
 
 注意：目前仅支持string、double、long、int几种类型
+
+### MAP
+
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<K, V>```
+
+由交替出现的键值参数创建一个 Map。参数个数必须为偶数且键不能为 NULL。键在运行时会被转换为字符串，但结果声明的键类型跟随键表达式的类型，因此建议使用字符串键表达式；值类型跟随值表达式。
+
+示例:
+
+select MAP('a', 1, 'b', 2) as maps
+select MAP('k1', column1, 'k2', column2) as maps
 
 ### LATERAL VIEW
 #### EXPLODE
