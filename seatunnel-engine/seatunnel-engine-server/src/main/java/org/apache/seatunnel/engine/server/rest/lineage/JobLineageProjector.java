@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
@@ -40,6 +41,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -60,6 +62,8 @@ public final class JobLineageProjector {
 
     static final String DATASET_METADATA_UNAVAILABLE = "DATASET_METADATA_UNAVAILABLE";
 
+    static final String DATASET_METADATA_PARTIAL = "DATASET_METADATA_PARTIAL";
+
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
     private static final Comparator<LineageEdge> EDGE_ORDER =
@@ -73,9 +77,11 @@ public final class JobLineageProjector {
      * Validates and serializes the snapshot as UTF-8 JSON.
      *
      * @throws JobLineageException if the snapshot is not a valid graph or exceeds {@code limits}
+     * @throws NullPointerException if {@code limits} is null
      */
     public static byte[] project(JobDAGInfo dagInfo, JobLineageLimits limits) {
-        if (dagInfo == null || dagInfo.getJobId() == null || dagInfo.getJobId() <= 0) {
+        Objects.requireNonNull(limits, "limits");
+        if (dagInfo == null || dagInfo.getJobId() == null) {
             throw unavailable();
         }
         Map<Long, VertexInfo> vertices = dagInfo.getVertexInfoMap();
@@ -123,7 +129,8 @@ public final class JobLineageProjector {
             Map<Long, VertexInfo> vertices, JobLineageLimits limits) {
         SortedMap<Long, LineageNode> nodes = new TreeMap<>();
         // Every kept name and path is written at least once, so their total also bounds the
-        // response; checking it here rejects oversized graphs before all strings are retained.
+        // response; checking it as each string is kept rejects oversized graphs before all
+        // strings are retained.
         long retainedBytes = 0;
         for (Map.Entry<Long, VertexInfo> entry : vertices.entrySet()) {
             VertexInfo vertex = entry.getValue();
@@ -135,6 +142,7 @@ public final class JobLineageProjector {
             }
             String name = vertex.getConnectorType() == null ? "" : vertex.getConnectorType();
             retainedBytes += checkStringBytes(name, limits);
+            checkRetainedBytes(retainedBytes, limits);
 
             SortedSet<String> tablePaths = new TreeSet<>();
             boolean pathsOmitted = false;
@@ -148,11 +156,9 @@ public final class JobLineageProjector {
                     int pathBytes = checkStringBytes(path, limits);
                     if (tablePaths.add(path)) {
                         retainedBytes += pathBytes;
+                        checkRetainedBytes(retainedBytes, limits);
                     }
                 }
-            }
-            if (retainedBytes > limits.getMaxResponseBytes()) {
-                throw tooLarge();
             }
             nodes.put(
                     entry.getKey(),
@@ -161,7 +167,7 @@ public final class JobLineageProjector {
                             vertex.getType(),
                             name,
                             tablePaths,
-                            pathsOmitted || tablePaths.isEmpty()));
+                            pathsOmitted));
         }
         return nodes;
     }
@@ -262,13 +268,11 @@ public final class JobLineageProjector {
             gen.writeEndArray();
 
             gen.writeArrayFieldStart("warnings");
-            for (LineageNode node : nodes.values()) {
-                if (node.hasMetadataWarning()) {
-                    gen.writeStartObject();
-                    gen.writeStringField("code", DATASET_METADATA_UNAVAILABLE);
-                    gen.writeStringField("nodeId", Long.toString(node.id));
-                    gen.writeEndObject();
-                }
+            for (LineageNode node : warningOrder(nodes)) {
+                gen.writeStartObject();
+                gen.writeStringField("code", node.warningCode());
+                gen.writeStringField("nodeId", Long.toString(node.id));
+                gen.writeEndObject();
             }
             gen.writeEndArray();
             gen.writeEndObject();
@@ -278,6 +282,24 @@ public final class JobLineageProjector {
             throw new UncheckedIOException(e);
         }
         return out.toByteArray();
+    }
+
+    /** Nodes that carry a warning, ordered by warning code and then node ID. */
+    private static List<LineageNode> warningOrder(Map<Long, LineageNode> nodes) {
+        List<LineageNode> warned = new ArrayList<>();
+        for (LineageNode node : nodes.values()) {
+            if (node.warningCode() != null) {
+                warned.add(node);
+            }
+        }
+        warned.sort(Comparator.comparing(LineageNode::warningCode).thenComparingLong(n -> n.id));
+        return warned;
+    }
+
+    private static void checkRetainedBytes(long retainedBytes, JobLineageLimits limits) {
+        if (retainedBytes > limits.getMaxResponseBytes()) {
+            throw tooLarge();
+        }
     }
 
     /** Returns the UTF-8 length of {@code value}, rejecting values over the string limit. */
@@ -305,30 +327,45 @@ public final class JobLineageProjector {
         private final PluginType kind;
         private final String name;
         private final SortedSet<String> tablePaths;
-        private final boolean metadataIncomplete;
+        private final boolean pathsOmitted;
 
         private LineageNode(
                 long id,
                 PluginType kind,
                 String name,
                 SortedSet<String> tablePaths,
-                boolean metadataIncomplete) {
+                boolean pathsOmitted) {
             this.id = id;
             this.kind = kind;
             this.name = name;
             this.tablePaths = tablePaths;
-            this.metadataIncomplete = metadataIncomplete;
+            this.pathsOmitted = pathsOmitted;
         }
 
+        /**
+         * {@code REPORTED} when every reported entry is usable, {@code PARTIAL} when some entries
+         * were dropped, {@code UNAVAILABLE} when none are usable, {@code NOT_APPLICABLE} for
+         * transforms.
+         */
         private String datasetMetadata() {
             if (kind == PluginType.TRANSFORM) {
                 return "NOT_APPLICABLE";
             }
-            return tablePaths.isEmpty() ? "UNAVAILABLE" : "REPORTED";
+            if (tablePaths.isEmpty()) {
+                return "UNAVAILABLE";
+            }
+            return pathsOmitted ? "PARTIAL" : "REPORTED";
         }
 
-        private boolean hasMetadataWarning() {
-            return kind != PluginType.TRANSFORM && metadataIncomplete;
+        private String warningCode() {
+            switch (datasetMetadata()) {
+                case "UNAVAILABLE":
+                    return DATASET_METADATA_UNAVAILABLE;
+                case "PARTIAL":
+                    return DATASET_METADATA_PARTIAL;
+                default:
+                    return null;
+            }
         }
     }
 

@@ -22,6 +22,10 @@ import lombok.Getter;
 /**
  * Raised when a job DAG snapshot cannot be projected into a lineage graph. The message is fixed per
  * reason and never contains topology names, table paths or configuration values.
+ *
+ * <p>These are expected outcomes, not server faults: the lineage endpoint maps {@link
+ * Reason#LINEAGE_UNAVAILABLE} to 409 and {@link Reason#LINEAGE_GRAPH_TOO_LARGE} to 413 itself
+ * (STIP-39, #12268) and must not let this exception reach the generic REST exception filter.
  */
 @Getter
 public class JobLineageException extends RuntimeException {

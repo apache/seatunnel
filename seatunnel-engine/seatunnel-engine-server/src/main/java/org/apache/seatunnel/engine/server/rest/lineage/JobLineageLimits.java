@@ -23,6 +23,11 @@ import lombok.Getter;
 @Getter
 public final class JobLineageLimits {
 
+    /**
+     * Provisional V1 bounds from STIP-39 section 4 (#12268): 10,000 nodes, 50,000 edges, 50,000
+     * table paths, 4 KiB per string and an 8 MiB response. They are fixed in V1, not
+     * user-configurable, and will be revisited with measurements from the later phases.
+     */
     public static final JobLineageLimits DEFAULT =
             new JobLineageLimits(10_000, 50_000, 50_000, 4 * 1024, 8 * 1024 * 1024);
 

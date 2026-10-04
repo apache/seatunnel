@@ -39,6 +39,7 @@ import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuil
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -197,7 +198,7 @@ class JobLineageProjectorTest {
 
         JsonNode source = root.get("nodes").get(0);
         Assertions.assertEquals("[\"db.a\",\"db.b\"]", source.get("tablePaths").toString());
-        Assertions.assertEquals("REPORTED", source.get("datasetMetadata").asText());
+        Assertions.assertEquals("PARTIAL", source.get("datasetMetadata").asText());
         JsonNode transform = root.get("nodes").get(1);
         Assertions.assertEquals(0, transform.get("tablePaths").size());
         Assertions.assertEquals("NOT_APPLICABLE", transform.get("datasetMetadata").asText());
@@ -206,7 +207,7 @@ class JobLineageProjectorTest {
         Assertions.assertEquals("UNAVAILABLE", sink.get("datasetMetadata").asText());
         Assertions.assertEquals(2, root.get("edges").size());
         Assertions.assertEquals(
-                "[{\"code\":\"DATASET_METADATA_UNAVAILABLE\",\"nodeId\":\"1\"},"
+                "[{\"code\":\"DATASET_METADATA_PARTIAL\",\"nodeId\":\"1\"},"
                         + "{\"code\":\"DATASET_METADATA_UNAVAILABLE\",\"nodeId\":\"3\"}]",
                 root.get("warnings").toString());
     }
@@ -289,9 +290,63 @@ class JobLineageProjectorTest {
     }
 
     @Test
+    void ordersWarningsByCodeThenNodeId() throws IOException {
+        Map<Long, VertexInfo> vertices = new HashMap<>();
+        vertices.put(1L, vertex(1L, PluginType.SOURCE, "source"));
+        vertices.put(
+                2L,
+                new VertexInfo(
+                        2L,
+                        PluginType.SINK,
+                        "sink",
+                        Arrays.asList(TablePath.of("db.b"), TablePath.DEFAULT)));
+        vertices.put(3L, vertex(3L, PluginType.SINK, "sink-2", "db.c"));
+        vertices.put(10L, vertex(10L, PluginType.SINK, "sink-3"));
+        Map<Integer, List<Edge>> edges =
+                Collections.singletonMap(
+                        1, Arrays.asList(new Edge(1L, 2L), new Edge(1L, 3L), new Edge(1L, 10L)));
+
+        JsonNode root = MAPPER.readTree(projectToString(dag(1L, vertices, edges)));
+
+        Assertions.assertEquals(
+                "REPORTED", root.get("nodes").get(2).get("datasetMetadata").asText());
+        Assertions.assertEquals(
+                "[{\"code\":\"DATASET_METADATA_PARTIAL\",\"nodeId\":\"2\"},"
+                        + "{\"code\":\"DATASET_METADATA_UNAVAILABLE\",\"nodeId\":\"1\"},"
+                        + "{\"code\":\"DATASET_METADATA_UNAVAILABLE\",\"nodeId\":\"10\"}]",
+                root.get("warnings").toString());
+    }
+
+    @Test
+    void acceptsAnyNonNullJobId() throws IOException {
+        for (long jobId : new long[] {0L, -1L, Long.MIN_VALUE}) {
+            JsonNode root =
+                    MAPPER.readTree(
+                            projectToString(
+                                    dag(
+                                            jobId,
+                                            twoVertices(),
+                                            Collections.singletonMap(1, edgeList(1L, 2L)))));
+            Assertions.assertEquals(Long.toString(jobId), root.get("jobId").asText());
+        }
+    }
+
+    @Test
+    void requiresLimits() {
+        NullPointerException e =
+                Assertions.assertThrows(
+                        NullPointerException.class,
+                        () ->
+                                JobLineageProjector.project(
+                                        dag(1L, twoVertices(), Collections.emptyMap()), null));
+        Assertions.assertEquals("limits", e.getMessage());
+    }
+
+    @Test
     void rejectsSnapshotsWithoutUsableTopology() {
         assertUnavailable(null);
-        assertUnavailable(dag(0L, twoVertices(), Collections.emptyMap()));
+        assertUnavailable(
+                new JobDAGInfo(null, null, Collections.emptyMap(), twoVertices(), null, null));
         assertUnavailable(dag(1L, new HashMap<>(), Collections.emptyMap()));
         assertUnavailable(new JobDAGInfo(1L, null, null, twoVertices(), null, null));
         assertUnavailable(dag(1L, twoVertices(), Collections.singletonMap(1, null)));
@@ -452,6 +507,32 @@ class JobLineageProjectorTest {
         Assertions.assertTrue(size > 64 * 1024);
         assertTooLarge(dagInfo, limits(2_000, 1, 2_000, 64, size - 1));
         assertTooLarge(dagInfo, limits(2_000, 1, 2_000, 64, size / 2));
+    }
+
+    @Test
+    void rejectsOneLargeVertexBeforeRetainingAllPaths() {
+        int reported = 1_000;
+        int allowedReads = 10;
+        // Fails the test if the projector reads past the point where the byte limit is exceeded.
+        List<TablePath> paths =
+                new AbstractList<TablePath>() {
+                    @Override
+                    public TablePath get(int index) {
+                        if (index >= allowedReads) {
+                            throw new AssertionError("read path " + index + " after the limit");
+                        }
+                        return TablePath.of("db.t" + repeat("x", 40) + index);
+                    }
+
+                    @Override
+                    public int size() {
+                        return reported;
+                    }
+                };
+        Map<Long, VertexInfo> vertices = new HashMap<>();
+        vertices.put(1L, new VertexInfo(1L, PluginType.SOURCE, "source", paths));
+
+        assertTooLarge(dag(1L, vertices, Collections.emptyMap()), limits(1, 1, reported, 64, 200));
     }
 
     @Test
