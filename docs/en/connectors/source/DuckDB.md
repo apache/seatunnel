@@ -69,6 +69,8 @@ and reading multiple tables in one job through `table_list`.
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
+> Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
+
 ## Source Options
 
 | Name                         | Type       | Required | Default         | Description                                                                                                                                                                                                                                                         |

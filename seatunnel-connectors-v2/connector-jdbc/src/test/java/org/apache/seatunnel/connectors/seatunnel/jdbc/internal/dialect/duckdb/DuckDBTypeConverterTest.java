@@ -29,6 +29,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+
+import java.util.Locale;
 
 public class DuckDBTypeConverterTest {
 
@@ -279,6 +282,41 @@ public class DuckDBTypeConverterTest {
         Column column = convert("f_unknown", "geography", 64L);
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(64L, column.getColumnLength());
+    }
+
+    @Test
+    @ResourceLock("java.util.Locale")
+    void testConvertTypeNameRecognitionIsIndependentOfDefaultLocale() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("tr", "TR"));
+
+            Assertions.assertEquals(
+                    BasicType.INT_TYPE, convert("f_integer", "integer").getDataType());
+            Assertions.assertEquals(
+                    BasicType.BYTE_TYPE, convert("f_tinyint", "tinyint").getDataType());
+            Assertions.assertEquals(
+                    BasicType.LONG_TYPE, convert("f_bigint", "bigint").getDataType());
+            Column bit = convert("f_bit", "bit", 8L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, bit.getDataType());
+            Assertions.assertEquals(8L, bit.getColumnLength());
+
+            Assertions.assertEquals(
+                    BasicType.INT_TYPE, convert("f_integer_upper", "INTEGER").getDataType());
+            Assertions.assertEquals(
+                    BasicType.BYTE_TYPE, convert("f_tinyint_upper", "TINYINT").getDataType());
+            Assertions.assertEquals(
+                    BasicType.LONG_TYPE, convert("f_bigint_upper", "BIGINT").getDataType());
+            Column bitUpper = convert("f_bit_upper", "BIT", 8L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, bitUpper.getDataType());
+            Assertions.assertEquals(8L, bitUpper.getColumnLength());
+
+            Column unknown = convert("f_unknown", "geography", 64L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, unknown.getDataType());
+            Assertions.assertEquals(64L, unknown.getColumnLength());
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @Test
