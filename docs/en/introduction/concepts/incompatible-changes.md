@@ -21,6 +21,28 @@ You need to check this document before you upgrade to related version.
     3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
 
+### Helm Chart: Zeta REST API v1 disabled by default
+
+- **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
+  - **Affected component**: Helm chart `deploy/kubernetes/seatunnel` (`conf/hazelcast-master.yaml`,
+    `conf/hazelcast-worker.yaml`, `values.yaml`)
+  - **Description**: The chart previously set `hazelcast.network.rest-api.enabled: true`, exposing the
+    deprecated Zeta REST API v1 (including `submit-job`, `stop-job`, `encrypt-config`, logs and thread
+    dump) on the Hazelcast member port (5801) without authentication. It is now `false`, matching the
+    standalone `config/hazelcast.yaml` default and the v1 documentation. The default Prometheus pod
+    annotations are repointed from `5801` (`/hazelcast/rest/instance/metrics`) to the REST API v2 /
+    Jetty listener on `8080` (`/metrics`), which returns the same samples.
+  - **Impact**: Deployments that called REST API v1 on port 5801 must switch to REST API v2 on port
+    8080. Prometheus setups that scraped `5801/hazelcast/rest/instance/metrics` directly (rather than
+    through the pod annotations) must update the target to `8080/metrics`. Job submission through the
+    Hazelcast client protocol and REST API v2 on 8080 are unaffected. Because the ConfigMap is mounted
+    with `subPath` and the Deployments carry no config checksum annotation, running pods keep the old
+    setting until restarted, so restart the master/worker pods after `helm upgrade`.
+  - **Migration Guide**: Use REST API v2 on port 8080 (the chart's documented interface). If Zeta REST
+    API v1 is genuinely required, set `rest-api.enabled: true` in a custom ConfigMap
+    (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
+    after upgrading so the new configuration is applied.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
@@ -44,6 +66,18 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
+
+### FakeSource (connector-fake)
+
+- Declarative option constraints are now enforced at factory validation time instead of
+  silently passing and failing only at runtime. Affected options: `split.num`,
+  `vector.dimension` and `binary.vector.dimension` must be > 0; `row.num`,
+  `split.read-interval`, `map.size`, `array.size`, `bytes.length` and `string.length` must be
+  >= 0; `tinyint.min/max`, `smallint.min/max`, `int.min/max`, `bigint.min/max`,
+  `float.min/max`, `double.min/max` and `vector.float.min/max` must satisfy min <= max.
+  Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
+  values and previously ran successfully will now fail fast at startup with a validation
+  error.
 
 ### Zeta REST Pagination Parameter Validation
 
@@ -366,5 +400,25 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
 
 ### Engine Behavior Changes
+
+- **Behavior change: the REST log-content endpoints return at most 64 MB by default**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
+    `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
+    `GET /hazelcast/rest/maps/log/:file`.
+  - **Description**: These endpoints read the requested log file whole, which materialises it on the
+    heap twice, so a single request for the log of a long-running streaming job could exhaust a
+    node's memory. The new `seatunnel.engine.http.log-response-max-size-mb` option caps how much is
+    read and defaults to `64`. A larger file is represented by its last `log-response-max-size-mb`
+    of UTF-8 content, aligned to a complete line when possible (or a partial tail of an oversized
+    line). The response notice names the actual retained bytes and the file-size snapshot.
+  - **Impact**: A cluster upgraded without editing `seatunnel.yaml` starts receiving the tail rather
+    than the whole of any log file above 64 MB, with status `200` as before. Anything that archives
+    logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
+    `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
+    raised. The truncation notice on the first line makes a partial response recognisable.
+  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
+    `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
+    covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
+    read of a multi-gigabyte log has to fit in the node's heap.
 
 ### Dependency Upgrades
