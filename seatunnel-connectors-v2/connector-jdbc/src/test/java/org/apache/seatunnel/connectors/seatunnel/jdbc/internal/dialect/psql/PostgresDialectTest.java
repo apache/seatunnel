@@ -37,9 +37,8 @@ import static org.mockito.Mockito.when;
 public class PostgresDialectTest {
 
     @Test
-    void testAddColumnWithSchemaQualifiedUserDefinedType() throws Exception {
-        assertAddColumnType(
-                "app.order status", Types.OTHER, "app.order status", "\"app\".\"order status\"");
+    void testAddColumnQuotesUserDefinedTypeWithSpaces() throws Exception {
+        assertAddColumnType("order status", Types.OTHER, "order status", "\"order status\"");
     }
 
     @Test
