@@ -18,10 +18,12 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.awaitility.Awaitility.await;
 
@@ -98,14 +101,27 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
      * learns that the savepoint failed. The stop the job master then decides must still end the
      * job, instead of the restored pipeline leaving it in {@code DOING_SAVEPOINT}. One sink fails
      * the savepoint after 4 s and the other finishes its part after 5 s, so that stop lands while
-     * the failed pipeline waits the 3 s before its restore.
+     * the failed pipeline waits the 3 s, pinned in the job config, before its restore.
      */
     @Test
-    public void testSavePointFailureDuringPipelineRestoreWaitEndsTheJob()
-            throws InterruptedException {
+    public void testSavePointFailureDuringPipelineRestoreWaitEndsTheJob() {
         long jobId = System.currentTimeMillis();
         startJob(jobId, STREAM_CONF_SAVEPOINT_FAILS_DURING_RESTORE_PATH, false);
-        Thread.sleep(2000L);
+        // a savepoint before every task is ready is refused and leaves the job running
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        await().atMost(60, TimeUnit.SECONDS)
+                .until(
+                        () ->
+                                JobStatus.RUNNING.equals(jobMaster.getJobStatus())
+                                        && jobMaster.getPhysicalPlan().getPipelineList().stream()
+                                                .allMatch(
+                                                        subPlan ->
+                                                                isAllTaskReady(
+                                                                        jobMaster
+                                                                                .getCheckpointManager()
+                                                                                .getCheckpointCoordinator(
+                                                                                        subPlan
+                                                                                                .getPipelineId()))));
         PassiveCompletableFuture<Void> savepoint = server.getCoordinatorService().savePoint(jobId);
         Assertions.assertThrows(CompletionException.class, savepoint::join);
         await().atMost(60, TimeUnit.SECONDS)
@@ -114,6 +130,11 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
                                 Assertions.assertEquals(
                                         JobStatus.FAILED,
                                         server.getCoordinatorService().getJobStatus(jobId)));
+    }
+
+    private static boolean isAllTaskReady(CheckpointCoordinator coordinator) {
+        return ((AtomicBoolean) ReflectionUtils.getField(coordinator, "isAllTaskReady").get())
+                .get();
     }
 
     @Test

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -518,18 +519,27 @@ public class SubPlan {
      * Ends a pipeline whose restore was decided but must not go ahead any more.
      *
      * <p>A pipeline waits {@code pipelineRestoreIntervalSeconds} between being reset and being
-     * restarted. A stop that the job master decides in that window, such as {@code
-     * JobMaster.savepointFailed} after a savepoint the failure broke, calls {@link
-     * #forceStopPipeline()}, which finds only reset tasks and so stops nothing. Without this check
-     * the pipeline would restart anyway and leave its job in {@code DOING_SAVEPOINT} for good.
+     * restarted, and its tasks wait in {@code CREATED}. A stop that the job master decides in that
+     * window, such as {@code JobMaster.savepointFailed} after a savepoint the failure broke, calls
+     * {@link #forceStopPipeline()}. That moves each task to {@code CANCELED}, but a task whose
+     * state process is stopped does not complete its future, so this pipeline never sees all of its
+     * tasks end. The restart would then deploy none of those tasks, which are no longer {@code
+     * CREATED}, and the pipeline would stay {@code RUNNING} for good, leaving its job in {@code
+     * DOING_SAVEPOINT}.
      *
-     * <p>Moving the pipeline back to the state it failed with runs the normal terminal path again,
-     * where no restore is allowed now, so it ends and completes the pipeline future as usual.
+     * <p>Moving the pipeline back to a terminal state runs the normal terminal path again, where no
+     * restore is allowed now, so it ends and completes the pipeline future as usual. It ends in the
+     * state it failed with, except that a job being cancelled gets {@code CANCELED}, which is what
+     * the restarted pipeline used to end with once the cancel reached it.
      *
-     * @param endState the terminal state the pipeline reached before the restore was prepared
+     * @param failedState the terminal state the pipeline reached before the restore was prepared
      * @param failure the pipeline error recorded before the restore reset it
      */
-    private void abandonRestore(PipelineStatus endState, String failure) {
+    private void abandonRestore(PipelineStatus failedState, String failure) {
+        PipelineStatus endState =
+                JobStatus.CANCELING.equals(jobMaster.getJobStatus())
+                        ? PipelineStatus.CANCELED
+                        : failedState;
         log.info(
                 "{} no longer needs restore, ending it as {} instead of restarting it",
                 pipelineFullName,
