@@ -379,7 +379,7 @@ public class PostgresDialect implements JdbcDialect {
         boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
         String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
-        columnType = quoteUserDefinedType(columnType, column.getSourceType(), sameCatalog);
+        columnType = quoteUserDefinedType(columnType, column, sameCatalog);
         StringBuilder sqlBuilder =
                 new StringBuilder()
                         .append("ALTER TABLE ")
@@ -410,19 +410,15 @@ public class PostgresDialect implements JdbcDialect {
         return sqlBuilder.toString();
     }
 
-    private String quoteUserDefinedType(String columnType, String sourceType, boolean sameCatalog) {
-        if (!sameCatalog || StringUtils.isBlank(sourceType)) {
+    private String quoteUserDefinedType(String columnType, Column column, boolean sameCatalog) {
+        String sourceType = column.getSourceType();
+        if (!sameCatalog
+                || StringUtils.isBlank(sourceType)
+                || column.getOptions() == null
+                || !Boolean.TRUE.equals(column.getOptions().get("postgres.userDefinedType"))) {
             return columnType;
         }
-        // PostgreSQL folds unquoted identifiers to lowercase, so only quote types whose spelling
-        // or characters would otherwise change when the DDL is parsed.
-        String normalizedSourceType = sourceType.toLowerCase();
-        if (normalizedSourceType.matches("[a-z_][a-z0-9_$]*(\\.[a-z_][a-z0-9_$]*)*")) {
-            return columnType;
-        }
-        if (sourceType.startsWith("\"") || sourceType.contains("(") || sourceType.contains("[")) {
-            return columnType;
-        }
+        // User-defined types may be mixed-case or reserved words, so always quote their names.
         return Arrays.stream(sourceType.split("\\.", -1))
                 .map(part -> "\"" + part.replace("\"", "\"\"") + "\"")
                 .collect(Collectors.joining("."));

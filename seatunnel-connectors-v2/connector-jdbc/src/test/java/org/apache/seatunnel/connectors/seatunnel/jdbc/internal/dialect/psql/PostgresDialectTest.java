@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.Statement;
+import java.sql.Types;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -37,6 +38,29 @@ public class PostgresDialectTest {
 
     @Test
     void testAddColumnWithSchemaQualifiedUserDefinedType() throws Exception {
+        assertAddColumnType(
+                "app.order status", Types.OTHER, "app.order status", "\"app\".\"order status\"");
+    }
+
+    @Test
+    void testAddColumnQuotesMixedCaseAndReservedUserDefinedTypes() throws Exception {
+        assertAddColumnType("MyRange", Types.OTHER, "MyRange", "\"MyRange\"");
+        assertAddColumnType("JobStatus", Types.OTHER, "JobStatus", "\"JobStatus\"");
+        assertAddColumnType("order", Types.OTHER, "order", "\"order\"");
+        assertAddColumnType("lowercase_type", Types.OTHER, "lowercase_type", "\"lowercase_type\"");
+    }
+
+    @Test
+    void testAddColumnLeavesBuiltinMultiWordTypeUnquoted() throws Exception {
+        assertAddColumnType(
+                "timestamptz",
+                Types.TIMESTAMP_WITH_TIMEZONE,
+                "timestamp with time zone",
+                "timestamp with time zone");
+    }
+
+    private void assertAddColumnType(
+            String dataType, int sqlType, String sourceType, String expectedType) throws Exception {
         PostgresDialect dialect = new PostgresDialect();
         Connection connection = mock(Connection.class);
         Statement statement = mock(Statement.class);
@@ -47,9 +71,9 @@ public class PostgresDialectTest {
                                 .convert(
                                         BasicTypeDefine.builder()
                                                 .name("status")
-                                                .dataType("app.order status")
-                                                .columnType("app.order status")
-                                                .sqlType(java.sql.Types.OTHER)
+                                                .dataType(dataType)
+                                                .columnType(sourceType)
+                                                .sqlType(sqlType)
                                                 .nullable(true)
                                                 .build());
         AlterTableAddColumnEvent event =
@@ -61,7 +85,9 @@ public class PostgresDialectTest {
 
         verify(statement)
                 .execute(
-                        "ALTER TABLE \"db\".\"app\".\"orders\" ADD \"status\" \"app\".\"order status\" NULL");
+                        "ALTER TABLE \"db\".\"app\".\"orders\" ADD \"status\" "
+                                + expectedType
+                                + " NULL");
     }
 
     @Test

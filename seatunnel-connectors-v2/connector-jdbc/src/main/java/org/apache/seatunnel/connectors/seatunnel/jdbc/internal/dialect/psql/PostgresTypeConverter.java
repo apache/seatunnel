@@ -35,6 +35,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
+import java.util.Collections;
 
 // reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
@@ -288,6 +289,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (typeDefine.getSqlType() == Types.OTHER) {
                     builder.dataType(BasicType.STRING_TYPE);
                     builder.sourceType(typeDefine.getColumnType());
+                    builder.options(Collections.singletonMap("postgres.userDefinedType", true));
                     break;
                 }
                 throw CommonError.convertToSeaTunnelTypeError(
