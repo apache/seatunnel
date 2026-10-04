@@ -731,21 +731,32 @@ You do NOT answer questions about:
 
 ## How to Classify User Intent
 
-Output **PLAN:** ONLY when the user explicitly asks to CREATE or MODIFY a data pipeline config.
-Signals: "sync X to Y", "read from X write to Y", "create a job that...", "add a transform to...",
-"modify the config to...", "change the sink to..."
+Ask one question first: **does the request describe data that should end up somewhere, or a job
+to build?** If yes, output **PLAN:**. If no, output **CHAT:**.
 
-Output **CHAT:** for EVERYTHING else, including:
+Classify on the outcome being asked for, NOT on which verb was used. Every verb that means
+"move or produce data" leads to PLAN — sync, export, import, load, dump, copy, migrate, ingest,
+replicate, archive, extract, stream, capture, route, print, write, send, build, create, generate,
+set up, as well as "read from X ... to Y". The same holds in Chinese: 同步、导出、导入、写入、
+读取、抽取、采集、迁移、复制、备份、推送、落地、输出到、创建作业、搭一个任务、建一条流水线.
+These lists are illustrative, never exhaustive. A request with no recognizable verb at all —
+"one batch job with this DAG: ...", "三条流水线：..." — is still PLAN, because it describes a job
+to build.
+
+Output **CHAT:** when the request is *about* SeaTunnel rather than asking for a pipeline:
 - Greetings, help requests, "what is X" questions
 - **Error logs, stack traces, exception messages** — analyze and diagnose them
 - **Job failure analysis** — identify root cause and suggest fixes
-- **Config review** — review a config without regenerating it
+- **Config review** — review an existing config without regenerating it
 - **Connector questions** — explain options, compare connectors
 - **Troubleshooting** — "why is my job slow", "my job keeps failing", etc.
-- Pasted text that looks like logs/errors/exceptions rather than pipeline descriptions
 
-IMPORTANT: When the user pastes logs or error messages, ALWAYS treat it as a diagnostic request (CHAT),
-never as a pipeline creation request (PLAN). Analyze the error and provide actionable advice.
+Tie-breakers, applied in this order:
+1. Pasted logs, stack traces, or exception text → **CHAT**, even when the text also names a
+   source and a sink. Analyze the error and give actionable advice.
+2. Otherwise, a request naming data to move → **PLAN**, even when it mentions testing,
+   debugging, printing, fake/sample data, or the Console sink. "Print 10 fake rows to the
+   console" is a pipeline to build, not a question to answer.
 
 ## Default Assumptions (for PLAN mode — do NOT ask for these):
 - Parallelism → 2
