@@ -472,7 +472,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         jobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "testClassloaderSplit",
@@ -535,7 +535,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         new TaskGroupLocation(testJobId, 1, 1),
                         "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
@@ -584,7 +584,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.DEFAULT,
                         location,
                         "testDeployTaskHandlesFailureBeforeContextPublication",
@@ -806,7 +806,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation info =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        1,
+                        FLAKE_ID_GENERATOR.newId(),
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "idempotency-test",
@@ -854,8 +854,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Task newTask = new TestTask(new AtomicBoolean(true), 0, true);
         TaskGroup newTaskGroup =
                 new TaskGroupDefaultImpl(location, "new-generation", Lists.newArrayList(newTask));
-        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        // The shared service can still be cleaning up deployments from another test.
+        long oldExecutionId = FLAKE_ID_GENERATOR.newId();
+        long newExecutionId = FLAKE_ID_GENERATOR.newId();
+        TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(newExecutionId, newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = Mockito.spy(new CompletableFuture<>());
         CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
@@ -901,6 +904,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         timerFlushFutures.put(newContext, newTimerFlushFutures);
 
         try {
+            // A previous fixture used ID 1: its late cleanup must not own this fixture's timers.
+            Task previousTask = new TestTask(new AtomicBoolean(true), 0, true);
+            TaskGroup previousGroup =
+                    new TaskGroupDefaultImpl(
+                            newTaskGroupLocation(),
+                            "previous-test",
+                            Lists.newArrayList(previousTask));
+            TaskGroupContext previousContext = newTaskGroupContext(1L, previousGroup);
+            TaskExecutionService.TaskGroupExecutionTracker previousTracker =
+                    taskExecutionService
+                    .new TaskGroupExecutionTracker(
+                            new CompletableFuture<>(), previousContext, new CompletableFuture<>());
+            previousTracker.taskDone(previousTask);
+            Mockito.verify(oldTimerFlushFuture, Mockito.never()).cancel(false);
             if (cancel) {
                 // Publish the replacement after cancelTaskGroup captures the old future.
                 Mockito.doAnswer(
@@ -919,8 +936,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
             Assertions.assertSame(newContext, executionContexts.get(location));
             Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
-            assertEquals(1L, oldContext.getExecutionId());
-            assertEquals(2L, newContext.getExecutionId());
+            assertEquals(oldExecutionId, oldContext.getExecutionId());
+            assertEquals(newExecutionId, newContext.getExecutionId());
             if (cancel) {
                 Assertions.assertNotNull(oldContext.getClassLoaders());
                 Assertions.assertSame(oldCancellationFuture, cancellationFutures.get(oldContext));
@@ -994,8 +1011,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        TaskGroupContext oldContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
         TaskExecutionService.TaskGroupExecutionTracker oldTracker =
