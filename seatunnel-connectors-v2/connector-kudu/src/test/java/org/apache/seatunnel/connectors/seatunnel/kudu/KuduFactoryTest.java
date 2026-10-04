@@ -83,7 +83,8 @@ class KuduFactoryTest {
 
         Assertions.assertDoesNotThrow(
                 () -> ConfigValidator.of(config).validate(factory.optionRule()));
-        // Verify pass-through by design: validation must not trim or normalize the configured value.
+        // Verify pass-through by design: validation must not trim or normalize the configured
+        // value.
         Assertions.assertEquals(masters, config.get(KuduBaseOptions.MASTER));
         Assertions.assertEquals(masters, new CommonConfig(config).getMasters());
     }
