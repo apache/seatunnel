@@ -358,12 +358,17 @@ public class SplitClusterFaultToleranceIT {
      * CANCELING, and it is {@code CoordinatorService#failedTaskOnMemberRemoved} (driven by the
      * Hazelcast membership event) that resolves the vertex. That path used to mark a CANCELING
      * vertex FAILED, which turned this user-cancelled job into a FAILED one whenever the kill below
-     * landed after the ack rather than before it; it now resolves a CANCELING vertex to CANCELED
-     * (see {@code CoordinatorService#resolveLostMemberState}), keeping the outcome the cancel
-     * request was going to produce anyway. Either way the vertex reaches CANCELED, and the
+     * landed after the ack rather than before it. While the job itself is CANCELING, that path now
+     * resolves every vertex still deployed on the lost worker to CANCELED (see {@code
+     * CoordinatorService#resolveLostMemberState}): the vertex that already entered CANCELING as
+     * well as the siblings that {@code SubPlan#stateProcess}, which cancels vertices one by one,
+     * has not reached yet and that are therefore still RUNNING. A CANCELING vertex of a job the
+     * user did not cancel (the engine cancels tasks itself on a master-switch reschedule, a
+     * checkpoint error or a failing sibling) keeps resolving to FAILED. Since this job is cancelled
+     * by the user, each of its vertices reaches CANCELED on either side of the ack, and the
      * end-state consistency check inside {@code updateTaskState} rejects any later attempt to move
      * it elsewhere, which is why this test asserts CANCELED rather than FAILED as the outcome
-     * regardless of which side of the ack the worker shutdown lands on.
+     * regardless of where the worker shutdown lands.
      *
      * <p>No existing fault-tolerance test combines "cancel requested" with "worker crashes before
      * the cancel ack arrives": {@link #testStreamJobRunOk()} cancels a job on a fully healthy
