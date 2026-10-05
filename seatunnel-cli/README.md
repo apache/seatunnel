@@ -438,6 +438,8 @@ Transform metadata is resolved through the same path as source and sink metadata
 
 The CLI remembers facts across sessions to improve config accuracy:
 
+Credential redaction recognizes quoted JSON/HOCON keys and removes the complete quoted value, including spaces, punctuation, and escaped quotes. Assignment keys and surrounding configuration remain intact.
+
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.
 
