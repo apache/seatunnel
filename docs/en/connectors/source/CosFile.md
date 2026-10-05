@@ -62,6 +62,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
+| read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                        |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |

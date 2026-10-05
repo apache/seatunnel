@@ -99,7 +99,7 @@ transform {
 ```bash
 $SEATUNNEL_HOME/bin/seatunnel.sh \
 -c $SEATUNNEL_HOME/config/your_app.conf \
--m local[2] \
+-m local \
 -i city=Singapore \
 -i date=20231110
 ```

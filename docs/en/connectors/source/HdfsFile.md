@@ -57,6 +57,7 @@ Read data from hdfs file system.
 | file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
 | fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | hdfs_site_path             | string  | no       | -                           | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter  | string  | no       | \001                        | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
 | row_delimiter              | string  | no       | \n                          | Row delimiter, used to tell connector how to slice and dice rows when reading text files. default `\n`                                                                                                                                                                                                                                        |
@@ -79,7 +80,7 @@ Read data from hdfs file system.
 | file_filter_pattern        | string  | no       |                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                               |
 | filename_extension         | string  | no       | -                           | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                       |
 | compress_codec             | string  | no       | none                        | The compress codec of files                                                                                                                                                                                                                                                                                                                   |
-| archive_compress_codec     | string  | no       | none                        |                                                                                                                                                                                                                                                                                                                                               |
+| archive_compress_codec     | string  | no       | none                        | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
 | encoding                   | string  | no       | UTF-8                       |                                                                                                                                                                                                                                                                                                                                               |
 | null_format                | string  | no       | -                           | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                            |
 | binary_chunk_size          | int     | no       | 1024                        | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                              |
@@ -488,84 +489,6 @@ sink {
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/connectors/sink
-}
-```
-
-### Incremental Sync (sync_mode=update, binary)
-
-`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files (currently only supports `file_format_type=binary`).
-In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/update/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/update/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/update/dst/"
-    tmp_path = "/seatunnel/update/tmp/"
-    file_format_type = "binary"
-  }
-}
-```
-
-### Continuous Discovery (discovery_mode=continuous)
-
-`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
-
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/watch/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    discovery_mode = "continuous"
-    scan_interval = "10S"
-    start_mode = "latest"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/watch/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-
-    post_sync_action = "backup"
-    backup_path = "/seatunnel/watch/backup/"
-    retention_max_age = "7D"
-    retention_check_interval = "1H"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/watch/dst/"
-    tmp_path = "/seatunnel/watch/tmp/"
-    file_format_type = "binary"
-  }
 }
 ```
 

@@ -56,6 +56,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | path                       | string  | 是    | -                   |
 | file_format_type           | string  | 是    | -                   |
 | read_columns               | list    | 否    | -                   |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
 | row_delimiter              | string  | 否    | \n                  |
 | parse_partition_from_path  | boolean | 否    | true                |

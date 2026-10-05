@@ -68,7 +68,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型列和字符串类型列。 |
 | partition_lower_bound | BigDecimal | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound | BigDecimal | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
-| partition_num | Int | 否 | job parallelism | 分割数量，仅支持正整数。默认值是任务并行度。 |
+| partition_num | Int | 否 | 10 | 分割数量，仅支持正整数。默认值是 10。 |
 | fetch_size | Int | 否 | 0 | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，以通过减少满足选择条件所需的数据库命中次数来提高性能。零表示使用 jdbc 默认值。 |
 | use_regex                                  | Boolean    | 否    | false | 控制表路径的正则表达式匹配。当设置为true时，table_path 将被视为正则表达式模式。当设置为false或未指定时，table_path 将被视为精确路径（不进行正则匹配）。                                                                                                                            |
 | table_path                                 | String     | 否    | -     | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>"testdb.table1"                                  |
