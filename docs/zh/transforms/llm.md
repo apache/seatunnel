@@ -47,7 +47,7 @@ STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 
 ### output_column_name
 
-自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
+自定义输出数据字段名称。该名称不能与输入数据中已有的字段名重复，否则转换插件会抛出错误：`llm inference field name ... already exists`。
 
 ### prompt
 
@@ -106,6 +106,8 @@ transform {
 
 当 `model_provider` 为 `OPENAI`、`DOUBAO`、`MICROSOFT` 或 `QIANFAN` 时该选项必填，其他提供者无需配置。
 
+当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
+
 ### secret_key
 
 当 `model_provider` 为 `QIANFAN` 时，与 `api_key` 一起使用的密钥。
@@ -141,6 +143,9 @@ transform {
 ### custom_config
 
 `custom_config` 选项允许您为模型提供额外的自定义配置。这是一个 Map，您可以在其中定义特定模型可能需要的各种设置。
+
+`custom_response_parse`、`custom_request_headers` 和 `custom_request_body` 只会从 `custom_config`
+块内部读取（见下方示例），写在 Transform 顶层不会生效。
 
 ### custom_response_parse
 

@@ -19,7 +19,7 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 
 ### plugin_input [string]
 
-The source table name, the query SQL table name must match this field.
+The source table name, the query SQL table name must match this field. If not configured, the input catalog table name is used.
 
 ### query [string]
 

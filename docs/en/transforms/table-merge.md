@@ -18,7 +18,6 @@ TableMerge transform plugin for merge sharding-tables.
 
 ### Merge sharding-tables
 
-`
 ```hocon
 env {
     parallelism = 1

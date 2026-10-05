@@ -19,7 +19,7 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 ### plugin_input [string]
 
-源表名称，查询 SQL 表名称必须与此字段匹配。
+源表名称，查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。
 
 ### query [string]
 

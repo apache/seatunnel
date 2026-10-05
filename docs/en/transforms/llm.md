@@ -49,7 +49,7 @@ Default value is STRING.
 
 ### output_column_name
 
-Custom output data field name. A custom field name that is the same as an existing field name is replaced with 'llm_output'.
+Custom output data field name. It must not duplicate an existing input field name, otherwise the transform fails with the error `llm inference field name ... already exists`.
 
 ### prompt
 
@@ -108,6 +108,8 @@ If you use OpenAI model, please refer https://help.openai.com/en/articles/493685
 
 This option is required when `model_provider` is `OPENAI`, `DOUBAO`, `MICROSOFT` or `QIANFAN`, and not required for other providers.
 
+This option is not used when `model_provider` is `CUSTOM`; in that case the request is fully described by `custom_config`.
+
 ### secret_key
 
 The secret key used together with `api_key` when `model_provider` is `QIANFAN`.
@@ -145,6 +147,9 @@ The request timeout in milliseconds for remote model calls.
 
 The `custom_config` option allows you to provide additional custom configurations for the model. This is a map where you
 can define various settings that might be required by the specific model you're using.
+
+`custom_response_parse`, `custom_request_headers` and `custom_request_body` are only read from inside this
+`custom_config` block (see the example below); setting them at the top level of the transform has no effect.
 
 ### custom_response_parse
 
