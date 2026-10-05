@@ -47,6 +47,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
+DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
+
+MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。如果 `BIT` 或 `ENUM` 列属于主键，请提前创建兼容的目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-bit-和-enum-自动建表)。
+
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |
@@ -61,10 +65,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
 | DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
+| BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+
+> 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 
 ## 源选项
 
@@ -77,9 +84,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | query                        | String     | 是    | -               | 查询语句                                                                                                                                                 |
 | connection_check_timeout_sec | Int        | 否    | 30              | 等待用于验证连接的数据库操作完成的时间（以秒为单位）                                                                                                                           |
 | partition_column             | String     | 否    | -               | 并行度分区的列名，仅支持数字类型主键，并且只能配置一列。                                                                                                                         |
-| partition_lower_bound        | BigDecimal | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |
-| partition_upper_bound        | BigDecimal | 否    | -               | 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。                                                                                                |
-| partition_num                | Int        | 否    | job parallelism | 分区计数的数量，仅支持正整数。默认值为作业并行度                                                                                                                             |
+| partition_lower_bound        | String     | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |
+| partition_upper_bound        | String     | 否    | -               | 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。                                                                                                |
+| partition_num                | Int        | 否    | 10              | 分区计数的数量，仅支持正整数。默认值为 10                                                                                                                             |
 | fetch_size                   | Int        | 否    | 0               | 对于返回大量对象的查询，您可以配置<br/> 查询中使用的行获取大小来通过<br/> 减少满足选择条件所需的数据库命中次数来提高性能。<br/> 零表示使用 jdbc 默认值。                                                             |
 | properties                   | Map        | 否    | -               | 附加连接配置参数，当 properties 和 URL 具有相同参数时，优先级由 <br/>驱动程序的具体实现确定。例如，在 DuckDB 中，properties 优先于 URL。                                                          |
 | table_path                   | String     | 否    | -               | 表的完整路径，您可以使用此配置代替 `query`。 <br/>示例： <br/>duckdb: "main.table1" <br/>                                                                                 |
@@ -112,11 +119,11 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 用于拆分数据的列名。
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。
 
@@ -124,7 +131,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 > 不建议使用，正确的方法是通过 `split.size` 控制拆分数量
 
-我们需要拆分成多少个拆分，仅支持正整数。默认值为作业并行度。
+我们需要拆分成多少个拆分，仅支持正整数。默认值为 10。
 
 ## 提示
 

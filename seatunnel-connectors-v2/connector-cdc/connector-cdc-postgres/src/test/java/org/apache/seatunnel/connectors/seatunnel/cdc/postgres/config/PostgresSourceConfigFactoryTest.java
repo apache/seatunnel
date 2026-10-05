@@ -40,5 +40,9 @@ public class PostgresSourceConfigFactoryTest {
 
         Assertions.assertEquals(
                 "never", configFactory.create(0).getDbzConfiguration().getString("snapshot.mode"));
+        // "database.include.list" must stay unset: Debezium turns it into a catalog predicate on
+        // dataCollectionFilter(), which rejects the catalog-less TableIds used by PostgreSQL.
+        Assertions.assertNull(
+                configFactory.create(0).getDbzConfiguration().getString("database.include.list"));
     }
 }

@@ -52,6 +52,7 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-gcs
 connector-file-sftp
+connector-file-smb
 connector-file-obs
 connector-file-bos
 connector-fluss
@@ -60,6 +61,7 @@ connector-google-sheets
 connector-google-firestore
 connector-google-pubsub
 connector-azure-queue-storage
+connector-azure-event-hubs
 connector-google-bigtable
 connector-google-ads
 connector-google-analytics4
