@@ -28,6 +28,7 @@ import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final long DEFAULT_POI_EXCEL_MAX_FILE_SIZE = 50L * 1024L * 1024L;
 
     public static final Option<FileDiscoveryMode> DISCOVERY_MODE =
             Options.key("discovery_mode")
@@ -116,11 +117,26 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                             "Whether to append RAG-oriented metadata columns when reading markdown files. "
                                     + "Only valid when file_format_type is markdown.");
 
+    public static final Option<Boolean> PDF_RAG_METADATA_ENABLED =
+            Options.key("pdf_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading PDF files. "
+                                    + "Only valid when file_format_type is pdf.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
                     .defaultValue(ExcelEngine.POI)
-                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
+                    .withDescription("To switch excel read engine, e.g. POI, EasyExcel");
+
+    public static final Option<Long> POI_EXCEL_MAX_FILE_SIZE =
+            Options.key("poi_excel_max_file_size")
+                    .longType()
+                    .defaultValue(DEFAULT_POI_EXCEL_MAX_FILE_SIZE)
+                    .withDescription(
+                            "Maximum Excel file size in bytes allowed by POI engine. Use EasyExcel for larger Excel files.");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")

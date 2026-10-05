@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileStatusListingSession;
 
+import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -38,17 +39,23 @@ import org.mockftpserver.fake.filesystem.FileSystem;
 import org.mockftpserver.fake.filesystem.UnixFakeFileSystem;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /** Unit tests for SeaTunnelFTPFileSystem. */
 public class SeaTunnelFTPFileSystemTest {
@@ -145,6 +152,21 @@ public class SeaTunnelFTPFileSystemTest {
     }
 
     @Test
+    public void testAppendToExistingFile() throws IOException {
+        Path testFile = new Path(HOME_DIR + "/test.txt");
+
+        try (FSDataOutputStream out = ftpFileSystem.append(testFile, 1024, null)) {
+            out.write(" appended".getBytes(StandardCharsets.UTF_8));
+        }
+
+        try (FSDataInputStream in = ftpFileSystem.open(testFile, 1024)) {
+            byte[] buffer = new byte["Test content appended".length()];
+            in.readFully(buffer);
+            assertEquals("Test content appended", new String(buffer, StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     public void testListStatus() throws IOException {
         // Create test directory structure
         Path testDir = new Path(HOME_DIR + "/testListDir");
@@ -167,6 +189,17 @@ public class SeaTunnelFTPFileSystemTest {
 
         // Clean up
         ftpFileSystem.delete(testDir, true);
+    }
+
+    @Test
+    public void testDisconnectIgnoresConnectionResetDuringLogout() throws IOException {
+        FTPClient client = mock(FTPClient.class);
+        when(client.isConnected()).thenReturn(true);
+        doThrow(new SocketException("Connection reset")).when(client).logout();
+
+        assertDoesNotThrow(() -> ftpFileSystem.disconnect(client));
+
+        verify(client).disconnect();
     }
 
     @Test

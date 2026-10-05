@@ -779,6 +779,18 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(
                 String.format("%s(%s)", DorisTypeConverterV2.DORIS_VARCHAR, 200),
                 typeDefine.getColumnType());
+
+        // DECIMALV3 only requires scale <= precision, so a scale above 9 is kept as declared.
+        // This is the behaviour the Doris 1.x cap must not change.
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(20, 10)).build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_DECIMALV3, typeDefine.getDataType());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DorisTypeConverterV2.DORIS_DECIMALV3, 20, 10),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(10, typeDefine.getScale());
     }
 
     @Test

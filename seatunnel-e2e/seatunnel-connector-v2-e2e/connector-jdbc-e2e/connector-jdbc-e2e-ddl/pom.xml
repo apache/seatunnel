@@ -25,14 +25,16 @@
     <artifactId>connector-jdbc-e2e-ddl</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : JDBC : Schema Evolution</name>
 
+    <properties>
+        <jdbc.e2e.ddl.sqlserver.version>9.2.1.jre8</jdbc.e2e.ddl.sqlserver.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-jdbc</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>mssql-jdbc</artifactId>
+                <version>${jdbc.e2e.ddl.sqlserver.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -68,8 +70,8 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
         </dependency>
 

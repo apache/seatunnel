@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.prometheus;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.PrometheusSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.source.PrometheusSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class PrometheusFactoryTest {
 
@@ -29,5 +36,48 @@ public class PrometheusFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new PrometheusSourceFactory()).optionRule());
         Assertions.assertNotNull((new PrometheusSinkFactory()).optionRule());
+    }
+
+    @Test
+    void testPositiveBatchSize() {
+        Assertions.assertDoesNotThrow(() -> validateBatchSize(1));
+    }
+
+    @Test
+    void testBatchSizeIsOptional() {
+        Assertions.assertDoesNotThrow(() -> validate(sinkConfig()));
+    }
+
+    @Test
+    void testNonPositiveBatchSizeFails() {
+        assertInvalidBatchSize(0);
+        assertInvalidBatchSize(-1);
+    }
+
+    private void assertInvalidBatchSize(int batchSize) {
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateBatchSize(batchSize));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PrometheusSinkOptions.BATCH_SIZE.key()));
+    }
+
+    private void validateBatchSize(int batchSize) {
+        Map<String, Object> config = sinkConfig();
+        config.put(PrometheusSinkOptions.BATCH_SIZE.key(), batchSize);
+        validate(config);
+    }
+
+    private Map<String, Object> sinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(PrometheusSinkOptions.URL.key(), "http://localhost:9090");
+        config.put(PrometheusSinkOptions.KEY_LABEL.key(), "label");
+        config.put(PrometheusSinkOptions.KEY_VALUE.key(), "value");
+        return config;
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                .validate(new PrometheusSinkFactory().optionRule());
     }
 }

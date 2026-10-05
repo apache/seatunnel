@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +40,9 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.github.luben.zstd.Zstd;
+import com.mysql.cj.jdbc.Driver;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -118,18 +122,6 @@ public class JdbcToIcebergTimestampIT extends TestSuiteBase implements TestResou
                                     DockerLoggerFactory.getLogger("pg-timestamp-image")));
 
     // -------------------------------------------------------------------------
-    // Driver / plugin JARs downloaded into the SeaTunnel container
-    // -------------------------------------------------------------------------
-    private static final String MYSQL_DRIVER_URL =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
-    private static final String PG_DRIVER_URL =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
-    private static final String ZSTD_URL =
-            "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-
-    // -------------------------------------------------------------------------
     // Container setup: create Iceberg dirs + download driver JARs
     // -------------------------------------------------------------------------
     @TestContainerExtension
@@ -146,25 +138,11 @@ public class JdbcToIcebergTimestampIT extends TestSuiteBase implements TestResou
                 }
                 container.execInContainer("sh", "-c", "chmod -R 777 /tmp/seatunnel_mnt/iceberg/");
 
-                // Download Iceberg compression codec
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib"
-                                + " && cd /tmp/seatunnel/plugins/Iceberg/lib"
-                                + " && wget -q "
-                                + ZSTD_URL);
-
-                // Download JDBC drivers into the Jdbc plugin directory
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
-                                + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
-                                + " && wget -q "
-                                + MYSQL_DRIVER_URL
-                                + " && wget -q "
-                                + PG_DRIVER_URL);
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(Driver.class).copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.staged("postgresql-jdbc.jar")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     // -------------------------------------------------------------------------

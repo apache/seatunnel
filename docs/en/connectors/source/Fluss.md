@@ -174,6 +174,68 @@ sink {
 }
 ```
 
+### Stream one Fluss table into another
+
+This example copies a Fluss source table into a Fluss sink table in streaming
+mode. The source starts from the earliest available log offset and the connector
+commits the per-bucket read position with each checkpoint so the job can resume
+after a restart.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_stream_db"
+    table = "fluss_stream_src"
+    start_mode = "earliest"
+    poll.timeout.ms = 10000
+    plugin_output = "fluss_stream"
+  }
+}
+
+sink {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_stream_db"
+    table = "fluss_stream_sink"
+    plugin_input = "fluss_stream"
+  }
+}
+```
+
+### Tune the poll timeout for high-latency clusters
+
+When the Fluss coordinator sits on a high-latency network or returns large
+batches, increase `poll.timeout.ms` so the log scanner waits longer between
+empty polls and reduces the number of round trips.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_db"
+    table = "fluss_table"
+    start_mode = "latest"
+    poll.timeout.ms = 60000
+    client.config = {
+      request.timeout = "30s"
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

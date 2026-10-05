@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -36,11 +37,15 @@ public class IoTDBSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private CatalogTable catalogTable;
-    private ReadonlyConfig pluginConfig;
+    private final List<CatalogTable> catalogTables;
+    private final ReadonlyConfig pluginConfig;
 
     public IoTDBSource(CatalogTable catalogTable, ReadonlyConfig pluginConfig) {
-        this.catalogTable = catalogTable;
+        this(Collections.singletonList(catalogTable), pluginConfig);
+    }
+
+    IoTDBSource(List<CatalogTable> catalogTables, ReadonlyConfig pluginConfig) {
+        this.catalogTables = Collections.unmodifiableList(new ArrayList<>(catalogTables));
         this.pluginConfig = pluginConfig;
     }
 
@@ -57,8 +62,7 @@ public class IoTDBSource
     @Override
     public SourceReader<SeaTunnelRow, IoTDBSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new IoTDBSourceReader(
-                pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
+        return new IoTDBSourceReader(pluginConfig, readerContext, catalogTables);
     }
 
     @Override
@@ -77,6 +81,6 @@ public class IoTDBSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 }

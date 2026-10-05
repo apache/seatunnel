@@ -57,6 +57,7 @@ Read data from hdfs file system.
 | file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
 | fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | hdfs_site_path             | string  | no       | -                           | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
 | row_delimiter              | string  | no       | \n                          | Row delimiter, used to tell connector how to slice and dice rows when reading text files. default `\n`                                                                                                                                                                                                                                        |
@@ -71,13 +72,15 @@ Read data from hdfs file system.
 | skip_header_row_number     | long    | no       | 0                           | Skip the first few lines, but only for the txt and csv.For example, set like following:`skip_header_row_number = 2`.then Seatunnel will skip the first 2 lines from source files                                                                                                                                                              |
 | schema                     | config  | no       | -                           | the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). **metadata_table_id**: The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`. When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md). |
 | sheet_name                 | string  | no       | -                           | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                         |
+| excel_engine               | string  | no       | POI                         | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                          |
+| poi_excel_max_file_size    | long    | no       | 52428800                    | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                          |
 | xml_row_tag                | string  | no       | -                           | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
 | xml_use_attr_format        | boolean | no       | -                           | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
 | csv_use_header_line        | boolean | no       | false                       | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                           |
 | file_filter_pattern        | string  | no       |                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                               |
 | filename_extension         | string  | no       | -                           | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                       |
 | compress_codec             | string  | no       | none                        | The compress codec of files                                                                                                                                                                                                                                                                                                                   |
-| archive_compress_codec     | string  | no       | none                        |                                                                                                                                                                                                                                                                                                                                               |
+| archive_compress_codec     | string  | no       | none                        | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
 | encoding                   | string  | no       | UTF-8                       |                                                                                                                                                                                                                                                                                                                                               |
 | null_format                | string  | no       | -                           | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                            |
 | binary_chunk_size          | int     | no       | 1024                        | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                              |
@@ -125,7 +128,7 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
@@ -136,10 +139,24 @@ When this option is enabled for bounded Markdown file sources, the source enumer
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 
@@ -148,6 +165,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### tables_configs [list]
 
@@ -219,6 +242,22 @@ The result of this example matching is:
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 ### compress_codec [string]
 
@@ -531,84 +570,6 @@ sink {
 }
 ```
 
-### Incremental Sync (sync_mode=update, binary)
-
-`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files (currently only supports `file_format_type=binary`).
-In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/update/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/update/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/update/dst/"
-    tmp_path = "/seatunnel/update/tmp/"
-    file_format_type = "binary"
-  }
-}
-```
-
-### Continuous Discovery (discovery_mode=continuous)
-
-`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
-
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-}
-
-source {
-  HdfsFile {
-    path = "/seatunnel/watch/src/"
-    file_format_type = "binary"
-    fs.defaultFS = "hdfs://namenode001"
-
-    discovery_mode = "continuous"
-    scan_interval = "10S"
-    start_mode = "latest"
-
-    sync_mode = "update"
-    target_path = "/seatunnel/watch/dst/"
-    update_strategy = "distcp"
-    compare_mode = "len_mtime"
-
-    post_sync_action = "backup"
-    backup_path = "/seatunnel/watch/backup/"
-    retention_max_age = "7D"
-    retention_check_interval = "1H"
-  }
-}
-
-sink {
-  HdfsFile {
-    fs.defaultFS = "hdfs://namenode001"
-    path = "/seatunnel/watch/dst/"
-    tmp_path = "/seatunnel/watch/tmp/"
-    file_format_type = "binary"
-  }
-}
-```
-
 ### Filter File
 
 ```hocon
@@ -676,6 +637,23 @@ sink {
 }
 
 ```
+
+### Reading from an HA HDFS Cluster (Nameservice)
+
+When the HDFS namenode is deployed in HA mode (multiple namenodes behind a single nameservice), point `fs.defaultFS` at the nameservice URI (not an individual namenode) so the client can fail over automatically. The nameservice ID must match the `dfs.nameservices` value in `hdfs-site.xml`.
+
+```hocon
+source {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/orders/dt=2026-08-11"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+  }
+}
+```
+
+If the cluster is configured with ViewFS (federated HDFS), use a `viewfs://<nameservice-path>` URI for `fs.defaultFS` instead — the connector passes the URI straight to the Hadoop FileSystem client. The `hdfs_site_path` option lets you load an external `hdfs-site.xml` (for example from `/etc/hadoop/conf/`) so the cluster's HA / federation settings are picked up without restating them in the job file.
 
 ## Changelog
 

@@ -31,6 +31,7 @@ Sink，SeaTunnel 目前没有提供 ActiveMQ Source 连接器。
 | dispatch_async                        | boolean | 否    | -   | Broker 是否异步分发消息。                                                                                       |
 | nested_map_and_list_enabled           | boolean | 否    | -   | 是否允许结构化消息属性和 `MapMessage` 条目中包含嵌套的 `Map`、`List` 对象。                                               |
 | warn_about_unstarted_connection_timeout | int   | 否    | -   | 连接没有正确启动时，ActiveMQ 客户端发出警告前等待的毫秒数。设置为小于 `0` 的值可以关闭这个警告。                              |
+| consumer_expiry_check_enabled           | boolean | 否    | -   | 是否在每个 `MessageConsumer` 分发消息前检查消息是否已经过期。                                                  |
 
 ## 注意事项
 
@@ -75,6 +76,56 @@ sink {
 }
 ```
 
+在流式模式下，Sink 会保持与 Broker 的连接持续打开，每来一行数据就写入一条。用户名 / 密码也可以直接
+写在 `uri` 中，例如 `tcp://admin:admin@localhost:61616`：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://admin:admin@localhost:61616"
+    queue_name = "testQueue"
+  }
+}
+```
+
+## FAQ
+
+### ActiveMQ Sink 支持 topic 吗？
+
+不支持。当前 Sink 只会写入由 `queue_name` 指定的 JMS 队列，连接器工厂并不支持 topic 目的地。如果需要发布/订阅语义，请改用通用的 JMS 连接器或者其它专门面向 ActiveMQ topic 的桥接组件；要直接驱动本连接器，请继续用 queue。
+
+### `username` 和 `password` 是怎么校验的？
+
+这两项都是可选的。设置的时候必须同时设置（只设其中一个会让任务启动失败）。它们作用于 JMS 连接工厂这一层，因此会覆盖已经嵌在 `uri` 里的凭证。如果 Broker 需要鉴权，建议显式配置 `username`/`password` 而不是把它们写在 URL 里——这样凭证会出现在任务配置日志里，而不是埋在连接串里。
+
+### 每条数据最终变成什么格式的消息？
+
+每行 SeaTunnel 数据会被序列化为一条 JSON 文本消息写到配置的 `queue_name` 里。连接器没有 `format` 配置项，JSON 结构由 Sink 序列化器固定，所以对端如果想要其它编码，需要自己先解码 JSON body。
+
+### 支持精确一次写入吗？
+
+不支持。Sink 是尽力而为模式，重连行为由底层 JMS 客户端决定。如果可以接受来自上游的至少一次重放，请在任务级别启用 checkpoint。
+
 ## 变更日志
 
 <ChangeLog />
+

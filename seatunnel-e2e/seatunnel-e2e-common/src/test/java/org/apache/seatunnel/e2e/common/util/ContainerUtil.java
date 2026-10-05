@@ -52,7 +52,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -276,7 +275,16 @@ public final class ContainerUtil {
     public static List<File> getConnectorFiles(
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
-        for (File file : Objects.requireNonNull(currentModule.listFiles())) {
+        File[] moduleFiles = currentModule.listFiles();
+        if (moduleFiles == null) {
+            throw new IllegalStateException(
+                    "Connector root path is not a directory or is not readable: "
+                            + currentModule.getAbsolutePath()
+                            + ". This usually means the project root was resolved incorrectly (user.dir="
+                            + System.getProperty("user.dir")
+                            + ") or the repository checkout is incomplete.");
+        }
+        for (File file : moduleFiles) {
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
         }
         if (connectorNames.stream().anyMatch(connectorName -> connectorName.contains("cdc"))) {
@@ -306,7 +314,18 @@ public final class ContainerUtil {
         }
         if (connectorNames.contains(currentModule.getName())) {
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
-            for (File file : Objects.requireNonNull(targetPath.listFiles())) {
+            File[] targetFiles = targetPath.listFiles();
+            if (targetFiles == null) {
+                throw new IllegalStateException(
+                        "Connector module '"
+                                + currentModule.getName()
+                                + "' is required by the job config, but its build output directory does not exist: "
+                                + targetPath.getAbsolutePath()
+                                + ". Please build it before running e2e tests (e.g. ./mvnw -pl :"
+                                + currentModule.getName()
+                                + " -am package), or include it in the CI '-pl' module list.");
+            }
+            for (File file : targetFiles) {
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
                         && !file.getName().endsWith("tests.jar")) {
@@ -317,7 +336,11 @@ public final class ContainerUtil {
         }
 
         if (currentModule.getName().startsWith(connectorPrefix)) {
-            for (File file : Objects.requireNonNull(currentModule.listFiles())) {
+            File[] moduleFiles = currentModule.listFiles();
+            if (moduleFiles == null) {
+                return;
+            }
+            for (File file : moduleFiles) {
                 getConnectorFiles(file, connectorNames, connectorPrefix, connectors);
             }
         }

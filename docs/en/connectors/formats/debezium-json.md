@@ -112,3 +112,11 @@ sink {
 }
 ```
 
+# See Also
+
+SeaTunnel supports several other CDC changelog formats with the same INSERT/UPDATE/DELETE interpretation:
+
+- [Canal JSON](canal-json.md)
+- [Maxwell JSON](maxwell-json.md)
+- [OGG JSON](ogg-json.md)
+

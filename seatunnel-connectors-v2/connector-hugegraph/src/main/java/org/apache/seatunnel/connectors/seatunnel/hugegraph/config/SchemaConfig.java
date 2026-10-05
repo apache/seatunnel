@@ -26,8 +26,14 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Legacy schema configuration object for backward compatibility. New configurations should use
+ * {@code mappings[]} with {@link MappingConfig} instead.
+ */
 @Data
 public class SchemaConfig implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     // General config
     private LabelType type;
@@ -52,7 +58,9 @@ public class SchemaConfig implements Serializable {
     private SourceTargetConfig targetConfig;
     private Frequency frequency;
 
-    // Mapping Config
+    // Mapping Config (legacy nested object). Kept as MappingConfig to preserve the public
+    // getMapping()/setMapping() accessor descriptors of the previously released connector;
+    // MappingConfig already carries all the legacy nested fields.
     private MappingConfig mapping;
 
     public enum LabelType {
@@ -62,6 +70,7 @@ public class SchemaConfig implements Serializable {
 
     @Data
     public static class SourceTargetConfig implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String label;
         private List<String> idFields;
     }
