@@ -41,8 +41,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
@@ -124,15 +122,17 @@ class KafkaSourceReaderGateTest {
 
     /**
      * Verifies the production allowlist in {@code KafkaSourceReader.deserializeSplit}/{@code
-     * KafkaGateObjectInputStream.resolveClass}, invoked reflectively since both are private. The
-     * other tests in this class exercise a plain-{@link ObjectInputStream} test helper for gate
-     * staging semantics, not this allowlist, so this is the one round-trip through the actual
-     * production deserialization path that a future refactor could silently widen.
+     * KafkaGateObjectInputStream.resolveClass}. {@code KafkaSourceReader.deserializeSplit} is
+     * package-private precisely so these tests can call it directly: do not replace the call with
+     * the local {@link #deserializeSplit(byte[])} helper, which uses a plain {@link
+     * ObjectInputStream} for gate staging semantics and never reaches the allowlist. This is the
+     * one round-trip through the actual production deserialization path that a future refactor
+     * could silently widen.
      */
     @Test
     void productionDeserializeSplitShouldRoundTripKafkaSourceSplit() throws Exception {
         KafkaSourceSplit split = split(42L);
-        KafkaSourceSplit restored = invokeProductionDeserializeSplit(serializeSplit(split));
+        KafkaSourceSplit restored = KafkaSourceReader.deserializeSplit(serializeSplit(split));
 
         Assertions.assertEquals(split.getTablePath(), restored.getTablePath());
         Assertions.assertEquals(split.getTopicPartition(), restored.getTopicPartition());
@@ -148,22 +148,35 @@ class KafkaSourceReaderGateTest {
         }
         byte[] disallowedPayload = output.toByteArray();
 
-        InvocationTargetException thrown =
+        IOException thrown =
                 Assertions.assertThrows(
-                        InvocationTargetException.class,
-                        () -> invokeProductionDeserializeSplit(disallowedPayload));
+                        IOException.class,
+                        () -> KafkaSourceReader.deserializeSplit(disallowedPayload));
 
-        Assertions.assertInstanceOf(IOException.class, thrown.getCause());
-        Assertions.assertTrue(
-                thrown.getCause().getMessage().contains("java.util.HashMap"),
-                "Rejection message should name the rejected class: " + thrown.getCause());
+        Assertions.assertEquals(
+                "Rejected Kafka source gate split class: java.util.HashMap", thrown.getMessage());
     }
 
-    private static KafkaSourceSplit invokeProductionDeserializeSplit(byte[] serializedSplit)
+    /**
+     * Distinguishes exact-name matching from prefix matching. {@link KafkaSourceSplitState} is a
+     * serializable subclass of the allowlisted {@link KafkaSourceSplit}, lives in the same package,
+     * and its class name even starts with the allowlisted name, so it passes any package-prefix or
+     * class-name-prefix check and would also satisfy the {@code instanceof KafkaSourceSplit} guard.
+     * Only the exact-name allowlist rejects it.
+     */
+    @Test
+    void productionDeserializeSplitShouldRejectSamePackageSubclassOutsideAllowlist()
             throws Exception {
-        Method method = KafkaSourceReader.class.getDeclaredMethod("deserializeSplit", byte[].class);
-        method.setAccessible(true);
-        return (KafkaSourceSplit) method.invoke(null, (Object) serializedSplit);
+        byte[] lookalikePayload = serializeSplit(new KafkaSourceSplitState(split(42L)));
+
+        IOException thrown =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> KafkaSourceReader.deserializeSplit(lookalikePayload));
+
+        Assertions.assertEquals(
+                "Rejected Kafka source gate split class: " + KafkaSourceSplitState.class.getName(),
+                thrown.getMessage());
     }
 
     private static KafkaSourceReader newReader(boolean commitOnCheckpoint) {

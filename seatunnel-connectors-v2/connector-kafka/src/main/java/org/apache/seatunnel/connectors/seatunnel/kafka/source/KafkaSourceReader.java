@@ -394,7 +394,14 @@ public class KafkaSourceReader
         return output.toByteArray();
     }
 
-    private static KafkaSourceSplit deserializeSplit(byte[] serializedSplit)
+    /**
+     * Restores one gate split through the {@link KafkaGateObjectInputStream} allowlist.
+     *
+     * <p>Package-private only so that tests can drive the real allowlist path directly instead of a
+     * reflective lookup or a local plain-{@link ObjectInputStream} helper, neither of which would
+     * fail if the allowlist were widened. It is not part of the reader's public contract.
+     */
+    static KafkaSourceSplit deserializeSplit(byte[] serializedSplit)
             throws IOException, ClassNotFoundException {
         try (ObjectInputStream objectInputStream =
                 new KafkaGateObjectInputStream(new ByteArrayInputStream(serializedSplit))) {
