@@ -249,18 +249,30 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
      * Logout and disconnect the given FTPClient. *
      *
      * @param client FTPClient
-     * @throws IOException IOException
      */
-    private void disconnect(FTPClient client) throws IOException {
-        if (client != null) {
-            if (!client.isConnected()) {
-                throw new FTPException("Client not connected");
-            }
+    void disconnect(FTPClient client) {
+        if (client == null || !client.isConnected()) {
+            return;
+        }
+
+        try {
             boolean logoutSuccess = client.logout();
-            client.disconnect();
             if (!logoutSuccess) {
                 LOG.warn(
                         "Logout failed while disconnecting, error code - " + client.getReplyCode());
+            }
+        } catch (IOException e) {
+            // Some FTP servers close the control connection before responding to QUIT. The
+            // preceding operation has already completed, so do not turn a successful operation
+            // into a failure while releasing the connection.
+            LOG.warn("Failed to logout from FTP server while disconnecting", e);
+        } finally {
+            if (client.isConnected()) {
+                try {
+                    client.disconnect();
+                } catch (IOException e) {
+                    LOG.warn("Failed to disconnect from FTP server", e);
+                }
             }
         }
     }
@@ -389,11 +401,74 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         return fos;
     }
 
-    /** This optional operation is not yet supported. */
+    /**
+     * Appends bytes to an existing file through the FTP APPE command.
+     *
+     * <p>A stream obtained via this call must be closed before using other APIs of this class or
+     * else the invocation will block.
+     */
     @Override
-    public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+    public FSDataOutputStream append(Path file, int bufferSize, Progressable progress)
             throws IOException {
-        throw new IOException("Not supported");
+        final FTPClient client = connect();
+        Path workDir = new Path(client.printWorkingDirectory());
+        Path absolute = makeAbsolute(workDir, file);
+        FileStatus status;
+        try {
+            status = getFileStatus(client, absolute);
+        } catch (FileNotFoundException e) {
+            disconnect(client);
+            throw e;
+        }
+        if (status.isDirectory()) {
+            disconnect(client);
+            throw new FileNotFoundException("Path " + file + " is a directory.");
+        }
+
+        Path parent = absolute.getParent();
+        client.allocate(bufferSize);
+        client.changeWorkingDirectory(parent.toUri().getPath());
+        FSDataOutputStream fos =
+                new FSDataOutputStream(client.appendFileStream(file.getName()), statistics) {
+                    @Override
+                    public void close() throws IOException {
+                        IOException closeException = null;
+                        try {
+                            super.close();
+                            if (!client.isConnected()) {
+                                throw new FTPException("Client not connected");
+                            }
+                            boolean cmdCompleted = client.completePendingCommand();
+                            if (!cmdCompleted) {
+                                throw new FTPException(
+                                        "Could not complete transfer, Reply Code - "
+                                                + client.getReplyCode());
+                            }
+                        } catch (IOException | FTPException e) {
+                            closeException =
+                                    e instanceof IOException
+                                            ? (IOException) e
+                                            : new IOException(e.getMessage(), e);
+                        } finally {
+                            // disconnect() is deliberately lenient: it returns when the client is
+                            // already disconnected and only logs logout failures, so releasing the
+                            // connection here can never mask closeException.
+                            disconnect(client);
+                        }
+                        if (closeException != null) {
+                            throw closeException;
+                        }
+                    }
+                };
+        if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
+            try {
+                fos.close();
+            } catch (IOException | FTPException e) {
+                LOG.warn("Close rejected FTP append stream failed, ignore cleanup error.", e);
+            }
+            throw new IOException("Unable to append file: " + file + ", Aborting");
+        }
+        return fos;
     }
 
     /**
@@ -854,11 +929,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         } catch (IOException ioe) {
             throw new FTPException("Failed to get home directory", ioe);
         } finally {
-            try {
-                disconnect(client);
-            } catch (IOException ioe) {
-                throw new FTPException("Failed to disconnect", ioe);
-            }
+            disconnect(client);
         }
     }
 

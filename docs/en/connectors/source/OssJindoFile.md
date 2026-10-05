@@ -67,6 +67,7 @@ It only supports hadoop version **2.9.X+**.
 | access_secret              | string  | yes      | -                           |
 | endpoint                   | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
+| read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
@@ -82,6 +83,7 @@ It only supports hadoop version **2.9.X+**.
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
 | file_filter_pattern        | string  | no       |                             |
+| filename_extension         | string  | no       | -                           |
 | compress_codec             | string  | no       | none                        |
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |
@@ -214,6 +216,19 @@ When this option is enabled for bounded Markdown file sources, the source enumer
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
@@ -242,6 +257,12 @@ Each extracted element is converted to a row with the following schema:
 - `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
 
 Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### bucket [string]
 

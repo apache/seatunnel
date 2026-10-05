@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.hadoop.conf.Configuration;
@@ -47,6 +48,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.mysql.cj.jdbc.Driver;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -83,9 +85,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
 
-    private static final String MYSQL_DRIVER =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
     private static final String TIMER_FLUSH_DATABASE = "timer_flush_db";
@@ -118,13 +117,8 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
             container -> {
                 container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
                 container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + MYSQL_DRIVER);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                DependencyJar.of(Driver.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
             };
 
     @BeforeAll

@@ -18,8 +18,10 @@
 package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
+
+import org.apache.hadoop.fs.s3a.S3AFileSystem;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -36,7 +38,6 @@ import org.testcontainers.utility.DockerImageName;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -53,16 +54,16 @@ import java.util.concurrent.TimeUnit;
 public class S3FileWithFilterIT extends SeaTunnelContainer {
     private GenericContainer<?> s3Container;
 
-    private static final String MINIO_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"). The
+    // old quay.io/minio/minio repository is also unavailable. Use a digest-pinned public mirror
+    // of MinIO RELEASE.2025-04-22T22-12-26Z.
+    private static final String MINIO_IMAGE =
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
 
     private static final int S3_PORT = 9000;
 
     private static final String S3_CONTAINER_HOST = "s3";
-
-    protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
 
     @BeforeAll
     @Override
@@ -76,7 +77,10 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
-                        .waitingFor(Wait.forLogMessage(".*", 1));
+                        // MinIO logs its first line before it serves S3 requests, and
+                        // S3Utils.initialize() below calls the bucket API right away. Wait for
+                        // MinIO's readiness endpoint, as S3FileConnectDryRunIT does.
+                        .waitingFor(Wait.forHttp("/minio/health/ready").forPort(S3_PORT));
         s3Container.start();
         S3Utils.initialize(
                 String.format(
@@ -86,32 +90,20 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
     }
 
     @Override
+    protected void executeExtraCommands(GenericContainer<?> server)
+            throws IOException, InterruptedException {
+        super.executeExtraCommands(server);
+        DependencyJar.staged("aws-java-sdk-bundle.jar").addTo(server, SEATUNNEL_HOME + "lib");
+        DependencyJar.of(S3AFileSystem.class).addTo(server, SEATUNNEL_HOME + "lib");
+    }
+
+    @Override
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();
         if (s3Container != null) {
             s3Container.close();
         }
-    }
-
-    @Override
-    protected String[] buildStartCommand() {
-        return new String[] {
-            "bash",
-            "-c",
-            "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + AWS_SDK_DOWNLOAD
-                    + " &&"
-                    + "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + HADOOP_AWS_DOWNLOAD
-                    + " &&"
-                    + ContainerUtil.adaptPathForWin(
-                            Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
     }
 
     @Test

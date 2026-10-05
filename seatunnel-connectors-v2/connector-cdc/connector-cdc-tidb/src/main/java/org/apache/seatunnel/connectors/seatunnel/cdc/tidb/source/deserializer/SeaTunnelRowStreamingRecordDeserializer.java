@@ -25,8 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DataC
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.converter.DefaultDataConverter;
 
 import org.tikv.common.key.RowKey;
+import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiTableInfo;
 import org.tikv.kvproto.Cdcpb;
+import org.tikv.shade.com.google.protobuf.ByteString;
 
 import static org.tikv.common.codec.TableCodec.decodeObjects;
 
@@ -49,10 +51,10 @@ public class SeaTunnelRowStreamingRecordDeserializer
         Object[] values;
         switch (row.getOpType()) {
             case DELETE:
-                values = decodeObjects(row.getOldValue().toByteArray(), handle, tableInfo);
+                values = decodeDeleteValues(row, handle);
                 SeaTunnelRow record = converter.convert(values, tableInfo, rowType);
                 record.setRowKind(RowKind.DELETE);
-                output.collect(record);
+                collect(record, output);
                 break;
             case PUT:
                 try {
@@ -64,11 +66,11 @@ public class SeaTunnelRowStreamingRecordDeserializer
                     if (row.getOldValue() == null || row.getOldValue().isEmpty()) {
                         SeaTunnelRow insert = converter.convert(values, tableInfo, rowType);
                         insert.setRowKind(RowKind.INSERT);
-                        output.collect(insert);
+                        collect(insert, output);
                     } else {
                         SeaTunnelRow update = converter.convert(values, tableInfo, rowType);
                         update.setRowKind(RowKind.UPDATE_AFTER);
-                        output.collect(update);
+                        collect(update, output);
                     }
                     break;
                 } catch (final RuntimeException e) {
@@ -81,5 +83,37 @@ public class SeaTunnelRowStreamingRecordDeserializer
             default:
                 throw new IllegalArgumentException("Unknown Row Op Type: " + row.getOpType());
         }
+    }
+
+    private Object[] decodeDeleteValues(Cdcpb.Event.Row row, long handle) {
+        ByteString oldValue = row.getOldValue();
+        if (oldValue != null && !oldValue.isEmpty()) {
+            return decodeObjects(oldValue.toByteArray(), handle, tableInfo);
+        }
+        ByteString value = row.getValue();
+        if (value != null && !value.isEmpty()) {
+            // Prefer an available row image before falling back to a PK-only delete row.
+            return decodeObjects(value.toByteArray(), handle, tableInfo);
+        }
+        return decodeDeleteValuesFromHandle(row, handle);
+    }
+
+    private Object[] decodeDeleteValuesFromHandle(Cdcpb.Event.Row row, long handle) {
+        TiColumnInfo handleColumn = tableInfo.getPKIsHandleColumn();
+        if (!tableInfo.isPkHandle() || handleColumn == null) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot deserialize TiDB DELETE CDC row because both value and"
+                                    + " oldValue are empty, and table %s(%s) is not a pk-handle"
+                                    + " table. key=%s, startTs=%s, commitTs=%s",
+                            tableInfo.getName(),
+                            tableInfo.getId(),
+                            row.getKey(),
+                            row.getStartTs(),
+                            row.getCommitTs()));
+        }
+        Object[] values = new Object[tableInfo.getColumns().size()];
+        values[handleColumn.getOffset()] = handle;
+        return values;
     }
 }
