@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -1636,13 +1637,18 @@ public class CheckpointCoordinator {
     }
 
     /**
-     * Invokes an auxiliary checkpoint-monitor write without letting failures abort coordinator
-     * bookkeeping.
+     * Invokes an auxiliary checkpoint-monitor write, isolating only monitor-map durability
+     * failures.
      *
      * <p>After {@code FileMapStore} began throwing on WAL durability failures, monitor/overview
-     * IMap updates can throw even when the real checkpoint payload was already persisted. Log
-     * loudly and continue so a sticky fail-closed monitor map cannot escalate into a repeating
-     * coordinator {@code FAILED} loop.
+     * IMap updates can throw {@link IMapStorageException} even when the real checkpoint payload was
+     * already persisted. Only that exception is swallowed (log loudly and continue) so a sticky
+     * fail-closed monitor map cannot escalate into a repeating coordinator {@code FAILED} loop.
+     *
+     * <p>Everything else — most importantly {@code HazelcastInstanceNotActiveException} while this
+     * node is shutting down — propagates exactly as on {@code dev}, so a dying master stops
+     * processing the ack instead of completing a checkpoint that the new master will redo after
+     * failover.
      */
     private void notifyCheckpointMonitor(String action, Runnable notification) {
         if (checkpointMonitorService == null) {
@@ -1650,9 +1656,9 @@ public class CheckpointCoordinator {
         }
         try {
             notification.run();
-        } catch (Exception e) {
-            // Catch Exception (not Throwable) so Errors such as OutOfMemoryError still propagate,
-            // matching WALWorkHandler.onEvent()'s deliberate Exception-only boundary.
+        } catch (IMapStorageException e) {
+            // Only isolate auxiliary monitor-map durability failures; node-shutdown and other
+            // lifecycle signals must propagate so failover semantics match dev.
             LOG.error(
                     "Checkpoint monitor {} failed for job {}, pipeline {}; continuing coordinator bookkeeping",
                     action,

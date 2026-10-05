@@ -28,14 +28,19 @@ import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
+
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -230,6 +235,78 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(
                 checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
                 "Checkpoint should be retained after cancel when retain-after-job-cancelled is enabled");
+    }
+
+    /**
+     * Only {@link IMapStorageException} is isolated from monitor writes. Node-shutdown signals such
+     * as {@code HazelcastInstanceNotActiveException} must propagate exactly as on {@code dev}: a
+     * dying master must stop its lifecycle bookkeeping instead of carrying on.
+     */
+    @Test
+    public void testMonitorNodeShutdownExceptionShouldPropagate() {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+        Mockito.doThrow(new HazelcastInstanceNotActiveException())
+                .when(monitorService)
+                .onPipelineRestored(Mockito.anyLong(), Mockito.anyInt());
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        new CheckpointConfig(),
+                        Mockito.mock(CheckpointStorage.class),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
+                        monitorService);
+
+        Assertions.assertThrows(
+                HazelcastInstanceNotActiveException.class,
+                () -> checkpointManager.reportedPipelineRunning(1, false),
+                "node-shutdown exceptions from monitor writes must propagate, not be swallowed");
+    }
+
+    /**
+     * Monitor-map durability failures ({@link IMapStorageException}) stay isolated: job/pipeline
+     * lifecycle transitions must continue after durable checkpoint work already succeeded.
+     */
+    @Test
+    public void testMonitorStorageExceptionShouldBeIsolated() {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+        Mockito.doThrow(new IMapStorageException("overview WAL fail-closed"))
+                .when(monitorService)
+                .onPipelineRestored(Mockito.anyLong(), Mockito.anyInt());
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        new CheckpointConfig(),
+                        Mockito.mock(CheckpointStorage.class),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
+                        monitorService);
+
+        Assertions.assertDoesNotThrow(
+                () -> checkpointManager.reportedPipelineRunning(1, false),
+                "IMapStorageException from monitor writes must not abort manager bookkeeping");
     }
 
     @Test

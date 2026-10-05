@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -230,9 +231,17 @@ public class CheckpointManager {
     }
 
     /**
-     * Invokes an auxiliary checkpoint-monitor write without letting failures abort manager
-     * bookkeeping. Monitor/overview IMap failures must stay loud in logs but must not take down
-     * job/pipeline lifecycle transitions after durable checkpoint work has already succeeded.
+     * Invokes an auxiliary checkpoint-monitor write, isolating only monitor-map durability
+     * failures.
+     *
+     * <p>Monitor/overview IMap durability failures ({@link IMapStorageException} from the fail-loud
+     * {@code FileMapStore}) stay loud in logs but must not take down job/pipeline lifecycle
+     * transitions after durable checkpoint work has already succeeded.
+     *
+     * <p>Everything else — most importantly {@code HazelcastInstanceNotActiveException} while this
+     * node is shutting down — propagates exactly as on {@code dev}, so a dying master stops
+     * processing the ack instead of completing a checkpoint that the new master will redo after
+     * failover.
      */
     private void notifyCheckpointMonitor(String action, Runnable notification) {
         if (checkpointMonitorService == null) {
@@ -240,9 +249,9 @@ public class CheckpointManager {
         }
         try {
             notification.run();
-        } catch (Exception e) {
-            // Catch Exception (not Throwable) so Errors such as OutOfMemoryError still propagate,
-            // matching WALWorkHandler.onEvent()'s deliberate Exception-only boundary.
+        } catch (IMapStorageException e) {
+            // Only isolate auxiliary monitor-map durability failures; node-shutdown and other
+            // lifecycle signals must propagate so failover semantics match dev.
             log.error(
                     "Checkpoint monitor {} failed for job {}; continuing checkpoint-manager bookkeeping",
                     action,
