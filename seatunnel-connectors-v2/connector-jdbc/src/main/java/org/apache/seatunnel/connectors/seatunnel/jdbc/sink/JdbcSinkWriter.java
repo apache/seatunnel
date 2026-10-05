@@ -596,18 +596,22 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         if (lastSuccessfulBatchSavepoint != null) {
+            // Batches up to the savepoint stay in the open transaction, still uncommitted.
             connection.rollback(lastSuccessfulBatchSavepoint);
         } else {
             connection.rollback();
+            outputFormat.markTransactionEnded(connection);
         }
         lastSuccessfulBatchSavepoint = null;
     }
 
     private void commitIfNeeded() throws SQLException {
         Connection connection = connectionProvider.getConnection();
+        outputFormat.checkUncommittedBatchesOn(connection);
         if (!connection.getAutoCommit()) {
             connection.commit();
             lastSuccessfulBatchSavepoint = null;
+            outputFormat.markTransactionEnded(connection);
         }
     }
 
@@ -686,6 +690,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             Connection connection = connectionProvider.getConnection();
             if (connection != null && !connection.getAutoCommit()) {
                 connection.rollback();
+                outputFormat.markTransactionEnded(connection);
             }
         } catch (SQLException rollbackException) {
             log.warn("Rollback jdbc sink writer failed during {}.", phase, rollbackException);

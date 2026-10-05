@@ -63,6 +63,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient volatile boolean flushFailed = false;
     private transient volatile boolean commitFailed = false;
     private transient volatile Exception flushException;
+    // The connection the statement executor was prepared on.
+    private transient Connection executorConnection;
+    // Set while batches flushed on this manual-commit connection wait for the writer's commit.
+    private transient volatile Connection uncommittedBatchConnection;
     private transient long lastFlushTimeMs;
     private transient boolean failFastOnRowLevelSqlState;
 
@@ -101,7 +105,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
         E exec = statementExecutorFactory.get();
         try {
-            exec.prepareStatements(connectionProvider.getConnection());
+            Connection connection = connectionProvider.getConnection();
+            exec.prepareStatements(connection);
+            executorConnection = connection;
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
@@ -200,6 +206,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             try {
                 attemptFlush();
                 commitAfterFlushIfNeeded();
+                trackUncommittedBatchIfNeeded();
                 batchCount = 0;
                 flushFailed = false;
                 flushException = null;
@@ -245,6 +252,21 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                }
+                if (uncommittedBatchConnection != null || isTransactionRolledBack(e)) {
+                    // A retry would re-send only the current batch. Earlier batches live only in
+                    // the open transaction, which a reconnect discards and a deadlock or abort can
+                    // already have rolled back, so retrying could commit a partial result. A
+                    // transaction rollback is checked even without batches of our own, because
+                    // the writers of a multi-table sink can share one connection.
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                            "JDBC flush failed while the open transaction may hold earlier"
+                                    + " flushed, uncommitted batches. Not retrying only the"
+                                    + " current batch, because those batches may already be"
+                                    + " rolled back. The job will recover from the last"
+                                    + " checkpoint.",
+                            e);
                 }
                 try {
                     if (shouldRefreshExecutor(findSqlExceptions(e))) {
@@ -303,6 +325,85 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                                 + " the writer will not retry this batch silently.",
                         e);
             }
+        }
+    }
+
+    /**
+     * Remembers the connection that holds a successfully flushed but uncommitted batch.
+     *
+     * <p>Applies when the writer commits at checkpoint time (or on a timer flush) on a
+     * manual-commit connection: every batch flushed before that commit exists only in the open
+     * transaction of this connection. Reads the executor's own connection, so no pool validation
+     * runs per flush.
+     */
+    private void trackUncommittedBatchIfNeeded() {
+        if (isManualCommitTransaction()) {
+            uncommittedBatchConnection = executorConnection;
+        }
+    }
+
+    /** Whether flushed batches stay in an open transaction until the writer commits. */
+    private boolean isManualCommitTransaction() {
+        if (commitOnFlush || executorConnection == null) {
+            return false;
+        }
+        try {
+            return !executorConnection.getAutoCommit();
+        } catch (SQLException e) {
+            // Assume manual commit so that losing this transaction cannot pass unnoticed.
+            LOG.warn("Unable to read JDBC auto-commit mode.", e);
+            return true;
+        }
+    }
+
+    /**
+     * SQLState class 40 (transaction rollback, for example a deadlock) means the database rolled
+     * back the whole open transaction, not only the failed statement.
+     */
+    private boolean isTransactionRolledBack(SQLException exception) {
+        if (!isManualCommitTransaction()) {
+            return false;
+        }
+        for (SQLException sqlException : findSqlExceptions(exception)) {
+            String sqlState = sqlException.getSQLState();
+            if (sqlState != null && sqlState.startsWith("40")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Called by the writer after it commits or fully rolls back the transaction of {@code
+     * connection}. If that connection held the flushed batches, none is pending any more, so flush
+     * retries are safe again. Ending the transaction of a replacement connection keeps the record,
+     * because the batches on the lost connection are still gone.
+     *
+     * @param connection the connection whose transaction the writer ended
+     */
+    public synchronized void markTransactionEnded(Connection connection) {
+        if (uncommittedBatchConnection == connection) {
+            uncommittedBatchConnection = null;
+        }
+    }
+
+    /**
+     * Fails if earlier batches were flushed on a different connection than the one about to be
+     * committed. A pooled provider replaces a dead cached connection on {@code getConnection()};
+     * committing the replacement would succeed while the batches flushed on the lost connection may
+     * have been rolled back with it.
+     *
+     * @param commitConnection the connection the writer is about to commit
+     */
+    public synchronized void checkUncommittedBatchesOn(Connection commitConnection) {
+        Connection pending = uncommittedBatchConnection;
+        if (pending != null && pending != commitConnection) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "The JDBC connection that held flushed but uncommitted batches was replaced"
+                            + " before commit, so those batches may have been rolled back with it."
+                            + " Failing instead of committing the new connection, so the job can"
+                            + " recover from the last checkpoint.");
         }
     }
 
@@ -451,10 +552,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             }
             LOG.error("Close JDBC statement failed on reconnect.", e);
         }
-        jdbcStatementExecutor.prepareStatements(
+        Connection connection =
                 reconnect
                         ? connectionProvider.reestablishConnection()
-                        : connectionProvider.getConnection());
+                        : connectionProvider.getConnection();
+        jdbcStatementExecutor.prepareStatements(connection);
+        executorConnection = connection;
     }
 
     private boolean shouldRefreshExecutor(List<SQLException> sqlExceptions) throws SQLException {

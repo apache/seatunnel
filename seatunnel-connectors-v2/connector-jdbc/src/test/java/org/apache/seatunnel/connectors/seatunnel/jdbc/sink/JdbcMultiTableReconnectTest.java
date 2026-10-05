@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
 
@@ -58,6 +59,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regression coverage for reconnecting the active JDBC writer in a multi-table sink. */
@@ -106,9 +108,97 @@ class JdbcMultiTableReconnectTest {
         assertTrue(activeDialect.generatedUpsertSqlCalls > 0);
     }
 
+    /**
+     * With checkpointing, a manual-commit writer keeps every batch-size flush in one open
+     * transaction until prepareCommit. If a later batch loses the connection, that transaction and
+     * the earlier batch are gone. Reconnecting and replaying only the current batch would let the
+     * checkpoint commit a partial result, so the writer must fail instead and leave recovery to the
+     * last checkpoint.
+     */
+    @Test
+    void manualCommitWriterDoesNotDropEarlierBatchWhenLaterBatchReconnects() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("manual-commit-reconnect.db");
+        createTables(jdbcUrl);
+
+        Map<String, Object> manualCommit = new HashMap<>();
+        manualCommit.put("auto_commit", false);
+        manualCommit.put("batch_size", 2);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        TestJdbcSinkWriter writer = createWriter(jdbcUrl, "active_table", dialect, manualCommit);
+        try {
+            // batch_size = 2: rows 1 and 2 are flushed into the open, uncommitted transaction.
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+
+            // The next batch loses the connection; the database rolls rows 1 and 2 back.
+            dialect.getConnectionProvider().failNextBatch();
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            assertThrows(
+                    JdbcConnectorException.class,
+                    () -> writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth")));
+        } finally {
+            try {
+                writer.close();
+            } catch (Exception expected) {
+                // The writer already failed; close reports the same flush failure.
+            }
+        }
+
+        // No partial result was committed: the job recovers rows 1-4 from the last checkpoint.
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertEquals(0, dialect.getConnectionProvider().reestablishConnectionCalls);
+    }
+
+    /**
+     * The connection pool replaces a dead cached connection on the next getConnection call. If the
+     * connection that held flushed but uncommitted batches dies before the checkpoint, the commit
+     * must not succeed on the new, empty connection.
+     */
+    @Test
+    void manualCommitWriterFailsCheckpointWhenConnectionIsReplacedBeforeCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("manual-commit-replaced.db");
+        createTables(jdbcUrl);
+
+        Map<String, Object> manualCommit = new HashMap<>();
+        manualCommit.put("auto_commit", false);
+        manualCommit.put("batch_size", 2);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        TestJdbcSinkWriter writer = createWriter(jdbcUrl, "active_table", dialect, manualCommit);
+        TrackingConnectionProvider provider = dialect.getConnectionProvider();
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            provider.replaceDeadConnectionOnGet();
+
+            // The connection dies; the database rolls rows 1 and 2 back.
+            provider.dropConnection();
+
+            JdbcConnectorException exception =
+                    assertThrows(JdbcConnectorException.class, () -> writer.prepareCommit(1L));
+            assertTrue(exception.getCause() instanceof JdbcConnectorException);
+            assertTrue(exception.getCause().getMessage().contains("replaced before commit"));
+        } finally {
+            try {
+                writer.close();
+            } catch (Exception ignored) {
+                // The writer already failed the checkpoint.
+            }
+        }
+
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+    }
+
     private static TestJdbcSinkWriter createWriter(
             String jdbcUrl, String table, TrackingSqliteDialect dialect) {
-        Map<String, Object> options = new HashMap<>();
+        return createWriter(jdbcUrl, table, dialect, new HashMap<>());
+    }
+
+    private static TestJdbcSinkWriter createWriter(
+            String jdbcUrl,
+            String table,
+            TrackingSqliteDialect dialect,
+            Map<String, Object> extraOptions) {
+        Map<String, Object> options = new HashMap<>(extraOptions);
         options.put("url", jdbcUrl);
         options.put("driver", "org.sqlite.JDBC");
         options.put("database", "main");
@@ -209,7 +299,9 @@ class JdbcMultiTableReconnectTest {
     private static class TrackingConnectionProvider implements JdbcConnectionProvider {
         private final JdbcConnectionConfig jdbcConfig;
         private Connection connection;
+        private Connection delegate;
         private boolean failNextBatch;
+        private boolean replaceDeadConnectionOnGet;
         private int reestablishConnectionCalls;
 
         private TrackingConnectionProvider(JdbcConnectionConfig jdbcConfig) {
@@ -220,8 +312,28 @@ class JdbcMultiTableReconnectTest {
             failNextBatch = true;
         }
 
+        /** Mimics ConnectionPoolManager, which swaps a dead cached connection on getConnection. */
+        private void replaceDeadConnectionOnGet() {
+            replaceDeadConnectionOnGet = true;
+        }
+
+        /** Simulates the server or network killing the current connection. */
+        private void dropConnection() throws SQLException {
+            delegate.close();
+        }
+
         @Override
         public Connection getConnection() {
+            if (replaceDeadConnectionOnGet && connection != null) {
+                try {
+                    if (connection.isClosed()) {
+                        closeConnection();
+                        return getOrEstablishConnection();
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             return connection;
         }
 
@@ -233,7 +345,7 @@ class JdbcMultiTableReconnectTest {
         @Override
         public Connection getOrEstablishConnection() throws SQLException {
             if (!isConnectionValid()) {
-                Connection delegate = DriverManager.getConnection(jdbcConfig.getUrl());
+                delegate = DriverManager.getConnection(jdbcConfig.getUrl());
                 delegate.setAutoCommit(jdbcConfig.isAutoCommit());
                 connection = wrapConnection(delegate);
             }
