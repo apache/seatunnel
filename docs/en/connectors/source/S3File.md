@@ -41,6 +41,46 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 Read data from aws s3 file system.
 
+### Connectivity dry-run
+
+`--dry-run connect` can check a single S3A source before submitting a job. The
+source must use `bucket = "s3a://your-bucket"`, an absolute `path`, an explicit
+inline `schema.fields` or `schema.columns`, and `file_format_type` of `text`,
+`csv`, `json`, or `xml`. Set `parse_partition_from_path = false` and omit
+`read_columns`; file-derived schemas, projection, and partition inference are
+not validated by this metadata-only check. Unsupported configurations fail the
+connect dry-run with an explanation; normal job execution is unchanged.
+
+The check reuses Hadoop S3A endpoint, credential-chain, proxy and path-style
+configuration. It checks object metadata with HEAD, or makes one prefix listing
+with `maxKeys=1` and delimiter `/`. It does not open file contents, recursively
+list files, create readers, upload, delete, or initialize a shared filesystem.
+An exact object does not require listing permission. A prefix requires listing
+permission; a successful empty listing is accepted for `discovery_mode =
+"continuous"`, since files may arrive later. For a batch source, an empty
+virtual prefix without a directory marker fails; an accessible empty bucket
+root is accepted. Missing buckets and denied requests fail in both modes.
+
+Validation-only connection establishment and socket timeouts are capped at
+5 seconds, preserving smaller positive values. SDK request retries are disabled
+for validation, including bucket-specific overrides. These are network timeout
+settings, not a total deadline for DNS, credential-provider initialization, or
+SDK setup. Runtime timeouts and retries are unchanged.
+
+This initial check does not support `tables_configs`, legacy `s3n` buckets,
+SSE-C customer-provided encryption keys, `fs.s3a.security.credential.provider.path`,
+S3Guard, multipart purge, or custom S3 client factories. It does not prove object
+content readability, file-format correctness, schema compatibility with the
+stored data, worker-side credentials, or target/update/post-sync permissions.
+
+Save your job configuration meeting the requirements above as
+`config/s3-to-console.conf` (this is a user-created file, not a bundled template),
+then run from the SeaTunnel installation directory:
+
+```bash
+bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
+```
+
 ## Supported DataSource Info
 
 | Datasource | Supported versions |
@@ -198,6 +238,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                        |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | secret_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | hadoop_s3_properties            | map     | no       | -                                                     | If you need to add other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                                                                                                                                                                                                                                              |
@@ -215,7 +256,6 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | poi_excel_max_file_size         | long    | no       | 52428800                                              | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                                                       |
 | xml_row_tag                     | string  | no       | -                                                     | Specifies the tag name of the data rows within the XML file, only valid for XML files.                                                                                                                                                                                                                                                                                                                     |
 | xml_use_attr_format             | boolean | no       | -                                                     | Specifies whether to process data using the tag attribute format, only valid for XML files.                                                                                                                                                                                                                                                                                                                |
-| csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                                                        |
 | compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | enable_file_split               | boolean | no       | false                                                 | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
@@ -240,6 +280,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | retention_check_interval        | string  | no       | 1H                                                    | Retention scan interval when backup retention is configured.                                                                                                                                                                                                                                                                                 |
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
 | filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
+| file_filter_modified_start | string | no | - | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
 | quote_char                      | string  | no       | "                                                     | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                                                     |
 | escape_char                     | string  | no       | -                                                     | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                                                |
@@ -275,6 +317,19 @@ When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set
 When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
@@ -653,6 +708,105 @@ source {
 ```
 
 The same pattern works for AWS SSO/Profile providers by swapping the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile` keys) — pass those provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
+
+## Credential Provider in Container Environments
+
+When running SeaTunnel in container environments (Kubernetes, ECS, EKS, Docker), the S3File connector accepts any fully-qualified S3A credentials provider class that implements `com.amazonaws.auth.AWSCredentialsProvider` and is available on the classpath. The `fs.s3a.aws.credentials.provider` option is validated at config-parse time when the class is resolvable on the node building the configuration: the class must implement the AWS credentials provider interface and must not be abstract. When the class cannot be resolved (e.g., the provider JAR is only available on worker nodes), validation is deferred to runtime on the worker actually running S3A.
+
+### Supported Credential Providers
+
+| Provider | Class Name | Typical Use |
+|----------|------------|-------------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | Static access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 instance role (default) |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS task role |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | Multi-source fallback chain |
+| Custom | Any `com.amazonaws.auth.AWSCredentialsProvider` implementation | User-defined provider |
+
+### Kubernetes / EKS Configuration
+
+**EC2 Node Instance Role (Recommended)**: If your EKS worker nodes have an EC2 instance profile with S3 permissions, the default `InstanceProfileCredentialsProvider` resolves credentials from the instance metadata service automatically:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**Static Keys via Kubernetes Secrets (Fallback)**: If instance roles are not available, inject credentials from a Kubernetes Secret:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**: For flexible deployments, the default chain tries multiple credential sources in order (environment variables → system properties → profile → container → instance profile):
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### ECS Task Role
+
+When running on ECS with the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable set automatically by the ECS agent:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) requires the `WebIdentityTokenCredentialsProvider` class. This class is available in newer AWS SDK v1.x releases (e.g. 1.11.5xx+) but is **not included** in the older AWS SDK v1.x (1.11.271) bundled with SeaTunnel. The following alternatives are recommended:
+
+1. **Use the EC2 node instance role** — attach an IAM role to the EKS worker node and keep the default `InstanceProfileCredentialsProvider`.
+2. **Use `SimpleAWSCredentialsProvider`** with credentials injected from a Kubernetes Secret.
+3. **Add a newer AWS SDK JAR** that includes `WebIdentityTokenCredentialsProvider` to `${SEATUNNEL_HOME}/lib` on all cluster nodes.
+
+### Passing Additional Options via `hadoop_s3_properties`
+
+For provider-specific configuration keys (e.g., `fs.s3a.session.token`, `fs.s3a.assumed.role.arn`), use the `hadoop_s3_properties` map:
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+The connector passes these keys directly to the Hadoop S3A configuration. Note: the connector always overwrites the `fs.s3a.aws.credentials.provider` key with the option value, so you cannot override it via `hadoop_s3_properties`.
+
+### Troubleshooting
+
+**You may see a `Factory initialize failed` (or similar classloading) error**: This typically means the credential provider class is not on the classpath. Ensure the provider JAR is present in `${SEATUNNEL_HOME}/lib` on **every** cluster node (not just the submitting node).
+
+**`No AWS Credentials provided by ...`**: The configured credential provider could not resolve credentials. Check:
+- `SimpleAWSCredentialsProvider`: verify `access_key` and `secret_key` are set.
+- `InstanceProfileCredentialsProvider`: verify the EC2 instance has an IAM role attached.
+- `ContainerCredentialsProvider`: verify the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable is set.
+
+**`IllegalArgumentException` at config-parse time**: The class name is malformed or the class does not implement `com.amazonaws.auth.AWSCredentialsProvider`. Verify the fully-qualified class name and that the class implements the required interface.
 
 ## Changelog
 

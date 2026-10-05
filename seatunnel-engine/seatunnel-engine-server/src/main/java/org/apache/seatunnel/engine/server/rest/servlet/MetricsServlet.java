@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
-import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.common.TextFormat;
 
 import javax.servlet.ServletException;
@@ -33,12 +32,11 @@ import java.io.StringWriter;
 
 public class MetricsServlet extends BaseServlet {
 
-    private final CollectorRegistry collectorRegistry;
+    private final NodeExtension nodeExtension;
 
     public MetricsServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
-        NodeExtension nodeExtension = (NodeExtension) nodeEngine.getNode().getNodeExtension();
-        collectorRegistry = nodeExtension.getCollectorRegistry();
+        nodeExtension = (NodeExtension) nodeEngine.getNode().getNodeExtension();
     }
 
     @Override
@@ -57,7 +55,7 @@ public class MetricsServlet extends BaseServlet {
         }
         try (StringWriter stringWriter = new StringWriter()) {
             TextFormat.writeFormat(
-                    contentType, stringWriter, collectorRegistry.metricFamilySamples());
+                    contentType, stringWriter, nodeExtension.getMetricFamilySamples());
             write(resp, stringWriter.toString());
         }
     }

@@ -14,7 +14,7 @@ Checkpoint Storage is a storage mechanism for storing checkpoint data.
 
 SeaTunnel Engine supports the following checkpoint storage types:
 
-- HDFS (OSS,COS,S3,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
 We use the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
@@ -117,6 +117,53 @@ Please add the following jar to the lib directory:
 - [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
 - [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
 
+#### GCS
+
+Google Cloud Storage based hdfs-file uses the [Hadoop GCS connector](https://github.com/GoogleCloudDataproc/hadoop-connectors/tree/master/gcs). `gcs.bucket` is required and must be a bucket URI such as `gs://your-bucket`. All `fs.gs.*` keys are passed to the connector unchanged.
+
+If you use a service account key file, you can config like this:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+          fs.gs.project.id: your-project-id
+          fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+If no key file is configured, the connector uses Application Default Credentials, so on GKE with Workload Identity (or on a GCE VM with an attached service account) only the bucket is needed:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+```
+
+The identity needs read, write and delete permission on the bucket objects, for example the `roles/storage.objectAdmin` role on the bucket.
+
+Please add the following jar to the lib directory:
+- [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
+
+Note: renames use the GCS object move API by default. Services that do not implement it, such as the `fake-gcs-server` emulator, need `fs.gs.operation.move.enable: false`, which makes the connector fall back to copy and delete.
+
 #### S3
 
 S3 based hdfs-file you can refer [hadoop s3 docs](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) to config s3.
@@ -167,6 +214,8 @@ seatunnel:
           fs.s3a.endpoint: your-endpoint
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
 ```
+
+**Container environments**: Checkpoint storage passes `fs.s3a.*` configuration keys directly to Hadoop without any connector-level enum restriction, so any S3A credential provider class available on the classpath can be used. This includes container-oriented providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS task role) and `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`. For EKS deployments, the EC2 node instance role is recommended. EKS IRSA (`WebIdentityTokenCredentialsProvider`) is not available in the bundled AWS SDK v1.x (1.11.271) and requires adding a newer AWS SDK v1.x JAR to `${SEATUNNEL_HOME}/lib` on all nodes.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 

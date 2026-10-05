@@ -207,6 +207,14 @@ seatunnel:
     state-cleanup-delay-ms: 60000
 ```
 
+`/system-monitoring-information` REST API 会向每个集群成员收集健康指标。所有成员共享一个由 `health-metrics-timeout-seconds` 控制的统一截止时间，默认值为 `3` 秒。在截止时间内未应答的成员会以带地址和 `timeout` 标记的条目返回，而不是一直阻塞整个响应，因此该 API 的总耗时不会随失联成员数量而增长。
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
@@ -325,6 +333,34 @@ hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
+如果您使用 GCS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # 可选，未配置时使用 Application Default Credentials（例如 GKE Workload Identity）
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+注意：IMap 的 WAL 写入器每次更新都会重写当前对象（与 S3、OSS 相同），而 GCS 对同一对象名的写入频率限制约为每秒一次，因此 GCS 作为 IMap 持久化存储更适合 IMap 更新频率较低或中等的场景。
+
+注意：使用 GCS 时，确保 lib 目录下有这几个jar。
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 

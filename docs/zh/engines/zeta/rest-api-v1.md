@@ -165,6 +165,53 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 没有固定的 Slot 容量。此时，`totalSlots` 表示当前已跟踪的已分配和未分配 Slot 总数，`freeSlots` 表示当前未分配数量。解释容量时，请结合 `dynamicSlot` 以及 CPU 和堆内存字段。
+- 当 `available` 为 `false` 时，表示当前无法读取 Master 资源快照，`workers` 为空。客户端应重试，而不应将该响应解释为空集群。
+- `collectedAt` 表示 Master 构建本次响应的时间。Worker 字段来自资源管理器收到的最近一次心跳，并不与 `/system-monitoring-information` 构成原子快照。
+- 如果最近一次 Worker 心跳尚未包含资源或使用率数据，对应字段不会返回。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ###  返回当前节点的线程堆栈信息。
 
 <details>
@@ -312,6 +359,7 @@ network:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。该字段只在本接口返回，`/running-jobs` 不返回。
 
 #### 指标字段说明
 
@@ -520,6 +568,9 @@ network:
   }
 ]
 ```
+
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+
 
 </details>
 
@@ -958,12 +1009,18 @@ network:
 
 当前支持的格式有`json`和`html`，默认为`html`。
 
+#### 响应大小限制
+
+读取日志文件时最多返回 `seatunnel.engine.http.log-response-max-size-mb` 大小的内容（默认 64 MB），
+规则与 [v2 接口](rest-api-v2.md#log-response-size-limit) 完全一致：超过限制的日志文件只返回末尾内容，
+并在响应开头附上一行截断提示。把该项设为 `0` 可恢复不限制读取。
+
 #### 例子
 
 获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
 获取所有节点日志列表：`http://localhost:5801/hazelcast/rest/maps/logs`
 获取所有节点日志列表以JSON格式返回：`http://localhost:5801/hazelcast/rest/maps/logs?format=json`
-获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log`
 
 
 </details>
@@ -982,5 +1039,7 @@ network:
 
 获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
 获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
+
+日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
 </details>

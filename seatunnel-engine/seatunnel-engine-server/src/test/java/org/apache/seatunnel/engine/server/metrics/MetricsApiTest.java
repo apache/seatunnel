@@ -74,16 +74,29 @@ public class MetricsApiTest {
 
     @BeforeAll
     public static void before() {
+        instance = createHazelcastInstance();
+    }
+
+    private static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getEngineConfig().getTelemetryConfig().getMetric().setEnabled(true);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(true);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setPort(8080);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
-        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
     @Test
     public void metricsApiTest() {
+        assertMetricsApi();
+
+        instance.shutdown();
+        instance = createHazelcastInstance();
+
+        assertMetricsApi();
+    }
+
+    private static void assertMetricsApi() {
         // The HTTP listener accepts requests as soon as the member reaches STARTED, but the
         // registered collectors read coordinator-owned state that is still being wired up at that
         // moment. Querying immediately made CI observe a transient 500 from a collector that ran

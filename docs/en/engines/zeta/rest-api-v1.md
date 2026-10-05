@@ -166,6 +166,53 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Query Worker Resources
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/resource/workers</b></code> <code>(Returns the current resource snapshot for registered workers.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
+- Dynamic-slot workers do not have a fixed slot capacity. For them, `totalSlots` is the number of currently tracked assigned and unassigned slots, while `freeSlots` is the currently unassigned count. Use `dynamicSlot` together with the CPU and heap fields when interpreting capacity.
+- When `available` is `false`, `workers` is empty because the master snapshot cannot currently be read. Clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` records when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
+- Resource and usage fields are omitted until the worker heartbeat contains those values.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ###  Returns thread dump information for the current node.
 
 <details>
@@ -292,6 +339,9 @@ network:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
+see [REST API V2](rest-api-v2.md) for its fields. Only this endpoint returns it, `/running-jobs` does
+not.
 
 #### Metrics field description
 
@@ -522,6 +572,9 @@ When we can't get the job info, the response will be:
   }
 ]
 ```
+
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+
 
 </details>
 
@@ -954,6 +1007,13 @@ If you'd like to view the log list first, you can use a `GET` request to retriev
 
 The supported formats are `json` and `html`, with `html` as the default.
 
+#### Response Size Limit
+
+Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
+(64 MB by default), exactly as the [v2 endpoint](rest-api-v2.md#log-response-size-limit) does. A
+larger log file is represented by its tail and the response opens with a line saying so. Set the
+option to `0` to restore unlimited reads.
+
 #### Examples
 
 Retrieve logs for all nodes with the `jobId` of `733584788375666689`: `http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
@@ -976,5 +1036,8 @@ Returns a list of logs from the requested node.
 
 To get a list of logs from the current node: `http://localhost:5801/hazelcast/rest/maps/log`
 To get the content of a log file: `http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
+
+Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
+all-node endpoint above.
 
 </details>
