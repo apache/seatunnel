@@ -12,6 +12,22 @@ Redis Cluster, and can write to `key`/`string`, `hash`, `list`, `set`, and `zset
 The configured `key` can be either a literal Redis key or an upstream field name. When `support_custom_key = true`,
 the connector can build the Redis key from one or more upstream fields, for example `user:${id}`.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` checks that Redis is reachable and accepts the configured credentials.
+The client is created through the same connection setup as normal job execution, so `user` and
+`auth` are verified exactly as at runtime: `AUTH user auth` when `user` is set, `AUTH auth` when only
+`auth` is set. In `SINGLE` mode it then sends `SELECT db_num` and `PING`. In `CLUSTER` mode it
+initializes the cluster slot cache from `nodes` (`CLUSTER SLOTS`) and reads `INFO` from one node.
+The runtime connect and socket timeouts (2 seconds) apply, and every client is closed on success and
+on failure. No key is read, scanned, written or expired, no key space is created and no ACL entry is
+modified. Normal job execution is unchanged.
+
+Successful validation does **not** prove write permission on the target keys. `key`, `value_field`,
+`hash_key_field` and `hash_value_field` are not checked against the upstream schema, because a name
+that is not an upstream field is written as a literal value at runtime. In `CLUSTER` mode,
+validation passes as long as one node answers, so partially unreachable clusters are not detected.
+
 ## Support Those Engines
 
 > Spark<br/>

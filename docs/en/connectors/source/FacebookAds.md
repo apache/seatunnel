@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-facebook-ads.md';
+
 # FacebookAds
 
 > Facebook Ads source connector
@@ -164,6 +166,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Facebook Ads source connector with cursor pagination and multi-table support
+<ChangeLog />

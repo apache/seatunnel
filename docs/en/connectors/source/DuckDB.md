@@ -50,6 +50,10 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
+DuckDB scalar `BIT` and `ENUM` values map to `STRING`. When the catalog reports no length, SeaTunnel leaves the length unspecified; it no longer assumes a one-character BIT or a 255-character ENUM. This also applies to named ENUM types created with `CREATE TYPE`. For example, MySQL automatic DDL uses `LONGTEXT` for these columns. Existing destination tables are not resized automatically. List declarations such as `ENUM(...)[]` retain their existing fallback mapping.
+
+MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a `BIT` or `ENUM` column is part of the primary key, pre-create a compatible target table with an explicitly bounded key type that fits the source data and MySQL index limits, and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-bit-and-enum-automatic-ddl).
+
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
@@ -64,12 +68,15 @@ and reading multiple tables in one job through `table_list`.
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
 | DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)      |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
+| BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
 For `table_path` schema discovery, the catalog retains the declared precision and scale of DECIMAL and NUMERIC columns. A table created from an inferred `DECIMAL(10,2)` schema therefore keeps `DECIMAL(10,2)`.
+
+> Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
 ## Source Options
 
