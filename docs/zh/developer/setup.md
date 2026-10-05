@@ -1,5 +1,9 @@
 # 搭建开发环境
 
+## 从这里开始
+
+如果你是第一次参与贡献，建议先读 [贡献路径](./contribution-path.md)。它可以帮助你先判断应该从文档、connector 还是引擎调试入口开始，再决定是否搭建完整本地环境。
+
 在这个章节， 我们会向你展示如何搭建 SeaTunnel 的开发环境， 然后用 JetBrains IntelliJ IDEA 跑一个简单的示例。
 
 > 你可以用任何你喜欢的开发环境进行开发和测试，我们只是用 [JetBrains IDEA](https://www.jetbrains.com/idea/)

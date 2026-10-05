@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 
-public class RedisBaseOptions {
+public class RedisBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Redis";
 
@@ -40,12 +41,20 @@ public class RedisBaseOptions {
     public static final Option<Integer> PORT =
             Options.key("port").intType().defaultValue(6379).withDescription("redis port");
 
+    public static final int MIN_PORT = 1;
+
+    public static final int MAX_PORT = 65535;
+
     public static final Option<String> AUTH =
             Options.key("auth")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "redis authentication password, you need it when you connect to an encrypted cluster");
+                            "Redis authentication password for SINGLE and CLUSTER modes. With a nonblank user,"
+                                    + " the password is passed unchanged; omitted or empty auth sends an empty"
+                                    + " password, which the ACL user must accept (for example, via nopass)."
+                                    + " With a blank user, nonblank auth authenticates as the default user;"
+                                    + " otherwise no authentication command is sent.");
 
     public static final Option<Integer> DB_NUM =
             Options.key("db_num")
@@ -59,7 +68,10 @@ public class RedisBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "redis authentication user, you need it when you connect to an encrypted cluster");
+                            "Redis ACL username (Redis 6 or later) for SINGLE and CLUSTER modes."
+                                    + " When nonblank, the connector authenticates with AUTH user auth"
+                                    + " without creating or modifying ACL users. Omitted, empty, or"
+                                    + " whitespace-only user retains default-user authentication behavior.");
 
     public static final Option<String> KEY_PATTERN =
             Options.key("keys")

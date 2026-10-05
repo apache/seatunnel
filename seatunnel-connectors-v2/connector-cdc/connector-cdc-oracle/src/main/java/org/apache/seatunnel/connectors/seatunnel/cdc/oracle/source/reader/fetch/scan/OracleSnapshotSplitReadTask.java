@@ -200,8 +200,14 @@ public class OracleSnapshotSplitReadTask
         long exportStart = clock.currentTimeInMillis();
         LOG.info("Exporting data from split '{}' of table {}", snapshotSplit.splitId(), table.id());
 
+        // Switch to PDB context before executing snapshot query for multi-table CDC
+        if (connectorConfig.getPdbName() != null) {
+            jdbcConnection.setSessionToPdb(connectorConfig.getPdbName());
+            LOG.info("Switched to PDB '{}' for table {}", connectorConfig.getPdbName(), table.id());
+        }
         final String selectSql =
-                OracleUtils.buildSplitScanQuery(
+                OracleUtils.buildSnapshotSplitScanQuery(
+                        connectorConfig,
                         snapshotSplit.getTableId(),
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,

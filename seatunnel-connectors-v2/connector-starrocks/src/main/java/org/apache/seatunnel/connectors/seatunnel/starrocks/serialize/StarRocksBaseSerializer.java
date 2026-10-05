@@ -64,6 +64,10 @@ public class StarRocksBaseSerializer {
                 return TimeUtils.toString((LocalTime) val, timeFormatter);
             case TIMESTAMP:
                 return ((LocalDateTime) val).format(dateTimeFormatter);
+            case TIMESTAMP_TZ:
+                // StarRocks DATETIME does not store timezone info;
+                // convert OffsetDateTime to local wall-clock string.
+                return ((java.time.OffsetDateTime) val).toLocalDateTime().format(dateTimeFormatter);
             case ARRAY:
             case MAP:
                 return JsonUtils.toJsonString(val);

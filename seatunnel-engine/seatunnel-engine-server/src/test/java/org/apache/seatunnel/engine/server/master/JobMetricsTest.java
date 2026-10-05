@@ -19,8 +19,12 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,8 +32,10 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.internal.serialization.Data;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
@@ -47,14 +53,36 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Slf4j
 class JobMetricsTest extends AbstractSeaTunnelServerTest {
 
+    private void startJobWithSplitSinkIo(long jobId, String path, boolean isStartWithSavePoint) {
+        LogicalDag logicalDag = TestUtils.createTestLogicalPlan(path, Long.toString(jobId), jobId);
+        logicalDag.getJobConfig().getEnvOptions().put("engine.observability.split_sink_io", true);
+
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        isStartWithSavePoint,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
+        voidPassiveCompletableFuture.join();
+    }
+
     @Test
     public void testGetJobMetrics() throws Exception {
 
         long jobId1 = System.currentTimeMillis() + 145234L;
         long jobId2 = System.currentTimeMillis() + 223452L;
 
-        startJob(jobId1, "fake_to_console_job_metrics.conf", false);
-        startJob(jobId2, "fake_to_console_job_metrics.conf", false);
+        startJobWithSplitSinkIo(jobId1, "fake_to_console_job_metrics.conf", false);
+        startJobWithSplitSinkIo(jobId2, "fake_to_console_job_metrics.conf", false);
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -96,7 +124,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testMetricsWhenJobFailed() {
         long jobId = System.currentTimeMillis();
-        startJob(jobId, "stream_fake_to_inmemory_with_error.conf", false);
+        startJobWithSplitSinkIo(jobId, "stream_fake_to_inmemory_with_error.conf", false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->

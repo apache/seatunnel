@@ -65,7 +65,8 @@ public class JdbcSource
         this.jdbcSourceTables =
                 JdbcCatalogUtils.getTables(
                         jdbcSourceConfig.getJdbcConnectionConfig(),
-                        jdbcSourceConfig.getTableConfigList());
+                        jdbcSourceConfig.getTableConfigList(),
+                        jdbcSourceConfig.getMultiTableFailurePolicy());
     }
 
     @Override

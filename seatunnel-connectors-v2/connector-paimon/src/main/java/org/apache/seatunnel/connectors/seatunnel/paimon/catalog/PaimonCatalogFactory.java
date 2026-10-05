@@ -18,12 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonTableOptionsConditionExtension;
 
 import com.google.auto.service.AutoService;
 
@@ -47,16 +50,25 @@ public class PaimonCatalogFactory implements CatalogFactory {
                         PaimonBaseOptions.DATABASE,
                         PaimonBaseOptions.TABLE)
                 .optional(
+                        PaimonBaseOptions.CATALOG_NAME,
                         PaimonBaseOptions.HDFS_SITE_PATH,
                         PaimonBaseOptions.HADOOP_CONF,
                         PaimonBaseOptions.HADOOP_CONF_PATH,
                         PaimonBaseOptions.CATALOG_TYPE,
+                        PaimonBaseOptions.USER,
+                        PaimonBaseOptions.PASSWORD,
                         PaimonSinkOptions.SCHEMA_SAVE_MODE,
                         PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.NON_PRIMARY_KEY,
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
                         PaimonSinkOptions.WRITE_PROPS,
                         PaimonSinkOptions.BRANCH)
+                .optional(
+                        SinkConnectorCommonOptions.TABLE_OPTIONS,
+                        Conditions.extension(
+                                SinkConnectorCommonOptions.TABLE_OPTIONS,
+                                PaimonTableOptionsConditionExtension.INSTANCE))
                 .conditional(
                         PaimonBaseOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

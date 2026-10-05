@@ -21,7 +21,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum HttpConnectorErrorCode implements SeaTunnelErrorCode {
     FIELD_DATA_IS_INCONSISTENT("HTTP-01", "The field data is inconsistent"),
-    REQUEST_FAILED("HTTP-02", "The request is failed");
+    REQUEST_FAILED("HTTP-02", "The request is failed"),
+    CONFIG_VALIDATION_FAILED("HTTP-03", "The config validation is failed");
 
     private final String code;
     private final String description;

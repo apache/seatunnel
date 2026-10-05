@@ -29,6 +29,13 @@ public class InceptorDialect extends HiveDialect {
     }
 
     @Override
+    public boolean supportsPrimaryKeyMetadata() {
+        // Inceptor shares Hive syntax, but it should not inherit Hive's primary-key metadata
+        // workaround because its JDBC metadata support is a separate contract.
+        return true;
+    }
+
+    @Override
     public JdbcRowConverter getRowConverter() {
         return new InceptorJdbcRowConverter();
     }

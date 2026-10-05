@@ -27,6 +27,7 @@ import java.util.Objects;
 /** SeaTunnel row type. */
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
+    private static final String TRACE_PAYLOAD_OPTION_KEY = "__st_trace_payload";
     /** Table identifier. */
     private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
@@ -35,6 +36,8 @@ public final class SeaTunnelRow implements Serializable {
     private final Object[] fields;
 
     private Map<String, Object> options;
+
+    private transient boolean optionsShared;
 
     private volatile int size;
 
@@ -60,6 +63,7 @@ public final class SeaTunnelRow implements Serializable {
 
     public void setOptions(Map<String, Object> options) {
         this.options = options;
+        this.optionsShared = false;
     }
 
     public int getArity() {
@@ -74,10 +78,18 @@ public final class SeaTunnelRow implements Serializable {
         return this.rowKind;
     }
 
+    /** Returns a mutable options map and upgrades shared copies to copy-on-write when needed. */
     public Map<String, Object> getOptions() {
         if (options == null) {
             options = new HashMap<>();
+        } else if (optionsShared || !(options instanceof HashMap)) {
+            options = new HashMap<>(options);
+            optionsShared = false;
         }
+        return options;
+    }
+
+    public Map<String, Object> getOptionsOrNull() {
         return options;
     }
 
@@ -89,16 +101,25 @@ public final class SeaTunnelRow implements Serializable {
         return this.fields[pos];
     }
 
+    /** Copies the row metadata and shares options until either side performs a write. */
     public SeaTunnelRow copy() {
         Object[] newFields = new Object[this.getArity()];
         System.arraycopy(this.getFields(), 0, newFields, 0, newFields.length);
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
-        newRow.setOptions(this.getOptions());
+        Map<String, Object> sourceOptions = this.getOptionsOrNull();
+        if (sourceOptions != null) {
+            newRow.setOptions(sourceOptions);
+            this.optionsShared = true;
+            newRow.optionsShared = true;
+        }
         return newRow;
     }
 
+    /**
+     * Copies a projected row while preserving stain trace metadata through copy-on-write options.
+     */
     public SeaTunnelRow copy(int[] indexMapping) {
         Object[] newFields = new Object[indexMapping.length];
         for (int i = 0; i < indexMapping.length; i++) {
@@ -107,7 +128,12 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
-        newRow.setOptions(this.getOptions());
+        Map<String, Object> sourceOptions = this.getOptionsOrNull();
+        if (sourceOptions != null) {
+            newRow.setOptions(sourceOptions);
+            this.optionsShared = true;
+            newRow.optionsShared = true;
+        }
         return newRow;
     }
 
@@ -368,6 +394,14 @@ public final class SeaTunnelRow implements Serializable {
         }
     }
 
+    /** Compares only the stain trace payload carried in row options. */
+    public boolean hasSameTracePayload(SeaTunnelRow that) {
+        if (that == null) {
+            return false;
+        }
+        return Arrays.equals(getTracePayload(), that.getTracePayload());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -391,13 +425,24 @@ public final class SeaTunnelRow implements Serializable {
 
     @Override
     public String toString() {
-        return "SeaTunnelRow{"
-                + "tableId="
-                + tableId
-                + ", kind="
-                + rowKind.shortString()
-                + ", fields="
-                + Arrays.toString(fields)
-                + '}';
+        boolean tracePayloadPresent =
+                options != null && options.get(TRACE_PAYLOAD_OPTION_KEY) instanceof byte[];
+        StringBuilder sb = new StringBuilder("SeaTunnelRow{");
+        sb.append("tableId=").append(tableId);
+        sb.append(", kind=").append(rowKind.shortString());
+        sb.append(", fields=").append(Arrays.toString(fields));
+        if (tracePayloadPresent) {
+            sb.append(", tracePayloadPresent=true");
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private byte[] getTracePayload() {
+        if (options == null) {
+            return null;
+        }
+        Object payload = options.get(TRACE_PAYLOAD_OPTION_KEY);
+        return payload instanceof byte[] ? (byte[]) payload : null;
     }
 }

@@ -64,6 +64,12 @@ public class BaseServlet extends HttpServlet {
         resp.getWriter().write(jsonObject.toString());
     }
 
+    protected void writeJsonString(HttpServletResponse resp, String json) throws IOException {
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
+        resp.getWriter().write(json == null ? "null" : json);
+    }
+
     protected void writeJson(HttpServletResponse resp, JsonArray jsonArray, int statusCode)
             throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -101,10 +107,29 @@ public class BaseServlet extends HttpServlet {
     }
 
     protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
-        Map<String, Object> extensionServices =
-                nodeEngine.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        SeaTunnelServer seaTunnelServer = null;
+        try {
+            com.hazelcast.instance.impl.NodeExtension nodeExtension =
+                    nodeEngine.getNode().getNodeExtension();
+            if (nodeExtension instanceof org.apache.seatunnel.engine.server.NodeExtension) {
+                seaTunnelServer =
+                        ((org.apache.seatunnel.engine.server.NodeExtension) nodeExtension)
+                                .getSeaTunnelServer();
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+
+        if (seaTunnelServer == null) {
+            Map<String, Object> extensionServices =
+                    nodeEngine.getNode().getNodeExtension().createExtensionServices();
+            seaTunnelServer =
+                    (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        }
+
+        if (seaTunnelServer == null) {
+            return null;
+        }
         if (shouldBeMaster && !seaTunnelServer.isMasterNode()) {
             return null;
         }

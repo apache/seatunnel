@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
@@ -326,6 +327,8 @@ public class ZetaSQLType {
             case ZetaSQLFunction.CONCAT_WS:
             case ZetaSQLFunction.HEXTORAW:
             case ZetaSQLFunction.RAWTOHEX:
+            case ZetaSQLFunction.TO_BASE64:
+            case ZetaSQLFunction.FROM_BASE64:
             case ZetaSQLFunction.INSERT:
             case ZetaSQLFunction.LOWER:
             case ZetaSQLFunction.LCASE:
@@ -354,14 +357,13 @@ public class ZetaSQLType {
             case ZetaSQLFunction.FROM_UNIXTIME:
             case ZetaSQLFunction.UUID:
             case ZetaSQLFunction.TRIM_SCALE:
+            case ZetaSQLFunction.AES_ENCRYPT:
+            case ZetaSQLFunction.AES_DECRYPT:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
             case ZetaSQLFunction.INSTR:
             case ZetaSQLFunction.POSITION:
-            case ZetaSQLFunction.CEIL:
-            case ZetaSQLFunction.CEILING:
-            case ZetaSQLFunction.FLOOR:
             case ZetaSQLFunction.DAY_OF_MONTH:
             case ZetaSQLFunction.DAY_OF_WEEK:
             case ZetaSQLFunction.DAY_OF_YEAR:
@@ -407,8 +409,6 @@ public class ZetaSQLType {
             case ZetaSQLFunction.POWER:
             case ZetaSQLFunction.RAND:
             case ZetaSQLFunction.RANDOM:
-            case ZetaSQLFunction.TRUNC:
-            case ZetaSQLFunction.TRUNCATE:
             case ZetaSQLFunction.COSINE_DISTANCE:
             case ZetaSQLFunction.L1_DISTANCE:
             case ZetaSQLFunction.L2_DISTANCE:
@@ -430,26 +430,47 @@ public class ZetaSQLType {
             case ZetaSQLFunction.PARSEDATETIME:
             case ZetaSQLFunction.TO_DATE:
                 {
-                    String format = function.getParameters().getExpressions().get(1).toString();
-                    if (format.contains("yy") && format.contains("mm")) {
-                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                    Expression formatExpr = function.getParameters().getExpressions().get(1);
+                    String format;
+                    if (formatExpr instanceof StringValue) {
+                        format = ((StringValue) formatExpr).getNotExcapedValue();
+                    } else {
+                        throw CommonError.unsupportedOperation(
+                                function.getName(), "non-literal format parameter");
                     }
-                    if (format.contains("yy")) {
-                        return LocalTimeType.LOCAL_DATE_TYPE;
+
+                    ZetaDateTimeFormat dateTimeFormat =
+                            ZetaDateTimeFormat.fromPattern(format)
+                                    .orElseThrow(
+                                            () ->
+                                                    CommonError.illegalArgument(
+                                                            format, "unsupported datetime format"));
+
+                    switch (dateTimeFormat.getType()) {
+                        case DATETIME:
+                            return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                        case DATE:
+                            return LocalTimeType.LOCAL_DATE_TYPE;
+                        case TIME:
+                            return LocalTimeType.LOCAL_TIME_TYPE;
+                        default:
+                            throw CommonError.illegalArgument(
+                                    dateTimeFormat.getType().toString(),
+                                    "unsupported datetime format type");
                     }
-                    if (format.contains("mm")) {
-                        return LocalTimeType.LOCAL_TIME_TYPE;
-                    }
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unknown pattern letter %s for function: %s",
-                                    format, function.getName()));
                 }
+                // These functions all return the type of their first argument. CEIL/FLOOR/TRUNC are
+                // documented that way as well; declaring INT/DOUBLE for them would truncate BIGINT
+                // and DECIMAL results.
             case ZetaSQLFunction.ABS:
             case ZetaSQLFunction.DATEADD:
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
+            case ZetaSQLFunction.CEIL:
+            case ZetaSQLFunction.CEILING:
+            case ZetaSQLFunction.FLOOR:
+            case ZetaSQLFunction.TRUNC:
+            case ZetaSQLFunction.TRUNCATE:
             case ZetaSQLFunction.NULLIF:
                 return getExpressionType(function.getParameters().getExpressions().get(0));
             case ZetaSQLFunction.IFNULL:

@@ -1,18 +1,18 @@
-# Define Sink Type
+# 定义写入字段类型
 
-> Define sink type transform plugin
+> DefineSinkType：为 sink 建表或写入阶段显式指定字段类型
 
-## Description
+## 描述
 
-用于定义 sink 字段存储类型，对于 savemode 开启自动建表时有效
+DefineSinkType 转换插件用于定义 sink 字段的目标存储类型，适用于开启 `savemode` 自动建表的场景。
 
-## Options
+## 参数
 
-|  name   | type                      | required | default value | Description        |
-|:-------:|---------------------------|----------|---------------|--------------------|
-| columns | list<map<string, string>> | yes      |               | 需要定义的列，必须设置列的名称和类型 |
+| 参数名  | 类型                      | 是否必填 | 默认值 | 说明 |
+|:------:|---------------------------|----------|--------|------|
+| columns | list<map<string, string>> | 是       |        | 需要定义的列，必须为每一列指定名称和类型 |
 
-## Examples
+## 示例
 
 ### 指定部分字段的建表类型
 

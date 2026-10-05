@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -63,9 +65,12 @@ import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.VectorType.VECTOR_FLOAT_TYPE;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
 
@@ -287,6 +292,54 @@ public class JsonRowDataSerDeSchemaTest {
             byte[] actual = serializationSchema.serialize(rowData);
             assertEquals(new String(serializedJson), new String(actual));
         }
+    }
+
+    @Test
+    public void testSerializeHeterogeneousNumericFields() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"value", "amount"},
+                        new SeaTunnelDataType[] {INT_TYPE, LONG_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"text value", new BigDecimal("123.45")});
+
+        assertEquals(
+                "{\"value\":\"text value\",\"amount\":123.45}",
+                new String(
+                        new JsonSerializationSchema(schema).serialize(row),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testSerializeCrossNumericRuntimeTypes() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_bigint", "c_float", "c_decimal", "c_str"},
+                        new SeaTunnelDataType[] {
+                            INT_TYPE, LONG_TYPE, FLOAT_TYPE, new DecimalType(10, 2), INT_TYPE
+                        });
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {10L, Integer.valueOf(20), Double.valueOf(1.5D), 2.5D, "123"});
+
+        assertEquals(
+                "{\"c_int\":10,\"c_bigint\":20,\"c_float\":1.5,\"c_decimal\":2.5,\"c_str\":123}",
+                new String(
+                        new JsonSerializationSchema(schema).serialize(row),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testSerializeNonNumericObjectUnderNumericFieldFails() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"c_int"}, new SeaTunnelDataType[] {INT_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new byte[] {1, 2}});
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> new JsonSerializationSchema(schema).serialize(row));
+        Assertions.assertTrue(exception.getCause() instanceof SeaTunnelJsonFormatException);
+        Assertions.assertTrue(exception.getCause().getMessage().contains("[B"));
     }
 
     @Test
@@ -578,6 +631,36 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
+    public void testFloatVectorConverter() throws JsonProcessingException {
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+        JsonToRowConverters.JsonToObjectConverter converter =
+                converters.createConverter(VECTOR_FLOAT_TYPE);
+
+        ByteBuffer result =
+                (ByteBuffer)
+                        converter.convert(
+                                JsonUtils.stringToJsonNode("[0.1, 0.2, 0.3, 0.4]"), "vector");
+
+        assertArrayEquals(new Float[] {0.1f, 0.2f, 0.3f, 0.4f}, VectorUtils.toFloatArray(result));
+    }
+
+    @Test
+    public void testFloatVectorConverterRejectsInvalidElement() throws JsonProcessingException {
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+        JsonToRowConverters.JsonToObjectConverter converter =
+                converters.createConverter(VECTOR_FLOAT_TYPE);
+
+        SeaTunnelJsonFormatException exception =
+                assertThrows(
+                        SeaTunnelJsonFormatException.class,
+                        () ->
+                                converter.convert(
+                                        JsonUtils.stringToJsonNode("[0.1, null]"), "vector"));
+
+        assertTrue(exception.getMessage().contains("element at index 1"));
+    }
+
+    @Test
     public void testParseUnsupportedDateTimeFormat() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -700,7 +783,7 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
-    public void testSerializationWithNumber() {
+    public void testSerializationWithNumber() throws JsonProcessingException {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {"id", "code", "fe_result"},
@@ -710,7 +793,49 @@ public class JsonRowDataSerDeSchemaTest {
         Object[] fields = new Object[] {1, "1001015", BigDecimal.valueOf(80.00)};
         SeaTunnelRow row = new SeaTunnelRow(fields);
         byte[] serialize = jsonSerializationSchema.serialize(row);
-        String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
-        assertEquals(new String(serialize), expected);
+        JsonNode jsonNode = new ObjectMapper().readTree(new String(serialize));
+        assertEquals(1, jsonNode.get("id").asInt());
+        assertEquals("1001015", jsonNode.get("code").asText());
+        assertEquals(0, BigDecimal.valueOf(80).compareTo(jsonNode.get("fe_result").decimalValue()));
+    }
+
+    @Test
+    public void testMultipleDateColumnsWithDifferentFormats() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_dash", "date_dot"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TYPE
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        String json = "{\"date_dash\":\"2024-01-15\",\"date_dot\":\"2024.06.20\"}";
+        SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
+
+        assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
+        assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
+    }
+
+    @Test
+    public void testTimestampFieldSupportsMixedPrecisionAcrossRows() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow secondPrecisionRow =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_field\":\"2022-09-24T22:45:00\"}".getBytes());
+        SeaTunnelRow fractionalPrecisionRow =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_field\":\"2022-09-24T22:45:00.123\"}".getBytes());
+
+        assertEquals(LocalDateTime.of(2022, 9, 24, 22, 45, 0), secondPrecisionRow.getField(0));
+        assertEquals(
+                LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
+                fractionalPrecisionRow.getField(0));
     }
 }

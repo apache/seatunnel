@@ -28,6 +28,7 @@ import lombok.ToString;
 @Setter
 @ToString
 public class JobStateEvent implements Event {
+    private static final long serialVersionUID = 1L;
 
     private String jobId;
     private String jobName;

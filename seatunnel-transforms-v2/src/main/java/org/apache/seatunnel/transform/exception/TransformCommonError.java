@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.commons.collections4.map.SingletonMap;
 
@@ -26,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.ENCRYPTION_FAILED;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELD_NOT_FOUND;
@@ -88,5 +90,10 @@ public class TransformCommonError {
     public static TransformException validationFailed(String message) {
         Map<String, String> params = new SingletonMap<>("message", message);
         return new TransformException(CommonErrorCode.VALIDATION_FAILED, params);
+    }
+
+    public static SeaTunnelRuntimeException encryptionError(String field, Throwable cause) {
+        Map<String, String> params = new SingletonMap<>("field", field);
+        return new TransformException(ENCRYPTION_FAILED, params, cause);
     }
 }

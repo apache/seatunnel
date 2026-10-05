@@ -17,35 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final RedisParameters redisParameters = new RedisParameters();
-    private SeaTunnelRowType seaTunnelRowType;
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
-    private CatalogTable catalogTable;
+    private Map<TablePath, RedisTableConfig> sourceTablesMap;
 
     @Override
     public String getPluginName() {
@@ -53,50 +46,36 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     public RedisSource(ReadonlyConfig readonlyConfig) {
-
-        this.redisParameters.buildWithConfig(readonlyConfig);
-
-        createCatalogTableAndDeserializationSchema(readonlyConfig);
+        this.redisParameters.buildConnectionConfig(readonlyConfig);
+        this.sourceTablesMap = createSourceTablesMap(readonlyConfig);
     }
 
-    private void createCatalogTableAndDeserializationSchema(ReadonlyConfig readonlyConfig) {
-        // TODO: use format SPI
-        // default use json format
-        RedisBaseOptions.Format format = readonlyConfig.get(RedisBaseOptions.FORMAT);
+    /**
+     * Create source tables map from configuration, supporting both single and multi-table modes.
+     *
+     * @param readonlyConfig Configuration
+     * @return Map of TablePath to RedisTableConfig
+     */
+    private Map<TablePath, RedisTableConfig> createSourceTablesMap(ReadonlyConfig readonlyConfig) {
+        List<RedisTableConfig> tableConfigs = RedisTableConfig.of(readonlyConfig);
+        Map<TablePath, RedisTableConfig> tablesMap = new LinkedHashMap<>();
 
-        // if config schema, create deserialization schema and catalog table by config
-        // else create catalog with simple text
-        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-            this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
-            this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        for (RedisTableConfig tableConfig : tableConfigs) {
+            TablePath tablePath = tableConfig.getTablePath();
 
-            switch (format) {
-                case JSON:
-                    this.deserializationSchema =
-                            new JsonDeserializationSchema(catalogTable, false, false);
-                    break;
-                case TEXT:
-                    String fieldDelimiter = readonlyConfig.get(RedisBaseOptions.FIELD_DELIMITER);
-                    this.deserializationSchema =
-                            TextDeserializationSchema.builder()
-                                    .seaTunnelRowType(seaTunnelRowType)
-                                    .delimiter(fieldDelimiter)
-                                    .build();
-                    break;
-                default:
-                    throw new RedisConnectorException(
-                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                            String.format(
-                                    "PluginName: %s, PluginType: %s, Message: %s",
-                                    getPluginName(),
-                                    PluginType.SOURCE,
-                                    "Unsupported format: " + format));
+            // Check for duplicate TablePath
+            if (tablesMap.containsKey(tablePath)) {
+                throw new RedisConnectorException(
+                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "Duplicate table_path found: %s. Please ensure each table configuration has a unique table_path.",
+                                tablePath));
             }
-        } else {
-            this.catalogTable = CatalogTableUtil.buildSimpleTextTable();
-            this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-            this.deserializationSchema = null;
+
+            tablesMap.put(tablePath, tableConfig);
         }
+
+        return tablesMap;
     }
 
     @Override
@@ -106,12 +85,16 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Lists.newArrayList(catalogTable);
+        List<CatalogTable> catalogTables = new ArrayList<>(sourceTablesMap.size());
+        for (RedisTableConfig tableConfig : sourceTablesMap.values()) {
+            catalogTables.add(tableConfig.getCatalogTable());
+        }
+        return catalogTables;
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new RedisSourceReader(redisParameters, readerContext, deserializationSchema);
+        return new RedisSourceReader(redisParameters, readerContext, sourceTablesMap);
     }
 }

@@ -116,7 +116,34 @@ seatunnel:
       url: "http://example.com:1024/event/report"
       headers:
         Content-Type: application/json
+      report-non-terminal-job-state: false
 ```
+
+#### report-non-terminal-job-state
+
+- 类型：boolean
+
+- 默认值：false
+
+是否将非终态（Non-terminal）作业状态的状态变更事件上报到配置的 HTTP 接口。
+
+当该配置为 `true` 时，Engine 会上报以下非终态作业状态的变更事件：
+
+- `PENDING`
+
+- `SCHEDULED`
+
+- `RUNNING`
+
+- `FAILING`
+
+- `CANCELING`
+
+- `DOING_SAVEPOINT`
+
+当该配置为 `false` 时，仅会上报终态（Terminal）作业状态（例如 `FINISHED`，`FAILED`，`CANCELED`，`SAVEPOINT_DONE`），非终态状态的变更将被忽略。
+
+该配置项适用于仅关注作业最终结果、希望减少事件上报数量的场景。
 
 ### Flink 引擎
 

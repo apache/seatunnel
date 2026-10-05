@@ -18,13 +18,22 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import lombok.Getter;
 
 @Getter
 public class TableSourceFactoryContext extends TableFactoryContext {
 
+    private MetadataConfig metadataConfig;
+
     public TableSourceFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
         super(options, classLoader);
+    }
+
+    public TableSourceFactoryContext(
+            ReadonlyConfig options, ClassLoader classLoader, MetadataConfig metadataConfig) {
+        super(options, classLoader);
+        this.metadataConfig = metadataConfig;
     }
 }

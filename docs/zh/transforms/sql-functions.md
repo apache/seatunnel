@@ -94,6 +94,42 @@ HEXTORAW(DATA)
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+将字符串或字节编码为 Base64。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+对于字节输入，不支持 charset 参数，因为该值已经是原始字节。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+将 Base64 字符串解码为文本。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
@@ -432,6 +468,16 @@ ASIN(D)
 
 ATAN(D)
 
+### ATAN2
+
+```ATAN2(numeric, numeric) -> DOUBLE```
+
+计算两个参数商的反正切值。另请参阅 Java Math.atan2。
+
+示例:
+
+ATAN2(Y, X)
+
 ### COS
 
 ```COS(numeric) -> DOUBLE```
@@ -635,6 +681,8 @@ RAND()
 ```ROUND(numeric[, digitsInt]) -> NUMERIC (same type)```
 
 四舍五入到指定的小数位数。该方法返回与参数相同类型的值，但如果适用，则调整精度和标度。
+
+请注意，当 `digitsInt` 为负数且参数为整数类型时，舍入后的值可能超出该类型的取值范围。例如，ROUND(2147483647, -1) 应该是 2147483650，但是这个值对于 INT 数据类型是不允许的。这会导致异常。为了避免这种情况，请将此函数的参数转换为更高的数据类型。CEIL 和 FLOOR 会以同样的方式溢出；TRUNC 向零舍入，因此不会溢出。
 
 示例:
 
@@ -890,17 +938,101 @@ MONTH(CREATED)
 
 MONTHNAME(CREATED)
 
-### PARSEDATETIME / TO_DATE
+### IS_DATE
 
-```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
+```IS_DATE(string, formatString) -> BOOLEAN```
+验证字符串是否可以使用指定的格式模式解析为日期/时间值。
 
-解析一个字符串并返回一个 TIMESTAMP WITH TIME ZONE 值。最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
+**支持的格式模式:**
+
+日期时间格式:
+- `yyyy-MM-dd HH:mm:ss` - 标准日期时间格式
+- `yyyy-MM-dd HH:mm:ss.SSS` - 带毫秒的日期时间
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 日期时间格式
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - 带毫秒的 ISO 8601 日期时间
+- `yyyy/MM/dd HH:mm:ss` - 带斜杠分隔符的日期时间
+- `yyyy/MM/dd HH:mm:ss.SSS` - 带斜杠分隔符和毫秒的日期时间
+- `yyyyMMddHHmmss` - 紧凑日期时间格式
+
+日期格式:
+- `yyyy-MM-dd` - ISO 8601 日期格式
+- `yyyy/MM/dd` - 带斜杠分隔符的日期
+- `yyyyMMdd` - 紧凑日期格式
+
+时间格式:
+- `HH:mm:ss` - 标准时间格式
+- `HH:mm:ss.SSS` - 带毫秒的时间
+- `HHmmss` - 紧凑时间格式
 
 示例:
 
-CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
-CALL TO_DATE('2021-04-08T13:34:45','yyyy-MM-dd''T''HH:mm:ss')
-注意SQL函数中的`'`填写时需要转义为`''`。
+```sql
+CALL IS_DATE('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+-- 返回 true
+
+CALL IS_DATE('2021/04/08', 'yyyy/MM/dd')
+-- 返回 true
+
+CALL IS_DATE('20210408', 'yyyyMMdd')
+-- 返回 true
+
+-- 与 TO_DATE 保持一致
+SELECT CASE
+  WHEN IS_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  THEN TO_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  ELSE NULL
+END as parsed_date
+```
+
+### PARSEDATETIME / TO_DATE
+
+```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP | DATE | TIME```
+
+使用指定的格式模式将字符串解析为日期/时间值
+
+**支持的格式模式:**
+
+日期时间格式 (返回 TIMESTAMP):
+- `yyyy-MM-dd HH:mm:ss` - 标准日期时间格式
+- `yyyy-MM-dd HH:mm:ss.SSS` - 带毫秒的日期时间
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 日期时间格式
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - 带毫秒的 ISO 8601 日期时间
+- `yyyy/MM/dd HH:mm:ss` - 带斜杠分隔符的日期时间
+- `yyyy/MM/dd HH:mm:ss.SSS` - 带斜杠分隔符和毫秒的日期时间
+- `yyyyMMddHHmmss` - 紧凑日期时间格式
+
+日期格式 (返回 DATE):
+- `yyyy-MM-dd` - ISO 8601 日期格式
+- `yyyy/MM/dd` - 带斜杠分隔符的日期
+- `yyyyMMdd` - 紧凑日期格式
+
+时间格式 (返回 TIME):
+- `HH:mm:ss` - 标准时间格式
+- `HH:mm:ss.SSS` - 带毫秒的时间
+- `HHmmss` - 紧凑时间格式
+
+**注意:** 在格式模式中使用单引号 (`'`) 时(例如 ISO 8601 的 'T' 分隔符)，必须在 SQL 中转义为 `''`。
+
+示例:
+
+```sql
+-- 日期时间示例
+CALL PARSEDATETIME('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45', 'yyyy-MM-dd''T''HH:mm:ss')
+CALL PARSEDATETIME('2024-06-15 14:30:45.123', 'yyyy-MM-dd HH:mm:ss.SSS')
+CALL PARSEDATETIME('2021/04/08 13:34:45', 'yyyy/MM/dd HH:mm:ss')
+CALL PARSEDATETIME('20210408133445', 'yyyyMMddHHmmss')
+
+-- 日期示例
+CALL TO_DATE('2021-04-08', 'yyyy-MM-dd')
+CALL TO_DATE('2021/04/08', 'yyyy/MM/dd')
+CALL TO_DATE('20210408', 'yyyyMMdd')
+
+-- 时间示例
+CALL PARSEDATETIME('14:30:45', 'HH:mm:ss')
+CALL PARSEDATETIME('14:30:45.123', 'HH:mm:ss.SSS')
+CALL PARSEDATETIME('143045', 'HHmmss')
+```
 
 ### QUARTER
 
@@ -983,6 +1115,50 @@ local_date_time AT TIME ZONE '+09:00'
 
 offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
+## 加密函数
+
+### AES_ENCRYPT
+
+```AES_ENCRYPT(value, key[, iv]) -> STRING```
+
+使用 AES/CBC/PKCS5Padding 加密 `value`，返回 Base64 编码的密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：待加密的明文。任何非空标量值都会被转换为字符串；数组与 Map 输入会被拒绝。
+- `key`：密钥。如果以 `base64:` 开头，则剩余部分按 Base64 解码为原始 AES 密钥，长度必须为 16、24 或 32 字节（对应 AES-128/192/256）；只有 `base64:` 形式才与 `FieldEncryptTransform` 使用的 `AesCbcEncryptor` 线兼容。其他值按口令处理：对其 UTF-8 字节做一次 SHA-256，取前 16 字节作为 AES-128 密钥，因此支持任意长度的口令。口令模式是无盐的快速 KDF，安全性较低；生产环境请使用随机的 `base64:` 密钥并作为机密保管。`base64:` 密钥与口令不可互换。
+- `iv`：可选的初始化向量。提供时，其 UTF-8 字节作为 IV 使用，必须恰好为 16 字节；返回的密文仅包含加密后的字节，调用方需自行保存 IV。省略时，每次调用生成 16 字节随机 IV 并拼接到密文头部，`AES_DECRYPT` 无需显式 IV 即可恢复。显式传入 `NULL` 的 IV 会被拒绝（请改为省略该参数）。
+
+示例:
+
+AES_ENCRYPT(name, 'mySecretPass')
+
+AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+
+AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+SELECT AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass') AS name_enc FROM dual
+
+注意:
+- CBC 是无认证模式：密钥错误或密文损坏时，约 1/256 的概率会解出垃圾串而非报错，切勿依赖解密报错来判断密钥是否正确。
+- 省略 `iv` 时密文是非确定性的（每次调用都会生成新的随机 IV）。如需确定性密文，请显式提供 `iv`。
+
+### AES_DECRYPT
+
+```AES_DECRYPT(value, key[, iv]) -> STRING```
+
+解密 Base64 编码的 AES/CBC/PKCS5Padding 密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：由 `AES_ENCRYPT` 生成的 Base64 密文。
+- `key`：密钥，约定与 `AES_ENCRYPT` 相同，必须与加密时使用的密钥一致。
+- `iv`：可选的初始化向量。省略时，取解码后前 16 字节作为 IV（即 `AES_ENCRYPT` 未提供 IV 时生成的格式）。提供时，其 UTF-8 字节作为 IV（必须为 16 字节），整个解码负载视为密文。显式传入 `NULL` 的 IV 会被拒绝。
+
+示例:
+
+AES_DECRYPT(cipher, 'mySecretPass')
+
+AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+
+AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
 ## System Functions
 
 ### CAST
@@ -991,7 +1167,7 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 将一个值转换为另一个数据类型。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1011,7 +1187,7 @@ CAST(FLAG AS BOOLEAN)
 
 该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1142,6 +1318,17 @@ select ARRAY(column1,column2,column3) as arrays
 
 注意：目前仅支持string、double、long、int几种类型
 
+### MAP
+
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<K, V>```
+
+由交替出现的键值参数创建一个 Map。参数个数必须为偶数且键不能为 NULL。键在运行时会被转换为字符串，但结果声明的键类型跟随键表达式的类型，因此建议使用字符串键表达式；值类型跟随值表达式。
+
+示例:
+
+select MAP('a', 1, 'b', 2) as maps
+select MAP('k1', column1, 'k2', column2) as maps
+
 ### LATERAL VIEW
 #### EXPLODE
 ```EXPLODE(array of T) -> rows(value: T)```  
@@ -1167,6 +1354,8 @@ SELECT * FROM dual
 ```
 
 ## 向量函数
+
+向量函数不会消耗或修改输入向量缓冲区。同一个向量字段可以用于多个表达式，也可以同时作为距离函数的两个参数，并且仍可供下游转换和接收器读取。
 
 ### VECTOR_DIMS
 

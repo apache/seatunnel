@@ -232,6 +232,22 @@ public class RowTypeConverterTest {
     }
 
     @Test
+    public void seaTunnelNestedRowToPaimonKeepsFieldNames() {
+        SeaTunnelRowType buyerType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
+
+        DataType convert = RowTypeConverter.reconvert("buyer", buyerType);
+
+        RowType expected =
+                RowType.of(
+                        new DataType[] {DataTypes.BIGINT(), DataTypes.STRING()},
+                        new String[] {"id", "name"});
+        Assertions.assertEquals(expected, convert);
+    }
+
+    @Test
     public void paimonDataTypeToSeaTunnelColumn() {
         Column column = RowTypeConverter.convert(typeDefine);
         isEquals(column, typeDefine);

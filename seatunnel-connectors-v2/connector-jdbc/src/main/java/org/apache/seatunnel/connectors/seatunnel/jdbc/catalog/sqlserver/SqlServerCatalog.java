@@ -54,8 +54,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
                     + "FROM sys.tables tbl\n"
                     + "    INNER JOIN sys.columns col ON tbl.object_id = col.object_id\n"
                     + "    LEFT JOIN sys.types types ON col.system_type_id = types.user_type_id\n"
-                    + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id\n"
-                    + "    LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id AND ext.minor_id = col.column_id AND ext.name = 'MS_Description'\n"
+                    + "    LEFT JOIN sys.extended_properties ext ON ext.major_id = col.object_id AND ext.minor_id = col.column_id AND ext.name = 'MS_Description'\n"
+                    + "    LEFT JOIN sys.default_constraints def ON col.default_object_id = def.object_id\n"
                     + "WHERE schema_name(tbl.schema_id) = '%s' %s\n"
                     + "ORDER BY tbl.name, col.column_id";
 

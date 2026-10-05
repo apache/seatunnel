@@ -74,6 +74,11 @@ public class RedoLogOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset timestamp(long timestamp) {
-        throw new UnsupportedOperationException("not supported create new Offset by timestamp.");
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
+            return OracleConnectionUtils.timestampToScn(
+                    jdbcConnection, timestamp, sourceConfig.getServerTimeZone());
+        } catch (Exception e) {
+            throw new RuntimeException("Convert timestamp to redoLog offset error", e);
+        }
     }
 }

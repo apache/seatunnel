@@ -53,17 +53,17 @@ public class VerticaDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         return Optional.empty();
     }
 
     @Override
     public Optional<String> getUpsertStatementByTableSchema(
-            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
+            String database, String tableName, TableSchema tableSchema, String[] pkNames) {
         String[] fieldNames = tableSchema.getFieldNames();
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .collect(Collectors.toList());
         // Vertica JDBC currently requires explicitly specifying the data type
         String valuesBinding =
@@ -85,7 +85,7 @@ public class VerticaDialect implements JdbcDialect {
 
         String usingClause = String.format("SELECT %s ", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 fieldName ->
                                         String.format(
@@ -111,20 +111,27 @@ public class VerticaDialect implements JdbcDialect {
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
 
+        // When there are no non-unique-key fields to update (e.g. all fields are unique keys),
+        // the "WHEN MATCHED THEN UPDATE SET" clause must be omitted, otherwise the database reports
+        // a syntax error because "UPDATE SET" would have an empty body.
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s", updateSetClause)
+                        : "";
+
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s.%s TARGET"
                                 + " USING (%s) SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         quoteDatabaseIdentifier(database),
                         quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 

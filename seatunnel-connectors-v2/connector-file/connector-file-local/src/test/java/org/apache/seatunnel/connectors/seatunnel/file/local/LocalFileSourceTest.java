@@ -17,11 +17,14 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
@@ -30,12 +33,34 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSp
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class LocalFileSourceTest {
+
+    private static final String[] MARKDOWN_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final String[] MARKDOWN_RAG_METADATA_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
+
+    @TempDir private Path tempDir;
 
     @Test
     void testInitFileSplitStrategy() {
@@ -116,6 +141,63 @@ public class LocalFileSourceTest {
         closeQuietly(fileSplitStrategy);
     }
 
+    @Test
+    void testMarkdownSourceDiscoversRagMetadataSchema() throws IOException {
+        Path markdownFile = tempDir.resolve("doc.md");
+        Files.write(markdownFile, Collections.singletonList("# Title"), StandardCharsets.UTF_8);
+
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.FILE_PATH.key(), markdownFile.toUri().toString());
+        map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
+        map.put(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key(), true);
+
+        CatalogTable catalogTable =
+                new LocalFileSourceConfig(
+                                ReadonlyConfig.fromMap(map),
+                                CatalogTableUtil.buildSimpleTextTable())
+                        .getCatalogTable();
+
+        Assertions.assertArrayEquals(
+                concat(MARKDOWN_FIELD_NAMES, MARKDOWN_RAG_METADATA_FIELD_NAMES),
+                catalogTable.getSeaTunnelRowType().getFieldNames());
+    }
+
+    @Test
+    void testContinuousMarkdownSourceDiscoversSchemaWithoutFiles() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.FILE_PATH.key(), tempDir.toString());
+        map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
+        map.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
+
+        CatalogTable catalogTable =
+                new LocalFileSourceConfig(
+                                ReadonlyConfig.fromMap(map),
+                                CatalogTableUtil.buildSimpleTextTable())
+                        .getCatalogTable();
+
+        Assertions.assertArrayEquals(
+                MARKDOWN_FIELD_NAMES, catalogTable.getSeaTunnelRowType().getFieldNames());
+    }
+
+    @Test
+    void testContinuousMarkdownSourceDiscoversRagMetadataSchemaWithoutFiles() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.FILE_PATH.key(), tempDir.toString());
+        map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
+        map.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
+        map.put(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key(), true);
+
+        CatalogTable catalogTable =
+                new LocalFileSourceConfig(
+                                ReadonlyConfig.fromMap(map),
+                                CatalogTableUtil.buildSimpleTextTable())
+                        .getCatalogTable();
+
+        Assertions.assertArrayEquals(
+                concat(MARKDOWN_FIELD_NAMES, MARKDOWN_RAG_METADATA_FIELD_NAMES),
+                catalogTable.getSeaTunnelRowType().getFieldNames());
+    }
+
     private void closeQuietly(FileSplitStrategy strategy) {
         try {
             if (strategy instanceof Closeable) {
@@ -128,5 +210,12 @@ public class LocalFileSourceTest {
         } catch (Exception ignored) {
             // ignore
         }
+    }
+
+    private static String[] concat(String[] left, String[] right) {
+        String[] result = new String[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
     }
 }

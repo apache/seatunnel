@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -240,6 +241,8 @@ public class SqlServerStreamingChangeEventSource
                                         databaseName, lastProcessedPosition.getCommitLsn())
                                 : lastProcessedPosition.getCommitLsn();
                 streamingExecutionContext.setShouldIncreaseFromLsn(true);
+                final Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries =
+                        getDdlEntriesToQuery(databaseName, fromLsn, toLsn);
 
                 while (!schemaChangeCheckpoints.isEmpty()) {
                     migrateTable(partition, schemaChangeCheckpoints, offsetContext);
@@ -396,6 +399,14 @@ public class SqlServerStreamingChangeEventSource
                                                     offsetContext);
                                         }
                                     }
+                                    dispatchPendingDdlHistory(
+                                            partition,
+                                            offsetContext,
+                                            tablesSlot.get(),
+                                            ddlEntries,
+                                            tableWithSmallestLsn
+                                                    .getChangePosition()
+                                                    .getCommitLsn());
                                     final TableId tableId =
                                             tableWithSmallestLsn
                                                     .getChangeTable()
@@ -455,6 +466,12 @@ public class SqlServerStreamingChangeEventSource
                                                     clock));
                                     tableWithSmallestLsn.next();
                                 }
+                                dispatchPendingDdlHistory(
+                                        partition,
+                                        offsetContext,
+                                        tablesSlot.get(),
+                                        ddlEntries,
+                                        null);
                             });
                     streamingExecutionContext.setLastProcessedPosition(
                             TxLogPosition.valueOf(toLsn));
@@ -510,6 +527,171 @@ public class SqlServerStreamingChangeEventSource
                         tableSchema,
                         SchemaChangeEventType.ALTER));
         newTable.setSourceTable(tableSchema);
+    }
+
+    private Queue<SqlServerConnection.SqlServerDdlEntry> getDdlEntriesToQuery(
+            String databaseName, Lsn fromLsn, Lsn toLsn) throws SQLException {
+        Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries =
+                new PriorityQueue<>(
+                        Comparator.comparing(SqlServerConnection.SqlServerDdlEntry::getDdlLsn));
+        dataConnection.getDdlHistory(databaseName, fromLsn, toLsn).stream()
+                .filter(
+                        ddlEntry ->
+                                connectorConfig
+                                        .getTableFilters()
+                                        .dataCollectionFilter()
+                                        .isIncluded(ddlEntry.getSourceTableId()))
+                .forEach(ddlEntries::add);
+        return ddlEntries;
+    }
+
+    private void dispatchPendingDdlHistory(
+            SqlServerPartition partition,
+            SqlServerOffsetContext offsetContext,
+            SqlServerChangeTable[] currentTables,
+            Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries,
+            Lsn currentCommitLsn)
+            throws InterruptedException, SQLException {
+        while (!ddlEntries.isEmpty()
+                && (currentCommitLsn == null
+                        || ddlEntries.peek().getDdlLsn().compareTo(currentCommitLsn) <= 0)) {
+            SqlServerConnection.SqlServerDdlEntry ddlEntry = ddlEntries.poll();
+            dispatchDdlHistorySchemaChange(partition, offsetContext, currentTables, ddlEntry);
+        }
+    }
+
+    private void dispatchDdlHistorySchemaChange(
+            SqlServerPartition partition,
+            SqlServerOffsetContext offsetContext,
+            SqlServerChangeTable[] currentTables,
+            SqlServerConnection.SqlServerDdlEntry ddlEntry)
+            throws InterruptedException, SQLException {
+        SqlServerChangeTable currentTable =
+                findOldestActiveChangeTable(currentTables, ddlEntry.getSourceTableId());
+        if (currentTable == null) {
+            LOGGER.warn("Ignoring SQL Server DDL history for unknown captured table {}", ddlEntry);
+            return;
+        }
+
+        // When a DDL event is detected via the DDL history, a newer capture instance may exist
+        // (or be pending) for the same source table.  Dispatching the schema change here would
+        // update the Debezium internal schema registry before the old capture instance finishes
+        // streaming its records.  Subsequent records from the old capture table (which still
+        // use the pre-DDL column layout) would then be validated against the wider schema and
+        // crash with "Data row is smaller than a column index".
+        //
+        // The schema transition is already handled at the correct LSN boundary by migrateTable()
+        // when the commit LSN reaches the new capture instance's startLsn.  Therefore, defer
+        // whenever a newer capture instance is known to exist.
+        if (currentTable.getStopLsn().isAvailable()) {
+            // currentTable is the old capture (a newer one is already in-flight).
+            // migrateTable() will handle the transition at the right boundary.
+            LOGGER.info(
+                    "Skipping DDL history dispatch for {} - newer capture instance pending; "
+                            + "schema transition deferred to migrateTable()",
+                    ddlEntry.getSourceTableId());
+            return;
+        }
+
+        // No sibling capture in currentTables; check whether a newer capture instance exists
+        // outside the current streaming window (its startLsn > current toLsn).
+        SqlServerChangeTable newerTable =
+                findNewerCaptureInstance(
+                        partition.getDatabaseName(), ddlEntry.getSourceTableId(), currentTable);
+        if (newerTable != null) {
+            // A newer capture instance exists but has not entered the window yet.
+            // migrateTable() will handle the transition once its startLsn is reached.
+            LOGGER.info(
+                    "Skipping DDL history dispatch for {} - newer capture instance exists "
+                            + "outside current window; schema transition deferred to migrateTable()",
+                    ddlEntry.getSourceTableId());
+            return;
+        }
+
+        Table oldTableSchema = schema.tableFor(ddlEntry.getSourceTableId());
+        Table tableSchema =
+                metadataConnection.getTableSchemaFromTable(
+                        partition.getDatabaseName(), currentTable);
+        if (oldTableSchema != null && oldTableSchema.equals(tableSchema)) {
+            LOGGER.info("Migration skipped, no table schema changes detected for {}", ddlEntry);
+            return;
+        }
+        offsetContext.setChangePosition(TxLogPosition.valueOf(ddlEntry.getDdlLsn()), 1);
+        offsetContext.event(
+                ddlEntry.getSourceTableId(),
+                ddlEntry.getDdlTime() == null ? Instant.now() : ddlEntry.getDdlTime().toInstant());
+        LOGGER.info(
+                "Dispatching SQL Server DDL history schema change for {} at {}: {}",
+                ddlEntry.getSourceTableId(),
+                ddlEntry.getDdlLsn(),
+                ddlEntry.getDdl());
+        dispatcher.dispatchSchemaChangeEvent(
+                partition,
+                ddlEntry.getSourceTableId(),
+                new SqlServerSchemaChangeEventEmitter(
+                        partition,
+                        offsetContext,
+                        currentTable,
+                        tableSchema,
+                        SchemaChangeEventType.ALTER));
+        currentTable.setSourceTable(tableSchema);
+    }
+
+    /**
+     * Returns the oldest (currently streaming) capture instance for {@code sourceTableId} in the
+     * active tables array, i.e. the one whose {@code stopLsn} is set (meaning a newer capture is
+     * already in-flight), or the sole capture instance if only one exists for the table.
+     *
+     * <p>This is used in {@link #dispatchDdlHistorySchemaChange} to make sure we operate on the
+     * capture instance that is actually feeding records at the current LSN, not a future one.
+     */
+    private SqlServerChangeTable findOldestActiveChangeTable(
+            SqlServerChangeTable[] currentTables, TableId sourceTableId) {
+        if (currentTables == null) {
+            return null;
+        }
+        SqlServerChangeTable oldest = null;
+        for (SqlServerChangeTable table : currentTables) {
+            if (!table.getSourceTableId().equals(sourceTableId)) {
+                continue;
+            }
+            if (oldest == null) {
+                oldest = table;
+            } else if (table.getStopLsn().isAvailable() && !oldest.getStopLsn().isAvailable()) {
+                // prefer the one with a stopLsn (the old capture) over the unbounded one
+                oldest = table;
+            } else if (table.getStartLsn().compareTo(oldest.getStartLsn()) < 0) {
+                oldest = table;
+            }
+        }
+        return oldest;
+    }
+
+    /**
+     * Queries all active change tables (without an LSN upper-bound) to find a capture instance for
+     * {@code sourceTableId} whose start LSN is strictly greater than {@code knownTable}'s start
+     * LSN. This is used to detect a newer capture instance that was created as part of a
+     * schema-change operation but has not yet entered the active streaming window.
+     *
+     * @return the newest capture instance beyond {@code knownTable}, or {@code null} if none
+     */
+    private SqlServerChangeTable findNewerCaptureInstance(
+            String databaseName, TableId sourceTableId, SqlServerChangeTable knownTable)
+            throws SQLException {
+        List<SqlServerChangeTable> allTables = dataConnection.getChangeTables(databaseName);
+        SqlServerChangeTable newest = null;
+        for (SqlServerChangeTable table : allTables) {
+            if (!table.getSourceTableId().equals(sourceTableId)) {
+                continue;
+            }
+            if (table.getStartLsn().compareTo(knownTable.getStartLsn()) <= 0) {
+                continue;
+            }
+            if (newest == null || table.getStartLsn().compareTo(newest.getStartLsn()) > 0) {
+                newest = table;
+            }
+        }
+        return newest;
     }
 
     private SqlServerChangeTable[] processErrorFromChangeTableQuery(

@@ -1,0 +1,313 @@
+{
+  "tier": 1,
+  "description": "Single-source, single-sink configurations. Saturation tier: frontier models should approach 100%. Connection details match benchmark/docker/docker-compose.yml.",
+  "tasks": [
+    {
+      "id": "t1_fake_console",
+      "name": "FakeSource smoke test",
+      "category": "smoke",
+      "prompt": "Create a simple test job: generate 10 rows of fake data with fields id (bigint) and name (string), and print them to the console. Batch mode.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)schema"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_fake_assert",
+      "name": "FakeSource to Assert",
+      "category": "smoke",
+      "prompt": "Create a test job that generates 20 fake rows (fields id bigint, score double) and sends them to an Assert sink that verifies at least 20 rows arrive. Batch mode.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)min_row", "20"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_mysql_console",
+      "name": "MySQL table to Console",
+      "category": "batch_sync",
+      "prompt": "Sync the users table from MySQL (host localhost, port 3306, database shop, user root) to Console for debugging. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:mysql://", "(?i)query|table_path|table_list"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_pg_console",
+      "name": "PostgreSQL table to Console",
+      "category": "batch_sync",
+      "prompt": "Read the customers table from PostgreSQL (host localhost, port 5432, database analytics, user bench) and print it to the console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:postgresql://", "(?i)customers"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_mysql_clickhouse",
+      "name": "MySQL table to ClickHouse",
+      "category": "batch_sync",
+      "prompt": "Copy the products table from MySQL (host localhost, port 3306, database shop, user root) into the ClickHouse table products in database bench (ClickHouse host localhost, port 8123, user default). The target table already exists. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)products"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run",
+        "verify": {
+          "container": "st-bench-clickhouse",
+          "command": ["clickhouse-client", "--password", "Test@123", "-q", "SELECT count() FROM bench.products"],
+          "expect_min_rows": 1
+        }
+      }
+    },
+    {
+      "id": "t1_pg_clickhouse",
+      "name": "PostgreSQL table to ClickHouse",
+      "category": "batch_sync",
+      "prompt": "Load the customers table from PostgreSQL (host localhost, port 5432, database analytics, user bench) into the existing ClickHouse table customers in database bench (host localhost, port 8123, user default). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:postgresql://", "(?i)customers"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["postgres", "clickhouse"], "mode": "batch", "l3": "run",
+        "verify": {
+          "container": "st-bench-clickhouse",
+          "command": ["clickhouse-client", "--password", "Test@123", "-q", "SELECT count() FROM bench.customers"],
+          "expect_min_rows": 1
+        }
+      }
+    },
+    {
+      "id": "t1_mysql_replica",
+      "name": "MySQL table to MySQL replica table",
+      "category": "batch_sync",
+      "prompt": "Copy all rows of the products table into the existing products_replica table, both in MySQL database shop (host localhost, port 3306, user root). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Jdbc"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)products_replica"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_pg_elasticsearch",
+      "name": "PostgreSQL table to Elasticsearch",
+      "category": "batch_sync",
+      "prompt": "Load the app_logs table from PostgreSQL (host localhost, port 5432, database analytics, user bench) into an Elasticsearch index named app-logs on host localhost port 9200 (security disabled, no username/password needed). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Elasticsearch"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:postgresql://", "(?i)app.logs|app_logs"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "elasticsearch"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_pg_doris",
+      "name": "PostgreSQL table to Doris",
+      "category": "batch_sync",
+      "prompt": "Sync the customers table from PostgreSQL (host localhost, port 5432, database analytics, user bench) to Doris (fenodes localhost:8030, query port 9030, database bench, table customers, user root, empty password). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Doris"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)customers", "(?i)fenodes|doris"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "doris"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_mysql_starrocks_zh",
+      "name": "MySQL to StarRocks (Chinese prompt)",
+      "category": "batch_sync",
+      "prompt": "把 MySQL（主机 localhost，端口 3306，数据库 shop，用户 root）里的 orders 表全量同步到 StarRocks（FE 节点 localhost:8031，查询端口 9031，数据库 bench，表 orders，用户 root，密码为空），批处理模式。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["StarRocks"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)orders"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "starrocks"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_localfile_kafka",
+      "name": "CSV file to Kafka topic",
+      "category": "file_etl",
+      "prompt": "Read CSV files from local path /tmp/st_bench/input_events (files have no header; columns id bigint, name string, ts string) and publish them to the Kafka topic events on broker localhost:9092. Batch mode.",
+      "expect": {
+        "source": ["LocalFile"],
+        "sink": ["Kafka"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)csv", "(?i)topic\\s*=\\s*\"?events"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["kafka"], "mode": "batch", "l3": "run",
+        "setup_files": {
+          "/tmp/st_bench/input_events/events.csv": "1,alice,2026-01-01T00:00:00\n2,bob,2026-01-02T00:00:00\n3,carol,2026-01-03T00:00:00\n"
+        }
+      }
+    },
+    {
+      "id": "t1_mysql_localfile_json",
+      "name": "MySQL table to local JSON files",
+      "category": "file_etl",
+      "prompt": "Export the audit_log table from MySQL (host localhost, port 3306, database shop, user root) to local files under /tmp/st_bench/audit_out in JSON format. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)json", "/tmp/st_bench/audit_out"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_mysql_localfile_csv",
+      "name": "MySQL table to local CSV files",
+      "category": "file_etl",
+      "prompt": "Export the users table from MySQL (host localhost, port 3306, database shop, user root) to local CSV files under /tmp/st_bench/users_csv. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)csv", "/tmp/st_bench/users_csv"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_localfile_console",
+      "name": "Local JSON files to Console",
+      "category": "file_etl",
+      "prompt": "Read JSON files from local path /tmp/st_bench/json_in (each line is a JSON object with fields id bigint, msg string) and print them to the console. Batch mode.",
+      "expect": {
+        "source": ["LocalFile"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)json", "/tmp/st_bench/json_in"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": [], "mode": "batch", "l3": "run",
+        "setup_files": {
+          "/tmp/st_bench/json_in/data.json": "{\"id\": 1, \"msg\": \"hello\"}\n{\"id\": 2, \"msg\": \"world\"}\n"
+        }
+      }
+    },
+    {
+      "id": "t1_fake_localfile",
+      "name": "FakeSource to local text files",
+      "category": "file_etl",
+      "prompt": "Generate 50 fake rows (fields id bigint, city string) and write them as text files to /tmp/st_bench/fake_out. Batch mode.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["/tmp/st_bench/fake_out"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_mysql_s3_parquet",
+      "name": "MySQL table to S3 Parquet",
+      "category": "file_etl",
+      "prompt": "Export the orders table from MySQL (host localhost, port 3306, database shop, user root) to S3 bucket s3a://bench under path /warehouse/orders as Parquet files. Batch job.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["S3File"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)parquet", "s3a://bench"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["mysql", "minio"], "mode": "batch", "l3": "skip",
+        "l3_skip_reason": "S3File against MinIO requires endpoint/path-style tuning outside model control"
+      }
+    },
+    {
+      "id": "t1_kafka_console_stream",
+      "name": "Kafka topic to Console streaming",
+      "category": "streaming_ingest",
+      "prompt": "Stream JSON messages from the Kafka topic clicks (broker localhost:9092, fields event_id string, user_id bigint, url string) to the console in real time, starting from the earliest offset.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)json", "(?i)bootstrap"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t1_kafka_localfile_stream",
+      "name": "Kafka topic to local files streaming",
+      "category": "streaming_ingest",
+      "prompt": "Continuously consume JSON messages from Kafka topic events (broker localhost:9092, fields id bigint, name string, ts string), starting from the earliest offset, and append them to local JSON files under /tmp/st_bench/events_out.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["LocalFile"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)earliest", "/tmp/st_bench/events_out"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t1_probe_parquet_conditional",
+      "name": "PROBE: Parquet output must not carry text-only options",
+      "category": "failure_probe",
+      "prompt": "Export the products table from MySQL (host localhost, port 3306, database shop, user root) to local files under /tmp/st_bench/products_parquet in Parquet format with snappy compression. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)parquet", "(?i)snappy"],
+        "must_not_match": ["(?i)field_delimiter", "(?i)row_delimiter", "(?i)xml_"]
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t1_probe_streaming_checkpoint",
+      "name": "PROBE: streaming job needs checkpoint.interval",
+      "category": "failure_probe",
+      "prompt": "Continuously generate fake data (fields id bigint, name string) as an unbounded stream and print it to the console.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)checkpoint"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "streaming", "l3": "run"}
+    }
+  ]
+}

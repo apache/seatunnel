@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlFamilyTableOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import lombok.extern.slf4j.Slf4j;
@@ -101,7 +102,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
@@ -268,5 +269,10 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
             default:
                 return false;
         }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        MysqlFamilyTableOptions.validate(dialectName(), tableOptions);
     }
 }

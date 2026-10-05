@@ -20,27 +20,9 @@ package org.apache.seatunnel.api.table.schema.exception;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 /**
- * Exception thrown when sink writer schema operations fail. This includes schema application
- * failures, flush failures, and rollback issues.
+ * Exception thrown when sink writer schema operations fail, includes schema application failures.
  */
 public class SinkWriterSchemaException extends SchemaEvolutionException {
-
-    public SinkWriterSchemaException(SchemaEvolutionErrorCode errorCode, String errorMessage) {
-        super(errorCode, errorMessage);
-    }
-
-    public SinkWriterSchemaException(
-            SchemaEvolutionErrorCode errorCode, String errorMessage, Throwable cause) {
-        super(errorCode, errorMessage, cause);
-    }
-
-    public SinkWriterSchemaException(
-            SchemaEvolutionErrorCode errorCode,
-            String errorMessage,
-            TableIdentifier tableIdentifier,
-            String jobId) {
-        super(errorCode, errorMessage, tableIdentifier, jobId);
-    }
 
     public SinkWriterSchemaException(
             SchemaEvolutionErrorCode errorCode,
@@ -57,19 +39,6 @@ public class SinkWriterSchemaException extends SchemaEvolutionException {
         String message = String.format("Failed to apply schema change: %s", reason);
         return new SinkWriterSchemaException(
                 SchemaEvolutionErrorCode.SCHEMA_CHANGE_APPLICATION_FAILED,
-                message,
-                tableIdentifier,
-                jobId,
-                cause);
-    }
-
-    /** Create an exception for flush operation failures */
-    public static SinkWriterSchemaException flushFailed(
-            TableIdentifier tableIdentifier, String jobId, String reason, Throwable cause) {
-        String message =
-                String.format("Flush operation failed during schema evolution: %s", reason);
-        return new SinkWriterSchemaException(
-                SchemaEvolutionErrorCode.FLUSH_OPERATION_FAILED,
                 message,
                 tableIdentifier,
                 jobId,

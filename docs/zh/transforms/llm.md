@@ -1,10 +1,10 @@
-# LLM
+# 大语言模型处理
 
-> LLM 转换插件
+> LLM：调用大语言模型完成清洗、标注、推理或数据丰富
 
 ## 描述
 
-利用大型语言模型 (LLM) 的强大功能来处理数据，方法是将数据发送到 LLM 并接收生成的结果。利用 LLM 的功能来标记、清理、丰富数据、执行数据推理等。
+LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输入内容发送到 LLM 并接收生成结果，可用于标记、清理、丰富数据以及执行数据推理等场景。
 
 ## 属性
 
@@ -38,7 +38,7 @@ STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 
 ### output_column_name
 
-自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
+自定义输出数据字段名称。该名称不能与输入数据中已有的字段名重复，否则转换插件会抛出错误：`llm inference field name ... already exists`。
 
 ### prompt
 
@@ -88,12 +88,14 @@ transform {
 ### model
 
 要使用的模型。不同的模型提供者有不同的模型。例如，OpenAI 模型可以是 `gpt-4o-mini`。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/models/model-endpoint-compatibility 文档的`/v1/chat/completions` 端点。
+如果使用 OpenAI 模型，请参考 https://developers.openai.com/api/docs/models 了解当前支持的模型与端点，包括可用的 `/v1/chat/completions`。
 
 ### api_key
 
 用于模型提供者的 API 密钥。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/api-reference/api-keys 文档的如何获取 API 密钥。
+如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
+
+当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
 
 ### api_path
 
@@ -102,6 +104,9 @@ transform {
 ### custom_config
 
 `custom_config` 选项允许您为模型提供额外的自定义配置。这是一个 Map，您可以在其中定义特定模型可能需要的各种设置。
+
+`custom_response_parse`、`custom_request_headers` 和 `custom_request_body` 只会从 `custom_config`
+块内部读取（见下方示例），写在 Transform 顶层不会生效。
 
 ### custom_response_parse
 
@@ -156,7 +161,7 @@ transform {
 
 ## tips
 大模型API接口通常会有速率限制，可以配合Seatunnel的限速配置，已确保任务顺利运行。
-Seatunnel限速配置,请参考[speed-limit](../concept/speed-limit.md)了解详情
+Seatunnel限速配置,请参考[speed-limit](../introduction/configuration/speed-limit.md)了解详情
 
 ## 示例 OPENAI
 

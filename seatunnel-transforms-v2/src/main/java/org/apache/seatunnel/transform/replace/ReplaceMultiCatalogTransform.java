@@ -35,7 +35,7 @@ public class ReplaceMultiCatalogTransform extends AbstractMultiCatalogMapTransfo
 
     @Override
     public String getPluginName() {
-        return "Replace";
+        return ReplaceTransform.PLUGIN_NAME;
     }
 
     @Override

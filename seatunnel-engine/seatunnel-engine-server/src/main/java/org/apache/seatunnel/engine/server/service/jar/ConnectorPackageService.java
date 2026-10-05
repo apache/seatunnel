@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.service.jar;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -34,6 +36,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collection;
 import java.util.List;
 
 @Slf4j
@@ -119,5 +122,28 @@ public class ConnectorPackageService {
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
+    }
+
+    public int getTrackedConnectorJarCount() {
+        return nodeEngine
+                .getHazelcastInstance()
+                .<ConnectorJarIdentifier, RefCount>getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS)
+                .size();
+    }
+
+    public long getTotalConnectorJarReferences() {
+        Collection<RefCount> refCounts =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .<ConnectorJarIdentifier, RefCount>getMap(
+                                Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS)
+                        .values();
+        long total = 0L;
+        for (RefCount refCount : refCounts) {
+            if (refCount != null && refCount.getReferences() != null) {
+                total += refCount.getReferences();
+            }
+        }
+        return total;
     }
 }

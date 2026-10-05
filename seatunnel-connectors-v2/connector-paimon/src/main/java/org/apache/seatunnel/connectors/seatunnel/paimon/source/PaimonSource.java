@@ -176,6 +176,7 @@ public class PaimonSource
                 enumeratorContext,
                 checkpointState.getAssignedSplits(),
                 checkpointState.getCurrentSnapshotId(),
+                checkpointState.getCurrentSnapshotIds(),
                 readBuilders,
                 1);
     }

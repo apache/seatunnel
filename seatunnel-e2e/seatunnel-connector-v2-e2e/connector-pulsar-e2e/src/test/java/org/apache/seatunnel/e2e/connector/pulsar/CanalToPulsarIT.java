@@ -31,14 +31,21 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.client.api.Message;
+import org.apache.pulsar.client.api.MessageId;
+import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.client.api.Reader;
+import org.apache.pulsar.client.api.Schema;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.postgresql.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -111,23 +118,14 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
     // postgres
     private static final String PG_IMAGE = "postgres:alpine3.16";
 
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final String SEATUNNEL_JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
 
     private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.of(Driver.class).copyTo(container, SEATUNNEL_JDBC_PLUGIN_LIB);
 
     private void createPostgreSQLContainer() throws ClassNotFoundException {
         POSTGRESQL_CONTAINER =
@@ -251,6 +249,31 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void waitForCanalDataInTopic() throws IOException, PulsarClientException {
+        String topicFullName = "persistent://public/default/" + TOPIC;
+        try (PulsarClient pulsarClient =
+                        PulsarClient.builder()
+                                .serviceUrl(
+                                        String.format(
+                                                "pulsar://%s:%s",
+                                                PULSAR_CONTAINER.getHost(),
+                                                PULSAR_CONTAINER.getMappedPort(PULSAR_BROKER_PORT)))
+                                .build();
+                Reader<byte[]> reader =
+                        pulsarClient
+                                .newReader(Schema.BYTES)
+                                .topic(topicFullName)
+                                .startMessageId(MessageId.earliest)
+                                .create()) {
+            Message<byte[]> message = reader.readNext(5, TimeUnit.SECONDS);
+            Assertions.assertNotNull(message, "Canal has not yet forwarded data to topic " + TOPIC);
+            LOG.info(
+                    "Detected Canal data in topic {} with message id {}",
+                    TOPIC,
+                    message.getMessageId());
+        }
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws ClassNotFoundException, InterruptedException {
@@ -275,8 +298,13 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::waitForTopicCreated);
         // before ddl, the pulsar_canal connector should be started
         inventoryDatabase.createAndInitialize();
-        // wait pulsar get data from canal server
-        Thread.sleep(10 * 1000);
+        // wait for Canal server to forward data to Pulsar topic
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(this::waitForCanalDataInTopic);
         LOG.info("The fourth stage: Starting PostgresSQL container...");
         createPostgreSQLContainer();
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER)).join();

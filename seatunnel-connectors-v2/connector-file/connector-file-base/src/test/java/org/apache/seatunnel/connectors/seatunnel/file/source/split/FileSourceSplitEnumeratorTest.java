@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,38 +52,7 @@ public class FileSourceSplitEnumeratorTest {
         Map<Integer, List<FileSourceSplit>> assignSplitMap = new HashMap<>();
 
         SourceSplitEnumerator.Context<FileSourceSplit> context =
-                new SourceSplitEnumerator.Context<FileSourceSplit>() {
-                    @Override
-                    public int currentParallelism() {
-                        return parallelism;
-                    }
-
-                    @Override
-                    public Set<Integer> registeredReaders() {
-                        return null;
-                    }
-
-                    @Override
-                    public void assignSplit(int subtaskId, List<FileSourceSplit> splits) {
-                        assignSplitMap.put(subtaskId, splits);
-                    }
-
-                    @Override
-                    public void signalNoMoreSplits(int subtask) {}
-
-                    @Override
-                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
-
-                    @Override
-                    public MetricsContext getMetricsContext() {
-                        return null;
-                    }
-
-                    @Override
-                    public EventListener getEventListener() {
-                        return null;
-                    }
-                };
+                new CapturingEnumeratorContext(parallelism, assignSplitMap);
 
         FileSourceSplitEnumerator fileSourceSplitEnumerator =
                 new FileSourceSplitEnumerator(context, filePaths);
@@ -103,6 +74,120 @@ public class FileSourceSplitEnumeratorTest {
             Assertions.assertTrue(
                     Math.abs(assignSplitMap.get(i).size() - assignSplitMap.get(i - 1).size()) <= 1,
                     "The number of files assigned to adjacent subtasks is more than 1.");
+        }
+    }
+
+    @Test
+    void assignSplitByDocumentRouteWhenDocumentRoutingEnabled() {
+        List<String> filePaths = new ArrayList<>();
+        filePaths.add("file:/tmp/knowledge/a.md");
+        filePaths.add("file:/tmp/knowledge/b.md");
+        filePaths.add("file:/tmp/knowledge/c.md");
+        filePaths.add("file:/tmp/knowledge/d.md");
+
+        int parallelism = 4;
+        Map<Integer, List<FileSourceSplit>> assignSplitMap = new HashMap<>();
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                new CapturingEnumeratorContext(parallelism, assignSplitMap);
+
+        FileSourceSplitEnumerator fileSourceSplitEnumerator =
+                new FileSourceSplitEnumerator(context, filePaths, true);
+        fileSourceSplitEnumerator.open();
+
+        fileSourceSplitEnumerator.run();
+
+        for (String filePath : filePaths) {
+            String documentId = FileSourceDocumentRouting.buildDocumentId(filePath);
+            int expectedOwner = FileSourceDocumentRouting.routeBucket(documentId, parallelism);
+            Assertions.assertTrue(
+                    assignSplitMap.get(expectedOwner).stream()
+                            .anyMatch(split -> split.getFilePath().equals(filePath)),
+                    "File should be assigned to the reader that owns its document route bucket.");
+        }
+    }
+
+    @Test
+    void restoredEnumeratorKeepsDocumentRouteBucket() {
+        List<String> filePaths = new ArrayList<>();
+        filePaths.add("file:/tmp/knowledge/alpha.md");
+        filePaths.add("file:/tmp/knowledge/beta.md");
+        filePaths.add("file:/tmp/knowledge/gamma.md");
+
+        int parallelism = 4;
+        Map<Integer, List<FileSourceSplit>> firstAssignSplitMap = new HashMap<>();
+        SourceSplitEnumerator.Context<FileSourceSplit> firstContext =
+                new CapturingEnumeratorContext(parallelism, firstAssignSplitMap);
+        FileSourceSplitEnumerator firstEnumerator =
+                new FileSourceSplitEnumerator(firstContext, filePaths, true);
+        firstEnumerator.open();
+        firstEnumerator.run();
+
+        FileSourceState checkpointState =
+                new FileSourceState(
+                        firstAssignSplitMap.values().stream()
+                                .flatMap(List::stream)
+                                .collect(Collectors.toSet()));
+        Map<Integer, List<FileSourceSplit>> restoredAssignSplitMap = new HashMap<>();
+        SourceSplitEnumerator.Context<FileSourceSplit> restoredContext =
+                new CapturingEnumeratorContext(parallelism, restoredAssignSplitMap);
+        FileSourceSplitEnumerator restoredEnumerator =
+                new FileSourceSplitEnumerator(restoredContext, filePaths, checkpointState, true);
+        restoredEnumerator.open();
+        restoredEnumerator.run();
+
+        Assertions.assertEquals(
+                splitOwnersByPath(firstAssignSplitMap), splitOwnersByPath(restoredAssignSplitMap));
+    }
+
+    private static Map<String, Integer> splitOwnersByPath(
+            Map<Integer, List<FileSourceSplit>> assignSplitMap) {
+        Map<String, Integer> owners = new HashMap<>();
+        assignSplitMap.forEach(
+                (owner, splits) -> splits.forEach(split -> owners.put(split.getFilePath(), owner)));
+        return owners;
+    }
+
+    private static class CapturingEnumeratorContext
+            implements SourceSplitEnumerator.Context<FileSourceSplit> {
+
+        private final int parallelism;
+        private final Map<Integer, List<FileSourceSplit>> assignSplitMap;
+
+        private CapturingEnumeratorContext(
+                int parallelism, Map<Integer, List<FileSourceSplit>> assignSplitMap) {
+            this.parallelism = parallelism;
+            this.assignSplitMap = assignSplitMap;
+        }
+
+        @Override
+        public int currentParallelism() {
+            return parallelism;
+        }
+
+        @Override
+        public Set<Integer> registeredReaders() {
+            return null;
+        }
+
+        @Override
+        public void assignSplit(int subtaskId, List<FileSourceSplit> splits) {
+            assignSplitMap.put(subtaskId, splits);
+        }
+
+        @Override
+        public void signalNoMoreSplits(int subtask) {}
+
+        @Override
+        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
         }
     }
 }

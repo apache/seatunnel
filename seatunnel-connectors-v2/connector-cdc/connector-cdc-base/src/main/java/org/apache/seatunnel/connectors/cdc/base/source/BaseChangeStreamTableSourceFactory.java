@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceFactory;
 import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceState;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -47,6 +48,7 @@ public abstract class BaseChangeStreamTableSourceFactory implements ChangeStream
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        SchemaChangeEventFilter.validateOptions(context.getOptions());
         return restoreSource(context, Collections.emptyList());
     }
 
@@ -55,6 +57,7 @@ public abstract class BaseChangeStreamTableSourceFactory implements ChangeStream
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context,
                     ChangeStreamTableSourceState<StateT, SplitT> state) {
+        SchemaChangeEventFilter.validateOptions(context.getOptions());
         return restoreSource(context, getRestoreTableStruct(state));
     }
 

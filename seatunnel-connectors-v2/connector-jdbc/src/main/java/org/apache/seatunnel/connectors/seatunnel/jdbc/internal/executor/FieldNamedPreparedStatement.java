@@ -279,63 +279,85 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x, length);
+        }
     }
 
     @Override
     public void setUnicodeStream(int parameterIndex, InputStream x, int length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setUnicodeStream(index, x, length);
+        }
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBinaryStream(index, x, length);
+        }
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, int length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader, length);
+        }
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNCharacterStream(index, value, length);
+        }
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setClob(index, reader, length);
+        }
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBlob(index, inputStream, length);
+        }
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x, length);
+        }
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBinaryStream(index, x, length);
+        }
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader, length);
+        }
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x);
+        }
     }
 
     @Override
@@ -347,27 +369,37 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader);
+        }
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNCharacterStream(index, value);
+        }
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setClob(index, reader);
+        }
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBlob(index, inputStream);
+        }
     }
 
     @Override
     public void setNClob(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNClob(index, reader);
+        }
     }
 
     @Override
@@ -641,7 +673,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             }
         } else {
             HashMap<String, List<Integer>> parameterMap = new HashMap<>();
-            parsedSQL = parseNamedStatement(sql, parameterMap);
+            parsedSQL = parseNamedStatement(sql, parameterMap, fieldNames);
             // currently, the statements must contain all the field parameters
             parameterMap
                     .keySet()
@@ -675,24 +707,112 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @VisibleForTesting
     public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
+        return parseNamedStatement(sql, paramMap, null);
+    }
+
+    /**
+     * Parses named parameters ({@code ":name"}) in the given statement.
+     *
+     * <p>The default tokenizer only accepts characters from the regular expression name class. When
+     * {@code knownParameterNames} is given (the sink schema field names), a name containing
+     * characters outside that class - for example a space in {@code "MY COL"} - is matched as a
+     * whole-name placeholder instead of being cut at the first such character. Names made up only
+     * of name-class characters keep going through the default tokenizer, so the existing behavior
+     * is unchanged.
+     *
+     * @param sql the statement that may contain named parameters
+     * @param paramMap receives each parsed parameter name and its parameter indexes
+     * @param knownParameterNames field names of the current schema, used as the allow-list for
+     *     names containing characters the default tokenizer cannot capture; may be null
+     */
+    @VisibleForTesting
+    public static String parseNamedStatement(
+            String sql, Map<String, List<Integer>> paramMap, String[] knownParameterNames) {
         Pattern pattern =
                 Pattern.compile(":([\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\$\\-\\.@%&*#~!?^+=<>|]+)");
         Matcher matcher = pattern.matcher(sql);
 
-        StringBuffer result = new StringBuffer();
-        int fieldIndex = 1;
+        StringBuilder result = new StringBuilder();
+        int fieldIndex = 1; // SQL statement parameter index starts from 1
+        int appendPosition = 0;
+        int searchFrom = 0;
 
-        while (matcher.find()) {
+        while (matcher.find(searchFrom)) {
             String parameterName = matcher.group(1);
+            int nameStart = matcher.start(1);
+            int nameEnd = matcher.end(1);
+            String knownParameter = matchKnownParameter(sql, nameStart, knownParameterNames);
+            if (knownParameter != null) {
+                parameterName = knownParameter;
+                nameEnd = nameStart + knownParameter.length();
+            }
             checkArgument(
                     !parameterName.isEmpty(),
                     "Named parameters in SQL statement must not be empty.");
             paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex++);
-            matcher.appendReplacement(result, "?");
+            result.append(sql, appendPosition, matcher.start());
+            result.append('?');
+            appendPosition = nameEnd;
+            searchFrom = nameEnd;
         }
-
-        matcher.appendTail(result);
+        result.append(sql, appendPosition, sql.length());
 
         return result.toString();
+    }
+
+    /**
+     * Returns the longest known parameter name that starts exactly at {@code offset} and contains
+     * at least one character outside the default name class, or {@code null} when there is no such
+     * match. The character right after a candidate match must not be a name-class character,
+     * otherwise the statement contains a longer different token and the candidate is skipped to
+     * avoid splitting it.
+     */
+    private static String matchKnownParameter(
+            String sql, int offset, String[] knownParameterNames) {
+        if (knownParameterNames == null || knownParameterNames.length == 0) {
+            return null;
+        }
+        String best = null;
+        for (String name : knownParameterNames) {
+            if (name == null || name.isEmpty() || name.indexOf(':') >= 0) {
+                continue;
+            }
+            // Names made up only of name-class characters are already handled by the default
+            // tokenizer and must not be hijacked by this allow-list matching.
+            if (isNameClassOnly(name) || !sql.startsWith(name, offset)) {
+                continue;
+            }
+            int end = offset + name.length();
+            if (end < sql.length() && isNameClassChar(sql.charAt(end))) {
+                continue;
+            }
+            if (best == null || name.length() > best.length()) {
+                best = name;
+            }
+        }
+        return best;
+    }
+
+    private static boolean isNameClassOnly(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            if (!isNameClassChar(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Mirrors the name character class of the default tokenizer regular expression. */
+    private static boolean isNameClassChar(char c) {
+        if (Character.isLetter(c)) {
+            return true;
+        }
+        int type = Character.getType(c);
+        if (type == Character.LETTER_NUMBER
+                || type == Character.DECIMAL_DIGIT_NUMBER
+                || type == Character.CONNECTOR_PUNCTUATION) {
+            return true;
+        }
+        return "$-.@%&*#~!?^+=<>|".indexOf(c) >= 0;
     }
 }

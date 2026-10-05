@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.io.CharStreams;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -44,6 +45,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -95,14 +97,22 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                if (useMavenRepositoryDriver()) {
+                    for (String driverClassName : driverDependencyClassNames()) {
+                        DependencyJar.ofClassName(driverClassName)
+                                .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                    }
+                } else {
+                    Container.ExecResult extraCommands =
+                            container.execInContainer(
+                                    "bash",
+                                    "-c",
+                                    "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                            + driverUrl()
+                                            + " --no-check-certificate");
+                    Assertions.assertEquals(
+                            0, extraCommands.getExitCode(), extraCommands.getStderr());
+                }
             };
 
     protected GenericContainer<?> dbServer;
@@ -115,7 +125,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
-    abstract String driverUrl();
+    String driverUrl() {
+        throw new UnsupportedOperationException("External JDBC driver URL is not configured");
+    }
 
     abstract Pair<String[], List<SeaTunnelRow>> initTestData();
 
@@ -123,13 +135,27 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
+            URL driverUrl =
+                    useMavenRepositoryDriver()
+                            ? DependencyJar.ofClassName(driverDependencyClassNames().get(0))
+                                    .path()
+                                    .toUri()
+                                    .toURL()
+                            : new URL(driverUrl());
             urlClassLoader =
                     new InsecureURLClassLoader(
-                            new URL[] {new URL(driverUrl())},
-                            AbstractJdbcIT.class.getClassLoader());
+                            new URL[] {driverUrl}, AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
         }
         return urlClassLoader;
+    }
+
+    protected List<String> driverDependencyClassNames() {
+        return Arrays.asList(getJdbcCase().getDriverClass());
+    }
+
+    protected boolean useMavenRepositoryDriver() {
+        return true;
     }
 
     protected Class<?> loadDriverClassFromUrl() {
@@ -314,6 +340,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
+        updateJdbcCaseWithMappedPort();
         beforeStartUP();
         given().ignoreExceptions()
                 .await()
@@ -328,6 +355,16 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     // before startUp For example, create a user
     protected void beforeStartUP() {}
+
+    protected void updateJdbcCaseWithMappedPort() {
+        if (jdbcCase.getPort() <= 0 || jdbcCase.getLocalPort() <= 0) {
+            return;
+        }
+        int mappedPort = dbServer.getMappedPort(jdbcCase.getPort());
+        jdbcCase.setJdbcUrl(
+                jdbcCase.getJdbcUrl().replace(":" + jdbcCase.getLocalPort(), ":" + mappedPort));
+        jdbcCase.setLocalPort(mappedPort);
+    }
 
     @AfterAll
     @Override
@@ -366,9 +403,25 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         }
     }
 
+    /**
+     * Hook for subclasses to skip testJdbcDb for specific engine types without overriding
+     * the @TestTemplate method itself. Overriding a @TestTemplate method in a subclass causes JUnit
+     * 5 to register and run the test twice (once from the parent, once from the child), leading to
+     * duplicate data in the sink table and incorrect row-count assertions.
+     *
+     * @param container the current test container
+     * @return true if testJdbcDb should be skipped for this container
+     */
+    protected boolean isDisabledOnContainer(TestContainer container) {
+        return false;
+    }
+
     @TestTemplate
     public void testJdbcDb(TestContainer container)
             throws IOException, InterruptedException, SQLException {
+        if (isDisabledOnContainer(container)) {
+            return;
+        }
         List<String> configFiles = jdbcCase.getConfigFile();
         for (String configFile : configFiles) {
             try {
@@ -519,7 +572,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                 .username(jdbcCase.getUserName())
                                 .password(jdbcCase.getPassword())
                                 .build(),
-                        tablesConfig);
+                        tablesConfig,
+                        MultiTableFailurePolicy.FAIL_FAST);
         Set<TablePath> tablePaths = tables.keySet();
 
         tablePaths.forEach(
@@ -572,7 +626,23 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 javaArray[index] = checkData(jdbcArray[index]);
             }
             return javaArray;
+        } else if (data instanceof java.time.OffsetDateTime) {
+            // Normalize OffsetDateTime to Timestamp for comparison
+            return java.sql.Timestamp.valueOf(((java.time.OffsetDateTime) data).toLocalDateTime());
         } else {
+            // oracle.sql.TIMESTAMPLTZ / TIMESTAMPTZ objects do not override equals() correctly
+            // for cross-object comparison. Normalize to byte[] via toBytes() so that
+            // assertArrayEquals() can compare the raw timestamp bytes directly.
+            String className = data.getClass().getName();
+            if (className.equals("oracle.sql.TIMESTAMPLTZ")
+                    || className.equals("oracle.sql.TIMESTAMPTZ")) {
+                try {
+                    java.lang.reflect.Method toBytes = data.getClass().getMethod("toBytes");
+                    return toBytes.invoke(data);
+                } catch (Exception e) {
+                    return data;
+                }
+            }
             return data;
         }
     }

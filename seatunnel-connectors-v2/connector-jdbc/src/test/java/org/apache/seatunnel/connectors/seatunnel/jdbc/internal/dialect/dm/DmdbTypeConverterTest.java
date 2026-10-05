@@ -363,6 +363,22 @@ public class DmdbTypeConverterTest {
     }
 
     @Test
+    public void testConvertNchar() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nchar(2)")
+                        .dataType("nchar")
+                        .length(2L)
+                        .build();
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
     public void testConvertText() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
@@ -600,7 +616,8 @@ public class DmdbTypeConverterTest {
                         .build();
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // DATETIME WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
 
@@ -613,7 +630,8 @@ public class DmdbTypeConverterTest {
                         .build();
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // DATETIME WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }

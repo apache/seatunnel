@@ -32,6 +32,66 @@ schema = {
 
 The table full name of the table identifier which the schema belongs to, it contains database, schema, table name. e.g. `database.schema.table`, `database.table`, `table`.
 
+### metadata_table_id
+
+The Metadata SPI (Service Provider Interface) is an extension mechanism introduced in SeaTunnel for centralized management of data source connection configurations and table schema metadata. It allows external metadata systems to manage data source metadata, while SeaTunnel jobs reference these configurations via a simple `metadata_table_id`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
+
+For Gravitino, the `metadata_table_id` should be formatted as `{catalog}.{database}.{table}`. For example, `mysql-catalog.test_db.users`.
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](./gravitino-type-mapping.md).
+
+See [Metadata SPI](./metadata-spi.md) for more information.
+
+#### metadata_table_id Examples
+
+**1. Single table with metadata_table_id:**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      table = "db.table2"
+      metadata_table_id = "mysql-catalog.test_db.table2"
+    }
+  }
+}
+```
+
+**2. Multi-table with metadata_table_id:**
+
+```hocon
+source {
+  LocalFile {
+    tables_configs = [
+      {
+        path = "/tmp/data/table1"
+        file_format_type = "json"
+        schema {
+          table = "db.table1"
+          columns = [
+            { name = id, type = bigint, nullable = false },
+            { name = name, type = string },
+            { name = age, type = int }
+          ]
+        }
+      },
+      {
+        path = "/tmp/data/table2"
+        file_format_type = "json"
+        schema {
+          table = "db.table2"
+          metadata_table_id = "mysql-catalog.test_db.table2"
+        }
+      }
+    ]
+  }
+}
+```
+
 ### schema_first
 
 Default is false.
@@ -170,7 +230,7 @@ constraintKeys = [
 |:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
 | constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
-| constraintColumns | Yes      | -             | The column list in the primaryKey, each column should contains constraintType and sortType, sortType support ASC and DESC, default is ASC |
+| constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName` is optional; `indexType` and `metricType` are optional at the schema parsing level but may be required by specific connectors that create vector indexes (e.g., Milvus). |
 
 #### What constraintType supported at now
 
@@ -178,6 +238,46 @@ constraintKeys = [
 |:---------------|:------------|
 | INDEX_KEY      | key         |
 | UNIQUE_KEY     | unique key  |
+| FOREIGN_KEY     | foreign key  |
+| VECTOR_INDEX_KEY | vector index key |
+
+##### VECTOR_INDEX_KEY
+
+When `constraintType = VECTOR_INDEX_KEY`, each item in `constraintColumns` must contain:
+
+- `columnName`: the vector column name
+- `indexName`: the index name (optional, defaults to column name if not specified)
+- `indexType`: the vector index type (optional at parse level, but required by connectors that create vector indexes such as Milvus). Case-insensitive. Supported values:
+  - For float vectors: `FLAT`, `IVF_FLAT`, `IVF_SQ8`, `IVF_PQ`, `HNSW`, `DISKANN`, `AUTOINDEX`, `SCANN`
+  - For binary vectors: `BIN_FLAT`, `BIN_IVF_FLAT`
+  - For GPU (float vectors): `GPU_IVF_FLAT`, `GPU_IVF_PQ`, `GPU_BRUTE_FORCE`, `GPU_CAGRA`
+  - For varchar: `TRIE`
+  - For scalar fields: `STL_SORT` (numeric), `INVERTED` (all scalar except JSON)
+  - For sparse vectors: `SPARSE_INVERTED_INDEX`, `SPARSE_WAND`
+  - Case-insensitive (e.g., `hnsw`, `HNSW`, `Hnsw` are all valid)
+- `metricType`: the distance metric type (optional at parse level, but required by connectors that create vector indexes such as Milvus). Case-insensitive. Supported values:
+  - For float vectors: `L2`, `IP`, `COSINE`
+  - For binary vectors: `HAMMING`, `JACCARD`
+  - Case-insensitive (e.g., `cosine`, `COSINE`, `Cosine` are all valid)
+
+Example:
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## Multi table schemas
 

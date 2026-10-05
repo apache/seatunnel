@@ -269,7 +269,14 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeConnectorCheck(case1);
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertTrue(StringUtils.isBlank(execResult.getStderr()));
+        String stderrWithoutSlf4jNoise =
+                Arrays.stream(StringUtils.defaultString(execResult.getStderr()).split("\\R"))
+                        .map(String::trim)
+                        .filter(StringUtils::isNotBlank)
+                        .filter(line -> !line.startsWith("SLF4J:"))
+                        .collect(Collectors.joining(System.lineSeparator()));
+        Assertions.assertTrue(
+                StringUtils.isBlank(stderrWithoutSlf4jNoise), stderrWithoutSlf4jNoise);
         log.info(execResult.getStdout());
         return execResult;
     }

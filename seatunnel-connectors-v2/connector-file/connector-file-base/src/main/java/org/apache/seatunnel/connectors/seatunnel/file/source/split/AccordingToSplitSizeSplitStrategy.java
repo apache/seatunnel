@@ -65,7 +65,9 @@ public class AccordingToSplitSizeSplitStrategy implements FileSplitStrategy, Clo
         if (splitSize <= 0) {
             throw new SeaTunnelRuntimeException(
                     FileConnectorErrorCode.FILE_SPLIT_SIZE_ILLEGAL,
-                    "SplitSizeBytes must be greater than 0");
+                    String.format(
+                            "file_split_size must be greater than 0 when enable_file_split=true, but got: %d",
+                            splitSize));
         }
         if (rowDelimiter == null || rowDelimiter.isEmpty()) {
             throw new SeaTunnelRuntimeException(

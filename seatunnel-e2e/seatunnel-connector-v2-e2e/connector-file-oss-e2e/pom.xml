@@ -24,9 +24,6 @@
 
     <artifactId>connector-file-oss-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : File Oss</name>
-    <properties>
-        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
-    </properties>
 
     <dependencies>
         <dependency>
@@ -44,14 +41,21 @@
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
-            <version>${aliyun.sdk.oss.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jdom</groupId>
+            <artifactId>jdom</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aliyun</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>

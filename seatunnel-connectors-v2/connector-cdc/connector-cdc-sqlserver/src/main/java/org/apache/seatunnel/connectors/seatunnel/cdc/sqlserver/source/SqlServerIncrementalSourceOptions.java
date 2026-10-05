@@ -34,6 +34,7 @@ public class SqlServerIncrementalSourceOptions extends JdbcSourceOptions {
                                     Arrays.asList(
                                             StartupMode.INITIAL,
                                             StartupMode.EARLIEST,
+                                            StartupMode.TIMESTAMP,
                                             StartupMode.LATEST))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(

@@ -71,13 +71,12 @@ public class RestUtil {
         }
     }
 
-    public static Config buildConfig(JsonNode jsonNode, boolean isEncrypt) {
+    public static Config buildConfig(JsonNode jsonNode) {
         Map<String, Object> objectMap = JsonUtils.toMap(jsonNode);
-        return ConfigBuilder.of(objectMap, isEncrypt);
+        return ConfigBuilder.of(objectMap);
     }
 
-    public static List<Tuple2<Map<String, String>, Config>> buildConfigList(
-            JsonNode jsonNode, boolean isEncrypt) {
+    public static List<Tuple2<Map<String, String>, Config>> buildConfigList(JsonNode jsonNode) {
         return StreamSupport.stream(jsonNode.spliterator(), false)
                 .filter(JsonNode::isObject)
                 .map(
@@ -85,7 +84,7 @@ public class RestUtil {
                             Map<String, Object> nodeMap = JsonUtils.toMap(node);
                             Map<String, String> params =
                                     (Map<String, String>) nodeMap.remove(REST_SUBMIT_JOBS_PARAMS);
-                            Config config = ConfigBuilder.of(nodeMap, isEncrypt);
+                            Config config = ConfigBuilder.of(nodeMap);
                             return new Tuple2<>(params, config);
                         })
                 .collect(Collectors.toList());

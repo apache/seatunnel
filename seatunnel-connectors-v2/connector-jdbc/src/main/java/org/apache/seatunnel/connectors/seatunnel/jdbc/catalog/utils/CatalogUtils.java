@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
@@ -223,7 +224,25 @@ public class CatalogUtils {
     public static TableSchema getTableSchema(
             DatabaseMetaData metadata, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
-        Optional<PrimaryKey> primaryKey = getPrimaryKey(metadata, tablePath);
+        return getTableSchema(metadata, tablePath, typeMapper, getPrimaryKey(metadata, tablePath));
+    }
+
+    public static TableSchema getTableSchema(
+            DatabaseMetaData metadata, TablePath tablePath, JdbcDialect dialect)
+            throws SQLException {
+        Optional<PrimaryKey> primaryKey =
+                dialect.supportsPrimaryKeyMetadata()
+                        ? getPrimaryKey(metadata, tablePath)
+                        : Optional.empty();
+        return getTableSchema(metadata, tablePath, dialect.getJdbcDialectTypeMapper(), primaryKey);
+    }
+
+    private static TableSchema getTableSchema(
+            DatabaseMetaData metadata,
+            TablePath tablePath,
+            JdbcDialectTypeMapper typeMapper,
+            Optional<PrimaryKey> primaryKey)
+            throws SQLException {
         List<ConstraintKey> constraintKeys = getConstraintKeys(metadata, tablePath);
         List<Column> columns;
         try {
@@ -247,8 +266,30 @@ public class CatalogUtils {
     public static CatalogTable getCatalogTable(
             Connection connection, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
+        return getCatalogTable(connection, tablePath, typeMapper, new ArrayList<>());
+    }
+
+    public static CatalogTable getCatalogTable(
+            Connection connection,
+            TablePath tablePath,
+            JdbcDialectTypeMapper typeMapper,
+            List<String> partitionKeys)
+            throws SQLException {
         DatabaseMetaData metadata = connection.getMetaData();
         TableSchema tableSchema = getTableSchema(metadata, tablePath, typeMapper);
+        return getCatalogTable(tablePath, tableSchema, partitionKeys);
+    }
+
+    public static CatalogTable getCatalogTable(
+            Connection connection, TablePath tablePath, JdbcDialect dialect) throws SQLException {
+        List<String> partitionKeys = dialect.getPartitionKeys(connection, tablePath);
+        DatabaseMetaData metadata = connection.getMetaData();
+        TableSchema tableSchema = getTableSchema(metadata, tablePath, dialect);
+        return getCatalogTable(tablePath, tableSchema, partitionKeys);
+    }
+
+    private static CatalogTable getCatalogTable(
+            TablePath tablePath, TableSchema tableSchema, List<String> partitionKeys) {
         String catalogName = "jdbc_catalog";
         return CatalogTable.of(
                 TableIdentifier.of(
@@ -258,7 +299,7 @@ public class CatalogUtils {
                         tablePath.getTableName()),
                 tableSchema,
                 new HashMap<>(),
-                new ArrayList<>(),
+                partitionKeys,
                 "",
                 catalogName);
     }

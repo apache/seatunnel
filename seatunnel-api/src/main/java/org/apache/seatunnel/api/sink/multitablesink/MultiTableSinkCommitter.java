@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class MultiTableSinkCommitter implements SinkCommitter<MultiTableCommitInfo> {
@@ -67,12 +66,17 @@ public class MultiTableSinkCommitter implements SinkCommitter<MultiTableCommitIn
             if (sinkCommitter != null) {
                 List commitInfo =
                         commitInfos.stream()
-                                .map(
+                                .flatMap(
                                         multiTableCommitInfo ->
-                                                multiTableCommitInfo
-                                                        .getCommitInfo()
-                                                        .get(sinkIdentifier))
-                                .filter(Objects::nonNull)
+                                                multiTableCommitInfo.getCommitInfo().entrySet()
+                                                        .stream()
+                                                        .filter(
+                                                                entry ->
+                                                                        entry.getKey()
+                                                                                .getTableIdentifier()
+                                                                                .equals(
+                                                                                        sinkIdentifier)))
+                                .map(Map.Entry::getValue)
                                 .collect(Collectors.toList());
                 sinkCommitter.abort(commitInfo);
             }

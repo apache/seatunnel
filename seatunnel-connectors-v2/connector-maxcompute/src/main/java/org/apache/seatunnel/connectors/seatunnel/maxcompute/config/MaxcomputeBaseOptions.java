@@ -38,6 +38,11 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .noDefaultValue()
                     .withDescription(
                             "Your Maxcompute accessKey which cloud be access from Alibaba Cloud");
+    public static final Option<String> STS_TOKEN =
+            Options.key("sts_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Your Maxcompute stsToken for temporary access");
     public static final Option<String> ENDPOINT =
             Options.key("endpoint")
                     .stringType()
@@ -56,6 +61,15 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .noDefaultValue()
                     .withDescription("Target Maxcompute table name eg: fake");
 
+    public static final Option<String> SCHEMA_NAME =
+            Options.key("schema_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The MaxCompute Schema name (namespace between Project and Table). "
+                                    + "Only required when the table resides in a non-default schema. "
+                                    + "See https://www.alibabacloud.com/help/en/maxcompute/user-guide/schema-related-operations");
+
     public static final Option<String> PARTITION_SPEC =
             Options.key("partition_spec")
                     .stringType()
@@ -73,4 +87,62 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Tunnel endpoint, e.g. http://maxcompute:8080");
+
+    public static final Option<String> TUNNEL_NAME =
+            Options.key("tunnel_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Tunnel quota name for exclusive resource groups");
+
+    // ---- Odps REST client (control plane: metadata / schema / catalog) ----
+    public static final Option<Long> CONNECT_TIMEOUT_MS =
+            Options.key("connect_timeout_ms")
+                    .longType()
+                    .defaultValue(10000L)
+                    .withDescription(
+                            "HTTP connect timeout for the MaxCompute (ODPS) REST client "
+                                    + "(metadata/catalog calls) in milliseconds. "
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 10000 (10s).");
+    public static final Option<Long> READ_TIMEOUT_MS =
+            Options.key("read_timeout_ms")
+                    .longType()
+                    .defaultValue(120000L)
+                    .withDescription(
+                            "HTTP read timeout for the MaxCompute (ODPS) REST client "
+                                    + "(metadata/catalog calls) in milliseconds. "
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 120000 (120s).");
+    public static final Option<Integer> RETRY_TIMES =
+            Options.key("retry_times")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription(
+                            "Max retry times for the MaxCompute (ODPS) REST client. Default 4.");
+
+    // ---- Tunnel client (data plane: bulk row read / write / upsert) ----
+    public static final Option<Long> TUNNEL_CONNECT_TIMEOUT_MS =
+            Options.key("tunnel_connect_timeout_ms")
+                    .longType()
+                    .defaultValue(180000L)
+                    .withDescription(
+                            "HTTP connect timeout for the MaxCompute Tunnel client "
+                                    + "(data upload/download) in milliseconds. "
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 180000 (180s).");
+    public static final Option<Long> TUNNEL_READ_TIMEOUT_MS =
+            Options.key("tunnel_read_timeout_ms")
+                    .longType()
+                    .defaultValue(300000L)
+                    .withDescription(
+                            "HTTP read timeout for the MaxCompute Tunnel client "
+                                    + "(data upload/download) in milliseconds. "
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 300000 (300s).");
+    public static final Option<Integer> TUNNEL_RETRY_TIMES =
+            Options.key("tunnel_retry_times")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription(
+                            "Max retry times for the MaxCompute Tunnel client. Default 4.");
 }

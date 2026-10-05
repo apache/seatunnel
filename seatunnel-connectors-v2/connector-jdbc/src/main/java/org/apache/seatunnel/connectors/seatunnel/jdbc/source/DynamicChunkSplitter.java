@@ -26,8 +26,11 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ObjectUtils;
 
 import lombok.Data;
@@ -79,6 +82,11 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         String splitKeyName = splitKey.getFieldNames()[0];
         SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
+        if (SqlType.STRING.equals(splitKeyType.getSqlType())
+                && config.getStringSplitStrategy() != null) {
+            return createStringStrategySplits(table, splitKeyName, splitKeyType);
+        }
+
         List<ChunkRange> chunks = splitTableIntoChunks(table, splitKeyName, splitKeyType);
 
         List<JdbcSourceSplit> splits = new ArrayList<>();
@@ -100,10 +108,168 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private PreparedStatement createDynamicSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
+        if (isHashStringSplit(split)) {
+            return createStringColumnSplitStatement(split);
+        }
         String splitQuery = createDynamicSplitQuerySQL(split, schema);
         PreparedStatement statement = createPreparedStatement(splitQuery);
         prepareDynamicSplitStatement(statement, split);
         return statement;
+    }
+
+    private boolean isHashStringSplit(JdbcSourceSplit split) {
+        return SqlType.STRING.equals(split.getSplitKeyType().getSqlType())
+                && split.getSplitStart() instanceof Integer
+                && split.getSplitEnd() == null;
+    }
+
+    private PreparedStatement createStringColumnSplitStatement(JdbcSourceSplit split)
+            throws SQLException {
+        PreparedStatement statement = createPreparedStatement(split.getSplitQuery());
+        statement.setInt(1, (Integer) split.getSplitStart());
+        return statement;
+    }
+
+    private Collection<JdbcSourceSplit> createStringStrategySplits(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
+            throws Exception {
+        StringSplitStrategy strategy = resolveStringSplitStrategy(table, splitKeyName);
+        switch (strategy) {
+            case NONE:
+                return Collections.singletonList(
+                        createSingleStringSplit(table, splitKeyName, splitKeyType));
+            case HASH:
+                if (jdbcDialect.supportHashSplitter()) {
+                    return createStringColumnSplits(
+                            table, splitKeyName, splitKeyType, config.getSplitSize());
+                }
+                return Collections.singletonList(
+                        createSingleStringSplit(table, splitKeyName, splitKeyType));
+            case RANGE:
+                if (config.getStringSplitStrategy() == StringSplitStrategy.AUTO) {
+                    try {
+                        return createStringRangeSplits(table, splitKeyName, splitKeyType);
+                    } catch (Exception e) {
+                        log.warn(
+                                "Range string split failed for table {}, fallback to hash split",
+                                table.getTablePath(),
+                                e);
+                        if (jdbcDialect.supportHashSplitter()) {
+                            return createStringColumnSplits(
+                                    table, splitKeyName, splitKeyType, config.getSplitSize());
+                        }
+                        return Collections.singletonList(
+                                createSingleStringSplit(table, splitKeyName, splitKeyType));
+                    }
+                }
+                return createStringRangeSplits(table, splitKeyName, splitKeyType);
+            default:
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Unsupported string split strategy: " + config.getStringSplitStrategy());
+        }
+    }
+
+    private JdbcSourceSplit createSingleStringSplit(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType) {
+        return new JdbcSourceSplit(
+                table.getTablePath(),
+                createSplitId(table.getTablePath(), 0),
+                table.getQuery(),
+                splitKeyName,
+                splitKeyType,
+                null,
+                null);
+    }
+
+    @VisibleForTesting
+    Collection<JdbcSourceSplit> createStringColumnSplits(
+            JdbcSourceTable table,
+            String splitKeyName,
+            SeaTunnelDataType splitKeyType,
+            int chunkSize)
+            throws SQLException {
+        log.info("Use string hash chunks for table {}", table.getTablePath());
+        long approximateRowCnt = queryApproximateRowCnt(table);
+        int shardCount = Math.max((int) (approximateRowCnt / Math.max(chunkSize, 1)) + 1, 1);
+        List<JdbcSourceSplit> splits = new ArrayList<>(shardCount);
+        Column column =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .filter(c -> c.getName().equals(splitKeyName))
+                        .findAny()
+                        .get();
+        for (int i = 0; i < shardCount; i++) {
+            String splitQuery;
+            if (StringUtils.isNotBlank(table.getQuery())) {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                applyUserWhereCondition(table.getQuery()),
+                                jdbcDialect.hashModForField(
+                                        column.getSourceType(), splitKeyName, shardCount));
+            } else if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+                String userQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(table.getTablePath()));
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                applyUserWhereCondition(userQuery),
+                                jdbcDialect.hashModForField(
+                                        column.getSourceType(), splitKeyName, shardCount));
+            } else {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM %s WHERE %s = ?",
+                                jdbcDialect.tableIdentifier(table.getTablePath()),
+                                jdbcDialect.hashModForField(
+                                        column.getSourceType(), splitKeyName, shardCount));
+            }
+
+            splits.add(
+                    new JdbcSourceSplit(
+                            table.getTablePath(),
+                            createSplitId(table.getTablePath(), i),
+                            splitQuery,
+                            splitKeyName,
+                            splitKeyType,
+                            i,
+                            null));
+        }
+        return splits;
+    }
+
+    private Collection<JdbcSourceSplit> createStringRangeSplits(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
+            throws SQLException {
+        Pair<Object, Object> splitColumnRange = queryMinMax(table, splitKeyName);
+        String min =
+                splitColumnRange.getLeft() == null ? null : splitColumnRange.getLeft().toString();
+        String max =
+                splitColumnRange.getRight() == null ? null : splitColumnRange.getRight().toString();
+        if (min == null || max == null || min.equals(max)) {
+            return Collections.singletonList(
+                    createSingleStringSplit(table, splitKeyName, splitKeyType));
+        }
+
+        long approximateRowCnt = queryApproximateRowCnt(table);
+        int shardCount =
+                Math.max((int) (approximateRowCnt / Math.max(config.getSplitSize(), 1)) + 1, 1);
+        String[] rangeResult = AsciiStringRangeSplitter.split(min, max, shardCount);
+        List<JdbcSourceSplit> splits = new ArrayList<>(rangeResult.length - 1);
+        for (int i = 0; i < rangeResult.length - 1; i++) {
+            splits.add(
+                    new JdbcSourceSplit(
+                            table.getTablePath(),
+                            createSplitId(table.getTablePath(), i),
+                            table.getQuery(),
+                            splitKeyName,
+                            splitKeyType,
+                            i == 0 ? null : rangeResult[i],
+                            i == rangeResult.length - 2 ? null : rangeResult[i + 1]));
+        }
+        return splits;
     }
 
     private List<ChunkRange> splitTableIntoChunks(
@@ -183,9 +349,11 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
         int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+        boolean sampleShardingAllow = config.isSplitSampleShardingAllow();
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tablePath,
                 splitColumnName,
                 min,
@@ -193,7 +361,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingAllow);
 
         long approximateRowCnt = queryApproximateRowCnt(table);
 
@@ -227,6 +396,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     chunkSize,
                     tablePath,
                     sampleShardingThreshold,
+                    sampleShardingAllow,
                     approximateRowCnt);
         }
     }
@@ -238,10 +408,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
         int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+        boolean sampleShardingAllow = config.isSplitSampleShardingAllow();
 
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tablePath,
                 splitColumnName,
                 min,
@@ -249,9 +421,21 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingAllow);
 
         long approximateRowCnt = queryApproximateRowCnt(table);
+        if (approximateRowCnt <= 0) {
+            // Some JDBC dialects return zero or negative estimates when table statistics are
+            // stale or unavailable. In that case, split by the measured key range instead of
+            // issuing per-chunk boundary probes.
+            log.info(
+                    "The approximate row count of table {} is {}, use range chunk fallback.",
+                    tablePath,
+                    approximateRowCnt);
+            return splitEvenlySizedChunksByRange(
+                    tablePath, min, max, chunkSize, sampleShardingThreshold);
+        }
         double distributionFactor =
                 calculateDistributionFactor(tablePath, min, max, approximateRowCnt);
 
@@ -274,6 +458,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     chunkSize,
                     tablePath,
                     sampleShardingThreshold,
+                    sampleShardingAllow,
                     approximateRowCnt);
         }
     }
@@ -286,11 +471,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             int chunkSize,
             TablePath tablePath,
             int sampleShardingThreshold,
+            boolean sampleShardingAllow,
             long approximateRowCnt)
             throws Exception {
         int shardCount = (int) (approximateRowCnt / chunkSize);
         int inverseSamplingRate = config.getSplitInverseSamplingRate();
-        if (sampleShardingThreshold < shardCount) {
+        if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
             // It is necessary to ensure that the number of data rows sampled by the
             // sampling rate is greater than the number of shards.
             // Otherwise, if the sampling rate is too low, it may result in an insufficient
@@ -311,7 +497,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             Object[] sample =
                     jdbcDialect.sampleDataFromColumn(
                             getOrEstablishConnection(),
-                            table,
+                            applyWhereCondition(table),
                             splitColumnName,
                             inverseSamplingRate,
                             config.getFetchSize());
@@ -326,7 +512,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     }
 
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {
-        return jdbcDialect.approximateRowCntStatement(getOrEstablishConnection(), table);
+        return jdbcDialect.approximateRowCntStatement(
+                getOrEstablishConnection(), applyWhereCondition(table));
     }
 
     private double calculateDistributionFactor(
@@ -452,6 +639,109 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         // add the ending split
         splits.add(ChunkRange.of(chunkStart, null));
         return splits;
+    }
+
+    /**
+     * Splits an evenly distributed key range when the approximate row count is unavailable.
+     *
+     * <p>The generated chunk count is proportional to {@code (max - min) / chunkSize}. To keep
+     * sparse ranges bounded, the method returns a single full-table split when the estimated chunk
+     * count exceeds {@code maxChunkCount}, when the range cannot be measured safely, or when chunk
+     * boundaries cannot advance.
+     */
+    @VisibleForTesting
+    static List<ChunkRange> splitEvenlySizedChunksByRange(
+            TablePath tablePath, Object min, Object max, int chunkSize, int maxChunkCount) {
+        checkArgument(chunkSize > 0, "chunkSize must be greater than 0");
+        checkArgument(maxChunkCount > 0, "maxChunkCount must be greater than 0");
+        log.info(
+                "Use evenly-sized range chunk fallback for table {}, the chunk size is {}",
+                tablePath,
+                chunkSize);
+        if (!isRangeChunkFallbackSafe(tablePath, min, max, chunkSize, maxChunkCount)) {
+            return Collections.singletonList(ChunkRange.all());
+        }
+        final List<ChunkRange> splits = new ArrayList<>();
+        Object chunkStart = null;
+        Object chunkEnd;
+        try {
+            chunkEnd = ObjectUtils.plus(min, chunkSize);
+        } catch (ArithmeticException e) {
+            log.info(
+                    "Skip range chunk fallback for table {} because the first chunk boundary overflows: min={}, chunk size={}",
+                    tablePath,
+                    min,
+                    chunkSize,
+                    e);
+            return Collections.singletonList(ChunkRange.all());
+        }
+        if (ObjectUtils.compare(chunkEnd, min) <= 0) {
+            log.info(
+                    "Skip range chunk fallback for table {} because the first chunk boundary does not advance: min={}, chunk end={}, chunk size={}",
+                    tablePath,
+                    min,
+                    chunkEnd,
+                    chunkSize);
+            return Collections.singletonList(ChunkRange.all());
+        }
+        while (ObjectUtils.compare(chunkEnd, max) <= 0) {
+            splits.add(ChunkRange.of(chunkStart, chunkEnd));
+            chunkStart = chunkEnd;
+            try {
+                Object nextChunkEnd = ObjectUtils.plus(chunkEnd, chunkSize);
+                if (ObjectUtils.compare(nextChunkEnd, chunkEnd) <= 0) {
+                    log.info(
+                            "Stop range chunk fallback for table {} because the chunk boundary does not advance: chunk end={}, next chunk end={}, chunk size={}",
+                            tablePath,
+                            chunkEnd,
+                            nextChunkEnd,
+                            chunkSize);
+                    break;
+                }
+                chunkEnd = nextChunkEnd;
+            } catch (ArithmeticException e) {
+                break;
+            }
+        }
+        splits.add(ChunkRange.of(chunkStart, null));
+        return splits;
+    }
+
+    /**
+     * Checks whether range fallback can produce a bounded number of chunks.
+     *
+     * <p>{@code maxChunkCount} is supplied by {@code split.sample-sharding.threshold}, so the
+     * fallback reuses the same shard-count guard used by sampling. Unsafe math, unsupported numeric
+     * ranges, or oversized sparse ranges force the caller to use one full-table split.
+     */
+    private static boolean isRangeChunkFallbackSafe(
+            TablePath tablePath, Object min, Object max, int chunkSize, int maxChunkCount) {
+        BigDecimal range;
+        try {
+            range = ObjectUtils.minus(max, min);
+        } catch (RuntimeException e) {
+            log.info(
+                    "Skip range chunk fallback for table {} because split key range cannot be measured: min={}, max={}",
+                    tablePath,
+                    min,
+                    max,
+                    e);
+            return false;
+        }
+        if (range.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal estimatedChunkCount =
+                range.divide(BigDecimal.valueOf(chunkSize), 0, ROUND_CEILING).add(BigDecimal.ONE);
+        if (estimatedChunkCount.compareTo(BigDecimal.valueOf(maxChunkCount)) > 0) {
+            log.info(
+                    "Skip range chunk fallback for table {} because estimated chunk count {} exceeds max chunk count {}",
+                    tablePath,
+                    estimatedChunkCount,
+                    maxChunkCount);
+            return false;
+        }
+        return true;
     }
 
     public static List<ChunkRange> efficientShardingThroughSampling(
@@ -602,7 +892,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         Object chunkEnd =
                 jdbcDialect.queryNextChunkMax(
                         getOrEstablishConnection(),
-                        table,
+                        applyWhereCondition(table),
                         splitColumnName,
                         chunkSize,
                         previousChunkEnd);
@@ -670,11 +960,22 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String splitQuery = split.getSplitQuery();
         if (StringUtils.isNotBlank(splitQuery)) {
-            splitQuery = String.format("SELECT * FROM (%s) tmp", splitQuery);
-        } else {
             splitQuery =
-                    String.format(
-                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+                    String.format("SELECT * FROM (%s) tmp", applyUserWhereCondition(splitQuery));
+        } else {
+            if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+                String userQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+                splitQuery =
+                        String.format("SELECT * FROM (%s) tmp", applyUserWhereCondition(userQuery));
+            } else {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+            }
         }
 
         StringBuilder sql = new StringBuilder();
@@ -717,16 +1018,31 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 statement.setObject(i + 1, splitEnd[i]);
                 statement.setObject(i + 1 + splitKeyNumbers, splitEnd[i]);
             }
+            log.info(
+                    "Dynamic split (first) - params: [{}={}, {}={}]",
+                    1,
+                    splitEnd[0],
+                    2,
+                    splitEnd[0]);
         } else if (isLastSplit) {
             for (int i = 0; i < splitKeyNumbers; i++) {
                 statement.setObject(i + 1, splitStart[i]);
             }
+            log.info("Dynamic split (last) - params: [{}={}]", 1, splitStart[0]);
         } else {
             for (int i = 0; i < splitKeyNumbers; i++) {
                 statement.setObject(i + 1, splitStart[i]);
                 statement.setObject(i + 1 + splitKeyNumbers, splitEnd[i]);
                 statement.setObject(i + 1 + 2 * splitKeyNumbers, splitEnd[i]);
             }
+            log.info(
+                    "Dynamic split (middle) - params: [{}={}, {}={}, {}={}]",
+                    1,
+                    splitStart[0],
+                    2,
+                    splitEnd[0],
+                    3,
+                    splitEnd[0]);
         }
     }
 

@@ -59,6 +59,17 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
         return outputCatalogTable;
     }
 
+    /**
+     * Replaces this transform's input catalog table and invalidates derived state. Subclasses with
+     * extra cached state (e.g., row container generators, SQL engines) should override to clear
+     * those too. The default implementation is sufficient for transforms whose state is fully
+     * captured by {@link #inputCatalogTable} and {@link #outputCatalogTable}.
+     */
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        this.inputCatalogTable = inputCatalogTable;
+        this.outputCatalogTable = null;
+    }
+
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return Collections.singletonList(getProducedCatalogTable());

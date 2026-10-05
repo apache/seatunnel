@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import org.apache.seatunnel.common.utils.HashUtils;
+
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
@@ -25,11 +27,10 @@ import java.util.List;
 import java.util.Map;
 
 public class MessageContentPartitioner implements Partitioner {
-    private static List<String> ASSIGNPARTITIONS;
 
-    public static void setAssignPartitions(List<String> assignPartitionList) {
-        ASSIGNPARTITIONS = assignPartitionList;
-    }
+    public static final String ASSIGN_PARTITIONS_CONFIG = "assign.partitions";
+
+    private List<String> assignPartitions;
 
     @Override
     public int partition(
@@ -42,21 +43,24 @@ public class MessageContentPartitioner implements Partitioner {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
 
-        int assignPartitionsSize = ASSIGNPARTITIONS.size();
+        int assignPartitionsSize = assignPartitions.size();
         String message = new String(valueBytes);
         for (int i = 0; i < assignPartitionsSize; i++) {
-            if (message.contains(ASSIGNPARTITIONS.get(i))) {
+            if (message.contains(assignPartitions.get(i))) {
                 return i;
             }
         }
         // Choose one of the remaining partitions according to the hashcode.
-        return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize))
+        return HashUtils.bucketIndex(message.hashCode(), numPartitions - assignPartitionsSize)
                 + assignPartitionsSize;
     }
 
     @Override
     public void close() {}
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void configure(Map<String, ?> map) {}
+    public void configure(Map<String, ?> configs) {
+        this.assignPartitions = (List<String>) configs.get(ASSIGN_PARTITIONS_CONFIG);
+    }
 }

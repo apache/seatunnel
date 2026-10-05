@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.env.ParsingMode;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
@@ -82,9 +83,16 @@ public final class FactoryUtil {
                     ClassLoader classLoader,
                     String factoryIdentifier,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
-                    TableSourceFactory factory) {
+                    TableSourceFactory factory,
+                    MetadataConfig metaDataConfig) {
         return restoreAndPrepareSource(
-                options, classLoader, factoryIdentifier, null, fallbackCreateSource, factory);
+                options,
+                classLoader,
+                factoryIdentifier,
+                null,
+                fallbackCreateSource,
+                factory,
+                metaDataConfig);
     }
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
@@ -94,7 +102,8 @@ public final class FactoryUtil {
                     String factoryIdentifier,
                     ChangeStreamTableSourceCheckpoint checkpoint,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
-                    TableSourceFactory factory) {
+                    TableSourceFactory factory,
+                    MetadataConfig metaDataConfig) {
 
         try {
 
@@ -133,7 +142,7 @@ public final class FactoryUtil {
                             restoreAndPrepareSource(
                                     changeStreamTableSourceFactory, options, classLoader, state);
                 } else {
-                    source = createAndPrepareSource(factory, options, classLoader);
+                    source = createAndPrepareSource(factory, options, classLoader, metaDataConfig);
                 }
             }
             List<CatalogTable> catalogTables;
@@ -173,8 +182,12 @@ public final class FactoryUtil {
 
     private static <T, SplitT extends SourceSplit, StateT extends Serializable>
             SeaTunnelSource<T, SplitT, StateT> createAndPrepareSource(
-                    TableSourceFactory factory, ReadonlyConfig options, ClassLoader classLoader) {
-        TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
+                    TableSourceFactory factory,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    MetadataConfig metaDataConfig) {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(options, classLoader, metaDataConfig);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();
@@ -273,13 +286,17 @@ public final class FactoryUtil {
 
     public static Optional<Catalog> createOptionalCatalog(
             String catalogName,
-            ReadonlyConfig options,
+            ReadonlyConfig readonlyConfig,
             ClassLoader classLoader,
             String factoryIdentifier) {
         Optional<CatalogFactory> optionalFactory =
                 discoverOptionalFactory(classLoader, CatalogFactory.class, factoryIdentifier);
+
         return optionalFactory.map(
-                catalogFactory -> catalogFactory.createCatalog(catalogName, options));
+                catalogFactory -> {
+                    ConfigValidator.of(readonlyConfig).validate(catalogFactory.optionRule());
+                    return catalogFactory.createCatalog(catalogName, readonlyConfig);
+                });
     }
 
     public static <T extends Factory> URL getFactoryUrl(T factory) {

@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 @Slf4j
 @AutoService(TypeConverter.class)
 public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -56,6 +58,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     // String / binary
     public static final String DUCKDB_BIT = "BIT";
+    public static final String DUCKDB_ENUM = "ENUM";
     public static final String DUCKDB_VARCHAR = "VARCHAR";
     public static final String DUCKDB_CHAR = "CHAR";
     public static final String DUCKDB_BPCHAR = "BPCHAR";
@@ -98,7 +101,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
-        String duckDBType = typeDefine.getDataType().toUpperCase();
+        String duckDBType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         Long length = typeDefine.getLength();
         long lengthValue = length == null ? 0L : length;
         switch (duckDBType) {
@@ -146,7 +149,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_BIT:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(lengthValue > 0 ? lengthValue : 1L);
+                builder.columnLength(length);
                 break;
             case DUCKDB_UUID:
             case DUCKDB_JSON:
@@ -164,8 +167,10 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 break;
             case DUCKDB_TIMESTAMP:
-            case DUCKDB_TIMESTAMP_WITH_TZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                break;
+            case DUCKDB_TIMESTAMP_WITH_TZ:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 break;
             case DUCKDB_INTERVAL:
                 builder.dataType(BasicType.STRING_TYPE);
@@ -181,6 +186,12 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnLength(lengthValue > 0 ? lengthValue : 65535);
                 break;
             default:
+                if (DUCKDB_ENUM.equals(duckDBType)
+                        || (duckDBType.startsWith(DUCKDB_ENUM + "(") && duckDBType.endsWith(")"))) {
+                    builder.dataType(BasicType.STRING_TYPE);
+                    builder.columnLength(length);
+                    break;
+                }
                 log.warn("Unsupported DuckDB type: {}, falling back to STRING", duckDBType);
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(lengthValue > 0 ? lengthValue : 255);
@@ -280,6 +291,10 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
             case TIMESTAMP:
                 builder.columnType(DUCKDB_TIMESTAMP);
                 builder.dataType(DUCKDB_TIMESTAMP);
+                break;
+            case TIMESTAMP_TZ:
+                builder.columnType(DUCKDB_TIMESTAMP_WITH_TZ);
+                builder.dataType(DUCKDB_TIMESTAMP_WITH_TZ);
                 break;
             case BYTES:
                 builder.columnType(DUCKDB_BLOB);

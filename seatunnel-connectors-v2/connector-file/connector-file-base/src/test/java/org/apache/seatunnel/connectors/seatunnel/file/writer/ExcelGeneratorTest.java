@@ -180,4 +180,98 @@ public class ExcelGeneratorTest {
         assertTrue("Headers should be valid", headerValid.get());
         assertEquals("Should have correct number of rows", expectedDataRows, rowCount.get());
     }
+
+    @Test
+    public void testGenerateExcelFileWithReorderedColumns() throws IOException {
+        File outputDir = new File("target/test-output");
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+
+        File outputFile = new File(outputDir, "reordered-columns-test.xlsx");
+
+        // Use non-consecutive indices to test the fix
+        List<Integer> reorderedColumnsIndexInRow = Arrays.asList(3, 1, 2, 0);
+        ExcelGenerator excelGenerator =
+                new ExcelGenerator(reorderedColumnsIndexInRow, rowType, fileSinkConfig);
+
+        SeaTunnelRow[] testData = {
+            new SeaTunnelRow(new Object[] {1, "Alice", 25, "alice@test.com"}),
+            new SeaTunnelRow(new Object[] {2, "Bob", 30, "bob@test.com"})
+        };
+
+        for (SeaTunnelRow row : testData) {
+            excelGenerator.writeData(row);
+        }
+
+        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+            excelGenerator.flushAndCloseExcel(fos);
+        }
+
+        assertTrue("File should exist", outputFile.exists());
+        assertTrue("File should not be empty", outputFile.length() > 0);
+
+        // Validate the reordered columns
+        validateReorderedColumnsFile(outputFile, 2, 0);
+    }
+
+    private void validateReorderedColumnsFile(File file, int expectedDataRows, int sheetNo)
+            throws IOException {
+        AtomicInteger rowCount = new AtomicInteger(0);
+        AtomicBoolean headerValid = new AtomicBoolean(false);
+        EasyExcel.read(file)
+                .registerReadListener(
+                        new AnalysisEventListener<Map<Integer, String>>() {
+                            @Override
+                            public void invoke(Map<Integer, String> data, AnalysisContext context) {
+                                rowCount.incrementAndGet();
+                                // For reordered columns [3, 1, 2, 0], the values should be in this
+                                // order
+
+                                // Check that first column is email (index 3 in original row)
+                                // Second column is name (index 1 in original row)
+                                // Third column is age (index 2 in original row)
+                                // Fourth column is id (index 0 in original row)
+                                String email = data.get(0);
+                                String name = data.get(1);
+                                String age = data.get(2);
+                                String id = data.get(3);
+                                assertTrue(
+                                        "Email should be valid",
+                                        email != null && email.endsWith("@test.com"));
+                                assertTrue(
+                                        "Name should be valid",
+                                        name != null
+                                                && (name.equals("Alice") || name.equals("Bob")));
+                                assertTrue(
+                                        "Age should be valid",
+                                        age != null && (age.equals("25") || age.equals("30")));
+                                assertTrue(
+                                        "Id should be valid",
+                                        id != null && (id.equals("1") || id.equals("2")));
+                            }
+
+                            @Override
+                            public void invokeHeadMap(
+                                    Map<Integer, String> headMap, AnalysisContext context) {
+                                // For reordered columns [3, 1, 2, 0], headers should be in this
+                                // order
+                                headerValid.set(
+                                        "email".equals(headMap.get(0))
+                                                && "name".equals(headMap.get(1))
+                                                && "age".equals(headMap.get(2))
+                                                && "id".equals(headMap.get(3)));
+                            }
+
+                            @Override
+                            public void doAfterAllAnalysed(AnalysisContext context) {
+                                log.info("Validation completed. Total rows: " + rowCount.get());
+                            }
+                        })
+                .sheet(sheetNo)
+                .doRead();
+
+        assertTrue("Headers should be valid", headerValid.get());
+        assertEquals("Should have correct number of rows", expectedDataRows, rowCount.get());
+    }
 }

@@ -22,7 +22,11 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+
+import java.io.IOException;
 
 public class CleanLogOperation extends TracingOperation implements IdentifiedDataSerializable {
 
@@ -42,6 +46,18 @@ public class CleanLogOperation extends TracingOperation implements IdentifiedDat
         if (taskLogManagerService != null) {
             taskLogManagerService.clean(jobId);
         }
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeLong(jobId);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        this.jobId = in.readLong();
     }
 
     @Override

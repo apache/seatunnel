@@ -319,6 +319,12 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.columnType(SR_DATETIME);
                 builder.dataType(SR_DATETIME);
                 break;
+            case TIMESTAMP_TZ:
+                // StarRocks DATETIME does not store timezone info;
+                // TIMESTAMP_TZ (LTZ) is mapped to DATETIME with potential timezone loss.
+                builder.columnType(SR_DATETIME);
+                builder.dataType(SR_DATETIME);
+                break;
             case MAP:
                 reconvertMap(column, builder);
                 break;
@@ -547,6 +553,13 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(SR_DATE_ARRAY);
                 break;
             case TIMESTAMP:
+                builder.columnType(SR_DATETIME_ARRAY);
+                builder.dataType(SR_DATETIME_ARRAY);
+                break;
+            case TIMESTAMP_TZ:
+                // StarRocks DATETIME does not store timezone info;
+                // TIMESTAMP_TZ (LTZ) array is mapped to DATETIME array with potential timezone
+                // loss.
                 builder.columnType(SR_DATETIME_ARRAY);
                 builder.dataType(SR_DATETIME_ARRAY);
                 break;

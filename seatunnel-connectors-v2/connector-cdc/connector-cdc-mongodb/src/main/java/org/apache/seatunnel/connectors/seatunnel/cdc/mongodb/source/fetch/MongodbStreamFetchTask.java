@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.fetch;
 
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -57,6 +58,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
@@ -67,6 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FAILED_TO_PARSE_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FALSE_FALSE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ILLEGAL_OPERATION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
@@ -199,7 +203,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     if (changeRecord != null) {
                         currentOffset = new ChangeStreamOffset(getResumeToken(changeRecord));
                         // The log after the high watermark won't emit.
-                        if (currentOffset.isAtOrBefore(streamSplit.getStopOffset())) {
+                        if (shouldEmit(currentOffset, streamSplit.getStopOffset())) {
                             queue.enqueue(new DataChangeEvent(changeRecord));
                         }
                     } else {
@@ -208,7 +212,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     }
 
                     // Reach the high watermark, the binlog fetcher should be finished
-                    if (currentOffset.isAtOrAfter(streamSplit.getStopOffset())) {
+                    if (hasReachedStop(currentOffset, streamSplit.getStopOffset())) {
                         // send watermark end event
                         SourceRecord watermark =
                                 WatermarkEvent.create(
@@ -232,6 +236,14 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 changeStreamCursor.close();
             }
         }
+    }
+
+    static boolean shouldEmit(ChangeStreamOffset currentOffset, Offset stopOffset) {
+        return currentOffset.isAtOrBefore(stopOffset);
+    }
+
+    static boolean hasReachedStop(ChangeStreamOffset currentOffset, Offset stopOffset) {
+        return currentOffset.isAtOrAfter(stopOffset);
     }
 
     @Override
@@ -382,15 +394,39 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         return new BsonDocument(ID_FIELD, primaryKey);
     }
 
+    /**
+     * Normalizes a heartbeat record by adding the HEARTBEAT=true flag to its offset.
+     *
+     * <p>The original heartbeat record from {@link HeartbeatManager} does not contain the HEARTBEAT
+     * flag in its offset, which causes {@link MongodbRecordUtils#isHeartbeatEvent} to return {@code
+     * false}. This would lead to the heartbeat record being incorrectly identified as a data change
+     * record and processed through {@link MongodbFetchTaskContext#isRecordBetween}, where a {@link
+     * NullPointerException} would occur because heartbeat records have no documentKey field.
+     *
+     * <p>By adding the HEARTBEAT=true flag, we ensure that:
+     *
+     * <ul>
+     *   <li>{@link MongodbRecordUtils#isHeartbeatEvent} returns {@code true}
+     *   <li>{@link MongodbRecordUtils#isDataChangeRecord} returns {@code false}
+     *   <li>The heartbeat record is excluded from range checking in {@link
+     *       MongodbFetchTaskContext#isRecordBetween}
+     * </ul>
+     *
+     * @param heartbeatRecord the original heartbeat record from HeartbeatManager
+     * @return a normalized heartbeat record with HEARTBEAT=true in its offset
+     */
     @Nonnull
     private SourceRecord normalizeHeartbeatRecord(@Nonnull SourceRecord heartbeatRecord) {
         final Struct heartbeatValue =
                 new Struct(SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build());
         heartbeatValue.put(TS_MS_FIELD, Instant.now().toEpochMilli());
 
+        Map<String, Object> heartbeatOffset = new HashMap<>(heartbeatRecord.sourceOffset());
+        heartbeatOffset.put(HEARTBEAT_KEY_FIELD, "true");
+
         return new SourceRecord(
                 heartbeatRecord.sourcePartition(),
-                heartbeatRecord.sourceOffset(),
+                heartbeatOffset,
                 heartbeatRecord.topic(),
                 heartbeatRecord.keySchema(),
                 heartbeatRecord.key(),

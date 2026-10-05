@@ -49,12 +49,15 @@ public class PaimonSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(PaimonSourceOptions.WAREHOUSE)
                 .optional(
+                        PaimonSourceOptions.CATALOG_NAME,
                         PaimonSourceOptions.DATABASE,
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonSourceOptions.HDFS_SITE_PATH,
                         PaimonSourceOptions.QUERY_SQL,
                         PaimonSourceOptions.HADOOP_CONF,
-                        PaimonSourceOptions.HADOOP_CONF_PATH)
+                        PaimonSourceOptions.HADOOP_CONF_PATH,
+                        PaimonSourceOptions.USER,
+                        PaimonSourceOptions.PASSWORD)
                 .exclusive(PaimonSourceOptions.TABLE, CatalogOptions.TABLE_LIST)
                 .conditional(
                         PaimonSourceOptions.CATALOG_TYPE,

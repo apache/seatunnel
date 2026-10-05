@@ -17,20 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisDryRunValidator;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisNodesValidator;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class RedisSinkFactory implements TableSinkFactory {
+public class RedisSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Redis";
@@ -50,8 +55,10 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.AUTH,
                         RedisBaseOptions.USER,
-                        RedisBaseOptions.KEY_PATTERN,
+                        RedisBaseOptions.DB_NUM,
+                        RedisBaseOptions.BATCH_SIZE,
                         RedisBaseOptions.FORMAT,
+                        RedisBaseOptions.FIELD_DELIMITER,
                         RedisSinkOptions.EXPIRE,
                         RedisSinkOptions.SUPPORT_CUSTOM_KEY,
                         RedisSinkOptions.VALUE_FIELD,
@@ -67,6 +74,31 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
                         RedisBaseOptions.NODES)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        Conditions.notBlank(RedisBaseOptions.HOST),
+                        Conditions.greaterOrEqual(RedisBaseOptions.PORT, RedisBaseOptions.MIN_PORT)
+                                .and(
+                                        Conditions.lessOrEqual(
+                                                RedisBaseOptions.PORT, RedisBaseOptions.MAX_PORT)))
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        Conditions.notEmpty(RedisBaseOptions.NODES),
+                        Conditions.extension(RedisBaseOptions.NODES, new RedisNodesValidator()))
                 .build();
+    }
+
+    /**
+     * Checks connectivity and authentication only; no key is written or expired. Sink field options
+     * are not checked against the upstream schema because the runtime falls back to the configured
+     * name as a literal value.
+     */
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) {
+        RedisParameters redisParameters = new RedisParameters();
+        redisParameters.buildConnectionConfig(context.getOptions());
+        RedisDryRunValidator.validate(redisParameters);
     }
 }

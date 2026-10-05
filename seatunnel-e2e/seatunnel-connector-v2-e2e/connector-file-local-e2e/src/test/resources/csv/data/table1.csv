@@ -1,0 +1,6 @@
+c_string,c_int,c_boolean,c_double
+string1,100,false,1.5
+string2,200,true,2.5
+string3,300,false,3.5
+string4,400,true,4.5
+string5,500,false,5.5

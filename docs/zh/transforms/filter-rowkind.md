@@ -1,17 +1,19 @@
 # 行类型过滤
 
-> 行类型转换插件
+> FilterRowKind：按插入、更新、删除等行类型筛选数据
 
 ## 描述
 
-按行类型过滤数据
+FilterRowKind 转换插件用于按 RowKind 过滤数据。
 
-## 操作
+## 属性
 
 |      名称       |  类型   | 是否必须 | 默认值 |
 |---------------|-------|------|-----|
-| include_kinds | array | yes  |     |
-| exclude_kinds | array | yes  |     |
+| include_kinds | array | no   |     |
+| exclude_kinds | array | no   |     |
+
+`include_kinds` 和 `exclude_kinds` 必须且只能配置其中一个，两个都配置或都不配置都会导致校验失败。
 
 ### include_kinds [array]
 
@@ -29,7 +31,7 @@
 
 ## 示例
 
-FakeSource 生成的数据的行类型是 `INSERT`。如果我们使用 `FilterRowKink` 转换并排除 `INSERT` 数据，我们将不会向接收器写入任何行。
+FakeSource 生成的数据的行类型是 `INSERT`。如果我们使用 `FilterRowKind` 转换并排除 `INSERT` 数据，我们将不会向接收器写入任何行。
 
 ```yaml
 
@@ -65,4 +67,3 @@ sink {
   }
 }
 ```
-

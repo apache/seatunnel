@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -37,10 +38,11 @@ public class ConsoleSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .optional(ConsoleSinkOptions.LOG_PRINT_DATA)
                 .optional(
-                        ConsoleSinkOptions.LOG_PRINT_DATA,
                         ConsoleSinkOptions.LOG_PRINT_DELAY,
-                        ConsoleSinkOptions.MULTI_TABLE_SINK_REPLICA)
+                        Conditions.greaterOrEqual(ConsoleSinkOptions.LOG_PRINT_DELAY, 0))
+                .optional(ConsoleSinkOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

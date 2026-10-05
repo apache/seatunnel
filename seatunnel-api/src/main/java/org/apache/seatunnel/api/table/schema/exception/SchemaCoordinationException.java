@@ -25,15 +25,6 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
  */
 public class SchemaCoordinationException extends SchemaEvolutionException {
 
-    public SchemaCoordinationException(SchemaEvolutionErrorCode errorCode, String errorMessage) {
-        super(errorCode, errorMessage);
-    }
-
-    public SchemaCoordinationException(
-            SchemaEvolutionErrorCode errorCode, String errorMessage, Throwable cause) {
-        super(errorCode, errorMessage, cause);
-    }
-
     public SchemaCoordinationException(
             SchemaEvolutionErrorCode errorCode,
             String errorMessage,

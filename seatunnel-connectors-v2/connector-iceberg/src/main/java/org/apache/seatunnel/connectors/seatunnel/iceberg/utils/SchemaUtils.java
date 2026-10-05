@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -102,8 +103,20 @@ public class SchemaUtils {
             Catalog catalog, TablePath tablePath, CatalogTable table, ReadonlyConfig readonlyConfig)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         TableSchema tableSchema = table.getTableSchema();
-        // Convert to iceberg schema
-        Schema schema = toIcebergSchema(tableSchema, readonlyConfig);
+        // Resolve primary keys: explicit config takes precedence; fall back to the CatalogTable's
+        // own PK for this catalog-creation path. This fallback is intentionally absent from the
+        // CDC sink path (toIcebergSchema(tableSchema, readonlyConfig)) where inheriting the source
+        // table PK would silently activate equality-delete semantics (apache/seatunnel#10747).
+        List<String> pkColumns =
+                readonlyConfig
+                        .getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
+                        .map(e -> IcebergSinkConfig.stringToList(e, ","))
+                        .orElseGet(
+                                () ->
+                                        Optional.ofNullable(tableSchema.getPrimaryKey())
+                                                .map(PrimaryKey::getColumnNames)
+                                                .orElse(Collections.emptyList()));
+        Schema schema = toIcebergSchema(tableSchema, pkColumns);
         // Convert sink config
         IcebergSinkConfig config = new IcebergSinkConfig(readonlyConfig);
         // build auto create table
@@ -161,19 +174,35 @@ public class SchemaUtils {
         return result.get();
     }
 
+    /**
+     * Converts a {@link TableSchema} to an Iceberg {@link Schema} for the CDC sink path.
+     *
+     * <p>Identifier fields are set ONLY when {@code iceberg.table.primary-keys} is explicitly
+     * configured. The source table's primary key is intentionally NOT inherited: silently using the
+     * MySQL PK activates {@code BaseEqualityDeltaWriter}, which emits positional deletes for
+     * repeated keys within the same checkpoint window, causing silent data loss in append-only CDC
+     * pipelines (apache/seatunnel#10747).
+     *
+     * <p>For explicit catalog table creation where the CatalogTable's own PK should be respected,
+     * use {@link #autoCreateTable(Catalog, TablePath, CatalogTable, ReadonlyConfig)} which applies
+     * the CatalogTable PK as a fallback.
+     */
     @VisibleForTesting
     @NotNull protected static Schema toIcebergSchema(
             TableSchema tableSchema, ReadonlyConfig readonlyConfig) {
+        List<String> pkColumns =
+                readonlyConfig
+                        .getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
+                        .map(e -> IcebergSinkConfig.stringToList(e, ","))
+                        .orElse(Collections.emptyList());
+        return toIcebergSchema(tableSchema, pkColumns);
+    }
+
+    @VisibleForTesting
+    static Schema toIcebergSchema(TableSchema tableSchema, List<String> primaryKeyColumns) {
         Types.StructType structType = SchemaUtils.toIcebergType(tableSchema);
         Set<Integer> identifierFieldIds =
-                readonlyConfig.getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
-                        .map(e -> IcebergSinkConfig.stringToList(e, ","))
-                        .orElseGet(
-                                () ->
-                                        Optional.ofNullable(tableSchema.getPrimaryKey())
-                                                .map(e -> e.getColumnNames())
-                                                .orElse(Collections.emptyList()))
-                        .stream()
+                primaryKeyColumns.stream()
                         .map(f -> structType.field(f).fieldId())
                         .collect(Collectors.toSet());
         List<Types.NestedField> fields = new ArrayList<>();

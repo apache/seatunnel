@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.table;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
@@ -107,13 +106,6 @@ public class TableFilterConfig implements Serializable {
         filterConfig.setSchemaPattern(config.get(SCHEMA_PATTERN));
         filterConfig.setTablePattern(config.get(TABLE_PATTERN));
         filterConfig.setPatternMode(config.get(PATTERN_MODE));
-
-        Preconditions.checkArgument(
-                filterConfig.getDatabasePattern() != null
-                        || filterConfig.getSchemaPattern() != null
-                        || filterConfig.getTablePattern() != null
-                        || filterConfig.getPatternMode() != null,
-                "At least one of database_pattern, schema_pattern, table_pattern or pattern_mode must be specified.");
         return filterConfig;
     }
 

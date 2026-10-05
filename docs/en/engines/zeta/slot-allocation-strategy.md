@@ -4,7 +4,7 @@ Slot allocation strategy is an important part of SeaTunnel Engine, which determi
 
 **Configuration method:**
 
-Set the parameter `slot-allocation-strategy`, optional values are `RANDOM`, `SYSTEM_LOAD`, `SLOT_RATIO`.
+Set the parameter `slot-allocate-strategy`, optional values are `RANDOM`, `SYSTEM_LOAD`, `SLOT_RATIO`.
 
 Example:
 
@@ -12,7 +12,7 @@ Example:
 seatunnel:
   engine:
     slot-service:
-      slot-allocation-strategy: RANDOM
+      slot-allocate-strategy: RANDOM
 ```
 
 ## RANDOM (default value)

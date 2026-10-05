@@ -23,7 +23,8 @@ public class HttpConfig {
 
     public enum ResponseFormat {
         JSON("json"),
-        TEXT("text");
+        TEXT("text"),
+        BINARY("binary");
 
         private String format;
 

@@ -64,6 +64,11 @@ public class AvroSchemaConverter implements Serializable {
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(SeaTunnelDataType<?> dataType, String rowName) {
+        return convertToSchema(dataType, rowName, false);
+    }
+
+    private static Schema convertToSchema(
+            SeaTunnelDataType<?> dataType, String rowName, boolean nullableRow) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 Schema bool = SchemaBuilder.builder().booleanType();
@@ -89,7 +94,10 @@ public class AvroSchemaConverter implements Serializable {
                 Schema binary = SchemaBuilder.builder().bytesType();
                 return nullableSchema(binary);
             case TIMESTAMP:
-                // use long to represents Timestamp
+            case TIMESTAMP_TZ:
+                // use long to represents Timestamp / Timestamp with timezone
+                // TIMESTAMP_TZ (OffsetDateTime/LTZ) is stored as timestampMillis (UTC epoch)
+                // same as TIMESTAMP, as Avro/Hudi does not have a native timezone-aware type
                 LogicalType avroLogicalType;
                 avroLogicalType = LogicalTypes.timestampMillis();
                 Schema timestamp = avroLogicalType.addToSchema(SchemaBuilder.builder().longType());
@@ -126,25 +134,30 @@ public class AvroSchemaConverter implements Serializable {
                     SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
                     SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                             builder.name(fieldName)
-                                    .type(convertToSchema(fieldType, rowName + "." + fieldName));
+                                    .type(
+                                            convertToSchema(
+                                                    fieldType, rowName + "." + fieldName, true));
 
                     builder = fieldBuilder.withDefault(null);
                 }
-                return builder.endRecord();
+                Schema record = builder.endRecord();
+                return nullableRow ? nullableSchema(record) : record;
             case MAP:
                 Schema map =
                         SchemaBuilder.builder()
                                 .map()
                                 .values(
                                         convertToSchema(
-                                                extractValueTypeToAvroMap(dataType), rowName));
+                                                extractValueTypeToAvroMap(dataType),
+                                                rowName,
+                                                true));
                 return nullableSchema(map);
             case ARRAY:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) dataType;
                 Schema array =
                         SchemaBuilder.builder()
                                 .array()
-                                .items(convertToSchema(arrayType.getElementType(), rowName));
+                                .items(convertToSchema(arrayType.getElementType(), rowName, true));
                 return nullableSchema(array);
             default:
                 throw new UnsupportedOperationException(

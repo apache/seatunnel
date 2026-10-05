@@ -63,3 +63,14 @@ app.kubernetes.io/name: {{ include "seatunnel.fullname" . }}-worker
 app.kubernetes.io/component: worker
 {{ include "seatunnel.common.labels" . }}
 {{- end -}}
+
+{{/*
+Get the ConfigMap name - either existing or the one to be created.
+*/}}
+{{- define "seatunnel.configMapName" -}}
+{{- if .Values.configMap.create -}}
+{{- include "seatunnel.fullname" . }}-configs
+{{- else -}}
+{{- .Values.configMap.existingConfigMapName }}
+{{- end -}}
+{{- end -}}

@@ -75,4 +75,11 @@ public interface ColumnOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SeaTunnel Schema Column Comment");
+
+    Option<String> METADATA_TABLE_ID =
+            Options.key("metadata_table_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The table id of the metadata center. When using Gravitino as the metadata center, the corresponding value is ${catalog}.${schema}.${table}, for example: 221-pgsql.ykw.all_type");
 }

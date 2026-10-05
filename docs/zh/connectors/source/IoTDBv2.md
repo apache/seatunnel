@@ -1,8 +1,8 @@
 import ChangeLog from '../changelog/connector-iotdb.md';
 
-# IoTDB
+# IoTDBv2
 
-> IoTDB 数据读取器
+> IoTDBv2 数据读取器
 
 ## 支持引擎
 
@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## 描述
 
-用于从 IoTDB 中读取数据。
+用于从 IoTDB 2.x 中读取数据。作业配置中的连接器名称为 `IoTDBv2`。
 
 ## 主要特性
 
@@ -55,20 +55,20 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | node_urls                  | Array   | 是    | -    | IoTDB 集群地址，格式为 `["host1:port"]` 或 `["host1:port","host2:port"]`                  |
 | username                   | String  | 是    | -    | IoTDB 用户名                                                                        |
 | password                   | String  | 是    | -    | IoTDB 用户密码                                                                       |
-| sql_dialect                | String  | 否    | tree | IoTDB 模型，tree：树模型；table：表模型                                                      |
+| sql_dialect                | String  | 否    | tree | IoTDB 模型，可选值为 `tree` 和 `table`。`tree` 表示树模型，`table` 表示表模型。                         |
 | database                   | String  | 否    | -    | 要查询的数据库名，只在表模型中生效                                                                |
 | sql                        | String  | 是    | -    | 要执行的 SQL 查询语句                                                                    |
 | schema                     | Config  | 是    | -    | 数据模式定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                           |
-| fetch_size                 | Integer | 否    | -    | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
+| fetch_size                 | Integer | 否    | -    | 单次请求从 IoTDB 获取的行数。                                                               |
 | lower_bound                | Long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | Long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
 | num_partitions             | Integer | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
-| default_thrift_buffer_size | Integer | 否    | -    | Thrift 协议缓冲区大小                                                                   |
+| default_thrift_buffer_size | Integer | 否    | -    | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                     |
 | max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
-| enable_cache_leader        | Boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
-| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
+| enable_cache_leader        | Boolean | 否    | -    | 是否在 IoTDB 客户端启用 Leader 节点缓存。                                                     |
+| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source 常用选项](../common-options/source-common-options.md)                  |
 
-我们可以使用时间列进行分区查询。
+可以使用时间列把一次查询拆成多个分片执行。启用分片读取时，需要同时配置 `lower_bound`、`upper_bound` 和 `num_partitions`。
 
 ### num_partitions [int]
 
@@ -107,7 +107,7 @@ env {
 }
 
 source {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -165,7 +165,7 @@ env {
 }
 
 source {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -221,4 +221,3 @@ IoTDB> SELECT time, sn, type, bidprice, bidsize, domain, buyno, askprice FROM te
 ## 变更日志
 
 <ChangeLog />
-
