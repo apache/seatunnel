@@ -50,4 +50,16 @@ public class TestTableFilterIT extends TestSuiteBase {
                 container.executeJob("/table_filter_multi_table_with_exclude_mode.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Only support for seatunnel")
+    @TestTemplate
+    public void testFilterWithEmptySinkBranch(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/table_filter_with_empty_sink_branch.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
