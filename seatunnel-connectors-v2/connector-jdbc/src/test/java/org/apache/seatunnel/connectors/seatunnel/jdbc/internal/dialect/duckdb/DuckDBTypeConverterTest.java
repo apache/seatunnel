@@ -202,10 +202,10 @@ public class DuckDBTypeConverterTest {
     }
 
     @Test
-    void testConvertBitUsesDefaultLengthWhenMissing() {
+    void testConvertBitKeepsUnknownLength() {
         Column column = convert("f_bit_default", "bit");
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(1L, column.getColumnLength());
+        Assertions.assertNull(column.getColumnLength());
     }
 
     @Test
@@ -287,6 +287,41 @@ public class DuckDBTypeConverterTest {
         Column column = convert("f_unknown", "geography", 64L);
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(64L, column.getColumnLength());
+    }
+
+    @Test
+    @ResourceLock("java.util.Locale")
+    void testConvertTypeNameRecognitionIsIndependentOfDefaultLocale() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("tr", "TR"));
+
+            Assertions.assertEquals(
+                    BasicType.INT_TYPE, convert("f_integer", "integer").getDataType());
+            Assertions.assertEquals(
+                    BasicType.BYTE_TYPE, convert("f_tinyint", "tinyint").getDataType());
+            Assertions.assertEquals(
+                    BasicType.LONG_TYPE, convert("f_bigint", "bigint").getDataType());
+            Column bit = convert("f_bit", "bit", 8L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, bit.getDataType());
+            Assertions.assertEquals(8L, bit.getColumnLength());
+
+            Assertions.assertEquals(
+                    BasicType.INT_TYPE, convert("f_integer_upper", "INTEGER").getDataType());
+            Assertions.assertEquals(
+                    BasicType.BYTE_TYPE, convert("f_tinyint_upper", "TINYINT").getDataType());
+            Assertions.assertEquals(
+                    BasicType.LONG_TYPE, convert("f_bigint_upper", "BIGINT").getDataType());
+            Column bitUpper = convert("f_bit_upper", "BIT", 8L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, bitUpper.getDataType());
+            Assertions.assertEquals(8L, bitUpper.getColumnLength());
+
+            Column unknown = convert("f_unknown", "geography", 64L);
+            Assertions.assertEquals(BasicType.STRING_TYPE, unknown.getDataType());
+            Assertions.assertEquals(64L, unknown.getColumnLength());
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @Test
@@ -563,5 +598,76 @@ public class DuckDBTypeConverterTest {
             builder.scale(scale);
         }
         return DuckDBTypeConverter.INSTANCE.convert(builder.build());
+    }
+
+    @Test
+    void testConvertBitWithZeroLength() {
+        Column column = convert("f_bit", DuckDBTypeConverter.DUCKDB_BIT, 0L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(0L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumBareWithNullLength() {
+        Column column = convert("f_enum", "ENUM");
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertNull(column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumBareWithZeroLength() {
+        Column column = convert("f_enum", "ENUM", 0L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(0L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumBareWithPositiveLength() {
+        Column column = convert("f_enum", "ENUM", 400L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumDeclarationWithNullLength() {
+        Column column = convert("f_enum", "ENUM('400-character label')");
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertNull(column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumDeclarationWithZeroLength() {
+        Column column = convert("f_enum", "ENUM('400-character label')", 0L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(0L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertEnumDeclarationWithPositiveLength() {
+        Column column = convert("f_enum", "ENUM('400-character label')", 400L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertUnsupportedTypeFallbackWithNullLength() {
+        Column column = convert("f_unsupported", "SOME_UNKNOWN_TYPE");
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(255L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertUnsupportedTypeFallbackWithPositiveLength() {
+        Column column = convert("f_unsupported", "SOME_UNKNOWN_TYPE", 77L);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(77L, column.getColumnLength());
+    }
+
+    @Test
+    void testEnumArrayKeepsFallbackLength() {
+        // Scalar ENUM handling does not change the existing fallback for list declarations.
+        Column column = convert("f_enum_array", "ENUM('a','b')[]");
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(255L, column.getColumnLength());
     }
 }
