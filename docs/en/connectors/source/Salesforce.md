@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-salesforce.md';
+
 # Salesforce
 
 > Salesforce source connector
@@ -111,6 +113,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Salesforce source connector with Bulk API 2.0 and multi-object support
+<ChangeLog />
