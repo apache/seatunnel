@@ -18,6 +18,7 @@
 package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -400,6 +402,52 @@ public class ZetaSQLEngineTest {
                             .getField(0),
                     sql + " should still pass an in-range value through");
         }
+    }
+
+    @Test
+    public void testCoalesceRejectsADecimalBeyondLongRange() {
+        // Pins that the DECIMAL source is range-checked exactly rather than widened through
+        // Number.longValue(). 2^64 is the case that separates the two: longValue() wraps it to 0,
+        // which is inside int range, so a check performed after widening would accept it and
+        // silently emit 0. toBigInteger() keeps the true magnitude, so it is rejected.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_decimal"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, new DecimalType(38, 0)});
+
+        String sql = "select coalesce(c_int, c_decimal) as r from test";
+        ZetaSQLEngine engine = new ZetaSQLEngine();
+        engine.init("test", "test", rowType, sql);
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        Assertions.assertEquals(
+                0L,
+                new BigDecimal("18446744073709551616").longValue(),
+                "2^64 must wrap to 0 through longValue(), otherwise this test proves nothing");
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        engine.transformBySQL(
+                                new SeaTunnelRow(
+                                        new Object[] {
+                                            null, new BigDecimal("18446744073709551616")
+                                        }),
+                                outType),
+                "a decimal beyond long range must be rejected, not wrapped to 0");
+
+        ZetaSQLEngine inRangeEngine = new ZetaSQLEngine();
+        inRangeEngine.init("test", "test", rowType, sql);
+        SeaTunnelRowType inRangeType = inRangeEngine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(
+                7,
+                inRangeEngine
+                        .transformBySQL(
+                                new SeaTunnelRow(new Object[] {null, new BigDecimal("7")}),
+                                inRangeType)
+                        .get(0)
+                        .getField(0),
+                "an in-range decimal must still convert");
     }
 
     @Test
