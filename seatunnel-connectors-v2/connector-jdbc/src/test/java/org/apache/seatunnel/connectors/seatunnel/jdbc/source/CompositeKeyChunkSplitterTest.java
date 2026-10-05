@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
@@ -615,5 +616,71 @@ public class CompositeKeyChunkSplitterTest {
         SeaTunnelRowType rowType = splitKey.get();
         Assertions.assertEquals(1, rowType.getTotalFields());
         Assertions.assertEquals("line_no", rowType.getFieldName(0));
+    }
+
+    private static JdbcSourceConfig fixedSplitterConfig() {
+        // The fixed splitter is selected when the legacy top-level query + partition_column
+        // combination is configured; JdbcSourceConfig.of then sets useDynamicSplitter to false.
+        return JdbcSourceConfig.of(
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put("url", "jdbc:mysql://localhost:3306/test");
+                                put("driver", "com.mysql.cj.jdbc.Driver");
+                                put("query", "select * from test_table");
+                                put("partition_column", "order_id");
+                            }
+                        }));
+    }
+
+    @Test
+    public void testFixedSplitterFindSplitKeyNeverReturnsCompositeKey() throws SQLException {
+        // The composite branch in findSplitKey is gated on config.isUseDynamicSplitter(), so the
+        // fixed splitter must keep the single-column behavior even for a dialect that supports
+        // composite splitting. The stubbed connection reports a composite-capable MySQL metadata,
+        // proving the dynamic-splitter gate (not the dialect gate) is what blocks the composite
+        // branch here.
+        JdbcSourceConfig config = fixedSplitterConfig();
+        Assertions.assertFalse(config.isUseDynamicSplitter());
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table = table(ct);
+
+        FixedChunkSplitter splitter =
+                new FixedChunkSplitter(config) {
+                    @Override
+                    protected Connection getOrEstablishConnection() throws SQLException {
+                        return connectionWithMetadata(databaseMetaData(8));
+                    }
+                };
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("order_id", rowType.getFieldName(0));
+    }
+
+    @Test
+    public void testFixedSplitterRejectsCompositeSplitKey() {
+        // Defensive boundary: if a multi-column split key ever reached the fixed path (which
+        // findSplitKey's dynamic-splitter gate prevents), createSplits must fail fast instead of
+        // silently splitting on the first key column.
+        JdbcSourceConfig config = fixedSplitterConfig();
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table = table(ct);
+        SeaTunnelRowType compositeKey =
+                new SeaTunnelRowType(
+                        new String[] {"order_id", "line_no"},
+                        new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
+
+        FixedChunkSplitter splitter = new FixedChunkSplitter(config);
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> splitter.createSplits(table, compositeKey));
     }
 }

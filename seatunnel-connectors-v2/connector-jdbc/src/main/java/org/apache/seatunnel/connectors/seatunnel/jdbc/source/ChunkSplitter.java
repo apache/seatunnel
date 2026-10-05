@@ -425,6 +425,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             // All key columns must also be splittable (Comparable) types - a composite PK
             // containing e.g. BINARY/VARBINARY would otherwise fail compareArrays with a
             // ClassCastException, so such keys also fall back to the single-column path.
+            // The isUseDynamicSplitter() gate above guarantees the FixedChunkSplitter never
+            // receives a multi-column key; FixedChunkSplitter#createSplits additionally rejects
+            // one defensively.
             if (pkColumnNames.size() > 1
                     && config.isUseDynamicSplitter()
                     && supportCompositeKeySplit()) {

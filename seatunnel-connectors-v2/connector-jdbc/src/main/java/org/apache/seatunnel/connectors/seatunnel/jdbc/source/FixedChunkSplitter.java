@@ -62,6 +62,19 @@ public class FixedChunkSplitter extends ChunkSplitter {
     @Override
     protected Collection<JdbcSourceSplit> createSplits(
             JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
+        // Defensive guard: the composite (multi-column) split-key branch in
+        // ChunkSplitter.findSplitKey is gated on config.isUseDynamicSplitter(), so a multi-column
+        // key can never legitimately reach this fixed path. The fixed splitter only understands
+        // single-column boundaries, so fail fast instead of silently splitting on the first key
+        // column if that invariant is ever broken by a future change.
+        if (splitKey.getTotalFields() > 1) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "Fixed chunk splitter does not support a multi-column split key %s; "
+                                    + "composite primary key splitting requires the dynamic splitter",
+                            String.join(",", splitKey.getFieldNames())));
+        }
 
         String splitKeyName = splitKey.getFieldNames()[0];
         SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
