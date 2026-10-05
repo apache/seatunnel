@@ -19,6 +19,10 @@ Notice, you must set one and only one of `include_fields` and `exclude_fields` p
 
 The list of fields that need to be kept. Fields not in the list will be deleted.
 
+:::note
+For backward compatibility, the deprecated option name `fields` is still accepted as a fallback for `include_fields`. New configurations should use `include_fields`.
+:::
+
 ### exclude_fields [array]
 
 The list of fields that need to be deleted. Fields not in the list will be kept.
