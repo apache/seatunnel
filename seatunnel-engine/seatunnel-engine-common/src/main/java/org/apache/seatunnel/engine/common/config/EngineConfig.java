@@ -39,7 +39,6 @@ import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
-/** Collects the engine-side runtime configuration shared by master, worker, and telemetry logic. */
 @Data
 public class EngineConfig {
 
@@ -83,6 +82,9 @@ public class EngineConfig {
 
     private QueueType queueType =
             ServerConfigOptions.WorkerServerConfigOptions.QUEUE_TYPE.defaultValue();
+
+    private int timerFlushPoolSize =
+            ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.defaultValue();
     private int historyJobExpireMinutes =
             ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
@@ -104,6 +106,10 @@ public class EngineConfig {
 
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
+
+    private int healthMetricsTimeoutSeconds =
+            ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                    .defaultValue();
 
     /**
      * Stain trace sampling and persistence knobs used by source, transform, sink, and reporters.
@@ -156,6 +162,14 @@ public class EngineConfig {
         this.printJobMetricsInfoInterval = printJobMetricsInfoInterval;
     }
 
+    public void setHealthMetricsTimeoutSeconds(int healthMetricsTimeoutSeconds) {
+        checkPositive(
+                healthMetricsTimeoutSeconds,
+                ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                        + " must be > 0");
+        this.healthMetricsTimeoutSeconds = healthMetricsTimeoutSeconds;
+    }
+
     public void setJobMetricsBackupInterval(int jobMetricsBackupInterval) {
         checkPositive(
                 jobMetricsBackupInterval,
@@ -167,7 +181,7 @@ public class EngineConfig {
     public void setJobMetricsPartitionCount(int jobMetricsPartitionCount) {
         checkPositive(
                 jobMetricsPartitionCount,
-                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT.key()
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }
@@ -218,6 +232,14 @@ public class EngineConfig {
     public EngineConfig setEventReportHttpHeaders(Map<String, String> eventReportHttpHeaders) {
         this.eventReportHttpHeaders = eventReportHttpHeaders;
         return this;
+    }
+
+    public void setTimerFlushPoolSize(int timerFlushPoolSize) {
+        checkPositive(
+                timerFlushPoolSize,
+                ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.key()
+                        + " must be > 0");
+        this.timerFlushPoolSize = timerFlushPoolSize;
     }
 
     public void setStainTraceSampleRate(int stainTraceSampleRate) {

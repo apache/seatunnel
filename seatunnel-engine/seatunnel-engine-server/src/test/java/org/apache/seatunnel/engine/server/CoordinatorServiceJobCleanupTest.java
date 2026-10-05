@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
@@ -487,6 +488,61 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void testTerminalZombieCanceledJobRetainsCheckpointWhenJobEnvOverrideEnabled()
+            throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        String checkpointStateKey = "checkpoint_state_" + jobId + "_retain";
+
+        server.getSeaTunnelConfig()
+                .getEngineConfig()
+                .getCheckpointConfig()
+                .setRetainAfterJobCancelled(false);
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+
+        Map<String, Object> envOptions = new HashMap<>();
+        envOptions.put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), 10000L);
+        envOptions.put(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key(), true);
+        Data jobData = createJobData(jobId, false, "stream_fake_to_console.conf", envOptions);
+        runningJobInfoIMap.put(jobId, new JobInfo(100L, jobData));
+        runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateIMap.put(taskGroupLocation, "task");
+        runningJobStateIMap.put(checkpointStateKey, "checkpoint");
+
+        Long[] jobStateTimestamps = new Long[JobStatus.values().length];
+        jobStateTimestamps[JobStatus.SCHEDULED.ordinal()] = 10L;
+        jobStateTimestamps[JobStatus.CANCELED.ordinal()] = 20L;
+        runningJobStateTimestampsIMap.put(jobId, jobStateTimestamps);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
+        storeCheckpoint(jobId);
+
+        Method method =
+                CoordinatorService.class.getDeclaredMethod(
+                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, jobId, runningJobInfoIMap.get(jobId));
+
+        Assertions.assertTrue(
+                server.getCheckpointService()
+                                .getCheckpointStorage()
+                                .getAllCheckpoints(String.valueOf(jobId))
+                                .size()
+                        > 0,
+                "job-level env override should retain checkpoint data even when cluster default is false");
+    }
+
+    @Test
     void testRestoreUsesProvidedJobInfoInitializationTimestamp() throws Exception {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
@@ -557,8 +613,17 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     private Data createJobData(long jobId, boolean isStartWithSavePoint, String configFile) {
+        return createJobData(jobId, isStartWithSavePoint, configFile, Collections.emptyMap());
+    }
+
+    private Data createJobData(
+            long jobId,
+            boolean isStartWithSavePoint,
+            String configFile,
+            Map<String, Object> envOptions) {
         LogicalDag logicalDag =
                 TestUtils.createTestLogicalPlan(configFile, "job-cleanup-submit-test", jobId);
+        logicalDag.getJobConfig().getEnvOptions().putAll(envOptions);
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobId,

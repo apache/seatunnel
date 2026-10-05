@@ -103,6 +103,12 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> kafkaContainer;
     private GenericContainer<?> kerberosContainer;
 
+    /** Original JVM Krb5 config property that must be restored after this suite. */
+    private String previousKrb5Conf;
+
+    /** Original JVM JAAS config property that must be restored after this suite. */
+    private String previousJaasConfig;
+
     private final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {
@@ -143,6 +149,8 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
+        previousKrb5Conf = System.getProperty("java.security.krb5.conf");
+        previousJaasConfig = System.getProperty("java.security.auth.login.config");
         System.setProperty(
                 "java.security.krb5.conf",
                 ContainerUtil.getResourcesFile("/kerberos/krb5_local.conf").getPath());
@@ -478,6 +486,22 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         }
         if (kerberosContainer != null) {
             kerberosContainer.close();
+        }
+        // KafkaKerberosIT sets global JVM JAAS/Krb5 properties during startup. Clear them after
+        // the suite so the plain Kafka E2E tests in the same Maven JVM do not inherit Kerberos
+        // authentication settings by mistake.
+        restoreSystemProperty("java.security.krb5.conf", previousKrb5Conf);
+        restoreSystemProperty("java.security.auth.login.config", previousJaasConfig);
+    }
+
+    /**
+     * Restores a JVM security property to the value that existed before this test suite changed it.
+     */
+    private void restoreSystemProperty(String key, String previousValue) {
+        if (previousValue == null) {
+            System.clearProperty(key);
+        } else {
+            System.setProperty(key, previousValue);
         }
     }
 }

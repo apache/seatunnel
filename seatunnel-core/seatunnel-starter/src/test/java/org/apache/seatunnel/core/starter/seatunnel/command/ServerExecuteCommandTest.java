@@ -28,7 +28,10 @@ import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
 
 import com.hazelcast.cluster.Member;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class ServerExecuteCommandTest {
@@ -37,33 +40,57 @@ public class ServerExecuteCommandTest {
     @DisabledOnJre(value = JRE.JAVA_11, disabledReason = "the test case only works on Java 8")
     public void testJavaVersionCheck() {
         String realVersion = System.getProperty("java.version");
-        System.setProperty("java.version", "1.8.0_191");
-        Assertions.assertFalse(ServerExecuteCommand.isAllocatingThreadGetName());
-        System.setProperty("java.version", "1.8.0_60");
-        Assertions.assertTrue(ServerExecuteCommand.isAllocatingThreadGetName());
-        System.setProperty("java.version", realVersion);
+        try {
+            System.setProperty("java.version", "1.8.0_191");
+            Assertions.assertFalse(ServerExecuteCommand.isAllocatingThreadGetName());
+            System.setProperty("java.version", "1.8.0_60");
+            Assertions.assertTrue(ServerExecuteCommand.isAllocatingThreadGetName());
+        } finally {
+            System.setProperty("java.version", realVersion);
+        }
     }
 
     @Test
-    public void testMemberList() {
+    public void testMemberList() throws InterruptedException {
         String clusterName = getClusterName("ServerExecuteCommandTest");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
 
-        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+        List<HazelcastInstanceImpl> instances = new ArrayList<>();
+        try {
+            instances.add(SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig));
+            instances.add(SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig));
+            instances.add(SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig));
+            instances.add(SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig));
+            instances.add(SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig));
 
-        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        serverCommandArgs.setClusterName(clusterName);
-        serverCommandArgs.setShowClusterMembers(true);
+            HazelcastInstanceImpl firstInstance = instances.get(0);
+            long deadline = System.currentTimeMillis() + 30_000;
+            while (firstInstance.getCluster().getMembers().size() < 5) {
+                if (System.currentTimeMillis() > deadline) {
+                    Assertions.fail(
+                            "Cluster did not form within 30s, members: "
+                                    + firstInstance.getCluster().getMembers().size());
+                }
+                Thread.sleep(500);
+            }
 
-        ServerExecuteCommand serverExecuteCommand = new ServerExecuteCommand(serverCommandArgs);
-        Set<Member> members = serverExecuteCommand.showClusterMembers();
-        Assertions.assertEquals(5, members.size());
+            ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
+            serverCommandArgs.setClusterName(clusterName);
+            serverCommandArgs.setShowClusterMembers(true);
+
+            ServerExecuteCommand serverExecuteCommand = new ServerExecuteCommand(serverCommandArgs);
+            Set<Member> members = serverExecuteCommand.showClusterMembers();
+            Assertions.assertEquals(5, members.size());
+        } finally {
+            for (HazelcastInstanceImpl inst : instances) {
+                try {
+                    inst.shutdown();
+                } catch (Exception ignored) {
+                }
+            }
+        }
     }
 
     public static String getClusterName(String testClassName) {

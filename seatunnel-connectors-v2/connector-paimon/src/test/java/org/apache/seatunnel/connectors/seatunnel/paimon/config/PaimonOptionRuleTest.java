@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceFactory;
@@ -44,6 +45,18 @@ class PaimonOptionRuleTest {
     void testCatalogOptionRuleDeclaresNonPrimaryKey() {
         assertDeclaredOptions(
                 new PaimonCatalogFactory().optionRule(), PaimonSinkOptions.NON_PRIMARY_KEY);
+    }
+
+    @Test
+    void testSinkOptionRuleDeclaresTableOptions() {
+        assertDeclaredOptions(
+                new PaimonSinkFactory().optionRule(), SinkConnectorCommonOptions.TABLE_OPTIONS);
+    }
+
+    @Test
+    void testCatalogOptionRuleDeclaresTableOptions() {
+        assertDeclaredOptions(
+                new PaimonCatalogFactory().optionRule(), SinkConnectorCommonOptions.TABLE_OPTIONS);
     }
 
     @Test

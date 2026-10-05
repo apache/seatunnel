@@ -91,8 +91,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
     private static final String PARQUET = "Parquet";
 
-    private int[] indexes;
-
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
@@ -163,7 +161,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
-                    Object data = record.get(indexes[i]);
+                    String fieldName = seaTunnelRowType.getFieldName(i);
+                    Object data = record.hasField(fieldName) ? record.get(fieldName) : null;
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -198,6 +197,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         try (ParquetReader<Group> closeableReader = reader) {
             Group record;
             while ((record = closeableReader.read()) != null) {
+                GroupType recordType = record.getType();
                 Object[] fields;
                 if (isMergePartition) {
                     int index = fieldsCount;
@@ -209,11 +209,17 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
+                    String fieldName = seaTunnelRowType.getFieldName(i);
+                    if (!recordType.containsField(fieldName)) {
+                        fields[i] = null;
+                        continue;
+                    }
+                    int fieldIndex = recordType.getFieldIndex(fieldName);
                     fields[i] =
                             resolveGroupObject(
                                     record,
-                                    record.getType().getType(indexes[i]),
-                                    indexes[i],
+                                    recordType.getType(fieldIndex),
+                                    fieldIndex,
                                     seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -765,15 +771,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         String[] fields = new String[readColumns.size()];
         SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
-        indexes = new int[readColumns.size()];
         buildColumnsWithErrorCheck(
                 TablePath.DEFAULT,
                 IntStream.range(0, readColumns.size()).iterator(),
                 i -> {
                     fields[i] = readColumns.get(i);
                     Type type = originalSchema.getType(fields[i]);
-                    int fieldIndex = originalSchema.getFieldIndex(fields[i]);
-                    indexes[i] = fieldIndex;
                     SeaTunnelDataType<?> configDataType =
                             getConfigFieldType(configRowType, fields[i]);
                     types[i] = parquetType2SeaTunnelType(type, configDataType, fields[i]);
@@ -781,6 +784,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+
+        log.debug(
+                "get seatunnel row type with user config: {}. path: {}",
+                getActualSeaTunnelRowTypeInfo(),
+                path);
         return getActualSeaTunnelRowTypeInfo();
     }
 

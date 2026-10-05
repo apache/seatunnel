@@ -131,6 +131,7 @@ Available operators (all accessed via the `Conditions` factory class):
 | Cross-field | `lessOrEqualField(option, other)` | value <= another option's value |
 | Cross-field | `greaterThanField(option, other)` | value > another option's value |
 | Cross-field | `greaterOrEqualField(option, other)` | value >= another option's value |
+| Extension | `Conditions.extension(option, ext)` | delegates to a `ConditionExtension<T>` implementation |
 
 :::tip
 Multiple conditions can be chained with `.and(...)` or `.or(...)` to form compound constraints. AND binds tighter than OR, so `A.or(B).and(C)` evaluates as `A || (B && C)`.
@@ -206,6 +207,7 @@ Quick reference:
 | Validate value only when trigger matches | `.conditional(trigger, value, condition...)` |
 | Optional field with value check when present | `.optional(opt, condition...)` |
 | Cross-field comparisons | `Conditions.lessThanField/greaterThanField(...)` |
+| Custom / structural validation | `Conditions.extension(opt, ext)` |
 
 ### Required fields
 
@@ -394,6 +396,72 @@ When two optional fields are provided together, their values must satisfy a cros
 .optional(START_TS, END_TS,
         Conditions.lessThanField(START_TS, END_TS))
 ```
+
+### Custom validation with Extension
+
+When built-in operators are not expressive enough — for example, validating the internal structure of a `List<Map>` or enforcing cross-key constraints inside nested configs — use the `EXTENSION` operator.
+
+Implement `ConditionExtension<T>` and wire it via `Conditions.extension(option, ext)`. The extension plugs into the same `valueConstraints` pipeline as all built-in operators, so it works with `.and()` / `.or()`, `required`, `optional`, and `conditional` rules.
+
+Inline anonymous class:
+
+```java
+.optional(API_KEY_ENCODED, Conditions.extension(API_KEY_ENCODED,
+        new ConditionExtension<String>() {
+            @Override
+            public String description() {
+                return "must be Base64-encoded 'id:api_key'";
+            }
+
+            @Override
+            public boolean evaluate(ReadonlyConfig cfg, String v)
+                    throws OptionValidationException {
+                try {
+                    return new String(Base64.getDecoder().decode(v)).contains(":");
+                } catch (IllegalArgumentException e) {
+                    return false;
+                }
+            }
+        }))
+```
+
+Static inner class for complex types:
+
+```java
+static class TableConfigsValidator
+        implements ConditionExtension<List<Map<String, Object>>> {
+    @Override
+    public String description() {
+        return "each entry must contain a non-empty 'table_name', and all table names must be unique";
+    }
+
+    @Override
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) throws OptionValidationException {
+        if (value.isEmpty()) {
+            return false;
+        }
+        Set<String> seen = new HashSet<>();
+        for (Map<String, Object> entry : value) {
+            Object name = entry.get("table_name");
+            if (!(name instanceof String) || ((String) name).isEmpty()) {
+                return false;
+            }
+            if (!seen.add((String) name)) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+.exclusive(TABLE_CONFIGS, SCHEMA)
+.optional(TABLE_CONFIGS,
+        Conditions.extension(TABLE_CONFIGS, new TableConfigsValidator()))
+```
+
+:::caution
+`ConditionExtension.evaluate()` runs during job submission validation only. REST metadata queries only serialize `description()` and do not invoke `evaluate()`. Implementations should avoid I/O (database connections, HTTP calls, file access) and only validate structure and values.
+:::
 
 ## Why It Matters For Operators
 

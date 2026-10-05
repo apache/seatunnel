@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -31,6 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSourceO
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 @AutoService(Factory.class)
 public class RocketMqSourceFactory implements TableSourceFactory {
@@ -67,8 +73,24 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                         RocketMqSourceOptions.START_MODE_TIMESTAMP)
                 .conditional(
                         RocketMqSourceOptions.START_MODE,
+                        StartMode.CONSUME_FROM_TIMESTAMP,
+                        Conditions.greaterOrEqual(RocketMqSourceOptions.START_MODE_TIMESTAMP, 0L))
+                .conditional(
+                        RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
                         RocketMqSourceOptions.START_MODE_OFFSETS)
+                .conditional(
+                        RocketMqSourceOptions.START_MODE,
+                        StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
+                        Conditions.mapNotEmpty(RocketMqSourceOptions.START_MODE_OFFSETS))
+                .optional(
+                        RocketMqSourceOptions.TABLE_CONFIGS,
+                        Conditions.extension(
+                                RocketMqSourceOptions.TABLE_CONFIGS, new TableConfigsValidator()))
+                .optional(
+                        RocketMqSourceOptions.TABLE_LIST,
+                        Conditions.extension(
+                                RocketMqSourceOptions.TABLE_LIST, new TableConfigsValidator()))
                 .conditional(
                         RocketMqBaseOptions.ACL_ENABLED,
                         true,
@@ -86,5 +108,62 @@ public class RocketMqSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new RocketMqSource(context.getOptions());
+    }
+
+    static class TableConfigsValidator implements ConditionExtension<List<Map<String, Object>>> {
+
+        @Override
+        public String description() {
+            return "each tables_configs entry must have valid topics, "
+                    + "start.mode.timestamp (>= 0) when CONSUME_FROM_TIMESTAMP, "
+                    + "and non-empty start.mode.offsets when CONSUME_FROM_SPECIFIC_OFFSETS";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> entries)
+                throws OptionValidationException {
+            if (entries == null || entries.isEmpty()) {
+                return true;
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(entries.get(i));
+                String topics = tableConfig.get(RocketMqSourceOptions.TOPICS);
+                if (topics == null || topics.trim().isEmpty()) {
+                    throw new OptionValidationException(
+                            "tables_configs[%d]: 'topics' must not be empty", i);
+                }
+                StartMode startMode =
+                        tableConfig.getOptional(RocketMqSourceOptions.START_MODE).orElse(null);
+                if (startMode == StartMode.CONSUME_FROM_TIMESTAMP) {
+                    Long ts =
+                            tableConfig
+                                    .getOptional(RocketMqSourceOptions.START_MODE_TIMESTAMP)
+                                    .orElse(null);
+                    if (ts == null) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start.mode.timestamp' required "
+                                        + "when start.mode=CONSUME_FROM_TIMESTAMP",
+                                i);
+                    }
+                    if (ts < 0) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start.mode.timestamp' must be >= 0, got: %d",
+                                i, ts);
+                    }
+                } else if (startMode == StartMode.CONSUME_FROM_SPECIFIC_OFFSETS) {
+                    Map<String, Long> offsets =
+                            tableConfig
+                                    .getOptional(RocketMqSourceOptions.START_MODE_OFFSETS)
+                                    .orElse(null);
+                    if (offsets == null || offsets.isEmpty()) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start.mode.offsets' must not be empty "
+                                        + "when start.mode=CONSUME_FROM_SPECIFIC_OFFSETS",
+                                i);
+                    }
+                }
+            }
+            return true;
+        }
     }
 }

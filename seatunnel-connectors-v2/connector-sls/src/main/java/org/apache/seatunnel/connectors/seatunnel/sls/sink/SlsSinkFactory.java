@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsSinkOptions;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SlsSinkFactory implements TableSinkFactory {
     @Override
@@ -36,21 +38,19 @@ public class SlsSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(SlsSinkOptions.ENDPOINT, notBlank(SlsSinkOptions.ENDPOINT))
+                .required(SlsSinkOptions.PROJECT, notBlank(SlsSinkOptions.PROJECT))
+                .required(SlsSinkOptions.LOGSTORE, notBlank(SlsSinkOptions.LOGSTORE))
+                .required(SlsSinkOptions.ACCESS_KEY_ID, notBlank(SlsSinkOptions.ACCESS_KEY_ID))
                 .required(
-                        SlsSinkOptions.ENDPOINT,
-                        SlsSinkOptions.PROJECT,
-                        SlsSinkOptions.LOGSTORE,
-                        SlsSinkOptions.ACCESS_KEY_ID,
-                        SlsSinkOptions.ACCESS_KEY_SECRET)
+                        SlsSinkOptions.ACCESS_KEY_SECRET,
+                        notBlank(SlsSinkOptions.ACCESS_KEY_SECRET))
                 .optional(SlsSinkOptions.SOURCE, SlsSinkOptions.TOPIC)
                 .build();
     }
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new SlsSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () -> new SlsSink(context.getOptions(), context.getCatalogTable());
     }
 }

@@ -204,84 +204,163 @@ public class LLMRequestJsonTest {
                         header,
                         resultMap,
                         "{\"model\":\"${model}\",\"messages\":[{\"role\":\"system\",\"content\":\"${prompt}\"},{\"role\":\"user\",\"content\":\"${data}\"}]}");
-        ObjectNode node =
-                model.createJsonNodeFromData(
-                        "Determine whether someone is Chinese or American by their name",
-                        "{\"id\":1, \"name\":\"John\"}");
-        Assertions.assertEquals(
-                "{\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}],\"model\":\"custom-model\"}",
-                OBJECT_MAPPER.writeValueAsString(node));
+        try {
+            ObjectNode node =
+                    model.createJsonNodeFromData(
+                            "Determine whether someone is Chinese or American by their name",
+                            "{\"id\":1, \"name\":\"John\"}");
+            Assertions.assertEquals(
+                    "{\"messages\":[{\"role\":\"system\",\"content\":\"Determine whether someone is Chinese or American by their name\"},{\"role\":\"user\",\"content\":\"{\\\"id\\\":1, \\\"name\\\":\\\"John\\\"}\"}],\"model\":\"custom-model\"}",
+                    OBJECT_MAPPER.writeValueAsString(node));
+        } finally {
+            model.close();
+        }
     }
 
     @Test
     void testCustomOllamaRequestJson() throws IOException {
 
         MockWebServer mockWebServer = new MockWebServer();
-        mockWebServer.start(11434);
-        String jsonResponse =
-                "{\n"
-                        + "    \"model\": \"qwen:7b\",\n"
-                        + "    \"created_at\": \"2025-02-07T01:22:46.589856Z\",\n"
-                        + "    \"message\": {\n"
-                        + "        \"role\": \"assistant\",\n"
-                        + "        \"content\": \"Based on the information provided in the JSON object, \\\"John\\\" does not inherently indicate if the person is Chinese or American. The name \\\"John\\\" is commonly used across many cultures. To determine a person's nationality based solely on their name, more context would be needed.\"\n"
-                        + "    },\n"
-                        + "    \"done_reason\": \"stop\",\n"
-                        + "    \"done\": true,\n"
-                        + "    \"total_duration\": 14435322300,\n"
-                        + "    \"load_duration\": 28998200,\n"
-                        + "    \"prompt_eval_count\": 34,\n"
-                        + "    \"prompt_eval_duration\": 302000000,\n"
-                        + "    \"eval_count\": 56,\n"
-                        + "    \"eval_duration\": 14102000000\n"
-                        + "}";
+        mockWebServer.start();
+        try {
+            String mockBaseUrl = mockWebServer.url("/api/chat").toString();
+            String jsonResponse =
+                    "{\n"
+                            + "    \"model\": \"qwen:7b\",\n"
+                            + "    \"created_at\": \"2025-02-07T01:22:46.589856Z\",\n"
+                            + "    \"message\": {\n"
+                            + "        \"role\": \"assistant\",\n"
+                            + "        \"content\": \"Based on the information provided in the JSON object, \\\"John\\\" does not inherently indicate if the person is Chinese or American. The name \\\"John\\\" is commonly used across many cultures. To determine a person's nationality based solely on their name, more context would be needed.\"\n"
+                            + "    },\n"
+                            + "    \"done_reason\": \"stop\",\n"
+                            + "    \"done\": true,\n"
+                            + "    \"total_duration\": 14435322300,\n"
+                            + "    \"load_duration\": 28998200,\n"
+                            + "    \"prompt_eval_count\": 34,\n"
+                            + "    \"prompt_eval_duration\": 302000000,\n"
+                            + "    \"eval_count\": 56,\n"
+                            + "    \"eval_duration\": 14102000000\n"
+                            + "}";
 
-        mockWebServer.enqueue(
-                new MockResponse()
-                        .setBody(jsonResponse)
-                        .addHeader("Content-Type", "application/json"));
+            mockWebServer.enqueue(
+                    new MockResponse()
+                            .setBody(jsonResponse)
+                            .addHeader("Content-Type", "application/json"));
 
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"id", "name"},
-                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"id", "name"},
+                            new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
 
-        Map<String, String> header = new HashMap<>();
-        header.put("Content-Type", "application/json");
+            Map<String, String> header = new HashMap<>();
+            header.put("Content-Type", "application/json");
 
-        List<Map<String, String>> messagesList = new ArrayList<>();
+            List<Map<String, String>> messagesList = new ArrayList<>();
 
-        Map<String, String> systemMessage = new HashMap<>();
-        systemMessage.put("role", "system");
-        systemMessage.put("content", "${prompt}");
-        messagesList.add(systemMessage);
+            Map<String, String> systemMessage = new HashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content", "${prompt}");
+            messagesList.add(systemMessage);
 
-        Map<String, String> userMessage = new HashMap<>();
-        userMessage.put("role", "user");
-        userMessage.put("content", "${input}");
-        messagesList.add(userMessage);
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", "${input}");
+            messagesList.add(userMessage);
 
-        Map<String, Object> resultMap = new HashMap<>();
-        resultMap.put("model", "${model}");
-        resultMap.put("stream", false);
-        resultMap.put("messages", messagesList);
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("model", "${model}");
+            resultMap.put("stream", false);
+            resultMap.put("messages", messagesList);
 
-        CustomModel model =
-                new CustomModel(
-                        rowType,
-                        SqlType.STRING,
-                        null,
-                        "Determine whether someone is Chinese or American by their name",
-                        "qwen:7b",
-                        "http://localhost:11434/api/chat",
-                        header,
-                        resultMap,
-                        "$.message.content");
+            CustomModel model =
+                    new CustomModel(
+                            rowType,
+                            SqlType.STRING,
+                            null,
+                            "Determine whether someone is Chinese or American by their name",
+                            "qwen:7b",
+                            mockBaseUrl,
+                            header,
+                            resultMap,
+                            "$.message.content");
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
+                row.setField(0, 1);
+                row.setField(1, "John");
+                List<String> successResult = model.inference(Collections.singletonList(row));
+                Assertions.assertFalse(successResult.isEmpty());
+            } finally {
+                model.close();
+            }
+        } finally {
+            mockWebServer.shutdown();
+        }
+    }
 
-        SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
-        row.setField(0, 1);
-        row.setField(1, "John");
-        List<String> successResult = model.inference(Collections.singletonList(row));
-        Assertions.assertFalse(successResult.isEmpty());
+    @Test
+    void testCustomOpenAIContentArrayString() throws IOException {
+        MockWebServer mockWebServer = new MockWebServer();
+        mockWebServer.start();
+        try {
+            String mockBaseUrl = mockWebServer.url("/v1/chat/completions").toString();
+            String jsonResponse =
+                    "{\n"
+                            + "    \"choices\": [\n"
+                            + "        {\n"
+                            + "            \"message\": {\n"
+                            + "                \"role\": \"assistant\",\n"
+                            + "                \"content\": \"[\\\"sfsfsafasfsfasf\\\"]\"\n"
+                            + "            },\n"
+                            + "            \"finish_reason\": \"stop\",\n"
+                            + "            \"index\": 0\n"
+                            + "        }\n"
+                            + "    ]\n"
+                            + "}";
+
+            mockWebServer.enqueue(
+                    new MockResponse()
+                            .setBody(jsonResponse)
+                            .addHeader("Content-Type", "application/json"));
+
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"content"},
+                            new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+            Map<String, String> header = new HashMap<>();
+            header.put("Content-Type", "application/json");
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", "${input}");
+
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("model", "${model}");
+            resultMap.put("messages", Collections.singletonList(message));
+
+            CustomModel model =
+                    new CustomModel(
+                            rowType,
+                            SqlType.STRING,
+                            Collections.singletonList("content"),
+                            "summary",
+                            "custom-model",
+                            mockBaseUrl,
+                            header,
+                            resultMap,
+                            "$.choices[0].message.content");
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
+                row.setField(0, "test");
+
+                List<String> result = model.inference(Collections.singletonList(row));
+
+                Assertions.assertEquals(Collections.singletonList("sfsfsafasfsfasf"), result);
+            } finally {
+                model.close();
+            }
+        } finally {
+            mockWebServer.shutdown();
+        }
     }
 }

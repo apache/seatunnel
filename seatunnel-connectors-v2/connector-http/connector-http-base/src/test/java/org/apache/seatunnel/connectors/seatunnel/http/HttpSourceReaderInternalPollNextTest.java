@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -42,10 +43,18 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class HttpSourceReaderInternalPollNextTest {
@@ -133,6 +142,105 @@ public class HttpSourceReaderInternalPollNextTest {
         Assertions.assertEquals("2", bodyMap.get("page"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
         httpSourceReader.close();
+    }
+
+    @Test
+    public void testCursorPaginationStopsWhenCursorDoesNotAdvance() throws Exception {
+        httpParameter.setBody("{\"scrollId\":\"${scrollId}\",\"capacity\":100}");
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageType(HttpPaginationType.CURSOR.getCode());
+        pageInfo.setPageCursorFieldName("scrollId");
+        pageInfo.setPageCursorResponseField("$.scrollId");
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        AtomicInteger requestCount = new AtomicInteger();
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            int currentRequest = requestCount.incrementAndGet();
+                            if (currentRequest == 1) {
+                                return new HttpResponse(
+                                        200,
+                                        "{\"scrollId\":\"cursor-1\",\"data\":[{\"key1\":\"v1\",\"key2\":\"v2\"}]}");
+                            }
+                            if (currentRequest == 2) {
+                                return new HttpResponse(
+                                        200, "{\"scrollId\":\"cursor-1\",\"data\":[]}");
+                            }
+                            throw new AssertionError(
+                                    "Cursor pagination should stop when the cursor does not advance");
+                        });
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, null, "$.data", pageInfo);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+
+        httpSourceReader.internalPollNext(collector);
+
+        verify(httpClientProvider, times(2))
+                .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
+        verify(context, times(1)).signalNoMoreElement();
+        httpSourceReader.close();
+    }
+
+    @Test
+    public void testPollIntervalDoesNotHoldCheckpointLock() throws Exception {
+        httpParameter.setPollIntervalMillis(60_000);
+        when(context.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        CountDownLatch polled = new CountDownLatch(1);
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            polled.countDown();
+                            return new HttpResponse(200, "[]");
+                        });
+        Object checkpointLock = new Object();
+        Collector<SeaTunnelRow> lockingCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {}
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return checkpointLock;
+                    }
+                };
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, jsonField, null);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            executor.submit(
+                    () -> {
+                        httpSourceReader.pollNext(lockingCollector);
+                        return null;
+                    });
+            // The request runs while pollNext holds the checkpoint lock
+            Assertions.assertTrue(polled.await(10, TimeUnit.SECONDS));
+            // A checkpoint barrier must get the lock during the 60 s poll
+            // interval, not only after it
+            Future<Boolean> barrier =
+                    executor.submit(
+                            () -> {
+                                synchronized (checkpointLock) {
+                                    return true;
+                                }
+                            });
+            Assertions.assertTrue(barrier.get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            httpSourceReader.close();
+        }
     }
 
     @AfterEach

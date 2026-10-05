@@ -64,8 +64,9 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BASIC_PREFIX = "Basic ";
 
+    @Override
     @BeforeAll
-    void setUp() {
+    public void before() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(
@@ -99,6 +100,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         httpConfig.setEnableBasicAuth(Boolean.FALSE);
         httpConfig.setBasicAuthUsername("");
         httpConfig.setBasicAuthPassword("");
+        super.after();
     }
 
     @Test

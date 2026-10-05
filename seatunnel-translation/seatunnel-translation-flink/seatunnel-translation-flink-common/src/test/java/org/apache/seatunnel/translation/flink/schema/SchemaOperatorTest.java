@@ -20,10 +20,15 @@ package org.apache.seatunnel.translation.flink.schema;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -67,6 +72,60 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SchemaOperatorTest {
+
+    @Test
+    void testRestoreSchemaEventIsAlwaysSupported() throws Exception {
+        CatalogTable restoredTable = createRestoredTable("table");
+
+        OperatorTestContext context =
+                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
+        context.operator.processElement(
+                new StreamRecord<>(
+                        createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
+
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(1, getPendingQueue(context.operator).size());
+    }
+
+    @Test
+    void testRestoreSchemaEventsWithSameTimestampAreBothProcessed() throws Exception {
+        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+        Mockito.when(
+                        coordinator.requestSchemaChange(
+                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(true);
+
+        OperatorTestContext context =
+                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
+        setField(context.operator, "coordinator", coordinator);
+
+        RestoreTableSchemaEvent firstEvent =
+                new RestoreTableSchemaEvent(createRestoredTable("first_table"));
+        RestoreTableSchemaEvent secondEvent =
+                new RestoreTableSchemaEvent(createRestoredTable("second_table"));
+        long sharedTimestamp = firstEvent.getCreatedTime();
+        setField(secondEvent, "createdTime", sharedTimestamp);
+
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(firstEvent), sharedTimestamp));
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(secondEvent), sharedTimestamp));
+
+        context.operator.notifyCheckpointComplete(10L);
+        context.operator.notifyCheckpointComplete(11L);
+        context.operator.notifyCheckpointComplete(12L);
+        context.operator.notifyCheckpointComplete(13L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), firstEvent);
+        assertSchemaBroadcast(context.output.records.get(1), secondEvent);
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        Mockito.verify(coordinator)
+                .requestSchemaChange(firstEvent.tableIdentifier(), sharedTimestamp, 300_000L);
+        Mockito.verify(coordinator)
+                .requestSchemaChange(secondEvent.tableIdentifier(), sharedTimestamp, 300_000L);
+    }
 
     @Test
     void testWaitRoundBeforeReleasingBufferedRecords() throws Exception {
@@ -176,15 +235,120 @@ public class SchemaOperatorTest {
         assertTrue(pendingQueue.peek().isSchemaChange);
     }
 
+    @Test
+    void testCommentEventIsSupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT), false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-comment-change");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+        context.operator.notifyCheckpointComplete(40L);
+        context.operator.notifyCheckpointComplete(41L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+    }
+
+    /**
+     * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
+     * checkpoint-completion safety fence even when called from a stall-detection timer.
+     *
+     * <p>The test invokes the handler directly (as if a processing-time timer fired) to keep the
+     * unit test independent of Flink's timer infrastructure. In production, the handler is called
+     * by {@link SchemaOperator13#scheduleFallbackTimer()} via {@code
+     * ProcessingTimeService.registerTimer}.
+     *
+     * <p>The base {@link SchemaOperator#scheduleFallbackTimer()} is a no-op; this test verifies
+     * only the handler logic, not the scheduling mechanism.
+     */
+    @Test
+    void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
+        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+        Mockito.when(
+                        coordinator.requestSchemaChange(
+                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(true);
+
+        OperatorTestContext context = createOperator(false);
+        setField(context.operator, "coordinator", coordinator);
+
+        AlterTableAddColumnEvent event = createSchemaChangeEvent();
+        SeaTunnelRow row = createDataRow("row-released-after-fallback");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+
+        // Simulate timer firing before any checkpoint has completed (firstSeenCheckpointId < 0).
+        // The handler must NOT apply the DDL — it must call scheduleFallbackTimer() to wait for
+        // the checkpoint-completion safety fence (guards XA/MDL conflicts).
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
+        assertTrue(context.output.records.isEmpty());
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+        assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Complete the first post-DDL checkpoint — sets firstSeenCheckpointId, not yet safe to
+        // apply (need one additional round, so notifyCheckpointComplete stops here).
+        context.operator.notifyCheckpointComplete(40L);
+
+        assertTrue(context.output.records.isEmpty());
+        assertEquals(40L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Simulate checkpoint stall: move lastCheckpointCompletedMs into the past beyond
+        // CHECKPOINT_STALL_TIMEOUT_MS (15 s). This mirrors the Flink 1.13 behaviour where
+        // high-parallelism CDC jobs stop checkpointing after some source subtasks finish.
+        setField(
+                context.operator,
+                "lastCheckpointCompletedMs",
+                System.currentTimeMillis() - 20_000L);
+
+        // Simulate timer firing again. firstSeenCheckpointId >= 0 and checkpoint has stalled,
+        // so the safety fence is satisfied — the DDL can now be applied.
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+        Mockito.verify(coordinator)
+                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
+    }
+
     private static OperatorTestContext createOperator(boolean restored) throws Exception {
         return createOperator(new OperatorStateStoreStub(), restored);
     }
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
+        return createOperator(
+                stateStore, restored, Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+    }
+
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
+        return createOperator(new OperatorStateStoreStub(), restored, supportedTypes);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            boolean restored,
+            List<SchemaChangeType> supportedTypes)
+            throws Exception {
         SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
-        Mockito.when(source.supports())
-                .thenReturn(Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+        Mockito.when(source.supports()).thenReturn(supportedTypes);
 
         SchemaOperator operator =
                 new SchemaOperator(
@@ -229,7 +393,20 @@ public class SchemaOperatorTest {
                 PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
     }
 
-    private static SeaTunnelRow createSchemaRow(AlterTableAddColumnEvent event) {
+    private static CatalogTable createRestoredTable(String tableName) {
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "database", tableName),
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.LONG_TYPE, 20L, false, null, null))
+                        .build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
+    }
+
+    private static SeaTunnelRow createSchemaRow(SchemaChangeEvent event) {
         SeaTunnelRow row = new SeaTunnelRow(0);
         row.setTableId("__SCHEMA_CHANGE_EVENT__");
         Map<String, Object> options = new LinkedHashMap<>();
@@ -246,9 +423,9 @@ public class SchemaOperatorTest {
     }
 
     private static void assertSchemaBroadcast(
-            StreamRecord<SeaTunnelRow> record, AlterTableAddColumnEvent event) {
+            StreamRecord<SeaTunnelRow> record, SchemaChangeEvent event) {
         Object broadcastEvent = record.getValue().getOptions().get("schema_change_broadcast");
-        assertInstanceOf(AlterTableAddColumnEvent.class, broadcastEvent);
+        assertInstanceOf(event.getClass(), broadcastEvent);
         assertEquals(event, broadcastEvent);
     }
 
@@ -283,6 +460,12 @@ public class SchemaOperatorTest {
         Field field = owner.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static Object invokeNoArgMethod(Object target, String methodName) throws Exception {
+        java.lang.reflect.Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return method.invoke(target);
     }
 
     private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {

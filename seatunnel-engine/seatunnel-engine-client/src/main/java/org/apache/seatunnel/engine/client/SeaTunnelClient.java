@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -158,7 +159,37 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull Long jobId) {
         initDynamicMetadataProvider(seaTunnelConfig);
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
+                jobConfig,
+                filePath,
+                variables,
+                hazelcastClient,
+                seaTunnelConfig,
+                RestoreMode.SAVEPOINT,
+                jobId,
+                jobId);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment restoreFromCheckpointExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long sourceJobId,
+            Long jobId) {
+        if (sourceJobId == null) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when restoreMode=CHECKPOINT");
+        }
+        return new ClientJobExecutionEnvironment(
+                jobConfig,
+                filePath,
+                variables,
+                hazelcastClient,
+                seaTunnelConfig,
+                RestoreMode.CHECKPOINT,
+                sourceJobId,
+                jobId);
     }
 
     @Override

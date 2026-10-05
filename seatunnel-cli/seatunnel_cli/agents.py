@@ -68,8 +68,10 @@ TOOLS = [
         "toolSpec": {
             "name": "get_connector_info",
             "description": "Get detailed info about a specific connector including parameters and examples. "
-                           "IMPORTANT: Always specify connector_type ('source' or 'sink') to get the correct "
-                           "type-specific options. Source and sink connectors have different required/optional parameters.",
+                           "IMPORTANT: Always specify connector_type "
+                           "('source', 'sink', or 'transform') to get the correct "
+                           "type-specific options. Source, sink, and transform plugins can "
+                           "have different required/optional parameters.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -80,9 +82,10 @@ TOOLS = [
                         },
                         "connector_type": {
                             "type": "string",
-                            "enum": ["source", "sink"],
-                            "description": "Whether this connector is used as 'source' or 'sink'. "
-                                           "Source and sink have different options — always specify this.",
+                            "enum": ["source", "sink", "transform"],
+                            "description": "Whether this plugin is used as 'source', 'sink', "
+                                           "or 'transform'. These plugin types have different "
+                                           "options — always specify this.",
                         },
                     },
                     "required": ["connector_name"],
@@ -285,7 +288,7 @@ def _extract_connector_blocks_raw(
     (inclusive), e.g. ``'url = "..." driver = "..."'``.
     """
     results: list[tuple[str, str, str]] = []
-    for section in ("source", "sink"):
+    for section in ("source", "transform", "sink"):
         # Find the section's opening brace
         pattern = re.compile(
             rf"(?:^|\n)\s*{section}\s*\{{", re.IGNORECASE,
@@ -342,8 +345,13 @@ def _validate_routing_pairs(
     errors: list[str],
     warnings: list[str],
 ) -> None:
-    """Validate plugin_output / plugin_input pairing across connector blocks."""
-    outputs: dict[str, str] = {}  # label → connector_name
+    """Validate plugin_output / plugin_input pairing across connector blocks.
+
+    Blocks may come from the source, transform, or sink sections; messages
+    carry the real ``section.connector`` location so diagnostics point at
+    the right block (transforms both emit and consume labels).
+    """
+    outputs: dict[str, str] = {}  # label → "section.connector_name"
     inputs: dict[str, str] = {}
 
     label_re = re.compile(
@@ -351,18 +359,19 @@ def _validate_routing_pairs(
     )
 
     for section, connector_name, block_content in blocks:
+        location = f"{section}.{connector_name}"
         for m in label_re.finditer(block_content):
             label = m.group(1)
             if "plugin_output" in m.group(0):
                 if label in outputs:
                     errors.append(
                         f"Duplicate plugin_output label \"{label}\" "
-                        f"in source.{connector_name} "
-                        f"(already used by source.{outputs[label]})"
+                        f"in {location} "
+                        f"(already used by {outputs[label]})"
                     )
-                outputs[label] = connector_name
+                outputs[label] = location
             else:
-                inputs[label] = connector_name
+                inputs[label] = location
 
     # Only validate pairing when routing labels are actually used
     if not outputs and not inputs:
@@ -372,16 +381,16 @@ def _validate_routing_pairs(
     if unmatched_inputs:
         for label in unmatched_inputs:
             errors.append(
-                f"sink.{inputs[label]}: plugin_input \"{label}\" "
-                f"has no matching plugin_output in any source"
+                f"{inputs[label]}: plugin_input \"{label}\" "
+                f"has no matching plugin_output in any source or transform"
             )
 
     orphan_outputs = set(outputs) - set(inputs)
     if orphan_outputs:
         for label in orphan_outputs:
             warnings.append(
-                f"source.{outputs[label]}: plugin_output \"{label}\" "
-                f"has no matching plugin_input in any sink"
+                f"{outputs[label]}: plugin_output \"{label}\" "
+                f"has no matching plugin_input in any transform or sink"
             )
 
 
@@ -460,9 +469,6 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Validate routing labels
-        _validate_routing_pairs(raw_blocks, errors, warnings)
-
     elif parsed is not None:
         # Standard single-connector-per-type path (pyhocon is accurate here)
         for section in ["source", "sink"]:
@@ -493,9 +499,10 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Also validate routing for single-connector configs if labels present
-        if raw_blocks:
-            _validate_routing_pairs(raw_blocks, errors, warnings)
+    # Routing validation is independent of option metadata and pyhocon —
+    # always run it when connector blocks were extracted.
+    if raw_blocks:
+        _validate_routing_pairs(raw_blocks, errors, warnings)
 
     # Check STREAMING mode needs checkpoint.interval
     if parsed is not None:
@@ -523,12 +530,36 @@ def validate_hocon(config_str: str) -> str:
 
     # Check for unresolved ${ENV_VAR} placeholders — these will be passed as literal
     # strings to connectors at runtime, causing authentication/connection failures.
+    # SeaTunnel's engine resolves certain placeholders itself, but only in
+    # specific file sink fields (see docs/en/connectors/sink/LocalFile.md):
+    #   file_name_expression     -> ${now}, ${uuid}, ${transactionId}
+    #   partition_dir_expression -> ${k0}=${v0}/... (kN = partition field,
+    #                               vN = partition value)
+    # The exemption is field-aware so that the same names used in unrelated
+    # fields (URLs, credentials, ...) are still diagnosed as env vars.
+    engine_template_fields = {
+        "file_name_expression": re.compile(r"now|uuid|transactionId"),
+        "partition_dir_expression": re.compile(r"[kv]\d+"),
+    }
     env_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+    # HOCON accepts both `key = value` and `key : value` separators
+    field_pattern = re.compile(r'^\s*"?([\w.]+)"?\s*[=:]')
     unresolved_vars = set()
-    for m in env_var_pattern.finditer(config_str):
-        var_name = m.group(1)
-        if not os.environ.get(var_name):
-            unresolved_vars.add(var_name)
+    for line in config_str.splitlines():
+        field_match = field_pattern.match(line)
+        allowed = engine_template_fields.get(
+            field_match.group(1)) if field_match else None
+        for m in env_var_pattern.finditer(line):
+            var_name = m.group(1)
+            if allowed and allowed.fullmatch(var_name):
+                continue
+            # Test that the variable is set, not that it is non-empty: an
+            # empty value is a resolved value. Passwordless accounts are
+            # normal (Doris and StarRocks default to root with no password,
+            # Elasticsearch to no auth), and `export DORIS_PASSWORD=` must
+            # not be reported as something still to be exported.
+            if os.environ.get(var_name) is None:
+                unresolved_vars.add(var_name)
     if unresolved_vars:
         var_list = ", ".join(sorted(unresolved_vars))
         errors.append(
@@ -700,21 +731,32 @@ You do NOT answer questions about:
 
 ## How to Classify User Intent
 
-Output **PLAN:** ONLY when the user explicitly asks to CREATE or MODIFY a data pipeline config.
-Signals: "sync X to Y", "read from X write to Y", "create a job that...", "add a transform to...",
-"modify the config to...", "change the sink to..."
+Ask one question first: **does the request describe data that should end up somewhere, or a job
+to build?** If yes, output **PLAN:**. If no, output **CHAT:**.
 
-Output **CHAT:** for EVERYTHING else, including:
+Classify on the outcome being asked for, NOT on which verb was used. Every verb that means
+"move or produce data" leads to PLAN — sync, export, import, load, dump, copy, migrate, ingest,
+replicate, archive, extract, stream, capture, route, print, write, send, build, create, generate,
+set up, as well as "read from X ... to Y". The same holds in Chinese: 同步、导出、导入、写入、
+读取、抽取、采集、迁移、复制、备份、推送、落地、输出到、创建作业、搭一个任务、建一条流水线.
+These lists are illustrative, never exhaustive. A request with no recognizable verb at all —
+"one batch job with this DAG: ...", "三条流水线：..." — is still PLAN, because it describes a job
+to build.
+
+Output **CHAT:** when the request is *about* SeaTunnel rather than asking for a pipeline:
 - Greetings, help requests, "what is X" questions
 - **Error logs, stack traces, exception messages** — analyze and diagnose them
 - **Job failure analysis** — identify root cause and suggest fixes
-- **Config review** — review a config without regenerating it
+- **Config review** — review an existing config without regenerating it
 - **Connector questions** — explain options, compare connectors
 - **Troubleshooting** — "why is my job slow", "my job keeps failing", etc.
-- Pasted text that looks like logs/errors/exceptions rather than pipeline descriptions
 
-IMPORTANT: When the user pastes logs or error messages, ALWAYS treat it as a diagnostic request (CHAT),
-never as a pipeline creation request (PLAN). Analyze the error and provide actionable advice.
+Tie-breakers, applied in this order:
+1. Pasted logs, stack traces, or exception text → **CHAT**, even when the text also names a
+   source and a sink. Analyze the error and give actionable advice.
+2. Otherwise, a request naming data to move → **PLAN**, even when it mentions testing,
+   debugging, printing, fake/sample data, or the Console sink. "Print 10 fake rows to the
+   console" is a pipeline to build, not a question to answer.
 
 ## Default Assumptions (for PLAN mode — do NOT ask for these):
 - Parallelism → 2
@@ -1081,6 +1123,16 @@ When generating configs with **multiple source/sink blocks**:
 - Labels should be descriptive: "jdbc_audit_log", "jdbc_users", etc.
 - ALL source blocks go inside ONE `source {{ }}` section
 - ALL sink blocks go inside ONE `sink {{ }}` section
+
+Chained/wide DAGs (transforms in the middle, 5+ blocks):
+- Wire every hop explicitly: source → transform → sink each consume the
+  upstream label and emit their own (`a_raw` → `a_filtered` → sink).
+- After inserting a transform, re-point the downstream consumer to the
+  transform's OUTPUT label — a sink still reading the source label silently
+  bypasses the transform.
+- To SPLIT one stream by condition: several transforms may consume the SAME
+  source label (each with its own predicate + distinct output label). Two
+  different sources must never emit the same label.
 
 Example — Two Jdbc sources routed to Console and Assert:
 ```hocon

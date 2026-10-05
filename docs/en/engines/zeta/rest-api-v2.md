@@ -3,12 +3,39 @@
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
 completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.
 
+:::tip
+This API is provided by the SeaTunnel Engine (Zeta) server, so it is only available for jobs running on the Zeta
+engine. It is not available when a job runs on the Flink or Spark engine; use that engine's own tooling to submit
+and monitor jobs in that case.
+:::
+
 ## Overview
 
-The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
-, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
-you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is enabled,
-If enable-dynamic-port is true, We will use the unused port in the range within the range of `port` and `port` + `port-range`, default range is 100
+The v2 API and the Web UI are both served by the embedded Jetty server. Jetty starts only when
+`seatunnel.engine.http.enable-http = true` or `enable-https = true`.
+
+There are two different "default" sources that are easy to mix up:
+
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`, `log-response-max-size-mb = 64`
+- The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
+
+As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
+listen on `http://<host>:8080/`. If you build a minimal config yourself, rely on code defaults, or
+remove `enable-http`, Jetty will not start by default.
+
+Use the following configuration for a fixed port:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+If you want Jetty to choose the first free port between `port` and `port + port-range`, enable
+dynamic ports explicitly:
 
 ```yaml
 
@@ -21,7 +48,7 @@ seatunnel:
       port-range: 100
 ```
 
-Context-path can also be configured as follows:
+`context-path` can also be configured as follows:
 
 ```yaml
 
@@ -32,6 +59,29 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+The size of an uploaded config file is bounded, so a single request cannot fill the master's temp
+directory or exhaust its heap. Both limits apply to `/submit-job/upload` only, and a value of `0`
+or below means unlimited:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      upload-max-file-size-mb: 10
+      upload-max-request-size-mb: 10
+      log-response-max-size-mb: 64
+```
+
+## Web UI and Port 8080 Troubleshooting
+
+- If `http://<host>:8080/` is unreachable, first check whether `seatunnel.engine.http.enable-http` or `enable-https` is actually enabled. The `network.rest-api.enabled` setting in `hazelcast.yaml` does not replace the Jetty switch.
+- If HTTP and `enable-dynamic-port = true` are enabled, the actual listening port may not be 8080. Jetty chooses the first available port between `port` and `port + port-range`. Use the Jetty startup log `SeaTunnel REST service started on http port xxx` as the source of truth. `/logs` and `/loggers?scope=cluster` resolve and report each member's actual bound HTTP port. The configured `port` remains unchanged, including when members share an HTTP configuration object.
+- If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
+- The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
 
 ## Enable HTTPS
 
@@ -242,6 +292,10 @@ Please refer [security](security.md)
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -271,6 +325,26 @@ Please refer [security](security.md)
           "operator": null,
           "next": null
         }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
       }
     ]
   }
@@ -283,8 +357,9 @@ Please refer [security](security.md)
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
-- Within `conditionTree`, the `compareOperator` field (e.g. `>=`, `<`, `>`) and `compareOption` field are populated for numeric and cross-field comparisons. For equality checks and other non-comparison conditions, these fields are `null`.
-- The `conditionOperator` field provides a stable, machine-readable operator identifier (e.g. `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`), while `conditionOperatorCategory` indicates the operator's category (e.g. `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`). These two fields are designed for programmatic consumption by frontend applications and automation tools.
+- Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
+- `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
+- For `EXTENSION` conditions, `expectValue` carries the rule description text returned by `ConditionExtension.description()`.
 
 </details>
 
@@ -321,6 +396,68 @@ Please refer [security](security.md)
 **Notes:**
 - If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
 - If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Query Worker Resources
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(Returns the current resource snapshot for registered workers.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "totalSlots": 2,
+      "freeSlots": 0,
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
+- Dynamic-slot workers do not have a fixed slot capacity. For them, `totalSlots` is the number of currently tracked assigned and unassigned slots, while `freeSlots` is the currently unassigned count. Use `dynamicSlot` together with the CPU and heap fields when interpreting capacity.
+- `available` is `false` when the master resource snapshot cannot be read, including the master-election window. In that case, `workers` is empty and clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` is the timestamp in milliseconds when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
+- Resource and usage fields are omitted until the worker heartbeat contains those values.
 
 </details>
 
@@ -416,7 +553,12 @@ Please refer [security](security.md)
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [
@@ -599,13 +741,43 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   },
   "pluginJarsUrls": [
   ],
-  "isStartWithSavePoint": false
+  "isStartWithSavePoint": false,
+  "diagnostics": {
+    "jobId": "",
+    "generatedAt": 1755000004000,
+    "stateTimestamps": {
+      "INITIALIZING": 1755000000000,
+      "CREATED": 1755000000200,
+      "SCHEDULED": 1755000001000,
+      "RUNNING": 1755000003000
+    },
+    "pipelines": [
+      {
+        "pipelineId": 1,
+        "pipelineStatus": "RUNNING",
+        "restoreCount": 7,
+        "maxRestoreCount": 100,
+        "stateTimestamps": {
+          "INITIALIZING": 1755000000000,
+          "CREATED": 1755000000200,
+          "SCHEDULED": 1755000001100,
+          "DEPLOYING": 1755000002000,
+          "RUNNING": 1755000003500
+        }
+      }
+    ],
+    "totalPipelineRestoreCount": 7
+  }
 }
 ```
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+`diagnostics` will return when the job is running and its diagnostics can be read from the master
+node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
+failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
+for every running job would cost one more round trip to the master per job.
 
 #### Metrics field description
 
@@ -627,6 +799,19 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 | TableSourceReceived* | Per-table source metrics, key format `TableSourceReceivedXXX#<table>` |
 | TableSinkWrite* | Per-table sink write attempts, key format `TableSinkWriteXXX#<table>` |
 | TableSinkCommitted* | Per-table sink committed metrics, key format `TableSinkCommittedXXX#<table>` |
+
+#### Diagnostics field description
+
+| Field | Description |
+| --- | --- |
+| generatedAt | Epoch millis when this diagnostics block was collected |
+| stateTimestamps | Epoch millis when the job entered each state. States never entered are omitted. A pipeline restart does not change the job state, so this alone does not show restarts |
+| pipelines[].pipelineId | Pipeline id inside the job |
+| pipelines[].pipelineStatus | Current pipeline state |
+| pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
+| pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
+| totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
 When we can't get the job info, the response will be:
 
@@ -731,8 +916,16 @@ When we can't get the job info, the response will be:
 > | name  |   type   | data type | description                                                                       |
 > |-------|----------|-----------|-----------------------------------------------------------------------------------|
 > | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
-> | page  | optional | int       | page number.                                                                      |
-> | rows  | optional | int       | page size.                                                                        |
+> | page  | optional | int       | page number. Must be an integer greater than 0.                                   |
+> | rows  | optional | int       | page size, defaults to 10. Must be an integer greater than 0.                     |
+
+When `page` is supplied, the response is wrapped as `{"data": [...], "total": n}`, where `total`
+is the number of jobs matching `state` before the page is applied. When it is omitted, the bare
+array is returned.
+
+A `page` or `rows` value that is not an integer, or is not greater than 0, returns `400`. A page
+starting beyond the end of the result set also returns `400`, while a page starting exactly at
+`total` returns an empty page.
 
 #### Responses
 
@@ -830,6 +1023,9 @@ When we can't get the job info, the response will be:
 ]
 ```
 
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -846,6 +1042,8 @@ When we can't get the job info, the response will be:
 > | jobId                | optional | string    | job id                                                   |
 > | jobName              | optional | string    | job name                                                 |
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
@@ -980,12 +1178,18 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:
 - `.json` files: parsed in JSON format
 - `.conf` or `.config` files: parsed in HOCON format
 - `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
+
+The upload is limited to `seatunnel.engine.http.upload-max-file-size-mb` (10 MB by default) per
+file and `upload-max-request-size-mb` (10 MB by default) per request. A larger upload is rejected
+before the config is parsed.
 
 curl Example :
 ```bash
@@ -994,6 +1198,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # Upload SQL config file
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
+
+# Upload a config file and restore from the latest checkpoint of a previous job
+curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
 ```
 #### Responses
 
@@ -1376,6 +1583,36 @@ If you want to view the log list first, you can retrieve it via a `GET` request:
 
 Supported formats are `json` and `html`, with `html` as the default.
 
+<a id="log-response-size-limit"></a>
+
+#### Response Size Limit
+
+The limit applies only to file-content responses, not log listings. Files are decoded as UTF-8,
+including active logs and rotated files such as `seatunnel.log.*`. If your logging layout uses a
+different platform charset, configure its `layout.charset` as `UTF-8`. The shipped Log4j2 example
+rolls files at 100 MB, so the default 64 MB response cap can truncate even a rotated file.
+The notice is additional to the capped file content.
+
+Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
+(64 MB by default). A log file larger than that is represented by its last
+`log-response-max-size-mb` of content, because for a job that has been running for a long time the
+end of the log is the part that explains what happened.
+
+A truncated response opens with a line naming the actual retained bytes and the file size captured
+at the start of the same read, so that a partial log
+is not mistaken for a complete one:
+
+```
+[SeaTunnel] Log truncated: returning 67108792 bytes from the tail of 3435973836 bytes (file size at read start). A partial first line is omitted when possible; an oversized single line returns a UTF-8-safe partial tail. Raise seatunnel.engine.http.log-response-max-size-mb, or set it to 0 for no limit, to return more.
+```
+
+The content itself starts at the first complete line after the cut, so the response is slightly
+smaller than the limit. When a single line is longer than the limit there is no line boundary to
+align to and the content starts at the first whole character instead.
+
+Set the option to `0` to restore unlimited reads - be aware that a single request for a
+multi-gigabyte log file then has to fit in the node's heap.
+
 #### Examples
 
 Retrieve logs for `jobId` `733584788375666689` across all nodes: `http://localhost:8080/logs/733584788375666689`
@@ -1399,8 +1636,177 @@ Returns a list of logs from the requested node.
 To get a list of logs from the current node: `http://localhost:5801/log`
 To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
 
+Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
+all-node endpoint above.
+
 </details>
 
+------------------------------------------------------------------------------------------
+
+### Read And Change Log Levels
+
+A log level changed through these endpoints is a runtime override: it takes effect immediately, is
+node local, and is lost when the node restarts. Levels that should survive a restart belong in
+`config/log4j2.properties`, see [Logging](logging.md).
+
+The root logger is addressed as `root`.
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers</b></code> <code>(Returns the loggers of the running configuration.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | scope            |   optional   | string  | `node` (default) answers for the node that serves the request, `cluster` asks every member |
+
+#### Response
+
+```json
+{
+  "node": "localhost:8080",
+  "loggers": [
+    {
+      "name": "root",
+      "level": "INFO",
+      "origin": "file"
+    },
+    {
+      "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+      "level": "DEBUG",
+      "origin": "runtime-override",
+      "fileLevel": "INFO"
+    }
+  ]
+}
+```
+
+`origin` tells where the current level comes from: `file` for the level of the log4j2 configuration
+file, `runtime-override` for a level that was set through one of the log level endpoints. `fileLevel`
+is only present when an overridden logger is configured in the file as well, and reports the level a
+`DELETE` puts back.
+
+With `?scope=cluster` the answer is one entry per member:
+
+```json
+{
+  "scope": "cluster",
+  "status": "SUCCESS",
+  "nodes": [
+    {
+      "node": "localhost:8080",
+      "loggers": [
+        {
+          "name": "root",
+          "level": "INFO",
+          "origin": "file"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`status` is `SUCCESS` when every member answered, `PARTIAL_FAILURE` when some did not, and `FAILURE`
+when none did; the member that failed carries its own `status` and `error`. A cluster request reaches
+every member on its actual bound REST HTTP port, including members that selected a different
+port through `enable-dynamic-port`. Each member must have HTTP enabled and be reachable.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers/:name</b></code> <code>(Returns the effective level of one logger.)</code></summary>
+
+#### Response
+
+The level is resolved through the closest configured ancestor, so a logger that is not configured
+itself can be asked about as well.
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>POST</code> <code><b>/loggers/:name</b></code> <code>(Overrides the level of one logger.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | level            |   optional   | string  | `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` or `ALL`, any letter case; may also be sent in the body |
+> | scope            |   optional   | string  | `node` (default) changes the node that serves the request, `cluster` changes every member |
+
+#### Body
+
+```json
+{
+  "level": "DEBUG"
+}
+```
+
+#### Response
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "DEBUG",
+  "origin": "runtime-override",
+  "node": "localhost:8080",
+  "previousLevel": "INFO",
+  "status": "SUCCESS"
+}
+```
+
+An unknown level is rejected with `400` and the list of valid levels instead of being reported as
+applied. Every change is written to the node log as a single `INFO` line with the logger, the old and
+the new level, the scope and the address of the caller.
+
+#### Examples
+
+Raise the JDBC connector to `DEBUG` on one node:
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG'`
+
+Raise it on every member of the cluster:
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/loggers/:name</b></code> <code>(Reverts a runtime override.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | scope            |   optional   | string  | `node` (default) reverts the node that serves the request, `cluster` reverts every member |
+
+#### Response
+
+The logger goes back to the level it had before its first override, which is the level of the
+configuration file, or the level inherited from its parent when the file does not configure it.
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080",
+  "previousLevel": "DEBUG",
+  "status": "SUCCESS"
+}
+```
+
+`status` is `NO_OVERRIDE` when the logger was never overridden through an endpoint; nothing is
+changed in that case.
+
+</details>
 
 ### Get Node Metrics
 
@@ -1563,3 +1969,122 @@ Checkpoint metadata fields:
 | --- | --- |
 | `pipelineId` | ID of the pipeline to which the record belongs. |
 | `checkpoint` | Checkpoint metadata described above. |
+
+------------------------------------------------------------------------------------------
+
+### Get Job Realtime Observability Metrics
+
+These APIs are used by the Web UI realtime metrics view. They do not depend on Telemetry and do not write historical data to disk. The master only keeps recent in-memory buckets.
+
+See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(List realtime metric state and window information for running jobs.)</code></summary>
+
+#### Response
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(Return Source/Transform/Sink vertex time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+Ratio fields are in the range `0~1` and can be displayed as percentages. Fields that do not apply to a vertex type may be `0`.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(Return queue/edge downstream wait ratio and queue fill ratio time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Pause, Resume Or Delete A Job
+
+There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing job endpoints as follows:
+
+| Goal                                   | How                                                                                                                                                                                                        |
+|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Pause a running job (stop now, resume later) | Call [`/stop-job`](#stop-a-job) with `isStopWithSavePoint: true`. The job stops and a savepoint of its current state is persisted.                                                                       |
+| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `isStartWithSavePoint: true`, the **same** `jobId` that was stopped, and the same job config. The job restores from its latest savepoint for that `jobId`. |
+| Delete a job                            | There is no delete endpoint. Stop the job with [`/stop-job`](#stop-a-job) if it is still running. Once a job reaches a finished state, its record is removed automatically after `history-job-expire-minutes` (default 1440 minutes) elapses -- see [History Job Expiry Configuration](separated-cluster-deployment.md#44-history-job-expiry-configuration). |
+
+**Note:** `isStartWithSavePoint: true` requires `jobId` to be provided in the request; submitting
+without a `jobId` in that case fails with `Please provide jobId when start with save point.`

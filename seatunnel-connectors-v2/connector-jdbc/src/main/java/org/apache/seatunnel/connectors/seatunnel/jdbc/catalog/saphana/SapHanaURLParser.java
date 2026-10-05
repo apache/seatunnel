@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
 public class SapHanaURLParser {
 
     private static final Pattern HANA_URL_PATTERN =
-            Pattern.compile("^(?<url>jdbc:sap://(?<host>[^:]+):(?<port>\\d+)/\\?(?<params>.*?))$");
+            Pattern.compile(
+                    "^(?<url>jdbc:sap://(?<host>[^:]+):(?<port>\\d+)(/\\?(?<params>.*?))?)$");
 
     public static JdbcUrlUtil.UrlInfo parse(String url) {
         Matcher matcher = HANA_URL_PATTERN.matcher(url);

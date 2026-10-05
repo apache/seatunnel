@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
@@ -40,13 +42,20 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private final IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
 
+    private final Counter totalQueueSize;
+    private final Counter queueSize;
+
     public RecordEventHandler(
             SeaTunnelTask runningTask,
             Collector<Record<?>> collector,
-            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter totalQueueSize,
+            Counter queueSize) {
         this.runningTask = runningTask;
         this.collector = collector;
         this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
+        this.totalQueueSize = totalQueueSize;
+        this.queueSize = queueSize;
     }
 
     /**
@@ -59,17 +68,23 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     }
 
     private void handleRecord(Record<?> record, Collector<Record<?>> collector) throws Exception {
-        if (record != null) {
-            if (record.getData() instanceof Barrier) {
-                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-                runningTask.ack(barrier);
-                if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
-                    this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
-                }
-            } else {
-                if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
-                    return;
-                }
+        if (record == null) {
+            return;
+        }
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        if (record.getData() instanceof Barrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            runningTask.ack(barrier);
+            if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
+                this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
+            }
+        } else if (record.getData() instanceof Signal) {
+            if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
+            }
+        } else {
+            if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
             }
             if (record.getData() instanceof SeaTunnelRow) {
                 SeaTunnelRow row = (SeaTunnelRow) record.getData();
@@ -83,7 +98,12 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                             intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
                 }
             }
-            collector.collect(record);
+        }
+
+        collector.collect(record);
+        totalQueueSize.dec();
+        if (metricsEnabled) {
+            queueSize.dec();
         }
     }
 }

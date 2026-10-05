@@ -35,6 +35,7 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
     private final AbstractIntermediateQueue<?> queue;
 
     private volatile Counter stainTraceEntriesTruncatedTotal;
+
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public IntermediateQueueFlowLifeCycle(

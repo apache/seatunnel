@@ -26,7 +26,7 @@ class ConfigApi:
         Encrypt Config
         """
         return self.client.request(
-            HttpMethod.POST, 
+            HttpMethod.POST,
             "/encrypt-config",
             content=conf
         )

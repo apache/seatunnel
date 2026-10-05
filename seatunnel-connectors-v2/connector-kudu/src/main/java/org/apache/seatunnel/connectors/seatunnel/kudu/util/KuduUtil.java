@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduClientResource;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -42,10 +43,18 @@ import lombok.extern.slf4j.Slf4j;
 import sun.security.krb5.Config;
 import sun.security.krb5.KrbException;
 
+import javax.security.auth.Subject;
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,13 +77,50 @@ public class KuduUtil {
                     UserGroupInformation ugi = loginAndReturnUgi(config);
                     return ugi.doAs(
                             (PrivilegedExceptionAction<KuduClient>)
-                                    () -> getKuduClientInternal(config));
+                                    () -> getKuduClientInternal(config, null));
                 }
             }
-            return getKuduClientInternal(config);
-
+            return getKuduClientInternal(config, null);
         } catch (IOException | InterruptedException e) {
             throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+        }
+    }
+
+    public static KuduClientResource getKuduClientResource(CommonConfig config) {
+        AtomicInteger threadCounter = new AtomicInteger();
+        ExecutorService executorService =
+                Executors.newCachedThreadPool(
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "seatunnel-kudu-nio-"
+                                                    + threadCounter.incrementAndGet());
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        boolean initialized = false;
+        try {
+            KuduClient kuduClient;
+            if (config.getEnableKerberos()) {
+                synchronized (UserGroupInformation.class) {
+                    UserGroupInformation ugi = loginAndReturnUgi(config);
+                    kuduClient =
+                            ugi.doAs(
+                                    (PrivilegedExceptionAction<KuduClient>)
+                                            () -> getKuduClientInternal(config, executorService));
+                }
+            } else {
+                kuduClient = getKuduClientInternal(config, executorService);
+            }
+            initialized = true;
+            return new KuduClientResource(kuduClient, executorService);
+        } catch (IOException | InterruptedException e) {
+            throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+        } finally {
+            if (!initialized) {
+                executorService.shutdownNow();
+            }
         }
     }
 
@@ -109,14 +155,39 @@ public class KuduUtil {
         }
     }
 
-    private static KuduClient getKuduClientInternal(CommonConfig config) {
-        return new AsyncKuduClient.AsyncKuduClientBuilder(
-                        Arrays.asList(config.getMasters().split(",")))
-                .workerCount(config.getWorkerCount())
-                .defaultAdminOperationTimeoutMs(config.getAdminOperationTimeout())
-                .defaultOperationTimeoutMs(config.getOperationTimeout())
-                .build()
-                .syncClient();
+    private static KuduClient getKuduClientInternal(
+            CommonConfig config, ExecutorService executorService) {
+        AsyncKuduClient.AsyncKuduClientBuilder builder =
+                new AsyncKuduClient.AsyncKuduClientBuilder(
+                                Arrays.asList(config.getMasters().split(",")))
+                        .workerCount(config.getWorkerCount())
+                        .defaultAdminOperationTimeoutMs(config.getAdminOperationTimeout())
+                        .defaultOperationTimeoutMs(config.getOperationTimeout());
+        if (executorService != null) {
+            builder.nioExecutor(executorService);
+        }
+        return buildOutsideUnusedCallerSubject(builder).syncClient();
+    }
+
+    /**
+     * Builds the client outside the caller's Subject when that Subject has no Kerberos principal.
+     *
+     * <p>Kudu ignores such a Subject, but its SecurityContext still calls {@link
+     * Subject#toString()} on it. That method holds the Subject's principal set lock while it
+     * formats the principals, and on JDK 11 the first UnixPrincipal#toString loads a resource
+     * bundle through SubjectDomainCombiner#combine, which needs the combiner lock. Thread creation
+     * under the same Subject takes these two locks in the opposite order, so the call can deadlock.
+     * Flink runs its JobManager and TaskManager inside such a Subject, and the deadlock froze the
+     * whole JobManager. Kudu makes the same choice without a caller Subject, so behavior is
+     * unchanged.
+     */
+    private static AsyncKuduClient buildOutsideUnusedCallerSubject(
+            AsyncKuduClient.AsyncKuduClientBuilder builder) {
+        Subject subject = Subject.getSubject(AccessController.getContext());
+        if (subject == null || !subject.getPrincipals(KerberosPrincipal.class).isEmpty()) {
+            return builder.build();
+        }
+        return Subject.doAs(null, (PrivilegedAction<AsyncKuduClient>) builder::build);
     }
 
     public static List<KuduScanToken> getKuduScanToken(

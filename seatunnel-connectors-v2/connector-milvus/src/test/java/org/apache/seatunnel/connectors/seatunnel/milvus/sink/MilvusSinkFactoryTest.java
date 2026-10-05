@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -43,6 +45,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MilvusSinkFactoryTest {
@@ -105,6 +108,24 @@ public class MilvusSinkFactoryTest {
         assertTrue(declaredOptions.contains(MilvusSinkOptions.LOAD_COLLECTION));
         assertTrue(declaredOptions.contains(MilvusSinkOptions.CREATE_INDEX));
         assertTrue(declaredOptions.contains(MilvusSinkOptions.RATE_LIMIT));
+        assertTrue(declaredOptions.contains(MilvusSinkOptions.ENABLE_NULLABLE_FIELD));
+    }
+
+    @Test
+    void testNonNegativeBatchSizePassesOptionValidation() {
+        assertDoesNotThrow(() -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), 1)));
+        assertDoesNotThrow(() -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), 0)));
+    }
+
+    @Test
+    void testNegativeBatchSizeFailsOptionValidation() {
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), -1)));
+    }
+
+    private void validate(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(factory.optionRule());
     }
 
     private SeaTunnelSink<?, ?, ?, ?> createSeaTunnelSink(Map<String, Object> options) {

@@ -39,44 +39,27 @@ SeaTunnel's Source API aims to:
 
 ### 2.1 Overall Architecture
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                 Coordinator (master/coordinator side)         │
-│                                                                │
-│   ┌────────────────────────────────────────────────────┐     │
-│   │         SourceSplitEnumerator<SplitT, StateT>      │     │
-│   │                                                      │     │
-│   │  • Discover/generate splits in run() (impl-defined) │     │
-│   │  • Assign splits to readers                         │     │
-│   │  • Handle reader registration                       │     │
-│   │  • Handle split requests                            │     │
-│   │  • Reclaim splits from failed readers               │     │
-│   │  • Snapshot enumerator state                        │     │
-│   │  • Send/receive custom events                       │     │
-│   └────────────────────────────────────────────────────┘     │
-│                            │                                   │
-└────────────────────────────┼───────────────────────────────────┘
-                             │ (Split Assignment)
-                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  TaskExecutionService (Worker Side)           │
-│                                                                │
-│   ┌────────────────────────────────────────────────────┐     │
-│   │             SourceReader<T, SplitT>               │     │
-│   │                                                      │     │
-│   │  • Receive assigned splits                          │     │
-│   │  • Read data from splits                            │     │
-│   │  • Emit records downstream                          │     │
-│   │  • Snapshot reader state (split progress)           │     │
-│   │  • Handle split completion                          │     │
-│   │  • Send/receive custom events                       │     │
-│   └────────────────────────────────────────────────────┘     │
-│                            │                                   │
-└────────────────────────────┼───────────────────────────────────┘
-                             │
-                             ▼
-                       SeaTunnelRow
-                       (to Transform/Sink)
+```mermaid
+flowchart TD
+    subgraph coordinator["Coordinator (master / coordinator side)"]
+        enumerator["SourceSplitEnumerator&lt;SplitT, StateT&gt;<br/>Discover or generate splits<br/>Assign splits to readers<br/>Handle reader registration and split requests<br/>Snapshot enumerator state"]
+    end
+
+    subgraph worker["TaskExecutionService (Worker Side)"]
+        reader["SourceReader&lt;T, SplitT&gt;<br/>Receive assigned splits<br/>Read data from splits<br/>Emit records downstream<br/>Snapshot reader progress"]
+    end
+
+    row["SeaTunnelRow<br/>To Transform / Sink"]
+
+    enumerator -- "Split assignment" --> reader
+    reader --> row
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+
+    class coordinator,worker layerBlue;
+    class enumerator,reader,row layerCyan;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 Core Components

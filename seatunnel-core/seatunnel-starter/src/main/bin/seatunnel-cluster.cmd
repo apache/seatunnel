@@ -47,6 +47,13 @@ for %%I in (%*) do (
 set "JAVA_OPTS=%JvmOption%"
 set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
 
+rem Anchor cluster-side connector discovery to the distribution when no explicit home is provided.
+if not defined SEATUNNEL_HOME (
+    set "SEATUNNEL_HOME=%APP_DIR%"
+)
+
+rem Publish the effective SeaTunnel home for both Java-property and environment-style lookups.
+set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.home=!SEATUNNEL_HOME! -DSEATUNNEL_HOME=!SEATUNNEL_HOME!"
 set "JAVA_OPTS=!JAVA_OPTS! -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
 set "JAVA_OPTS=!JAVA_OPTS! -Dlog4j2.isThreadContextMapInheritable=true"
 set "JAVA_OPTS=!JAVA_OPTS! -DAsyncLogger.ThreadNameStrategy=UNCACHED"

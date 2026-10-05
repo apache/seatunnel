@@ -1,6 +1,6 @@
 # 表重命名
 
-> TableRename 转换插件
+> TableRename：按规则重命名输出表名
 
 ## 描述
 
@@ -10,7 +10,7 @@ TableRename 转换插件用于重命名表名。
 
 |          参数           | 类型   | 必选 | 默认值 | 说明                                                                                                    |
 |:-----------------------:|--------|------|--------|---------------------------------------------------------------------------------------------------------|
-|      convert_case       | string | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
+|      convert_case       | enum   | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
 |         prefix          | string | 否   |        | 追加到表名前的前缀                                                                                      |
 |         suffix          | string | 否   |        | 追加到表名后的后缀                                                                                      |
 | replacements_with_regex | array  | 否   |        | 正则替换规则数组，元素为包含 `replace_from`、`replace_to` 的映射，用于批量替换表名                      |
@@ -20,6 +20,7 @@ TableRename 转换插件用于重命名表名。
 ### 将表名转为大写
 
 ```
+
 env {
     parallelism = 1
     job.mode = "STREAMING"
@@ -130,5 +131,3 @@ sink {
   }
 }
 ```
-
-

@@ -18,7 +18,6 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 
 import org.apache.seatunnel.shade.scala.tools.nsc.Settings;
 import org.apache.seatunnel.shade.scala.tools.nsc.interpreter.IMain;
-import org.apache.seatunnel.shade.scala.tools.nsc.interpreter.shell.ReplReporterImpl;
 
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -38,7 +37,7 @@ public class ScalaClassParser extends AbstractParser {
         try {
             Settings settings = new Settings();
             settings.usejavacp().v_$eq(true);
-            scalaInterpreter = new IMain(settings, new ReplReporterImpl(settings));
+            scalaInterpreter = new IMain(settings);
         } catch (Exception e) {
             throw new TransformException(COMPILE_TRANSFORM_ERROR_CODE, e.getMessage());
         }

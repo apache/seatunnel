@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerPr
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,6 +68,13 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private volatile boolean isRunning = true;
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
+
+    // Track master-side slot request cost without changing allocation behavior.
+    private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationNoSlotCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationFailureCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationLastInvocationLatencyMs = new AtomicLong();
+    private final AtomicLong requestSlotOperationMaxInvocationLatencyMs = new AtomicLong();
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
@@ -203,6 +212,37 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, address));
     }
 
+    void recordRequestSlotOperationSuccess(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationSuccessCount.incrementAndGet();
+    }
+
+    void recordRequestSlotOperationNoSlot(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationNoSlotCount.incrementAndGet();
+    }
+
+    void recordRequestSlotOperationFailure(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationFailureCount.incrementAndGet();
+    }
+
+    private void updateRequestSlotOperationLatency(long elapsedMillis) {
+        requestSlotOperationLastInvocationLatencyMs.set(elapsedMillis);
+        requestSlotOperationMaxInvocationLatencyMs.accumulateAndGet(elapsedMillis, Math::max);
+    }
+
+    /** Returns the latest master-side RequestSlotOperation observability snapshot. */
+    @Override
+    public RequestSlotOperationStats getRequestSlotOperationStats() {
+        return new RequestSlotOperationStats(
+                requestSlotOperationSuccessCount.get(),
+                requestSlotOperationNoSlotCount.get(),
+                requestSlotOperationFailureCount.get(),
+                requestSlotOperationLastInvocationLatencyMs.get(),
+                requestSlotOperationMaxInvocationLatencyMs.get());
+    }
+
     @Override
     public CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles) {
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
@@ -236,14 +276,18 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public boolean slotActiveCheck(SlotProfile profile) {
         boolean active = false;
-        if (registerWorker.containsKey(profile.getWorker())) {
+        WorkerProfile workerProfile = registerWorker.get(profile.getWorker());
+        if (workerProfile != null && workerProfile.getAssignedSlots() != null) {
             active =
-                    Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
+                    Arrays.stream(workerProfile.getAssignedSlots())
+                            .filter(Objects::nonNull)
                             .anyMatch(
                                     s ->
                                             s.getSlotID() == profile.getSlotID()
-                                                    && s.getSequence()
-                                                            .equals(profile.getSequence()));
+                                                    && s.getSequence() != null
+                                                    && s.getSequence().equals(profile.getSequence())
+                                                    && s.getOwnerJobID()
+                                                            == profile.getOwnerJobID());
         }
 
         if (!active) {

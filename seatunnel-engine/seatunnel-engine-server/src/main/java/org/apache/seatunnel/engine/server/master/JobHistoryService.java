@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFe
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
@@ -50,12 +51,16 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -105,6 +110,8 @@ public class JobHistoryService {
 
     private final int finishedJobExpireTime;
 
+    private final Map<String, AtomicLong> finishedJobCleanupTotals = new ConcurrentHashMap<>();
+
     public JobHistoryService(
             NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
@@ -123,7 +130,12 @@ public class JobHistoryService {
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
-        this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
+        this.finishedJobStateImap.addEntryListener(
+                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
+        this.finishedJobMetricsImap.addEntryListener(
+                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
+        this.finishedJobDAGInfoImap.addEntryListener(
+                new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -332,6 +344,39 @@ public class JobHistoryService {
         finishedJobDAGInfoImap.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
+    public Map<String, Long> getFinishedJobRecordCounts() {
+        Map<String, Long> counts = new HashMap<>();
+        counts.put(Constant.IMAP_FINISHED_JOB_STATE, (long) finishedJobStateImap.size());
+        counts.put(Constant.IMAP_FINISHED_JOB_METRICS, (long) finishedJobMetricsImap.size());
+        counts.put(Constant.IMAP_FINISHED_JOB_VERTEX_INFO, (long) finishedJobDAGInfoImap.size());
+        return counts;
+    }
+
+    public Map<String, Long> getFinishedJobCleanupTotals() {
+        Map<String, Long> counts = new HashMap<>();
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_STATE,
+                getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_STATE));
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_METRICS,
+                getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_METRICS));
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_VERTEX_INFO,
+                getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+        return counts;
+    }
+
+    private long getFinishedJobCleanupTotal(String storeName) {
+        AtomicLong total = finishedJobCleanupTotals.get(storeName);
+        return total == null ? 0L : total.get();
+    }
+
+    private void incrementFinishedJobCleanupTotal(String storeName) {
+        finishedJobCleanupTotals
+                .computeIfAbsent(storeName, key -> new AtomicLong())
+                .incrementAndGet();
+    }
+
     @AllArgsConstructor
     @Data
     public static final class JobState implements Serializable {
@@ -354,14 +399,41 @@ public class JobHistoryService {
         private Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }
 
+    private class FinishedJobExpiredListener<T> implements EntryExpiredListener<Long, T> {
+        private final String storeName;
+
+        private FinishedJobExpiredListener(String storeName) {
+            this.storeName = storeName;
+        }
+
+        @Override
+        public void entryExpired(EntryEvent<Long, T> event) {
+            incrementFinishedJobCleanupTotal(storeName);
+        }
+    }
+
     private class JobInfoExpiredListener implements EntryExpiredListener<Long, JobDAGInfo> {
+        private final String storeName;
+
+        private JobInfoExpiredListener(String storeName) {
+            this.storeName = storeName;
+        }
+
         @Override
         public void entryExpired(EntryEvent<Long, JobDAGInfo> event) {
+            incrementFinishedJobCleanupTotal(storeName);
             Long jobId = event.getKey();
             JobDAGInfo jobDagInfo = event.getOldValue();
+            if (jobDagInfo == null) {
+                return;
+            }
             try {
-                Set<ExecutionAddress> historyExecutionPlan = jobDagInfo.getHistoryExecutionPlan();
-                Stream.concat(historyExecutionPlan.stream(), Stream.of(jobDagInfo.getMaster()))
+                Set<ExecutionAddress> historyExecutionPlan =
+                        Optional.ofNullable(jobDagInfo.getHistoryExecutionPlan())
+                                .orElseGet(Collections::emptySet);
+                Stream.concat(
+                                historyExecutionPlan.stream(),
+                                Stream.of(jobDagInfo.getMaster()).filter(Objects::nonNull))
                         .forEach(
                                 address -> {
                                     logger.info(

@@ -37,6 +37,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Slf4j
 public class DefaultDataConverter implements DataConverter<Object[]> {
@@ -100,6 +102,11 @@ public class DefaultDataConverter implements DataConverter<Object[]> {
                     break;
                 case TIMESTAMP:
                     fields[fieldIndex] = convertToTimestamp(value, dataType);
+                    break;
+                case TIMESTAMP_TZ:
+                    // TiDB TIMESTAMP is stored as UTC (LTZ).
+                    // Convert to OffsetDateTime with UTC offset to preserve timezone semantics.
+                    fields[fieldIndex] = convertToOffsetDateTime(value, dataType);
                     break;
                 case BYTES:
                     fields[fieldIndex] = convertToBinary(value);
@@ -257,6 +264,45 @@ public class DefaultDataConverter implements DataConverter<Object[]> {
             return LocalTime.ofNanoOfDay((Long) value);
         }
         return TemporalConversions.toLocalTime(value);
+    }
+
+    private static Object convertToOffsetDateTime(
+            Object value, org.tikv.common.types.DataType dataType) {
+        if (value instanceof Timestamp) {
+            // TiDB TIMESTAMP is stored in UTC; convert to OffsetDateTime with UTC zone.
+            Instant instant = ((Timestamp) value).toInstant();
+            return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
+        }
+        if (value instanceof Long) {
+            // TiDB may emit TIMESTAMP as epoch milliseconds in some snapshot modes.
+            return OffsetDateTime.ofInstant(Instant.ofEpochMilli((Long) value), ZoneOffset.UTC);
+        }
+        if (value instanceof LocalDateTime) {
+            // LocalDateTime without explicit zone — treat as UTC wall-clock value.
+            return ((LocalDateTime) value).atOffset(ZoneOffset.UTC);
+        }
+        if (value instanceof String) {
+            // String representation from TiDB CDC — attempt ISO-8601 parse.
+            try {
+                return OffsetDateTime.parse((String) value);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException(
+                        "Unable to convert TIMESTAMP_TZ from String value: '"
+                                + value
+                                + "' for TiDB dataType: "
+                                + dataType,
+                        e);
+            }
+        }
+        // Unknown type — fail fast with enough context for diagnosis instead of silently
+        // returning the raw value which would cause a ClassCastException downstream.
+        throw new IllegalArgumentException(
+                "Unsupported value type for TIMESTAMP_TZ conversion: "
+                        + value.getClass().getName()
+                        + ", value='"
+                        + value
+                        + "', TiDB dataType="
+                        + dataType);
     }
 
     private static Object convertToTimestamp(

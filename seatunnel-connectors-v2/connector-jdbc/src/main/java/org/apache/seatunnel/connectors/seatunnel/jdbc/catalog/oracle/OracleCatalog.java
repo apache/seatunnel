@@ -43,6 +43,9 @@ import java.util.List;
 @Slf4j
 public class OracleCatalog extends AbstractJdbcCatalog {
 
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+    public static final String TABLE_OPTION_PCTFREE = "pctfree";
+
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
                     + "    cols.COLUMN_NAME,\n"

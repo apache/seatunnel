@@ -1,12 +1,18 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq source connector
+> RabbitMQ source connector
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Description
 
-Used to read data from Rabbitmq.
+Used to read data from RabbitMQ queues.
 
 ## Key features
 
@@ -16,6 +22,7 @@ Used to read data from Rabbitmq.
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -29,28 +36,35 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | -------------------------- | ------- | -------- | ------------- |
 | host                       | string  | yes      | -             |
 | port                       | int     | yes      | -             |
-| virtual_host               | string  | yes      | -             |
-| username                   | string  | yes      | -             |
-| password                   | string  | yes      | -             |
+| virtual_host               | string  | no       | -             |
+| username                   | string  | no       | -             |
+| password                   | string  | no       | -             |
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
 | tables_configs             | array   | no       | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
 | topology_recovery_enabled  | boolean | no       | -             |
-| automatic_recovery_enabled | boolean | no       | -             |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
 | connection_timeout         | int     | no       | -             |
 | requested_channel_max      | int     | no       | -             |
 | requested_frame_max        | int     | no       | -             |
 | requested_heartbeat        | int     | no       | -             |
 | prefetch_count             | int     | no       | -             |
-| delivery_timeout           | long    | no       | -             |
+| delivery_timeout           | int     | no       | -             |
+| use_correlation_id         | boolean | no       | -             |
 | common-options             |         | no       | -             |
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -72,9 +86,21 @@ the AMQP user name to use when connecting to the broker
 
 the password to use when connecting to the broker
 
+`username` and `password` should be configured together.
+
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
 
 ### queue_name [string]
 
@@ -82,11 +108,11 @@ the queue to consume messages from. *Note: Required if `tables_configs` is not c
 
 ### routing_key [string]
 
-the routing key to publish the message to
+Optional RabbitMQ routing key inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
 
 ### exchange [string]
 
-the exchange to publish the message to
+Optional RabbitMQ exchange inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
 
 ### schema [Config]
 
@@ -96,7 +122,19 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### tables_configs [array]
 
-Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema.
+Used to read from multiple queues simultaneously. Each object in the array must contain `queue_name` and `schema`.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to deserialize the RabbitMQ message payload.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to deserialize.
 
 ### network_recovery_interval [int]
 
@@ -106,9 +144,11 @@ how long will automatic recovery wait before attempting to reconnect, in ms
 
 if true, enables topology recovery
 
-### automatic_recovery_enabled [boolean]
+### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-if true, enables connection recovery
+If true, enables connection recovery.
+
+The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
@@ -132,9 +172,13 @@ Set the requested heartbeat timeout
 
 prefetchCount the max number of messages to receive without acknowledgement
 
-### delivery_timeout [long]
+### delivery_timeout [int]
 
 deliveryTimeout maximum wait time, in milliseconds, for the next message delivery
+
+### use_correlation_id [boolean]
+
+Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail.
 
 ### common options
 
@@ -150,25 +194,41 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue is used only by the current connection and will be deleted when the connection closes.
 - false: The queue can be used by multiple connections.
 
-### auto-delete
+### auto_delete
 
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
+
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for consumer accounts without queue-declaration permission.
 
 ## Migration Guide & Configuration Rules
 
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
 
 **Configuration Priority:**
-- You cannot configure both `tables_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
+- You cannot configure both `tables_configs` and the root-level `queue_name` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
 - Use `tables_configs` for multi-table mode.
-- Use root-level `queue_name` and `schema` for single-table mode.
+- Use root-level `queue_name` and `schema` for single-queue mode.
+- In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
+- If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
+- `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
 ## Example
 
 ### Single-table Read Example
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
 source {
     RabbitMQ {
         host = "rabbitmq-e2e"
@@ -177,25 +237,41 @@ source {
         username = "guest"
         password = "guest"
         queue_name = "test"
+        durable = true
+        exclusive = false
+        auto_delete = false
         schema = {
             fields {
                 id = bigint
                 c_map = "map<string, smallint>"
                 c_array = "array<tinyint>"
+                c_string = string
+                c_boolean = boolean
             }
         }
     }
 }
+
+sink {
+    Console {}
+}
 ```
+
 ### Multi-table Read Example
 
 You can use the `tables_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `plugin_input`.
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
 source {
   RabbitMQ {
-    host = "localhost"
+    host = "rabbitmq-e2e"
     port = 5672
+    virtual_host = "/"
     username = "guest"
     password = "guest"
 
@@ -226,23 +302,59 @@ source {
 }
 
 sink {
-  # The first sink will ONLY receive data from the users_queue
-  Jdbc {
+  # The first sink will only receive data from users_table
+  Console {
     plugin_input = "users_table"
-    driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://localhost:3306/mydb"
-    query = "insert into users (user_id, name) values (?, ?)"
   }
 
-  # The second sink will ONLY receive data from the orders_queue
-  Jdbc {
+  # The second sink will only receive data from orders_table
+  Console {
     plugin_input = "orders_table"
-    driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://localhost:3306/mydb"
-    query = "insert into orders (order_id, amount) values (?, ?)"
   }
 }
 ```
+
+### Protobuf Read Example
+
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        queue_name = "protobuf_queue"
+        format = protobuf
+        protobuf_message_name = Person
+        protobuf_schema = """
+            syntax = "proto3";
+            message Person {
+              int64 id = 1;
+              string name = 2;
+            }
+        """
+        schema = {
+            fields {
+                id = bigint
+                name = string
+            }
+        }
+    }
+}
+```
+
+## FAQ
+
+### Why must parallelism be set to 1 to achieve exactly-once?
+
+RabbitMQ dispatches messages among multiple active consumers on the same queue in a round-robin manner. When multiple parallel readers consume from the same queue, message ordering and deterministic offset/acknowledgement coordination across distributed workers cannot be guaranteed. Therefore, setting parallelism to 1 is required for deterministic exactly-once delivery.
+
+### What message formats are supported by RabbitMQ source?
+
+RabbitMQ source supports JSON by default and Protobuf when `format` is set to `protobuf`. The connector deserializes each RabbitMQ message payload into one SeaTunnel row according to the configured `schema`.
+
+### How does the source handle unacknowledged messages when a failure occurs?
+
+When a SeaTunnel task fails or crashes, the RabbitMQ connection drops, and RabbitMQ automatically requeues any unacknowledged messages. Upon job restoration from a checkpoint, the reader resumes processing without message loss.
+
 ## Changelog
 
 <ChangeLog />

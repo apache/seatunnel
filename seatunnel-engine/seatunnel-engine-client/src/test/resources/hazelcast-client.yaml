@@ -20,6 +20,6 @@ hazelcast-client:
 
   network:
     cluster-members:
-      - localhost:5801
-      - localhost:5802
-      - localhost:5803
+      - 127.0.0.1:5801
+      - 127.0.0.1:5802
+      - 127.0.0.1:5803

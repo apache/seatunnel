@@ -78,6 +78,29 @@ public class HttpConfig implements Serializable {
     private String basicAuthPassword =
             ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
 
+    /** The maximum size in MB of a single uploaded file. A value <= 0 means unlimited. */
+    private int uploadMaxFileSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB.defaultValue();
+
+    /** The maximum total size in MB of a multipart request. A value <= 0 means unlimited. */
+    private int uploadMaxRequestSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB.defaultValue();
+
+    /** The maximum size in MB of a log file returned by the log endpoints. */
+    private int logResponseMaxSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB.defaultValue();
+
+    /**
+     * Returns {@link #logResponseMaxSizeMb} as a byte count, or -1 when the log endpoints are
+     * configured to return content of unlimited size.
+     *
+     * <p>Both the v1 and the v2 log endpoint read their cap from here, so the two cannot end up
+     * disagreeing about what the option means.
+     */
+    public long getLogResponseMaxSizeBytes() {
+        return logResponseMaxSizeMb <= 0 ? -1L : logResponseMaxSizeMb * 1024L * 1024L;
+    }
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;

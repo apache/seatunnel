@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
 import io.debezium.config.Configuration;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Map;
 import java.util.Properties;
@@ -43,6 +44,12 @@ public abstract class BaseSourceConfig implements SourceConfig {
     @Getter protected final int inverseSamplingRate;
     @Getter protected final boolean sampleShardingAllow;
     @Getter protected final boolean exactlyOnce;
+
+    /**
+     * When false, the connector skips split analysis and reads the whole table as a single split.
+     * This avoids expensive MIN/MAX scans on tables without proper indexes.
+     */
+    @Getter @Setter private boolean enableConcurrentRead = true;
 
     // --------------------------------------------------------------------------------------------
     // Debezium Configurations

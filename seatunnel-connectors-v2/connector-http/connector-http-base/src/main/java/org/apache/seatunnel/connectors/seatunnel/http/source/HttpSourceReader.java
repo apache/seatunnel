@@ -405,6 +405,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         synchronized (output.getCheckpointLock()) {
             internalPollNext(output);
         }
+        // Wait out the poll interval only after the checkpoint lock is
+        // released. Sleeping while holding it kept the checkpoint barrier
+        // out for the whole interval, so a streaming job's checkpoint expired.
+        boolean finished =
+                Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreElementFlag;
+        if (!finished && httpParameter.getPollIntervalMillis() > 0) {
+            Thread.sleep(httpParameter.getPollIntervalMillis());
+        }
     }
 
     @Override
@@ -441,10 +449,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
-            } else {
-                if (httpParameter.getPollIntervalMillis() > 0) {
-                    Thread.sleep(httpParameter.getPollIntervalMillis());
-                }
             }
         }
     }
@@ -464,6 +468,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
             // cursor pagination
             if (HttpPaginationType.CURSOR.getCode().equals(pageInfo.getPageType())) {
+                String currentCursor = pageInfo.getCursor();
                 // get cursor value from response JSON with fileName
                 String cursorResponseField = pageInfo.getPageCursorResponseField();
                 ReadContext context = JsonPath.using(jsonConfiguration).parse(data);
@@ -473,8 +478,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     newCursor = cursorList.get(0);
                 }
                 pageInfo.setCursor(newCursor);
-                // if not present cursor, then no more data
-                noMoreElementFlag = Strings.isNullOrEmpty(newCursor);
+                // If the response cursor is empty or unchanged, the next request cannot make
+                // progress.
+                noMoreElementFlag =
+                        Strings.isNullOrEmpty(newCursor)
+                                || Objects.equals(currentCursor, newCursor);
             } else {
                 // if not set page pagination is default
                 // Determine whether the task is completed by specifying the presence of the 'total

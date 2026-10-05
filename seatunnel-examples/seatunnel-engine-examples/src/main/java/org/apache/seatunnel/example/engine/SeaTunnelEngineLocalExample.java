@@ -27,7 +27,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 
-/** Local example that shows how to enable stain trace reporting for an engine job submission. */
 public class SeaTunnelEngineLocalExample {
 
     static {
@@ -37,17 +36,8 @@ public class SeaTunnelEngineLocalExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath =
-                args.length > 0 ? args[0] : "/examples/stain_trace_fake_sql_union_to_console.conf";
+        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
         String configFile = getTestConfigFile(configurePath);
-
-        // Load the stain-trace engine config (enables stain-trace-enabled + file output path).
-        // Only applied when the user has not explicitly overridden it via -Dseatunnel.config.
-        if (System.getProperty("seatunnel.config") == null) {
-            String engineConfigFile = getTestConfigFile("/examples/stain_trace_seatunnel.yaml");
-            System.setProperty("seatunnel.config", engineConfigFile);
-        }
-
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);

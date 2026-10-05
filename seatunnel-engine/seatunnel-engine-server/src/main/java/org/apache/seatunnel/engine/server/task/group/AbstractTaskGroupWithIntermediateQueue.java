@@ -32,5 +32,5 @@ public abstract class AbstractTaskGroupWithIntermediateQueue extends TaskGroupDe
     }
 
     public abstract AbstractIntermediateQueue<?> getQueueCache(
-            long id, MetricsContext metricsContext);
+            long id, int capacity, MetricsContext metricsContext);
 }

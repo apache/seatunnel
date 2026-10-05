@@ -62,6 +62,8 @@ public class PulsarBaseOptions extends ConnectorCommonOptions {
 
     public static final String TEXT_FORMAT = "text";
 
+    public static final String AVRO_FORMAT = "avro";
+
     /** The default field delimiter is “,” */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
@@ -70,8 +72,8 @@ public class PulsarBaseOptions extends ConnectorCommonOptions {
                     .stringType()
                     .defaultValue(DEFAULT_FORMAT)
                     .withDescription(
-                            "Data format. The default format is json. Optional text format. "
-                                    + "For multi-table mode, only JSON and CANAL_JSON are supported. "
+                            "Data format. The default format is json. Optional text and avro format. "
+                                    + "For multi-table mode, only JSON, CANAL_JSON and AVRO are supported. "
                                     + "The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");
 

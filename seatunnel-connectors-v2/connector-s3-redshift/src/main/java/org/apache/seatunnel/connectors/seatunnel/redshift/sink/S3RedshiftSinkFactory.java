@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -41,17 +42,25 @@ public class S3RedshiftSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(S3FileBaseOptions.S3_BUCKET)
                 .required(
-                        S3FileBaseOptions.S3_BUCKET,
                         S3RedshiftSinkOptions.JDBC_URL,
+                        Conditions.notBlank(S3RedshiftSinkOptions.JDBC_URL))
+                .required(
                         S3RedshiftSinkOptions.JDBC_USER,
+                        Conditions.notBlank(S3RedshiftSinkOptions.JDBC_USER))
+                .required(
                         S3RedshiftSinkOptions.JDBC_PASSWORD,
+                        Conditions.notBlank(S3RedshiftSinkOptions.JDBC_PASSWORD))
+                .required(
                         S3RedshiftSinkOptions.EXECUTE_SQL,
+                        Conditions.notBlank(S3RedshiftSinkOptions.EXECUTE_SQL))
+                .required(
                         FileBaseSourceOptions.FILE_PATH,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS)
                 .conditional(
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3FileBaseOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
                         S3FileBaseOptions.S3_ACCESS_KEY,
                         S3FileBaseOptions.S3_SECRET_KEY)
                 .optional(S3FileBaseOptions.S3_PROPERTIES)

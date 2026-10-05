@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -53,9 +54,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public class DorisIT extends AbstractDorisIT {
@@ -160,24 +164,39 @@ public class DorisIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
-        Container.ExecResult execResult =
-                container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
-        clearUniqueTable();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
+            Assertions.assertEquals(0, execResult.getExitCode());
+            // Doris publishes stream-load data asynchronously, so the loaded rows can still be
+            // invisible the instant executeJob() returns. Poll until the count converges instead
+            // of reading it once, which otherwise observes a transient under-count (e.g. only the
+            // custom_sql seed row). The expected value is unchanged: exactly 101 (100 FakeSource
+            // rows plus the single custom_sql INSERT into the unique-key table).
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    // tableCount() rethrows JDBC failures as RuntimeException, which untilAsserted
+                    // does not retry by default (only AssertionError). Polling issues many count
+                    // queries while Doris is under load, so ignore transient query failures and
+                    // keep polling until the count itself converges or the timeout elapses.
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE)));
+        } finally {
+            // Always reset the shared table, even if the assertion above fails. This test is a
+            // @TestTemplate that reruns against one long-lived Doris container for every engine
+            // variant; leaving rows behind on failure poisons later variants with stale data
+            // (they then observe ~201 rows), which is why the tail variants failed across many
+            // unrelated PRs.
+            clearUniqueTable();
+        }
     }
 
     @TestTemplate
@@ -419,13 +438,18 @@ public class DorisIT extends AbstractDorisIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                            new URL[] {mysqlDriverJarPath().toUri().toURL()},
+                            DorisIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
             Properties props = new Properties();
             props.put("user", USERNAME);
             props.put("password", PASSWORD);
-            conn = driver.connect(String.format(URL, container.getHost()), props);
+            conn =
+                    driver.connect(
+                            String.format(
+                                    URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                            props);
             try (Statement statement = conn.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(sourceDB));

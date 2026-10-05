@@ -18,38 +18,96 @@
 package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.FunctionWithException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
-import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
 import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /** Blocking-queue implementation that records queue-stage stain trace entries on buffered rows. */
+@Slf4j
 public class IntermediateBlockingQueue extends AbstractIntermediateQueue<BlockingQueue<Record<?>>> {
 
+    private final Counter totalIntermediateQueueSize;
     private final Counter intermediateQueueSize;
-    private volatile Counter stainTraceEntriesTruncatedTotal;
-    private volatile int stainTraceMaxEntriesPerTrace = -1;
+    private final Counter putBlockedNs;
+    private final Counter flushSignalQueueSuccessTotal;
+    private final Counter flushSignalQueueFailureTotal;
+    private final QueueSizeTracker queueSizeTracker;
 
     public IntermediateBlockingQueue(
-            BlockingQueue<Record<?>> queue, Counter intermediateQueueSize) {
+            BlockingQueue<Record<?>> queue,
+            Counter totalIntermediateQueueSize,
+            Counter intermediateQueueSize,
+            Counter putBlockedNs,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
+        this(
+                queue,
+                totalIntermediateQueueSize,
+                intermediateQueueSize,
+                putBlockedNs,
+                flushSignalQueueSuccessTotal,
+                flushSignalQueueFailureTotal,
+                new QueueSizeTracker());
+    }
+
+    public IntermediateBlockingQueue(
+            BlockingQueue<Record<?>> queue,
+            Counter totalIntermediateQueueSize,
+            Counter intermediateQueueSize,
+            Counter putBlockedNs,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal,
+            QueueSizeTracker queueSizeTracker) {
         super(queue);
+        this.totalIntermediateQueueSize = totalIntermediateQueueSize;
         this.intermediateQueueSize = intermediateQueueSize;
+        this.putBlockedNs = putBlockedNs;
+        this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+        this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
+        this.queueSizeTracker = queueSizeTracker;
     }
 
     @Override
     public void received(Record<?> record) {
+        boolean result;
         try {
-            handleRecord(record, getIntermediateQueue()::put, StainTraceStage.QUEUE_IN);
-            intermediateQueueSize.inc();
+            boolean metricsEnabled =
+                    getRunningTask() != null && getRunningTask().isObservabilityEnabled();
+            if (record.getData() instanceof Signal) {
+                result = handleSignalRecord(record, getIntermediateQueue()::offer);
+            } else {
+                result =
+                        handleRecord(
+                                record,
+                                r -> {
+                                    if (!metricsEnabled) {
+                                        getIntermediateQueue().put(r);
+                                        return;
+                                    }
+                                    if (!getIntermediateQueue().offer(r)) {
+                                        long blockedStartNs = System.nanoTime();
+                                        getIntermediateQueue().put(r);
+                                        putBlockedNs.inc(System.nanoTime() - blockedStartNs);
+                                    }
+                                },
+                                StainTraceStage.QUEUE_IN);
+            }
+            if (result) {
+                recordEnqueued(metricsEnabled);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -57,14 +115,15 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
+        boolean metricsEnabled =
+                getRunningTask() != null && getRunningTask().isObservabilityEnabled();
         while (true) {
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
-            if (record != null) {
-                handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
-                intermediateQueueSize.dec();
-            } else {
+            if (record == null) {
                 break;
             }
+            recordDequeued(metricsEnabled);
+            handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
         }
     }
 
@@ -73,12 +132,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         getIntermediateQueue().clear();
     }
 
-    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer)
-            throws Exception {
-        handleRecord(record, consumer, null);
-    }
-
-    private void handleRecord(
+    private boolean handleRecord(
             Record<?> record, ConsumerWithException<Record<?>> consumer, StainTraceStage stage)
             throws Exception {
         if (record.getData() instanceof Barrier) {
@@ -88,9 +142,14 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                 getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
             }
             consumer.accept(record);
+        } else if (record.getData() instanceof Signal) {
+            if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+                return false;
+            }
+            consumer.accept(record);
         } else {
             if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
-                return;
+                return false;
             }
             if (stage != null && record.getData() instanceof SeaTunnelRow) {
                 SeaTunnelRow row = (SeaTunnelRow) record.getData();
@@ -100,42 +159,67 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                             stage,
                             getRunningTask().getTaskID(),
                             System.currentTimeMillis(),
-                            getStainTraceMaxEntriesPerTrace(),
-                            getStainTraceEntriesTruncatedTotal());
+                            getIntermediateQueueFlowLifeCycle().getStainTraceMaxEntriesPerTrace(),
+                            getIntermediateQueueFlowLifeCycle()
+                                    .getStainTraceEntriesTruncatedTotal());
                 }
             }
             consumer.accept(record);
         }
+
+        return true;
     }
 
-    private Counter getStainTraceEntriesTruncatedTotal() {
-        if (stainTraceEntriesTruncatedTotal == null) {
-            synchronized (this) {
-                if (stainTraceEntriesTruncatedTotal == null) {
-                    stainTraceEntriesTruncatedTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
-                }
-            }
+    private boolean handleSignalRecord(
+            Record<?> record, FunctionWithException<Record<?>, Boolean, Exception> function)
+            throws Exception {
+        if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+            return false;
         }
-        return stainTraceEntriesTruncatedTotal;
+        boolean offered = function.apply(record);
+        if (offered) {
+            flushSignalQueueSuccessTotal.inc();
+        } else {
+            flushSignalQueueFailureTotal.inc();
+        }
+        return offered;
     }
 
-    private int getStainTraceMaxEntriesPerTrace() {
-        if (stainTraceMaxEntriesPerTrace < 0) {
-            synchronized (this) {
-                if (stainTraceMaxEntriesPerTrace < 0) {
-                    stainTraceMaxEntriesPerTrace =
-                            getRunningTask()
-                                    .getExecutionContext()
-                                    .getTaskExecutionService()
-                                    .getSeaTunnelConfig()
-                                    .getEngineConfig()
-                                    .getStainTraceMaxEntriesPerTrace();
-                }
+    private void recordEnqueued(boolean metricsEnabled) {
+        synchronized (queueSizeTracker) {
+            if (queueSizeTracker.pendingDequeues > 0) {
+                queueSizeTracker.pendingDequeues--;
+            } else {
+                queueSizeTracker.accountedQueueSize++;
+                totalIntermediateQueueSize.inc();
             }
         }
-        return stainTraceMaxEntriesPerTrace;
+        if (metricsEnabled) {
+            intermediateQueueSize.set(getIntermediateQueue().size());
+        }
+    }
+
+    private void recordDequeued(boolean metricsEnabled) {
+        synchronized (queueSizeTracker) {
+            if (queueSizeTracker.accountedQueueSize > 0) {
+                queueSizeTracker.accountedQueueSize--;
+                totalIntermediateQueueSize.dec();
+            } else {
+                queueSizeTracker.pendingDequeues++;
+            }
+        }
+        if (metricsEnabled) {
+            intermediateQueueSize.set(getIntermediateQueue().size());
+        }
+    }
+
+    /**
+     * Metric state shared by all wrappers for one queue. A consumer can report a dequeue before the
+     * producer returns from {@code put}; pending dequeues pair those reordered notifications
+     * without decrementing the total counter below zero.
+     */
+    public static final class QueueSizeTracker {
+        private long accountedQueueSize;
+        private long pendingDequeues;
     }
 }

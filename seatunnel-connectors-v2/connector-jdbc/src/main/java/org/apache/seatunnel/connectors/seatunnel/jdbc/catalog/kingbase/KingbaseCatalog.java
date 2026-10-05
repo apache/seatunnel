@@ -48,6 +48,12 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_
 @Slf4j
 public class KingbaseCatalog extends AbstractJdbcCatalog {
 
+    /** Sink {@code table_options} key for Kingbase table tablespace. */
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+
+    /** Sink {@code table_options} key for Kingbase fillfactor ({@code WITH (fillfactor=...)}). */
+    public static final String TABLE_OPTION_FILLFACTOR = "fillfactor";
+
     protected static List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(
                     Arrays.asList(

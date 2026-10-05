@@ -20,10 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 
+import com.google.auto.service.AutoService;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
+@AutoService(Converter.class)
 public class TimeStampNanoConverter implements Converter<TimeStampNanoVector> {
     @Override
     public Object convert(int rowIndex, TimeStampNanoVector fieldVector) {

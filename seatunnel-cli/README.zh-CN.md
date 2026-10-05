@@ -7,9 +7,10 @@
 ## 功能特性
 
 - **自然语言转配置** -- 用中文或英文描述需求，即可获得有效的 SeaTunnel 配置
-- **多 LLM 提供商** -- 支持 AWS Bedrock、Anthropic API、OpenAI（及兼容 API，如 Azure OpenAI）
+- **多 LLM 提供商** -- 支持 AWS Bedrock、Anthropic API、OpenAI（及兼容 API，如 Azure OpenAI）、OrcaRouter AI 网关
 - **多智能体流水线** -- 规划器 -> 生成器 -> 校验器 -> 自动修复，最多 3 轮纠错
 - **100+ 连接器** -- 全面覆盖 SeaTunnel 连接器生态，支持运行时元数据反射
+- **Transform 元数据** -- Source、Sink 和 Transform 插件在生成配置时都支持完整选项规则和值约束
 - **技能框架** -- 三层生成：技能 SOP -> 黄金示例 -> 连接器元数据
 - **自动保存** -- 生成的配置自动保存到 `.data/last_job.conf`（与 CLI 同目录）
 - **自动修复** -- `/check` 和 `/run` 失败时自动触发 LLM 诊断和配置修复
@@ -135,6 +136,28 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 # export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
+#### 方案 D：OrcaRouter AI 网关
+
+```bash
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+
+# 模型覆盖（可选）——OrcaRouter 模型 ID 使用 provider/model 命名空间，
+# 例如 openai/gpt-5.5-pro、deepseek/deepseek-v4-pro、anthropic/claude-fable-5。
+# 特殊模型 `orcarouter/auto` 会自动评级并路由每个请求。
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
+```
+
+需要：`pip install -e ".[openai]"`（`openai` 包）。
+
+[OrcaRouter](https://www.orcarouter.ai) 是一个 OpenAI 兼容的 AI 网关，在单个端点
+（`https://api.orcarouter.ai/v1`）之后暴露众多模型——Claude、GPT、Gemini、
+DeepSeek、Qwen 等。模型 ID 使用 `provider/model` 命名空间，`orcarouter/auto`
+模型会自动为每个请求选择最佳模型。OrcaRouter 提供商使用 OpenAI Chat Completions
+协议，因此与 `openai` 提供商一样支持 reasoning_content 回放、流式输出和工具调用。
+
 ### SEATUNNEL_HOME
 
 `SEATUNNEL_HOME` 是 Apache SeaTunnel 引擎的安装路径。CLI 使用它来：
@@ -177,16 +200,20 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 
 | 变量 | 是否必需 | 默认值 | 说明 |
 |------|---------|--------|------|
-| `AI_PROVIDER` | 否 | `bedrock` | LLM 提供商：`bedrock`、`anthropic` 或 `openai` |
+| `AI_PROVIDER` | 否 | `bedrock` | LLM 提供商：`bedrock`、`bedrock-mantle`、`anthropic`、`openai` 或 `orcarouter` |
 | `AWS_REGION` | Bedrock 必需 | `us-east-1` | Bedrock 使用的 AWS 区域 |
 | `ANTHROPIC_API_KEY` | Anthropic 必需 | -- | Anthropic API 密钥 |
 | `OPENAI_API_KEY` | OpenAI 必需 | -- | OpenAI API 密钥 |
 | `OPENAI_BASE_URL` | 否 | -- | OpenAI 兼容 API 的自定义端点 |
 | `OPENAI_ECHO_REASONING_CONTENT` | 否 | `true` | 为 DeepSeek、GLM 思考模式等 OpenAI 兼容推理模型保留并回传 `reasoning_content` |
+| `ORCAROUTER_API_KEY` | OrcaRouter 必需 | -- | OrcaRouter API 密钥 |
 | `ANTHROPIC_MODEL` | 否 | 提供商默认值 | 覆盖主模型 ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | 否 | 提供商默认值 | 覆盖快速模型 ID |
 | `OPENAI_MODEL` | 否 | `gpt-4o` | OpenAI 提供商的主模型 |
 | `OPENAI_SMALL_FAST_MODEL` | 否 | `gpt-4o-mini` | OpenAI 提供商的快速模型 |
+| `ORCAROUTER_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的主模型（provider/model 命名空间） |
+| `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
 | `SEATUNNEL_API_BASE` | 否 | `http://localhost:5801` | SeaTunnel REST API 端点 |
 | `SEATUNNEL_CLI_DATA` | 否 | `<cli-package>/.data/` | 覆盖 CLI 数据目录（会话、记忆、配置） |
@@ -226,7 +253,7 @@ seatunnel [request] [options]
 
 选项：
   -o, --output PATH        将生成的配置保存到文件
-  --provider PROVIDER      LLM 提供商：bedrock | anthropic | openai
+  --provider PROVIDER      LLM 提供商：bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            覆盖主模型 ID
   --fast-model MODEL       覆盖快速模型 ID
   --sync-catalog PATH      从 SeaTunnel 源码重新生成连接器目录
@@ -241,7 +268,7 @@ seatunnel [request] [options]
 | `/save <path>` | 将配置保存到自定义路径（生成时自动保存到 `.data/last_job.conf`） |
 | `/check` | 试运行校验最近的配置；失败时自动诊断并修复 |
 | `/run` | 通过 REST API 或 `seatunnel.sh` 执行最近的配置；失败时自动诊断 |
-| `/connectors` | 列出所有可用的 Source、Sink 和 Transform |
+| `/connectors` | 列出所有可用的 Source、Sink 和 Transform；生成配置时支持 Transform 选项规则和值约束 |
 | `/sessions` | 列出最近的对话会话 |
 | `/resume [id]` | 恢复之前的会话 |
 | `/new` | 开始新会话 |
@@ -371,7 +398,9 @@ seatunnel [request] [options]
 两级解析，智能回退：
 
 1. **运行时 API** -- 从运行中的 SeaTunnel 引擎获取实时元数据（`/option-rules` 端点）。始终准确，零维护成本。
-2. **内置元数据** -- `connector_metadata.json` 随 CLI 包分发。包含 150 个连接器的完整选项规则，通过 SeaTunnel 引擎反射导出。零 LLM Token 消耗。
+2. **内置元数据** -- `connector_metadata.json` 随 CLI 包分发。Source、Sink 和 Transform 插件都包含通过 SeaTunnel 引擎反射导出的完整选项规则和值约束。零 LLM Token 消耗。
+
+Transform 元数据与 Source、Sink 元数据走同一条解析路径，因此提示词可以包含 Transform 专属必填项和值约束，例如 SQL 查询不能为空。
 
 ### 记忆系统
 
@@ -394,7 +423,7 @@ CLI 跨会话记忆信息，以提高配置准确性：
 
 ## 连接器元数据
 
-CLI 内置 `connector_metadata.json`（150 个连接器），通过运行时反射从 SeaTunnel 引擎导出，无需额外步骤。
+CLI 内置 `connector_metadata.json`，通过运行时反射从 SeaTunnel 引擎导出。它包含 Source、Sink 和 Transform 插件的选项规则、条件选项和值约束，无需额外步骤。
 
 如需为不同 SeaTunnel 版本重新导出（需要运行中的引擎）：
 

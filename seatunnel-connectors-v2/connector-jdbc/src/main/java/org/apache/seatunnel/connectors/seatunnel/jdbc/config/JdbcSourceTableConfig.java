@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class JdbcSourceTableConfig implements Serializable {
+    private static final long serialVersionUID = 2L;
+
     private static final int DEFAULT_PARTITION_NUMBER = 10;
 
     @JsonProperty("table_path")
@@ -72,11 +74,6 @@ public class JdbcSourceTableConfig implements Serializable {
     public static List<JdbcSourceTableConfig> of(ReadonlyConfig connectorConfig) {
         List<JdbcSourceTableConfig> tableList;
         if (connectorConfig.getOptional(JdbcSourceOptions.TABLE_LIST).isPresent()) {
-            if (connectorConfig.getOptional(JdbcSourceOptions.QUERY).isPresent()
-                    || connectorConfig.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()) {
-                throw new IllegalArgumentException(
-                        "Please configure either `table_list` or `table_path`/`query`, not both");
-            }
             tableList = connectorConfig.get(JdbcSourceOptions.TABLE_LIST);
         } else {
             JdbcSourceTableConfig tableProperty =

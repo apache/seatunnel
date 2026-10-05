@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -33,10 +34,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.opengauss.OpenGaus
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -49,10 +50,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcOpenGaussIT extends AbstractJdbcIT {
@@ -69,6 +72,13 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "gs_e2e_source_table";
     private static final String SINK_TABLE = "gs_e2e_sink_table";
     private static final String CATALOG_TABLE = "e2e_table_catalog";
+
+    /**
+     * OpenGauss table used to verify that catalog discovery never exposes dropped-column metadata
+     * placeholders as physical fields.
+     */
+    private static final String DROPPED_COLUMN_TABLE = "gs_catalog_dropped_column_test";
+
     private static final Integer GEN_ROWS = 100;
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_opengauss_source_and_sink.conf");
@@ -121,15 +131,9 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName(DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Test
     @Override
@@ -152,6 +156,39 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
 
         catalog.dropTable(targetTablePath, false);
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
+    }
+
+    /**
+     * Verifies catalog discovery excludes OpenGauss metadata placeholders while preserving the
+     * physical order of all remaining columns.
+     */
+    @Test
+    public void testCatalogExcludesDroppedColumns() {
+        OpenGaussCatalog openGaussCatalog = (OpenGaussCatalog) catalog;
+        TablePath tablePath = TablePath.of(DATABASE, SCHEMA, DROPPED_COLUMN_TABLE);
+        openGaussCatalog.dropTable(tablePath, true);
+        try {
+            openGaussCatalog.executeSql(
+                    tablePath,
+                    "CREATE TABLE "
+                            + SCHEMA
+                            + "."
+                            + DROPPED_COLUMN_TABLE
+                            + " (c1 INT, c2 VARCHAR(50), c3 INT, c4 TEXT)");
+            openGaussCatalog.executeSql(
+                    tablePath,
+                    "ALTER TABLE " + SCHEMA + "." + DROPPED_COLUMN_TABLE + " DROP COLUMN c2");
+
+            CatalogTable table = openGaussCatalog.getTable(tablePath);
+            List<String> actualColumns =
+                    table.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toList());
+
+            Assertions.assertEquals(Arrays.asList("c1", "c3", "c4"), actualColumns);
+        } finally {
+            openGaussCatalog.dropTable(tablePath, true);
+        }
     }
 
     @Test
@@ -244,11 +281,6 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar";
-    }
-
-    @Override
     protected Class<?> loadDriverClass() {
         return super.loadDriverClassFromUrl();
     }
@@ -313,8 +345,7 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(OPENGAUSS_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", OPEN_GAUSS_PORT, OPEN_GAUSS_PORT)));
+        container.addExposedPort(OPEN_GAUSS_PORT);
 
         return container;
     }

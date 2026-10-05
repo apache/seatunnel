@@ -18,7 +18,9 @@
 package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableTransform;
@@ -32,7 +34,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SQLTransformFactoryTest {
 
@@ -72,5 +76,23 @@ public class SQLTransformFactoryTest {
         SeaTunnelTransform<?> inner = tableTransform.createTransform();
         Assertions.assertNotNull(inner);
         Assertions.assertTrue(inner instanceof SQLMultiCatalogFlatMapTransform);
+    }
+
+    @Test
+    public void testValidConfigWithQuery() {
+        OptionRule rule = new SQLTransformFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("query", "SELECT id, name FROM table1");
+        Assertions.assertDoesNotThrow(
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
+    }
+
+    @Test
+    public void testMissingQueryFails() {
+        OptionRule rule = new SQLTransformFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
     }
 }

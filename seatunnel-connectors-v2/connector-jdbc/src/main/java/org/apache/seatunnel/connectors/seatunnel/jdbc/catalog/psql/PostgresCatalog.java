@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
@@ -39,11 +41,21 @@ import java.sql.SQLException;
 @Slf4j
 public class PostgresCatalog extends AbstractJdbcCatalog {
 
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+    public static final String TABLE_OPTION_FILLFACTOR = "fillfactor";
+
+    // pg_type.typtype of enum types
+    private static final String PG_TYPTYPE_ENUM = "e";
+
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT \n"
                     + "    a.attname AS column_name, \n"
                     + "\t\tt.typname as type_name,\n"
+                    + "\t\tt.typtype as type_type,\n"
                     + "    CASE \n"
+                    // Enum types are schema objects, format_type qualifies them when not on the
+                    // search_path.
+                    + "        WHEN t.typtype = 'e' THEN format_type(a.atttypid, NULL)\n"
                     + "        WHEN a.atttypmod = -1 THEN t.typname\n"
                     + "        WHEN t.typname = 'varchar' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
@@ -78,6 +90,9 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    n.nspname = '%s'\n"
                     + "    AND c.relname = '%s'\n"
                     + "    AND a.attnum > 0\n"
+                    // PostgreSQL-compatible catalogs retain placeholder attributes after DROP
+                    // COLUMN.
+                    + "    AND NOT a.attisdropped\n"
                     + "ORDER BY \n"
                     + "    a.attnum;";
 
@@ -126,20 +141,33 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         String columnName = resultSet.getString("column_name");
         String typeName = resultSet.getString("type_name");
         String fullTypeName = resultSet.getString("full_type_name");
+        String typeType = resultSet.getString("type_type");
         long columnLength = resultSet.getLong("column_length");
         int columnScale = resultSet.getInt("column_scale");
         String columnComment = resultSet.getString("column_comment");
         Object defaultValue = resultSet.getObject("default_value");
         boolean isNullable = resultSet.getString("is_nullable").equals("YES");
 
+        if (defaultValue != null && defaultValue.toString().contains("regclass")) {
+            defaultValue = null;
+        }
+        if (PG_TYPTYPE_ENUM.equals(typeType)) {
+            // Enum names are user-defined and may match built-in type names, map them directly.
+            return PhysicalColumn.builder()
+                    .name(columnName)
+                    .dataType(BasicType.STRING_TYPE)
+                    .sourceType(fullTypeName)
+                    .nullable(isNullable)
+                    .defaultValue(defaultValue)
+                    .comment(columnComment)
+                    .build();
+        }
+
         // dealingSpecialNumeric
         if (typeName.equals(PostgresTypeConverter.PG_NUMERIC) && columnLength < 1) {
             fullTypeName = "numeric(38,10)";
             columnLength = 38;
             columnScale = 10;
-        }
-        if (defaultValue != null && defaultValue.toString().contains("regclass")) {
-            defaultValue = null;
         }
 
         BasicTypeDefine typeDefine =

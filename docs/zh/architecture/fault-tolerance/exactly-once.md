@@ -16,15 +16,10 @@ title: 精确一次语义
 - **精确一次**: 每条记录恰好处理一次(理想但复杂)
 
 **实际影响**:
-```
-场景: 金融交易处理
-
-至少一次:
-  交易 $100 处理两次 → 用户被收费 $200 ❌
-
-精确一次:
-  交易 $100 处理一次 → 用户被收费 $100 ✅
-```
+| 场景 | 结果 |
+|------|------|
+| 至少一次 | `交易 $100` 被处理两次，用户被收费 `$200` |
+| 精确一次 | `交易 $100` 只处理一次，用户被收费 `$100` |
 
 ### 1.2 设计目标
 
@@ -75,48 +70,26 @@ SeaTunnel 的精确一次语义旨在:
 
 ### 3.1 端到端流水线
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                       数据源                                  │
-│  • 从外部系统读取                                             │
-│  • 跟踪偏移量/位置                                            │
-│  • 在检查点中快照偏移量                                        │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼ 检查点屏障
-┌──────────────────────────────────────────────────────────────┐
-│                     转换器                                    │
-│  • 处理记录                                                   │
-│  • 快照转换器状态(如果有)                                     │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼ 检查点屏障
-┌──────────────────────────────────────────────────────────────┐
-│                   目标端写入器                                │
-│  • 缓冲写入                                                   │
-│  • prepareCommit(checkpointId) → 生成 CommitInfo (阶段 1)     │
-│  • 快照写入器状态                                             │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               │ CommitInfo
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│              CheckpointCoordinator                            │
-│  • 收集所有 CommitInfos                                       │
-│  • 持久化 CompletedCheckpoint                                 │
-│  • 触发提交/回调（触发点取决于执行引擎实现）                    │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  目标端提交器                                 │
-│  • commit(CommitInfos) → 应用变更 (阶段 2)                   │
-│  • 必须是幂等的                                               │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-                    外部目标端
-                 (变更可见)
+```mermaid
+flowchart TD
+    source["数据源<br/>读取外部系统 / 跟踪偏移量 / 检查点时快照进度"]
+    transform["转换器<br/>处理记录 / 快照算子状态"]
+    writer["目标端写入器<br/>缓冲写入 / prepareCommit(checkpointId)<br/>快照 writer 状态"]
+    coordinator["CheckpointCoordinator<br/>收集 CommitInfo / 持久化 CompletedCheckpoint<br/>触发提交回调"]
+    committer["目标端提交器<br/>commit(CommitInfos)<br/>必须幂等"]
+    sink["外部目标端<br/>变更变为可见"]
+
+    source -->|检查点屏障| transform -->|检查点屏障| writer
+    writer -->|CommitInfo| coordinator --> committer --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink layerBlue;
+    class transform,writer layerCyan;
+    class coordinator,committer layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.2 关键组件

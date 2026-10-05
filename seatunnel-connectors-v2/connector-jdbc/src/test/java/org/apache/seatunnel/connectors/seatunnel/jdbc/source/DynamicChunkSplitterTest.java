@@ -24,17 +24,21 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ObjectUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DynamicChunkSplitterTest {
@@ -268,6 +272,97 @@ public class DynamicChunkSplitterTest {
                         DynamicChunkSplitter.ChunkRange.of(6, null)));
     }
 
+    /**
+     * When enable_concurrent_read=false, generateSplits must return exactly one full-table split
+     * with no split key, avoiding any MIN/MAX analysis on the database.
+     */
+    @Test
+    public void testSingleSplitWhenConcurrentReadDisabled() throws Exception {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:postgresql://localhost:5432/test")
+                                        .driverName("org.postgresql.Driver")
+                                        .build())
+                        .enableConcurrentRead(false)
+                        .build();
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("db", "schema", "table")).build();
+
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
+
+        assertEquals(1, splits.size());
+        JdbcSourceSplit split = splits.iterator().next();
+        assertNull(split.getSplitKeyName());
+        assertNull(split.getSplitStart());
+        assertNull(split.getSplitEnd());
+    }
+
+    /** The enable_concurrent_read option must default to true so existing jobs are unaffected. */
+    @Test
+    public void testEnableConcurrentReadOptionDefaultIsTrue() {
+        assertTrue(JdbcSourceOptions.ENABLE_CONCURRENT_READ.defaultValue());
+    }
+
+    /**
+     * Covers bounded range fallback when the approximate row count is zero or negative. Verifies
+     * integer, short, and byte ranges split correctly, oversized ranges collapse to one chunk,
+     * unsafe numeric ranges collapse to one chunk, and bad arguments throw.
+     */
+    @Test
+    public void testSplitEvenlySizedChunksByRangeWhenApproximateRowCountUnavailable() {
+        TablePath tablePath = TablePath.of("db", "xe", "table");
+
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, 3),
+                        DynamicChunkSplitter.ChunkRange.of(3, 5),
+                        DynamicChunkSplitter.ChunkRange.of(5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (short) 1, (short) 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, (short) 3),
+                        DynamicChunkSplitter.ChunkRange.of((short) 3, (short) 5),
+                        DynamicChunkSplitter.ChunkRange.of((short) 5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (byte) 1, (byte) 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, (byte) 3),
+                        DynamicChunkSplitter.ChunkRange.of((byte) 3, (byte) 5),
+                        DynamicChunkSplitter.ChunkRange.of((byte) 5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 100, 2, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (short) 1, (short) 5, 100000, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (byte) 1, (byte) 5, 100000, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, 1.0E20D, 1.0E20D + 1.0E10D, 1, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, Double.NaN, 5.0D, 2, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 0, 10));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 2, 0));
+    }
+
     private void check(
             List<DynamicChunkSplitter.ChunkRange> a, List<DynamicChunkSplitter.ChunkRange> b) {
         checkRule(b);
@@ -288,8 +383,93 @@ public class DynamicChunkSplitterTest {
             }
             if (i > 0 && i < a.size() - 1) {
                 // current chunk end should be greater than current chunk start
-                assertTrue((int) a.get(i).getChunkEnd() > (int) a.get(i).getChunkStart());
+                assertTrue(
+                        ObjectUtils.compare(a.get(i).getChunkEnd(), a.get(i).getChunkStart()) > 0);
             }
         }
+    }
+
+    /** Without a where condition the table must pass through unchanged. */
+    @Test
+    public void testApplyWhereConditionReturnsSameTableWhenNoWhereCondition() {
+        JdbcSourceConfig config = buildWhereConditionConfig(null);
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        assertSame(table, splitter.applyWhereCondition(table));
+    }
+
+    /** The user query must be wrapped with the where condition for split metadata queries. */
+    @Test
+    public void testApplyWhereConditionWrapsUserQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where id > 100");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        assertEquals(
+                "SELECT * FROM (SELECT id, name FROM table) tmp WHERE id > 100",
+                wrapped.getQuery());
+        assertSame(table.getTablePath(), wrapped.getTablePath());
+        assertEquals(table.getPartitionColumn(), wrapped.getPartitionColumn());
+        assertSame(table.getCatalogTable(), wrapped.getCatalogTable());
+    }
+
+    /** A where-referenced column missing from a narrow custom query must be auto-added. */
+    @Test
+    public void testApplyWhereConditionAutoAddsMissingFieldForNarrowQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where status > 1");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        // Without the auto-add, the wrapped subquery would not expose "status" and the
+        // split-metadata queries would fail with a "column not found" SQL error.
+        assertEquals(
+                "SELECT * FROM (SELECT id, name , status FROM table) tmp WHERE status > 1",
+                wrapped.getQuery());
+    }
+
+    /** When no query is configured the table identifier must be used as the wrapped base. */
+    @Test
+    public void testApplyWhereConditionFallsBackToTableIdentifierWithoutQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where id > 100");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("db", "schema", "table")).build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        // The base query is "SELECT * FROM <tableIdentifier>"; for the default Postgres
+        // dialect the tableIdentifier is the fully quoted path. We only assert that the
+        // wrapper is applied and the original table path is preserved.
+        assertEquals(
+                "SELECT * FROM (SELECT * FROM \"db\".\"schema\".\"table\") tmp WHERE id > 100",
+                wrapped.getQuery());
+        assertSame(table.getTablePath(), wrapped.getTablePath());
+    }
+
+    private static JdbcSourceConfig buildWhereConditionConfig(String whereCondition) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:postgresql://localhost:5432/test");
+        options.put("driver", "org.postgresql.Driver");
+        if (whereCondition != null) {
+            options.put(JdbcSourceOptions.WHERE_CONDITION.key(), whereCondition);
+        }
+        return JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
     }
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,6 +60,65 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     @Test
     public void testHaveWorkerWhenUseHybridDeployment() {
         Assertions.assertEquals(1, resourceManager.workerCount(null));
+    }
+
+    @Test
+    public void testSlotActiveCheckRejectsSlotReassignedToDifferentJob()
+            throws UnknownHostException {
+        FakeResourceManager fakeResourceManager = new FakeResourceManager(nodeEngine);
+        Address worker = new Address("localhost", 5801);
+        String sequence = "worker-slot-service-sequence";
+
+        SlotProfile liveSlot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        liveSlot.assign(jobId + 1);
+        fakeResourceManager
+                .getRegisterWorker()
+                .put(
+                        worker,
+                        new WorkerProfile(
+                                worker,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                true,
+                                new SlotProfile[] {liveSlot},
+                                new SlotProfile[] {},
+                                Collections.emptyMap()));
+
+        SlotProfile currentSnapshot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        currentSnapshot.assign(jobId + 1);
+        SlotProfile staleSnapshot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        staleSnapshot.assign(jobId);
+
+        Assertions.assertTrue(fakeResourceManager.slotActiveCheck(currentSnapshot));
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(staleSnapshot));
+    }
+
+    @Test
+    public void testSlotActiveCheckFailsClosedForMissingWorkerOrSequence()
+            throws UnknownHostException {
+        FakeResourceManager fakeResourceManager = new FakeResourceManager(nodeEngine);
+        Address worker = new Address("localhost", 5801);
+        SlotProfile snapshot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        snapshot.assign(jobId);
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
+
+        SlotProfile liveSlot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        liveSlot.assign(jobId);
+        fakeResourceManager
+                .getRegisterWorker()
+                .put(
+                        worker,
+                        new WorkerProfile(
+                                worker,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                true,
+                                new SlotProfile[] {null, liveSlot},
+                                new SlotProfile[] {},
+                                Collections.emptyMap()));
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
     }
 
     @Test
@@ -168,6 +228,41 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    public void testRequestSlotOperationStatsForSuccessAndNoSlot()
+            throws ExecutionException, InterruptedException {
+        FakeResourceManagerForRequestSlotRetryTest resourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1);
+
+        List<SlotProfile> slotProfiles =
+                resourceManager
+                        .applyResources(1L, Collections.singletonList(new ResourceProfile()), null)
+                        .get();
+
+        Assertions.assertEquals(1, slotProfiles.size());
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(1, stats.getSuccessCount());
+        Assertions.assertEquals(1, stats.getNoSlotCount());
+        Assertions.assertEquals(0, stats.getFailureCount());
+    }
+
+    @Test
+    public void testRequestSlotOperationStatsAggregation() {
+        FakeResourceManagerForRequestSlotRetryTest resourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 0, 0);
+
+        resourceManager.recordRequestSlotOperationSuccess(10L);
+        resourceManager.recordRequestSlotOperationNoSlot(20L);
+        resourceManager.recordRequestSlotOperationFailure(15L);
+
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(1, stats.getSuccessCount());
+        Assertions.assertEquals(1, stats.getNoSlotCount());
+        Assertions.assertEquals(1, stats.getFailureCount());
+        Assertions.assertEquals(15L, stats.getLastInvocationLatencyMs());
+        Assertions.assertEquals(20L, stats.getMaxInvocationLatencyMs());
+    }
+
+    @Test
     public void testApplyResourcesPreserveCauseForExternalException()
             throws ExecutionException, InterruptedException {
         FakeResourceManagerForExternalExceptionTest resourceManager =
@@ -182,6 +277,11 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         Assertions.assertInstanceOf(
                 IllegalStateException.class,
                 ((NoEnoughResourceException) exception.getCause()).getCause());
+
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(0, stats.getSuccessCount());
+        Assertions.assertEquals(0, stats.getNoSlotCount());
+        Assertions.assertEquals(1, stats.getFailureCount());
     }
 
     @Test
@@ -194,7 +294,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
         ConcurrentMap<Address, WorkerProfile> registerWorker = new ConcurrentHashMap<>();
-        Address address1 = new Address("localhost", 5801);
+        Address address1 = new Address("127.0.0.1", 5801);
         WorkerProfile workerProfile1 =
                 new WorkerProfile(
                         address1,
@@ -206,7 +306,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         Collections.emptyMap());
         registerWorker.put(address1, workerProfile1);
 
-        Address address2 = new Address("localhost", 5802);
+        Address address2 = new Address("127.0.0.1", 5802);
         WorkerProfile workerProfile2 =
                 new WorkerProfile(
                         address2,

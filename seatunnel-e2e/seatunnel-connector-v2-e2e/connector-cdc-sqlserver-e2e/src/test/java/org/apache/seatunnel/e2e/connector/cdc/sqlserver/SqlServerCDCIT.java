@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
@@ -30,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -46,6 +45,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -98,12 +98,20 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "EXEC sys.sp_cdc_disable_db";
     private static final String SOURCE_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types";
+    // Additional source table used to verify multi-table CDC capture in one job.
+    private static final String SOURCE_TABLE_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_2";
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_no_primary_key";
     private static final String SOURCE_TABLE_CUSTOM_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_custom_primary_key";
     private static final String SINK_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_sink";
+    // Sink tables are derived from the source names with the configured sink_ prefix.
+    private static final String MULTI_TABLE_SINK_1 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types";
+    private static final String MULTI_TABLE_SINK_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types_2";
 
     private static final String SELECT_SOURCE_SQL =
             "select\n"
@@ -187,27 +195,18 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(SQLServerDriver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/SqlServer-CDC/lib",
+                                    "mssql-jdbc-9.4.1.jre8.jar");
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
-        MSSQL_SERVER_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(MSSQL_SERVER_CONTAINER)).join();
         log.info("Containers are started.");
@@ -257,6 +256,67 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
+    }
+
+    /**
+     * Verifies that a single SqlServer CDC source can capture multiple tables and route them to
+     * different sink tables in the same database.
+     *
+     * <p>The sink tables are pre-created so this regression stays focused on multi-table routing
+     * instead of SQL Server auto-create type derivation while still exercising Jdbc table-mode
+     * writes.
+     */
+    @TestTemplate
+    public void testSqlServerCdcMultiTableE2e(TestContainer container) {
+        initializeSqlServerTable(DATABASE_NAME);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_to_sqlserver_with_multi_table_mode_two_table.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
+
+        updateSourceTable(SOURCE_TABLE);
+        updateSourceTable(SOURCE_TABLE_2);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
     }
 
     @TestTemplate
@@ -490,7 +550,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         JdbcSourceConfigFactory factory =
                 new SqlServerSourceConfigFactory()
                         .hostname(MSSQL_SERVER_CONTAINER.getHost())
-                        .port(PORT)
+                        .port(MSSQL_SERVER_CONTAINER.getMappedPort(PORT))
                         .username("sa")
                         .password("Password!")
                         .databaseList(DATABASE_NAME);
@@ -551,16 +611,49 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
+        try {
             List<String> statements =
                     parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
+            String currentDatabase = null;
             for (String stmt : statements) {
-                statement.execute(stmt);
+                String trimmed = stmt.trim();
+                if (trimmed.toUpperCase().startsWith("USE ")) {
+                    currentDatabase = trimmed.substring(4).replaceAll(";\\s*$", "").trim();
+                    continue;
+                }
+                executeWithDeadlockRetry(stmt, currentDatabase);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void executeWithDeadlockRetry(String sql, String database) {
+        Awaitility.await(
+                        "Executing: "
+                                + sql.substring(0, Math.min(80, sql.length()))
+                                        .replaceAll("\\s+", " "))
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try (Connection connection = getJdbcConnection();
+                                    Statement statement = connection.createStatement()) {
+                                if (database != null) {
+                                    statement.execute("USE " + database);
+                                }
+                                statement.execute(sql);
+                                return true;
+                            } catch (SQLException e) {
+                                if (e.getMessage() != null
+                                        && (e.getMessage().contains("deadlock")
+                                                || e.getMessage().contains("Deadlock"))) {
+                                    log.warn("Deadlock detected, will retry: {}", sql);
+                                    return false;
+                                }
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     private void initializeSqlServerTable(String sqlFile) {

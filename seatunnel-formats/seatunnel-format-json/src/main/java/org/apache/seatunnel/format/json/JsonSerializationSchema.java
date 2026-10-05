@@ -68,6 +68,14 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.charset = StandardCharsets.UTF_8;
     }
 
+    public JsonSerializationSchema(SeaTunnelRowType rowType, boolean serializeTimestampTzAsLocal) {
+        this.rowType = rowType;
+        this.runtimeConverter =
+                new RowToJsonConverters(serializeTimestampTzAsLocal)
+                        .createConverter(checkNotNull(rowType));
+        this.charset = StandardCharsets.UTF_8;
+    }
+
     {
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }

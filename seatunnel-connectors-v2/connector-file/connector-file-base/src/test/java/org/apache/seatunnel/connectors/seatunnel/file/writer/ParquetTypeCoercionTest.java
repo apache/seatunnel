@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -218,8 +219,8 @@ public class ParquetTypeCoercionTest {
                 new FileSinkConfig(
                         ReadonlyConfig.fromConfig(ConfigFactory.parseMap(writeConfig)), rowType);
         ParquetWriteStrategy strategy = new ParquetWriteStrategy(sinkConfig);
-        ParquetReadStrategyTest.LocalConf hadoopConf =
-                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         strategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, testName, rowType));
         strategy.init(hadoopConf, "test-" + testName, "test-" + testName, 0);

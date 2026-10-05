@@ -18,6 +18,8 @@
 package org.apache.seatunnel.transform.filter;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -99,13 +101,15 @@ class FilterFieldTransformTest {
 
     @Test
     void testConfig() {
-        // test both not set
+        OptionRule rule = new FilterFieldTransformFactory().optionRule();
+
+        // test both not set — validated via Factory optionRule
         OptionValidationException noneSetEx =
                 Assertions.assertThrows(
                         OptionValidationException.class,
                         () ->
-                                new FilterFieldTransform(
-                                        ReadonlyConfig.fromMap(new HashMap<>()), catalogTable));
+                                ConfigValidator.of(ReadonlyConfig.fromMap(new HashMap<>()))
+                                        .validate(rule));
         Assertions.assertTrue(
                 noneSetEx.getMessage().contains("'include_fields'"),
                 "Should mention include_fields: " + noneSetEx.getMessage());
@@ -121,23 +125,23 @@ class FilterFieldTransformTest {
                 Assertions.assertThrows(
                         OptionValidationException.class,
                         () ->
-                                new FilterFieldTransform(
-                                        ReadonlyConfig.fromMap(
-                                                new HashMap<String, Object>() {
-                                                    {
-                                                        put(
-                                                                FilterFieldTransformConfig
-                                                                        .INCLUDE_FIELDS
-                                                                        .key(),
-                                                                filterKeys);
-                                                        put(
-                                                                FilterFieldTransformConfig
-                                                                        .EXCLUDE_FIELDS
-                                                                        .key(),
-                                                                filterKeys);
-                                                    }
-                                                }),
-                                        catalogTable));
+                                ConfigValidator.of(
+                                                ReadonlyConfig.fromMap(
+                                                        new HashMap<String, Object>() {
+                                                            {
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .INCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .EXCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                            }
+                                                        }))
+                                        .validate(rule));
         Assertions.assertTrue(
                 bothSetEx.getMessage().contains("mutually exclusive"),
                 "Should mention mutually exclusive: " + bothSetEx.getMessage());

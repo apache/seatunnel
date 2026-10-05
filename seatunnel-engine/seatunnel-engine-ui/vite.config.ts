@@ -16,29 +16,39 @@
  */
 
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type PluginOption } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  base: '/',
-  build: {
-    outDir: '../seatunnel-engine-server/src/main/resources/ui'
-  },
-  plugins: [vue(), vueJsx(), vueDevTools()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    }
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: loadEnv('development', './').VITE_APP_API_SERVICE,
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+export default defineConfig(async ({ command, mode }) => {
+  const plugins: PluginOption[] = [vue(), vueJsx()]
+
+  // Devtools plugin relies on browser globals (e.g. localStorage) and should not
+  // be enabled during build (node environment).
+  if (command === 'serve') {
+    const { default: vueDevTools } = await import('vite-plugin-vue-devtools')
+    plugins.push(vueDevTools())
+  }
+
+  return {
+    base: '/',
+    build: {
+      outDir: '../seatunnel-engine-server/src/main/resources/ui'
+    },
+    plugins,
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      }
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: loadEnv(mode, './').VITE_APP_API_SERVICE,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api/, '')
+        }
       }
     }
   }

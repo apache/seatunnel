@@ -51,11 +51,12 @@ public class ZetaUDFContext {
     }
 
     private void updateTableId(String tableId) {
-        if (Objects.equals(this.rawTableId, tableId)) {
+        boolean isNullTableId = tableId == null;
+        if (Objects.equals(this.rawTableId, tableId) && this.tableIdIsNull == isNullTableId) {
             return;
         }
         this.rawTableId = tableId;
-        this.tableIdIsNull = tableId == null;
+        this.tableIdIsNull = isNullTableId;
         this.database = null;
         this.schema = null;
         this.table = null;

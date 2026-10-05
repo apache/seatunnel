@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.ChunkedInputHadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -118,7 +121,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "distcp",
                             "len_mtime"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertTrue(files.isEmpty(), "Target is newer with same len -> SKIP");
@@ -144,7 +147,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "distcp",
                             "len_mtime"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertEquals(1, files.size());
@@ -171,7 +174,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "strict",
                             "checksum"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertTrue(files.isEmpty(), "Checksum equal -> SKIP");
@@ -195,11 +198,113 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "strict",
                             "checksum"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertEquals(1, files.size());
             Assertions.assertTrue(files.get(0).endsWith("/test.bin"));
+        }
+    }
+
+    @Test
+    void testStrictChecksumFallbackSkipsEqualContentWithDifferentReadChunkSizes() throws Exception {
+        assertStrictChecksumFallback(
+                "identical-content".getBytes(StandardCharsets.UTF_8),
+                3,
+                "identical-content".getBytes(StandardCharsets.UTF_8),
+                5,
+                false);
+    }
+
+    @Test
+    void testStrictChecksumFallbackCopiesDifferentContent() throws Exception {
+        assertStrictChecksumFallback(
+                "same-length-a".getBytes(StandardCharsets.UTF_8),
+                3,
+                "same-length-b".getBytes(StandardCharsets.UTF_8),
+                5,
+                true);
+    }
+
+    @Test
+    void testStrictChecksumCopiesDifferentLength() throws Exception {
+        assertStrictChecksumFallback(
+                "short".getBytes(StandardCharsets.UTF_8),
+                3,
+                "longer".getBytes(StandardCharsets.UTF_8),
+                5,
+                true);
+    }
+
+    @Test
+    void testStrictChecksumFallbackSkipsEmptyContent() throws Exception {
+        assertStrictChecksumFallback(new byte[0], 3, new byte[0], 5, false);
+    }
+
+    @Test
+    void testUpdateModeNonRecursiveScanOnlyComparesTopLevelFiles() throws Exception {
+        Path sourceDir = tempDir.resolve("src");
+        Path targetDir = tempDir.resolve("dst");
+        Path topLevelSourceFile = sourceDir.resolve("root.bin");
+        Path nestedSourceFile = sourceDir.resolve("subdir/nested.bin");
+        Path topLevelTargetFile = targetDir.resolve("root.bin");
+        Path nestedTargetFile = targetDir.resolve("subdir/nested.bin");
+
+        writeFile(topLevelSourceFile, "root".getBytes());
+        writeFile(nestedSourceFile, "nested".getBytes());
+        writeFile(topLevelTargetFile, "root".getBytes());
+        writeFile(nestedTargetFile, "nested".getBytes());
+        setMtime(topLevelSourceFile, 2_000);
+        setMtime(topLevelTargetFile, 1_000);
+        setMtime(nestedSourceFile, 2_000);
+        setMtime(nestedTargetFile, 1_000);
+
+        try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
+            strategy.setPluginConfig(
+                    updateConfig(
+                            sourceDir.toUri().toString(),
+                            targetDir.toUri().toString(),
+                            "distcp",
+                            "len_mtime",
+                            false));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+
+            List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
+            Assertions.assertEquals(1, files.size());
+            Assertions.assertTrue(files.get(0).endsWith("/root.bin"));
+        }
+    }
+
+    @Test
+    void testUpdateModeNonRecursiveScanSkipsNestedChanges() throws Exception {
+        Path sourceDir = tempDir.resolve("src");
+        Path targetDir = tempDir.resolve("dst");
+        Path topLevelSourceFile = sourceDir.resolve("root.bin");
+        Path nestedSourceFile = sourceDir.resolve("subdir/nested.bin");
+        Path topLevelTargetFile = targetDir.resolve("root.bin");
+        Path nestedTargetFile = targetDir.resolve("subdir/nested.bin");
+
+        writeFile(topLevelSourceFile, "root".getBytes());
+        writeFile(nestedSourceFile, "nested".getBytes());
+        writeFile(topLevelTargetFile, "root".getBytes());
+        writeFile(nestedTargetFile, "nested".getBytes());
+        setMtime(topLevelSourceFile, 1_000);
+        setMtime(topLevelTargetFile, 1_000);
+        setMtime(nestedSourceFile, 2_000);
+        setMtime(nestedTargetFile, 1_000);
+
+        try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
+            strategy.setPluginConfig(
+                    updateConfig(
+                            sourceDir.toUri().toString(),
+                            targetDir.toUri().toString(),
+                            "distcp",
+                            "len_mtime",
+                            false));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+
+            List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
+            Assertions.assertTrue(files.isEmpty(), "Nested-only changes should be skipped");
         }
     }
 
@@ -212,8 +317,58 @@ class UpdateSyncModeTest {
         Files.setLastModifiedTime(path, FileTime.fromMillis(millis));
     }
 
+    private void assertStrictChecksumFallback(
+            byte[] sourceContent,
+            int sourceChunkSize,
+            byte[] targetContent,
+            int targetChunkSize,
+            boolean expectedCopy)
+            throws Exception {
+        Path sourceDir = tempDir.resolve("fallback-src-" + sourceChunkSize);
+        Path targetDir = tempDir.resolve("fallback-dst-" + targetChunkSize);
+        Path sourceFile = sourceDir.resolve("test.bin");
+        Path targetFile = targetDir.resolve("test.bin");
+        writeFile(sourceFile, sourceContent);
+        writeFile(targetFile, targetContent);
+
+        try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
+            strategy.setPluginConfig(
+                    updateConfig(
+                            sourceDir.toUri().toString(),
+                            targetDir.toUri().toString(),
+                            "strict",
+                            "checksum"));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+
+            strategy.hadoopFileSystemProxy.close();
+            HadoopFileSystemProxy fileSystem =
+                    new ChunkedInputHadoopFileSystemProxy(
+                            new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT),
+                            sourceFile,
+                            sourceContent,
+                            sourceChunkSize,
+                            targetFile,
+                            targetContent,
+                            targetChunkSize);
+            strategy.hadoopFileSystemProxy = fileSystem;
+            strategy.targetHadoopFileSystemProxy = fileSystem;
+
+            List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
+            Assertions.assertEquals(expectedCopy ? 1 : 0, files.size());
+        }
+    }
+
     private static Config updateConfig(
             String sourcePath, String targetPath, String updateStrategy, String compareMode) {
+        return updateConfig(sourcePath, targetPath, updateStrategy, compareMode, true);
+    }
+
+    private static Config updateConfig(
+            String sourcePath,
+            String targetPath,
+            String updateStrategy,
+            String compareMode,
+            boolean recursiveFileScan) {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("path", sourcePath);
         configMap.put("file_format_type", "binary");
@@ -221,25 +376,7 @@ class UpdateSyncModeTest {
         configMap.put("target_path", targetPath);
         configMap.put("update_strategy", updateStrategy);
         configMap.put("compare_mode", compareMode);
+        configMap.put("recursive_file_scan", recursiveFileScan);
         return ConfigFactory.parseMap(configMap);
-    }
-
-    static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 }

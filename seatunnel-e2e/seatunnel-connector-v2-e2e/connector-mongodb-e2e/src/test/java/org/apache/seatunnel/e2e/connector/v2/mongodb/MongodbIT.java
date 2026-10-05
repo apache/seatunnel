@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -286,7 +287,7 @@ public class MongodbIT extends AbstractMongodbIT {
         // build sink
         final MongodbSink mongoDbSink = getSinkInstance(collectionName, DataSaveMode.DROP_DATA);
         final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
-                mongoDbSink.createWriter(null);
+                mongoDbSink.createWriter(new DefaultSinkWriterContext(0, 1));
         final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
         // do save mode
         if (saveModeHandlerOptional.isPresent()) {
@@ -315,7 +316,7 @@ public class MongodbIT extends AbstractMongodbIT {
         // build sink
         final MongodbSink mongoDbSink = getSinkInstance(collectionName, DataSaveMode.APPEND_DATA);
         final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
-                mongoDbSink.createWriter(null);
+                mongoDbSink.createWriter(new DefaultSinkWriterContext(0, 1));
         final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
         // do save mode
         if (saveModeHandlerOptional.isPresent()) {
@@ -345,7 +346,7 @@ public class MongodbIT extends AbstractMongodbIT {
         final MongodbSink mongoDbSink =
                 getSinkInstance(collectionName, DataSaveMode.ERROR_WHEN_DATA_EXISTS);
         final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
-                mongoDbSink.createWriter(null);
+                mongoDbSink.createWriter(new DefaultSinkWriterContext(0, 1));
         final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
         // do save mode
         if (saveModeHandlerOptional.isPresent()) {

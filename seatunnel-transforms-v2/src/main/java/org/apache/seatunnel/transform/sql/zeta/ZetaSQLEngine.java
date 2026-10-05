@@ -73,6 +73,7 @@ public class ZetaSQLEngine implements SQLEngine {
     private ZetaUDFContext udfContext;
 
     private Integer allColumnsCount = null;
+    private boolean udfOpened;
 
     public ZetaSQLEngine() {}
 
@@ -95,7 +96,6 @@ public class ZetaSQLEngine implements SQLEngine {
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
-        openUDFs();
     }
 
     protected List<ZetaUDF> loadUDFs() {
@@ -111,6 +111,14 @@ public class ZetaSQLEngine implements SQLEngine {
             try {
                 udf.open();
             } catch (Exception e) {
+                try {
+                    udf.close();
+                } catch (Exception closeException) {
+                    log.warn(
+                            "Best-effort close failed for udf {}",
+                            udf.functionName(),
+                            closeException);
+                }
                 closeUDFs(i - 1);
                 log.error("Open udf {} failed", udf.functionName(), e);
                 throw new TransformException(
@@ -118,6 +126,19 @@ public class ZetaSQLEngine implements SQLEngine {
                         String.format(
                                 "Open udf %s failed: %s", udf.functionName(), e.getMessage()));
             }
+        }
+    }
+
+    private void ensureUdfOpened() {
+        if (udfOpened || CollectionUtils.isEmpty(udfList)) {
+            return;
+        }
+        synchronized (this) {
+            if (udfOpened) {
+                return;
+            }
+            openUDFs();
+            udfOpened = true;
         }
     }
 
@@ -262,6 +283,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outRowType) {
+        ensureUdfOpened();
         // ------Physical Query Plan Execution------
         // Scan Table
         Object[] inputFields = scanTable(inputRow);
@@ -343,10 +365,11 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public void close() {
-        if (udfList == null || udfList.isEmpty()) {
+        if (CollectionUtils.isEmpty(udfList) || !udfOpened) {
             return;
         }
         closeUDFs(udfList.size() - 1);
+        udfOpened = false;
     }
 
     private void closeUDFs(int lastIndex) {

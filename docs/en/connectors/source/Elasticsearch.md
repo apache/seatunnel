@@ -16,7 +16,7 @@ support version >= 2.x and <= 8.x.
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -30,13 +30,13 @@ support version >= 2.x and <= 8.x.
 | auth.api_key_id         | string  | no       | -                                                              |
 | auth.api_key            | string  | no       | -                                                              |
 | auth.api_key_encoded    | string  | no       | -                                                              |
-| index                   | string  | no       | If the index list does not exist, the index must be configured |
-| index_list              | array   | no       | used to define a multiple table task                           |
+| index                   | string  | no       | Required when `index_list` is not configured                    |
+| index_list              | array   | no       | Used to define a multi-index task                              |
 | source                  | array   | no       | -                                                              |
 | query                   | json    | no       | {"match_all": {}}                                              |
 | search_type             | enum    | no       | Query type, SQL or DSL, default DSL                            |
 | search_api_type         | enum    | no       | Pagination API type, SCROLL or PIT, default SCROLL             |
-| sql_query               | json    | no       | SQL query, required when search_type is SQL                    |
+| sql_query               | string  | no       | SQL query, required when search_type is SQL                    |
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
 | tls_verify_certificate  | boolean | no       | true                                                           |
@@ -144,6 +144,8 @@ source {
 ### index [string]
 
 Elasticsearch index name, support * fuzzy matching.
+
+Either `index` or `index_list` must be configured. Use `index` for a single index or an index pattern, and use `index_list` when different indexes need their own `query`, `source`, `schema`, or paging options.
 
 ### source [array]
 
@@ -265,6 +267,8 @@ Split a single index into multiple slices for parallel reads. Only effective for
 - PIT slicing requires Elasticsearch 7.10 or higher (PIT was introduced in 7.10.0).
 
 **Trade-off:** slicing improves throughput but may reduce snapshot consistency across slices. For strong consistency, prefer PIT with a shared snapshot or set `slice_max = 1`. For append-only or low-write workloads, slicing is usually acceptable.
+
+`slice_max` is ignored when `search_type = "SQL"` because Elasticsearch SQL search does not support slicing.
 
 ### common options
 

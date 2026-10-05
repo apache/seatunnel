@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class ZetaSQLEngineTest {
@@ -94,5 +96,119 @@ public class ZetaSQLEngineTest {
                                 "test",
                                 rowType,
                                 "insert into test(id, name, age) values (1, 'bad', 10)"));
+    }
+
+    @Test
+    public void testSchemaInferenceShouldNotOpenUdf() {
+        TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(trackingUdf));
+        engine.init("test", "test", simpleRowType(), "select id, name from test");
+
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        Assertions.assertNotNull(outType);
+        Assertions.assertEquals(0, trackingUdf.getOpenCount());
+        Assertions.assertEquals(0, trackingUdf.getCloseCount());
+    }
+
+    @Test
+    public void testOpenUdfWhenExecuteAndCloseOnEngineClose() {
+        TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(trackingUdf));
+        engine.init("test", "test", simpleRowType(), "select id from test");
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, "Alice", 20});
+        engine.transformBySQL(inputRow, outType);
+        engine.transformBySQL(inputRow, outType);
+
+        Assertions.assertEquals(1, trackingUdf.getOpenCount());
+        Assertions.assertEquals(0, trackingUdf.getCloseCount());
+
+        engine.close();
+
+        Assertions.assertEquals(1, trackingUdf.getCloseCount());
+    }
+
+    @Test
+    public void testOpenFailureShouldCloseFailedAndOpenedUdfs() {
+        TrackingUdf firstUdf = new TrackingUdf("first", false);
+        TrackingUdf failedUdf = new TrackingUdf("failed", true);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(firstUdf, failedUdf));
+        engine.init("test", "test", simpleRowType(), "select id from test");
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        engine.transformBySQL(
+                                new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType));
+
+        Assertions.assertEquals(1, firstUdf.getOpenCount());
+        Assertions.assertEquals(1, firstUdf.getCloseCount());
+        Assertions.assertEquals(1, failedUdf.getOpenCount());
+        Assertions.assertEquals(1, failedUdf.getCloseCount());
+    }
+
+    private static final class TestableZetaSQLEngine extends ZetaSQLEngine {
+
+        private final List<ZetaUDF> testUdfs;
+
+        private TestableZetaSQLEngine(List<ZetaUDF> testUdfs) {
+            this.testUdfs = testUdfs;
+        }
+
+        @Override
+        protected List<ZetaUDF> loadUDFs() {
+            return new ArrayList<>(testUdfs);
+        }
+    }
+
+    private static final class TrackingUdf implements ZetaUDF {
+        private final String functionName;
+        private final boolean failOnOpen;
+        private int openCount;
+        private int closeCount;
+
+        private TrackingUdf(String functionName, boolean failOnOpen) {
+            this.functionName = functionName;
+            this.failOnOpen = failOnOpen;
+        }
+
+        @Override
+        public String functionName() {
+            return functionName;
+        }
+
+        @Override
+        public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+            return BasicType.STRING_TYPE;
+        }
+
+        @Override
+        public Object evaluate(List<Object> args) {
+            return null;
+        }
+
+        @Override
+        public void open() throws Exception {
+            openCount++;
+            if (failOnOpen) {
+                throw new Exception("open failed");
+            }
+        }
+
+        @Override
+        public void close() {
+            closeCount++;
+        }
+
+        private int getOpenCount() {
+            return openCount;
+        }
+
+        private int getCloseCount() {
+            return closeCount;
+        }
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.OptionTest;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -350,6 +351,35 @@ public class OptionRuleTest {
                                         TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
                                 .build();
         assertThrows(OptionValidationException.class, executable);
+
+        // test extension condition builds correctly
+        ConditionExtension<Integer> positiveExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value > 0;
+                    }
+                };
+        OptionRule extRule =
+                OptionRule.builder()
+                        .required(TEST_PORTS)
+                        .optional(TEST_NUM, Conditions.extension(TEST_NUM, positiveExt))
+                        .build();
+        Assertions.assertNotNull(extRule);
+        assertEquals(1, extRule.getValueConstraints().size());
+        assertEquals(
+                ConditionOperator.EXTENSION, extRule.getValueConstraints().get(0).getOperator());
+
+        // test extension with null extension throws
+        assertThrows(IllegalArgumentException.class, () -> Conditions.extension(TEST_NUM, null));
+
+        // test extension with null option throws
+        assertThrows(IllegalArgumentException.class, () -> Conditions.extension(null, positiveExt));
     }
 
     @Test

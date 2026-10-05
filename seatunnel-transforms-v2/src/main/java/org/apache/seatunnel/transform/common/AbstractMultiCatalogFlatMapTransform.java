@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import java.util.List;
 
@@ -31,6 +32,15 @@ public abstract class AbstractMultiCatalogFlatMapTransform extends AbstractMulti
     public AbstractMultiCatalogFlatMapTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         super(inputCatalogTables, config);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> composeTransforms(
+            List<SeaTunnelTransform<SeaTunnelRow>> transforms) {
+        if (transforms.size() == 1) {
+            return transforms.get(0);
+        }
+        return new ChainedFlatMapTransform(transforms);
     }
 
     @Override

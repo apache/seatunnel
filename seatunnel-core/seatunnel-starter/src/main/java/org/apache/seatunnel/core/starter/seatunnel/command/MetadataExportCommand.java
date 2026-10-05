@@ -420,10 +420,14 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         }
         ObjectNode node = mapper.createObjectNode();
         node.put("key", condition.getOption().key());
-        if (condition.getExpectValue() != null) {
-            node.put("expectValue", String.valueOf(condition.getExpectValue()));
-        }
         ConditionOperator op = condition.getOperator();
+        Object expectValue = condition.getExpectValue();
+        if (op == ConditionOperator.EXTENSION && condition.getExtension() != null) {
+            expectValue = condition.getExtension().description();
+        }
+        if (expectValue != null) {
+            node.put("expectValue", String.valueOf(expectValue));
+        }
         if (op != null) {
             node.put("conditionOperator", op.name());
             node.put("conditionOperatorCategory", op.getCategory().name());

@@ -21,12 +21,13 @@ name: "Build"
 
 on:
   push:
-    branches:
-    - '**'
+    branches-ignore:
+      - 'gh-readonly-queue/**'
 
 jobs:
   call-build-and-test:
     permissions:
+      contents: read
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml

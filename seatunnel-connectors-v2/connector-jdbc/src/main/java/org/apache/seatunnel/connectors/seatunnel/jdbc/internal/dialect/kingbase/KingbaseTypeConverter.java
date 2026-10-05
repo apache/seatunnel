@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+
 // reference https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html#id2
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -51,6 +53,12 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
     @Override
     public String identifier() {
         return DatabaseIdentifier.KINGBASE;
+    }
+
+    @Override
+    protected boolean isUserDefinedStringType(int sqlType) {
+        // VARCHAR type names unknown to PostgreSQL keep the Kingbase handling below.
+        return sqlType == Types.OTHER;
     }
 
     @Override
@@ -79,7 +87,7 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
                 case MySqlTypeConverter.MYSQL_YEAR_UNSIGNED:
                     builder.dataType(BasicType.INT_TYPE);
                     break;
-                    // DATETIME not in PG (PG has TIMESTAMP)
+                    // DATETIME not in PG (PG has TIMESTAMP) — NTZ
                 case MySqlTypeConverter.MYSQL_DATETIME:
                     builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                     if (typeDefine.getScale() != null
@@ -155,10 +163,14 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
                         builder.columnLength((long) (1024 * 1024 * 1024));
                     }
                     break;
-                    // SQLServer compatibility - SQLServer specific types
+                    // MySQL TIMESTAMP — LTZ (timezone-aware)
+                case MySqlTypeConverter.MYSQL_TIMESTAMP:
+                    builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                    builder.scale(typeDefine.getScale());
+                    break;
+                    // SQLServer compatibility - NTZ types
                 case SqlServerTypeConverter.SQLSERVER_DATETIME2:
                 case SqlServerTypeConverter.SQLSERVER_SMALLDATETIME:
-                case SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET:
                     builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                     if (typeDefine.getScale() != null
                             && typeDefine.getScale() > MAX_TIMESTAMP_SCALE) {
@@ -174,6 +186,11 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
                     } else {
                         builder.scale(typeDefine.getScale());
                     }
+                    break;
+                    // SQLServer DATETIMEOFFSET — LTZ (timezone-aware)
+                case SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET:
+                    builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                    builder.scale(typeDefine.getScale());
                     break;
                 case KB_TINYINT:
                     builder.dataType(BasicType.BYTE_TYPE);

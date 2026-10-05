@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,37 +109,51 @@ public class MaxcomputeSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {}
 
+    // visible for testing
+    static Set<MaxcomputeSourceSplit> computeSplits(
+            int numReaders,
+            Collection<SourceTableInfo> sourceTableInfos,
+            Map<TablePath, Long> tableRecordCounts) {
+        Set<MaxcomputeSourceSplit> allSplit = new LinkedHashSet<>();
+        int chunkIndex = 0;
+        for (SourceTableInfo sourceTableInfo : sourceTableInfos) {
+            TablePath tablePath = sourceTableInfo.getCatalogTable().getTablePath();
+            long recordCount = tableRecordCounts.get(tablePath);
+            int splitRow = MaxcomputeSourceOptions.SPLIT_ROW.defaultValue();
+            if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
+                splitRow = sourceTableInfo.getSplitRow();
+            }
+            for (long num = 0; num < recordCount; num += splitRow) {
+                int ownerReader = chunkIndex % numReaders;
+                allSplit.add(
+                        new MaxcomputeSourceSplit(
+                                num,
+                                Math.min((long) splitRow, recordCount - num),
+                                tablePath,
+                                ownerReader));
+                chunkIndex++;
+            }
+        }
+        return allSplit;
+    }
+
     private void discoverySplits() throws TunnelException {
         int numReaders = enumeratorContext.currentParallelism();
-        Set<MaxcomputeSourceSplit> allSplit = new HashSet<>();
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
         for (SourceTableInfo sourceTableInfo : sourceTableInfos.values()) {
-            Set<MaxcomputeSourceSplit> splits = new HashSet<>();
             TableTunnel.DownloadSession session =
                     MaxcomputeUtil.getDownloadSession(
                             readonlyConfig,
                             sourceTableInfo.getCatalogTable().getTablePath(),
                             sourceTableInfo.getPartitionSpec());
-            long recordCount = session.getRecordCount();
-            int splitRowNum = (int) Math.ceil((double) recordCount / numReaders);
-            int splitRow = MaxcomputeSourceOptions.SPLIT_ROW.defaultValue();
-            if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
-                splitRow = sourceTableInfo.getSplitRow();
-            }
-            for (int i = 0; i < numReaders; i++) {
-                int readerStart = i * splitRowNum;
-                int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
-                for (int num = readerStart; num < readerEnd; num += splitRow) {
-                    splits.add(
-                            new MaxcomputeSourceSplit(
-                                    num,
-                                    Math.min(splitRow, readerEnd - num),
-                                    sourceTableInfo.getCatalogTable().getTablePath(),
-                                    i));
-                }
-            }
-            assignedSplits.forEach(splits::remove);
-            allSplit.addAll(splits);
+            tableRecordCounts.put(
+                    sourceTableInfo.getCatalogTable().getTablePath(), session.getRecordCount());
         }
+
+        Set<MaxcomputeSourceSplit> allSplit =
+                computeSplits(numReaders, sourceTableInfos.values(), tableRecordCounts);
+        assignedSplits.forEach(allSplit::remove);
+
         addSplitChangeToPendingAssignments(allSplit);
         log.debug("Assigned {} to {} readers.", allSplit, numReaders);
         log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
@@ -147,7 +162,7 @@ public class MaxcomputeSourceSplitEnumerator
     private void addSplitChangeToPendingAssignments(Collection<MaxcomputeSourceSplit> newSplits) {
         for (MaxcomputeSourceSplit split : newSplits) {
             int ownerReader = split.getIndex() % enumeratorContext.currentParallelism();
-            pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>()).add(split);
+            pendingSplits.computeIfAbsent(ownerReader, r -> new LinkedHashSet<>()).add(split);
         }
     }
 

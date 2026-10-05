@@ -39,44 +39,27 @@ SeaTunnel 的源端 Source 端读取 API 旨在：
 
 ### 2.1 整体架构
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    协调端（master/coordinator 侧）             │
-│                                                                │
-│   ┌────────────────────────────────────────────────────┐     │
-│   │         SourceSplitEnumerator<SplitT, StateT>      │     │
-│   │                                                      │     │
-│   │  • 在 run() 中发现/生成分片（实现自定义）              │     │
-│   │  • 分配分片给读取器                                 │     │
-│   │  • 处理读取器注册                                   │     │
-│   │  • 处理分片请求                                     │     │
-│   │  • 从失败的读取器回收分片                           │     │
-│   │  • 快照枚举器状态                                   │     │
-│   │  • 发送/接收自定义事件                              │     │
-│   └────────────────────────────────────────────────────┘     │
-│                            │                                   │
-└────────────────────────────┼───────────────────────────────────┘
-                             │ (分片分配)
-                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  TaskExecutionService（工作节点侧）            │
-│                                                              │
-│   ┌────────────────────────────────────────────────────┐     │
-│   │             SourceReader<T, SplitT>               │     │
-│   │                                                    │     │
-│   │  • 接收分配的分片                                    │     │
-│   │  • 从分片读取数据                                    │     │
-│   │  • 向下游发送记录                                    │     │
-│   │  • 快照读取器状态（分片进度）                          │     │
-│   │  • 处理分片完成                                      │     │
-│   │  • 发送/接收自定义事件                                │     │
-│   └────────────────────────────────────────────────────┘     │
-│                            │                                 │
-└────────────────────────────┼─────────────────────────────────┘
-                             │
-                             ▼
-                       SeaTunnelRow
-                       (到转换/数据 Sink )
+```mermaid
+flowchart TD
+    subgraph coordinator["协调端（master / coordinator 侧）"]
+        enumerator["SourceSplitEnumerator&lt;SplitT, StateT&gt;<br/>发现或生成分片<br/>分配分片给读取器<br/>处理读取器注册与分片请求<br/>快照枚举器状态"]
+    end
+
+    subgraph worker["TaskExecutionService（工作节点侧）"]
+        reader["SourceReader&lt;T, SplitT&gt;<br/>接收分配的分片<br/>从分片读取数据<br/>向下游发送记录<br/>快照读取进度"]
+    end
+
+    row["SeaTunnelRow<br/>发送到转换 / 数据 Sink"]
+
+    enumerator -- "分片分配" --> reader
+    reader --> row
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+
+    class coordinator,worker layerBlue;
+    class enumerator,reader,row layerCyan;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 核心组件

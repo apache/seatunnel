@@ -53,7 +53,6 @@ public class MysqlDialect implements JdbcDialect {
 
     private static final List NOT_SUPPORTED_DEFAULT_VALUES =
             Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
-
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
     public MysqlDialect() {}
@@ -388,5 +387,10 @@ public class MysqlDialect implements JdbcDialect {
             default:
                 return false;
         }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        MysqlFamilyTableOptions.validate(dialectName(), tableOptions);
     }
 }

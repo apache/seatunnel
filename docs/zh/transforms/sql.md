@@ -12,13 +12,14 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 |        名称         |   类型   | 是否必须 | 默认值 |
 |-------------------|--------|------|-----|
-| plugin_input | string | yes  | -   |
-| plugin_output | string | yes  | -   |
+| plugin_input | string | no   | -   |
+| plugin_output | string | no   | -   |
 | query             | string | yes  | -   |
+| engine            | string | no   | ZETA |
 
 ### plugin_input [string]
 
-源表名称，查询 SQL 表名称必须与此字段匹配。
+源表名称，查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。
 
 ### query [string]
 
@@ -26,6 +27,10 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 查询表达式可以是`select [table_name.]column_a`，这时会去查询列为`column_a`的列，`table_name`为可选项
 也可以是`select c_row.c_inner_row.column_b`，这时会去查询列`c_row`下的`c_inner_row`的`column_b`。**嵌套结构查询中，不能存在`table_name`**
+
+### engine [string]
+
+该 Transform 使用的 SQL 引擎。支持 `ZETA` 和 `INTERNAL`。如果不配置，默认使用 `ZETA`。
 
 ## 示例
 
@@ -155,4 +160,3 @@ sink {
 ### 新版本
 
 - 添加SQL转换连接器
-

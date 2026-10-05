@@ -31,19 +31,24 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class InfluxDBSourceSplitEnumerator
         implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
     final SourceConfig config;
+    private final List<InfluxDBSourceTable> tables;
     private final Context<InfluxDBSourceSplit> context;
     private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
     private final Object stateLock = new Object();
+    private final AtomicInteger assignCount = new AtomicInteger(0);
     private volatile boolean shouldEnumerate;
 
     public InfluxDBSourceSplitEnumerator(
@@ -55,13 +60,23 @@ public class InfluxDBSourceSplitEnumerator
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
             InfluxDBSourceState sourceState,
             SourceConfig config) {
+        this(context, sourceState, config, Collections.emptyList());
+    }
+
+    InfluxDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
+            InfluxDBSourceState sourceState,
+            SourceConfig config,
+            List<InfluxDBSourceTable> tables) {
         this.context = context;
         this.config = config;
+        this.tables = tables;
         this.pendingSplit = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -85,11 +100,18 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public void addSplitsBack(List splits, int subtaskId) {
+    public void addSplitsBack(List<InfluxDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to InfluxDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
@@ -109,25 +131,51 @@ public class InfluxDBSourceSplitEnumerator
     @Override
     public InfluxDBSourceState snapshotState(long checkpointId) {
         synchronized (stateLock) {
-            return new InfluxDBSourceState(shouldEnumerate, pendingSplit);
+            return new InfluxDBSourceState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 
     private Set<InfluxDBSourceSplit> getInfluxDBSplit() {
+        if (tables.isEmpty()) {
+            return getInfluxDBSplit(config, null);
+        }
+        Set<InfluxDBSourceSplit> splits = new HashSet<>();
+        for (InfluxDBSourceTable table : tables) {
+            splits.addAll(getInfluxDBSplit(table.getSourceConfig(), table.getTableId()));
+        }
+        return splits;
+    }
+
+    private Set<InfluxDBSourceSplit> getInfluxDBSplit(SourceConfig config, String tableId) {
         String sql = config.getSql();
         Set<InfluxDBSourceSplit> influxDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
         if (config.getPartitionNum() == 0) {
             influxDBSourceSplits.add(
-                    new InfluxDBSourceSplit(String.valueOf(SourceConfig.DEFAULT_PARTITIONS), sql));
+                    new InfluxDBSourceSplit(
+                            tableId == null
+                                    ? String.valueOf(SourceConfig.DEFAULT_PARTITIONS)
+                                    : tableId + ":0",
+                            sql,
+                            tableId));
             return influxDBSourceSplits;
         }
         // calculate numRange base on (lowerBound upperBound partitionNum)
         List<Pair<Long, Long>> rangePairs =
-                genSplitNumRange(
-                        config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
+                tableId == null
+                        ? genSplitNumRange(
+                                config.getLowerBound(),
+                                config.getUpperBound(),
+                                config.getPartitionNum())
+                        : genTableSplitRanges(
+                                config.getLowerBound(),
+                                config.getUpperBound(),
+                                config.getPartitionNum());
 
-        String[] sqls = sql.split(InfluxDBSourceOptions.SQL_WHERE.key());
+        String[] sqls =
+                tableId == null
+                        ? sql.split(InfluxDBSourceOptions.SQL_WHERE.key())
+                        : sql.split("(?i)\\s+where\\s+", 2);
         if (sqls.length > 2) {
             throw new InfluxdbConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -152,7 +200,12 @@ public class InfluxDBSourceSplitEnumerator
                 query = query + " and ( " + sqls[1] + " ) ";
             }
             influxDBSourceSplits.add(
-                    new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
+                    new InfluxDBSourceSplit(
+                            tableId == null
+                                    ? String.valueOf(i + System.nanoTime())
+                                    : tableId + ":" + i,
+                            query,
+                            tableId));
         }
         return influxDBSourceSplits;
     }
@@ -179,13 +232,39 @@ public class InfluxDBSourceSplitEnumerator
         return rangeList;
     }
 
+    /**
+     * Splits an inclusive integer range without overlap, including uneven and single-value ranges.
+     */
+    static List<Pair<Long, Long>> genTableSplitRanges(long lower, long upper, int partitions) {
+        long count = upper - lower + 1;
+        int splitCount = (int) Math.min(count, partitions);
+        List<Pair<Long, Long>> ranges = new ArrayList<>(splitCount);
+        long start = lower;
+        for (int i = 0; i < splitCount; i++) {
+            long end = start + count / splitCount + (i < count % splitCount ? 1 : 0);
+            ranges.add(Pair.of(start, end));
+            start = end;
+        }
+        return ranges;
+    }
+
     private void addPendingSplit(Collection<InfluxDBSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (InfluxDBSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<InfluxDBSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(InfluxDBSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (InfluxDBSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
+    }
+
+    private void addPendingSplit(Collection<InfluxDBSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -209,8 +288,8 @@ public class InfluxDBSourceSplitEnumerator
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int currentAssignCount, int numReaders) {
+        return currentAssignCount % numReaders;
     }
 
     @Override

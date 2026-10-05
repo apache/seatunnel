@@ -16,7 +16,7 @@ Split a field to more than one field.
 
 ### separator [string]
 
-The list of fields that need to be kept. Fields not in the list will be deleted
+The delimiter used to split the source field.
 
 ### split_field [string]
 
@@ -41,7 +41,7 @@ The data read from source is a table like this:
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-We want split `name` field to `first_name` and `second name`, we can add `Split` transform like this
+We want to split the `name` field into `first_name` and `last_name`, so we can add a `Split` transform like this:
 
 ```
 transform {
@@ -50,7 +50,7 @@ transform {
     plugin_output = "fake1"
     separator = " "
     split_field = "name"
-    output_fields = [first_name, second_name]
+    output_fields = [first_name, last_name]
   }
 }
 ```
@@ -69,4 +69,3 @@ Then the data in result table `fake1` will like this
 ### new version
 
 - Add Split Transform Connector
-

@@ -41,7 +41,11 @@ import java.util.Map;
 
 class FieldEncryptTransformTest {
     public static final String KEY =
-            "base64:" + Base64.getEncoder().encodeToString("0123456789abcdef".getBytes());
+            "base64:"
+                    + Base64.getEncoder()
+                            .encodeToString(
+                                    "0123456789abcdef"
+                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
     private static CatalogTable catalogTable;
     private static Object[] values;
     private static Object[] original;

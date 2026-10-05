@@ -222,10 +222,14 @@ public class RowTypeConverter {
             DataType dataType =
                     SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldName, fieldTypes[i]);
             DataTypeRoot typeRoot = dataType.getTypeRoot();
-            if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)
-                    || typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
+            if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
                 dataType = new TimestampType(((TimestampType) dataField.type()).getPrecision());
+            } else if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
+                DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                dataType =
+                        new LocalZonedTimestampType(
+                                ((LocalZonedTimestampType) dataField.type()).getPrecision());
             }
             if (typeRoot.equals(DataTypeRoot.TIME_WITHOUT_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
@@ -288,6 +292,19 @@ public class RowTypeConverter {
                     builder.dataType(timestampType.getTypeRoot().name());
                     builder.columnType(timestampType.toString());
                     builder.scale(timestampScale);
+                    builder.length(column.getColumnLength());
+                    return builder.build();
+                case TIMESTAMP_TZ:
+                    int tzScale =
+                            Objects.isNull(scale)
+                                    ? LocalZonedTimestampType.DEFAULT_PRECISION
+                                    : scale;
+                    LocalZonedTimestampType tzType =
+                            DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE(tzScale);
+                    builder.nativeType(tzType.copy(column.isNullable()));
+                    builder.dataType(tzType.getTypeRoot().name());
+                    builder.columnType(tzType.toString());
+                    builder.scale(tzScale);
                     builder.length(column.getColumnLength());
                     return builder.build();
                 case TIME:
@@ -404,6 +421,9 @@ public class RowTypeConverter {
                     return DataTypes.TIME(TimeType.MAX_PRECISION);
                 case TIMESTAMP:
                     return DataTypes.TIMESTAMP(TimestampType.MAX_PRECISION);
+                case TIMESTAMP_TZ:
+                    return DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE(
+                            LocalZonedTimestampType.MAX_PRECISION);
                 case MAP:
                     SeaTunnelDataType<?> keyType =
                             ((org.apache.seatunnel.api.table.type.MapType<?, ?>) dataType)
@@ -530,7 +550,7 @@ public class RowTypeConverter {
 
         @Override
         public SeaTunnelDataType<?> visit(LocalZonedTimestampType localZonedTimestampType) {
-            return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            return LocalTimeType.OFFSET_DATE_TIME_TYPE;
         }
 
         @Override

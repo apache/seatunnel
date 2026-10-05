@@ -35,5 +35,6 @@ public class ConsoleSinkOptions extends SinkConnectorCommonOptions {
                     .intType()
                     .defaultValue(0)
                     .withDescription(
-                            "Delay in milliseconds between printing each data item to the logs.");
+                            "Non-negative delay in milliseconds between printing each data item "
+                                    + "to the logs.");
 }

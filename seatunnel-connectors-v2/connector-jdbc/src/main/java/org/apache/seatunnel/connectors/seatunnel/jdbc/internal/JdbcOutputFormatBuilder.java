@@ -57,6 +57,18 @@ public class JdbcOutputFormatBuilder {
     @NonNull private final TableSchema tableSchema;
     @Nullable private final TableSchema databaseTableSchema;
 
+    private boolean commitOnFlush;
+
+    /**
+     * Commits the connection after every successful batch flush when it uses manual commit. Only
+     * the non-XA writer enables this, and only when checkpointing is disabled, so flushed batches
+     * are not held in one unbounded transaction until close.
+     */
+    public JdbcOutputFormatBuilder commitOnFlush(boolean commitOnFlush) {
+        this.commitOnFlush = commitOnFlush;
+        return this;
+    }
+
     public JdbcOutputFormat build() {
         JdbcOutputFormat.StatementExecutorFactory statementExecutorFactory;
 
@@ -106,7 +118,8 @@ public class JdbcOutputFormatBuilder {
         return new JdbcOutputFormat(
                 connectionProvider,
                 jdbcSinkConfig.getJdbcConnectionConfig(),
-                statementExecutorFactory);
+                statementExecutorFactory,
+                commitOnFlush);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
@@ -380,29 +393,9 @@ public class JdbcOutputFormatBuilder {
             throw new IllegalArgumentException(
                     "oracle_insert_mode=APPEND_VALUES only supports Oracle JDBC sink.");
         }
-        if (jdbcSinkConfig.isUseCopyStatement()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support copy statement.");
-        }
-        if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support custom query.");
-        }
-        if (jdbcSinkConfig.isExactlyOnce()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support exactly-once JDBC sink.");
-        }
-        if (!jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES requires auto_commit=true.");
-        }
         if (primaryKeys != null && !primaryKeys.isEmpty()) {
             throw new IllegalArgumentException(
                     "oracle_insert_mode=APPEND_VALUES only supports insert-only writes without primary keys.");
-        }
-        if (jdbcSinkConfig.isSupportUpsertByInsertOnly()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support insert-only upsert paths.");
         }
     }
 

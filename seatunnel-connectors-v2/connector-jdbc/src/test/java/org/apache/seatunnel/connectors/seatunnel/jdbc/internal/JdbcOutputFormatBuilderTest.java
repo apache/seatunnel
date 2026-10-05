@@ -178,39 +178,6 @@ public class JdbcOutputFormatBuilderTest {
     }
 
     @Test
-    public void testOracleAppendValuesRejectsCustomQuery() {
-        JdbcSinkConfig config =
-                appendValuesConfigBuilder().simpleSql("INSERT INTO TEST_TABLE VALUES (?)").build();
-
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> newBuilder(new OracleDialect(), config).build());
-
-        Assertions.assertEquals(
-                "oracle_insert_mode=APPEND_VALUES does not support custom query.",
-                exception.getMessage());
-    }
-
-    @Test
-    public void testOracleAppendValuesRejectsAutoCommitDisabled() {
-        JdbcSinkConfig config =
-                appendValuesConfigBuilder()
-                        .jdbcConnectionConfig(
-                                JdbcConnectionConfig.builder().autoCommit(false).build())
-                        .build();
-
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> newBuilder(new OracleDialect(), config).build());
-
-        Assertions.assertEquals(
-                "oracle_insert_mode=APPEND_VALUES requires auto_commit=true.",
-                exception.getMessage());
-    }
-
-    @Test
     public void testOracleAppendValuesRejectsPrimaryKeys() {
         JdbcSinkConfig config =
                 appendValuesConfigBuilder().primaryKeys(Collections.singletonList("ID")).build();
@@ -222,20 +189,6 @@ public class JdbcOutputFormatBuilderTest {
 
         Assertions.assertEquals(
                 "oracle_insert_mode=APPEND_VALUES only supports insert-only writes without primary keys.",
-                exception.getMessage());
-    }
-
-    @Test
-    public void testOracleAppendValuesRejectsExactlyOnce() {
-        JdbcSinkConfig config = appendValuesConfigBuilder().isExactlyOnce(true).build();
-
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> newBuilder(new OracleDialect(), config).build());
-
-        Assertions.assertEquals(
-                "oracle_insert_mode=APPEND_VALUES does not support exactly-once JDBC sink.",
                 exception.getMessage());
     }
 
