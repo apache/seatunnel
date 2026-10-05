@@ -144,6 +144,22 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testAllTablesFilteredOutProducesNoSinkActions() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_all_tables_filtered.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertTrue(actions.isEmpty());
+    }
+
+    @Test
     public void testDuplicatedTransformInOnePipeline() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath =

@@ -636,6 +636,11 @@ public class MultipleTableJobConfigParser {
             ClassLoader classLoader,
             String factoryId,
             int configIndex) {
+
+        if (sinkActions.isEmpty()) {
+            return Optional.empty();
+        }
+
         if (sinkActions.stream()
                 .anyMatch(action -> !(action.getSink() instanceof SupportMultiTableSink))) {
             log.info("Unsupported multi table sink api, rollback to sink template");
