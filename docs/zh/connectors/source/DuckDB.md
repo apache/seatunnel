@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
-`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 按存储的本地日期时间读取为 `TIMESTAMP`，不受 JVM 默认时区影响。Source 读取保留 JDBC 驱动提供的小数秒精度。
+`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`。读取优先使用 JDBC 的 `LocalDateTime` 接口，避免 JVM 时区及公历切换日期的规范化，并保留驱动提供的精度。DuckDB JDBC 1.3.1.0 对 `TIMESTAMP` 支持该接口，但不支持这三种别名；别名回退到普通时间戳读取时，仍可能规范化夏令时跳时或公历切换区间内的值。对于受影响的别名值，可在 Source 查询中转换为 `VARCHAR`，保留数据库的文本表示。
 
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
+| TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
 ## 源选项

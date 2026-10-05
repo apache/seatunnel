@@ -50,7 +50,7 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
-`TIMESTAMP`, `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` are read as `TIMESTAMP` values with their stored local date and time, independent of the JVM default time zone. Source reads retain the fractional precision exposed by the JDBC driver.
+`TIMESTAMP`, `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` map to SeaTunnel `TIMESTAMP`. Reads prefer the JDBC `LocalDateTime` getter to avoid JVM time-zone and Gregorian-cutover normalization, retaining the precision exposed by the driver. DuckDB JDBC 1.3.1.0 supports this getter for `TIMESTAMP`, but not the three aliases; their plain timestamp fallback can normalize DST-gap or Gregorian-cutover values. For affected alias values, cast to `VARCHAR` in the source query to preserve the database text representation.
 
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
@@ -68,7 +68,7 @@ and reading multiple tables in one job through `table_list`.
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
 ## Source Options

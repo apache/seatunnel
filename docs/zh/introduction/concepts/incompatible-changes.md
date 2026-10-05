@@ -6,7 +6,7 @@
 
 ### DuckDB 时间戳 Source 值
 
-DuckDB 表列 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。读取 DuckDB 时间戳时保留存储的本地日期时间，不再通过 UTC Calendar 偏移。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。下游仍需字符串时，可在 Source 查询中将时间戳显式转换为 `VARCHAR`。
+DuckDB 表列 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。读取 DuckDB 时间戳时优先使用 JDBC 的 `LocalDateTime` 接口，不再通过 UTC Calendar 偏移。DuckDB JDBC 1.3.1.0 的 `TIMESTAMP_S/MS/NS` 仍需回退到普通时间戳读取，可能规范化夏令时跳时或公历切换区间内的值；可在 Source 查询中将受影响的别名列转换为 `VARCHAR`，保留数据库文本。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。下游仍需字符串时，可在 Source 查询中将时间戳显式转换为 `VARCHAR`。
 
 ### Redis 认证
 

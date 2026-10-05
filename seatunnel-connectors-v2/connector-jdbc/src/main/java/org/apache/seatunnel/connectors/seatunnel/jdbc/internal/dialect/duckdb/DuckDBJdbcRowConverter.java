@@ -26,14 +26,33 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Slf4j
 public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
 
+    private transient ResultSet timestampResultSet;
+    private transient Set<Integer> unsupportedTimestampColumns;
+
     @Override
     protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
-        // DuckDB's Calendar overload shifts unzoned timestamps. Use the plain getter to
-        // preserve the stored local date and time.
+        if (timestampResultSet != rs) {
+            timestampResultSet = rs;
+            unsupportedTimestampColumns = new HashSet<>();
+        }
+        // Avoid Timestamp's JVM-zone and Gregorian-cutover normalization when supported.
+        if (!unsupportedTimestampColumns.contains(resultSetIndex)) {
+            try {
+                return rs.getObject(resultSetIndex, LocalDateTime.class);
+            } catch (SQLException | UnsupportedOperationException ignored) {
+                // DuckDB JDBC 1.3.1 does not support typed reads for TIMESTAMP_S/MS/NS.
+                Timestamp value = rs.getTimestamp(resultSetIndex);
+                unsupportedTimestampColumns.add(resultSetIndex);
+                return value == null ? null : value.toLocalDateTime();
+            }
+        }
+        // Keep the plain fallback: the Calendar overload shifts unzoned timestamps.
         Timestamp value = rs.getTimestamp(resultSetIndex);
         return value == null ? null : value.toLocalDateTime();
     }

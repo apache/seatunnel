@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.mockito.Mockito;
 
 import lombok.SneakyThrows;
 
@@ -45,7 +46,9 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -348,6 +351,93 @@ public class DuckDBSourceAndSinkTest {
                 Assertions.assertEquals(expectedMs, row.getField(1), zone);
                 Assertions.assertEquals(expectedNs, row.getField(2), zone);
                 Assertions.assertNull(row.getField(3), zone);
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    public void testTimestampGetterFallbackIsScopedToResultSetColumn() throws Exception {
+        DuckDBJdbcRowConverter converter = new DuckDBJdbcRowConverter();
+        ResultSet first = Mockito.mock(ResultSet.class);
+        LocalDateTime expected = LocalDateTime.of(2024, 1, 1, 12, 34, 56, 123000000);
+        Mockito.when(first.getObject(1, LocalDateTime.class))
+                .thenReturn(null)
+                .thenThrow(new SQLException("Unsupported timestamp alias"));
+        Mockito.when(first.getTimestamp(1)).thenReturn(Timestamp.valueOf(expected));
+        Mockito.when(first.getObject(2, LocalDateTime.class)).thenReturn(expected);
+
+        Assertions.assertNull(converter.readTimestamp(first, 1));
+        for (int row = 0; row < 3; row++) {
+            Assertions.assertEquals(expected, converter.readTimestamp(first, 1));
+            Assertions.assertEquals(expected, converter.readTimestamp(first, 2));
+        }
+        Mockito.verify(first, Mockito.times(2)).getObject(1, LocalDateTime.class);
+        Mockito.verify(first, Mockito.times(3)).getTimestamp(1);
+        Mockito.verify(first, Mockito.times(3)).getObject(2, LocalDateTime.class);
+        Mockito.verify(first, Mockito.never()).getTimestamp(2);
+
+        ResultSet second = Mockito.mock(ResultSet.class);
+        Mockito.when(second.getObject(1, LocalDateTime.class)).thenReturn(expected);
+        Assertions.assertEquals(expected, converter.readTimestamp(second, 1));
+        Mockito.verify(second).getObject(1, LocalDateTime.class);
+        Mockito.verify(second, Mockito.never()).getTimestamp(1);
+    }
+
+    @Test
+    public void testUnsupportedTimestampGetterPreservesNulls() throws Exception {
+        DuckDBJdbcRowConverter converter = new DuckDBJdbcRowConverter();
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        Mockito.when(resultSet.getObject(1, LocalDateTime.class))
+                .thenThrow(new UnsupportedOperationException("Typed getter unavailable"));
+        Assertions.assertNull(converter.readTimestamp(resultSet, 1));
+        Assertions.assertNull(converter.readTimestamp(resultSet, 1));
+        Mockito.verify(resultSet).getObject(1, LocalDateTime.class);
+        Mockito.verify(resultSet, Mockito.times(2)).getTimestamp(1);
+    }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testTimestampGapAndGregorianCutoverAcrossTimeZones() throws Exception {
+        String tablePath = SCHEMA_NAME + ".ts_wall_clock";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main.ts_wall_clock (id INTEGER, value TIMESTAMP)");
+            statement.execute(
+                    "INSERT INTO main.ts_wall_clock VALUES "
+                            + "(1, TIMESTAMP '2024-03-10 02:30:00.123456'), "
+                            + "(2, TIMESTAMP '2024-11-03 01:30:00.123456'), "
+                            + "(3, TIMESTAMP '1582-10-10 12:34:56'), "
+                            + "(4, NULL)");
+        }
+        LocalDateTime[] expected = {
+            LocalDateTime.of(2024, 3, 10, 2, 30, 0, 123456000),
+            LocalDateTime.of(2024, 11, 3, 1, 30, 0, 123456000),
+            LocalDateTime.of(1582, 10, 10, 12, 34, 56),
+            null
+        };
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (String zone : new String[] {"UTC", "Asia/Shanghai", "America/Los_Angeles"}) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                for (boolean query : new boolean[] {false, true}) {
+                    Map<String, Object> sourceOptions = new HashMap<>();
+                    sourceOptions.put("url", jdbcUrl);
+                    sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+                    sourceOptions.put(
+                            query ? "query" : "table_path",
+                            query ? "SELECT id, value FROM main.ts_wall_clock" : tablePath);
+                    List<SeaTunnelRow> rows =
+                            SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                                    ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+                    Assertions.assertEquals(expected.length, rows.size(), zone);
+                    for (SeaTunnelRow row : rows) {
+                        int id = (Integer) row.getField(0);
+                        Assertions.assertEquals(
+                                expected[id - 1], row.getField(1), zone + ", query=" + query);
+                    }
+                }
             }
         } finally {
             TimeZone.setDefault(original);
