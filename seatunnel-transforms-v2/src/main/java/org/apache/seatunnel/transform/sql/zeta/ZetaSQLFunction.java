@@ -282,6 +282,21 @@ public class ZetaSQLFunction {
             SignedExpression signedExpression = (SignedExpression) expression;
             if (signedExpression.getSign() == '-') {
                 Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value == null) {
+                    return null;
+                }
+                if (value instanceof Byte) {
+                    return (byte) -((Byte) value);
+                }
+                if (value instanceof Short) {
+                    return (short) -((Short) value);
+                }
+                if (value instanceof Float) {
+                    return -((Float) value);
+                }
+                if (value instanceof BigDecimal) {
+                    return ((BigDecimal) value).negate();
+                }
                 if (value instanceof Integer) {
                     return -((Integer) value);
                 }
@@ -294,8 +309,8 @@ public class ZetaSQLFunction {
                 if (value instanceof Number) {
                     return -((Number) value).doubleValue();
                 }
-            } else {
-                return computeForValue(signedExpression, inputFields);
+            } else if (signedExpression.getSign() == '+') {
+                return computeForValue(signedExpression.getExpression(), inputFields);
             }
         }
         if (expression instanceof DoubleValue) {
