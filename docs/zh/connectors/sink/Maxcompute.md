@@ -4,9 +4,15 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 > Maxcompute 接收器连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
-用于向 Maxcompute 写入数据。
+用于向 Maxcompute 写入数据。连接器支持 AccessKey（`accessId`/`accesskey`）认证、STS Token 临时认证以及阿里云默认凭据链免密认证；支持追加写入、覆盖整表或分区、自动创建目标表（基于 DDL 模板）以及通过 `insert_strategy` 选择 upload 或 upsert 会话。
 
 ## 主要特性
 
@@ -17,27 +23,33 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## 选项
 
-| 参数名                    | 类型    | 必须 | 默认值 |
-|---------------------------|---------|------|--------|
-| accessId                  | string  | 否   | -      |
-| accesskey                 | string  | 否   | -      |
-| sts_token                 | string  | 否   | -      |
-| endpoint                  | string  | 是   | -      |
-| project                   | string  | 是   | -      |
-| table_name                | string  | 是   | -      |
-| schema_name               | string  | 否   | -      |
-| partition_spec            | string  | 否   | -      |
-| overwrite                 | boolean | 否   | false  |
-| schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode            | enum    | 否   | APPEND_DATA |
-| custom_sql                | string  | 否   | -      |
-| save_mode_create_template | string  | 否   | 见下文 |
-| datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss |
-| tunnel_endpoint           | string  | 否   | -      |
-| tunnel_name               | string  | 否   | -      |
-| insert_strategy           | string  | 否   | upload |
-| multi_table_sink_replica  | int     | 否   | 1      |
-| common-options            | string  | 否   |        |
+| 参数名                    | 类型    | 必须 | 默认值                       | 说明                                                                                              |
+|---------------------------|---------|------|------------------------------|---------------------------------------------------------------------------------------------------|
+| accessId                  | string  | 否   | -                            | 访问 MaxCompute 的 AccessKey ID。                                                                  |
+| accesskey                 | string  | 否   | -                            | 访问 MaxCompute 的 AccessKey Secret。                                                              |
+| sts_token                 | string  | 否   | -                            | MaxCompute 临时认证 STS Token；配置 `sts_token` 时 `accessId` 与 `accesskey` 必填。                  |
+| endpoint                  | string  | 是   | -                            | MaxCompute 端点，以 `http` 开头。                                                                  |
+| project                   | string  | 是   | -                            | 在阿里云中创建的 MaxCompute 项目。                                                                  |
+| table_name                | string  | 是   | -                            | 目标 MaxCompute 表名，例如 `fake`。                                                                |
+| schema_name               | string  | 否   | -                            | MaxCompute Schema 名称；仅当表位于非默认 Schema 时需要设置。                                       |
+| partition_spec            | string  | 否   | -                            | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                    |
+| overwrite                 | boolean | 否   | false                        | 是否覆盖整张表或单个分区。                                                                          |
+| schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表结构，例如 `RECREATE_SCHEMA` 或 `CREATE_SCHEMA_WHEN_NOT_EXIST`。                |
+| data_save_mode            | enum    | 否   | APPEND_DATA                  | 写入前如何处理已有数据，例如 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                |
+| custom_sql                | string  | 否   | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时执行的 SQL。                                              |
+| save_mode_create_template | string  | 否   | 见下文                       | 在 sink 自动建表时使用的 DDL 模板。                                                                  |
+| datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss          | 将 `LocalDateTime` 字段序列化为字符串时使用的格式。                                                  |
+| tunnel_endpoint           | string  | 否   | -                            | MaxCompute Tunnel 服务的自定义端点；未配置时根据区域自动推断。                                       |
+| tunnel_name               | string  | 否   | -                            | Tunnel Quota 名称；需同时将 `endpoint` 与 `tunnel_endpoint` 配置为 VPC 端点。                       |
+| connect_timeout_ms        | long    | 否   | 10000                        | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 连接超时，单位毫秒。默认 10000（10 秒）。            |
+| read_timeout_ms           | long    | 否   | 120000                       | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 120000（120 秒）。           |
+| retry_times               | int     | 否   | 4                            | ODPS REST 客户端最大重试次数。默认 4。                                                              |
+| tunnel_connect_timeout_ms | long    | 否   | 180000                       | Tunnel 客户端（批量数据上传/下载）的 HTTP 连接超时，单位毫秒。默认 180000（180 秒）。              |
+| tunnel_read_timeout_ms    | long    | 否   | 300000                       | Tunnel 客户端（批量数据上传/下载）的 HTTP 读超时，单位毫秒。默认 300000（300 秒）。                |
+| tunnel_retry_times        | int     | 否   | 4                            | Tunnel 客户端最大重试次数。默认 4。                                                                |
+| insert_strategy           | string  | 否   | upload                       | 插入会话类型：`upload` 使用 upload 会话，`upsert` 使用 upsert 会话并要求目标表存在主键。            |
+| multi_table_sink_replica  | int     | 否   | 1                            | 多表写入时每张表对应的 Sink Writer 副本数。                                                         |
+| common-options            |         | 否   | -                            | Sink 插件通用参数，例如 `plugin_input`。                                                            |
 
 ### accessId [string]
 
@@ -193,6 +205,36 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 - `your_tunnel_quota_name`
 
 默认值：未设置（使用默认 quota）
+
+> **客户端超时与重试**
+> MaxCompute 有两个 HTTP 客户端。**ODPS REST 客户端**负责控制面（表/schema 查询、catalog 列表），
+> 用 `connect_timeout_ms`、`read_timeout_ms`、`retry_times` 调整；**Tunnel 客户端**负责数据面（批量行上传/下载），
+> 用 `tunnel_*` 系列调整。单独设置 REST 参数**不会**改变 Tunnel 客户端的超时。
+> 毫秒值会被转换为整秒，最小值为 `1000`。
+
+### connect_timeout_ms [long]
+
+`connect_timeout_ms` MaxCompute ODPS REST 客户端的 HTTP 连接超时，该客户端处理元数据与 catalog 调用（表/schema 查询、表列表）。单位毫秒。默认 `10000`（10 秒）。
+
+### read_timeout_ms [long]
+
+`read_timeout_ms` ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 `120000`（120 秒）。当项目下表非常多或 schema 极宽导致拉取超时时调大。
+
+### retry_times [int]
+
+`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。默认 `4`。
+
+### tunnel_connect_timeout_ms [long]
+
+`tunnel_connect_timeout_ms` Tunnel 客户端（执行批量数据上传/下载）的 HTTP 连接超时，单位毫秒。默认 `180000`（180 秒）。
+
+### tunnel_read_timeout_ms [long]
+
+`tunnel_read_timeout_ms` Tunnel 客户端（批量数据上传/下载）的 HTTP 读超时，单位毫秒。默认 `300000`（300 秒）。当单次写请求超过 5 分钟（上传大分区或大批量 upsert）时调大。
+
+### tunnel_retry_times [int]
+
+`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。默认 `4`。
 
 ### insert_strategy [string]
 

@@ -195,13 +195,25 @@ public class CheckpointManager {
     }
 
     /**
-     * Called by the JobMaster, actually triggered by the user. <br>
-     * After the savepoint is triggered, it will cause the job to stop automatically.
+     * Trigger savepoints and return futures that complete when the pending savepoint checkpoints
+     * are acknowledged.
      */
     @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
         return MDCTracer.tracing(coordinatorMap.values().parallelStream())
                 .map(CheckpointCoordinator::startSavepoint)
+                .toArray(PassiveCompletableFuture[]::new);
+    }
+
+    /**
+     * Trigger savepoints and return futures that complete after every checkpoint coordinator
+     * reaches a stable terminal state.
+     */
+    @SuppressWarnings("unchecked")
+    public PassiveCompletableFuture<CheckpointCoordinatorState>[]
+            triggerSavePointsAndWaitComplete() {
+        return MDCTracer.tracing(coordinatorMap.values().parallelStream())
+                .map(CheckpointCoordinator::startSavepointAndWaitComplete)
                 .toArray(PassiveCompletableFuture[]::new);
     }
 

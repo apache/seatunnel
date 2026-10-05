@@ -213,6 +213,70 @@ sink {
 }
 ```
 
+### Write Text Messages With a Custom Delimiter
+
+Set `format = text` and configure `field_delimiter` to serialize each row into a delimited text payload. Useful when the downstream consumer expects a simple flat format.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "text_events"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = text
+    field_delimiter = "|"
+  }
+}
+```
+
+### Write Avro Messages
+
+Set `format = avro`. The connector derives the Avro schema from the upstream row type, so no sink-side `schema` option is required.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "test_avro_topic_fake_source"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = avro
+  }
+}
+```
+
+### Write With Pulsar Producer Properties
+
+Pass extra producer properties via `pulsar.config`. This is forwarded to the Pulsar producer client and can be used for tuning (timeouts, batching, compression, etc.).
+
+```hocon
+sink {
+  Pulsar {
+    topic = "topic_test"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = json
+    pulsar.config = {
+      sendTimeoutMs = 30000
+      batchingMaxMessages = 1000
+    }
+  }
+}
+```
+
+## FAQ
+
+### How does Pulsar sink achieve exactly-once vs at-least-once delivery?
+
+Configure the `semantics` option: `EXACTLY_ONCE` utilizes Pulsar transaction coordinators to commit messages alongside engine checkpoint barriers, whereas `AT_LEAST_ONCE` relies on producer acknowledgments for higher write throughput.
+
+### Can the Pulsar sink route data to multiple topics dynamically?
+
+Yes. In multi-table synchronization pipelines, omitting a fixed `topic` parameter allows SeaTunnel to dynamically route rows to corresponding Pulsar topics based on the table identifiers carried in each record.
+
+### What serialization formats are supported by Pulsar sink?
+
+The sink supports `json`, `text`, and `avro` serialization formats via the `format` option, enabling seamless integration with downstream systems and schema registries.
+
 ## Changelog
 
 <ChangeLog />

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -37,6 +35,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -123,8 +122,9 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                copyOracleDriverToContainer(container);
-                copyMySQLDriverToJdbcContainer(container);
+                DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
+                        .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+                DependencyJar.of(com.mysql.cj.jdbc.Driver.class).copyTo(container, JDBC_PLUGIN_LIB);
             };
 
     @BeforeAll
@@ -134,8 +134,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         log.info("Mysql Containers are started");
 
-        ORACLE_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         log.info("Starting Oracle containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Oracle containers are started.");

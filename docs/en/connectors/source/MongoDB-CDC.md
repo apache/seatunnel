@@ -129,6 +129,8 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | incremental.snapshot.chunk.size.mb | Integer | No       | 64      | Chunk size, in MB, for incremental snapshot reading.                                                                                                                                                                                                                     |
 | startup.mode                       | Enum    | No       | INITIAL | Optional startup mode for MongoDB CDC consumer. Valid values are `initial`, `latest`, and `timestamp`. See the [Startup Mode](#startup-mode) section below.                                                                                                               |
 | startup.timestamp                  | Long    | No       | -       | Start from the specified epoch timestamp in milliseconds. Only used when `startup.mode` is `timestamp`.                                                                                                                                                                   |
+| stop.mode                          | Enum    | No       | NEVER   | Optional stop mode for MongoDB CDC consumer. Valid values are `never` and `timestamp`. See the [Stop Mode](#stop-mode) section below.                                                                                                                                      |
+| stop.timestamp                     | Long    | No       | -       | Stop at the change-stream position derived from this epoch timestamp in milliseconds. Only used when `stop.mode` is `timestamp`.                                                                                                                                           |
 | exactly_once                       | Boolean | No       | false   | Enable exactly-once semantics. Enabling this may increase memory usage during large table snapshot recovery.                                                                                                                                                              |
 | debezium                           | Config  | No       | -       | Pass-through Debezium properties used by the embedded engine.                                                                                                                                                                                                             |
 | common-options                     |         | No       | -       | Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).                                                                                                                                                    |
@@ -164,6 +166,46 @@ source {
 }
 ```
 
+### Stop Mode
+
+The `stop.mode` option controls whether the connector runs continuously or finishes at a bounded change-stream position:
+
+- `never` (default): keeps reading the change stream.
+- `timestamp`: reads until the MongoDB change-stream timestamp reaches the position derived from `stop.timestamp`, drains the records already produced by the source, and then finishes the job.
+
+MongoDB change-stream timestamps have second precision. `stop.timestamp` is supplied as epoch milliseconds and converted to that timestamp representation. Events after the stop position are not emitted.
+
+- A timestamp startup and timestamp stop must resolve to different positions, with the stop position later than the startup position. Values within the same second resolve to the same position and are rejected.
+- Timestamp stop mode makes the source bounded, so a streaming job finishes after every split reaches the stop position.
+- With `startup.mode = initial`, the initial snapshot is read completely. The stop timestamp only bounds the incremental change-stream phase.
+- With `startup.mode = latest`, a stop position that has already passed produces no incremental records and the bounded source finishes.
+- After checkpoint or savepoint restore, the stop position stored in the restored split takes precedence over a changed `stop.timestamp` in the submitted configuration.
+- On an idle bounded stream, the connector checks MongoDB cluster time once per poll so it can finish even when no change event reaches the boundary.
+
+For example, to read a bounded interval:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    startup.timestamp = 1785542400000
+    stop.mode = "timestamp"
+    stop.timestamp = 1785546000000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
 ### Tips
 
 > 1.If the collection changes at a slow pace, it is strongly recommended to set an appropriate value greater than 0 for the heartbeat.interval.ms parameter. When we recover a Seatunnel job from a checkpoint or savepoint, the heartbeat events can push the resumeToken forward to avoid its expiration.<br/>
@@ -178,7 +220,7 @@ Applications can use change streams to subscribe to all data changes on a single
 
 **Lookup Full Document for Update Operations** is a feature provided by **Change Stream** which can configure the change stream to return the most current majority-committed version of the updated document. Because of this feature, we can easily collect the latest full document and convert the change log to Changelog Stream.
 
-The format of the data captured by delete events in change streams: [delete event](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+The format of the data captured by delete events in change streams: [delete event](https://www.mongodb.com/docs/manual/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },
@@ -281,6 +323,200 @@ sink {
     # You need to configure both database and table
     database = mongodb_cdc
     table = products
+    primary_keys = ["_id"]
+  }
+}
+```
+
+### CDC Data Write to Another MongoDB
+
+You can also route CDC events to a sink MongoDB collection. The example below mirrors `inventory.products` from the source cluster to a target cluster named `mongo1`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://mongo1:27017"
+    database = "inventory"
+    collection = "products_mirror"
+  }
+}
+```
+
+## Startup From a Specific Timestamp
+
+If you want to skip the snapshot and resume the change stream from a known point in time, set `startup.mode` to `timestamp` and provide `startup.timestamp` in epoch milliseconds. This is useful when re-processing a backlog of changes after a maintenance window or when bootstrapping a new sink that should ignore historical writes.
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    # 2026-08-01 00:00:00 UTC
+    startup.timestamp = 1785542400000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Using the SRV Connection URI
+
+For MongoDB Atlas or any deployment that exposes a `mongodb+srv://` connection string, pass the URI directly to the `hosts` option. Authentication credentials, the replica set name, and other URI options are forwarded to the driver as-is, so you do not need to also set `connection.options`:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongodb+srv://cluster0.example.net"
+    username = "stuser"
+    password = "stpw"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Heartbeat and Resume Token Maintenance
+
+Change stream resume tokens can expire if no source records are published for a long time (for example, on a low-traffic collection). Set `heartbeat.interval.ms` to a non-zero value so the connector periodically advances the resume token and keeps the change stream open across checkpoint restores:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    # Send a heartbeat every 30 seconds when no records are flowing
+    heartbeat.interval.ms = 30000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Reading From Multiple MongoDB Sources
+
+A SeaTunnel job only accepts one source block per `source { ... }`, so the supported way to
+fan in CDC streams from several MongoDB clusters is to submit one job per source and have them
+write to the same sink table. Each job preserves its own parallelism, schema, and restart
+tokens; the sink table deduplicates by primary key.
+
+```hocon
+# Job A: CDC from cluster `mongo0` writing to `inventory_a.products_a`
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory_a"]
+    collection = ["inventory_a.products_a"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# Job B: CDC from cluster `mongo1` writing to `inventory_b.products_b`
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo1:27017"
+    database = ["inventory_b"]
+    collection = ["inventory_b.products_b"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
     primary_keys = ["_id"]
   }
 }

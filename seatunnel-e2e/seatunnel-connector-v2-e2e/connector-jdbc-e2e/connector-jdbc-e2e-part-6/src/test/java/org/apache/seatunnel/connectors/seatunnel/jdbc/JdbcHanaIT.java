@@ -56,6 +56,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     private static final String PASSWORD = "testPassword123";
     private static final String DATABASE = "TEST";
     private static final String SOURCE_TABLE = "ALLDATATYPES";
+    // HANA creates its tenant database after the container process starts, which can exceed five
+    // minutes on shared CI runners even though startup is still progressing normally.
+    private static final Duration HANA_STARTUP_TIMEOUT = Duration.of(10, ChronoUnit.MINUTES);
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
@@ -133,11 +136,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .useSaveModeCreateTable(true)
                 .testData(testDataSet)
                 .build();
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/sap/cloud/db/jdbc/ngdbc/2.21.11/ngdbc-2.21.11.jar";
     }
 
     @Override
@@ -273,8 +271,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HANA_IMAGE)))
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
-                                        .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
+                                        .withStartupTimeout(HANA_STARTUP_TIMEOUT));
+        container.addExposedPort(HANA_PORT);
         return container;
     }
 

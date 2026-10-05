@@ -27,23 +27,32 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.Getter;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -118,6 +127,79 @@ public class XmlReadStrategyTest {
                     seaTunnelRow.getField(13),
                     TimeUtils.parse("16:00:48", TimeUtils.Formatter.HH_MM_SS));
             Assertions.assertEquals(seaTunnelRow.getField(14), "xmlTest");
+        }
+    }
+
+    @Test
+    public void testXmlReadRejectsExternalEntityPayload(@TempDir Path tempDir) throws IOException {
+        XmlReadStrategy xmlReadStrategy = createXmlReadStrategy();
+        Path sentinel = tempDir.resolve("seatunnel-xxe.txt");
+        Files.write(sentinel, Collections.singletonList("secret-from-temp-file"));
+        String xxeXml =
+                "<?xml version=\"1.0\"?>\n"
+                        + "<!DOCTYPE row [<!ENTITY xxe SYSTEM \""
+                        + sentinel.toUri()
+                        + "\">]>\n"
+                        + "<RECORDS><RECORD c_string=\"&xxe;\"/></RECORDS>";
+        TestCollector collector = new TestCollector();
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                xmlReadStrategy.readProcess(
+                                        new FileSourceSplit("xml", "poc.xml"),
+                                        collector,
+                                        new ByteArrayInputStream(
+                                                xxeXml.getBytes(StandardCharsets.UTF_8)),
+                                        Collections.emptyMap(),
+                                        "poc.xml"));
+
+        Assertions.assertEquals(
+                FileConnectorErrorCode.FILE_READ_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(collector.getRows().isEmpty());
+        Assertions.assertTrue(
+                containsMessage(exception, "DOCTYPE"),
+                "expected secure XML parser to reject the DOCTYPE declaration");
+        Assertions.assertFalse(
+                containsMessage(exception, "secret-from-temp-file"),
+                "expected the sentinel secret to never appear in the exception message/cause chain, "
+                        + "confirming the external entity was rejected rather than resolved and merely dropped");
+    }
+
+    private boolean containsMessage(Throwable throwable, String message) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current.getMessage() != null && current.getMessage().contains(message)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    /** Build a production-like XML reader instance with the shared test schema loaded. */
+    private XmlReadStrategy createXmlReadStrategy() {
+        Config pluginConfig = loadPluginConfig();
+        XmlReadStrategy xmlReadStrategy = new XmlReadStrategy();
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        xmlReadStrategy.setPluginConfig(pluginConfig);
+        xmlReadStrategy.init(localConf);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        xmlReadStrategy.setCatalogTable(catalogTable);
+        return xmlReadStrategy;
+    }
+
+    /** Load the reusable XML test configuration from the module resources. */
+    private Config loadPluginConfig() {
+        URL conf = XmlReadStrategyTest.class.getResource("/xml/test_read_xml.conf");
+        Assertions.assertNotNull(conf);
+        try {
+            String confPath = Paths.get(conf.toURI()).toString();
+            return ConfigFactory.parseFile(new File(confPath));
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Failed to load xml test configuration", e);
         }
     }
 

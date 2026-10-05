@@ -17,28 +17,22 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.ResultSet;
@@ -63,7 +57,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected static final int QUERY_PORT = 9030;
     protected static final int HTTP_PORT = 8030;
     protected static final int BE_HTTP_PORT = 8040;
-    protected static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
+    protected static final String URL = "jdbc:mysql://%s:%s";
     protected static final String USERNAME = "root";
     protected static final String PASSWORD = "";
     protected Connection jdbcConnection;
@@ -84,12 +78,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
                         .withPrivilegedMode(true);
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
         given().pollDelay(20, TimeUnit.SECONDS)
@@ -112,7 +102,11 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                        props);
         initializeBE();
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
@@ -128,32 +122,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     }
 
     protected Path mysqlDriverJarPath() {
-        try {
-            return Paths.get(
-                    com.mysql.cj.jdbc.Driver.class
-                            .getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
-
-    protected void copyMySQLDriverToContainer(GenericContainer<?> container, String pluginLibDir)
-            throws IOException, InterruptedException {
-        Path driverJarPath = mysqlDriverJarPath();
-        Assertions.assertTrue(
-                Files.isRegularFile(driverJarPath),
-                "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                        + driverJarPath);
-        Container.ExecResult extraCommands =
-                container.execInContainer("bash", "-c", "mkdir -p " + pluginLibDir);
-        Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-        container.copyFileToContainer(
-                MountableFile.forHostPath(driverJarPath),
-                pluginLibDir + "/" + driverJarPath.getFileName());
+        return DependencyJar.of(com.mysql.cj.jdbc.Driver.class).path();
     }
 
     // The Host of the official image [apache/doris:doris-all-in-one-2.1.0] BE is 127.0.0.1, causing

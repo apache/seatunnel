@@ -4,15 +4,21 @@ import ChangeLog from '../changelog/connector-google-bigtable.md';
 
 > Google Bigtable sink connector
 
+## Support Those Engines
+
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Writes data to Google Cloud Bigtable using the native Bigtable Data v2 Java client.
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -30,7 +36,7 @@ Writes data to Google Cloud Bigtable using the native Bigtable Data v2 Java clie
 | batch_mutation_size | int     | no       | 100           |
 | schema_save_mode    | enum    | no       | RECREATE_SCHEMA |
 | data_save_mode      | enum    | no       | APPEND_DATA   |
-| multi_table_sink_replica | int | no       | -             |
+| multi_table_sink_replica | int | no       | 1             |
 | common-options      |         | no       | -             |
 
 ### project_id [string]
@@ -43,13 +49,13 @@ Bigtable instance ID. Example: `"my-bigtable-instance"`
 
 ### table [string]
 
-The Bigtable table name to write to. Example: `"my-table"`
+The Bigtable table name to write to. Example: `"my-table"`. The connector does not create the Bigtable table; create it (with all required column families) before running the job.
 
 ### rowkey_column [list]
 
 Column names used to compose the Bigtable row key. Example: `["id"]` or `["tenant", "id"]`.
 
-When multiple columns are specified they are joined with `rowkey_delimiter`.
+When multiple columns are specified they are joined with `rowkey_delimiter`. With a single row-key column, a null or empty value fails the job with `WRITE_FAILED`. With multiple row-key columns, a null value in any non-last column silently becomes an empty segment in the composed row key (joined by `rowkey_delimiter`); only when the entire composed key is empty does the job fail.
 
 ### column_family [config]
 
@@ -69,6 +75,8 @@ column_family {
   all_columns = "cf"
 }
 ```
+
+Field names that do not appear in the map fall back to the `all_columns` family, or to the default family `cf` if `all_columns` is not configured.
 
 ### credentials_path [string]
 
@@ -109,13 +117,13 @@ Data save mode. Only `APPEND_DATA` is supported now.
 
 ### multi_table_sink_replica [int]
 
-The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md).
+The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md). `multi_table_sink_replica` increases the number of parallel writer replicas within a single sink instance; the target Bigtable table is fixed by the `table` option and is not derived per upstream table.
 
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
-## Data Types
+## Data Type Mapping
 
 All SeaTunnel types are supported:
 
@@ -137,15 +145,20 @@ All SeaTunnel types are supported:
 
 :::tip
 
-Bigtable does not have relational columns. The sink writes every non-row-key field as a Bigtable cell. The target column family is selected by `column_family`; the Bigtable qualifier is the SeaTunnel field name.
+Bigtable does not have relational columns. The sink writes every non-row-key field as a Bigtable cell. The target column family is selected by `column_family`; the Bigtable qualifier is the SeaTunnel field name. The sink treats every upstream row as an unconditional cell mutation, so `UPDATE` / `DELETE` row kinds are not interpreted as CDC operations and overwrite the previous cell under the same `(row key, column family, qualifier)` triple.
 
 :::
 
-## Example
+## Task Example
 
 ### Basic — Application Default Credentials
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 sink {
   GoogleBigtable {
     project_id  = "my-gcp-project"
@@ -162,6 +175,11 @@ sink {
 ### Service Account Key File
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 sink {
   GoogleBigtable {
     project_id       = "my-gcp-project"
@@ -181,6 +199,11 @@ sink {
 ### Multiple Column Families
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 sink {
   GoogleBigtable {
     project_id  = "my-gcp-project"
@@ -200,6 +223,11 @@ sink {
 ### Use a version column and empty null values
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 sink {
   GoogleBigtable {
     project_id       = "my-gcp-project"
@@ -213,6 +241,52 @@ sink {
       all_columns = "data"
       event_type  = "meta"
     }
+  }
+}
+```
+
+### Streaming write with checkpoint flush
+
+In streaming mode, the writer flushes the in-memory mutation buffer at every checkpoint. The current `batch_mutation_size` still controls the in-task buffer; checkpoint frequency only affects how often already buffered mutations are sent to Bigtable.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema {
+      fields {
+        tenant_id  = string
+        event_id   = string
+        event_ts   = bigint
+        event_type = string
+        payload    = string
+      }
+    }
+    plugin_output = "events_stream"
+  }
+}
+
+sink {
+  GoogleBigtable {
+    plugin_input = "events_stream"
+    project_id   = "my-gcp-project"
+    instance_id  = "my-bigtable-instance"
+    table        = "events"
+    credentials_path = "/secrets/sa-key.json"
+    rowkey_column    = ["tenant_id", "event_id"]
+    rowkey_delimiter = "#"
+    version_column   = "event_ts"
+    column_family {
+      all_columns = "data"
+      event_type  = "meta"
+    }
+    batch_mutation_size = 200
   }
 }
 ```

@@ -53,6 +53,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     // -------------------------string----------------------------
     public static final String HANA_VARCHAR = "VARCHAR";
+    public static final String HANA_NCHAR = "NCHAR";
     public static final String HANA_NVARCHAR = "NVARCHAR";
     public static final String HANA_ALPHANUM = "ALPHANUM";
     public static final String HANA_SHORTTEXT = "SHORTTEXT";
@@ -103,6 +104,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                     HANA_BINARY,
                     HANA_VARBINARY,
                     HANA_VARCHAR,
+                    HANA_NCHAR,
                     HANA_NVARCHAR,
                     HANA_ALPHANUM,
                     HANA_SHORTTEXT);
@@ -208,6 +210,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case HANA_NVARCHAR:
+            case HANA_NCHAR:
             case HANA_SHORTTEXT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
