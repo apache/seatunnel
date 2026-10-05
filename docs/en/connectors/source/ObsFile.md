@@ -72,7 +72,8 @@ It only supports hadoop version **2.9.X+**.
 | access_secret              | string  | yes      | -                   | The access secret of obs file system                                                                                                                                                 |
 | endpoint                   | string  | yes      | -                   | The endpoint of obs file system                                                                                                                                                      |
 | read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
-| delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                                                                                         |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
+| delimiter/field_delimiter  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. Default `\001`, the same as hive's default delimiter. **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.                                                              |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
 | skip_header_row_number     | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.                                                                                                                              |
@@ -81,7 +82,17 @@ It only supports hadoop version **2.9.X+**.
 | time_format                | string  | no       | HH:mm:ss            | Time type format, used to tell the connector how to convert string to time.[Tips](#time_format)                                                                                      |
 | filename_extension         | string  | no       | -                   | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                              |
 | schema                     | config  | no       | -                   | [Tips](#schema)                                                                                                                                                                      |
-| common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                              |
+| xml_row_tag | string | no | - | Specifies the tag name of the data rows within the XML file, only used when file_format is xml. |
+| xml_use_attr_format | boolean | no | - | Specifies whether to process data using the tag attribute format, only used when file_format is xml. |
+| csv_use_header_line | boolean | no | false | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180 |
+| compress_codec | string | no | none | Which compress codec the files used. |
+| archive_compress_codec | string | no | none | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
+| encoding | string | no | UTF-8 | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`. |
+| null_format | string | no | - | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N` |
+| binary_chunk_size | int | no | 1024 | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory. |
+| binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false. |
+| file_filter_pattern | string | no | - | Filter pattern, which used for filtering files. |
+| common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                                                                         |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
 | excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
@@ -203,13 +214,13 @@ tyrantlucifer#26#male
 |-----------------------|
 | tyrantlucifer#26#male |
 
-> If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+> If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 >
-> you should assign schema and delimiter as the following:
+> you should assign schema and field_delimiter as the following:
 
 ```hocon
 
-delimiter = "#"
+field_delimiter = "#"
 schema {
     fields {
         name = string
@@ -249,6 +260,19 @@ schema {
 >
 > The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 >
+> When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+>
+> - `SourceUri`: a credential-free logical source path or URI
+> - `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+> - `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+> - `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+>
+> Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+>
+> The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+>
+> Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+>
 > Note: Markdown format only supports reading, not writing.
 >
 > If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
@@ -269,7 +293,7 @@ schema {
 
 > The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### <span id="schema"> read_columns </span>
+#### <span id="read_columns"> read_columns </span>
 
 > The read column list of the data source, user can use it to implement field projection.
 >
@@ -284,7 +308,7 @@ schema {
 
 > If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured
 
-#### <span id="common_options "> common options </span>
+#### <span id="common_options"> common options </span>
 
 > Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
@@ -396,7 +420,7 @@ schema {
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "obs.xxxxxx.myhuaweicloud.com"
     file_format_type = "csv"
-    delimiter = ","
+    field_delimiter = ","
   }
 
 ```

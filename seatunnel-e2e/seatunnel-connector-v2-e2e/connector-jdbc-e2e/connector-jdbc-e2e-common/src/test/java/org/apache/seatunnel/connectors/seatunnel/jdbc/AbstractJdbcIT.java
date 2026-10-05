@@ -45,6 +45,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -96,14 +97,22 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                if (useMavenRepositoryDriver()) {
+                    for (String driverClassName : driverDependencyClassNames()) {
+                        DependencyJar.ofClassName(driverClassName)
+                                .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                    }
+                } else {
+                    Container.ExecResult extraCommands =
+                            container.execInContainer(
+                                    "bash",
+                                    "-c",
+                                    "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                            + driverUrl()
+                                            + " --no-check-certificate");
+                    Assertions.assertEquals(
+                            0, extraCommands.getExitCode(), extraCommands.getStderr());
+                }
             };
 
     protected GenericContainer<?> dbServer;
@@ -116,7 +125,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
-    abstract String driverUrl();
+    String driverUrl() {
+        throw new UnsupportedOperationException("External JDBC driver URL is not configured");
+    }
 
     abstract Pair<String[], List<SeaTunnelRow>> initTestData();
 
@@ -124,13 +135,27 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
+            URL driverUrl =
+                    useMavenRepositoryDriver()
+                            ? DependencyJar.ofClassName(driverDependencyClassNames().get(0))
+                                    .path()
+                                    .toUri()
+                                    .toURL()
+                            : new URL(driverUrl());
             urlClassLoader =
                     new InsecureURLClassLoader(
-                            new URL[] {new URL(driverUrl())},
-                            AbstractJdbcIT.class.getClassLoader());
+                            new URL[] {driverUrl}, AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
         }
         return urlClassLoader;
+    }
+
+    protected List<String> driverDependencyClassNames() {
+        return Arrays.asList(getJdbcCase().getDriverClass());
+    }
+
+    protected boolean useMavenRepositoryDriver() {
+        return true;
     }
 
     protected Class<?> loadDriverClassFromUrl() {
