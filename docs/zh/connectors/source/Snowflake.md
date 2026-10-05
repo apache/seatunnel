@@ -76,7 +76,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 小贴士
 
-> 不配置 `partition_column` 时，源端按单拆分读取；配置后，SeaTunnel 会按 `partition_num`（默认 10）和作业并行度两者中较大的值并行读取。
+> 不配置 `partition_column` 时，源端按单拆分读取；配置后，SeaTunnel 会创建 `partition_num` 个拆分（默认 10）并分发给读取器；如需每个读取器处理一个拆分，请将 `partition_num` 设置为不小于作业并行度。
 >
 > Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）可通过 `?` 直接追加，示例：`?GEOGRAPHY_OUTPUT_FORMAT='EWKT'`。完整可配置参数及地理空间类型请参考 Snowflake [Geospatial Data Types](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)。
 

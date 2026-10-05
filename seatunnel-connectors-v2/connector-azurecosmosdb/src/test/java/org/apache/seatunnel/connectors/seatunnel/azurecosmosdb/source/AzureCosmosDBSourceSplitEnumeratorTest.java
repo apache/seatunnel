@@ -72,6 +72,50 @@ public class AzureCosmosDBSourceSplitEnumeratorTest {
                 "token-1", context.assignedSplits.get(0).get(0).getContinuationToken());
     }
 
+    @Test
+    public void testSplitOwnerRoutesNonZeroSplitIdsByBucketIndex() throws Exception {
+        RecordingContext context = new RecordingContext(3, new HashSet<>(Arrays.asList(0, 1, 2)));
+        AzureCosmosDBSourceSplitEnumerator enumerator =
+                new AzureCosmosDBSourceSplitEnumerator(context, null);
+        // bucketIndex(4, 3) is 1 and bucketIndex(5, 3) is 2, so the two splits are owned by
+        // different readers even though they are handed back to the enumerator together.
+        AzureCosmosDBSourceSplit ownedByReaderOne = new AzureCosmosDBSourceSplit(4);
+        AzureCosmosDBSourceSplit ownedByReaderTwo = new AzureCosmosDBSourceSplit(5);
+
+        try {
+            enumerator.addSplitsBack(Arrays.asList(ownedByReaderOne, ownedByReaderTwo), 1);
+            enumerator.registerReader(2);
+        } finally {
+            enumerator.close();
+        }
+
+        Assertions.assertEquals(1, context.assignedSplits.get(1).size());
+        Assertions.assertEquals("4", context.assignedSplits.get(1).get(0).splitId());
+        Assertions.assertEquals(1, context.assignedSplits.get(2).size());
+        Assertions.assertEquals("5", context.assignedSplits.get(2).get(0).splitId());
+    }
+
+    @Test
+    public void testSplitOwnerKeepsIntegerMinValueSplitIdInRange() throws Exception {
+        RecordingContext context = new RecordingContext(3, new HashSet<>(Arrays.asList(0, 1, 2)));
+        AzureCosmosDBSourceSplitEnumerator enumerator =
+                new AzureCosmosDBSourceSplitEnumerator(context, null);
+        // Math.abs(Integer.MIN_VALUE) is itself negative, so a split id at the minimum value is
+        // the input that would yield a negative owner index without the masking in HashUtils.
+        AzureCosmosDBSourceSplit split = new AzureCosmosDBSourceSplit(Integer.MIN_VALUE);
+
+        try {
+            enumerator.addSplitsBack(Collections.singletonList(split), 0);
+        } finally {
+            enumerator.close();
+        }
+
+        context.assignedSplits.keySet().forEach(reader -> Assertions.assertTrue(reader >= 0));
+        Assertions.assertEquals(1, context.assignedSplits.get(0).size());
+        Assertions.assertEquals(
+                String.valueOf(Integer.MIN_VALUE), context.assignedSplits.get(0).get(0).splitId());
+    }
+
     private static class RecordingContext
             implements SourceSplitEnumerator.Context<AzureCosmosDBSourceSplit> {
 

@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.salesforce.config.SalesforceParameters;
+import org.apache.seatunnel.connectors.seatunnel.salesforce.config.SalesforceSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.salesforce.exception.SalesforceConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.salesforce.exception.SalesforceConnectorException;
 
@@ -43,22 +44,28 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.DateUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -75,17 +82,33 @@ public class SalesforceClient implements Closeable {
     private final SalesforceParameters params;
     private final CloseableHttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final boolean sinkMode;
     private String accessToken;
     private String authorizedInstanceUrl;
 
     public SalesforceClient(SalesforceParameters params) {
+        this(params, false);
+    }
+
+    /** Create a write client with explicit retries and no credential-forwarding redirects. */
+    public static SalesforceClient forSink(SalesforceParameters params) {
+        return new SalesforceClient(params, true);
+    }
+
+    private SalesforceClient(SalesforceParameters params, boolean sinkMode) {
         this.params = params;
+        this.sinkMode = sinkMode;
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectTimeout(params.getRequestTimeoutMs())
                         .setSocketTimeout(params.getRequestTimeoutMs())
+                        .setConnectionRequestTimeout(sinkMode ? params.getRequestTimeoutMs() : -1)
                         .build();
-        this.httpClient = HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
+        HttpClientBuilder builder = HttpClients.custom().setDefaultRequestConfig(requestConfig);
+        if (sinkMode) {
+            builder.disableAutomaticRetries().disableRedirectHandling();
+        }
+        this.httpClient = builder.build();
     }
 
     public void authenticate() {
@@ -105,13 +128,32 @@ public class SalesforceClient implements Closeable {
             post.setEntity(new UrlEncodedFormEntity(form, StandardCharsets.UTF_8));
             try (CloseableHttpResponse response = httpClient.execute(post)) {
                 int status = response.getStatusLine().getStatusCode();
-                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                String body =
+                        sinkMode
+                                ? readSinkBody(response)
+                                : EntityUtils.toString(
+                                        response.getEntity(), StandardCharsets.UTF_8);
                 if (status != 200) {
                     throw new SalesforceConnectorException(
                             SalesforceConnectorErrorCode.AUTH_FAILED,
-                            "HTTP " + status + ": " + body);
+                            "HTTP " + status + (sinkMode ? "" : ": " + body));
                 }
                 JsonNode json = objectMapper.readTree(body);
+                if (sinkMode) {
+                    if (json == null
+                            || !json.path("access_token").isTextual()
+                            || json.path("access_token").asText().isEmpty()
+                            || !json.path("instance_url").isTextual()) {
+                        throw new IOException("Invalid authentication response");
+                    }
+                    SalesforceSinkConfig.validateInstanceUrl(json.path("instance_url").asText());
+                    if (params.getInstanceUrl().regionMatches(true, 0, "https:", 0, 6)
+                            && !json.path("instance_url")
+                                    .asText()
+                                    .regionMatches(true, 0, "https:", 0, 6)) {
+                        throw new IOException("Authentication returned an insecure instance");
+                    }
+                }
                 this.accessToken = json.get("access_token").asText();
                 this.authorizedInstanceUrl = json.get("instance_url").asText();
                 log.info("Authenticated with Salesforce instance {}", authorizedInstanceUrl);
@@ -119,8 +161,183 @@ public class SalesforceClient implements Closeable {
         } catch (SalesforceConnectorException e) {
             throw e;
         } catch (Exception e) {
+            if (sinkMode) {
+                throw new SalesforceConnectorException(
+                        SalesforceConnectorErrorCode.AUTH_FAILED,
+                        "Authentication failed (" + e.getClass().getSimpleName() + ")");
+            }
             throw new SalesforceConnectorException(SalesforceConnectorErrorCode.AUTH_FAILED, e);
         }
+    }
+
+    /**
+     * Upsert one bounded collection with allOrNone=true. Request retries can repeat Salesforce-side
+     * effects; this is not a checkpoint transaction or exactly-once protocol.
+     */
+    public void upsert(
+            String objectName,
+            String externalIdField,
+            List<ObjectNode> records,
+            int maxRetries,
+            long retryIntervalMs) {
+        if (!sinkMode || accessToken == null) {
+            throw writeFailure("An authenticated sink client is required");
+        }
+        SalesforceSinkConfig.requireIdentifier(objectName, "object_name");
+        SalesforceSinkConfig.requireIdentifier(externalIdField, "external_id_field");
+        if (records.isEmpty()
+                || records.size() > 200
+                || maxRetries < 0
+                || maxRetries > 10
+                || retryIntervalMs < 0
+                || retryIntervalMs > 60000) {
+            throw writeFailure("Invalid upsert batch or retry bounds");
+        }
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("allOrNone", true);
+        records.forEach(payload.putArray("records")::add);
+        String requestBody = payload.toString();
+        boolean refreshed = false;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw writeFailure("Interrupted before collection upsert");
+            }
+            long delay = retryIntervalMs;
+            HttpPatch patch =
+                    new HttpPatch(
+                            authorizedInstanceUrl
+                                    + "/services/data/"
+                                    + params.getApiVersion()
+                                    + "/composite/sobjects/"
+                                    + objectName
+                                    + "/"
+                                    + externalIdField);
+            patch.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+            patch.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
+            boolean refresh = false;
+            try (CloseableHttpResponse response = httpClient.execute(patch)) {
+                int status = response.getStatusLine().getStatusCode();
+                if (status == 200) {
+                    validateUpsertResults(readSinkBody(response), records.size());
+                    return;
+                }
+                if (status == 401 && !refreshed && attempt < maxRetries) {
+                    refresh = true;
+                } else if ((status == 429
+                                || status == 500
+                                || status == 502
+                                || status == 503
+                                || status == 504)
+                        && attempt < maxRetries) {
+                    delay = retryDelay(response.getFirstHeader("Retry-After"), retryIntervalMs);
+                } else {
+                    throw writeFailure(
+                            "Collection upsert returned HTTP "
+                                    + status
+                                    + " after "
+                                    + (attempt + 1)
+                                    + " attempt(s)");
+                }
+            } catch (IOException e) {
+                if (Thread.currentThread().isInterrupted() || attempt == maxRetries) {
+                    throw writeFailure(
+                            "Collection upsert I/O failed ("
+                                    + e.getClass().getSimpleName()
+                                    + ") after "
+                                    + (attempt + 1)
+                                    + " attempt(s)");
+                }
+            }
+            if (refresh) {
+                authenticate();
+                refreshed = true;
+            } else {
+                try {
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw writeFailure("Interrupted while waiting to retry collection upsert");
+                }
+            }
+        }
+        throw writeFailure("Collection upsert exhausted retries");
+    }
+
+    private void validateUpsertResults(String body, int count) {
+        JsonNode results;
+        try {
+            results = objectMapper.readTree(body);
+        } catch (IOException e) {
+            throw writeFailure("Invalid collection upsert JSON response");
+        }
+        if (results == null || !results.isArray() || results.size() != count) {
+            throw writeFailure("Collection upsert response count does not match the request");
+        }
+        List<String> failures = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            JsonNode result = results.get(i);
+            if (!result.path("success").isBoolean() || !result.path("errors").isArray()) {
+                throw writeFailure("Malformed collection result at index " + i);
+            }
+            if (!result.path("success").asBoolean() || result.path("errors").size() != 0) {
+                List<String> codes = new ArrayList<>();
+                for (JsonNode error : result.path("errors")) {
+                    String code = error.path("statusCode").asText();
+                    codes.add(code.matches("[A-Z_]{1,80}") ? code : "UNKNOWN");
+                }
+                failures.add("index " + i + ": " + codes);
+            } else if (!result.path("id").isTextual() || result.path("id").asText().isEmpty()) {
+                throw writeFailure("Missing record ID in collection result at index " + i);
+            }
+        }
+        if (!failures.isEmpty()) {
+            // API messages can contain field values; report indices and codes, not response bodies.
+            throw writeFailure("Collection upsert failed: " + failures);
+        }
+    }
+
+    private long retryDelay(Header retryAfter, long configuredDelay) {
+        if (retryAfter == null) {
+            return configuredDelay;
+        }
+        long delay;
+        try {
+            delay = Math.multiplyExact(Long.parseLong(retryAfter.getValue().trim()), 1000L);
+        } catch (NumberFormatException e) {
+            Date date = DateUtils.parseDate(retryAfter.getValue());
+            if (date == null) {
+                throw writeFailure("Invalid Retry-After response header");
+            }
+            delay = Math.max(0, date.getTime() - System.currentTimeMillis());
+        } catch (ArithmeticException e) {
+            throw writeFailure("Retry-After exceeds the bounded retry budget");
+        }
+        if (delay < 0 || delay > 60000) {
+            throw writeFailure("Retry-After exceeds the bounded retry budget");
+        }
+        return Math.max(delay, configuredDelay);
+    }
+
+    private String readSinkBody(CloseableHttpResponse response) throws IOException {
+        if (response.getEntity() == null) {
+            throw writeFailure("Missing Salesforce response body");
+        }
+        try (InputStream input = response.getEntity().getContent();
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (output.size() + read > 1024 * 1024) {
+                    throw writeFailure("Salesforce response exceeds the 1 MiB client limit");
+                }
+                output.write(buffer, 0, read);
+            }
+            return new String(output.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private SalesforceConnectorException writeFailure(String message) {
+        return new SalesforceConnectorException(SalesforceConnectorErrorCode.WRITE_FAILED, message);
     }
 
     public CatalogTable describeObject(String database, String objectName) {

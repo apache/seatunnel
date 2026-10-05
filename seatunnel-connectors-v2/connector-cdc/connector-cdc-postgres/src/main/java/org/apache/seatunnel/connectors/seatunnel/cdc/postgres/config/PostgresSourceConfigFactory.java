@@ -89,6 +89,11 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        // Deliberately do NOT set "database.include.list": Debezium folds it into
+        // dataCollectionFilter() as a predicate on TableId#catalog, but PostgreSQL table ids are
+        // catalog-less (see PostgresSchema#readTableSchema and the event dispatchers), so every
+        // snapshot schema read and streaming event would be filtered out. Database scoping for
+        // discovery is applied in TableDiscoveryUtils#listTables via an explicit predicate.
         props.setProperty("plugin.name", decodingPluginName);
         props.setProperty("slot.name", slotName);
 

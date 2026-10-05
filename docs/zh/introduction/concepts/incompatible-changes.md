@@ -4,6 +4,62 @@
 
 ## dev
 
+### DuckDB BIT 和 ENUM 自动建表
+
+- Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
+  正长度保持不变。自动生成的列将使用 MySQL `LONGTEXT` 或 PostgreSQL `text`，不再使用原来的有界字符串类型。
+- 已有目标表不会自动扩容。传输超出原有限制的值前，请检查列定义并手动扩容。
+- 使用 `create_index = true`（默认值）时，如果这些列属于主键，MySQL 自动建表会失败：`LONGTEXT` 无法作为
+  使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
+  并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
+  `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
+### Zeta SQL Transform：内置 AES_ENCRYPT / AES_DECRYPT
+
+- **行为变更：AES_ENCRYPT / AES_DECRYPT 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
+  - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
+### RabbitMQ Connector
+
+- **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
+  - **影响范围**：`seatunnel-connectors-v2/connector-rabbitmq`
+  - **变更说明**：此前使用 `amqps://` 的 `url`/`uri` 建立连接时，会隐式启用“信任所有证书”的
+    TrustManager 且不校验主机名。现在 `amqps://` 连接会强制校验证书，与 `ssl = true` 的
+    host/port 路径行为保持一致。
+  - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
+  - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
+    `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
+### FakeSource (connector-fake)
+
+- 声明式选项约束现在在工厂校验阶段即强制生效，而不再静默放行、直到运行时才失败。受影响选项：`split.num`、
+  `vector.dimension` 和 `binary.vector.dimension` 必须 > 0；`row.num`、`split.read-interval`、`map.size`、
+  `array.size`、`bytes.length` 和 `string.length` 必须 >= 0；`tinyint.min/max`、`smallint.min/max`、
+  `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
+  必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
+  将在启动时快速抛出校验错误并失败。
+
+### Zeta REST 分页参数校验
+
+- **行为变更：分页接口开始校验 `page` 与 `rows`**
+  - **影响范围**：`seatunnel-engine-server`，REST 接口 `GET /finished-jobs/:state`、`GET /running-jobs` 与 `GET /running-jobs/summary`。后两者由同一个 `RunningJobsServlet` 实例提供服务，因此都会受到该校验。
+  - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
+  - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**
@@ -111,6 +167,18 @@
 
 ### 连接器变更
 
+- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
+  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
+  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
+  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
+  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
+
+- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
+  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
+  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
+  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
+
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
   - **变更说明**：此前，`OrcWriteStrategy.buildFieldWithRowType(...)` 在构建 ORC Schema 时，会将每个嵌套 `ROW`（struct）字段名强制转为小写，因此声明为 `MD5` 的嵌套字段在文件 footer 中被持久化为 `md5`。下游消费者按原始大小写名称读取该列时会得到 null/缺失值。本次移除了递归嵌套字段分支上的 `.toLowerCase()` 调用，嵌套 struct 字段名将按原始大小写写入文件 Schema。
@@ -169,6 +237,11 @@
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
 ### 转换变更
+
+- **行为变更：AMAZON 向量化遵循重试选项**
+  - **影响范围**：配置 `model_provider = AMAZON` 的 `Embedding` 转换。
+  - **变更说明**：配置的 SeaTunnel 重试和退避选项现在会传递到 Bedrock 运行时。此前 Transform 忽略这些设置，只执行一次 SeaTunnel 尝试。
+  - **影响及迁移**：大于 1 的 `model_retry_max_attempts` 现在会启用 SeaTunnel 重试，可能产生额外模型费用；设置为 1 可保留单次 SeaTunnel 尝试，默认值仍为 1。SDK 自身的重试和超时行为保持不变；`model_request_timeout_ms` 目前不应用于 Bedrock 调用。
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -258,6 +331,29 @@
   `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
   （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
+### 格式变更
+
+- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
+  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
+  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+
 ### 引擎行为变更
+
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
 ### 依赖升级
