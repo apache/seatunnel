@@ -208,13 +208,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public void tearDown() throws Exception {
-        stopTaskManagers();
-        if (jobManager != null) {
-            // delete the volume
-            jobManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            jobManager.stop();
-        }
-        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+        // Stop every container even if one of them never started or the volume cleanup fails. A
+        // JobManager left running keeps the "jobmanager" alias on the shared network, and the
+        // TaskManager of the next test case can then register with it instead of its own
+        // JobManager, which leaves that case's job waiting for slots forever.
+        List<GenericContainer<?>> containers = new ArrayList<>();
+        containers.add(taskManager);
+        containers.addAll(additionalTaskManagers);
+        containers.add(jobManager);
+        additionalTaskManagers.clear();
+        stopContainersAndDeleteVolume(containers.toArray(new GenericContainer<?>[0]));
     }
 
     @Override

@@ -287,7 +287,7 @@ sink {
     password = ""
     database = "shop"
     table = "${table_name}"
-    url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
     max_retries = 3
     enable_upsert_delete = true
     schema_save_mode="RECREATE_SCHEMA"
