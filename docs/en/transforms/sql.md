@@ -12,14 +12,14 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 
 |       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
-| plugin_input | string | yes      | -             |
-| plugin_output | string | yes      | -             |
+| plugin_input | string | no       | -             |
+| plugin_output | string | no       | -             |
 | query             | string | yes      | -             |
 | engine            | string | no       | ZETA          |
 
 ### plugin_input [string]
 
-The source table name, the query SQL table name must match this field.
+The source table name, the query SQL table name must match this field. If not configured, the input catalog table name is used.
 
 ### query [string]
 
