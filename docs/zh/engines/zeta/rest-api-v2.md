@@ -13,7 +13,7 @@ v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相�
 
 这里需要区分两个容易混淆的“默认值”来源：
 
-- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`、`log-response-max-size-mb = 64`
 - 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
 
 因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
@@ -68,12 +68,13 @@ seatunnel:
       port: 8080
       upload-max-file-size-mb: 10
       upload-max-request-size-mb: 10
+      log-response-max-size-mb: 64
 ```
 
 ## Web UI 与 8080 排查
 
 - 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。
-- 如果开启了 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以启动日志 `SeaTunnel REST service will start on port xxx` 为准。
+- 如果同时开启 HTTP 和 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以 Jetty 启动日志 `SeaTunnel REST service started on http port xxx` 为准。`/logs` 和 `/loggers?scope=cluster` 会解析并报告各节点实际绑定的 HTTP 端口。配置中的 `port` 保持不变，即使多个节点共享同一个 HTTP 配置对象也不例外。
 - 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
 - Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
 
@@ -1427,6 +1428,29 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 当前支持的格式有`json`和`html`，默认为`html`。
 
+<a id="log-response-size-limit"></a>
+
+#### 响应大小限制
+
+该限制只作用于文件内容响应，不影响日志列表。活动日志和 `seatunnel.log.*` 等滚动日志均按 UTF-8 解码。
+如果日志布局使用其它平台编码，请将其 `layout.charset` 配置为 `UTF-8`。自带的 Log4j2 示例按 100 MB 滚动文件，
+因此默认 64 MB 响应上限也可能截断滚动后的日志文件。截断提示本身不计入文件内容的大小上限。
+
+读取日志文件时最多返回 `seatunnel.engine.http.log-response-max-size-mb` 大小的内容（默认 64 MB）。
+超过该限制的日志文件只返回末尾 `log-response-max-size-mb` 的内容——对长时间运行的作业来说，日志末尾
+才是解释问题的部分。
+
+被截断的响应会以一行提示开头，写明实际保留的字节数和同一次读取开始时记录的文件大小，避免把不完整的日志当成完整日志：
+
+```
+[SeaTunnel] Log truncated: returning 67108792 bytes from the tail of 3435973836 bytes (file size at read start). A partial first line is omitted when possible; an oversized single line returns a UTF-8-safe partial tail. Raise seatunnel.engine.http.log-response-max-size-mb, or set it to 0 for no limit, to return more.
+```
+
+正文从截断点之后的第一个完整行开始，因此实际返回会略小于该限制；如果单行长度本身就超过限制，则没有可
+对齐的换行，正文从第一个完整字符开始。
+
+把该项设为 `0` 可恢复不限制读取，但要注意此时单个请求需要把整个多 GB 的日志文件放进节点堆内存。
+
 
 #### 例子
 
@@ -1452,6 +1476,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 获取当前节点的日志列表：`http://localhost:8080/log`
 获取日志文件内容：`http://localhost:8080/log/job-898380162133917698.log`
+
+日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
 </details>
 
@@ -1519,8 +1545,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ```
 
 所有节点都返回结果时 `status` 为 `SUCCESS`，部分节点失败时为 `PARTIAL_FAILURE`，全部失败时为
-`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点配置中的 REST 端口访问，因此无法
-访问通过 `enable-dynamic-port` 使用了其它端口的节点。
+`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点实际绑定的 REST HTTP 端口访问，
+包括通过 `enable-dynamic-port` 选择了其它端口的节点。各节点都需要启用 HTTP，且其端口可访问。
 
 </details>
 

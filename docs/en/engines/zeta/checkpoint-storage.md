@@ -14,7 +14,7 @@ Checkpoint Storage is a storage mechanism for storing checkpoint data.
 
 SeaTunnel Engine supports the following checkpoint storage types:
 
-- HDFS (OSS,COS,S3,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
 We use the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
@@ -110,6 +110,53 @@ Please add the following jar to the lib directory:
 - [hadoop-cos-3.4.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-cos/3.4.1)
 - [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
 - [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
+
+#### GCS
+
+Google Cloud Storage based hdfs-file uses the [Hadoop GCS connector](https://github.com/GoogleCloudDataproc/hadoop-connectors/tree/master/gcs). `gcs.bucket` is required and must be a bucket URI such as `gs://your-bucket`. All `fs.gs.*` keys are passed to the connector unchanged.
+
+If you use a service account key file, you can config like this:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+          fs.gs.project.id: your-project-id
+          fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+If no key file is configured, the connector uses Application Default Credentials, so on GKE with Workload Identity (or on a GCE VM with an attached service account) only the bucket is needed:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: gcs
+          gcs.bucket: gs://your-bucket
+```
+
+The identity needs read, write and delete permission on the bucket objects, for example the `roles/storage.objectAdmin` role on the bucket.
+
+Please add the following jar to the lib directory:
+- [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
+
+Note: renames use the GCS object move API by default. Services that do not implement it, such as the `fake-gcs-server` emulator, need `fs.gs.operation.move.enable: false`, which makes the connector fall back to copy and delete.
 
 #### S3
 

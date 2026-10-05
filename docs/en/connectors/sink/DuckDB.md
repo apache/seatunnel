@@ -16,9 +16,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data to a DuckDB database file through JDBC. Supports batch and streaming modes, supports concurrent
-writing, and supports exactly-once semantics when the underlying JDBC driver exposes an XA datasource
-(set `is_exactly_once = true` and provide `xa_data_source_class_name`). DuckDB runs in-process, so the connector
+Write data to a DuckDB database file through JDBC. Supports batch and streaming modes and concurrent
+writing. The DuckDB JDBC driver used by this connector does not provide an XA datasource, so the JDBC sink's
+XA-based exactly-once option is unavailable for DuckDB. DuckDB runs in-process, so the connector
 works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database.
 
 ## Using Dependency
@@ -33,11 +33,11 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> The generic JDBC sink implements exactly-once through XA transactions. The DuckDB JDBC driver does not
+> provide an XA datasource; do not set `is_exactly_once = true` for DuckDB.
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
@@ -83,9 +83,9 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit a failed `executeBatch` call.                                                                                                                                                                                  |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
-| is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which uses XA transactions. When enabled, you must also set `xa_data_source_class_name`.                                                                                                              |
+| is_exactly_once                           | Boolean | No       | false                        | Generic JDBC XA option. Keep `false` for DuckDB because its JDBC driver has no XA datasource.                                                                                                                                                  |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
-| xa_data_source_class_name                 | String  | No       | -                            | The XA datasource class name of the database driver. For DuckDB, use `org.duckdb.DuckDBXADataSource`.                                                                                                                                          |
+| xa_data_source_class_name                 | String  | No       | -                            | Generic JDBC XA datasource class option. The DuckDB JDBC driver does not provide one, so this option cannot enable exactly-once for DuckDB.                                                                                                    |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures.                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is `-1` (never timeout). Note that setting the timeout may affect exactly-once semantics.                                                                                             |
 | auto_commit                               | Boolean | No       | true                         | Whether to enable automatic transaction commit. Set to `false` when `is_exactly_once = true`.                                                                                                                                                 |
@@ -172,43 +172,6 @@ sink {
 }
 ```
 
-### Exactly-Once
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    parallelism = 1
-    row_num = 1000
-    schema = {
-      fields {
-        id = "int"
-        name = "string"
-        age = "int"
-        email = "string"
-      }
-    }
-  }
-}
-
-sink {
-  Jdbc {
-    url = "jdbc:duckdb:/tmp/test.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "sink_table"
-    username = ""
-    password = ""
-
-    is_exactly_once = "true"
-
-    xa_data_source_class_name = "org.duckdb.DuckDBXADataSource"
-  }
-}
-```
 
 ## Changelog
 

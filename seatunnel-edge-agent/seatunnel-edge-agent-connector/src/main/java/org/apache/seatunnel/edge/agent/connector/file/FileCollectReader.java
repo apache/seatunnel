@@ -46,6 +46,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.LongSupplier;
 
 public class FileCollectReader implements EdgeInputReader {
 
@@ -54,6 +55,7 @@ public class FileCollectReader implements EdgeInputReader {
     private final FileCollectConfig config;
     private final Charset charset;
     private final EdgeSourcePositionStore sourcePositionStore;
+    private final LongSupplier clock;
 
     private GlobPathResolver globResolver;
     private final Map<Path, MultilineAssembler> multilineAssemblers = new HashMap<>();
@@ -66,9 +68,21 @@ public class FileCollectReader implements EdgeInputReader {
 
     public FileCollectReader(
             FileCollectConfig config, EdgeSourcePositionStore sourcePositionStore) {
+        this(config, sourcePositionStore, System::currentTimeMillis);
+    }
+
+    /**
+     * @param clock millisecond clock used for glob scan intervals, idle cursor timeouts and line
+     *     timestamps; tests pass a manual clock to step through these transitions deterministically
+     */
+    FileCollectReader(
+            FileCollectConfig config,
+            EdgeSourcePositionStore sourcePositionStore,
+            LongSupplier clock) {
         this.config = config;
         this.charset = config.getCharset();
         this.sourcePositionStore = sourcePositionStore;
+        this.clock = clock;
     }
 
     public String id() {
@@ -105,13 +119,13 @@ public class FileCollectReader implements EdgeInputReader {
             lineCounters.put(file, restoredLineNumber(pos));
         }
 
-        this.lastDiscoveryMs = System.currentTimeMillis();
+        this.lastDiscoveryMs = clock.getAsLong();
     }
 
     @Override
     public List<EdgeEvent> poll(int maxRecords) throws Exception {
         List<EdgeEvent> records = new ArrayList<>();
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
 
         // Periodically scan glob patterns for newly appeared files
         discoverNewFiles(now);
@@ -189,7 +203,7 @@ public class FileCollectReader implements EdgeInputReader {
             String line,
             List<EdgeEvent> records) {
         long lineNum = lineCounters.merge(filePath, 1L, Long::sum);
-        long ts = System.currentTimeMillis();
+        long ts = clock.getAsLong();
         MultilineAssembler.LineElement element =
                 new MultilineAssembler.LineElement(line, filePathStr, lineNum, cursor.offset(), ts);
 
@@ -320,7 +334,7 @@ public class FileCollectReader implements EdgeInputReader {
     }
 
     private FileTailCursor openCursor(Path file, EdgeSourcePosition pos) throws IOException {
-        FileTailCursor cursor = new FileTailCursor(file, charset);
+        FileTailCursor cursor = new FileTailCursor(file, charset, clock);
         long seekOffset = 0;
         if (pos != null && pos.getOffset() > 0) {
             seekOffset = pos.getOffset();
@@ -331,7 +345,7 @@ public class FileCollectReader implements EdgeInputReader {
 
         if (pos != null && inode(pos) != 0 && cursor.inode() != 0 && inode(pos) != cursor.inode()) {
             cursor.close();
-            cursor = new FileTailCursor(file, charset);
+            cursor = new FileTailCursor(file, charset, clock);
             cursor.open(0);
         }
         return cursor;
