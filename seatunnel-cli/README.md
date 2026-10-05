@@ -276,6 +276,58 @@ seatunnel "从 Kafka 读取订单数据写入 ClickHouse" -o my_job.conf
 seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model gpt-4o
 ```
 
+### Diagnosing a Job
+
+`--diagnose` answers "why is this job not making progress?" from what the
+engine already publishes. It is read-only -- one `GET /job-info/<id>`, never a
+submit or a stop -- and uses no LLM at all, so it works with no API key and no
+provider configured:
+
+```bash
+seatunnel --diagnose 852362670771666945
+
+# Another host, or a cluster whose enable-dynamic-port moved the listener
+SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 852362670771666945
+```
+
+`/job-info` is part of the v2 REST API, which Zeta serves from its Jetty HTTP
+port -- `8080` in the packaged `config/seatunnel.yaml`. Point
+`SEATUNNEL_API_BASE` there if your cluster is elsewhere or uses another port.
+
+```
+Job 852362670771666945 mysql-to-doris — RUNNING
+  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
+            It is failing and being restored repeatedly, so the job looks alive while
+            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
+            since the last restore)
+```
+
+What it reports: the parsed error code and root cause of a failed job, a
+pipeline restarting in a loop (and whether it has used up its restore budget),
+a job that has sat in a pre-running state too long to be normal, and a running
+job whose source reads nothing or whose sink writes nothing. Exit status is
+non-zero only when the job itself is `FAILED`, so a stuck-but-live job does not
+look like a command failure.
+
+Every rule is deliberately limited to what one response can prove, because a
+wrong hint costs more than a missing one:
+
+- `restoreCount` counts restores since submission, so what it means depends on
+  the pipeline's current state. A pipeline that is `FINISHED` or `CANCELED` is
+  over and says nothing; a `FAILED` one is reported only if it spent its whole
+  restore budget, in the past tense; one that is shutting down reports its
+  restores as history. A loop is only claimed when the pipeline is between
+  attempts, or has been running for less than 10 minutes since its last
+  restore — so a loop whose attempts each survive longer than that is reported
+  as history rather than as a live fault.
+- the row-count rules wait until the job has been RUNNING for two minutes, and
+  for a `job.mode = STREAMING` job an idle source is reported as a note rather
+  than a warning -- a quiet topic and a misconfigured one read the same here.
+- `DOING_SAVEPOINT` is reported as a duration, not as a hung task: a large
+  state legitimately takes minutes to write.
+- durations are measured against the master's own `diagnostics.generatedAt`,
+  so a client clock that disagrees with the cluster cannot invent a stuck job.
+
 ### CLI Arguments
 
 ```
@@ -289,6 +341,7 @@ Options:
   --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
+  --diagnose JOB_ID        Explain a job's current state and exit (read-only, no LLM)
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source
   -V, --version            Show version
   -h, --help               Show help message
