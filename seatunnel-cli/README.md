@@ -311,6 +311,8 @@ Options:
 | `/help` | Show help panel |
 | `/quit` | Exit |
 
+Sessions are listed and automatically resumed by their last activity time. Continuing an older session makes it the most recent session; unreadable session files are skipped.
+
 ## Examples
 
 ### MySQL to S3 (Batch)
