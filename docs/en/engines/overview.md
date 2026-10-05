@@ -195,7 +195,7 @@ env {
 
 ## Connector Compatibility
 
-All SeaTunnel V2 connectors are compatible with all three engines. However, some features may have different behaviors:
+Most SeaTunnel V2 connectors are compatible with all three engines, but not all of them (for example, CDC connectors are not supported on Spark). Some features may also have different behaviors:
 
 | Connector Feature | SeaTunnel Engine | Flink | Spark |
 |-------------------|------------------|-------|-------|

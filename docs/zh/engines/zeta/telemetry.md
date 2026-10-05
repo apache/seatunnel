@@ -22,9 +22,11 @@ seatunnel:
 
 ## 指标
 
-Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
+Prometheus 的指标文本可通过 `http://{instanceHost}:8080/metrics` 获取（Jetty HTTP 服务器，需在 `seatunnel.yaml` 中设置 `http.enable-http: true` 开启）。
 
-OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
+OpenMetrics 的指标文本可通过 `http://{instanceHost}:8080/openmetrics` 获取。
+
+相同的内容也在 Hazelcast REST 端点 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 上提供，该端点还需要在 `hazelcast.yaml` 的 `hazelcast.network.rest-api` 下设置 `rest-api.enabled: true`（发行包模板中默认关闭）。
 
 可用的指标包括以下类别。
 
@@ -188,7 +190,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|
-| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | seatunnel 集群的所有作业计数 |
+| job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | seatunnel 集群的所有作业计数 |
 
 ### JVM 指标
 
@@ -249,12 +251,13 @@ scrape_configs:
   # 默认分配给抓取指标的作业名称。
   - job_name: 'seatunnel'
     scrape_interval: 5s
-    # 指标导出路径 
-    metrics_path: /hazelcast/rest/instance/metrics
+    # 指标导出路径（由 Jetty HTTP 服务器提供；仅当开启了 Hazelcast rest-api 时，
+    # 才使用 5801 端口上的 /hazelcast/rest/instance/metrics）
+    metrics_path: /metrics
     # 此作业静态配置的目标列表。
     static_configs:
       # 静态配置中指定的目标。
-      - targets: [ 'localhost:5801' ]
+      - targets: [ 'localhost:8080' ]
       # 为从目标抓取的所有指标分配的标签。
       # labels: [<labelName>:<labelValue>]
 ```

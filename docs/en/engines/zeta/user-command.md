@@ -4,7 +4,7 @@ sidebar_position: 13
 
 # Client Command Line Tool
 
-The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, pause, resume, delete jobs, view job status and monitoring metrics, etc.
+The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, savepoint, restore jobs, view job status and monitoring metrics, etc. (There is no dedicated command for deleting jobs; finished job records are removed automatically after `history-job-expire-minutes` elapses.)
 
 You can obtain the help information of the command line tool through the following command:
 
@@ -22,6 +22,11 @@ Usage: seatunnel.sh [options]
     -can, --cancel, --cancel-job                Cancel the job(s) by JobId.
     -f, --force-cancel, --force-cancel-job      Force Cancel job(s) by JobId.
     --check                                     Whether to check the config (default: false).
+    --checkpoint-history                        Get checkpoint history by JobId.
+    --checkpoint-history-limit                  Limit checkpoint history size (default: 20).
+    --checkpoint-history-pipeline               Filter checkpoint history by pipeline id.
+    --checkpoint-history-status                 Filter checkpoint history by status: COMPLETED,FAILED,CANCELED.
+    --checkpoint-overview                       Get checkpoint overview by JobId.
     -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
@@ -40,6 +45,7 @@ Usage: seatunnel.sh [options]
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
     --sample-limit                              Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000).
     --sample-print-data                         Print sampled row values to persistent logs (default: false).
+    --set-job-id                                Set custom job id for job.
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```

@@ -247,7 +247,7 @@ seatunnel:
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
     "pendingJobs":"0",
     "finishedJobs":"0",
@@ -258,7 +258,7 @@ seatunnel:
 
 **注意:**
 - 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
-- 当添加标签过滤后, `works`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
+- 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>
 
@@ -347,6 +347,7 @@ seatunnel:
     "jobName": "",
     "jobStatus": "",
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -366,8 +367,8 @@ seatunnel:
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
@@ -552,6 +553,7 @@ seatunnel:
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -594,7 +596,7 @@ seatunnel:
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -630,9 +632,9 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
 
 #### 指标字段说明
@@ -702,6 +704,7 @@ seatunnel:
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -718,10 +721,33 @@ seatunnel:
     "pipelineEdges": {}
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "IntermediateQueueSize": "",
+    "SourceReceivedCount": "",
+    "SourceReceivedQPS": "",
+    "SourceReceivedBytes": "",
+    "SourceReceivedBytesPerSeconds": "",
+    "SinkWriteCount": "",
+    "SinkWriteQPS": "",
+    "SinkWriteBytes": "",
+    "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
+    "TableSourceReceivedCount": {},
+    "TableSourceReceivedBytes": {},
+    "TableSourceReceivedBytesPerSeconds": {},
+    "TableSourceReceivedQPS": {},
+    "TableSinkWriteCount": {},
+    "TableSinkWriteQPS": {},
+    "TableSinkWriteBytes": {},
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -731,9 +757,9 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
-`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 
 当我们查询不到这个Job时，返回结果为：
 
@@ -776,6 +802,7 @@ seatunnel:
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -1184,7 +1211,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 
@@ -1793,8 +1820,14 @@ Checkpoint 信息字段：
   }
 ]
 ```
-
 </details>
+
+#### 字段说明
+
+| 字段 | 说明 |
+| --- | --- |
+| `pipelineId` | 该条记录所属 pipeline 的 ID。 |
+| `checkpoint` | 上文所述的 Checkpoint 元数据。 |
 
 ------------------------------------------------------------------------------------------
 
