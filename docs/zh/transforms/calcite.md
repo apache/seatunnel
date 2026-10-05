@@ -54,8 +54,8 @@ table_transform = [
 行级 SQL 执行错误的处理方式：
 
 - `FAIL`（默认）-- 立即终止作业
-- `SKIP` -- 跳过错误行，继续处理
-- `ROUTE_TO_TABLE` -- 将错误行路由到独立的错误表
+- `SKIP` -- 仅为兼容性保留，Calcite 转换中当前行为等同 `FAIL`：SQL 执行错误以普通 `TransformException` 抛出，错误行不会被跳过
+- `ROUTE_TO_TABLE` -- 仅为兼容性保留，Calcite 转换尚未实现错误表路由，当前行为等同 `FAIL`
 
 ### 公共参数 [string]
 
@@ -447,8 +447,8 @@ transform {
 行级 SQL 执行出错时：
 
 - `FAIL` -- 立即终止作业（默认，推荐用于数据质量要求高的场景）
-- `SKIP` -- 静默跳过错误行
-- `ROUTE_TO_TABLE` -- 将错误行路由到独立错误表，便于后续排查
+- `SKIP` -- 仅为兼容性保留，Calcite 转换中当前行为等同 `FAIL`：SQL 执行错误以普通 `TransformException` 抛出，错误行不会被静默跳过
+- `ROUTE_TO_TABLE` -- Calcite 转换未实现该方式，行为等同 `FAIL`
 
 ## 自定义 UDF
 
