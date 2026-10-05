@@ -49,6 +49,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 `TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`。读取优先使用 JDBC 的 `LocalDateTime` 接口，避免 JVM 时区及公历切换日期的规范化，并保留驱动提供的精度。DuckDB JDBC 1.3.1.0 对 `TIMESTAMP` 支持该接口，但不支持这三种别名；别名回退到普通时间戳读取时，仍可能规范化夏令时跳时或公历切换区间内的值。对于受影响的别名值，可在 Source 查询中转换为 `VARCHAR`，保留数据库的文本表示。
 
+DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
+
+MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。如果 `BIT` 或 `ENUM` 列属于主键，请提前创建兼容的目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-bit-和-enum-自动建表)。
+
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |
@@ -63,10 +67,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
 | DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
+| BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+
+> 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 
 ## 源选项
 
