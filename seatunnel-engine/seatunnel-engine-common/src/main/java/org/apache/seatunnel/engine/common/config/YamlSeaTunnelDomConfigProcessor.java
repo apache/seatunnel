@@ -685,6 +685,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .UPLOAD_MAX_REQUEST_SIZE_MB
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setLogResponseMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .LOG_RESPONSE_MAX_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
