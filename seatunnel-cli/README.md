@@ -311,6 +311,8 @@ Options:
 | `/help` | Show help panel |
 | `/quit` | Exit |
 
+`/new`, `/clear`, and a successful `/resume` discard any unanswered clarification from the previous session. The next request uses the selected session only.
+
 ## Examples
 
 ### MySQL to S3 (Batch)
