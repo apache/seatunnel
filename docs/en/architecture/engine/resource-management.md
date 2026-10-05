@@ -380,6 +380,8 @@ public void memberRemoved(MembershipEvent event) {
 
 **Recovery**:
 - Worker liveness is determined by heartbeat updates and cluster membership events (exact timeout/threshold is implementation/config-dependent)
+- During an active-master failover, any slot that a Worker still reports as assigned to the restoring job is reused instead of requested again; this check does not look at the `dynamic-slot` setting. Fixed slots (`dynamic-slot: false`) are the case that benefits most in practice, because re-requesting a fixed slot the Worker still holds would otherwise fail.
+- Reuse requires the Worker address, slot ID, allocation sequence, and owner job ID to match. The allocation sequence changes on every successful assignment, so a slot reassigned to another task group is treated as unavailable to the restoring job and normal allocation is used.
 
 ## 8. Configuration
 

@@ -54,6 +54,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 The Http sink always sends `POST` requests. Each upstream row is converted to JSON and used as the request body. When `array_mode = true`, rows are accumulated into a JSON array before sending; `batch_size` controls the maximum number of rows in one request.
 
+The sink treats a non-200 HTTP response or a request exception as a write failure and reports it to the engine. A failed batch is not acknowledged as successfully flushed. The connector does not provide exactly-once delivery, so receivers should remain idempotent.
+
 simple:
 
 ```hocon

@@ -55,6 +55,15 @@ public interface ReadStrategy extends Serializable, Closeable {
         return null;
     }
 
+    /**
+     * Returns the bytes acknowledged by the last successful read, or {@code -1} when the strategy
+     * does not report byte progress. Zero means no bytes were consumed and must not advance a tail
+     * split's offset.
+     */
+    default long getLastReadBytes() {
+        return -1L;
+    }
+
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
     default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)

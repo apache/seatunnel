@@ -41,6 +41,12 @@ Run only the `SeaTunnelRow` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark
 ```
 
+Run only the `ProtoStuffSerializer` benchmarks:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
+```
+
 Write JSON results:
 
 ```bash
