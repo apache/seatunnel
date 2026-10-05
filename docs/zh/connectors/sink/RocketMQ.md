@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 或更新版本
 
-## 支持的引擎
+## 引擎支持
 
 > Spark<br/>
 > Flink<br/>
@@ -200,6 +200,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### RocketMQ Sink 如何配置消息路由与分区键？
+
+可以通过配置 `partition.key.fields` 声明一个或多个数据列作为分区键。连接器将对指定字段值进行 Hash 计算，确保具有相同 Key 值的消息始终投递至 RocketMQ 的同一个消息队列。
+
+### RocketMQ Sink 如何提供精确一次（Exactly-Once）投递保证？
+
+当设置 `exactly.once = true` 时，Sink 将启用 RocketMQ 两阶段事务消息机制。在 Checkpoint 执行过程中发送半消息（Half Message），待计算引擎 Checkpoint 确认成功后再正式提交该批消息供下游消费。
+
+### 支持哪些消息体序列化格式？
+
+支持 `json` 和 `text` 格式。系统可将每行结构化数据解析为标准 JSON 对象或按指定分隔符拼接为纯文本字符串写入 RocketMQ。
 
 ## 变更日志
 

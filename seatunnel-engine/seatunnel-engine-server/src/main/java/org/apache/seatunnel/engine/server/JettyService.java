@@ -103,32 +103,44 @@ public class JettyService {
 
     private NodeEngineImpl nodeEngine;
     private SeaTunnelConfig seaTunnelConfig;
+    private final ServerConnector httpConnector;
     Server server;
 
     public JettyService(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
-        int port = seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableDynamicPort()) {
-            port =
-                    chooseAppropriatePort(
-                            port, seaTunnelConfig.getEngineConfig().getHttpConfig().getPortRange());
-        }
-        log.info("SeaTunnel REST service will start on port {}", port);
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         this.server = new Server();
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
-            // Enable http
-            ServerConnector httpConnector = new ServerConnector(server);
+        if (httpConfig.isEnabled()) {
+            int port = httpConfig.getPort();
+            if (httpConfig.isEnableDynamicPort()) {
+                port = chooseAppropriatePort(port, httpConfig.getPortRange());
+            }
+            // LogService and LoggerLevelService must resolve each member's own connector:
+            // multiple members can share the same HttpConfig.
+            httpConnector = new ServerConnector(server);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
+        } else {
+            httpConnector = null;
         }
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+        if (httpConfig.isEnableHttps()) {
             // Enable https
-            log.info("SeaTunnel REST service will start on https port {}", port);
             enableHttps(server, seaTunnelConfig);
         }
+    }
+
+    /**
+     * Returns this node's bound HTTP port. Before binding, or when HTTP is disabled, retains the
+     * configured-port fallback.
+     */
+    public int getHttpPort() {
+        int boundPort = httpConnector == null ? -1 : httpConnector.getLocalPort();
+        return boundPort > 0
+                ? boundPort
+                : seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
     }
 
     public void enableHttps(Server server, SeaTunnelConfig seaTunnelConfig) {
@@ -158,6 +170,12 @@ public class JettyService {
         sslConnector.setPort(httpsPort);
         server.addConnector(sslConnector);
         log.info("SeaTunnel REST service will start on https port {}", httpsPort);
+    }
+
+    private static long toBytes(int megabytes) {
+        // Jetty reads a negative limit as unlimited, which is what this server did before the
+        // limit became configurable. Keep that available instead of scaling it into bytes.
+        return megabytes <= 0 ? -1L : megabytes * 1024L * 1024L;
     }
 
     public void createJettyServer() {
@@ -238,7 +256,12 @@ public class JettyService {
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
         context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
-        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("");
+        // Bound the upload: the whole part is buffered by Jetty and then read into a String, so an
+        // unbounded body lets a single request fill the temp directory and exhaust the master heap.
+        long maxFileSize = toBytes(httpConfig.getUploadMaxFileSizeMb());
+        long maxRequestSize = toBytes(httpConfig.getUploadMaxRequestSizeMb());
+        MultipartConfigElement multipartConfigElement =
+                new MultipartConfigElement("", maxFileSize, maxRequestSize, 0);
         submitJobByUploadFileHolder.getRegistration().setMultipartConfig(multipartConfigElement);
         context.addServlet(
                 submitJobByUploadFileHolder, convertUrlToPath(REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE));
@@ -267,6 +290,9 @@ public class JettyService {
 
         try {
             server.start();
+            if (httpConnector != null) {
+                log.info("SeaTunnel REST service started on http port {}", getHttpPort());
+            }
         } catch (Exception e) {
             log.error("Jetty server start failed", e);
             throw new RuntimeException(e);
