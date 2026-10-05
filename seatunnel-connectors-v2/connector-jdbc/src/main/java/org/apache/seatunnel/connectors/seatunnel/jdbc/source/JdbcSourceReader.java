@@ -40,9 +40,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
+    private static final int SPLIT_PROGRESS_LOG_INTERVAL = 50;
+
     private final Context context;
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
@@ -51,6 +54,8 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private final Set<TablePath> pendingGlobalCloseTables = ConcurrentHashMap.newKeySet();
 
     private volatile boolean noMoreSplit;
+    private final AtomicInteger assignedSplitCount = new AtomicInteger();
+    private final AtomicInteger processedSplitCount = new AtomicInteger();
 
     public JdbcSourceReader(
             Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
@@ -94,6 +99,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                     context.sendSourceEventToEnumerator(
                             new JdbcSplitFinishedEvent(split.getTablePath()));
                 }
+                int processedCount = processedSplitCount.incrementAndGet();
+                if (processedCount % SPLIT_PROGRESS_LOG_INTERVAL == 0) {
+                    log.info(
+                            "Processed {} of {} assigned jdbc source splits",
+                            processedCount,
+                            assignedSplitCount.get());
+                }
             } else if (noMoreSplit && splits.isEmpty() && pendingGlobalCloseTables.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded jdbc source");
@@ -135,6 +147,9 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
             }
             pendingGlobalCloseTables.add(split.getTablePath());
             this.splits.add(split);
+            // Progress logging counts only splits that are queued for reading; close-table
+            // markers only restore state and never reach splits.poll().
+            this.assignedSplitCount.incrementAndGet();
         }
     }
 

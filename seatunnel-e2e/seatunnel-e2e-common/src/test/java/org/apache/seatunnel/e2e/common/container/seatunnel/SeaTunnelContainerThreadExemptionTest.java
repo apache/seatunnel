@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Regression tests for the Couchbase SDK thread-exemption routing fix (Blocker 2).
+ * Regression tests for lifecycle-scoped third-party client thread exemptions.
  *
  * <p>Before the fix, four Couchbase-specific thread names were exempted inside the <em>global</em>
  * {@code isSystemThread()} method. This meant any Reactor-based connector that leaked a scheduler
@@ -65,12 +65,13 @@ class SeaTunnelContainerThreadExemptionTest {
     private static SeaTunnelContainer containerMock;
 
     /**
-     * Resets the Couchbase lifecycle flag after every test that may have set it, so that tests
-     * remain isolated regardless of execution order.
+     * Resets lifecycle flags after every test that may have set one, so tests remain isolated
+     * regardless of execution order.
      */
     @AfterEach
-    void resetCouchbaseFlag() {
+    void resetLifecycleFlags() {
         SeaTunnelContainer.disableCouchbaseParallelThreadExemption();
+        SeaTunnelContainer.disableGcsOpenCensusThreadExemption();
     }
 
     @BeforeAll
@@ -217,6 +218,21 @@ class SeaTunnelContainerThreadExemptionTest {
         assertFalse(
                 isIssueWeAlreadyKnow("parallel-reactor"),
                 "Thread 'parallel-reactor' must not match the Couchbase numeric-only pattern");
+    }
+
+    @ParameterizedTest(name = "GCS OpenCensus thread {0} is scoped to the GCS E2E lifecycle")
+    @ValueSource(strings = {"ExportComponent.ServiceExporterThread-0", "OpenCensus.Disruptor-0"})
+    void isIssueWeAlreadyKnow_gcsOpenCensusThreads_areLifecycleScoped(String threadName)
+            throws Exception {
+        assertFalse(
+                isIssueWeAlreadyKnow(threadName),
+                "GCS OpenCensus threads must not be exempted outside the GCS E2E lifecycle");
+
+        SeaTunnelContainer.enableGcsOpenCensusThreadExemption();
+
+        assertTrue(
+                isIssueWeAlreadyKnow(threadName),
+                "GCS OpenCensus threads must be exempted while the GCS E2E is active");
     }
 
     // -------------------------------------------------------------------------

@@ -21,8 +21,10 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
@@ -36,9 +38,24 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 
 @AutoService(Factory.class)
-public class S3FileSourceFactory implements TableSourceFactory {
+public class S3FileSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+    /** Returns the configured schema without discovering or opening source files. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        S3SourceDryRunValidator.validateSchemaOptions(context.getOptions());
+        return discoverTableSchemas(context);
+    }
+
+    /** Checks S3A path metadata using an independently owned client. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        S3SourceDryRunValidator.validate(context.getOptions());
+    }
+
     @Override
     public String factoryIdentifier() {
         return FileSystemType.S3.getFileSystemPluginName();

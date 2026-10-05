@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.source.S3FileSourceFactory;
@@ -35,6 +36,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class S3FileSourceFactoryTest {
+
+    @Test
+    void shouldSupportConnectivityDryRun() {
+        assertTrue(
+                new S3FileSourceFactory() instanceof SupportSourceDryRunValidation,
+                "S3File source connectivity is skipped when the factory does not expose the dry-run SPI");
+    }
 
     @Test
     void shouldExposeContinuousDiscoveryOptions() {
