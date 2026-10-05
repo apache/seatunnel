@@ -100,6 +100,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 不支持 |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
 | S3File | 支持（元数据连通性 + 内联 schema，仅单表 text/csv/json/xml；参见[支持范围](../../connectors/source/S3File.md#连接预检查)） | - |
+| Redis | 支持（[连通性 + 认证](../../connectors/source/Redis.md#连通性-dry-run) + 配置的 schema，不访问 key） | 支持（[连通性 + 认证](../../connectors/sink/Redis.md#连通性-dry-run)，不校验字段兼容性和写入权限） |
 
 作业中的每个插件都会在校验汇总中报告以下两种状态之一：
 

@@ -1009,12 +1009,18 @@ network:
 
 当前支持的格式有`json`和`html`，默认为`html`。
 
+#### 响应大小限制
+
+读取日志文件时最多返回 `seatunnel.engine.http.log-response-max-size-mb` 大小的内容（默认 64 MB），
+规则与 [v2 接口](rest-api-v2.md#log-response-size-limit) 完全一致：超过限制的日志文件只返回末尾内容，
+并在响应开头附上一行截断提示。把该项设为 `0` 可恢复不限制读取。
+
 #### 例子
 
 获取所有节点jobId为`733584788375666689`的日志信息：`http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
 获取所有节点日志列表：`http://localhost:5801/hazelcast/rest/maps/logs`
 获取所有节点日志列表以JSON格式返回：`http://localhost:5801/hazelcast/rest/maps/logs?format=json`
-获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log``
+获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/logs/job-898380162133917698.log`
 
 
 </details>
@@ -1033,5 +1039,7 @@ network:
 
 获取当前节点的日志列表：`http://localhost:5801/hazelcast/rest/maps/log`
 获取日志文件内容：`http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
+
+日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
 </details>
