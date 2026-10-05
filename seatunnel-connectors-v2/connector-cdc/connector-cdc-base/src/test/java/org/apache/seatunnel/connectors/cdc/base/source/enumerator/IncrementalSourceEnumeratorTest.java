@@ -56,6 +56,31 @@ public class IncrementalSourceEnumeratorTest {
         Assertions.assertEquals(Collections.singletonList(restoredSplit), context.assignedSplits);
     }
 
+    @Test
+    public void shouldAssignSplitsAddedBackBeforeRunExactlyOnce() throws Exception {
+        TestingEnumeratorContext context = new TestingEnumeratorContext();
+        TestingSplitAssigner splitAssigner = new TestingSplitAssigner();
+        SourceSplitBase restoredSplit = new SnapshotSplit("restored", null, null, null, null);
+
+        IncrementalSourceEnumerator enumerator =
+                new IncrementalSourceEnumerator(context, splitAssigner);
+        enumerator.open();
+        // Mirror the engine's restore ordering: the reader's split request and the restored
+        // splits are delivered before the first run() invocation. Nothing is dispatched yet
+        // because the enumerator is not running.
+        enumerator.handleSplitRequest(0);
+        enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+        Assertions.assertEquals(Collections.emptyList(), context.allAssignedSplits);
+
+        enumerator.run();
+
+        Assertions.assertEquals(
+                Collections.singletonList(restoredSplit), splitAssigner.restoredSplits);
+        Assertions.assertEquals(Collections.singletonList(restoredSplit), context.assignedSplits);
+        Assertions.assertEquals(
+                Collections.singletonList(restoredSplit), context.allAssignedSplits);
+    }
+
     private static final class TestingSplitAssigner implements SplitAssigner {
         private List<SourceSplitBase> addedSplits = Collections.emptyList();
         private List<SourceSplitBase> restoredSplits = Collections.emptyList();
@@ -100,6 +125,7 @@ public class IncrementalSourceEnumeratorTest {
     private static final class TestingEnumeratorContext
             implements SourceSplitEnumerator.Context<SourceSplitBase> {
         private List<SourceSplitBase> assignedSplits = Collections.emptyList();
+        private final List<SourceSplitBase> allAssignedSplits = new ArrayList<>();
 
         @Override
         public int currentParallelism() {
@@ -114,6 +140,7 @@ public class IncrementalSourceEnumeratorTest {
         @Override
         public void assignSplit(int subtaskId, List<SourceSplitBase> splits) {
             assignedSplits = splits;
+            allAssignedSplits.addAll(splits);
         }
 
         @Override

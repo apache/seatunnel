@@ -49,10 +49,11 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      *   <li>{@link #registerReader(int)}
      * </ol>
      *
-     * <p>{@implNote Implementations must not rely on a strict invocation order: restored splits may
-     * arrive via {@link #addSplitsBack(List, int)} after the reader has already sent its split
-     * request (e.g. after a checkpoint restore), so a waiting reader must be re-assigned when
-     * restored splits are added.}
+     * <p>The engine only guarantees that {@link #run()} is invoked after {@link #open()} and after
+     * every reader has been registered. It does not guarantee the order listed above: restored
+     * splits may be returned via {@link #addSplitsBack(List, int)} at any point of the source
+     * lifecycle, for example after a checkpoint restore, before or after {@link #run()}. How such
+     * late returned splits are dispatched to readers is left to the implementation.
      */
     void run() throws Exception;
 

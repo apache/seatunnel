@@ -38,6 +38,13 @@ import java.util.stream.Collectors;
 /**
  * Incremental source enumerator that enumerates receive the split request and assign the split to
  * source readers.
+ *
+ * <p>This enumerator tolerates out-of-order or late {@link #addSplitsBack(List, int)} calls, e.g.
+ * checkpoint-restored splits returned after a reader already requested a split: returned splits are
+ * always queued in the {@link SplitAssigner}, and they are dispatched to waiting readers either on
+ * the first {@link #run()} assignment pass (when the enumerator was not running yet) or on the next
+ * assignment cycle triggered by {@link #addSplitsBack(List, int)} (when the enumerator is already
+ * running).
  */
 public class IncrementalSourceEnumerator
         implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> {
@@ -67,6 +74,13 @@ public class IncrementalSourceEnumerator
     @Override
     public synchronized void run() throws Exception {
         this.running = true;
+        // Dispatch the splits that addSplitsBack() returned before run() executed: the engine
+        // hands the checkpoint-restored splits of a restarting reader to the enumerator and only
+        // invokes run() once every reader has registered, so in a restart the restored splits are
+        // normally queued in the assigner while running is still false and addSplitsBack() skipped
+        // its assignment pass. They are not lost: any split request that arrived in the meantime
+        // is already queued in readersAwaitingSplit by handleSplitRequest(), so this first
+        // assignment pass hands out the returned splits to those waiting readers.
         assignSplits();
     }
 
@@ -87,9 +101,14 @@ public class IncrementalSourceEnumerator
     public synchronized void addSplitsBack(List<SourceSplitBase> splits, int subtaskId) {
         LOG.debug("Incremental Source Enumerator adds splits back: {}", splits);
         splitAssigner.addSplits(splits);
-        // A restored split may arrive after the reader already sent its split request and is
-        // parked in readersAwaitingSplit; re-run the assignment loop so the waiting reader
-        // receives the restored split immediately instead of stalling until another trigger.
+        // running == false: the engine delivers the checkpoint-restored splits of a restarting
+        // reader before it invokes run() (run() waits for every reader to register), so the
+        // returned splits are still queued in the assigner and get dispatched by run()'s first
+        // assignment pass - skipping the assignment here does not lose them.
+        // running == true: a restored split may arrive after the reader already sent its split
+        // request and is parked in readersAwaitingSplit; re-run the assignment loop so the
+        // waiting reader receives the restored split immediately instead of stalling until
+        // another trigger.
         if (running) {
             assignSplits();
         }

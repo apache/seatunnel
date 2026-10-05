@@ -257,17 +257,26 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             // exercising the recovery path. The job status cannot be used here because on dev
             // it stays RUNNING throughout the restart window. Once the failure is observed the
             // finally block removes the trigger, so the post-restart replay of the
-            // f_bigint=20000 binlog event does not hit the trigger a second time.
-            await().atMost(30, TimeUnit.SECONDS)
+            // f_bigint=20000 binlog event normally does not hit the trigger a second time. If
+            // the restart still wins that race, the replay fails once more and consumes one of
+            // the extra retries granted by job.retry.times in the conf; the trigger is gone by
+            // the next cycle, so the job recovers anyway. The two-minute budget matches the
+            // other waits in this test.
+            await().atMost(2, TimeUnit.MINUTES)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            container
-                                                    .getServerLogs()
-                                                    .substring(logOffset)
-                                                    .contains("injected sink failure"),
-                                            "injected sink failure was not observed in the "
-                                                    + "engine logs after the f_bigint=20000 update"));
+                            () -> {
+                                String serverLogs = container.getServerLogs();
+                                // The engine log can be truncated or rotated while the job
+                                // restarts; clamp the offset so a shorter log is treated as
+                                // "no match yet" instead of throwing
+                                // StringIndexOutOfBoundsException and aborting the wait.
+                                Assertions.assertTrue(
+                                        serverLogs
+                                                .substring(Math.min(logOffset, serverLogs.length()))
+                                                .contains("injected sink failure"),
+                                        "injected sink failure was not observed in the "
+                                                + "engine logs after the f_bigint=20000 update");
+                            });
         } finally {
             executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
         }
