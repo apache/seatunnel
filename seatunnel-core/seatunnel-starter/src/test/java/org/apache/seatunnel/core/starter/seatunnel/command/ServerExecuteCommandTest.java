@@ -84,9 +84,15 @@ public class ServerExecuteCommandTest {
             Set<Member> members = serverExecuteCommand.showClusterMembers();
             Assertions.assertEquals(5, members.size());
         } finally {
-            for (HazelcastInstanceImpl inst : instances) {
+            // Stop the workers before the masters. A worker that loses its last master terminates
+            // itself ("All node is lite node, shutdown this cluster"). When that self-termination
+            // races with a graceful shutdown() issued from here, the graceful shutdown wins the
+            // state transition and then waits for a master that no longer exists, so it never
+            // returns and the test (and the whole unit-test job) hangs until the CI timeout.
+            // Shutting down in reverse creation order keeps a master alive for every worker.
+            for (int i = instances.size() - 1; i >= 0; i--) {
                 try {
-                    inst.shutdown();
+                    instances.get(i).shutdown();
                 } catch (Exception ignored) {
                 }
             }
