@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class DmdbDialectTest {
     @Test
@@ -158,5 +159,40 @@ public class DmdbDialectTest {
                         JdbcConnectorException.class,
                         () -> DmdbDialect.normalizeTablespaceForDdl("MAIN\tTS"));
         Assertions.assertTrue(tabCharacter.getMessage().contains("illegal characters"));
+    }
+
+    @Test
+    void testAllKeyTableOmitsEmptyUpdateSet() {
+        JdbcDialect dialect = new DmdbDialectFactory().create();
+        String[] allFields = {"id", "name", "age"};
+        Optional<String> upsert =
+                dialect.getUpsertStatement("test_db", "test_table", allFields, allFields);
+        Assertions.assertTrue(upsert.isPresent(), "upsert statement should be present");
+        String sql = upsert.get().toUpperCase();
+        Assertions.assertFalse(
+                sql.contains("WHEN MATCHED THEN UPDATE SET"),
+                "all-key table must NOT emit an empty 'WHEN MATCHED THEN UPDATE SET' (got: "
+                        + sql
+                        + ")");
+        Assertions.assertTrue(
+                sql.contains("WHEN NOT MATCHED"), "all-key table must still insert unmatched rows");
+        Assertions.assertTrue(
+                sql.contains("INSERT"), "all-key table statement must contain an INSERT branch");
+    }
+
+    @Test
+    void testPartialKeyTableStillUpdates() {
+        JdbcDialect dialect = new DmdbDialectFactory().create();
+        String[] allFields = {"id", "name", "age"};
+        String[] uniqueKeys = {"id"};
+        Optional<String> upsert =
+                dialect.getUpsertStatement("test_db", "test_table", allFields, uniqueKeys);
+        Assertions.assertTrue(upsert.isPresent(), "upsert statement should be present");
+        String sql = upsert.get().toUpperCase();
+        Assertions.assertTrue(
+                sql.contains("WHEN MATCHED THEN UPDATE SET"),
+                "partial-key table must still emit 'WHEN MATCHED THEN UPDATE SET' (got: "
+                        + sql
+                        + ")");
     }
 }
