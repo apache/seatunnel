@@ -114,10 +114,22 @@ public class ManagedSourceRegisterOperation extends TaskOperation {
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        // Constrain the decoded type to TaskLocation instead of accepting whatever type the
-        // wire payload's factory/class id selects, matching TaskOperation#readInternal's own
-        // treatment of its base taskLocation field.
-        readerLocation = in.readObject(TaskLocation.class);
+        // Validate the wire type instead of overriding it. Hazelcast's typed overload
+        // readObject(TaskLocation.class) discards the wire factory/class id and reads the
+        // following bytes positionally into a fresh TaskLocation, so a payload written for
+        // another type could yield a silently mis-populated reader location. Decoding by the
+        // wire id and rejecting anything that is not a TaskLocation fails fast at the read site.
+        Object decodedReaderLocation = in.readObject();
+        if (!(decodedReaderLocation instanceof TaskLocation)) {
+            throw new IOException(
+                    "Managed Source register operation expects reader location of type "
+                            + TaskLocation.class.getName()
+                            + " but the wire payload decoded to "
+                            + (decodedReaderLocation == null
+                                    ? "null"
+                                    : decodedReaderLocation.getClass().getName()));
+        }
+        readerLocation = (TaskLocation) decodedReaderLocation;
         readerExecutionId = in.readLong();
         readerAttemptId = in.readString();
         runtimeProtocolVersion = in.readInt();
