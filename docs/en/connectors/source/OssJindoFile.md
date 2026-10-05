@@ -66,6 +66,7 @@ It only supports hadoop version **2.9.X+**.
 | access_secret              | string  | yes      | -                           |
 | endpoint                   | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
+| read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
@@ -81,6 +82,7 @@ It only supports hadoop version **2.9.X+**.
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
 | file_filter_pattern        | string  | no       |                             |
+| filename_extension         | string  | no       | -                           |
 | compress_codec             | string  | no       | none                        |
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |

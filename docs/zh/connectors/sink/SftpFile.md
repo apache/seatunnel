@@ -52,13 +52,13 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | password                              | string  | 否    | -                                          | 未配置 `keyfile` 时需要配置。                                      |
 | keyfile                               | string  | 否    | -                                          | 用于 SFTP 公钥认证的私钥文件路径。                                    |
 | path                                  | string  | 是    | -                                          |                                                           |
-| tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将临时目录剪切到目标目录。需要一个FTP目录。             |
+| tmp_path                              | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将临时目录剪切到目标目录。需要一个FTP目录。             |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在custom_filename为true时使用                                 |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                 |
 | file_format_type                      | string  | 否    | "csv"                                      |                                                           |
 | filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype` |
-| field_delimiter                       | string  | 否    | '\001'                                     | 仅当file_format_type为text时使用                                |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅当file_format_type为text时使用                                |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用               |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                 |
 | partition_by                          | array   | 否    | -                                          | 只有在have_partition为true时才使用                                |
@@ -71,7 +71,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | common-options                        | object  | 否    | -                                          |                                                           |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅当file_format_type为excel时使用。                              |
 | sheet_max_rows                         | int     | 否    | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
-| sheet_name                            | string  | 否    | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                              |
+| sheet_name                            | string  | 否    | Sheet0                      | 仅当file_format_type为excel时使用。                              |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅当file_format_type为csv时使用。                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅当file_format_type为xml时使用                                 |
 | xml_row_tag                           | string  | 否    | RECORD                                     | 仅当file_format_type为xml时使用                                 |
