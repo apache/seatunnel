@@ -71,7 +71,7 @@ transform {
     single_vectorized_input_number = 10
     model_retry_max_attempts = 5
     vectorization_fields {
-      chunk = "chunk_vector"
+      chunk_vector = "chunk"
     }
   }
 }
@@ -125,7 +125,7 @@ transform {
     model = "text-embedding-3-small"
     dimension = 1024
     vectorization_fields {
-      description = "description_vector"
+      description_vector = "description"
     }
   }
 }
