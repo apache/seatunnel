@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory;
@@ -34,6 +35,42 @@ public class ClickhouseFactoryTest {
 
     private static final ClickhouseFileSinkFactory FILE_SINK_FACTORY =
             new ClickhouseFileSinkFactory();
+
+    private void validateSource(Map<String, Object> configMap) {
+        ClickhouseSourceFactory factory = new ClickhouseSourceFactory();
+        ConfigValidator.of(ReadonlyConfig.fromMap(configMap)).validate(factory.optionRule());
+    }
+
+    private Map<String, Object> createValidSourceConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ClickhouseBaseOptions.HOST.key(), "localhost:8123");
+        config.put(ClickhouseBaseOptions.USERNAME.key(), "default");
+        config.put(ClickhouseBaseOptions.PASSWORD.key(), "password");
+        return config;
+    }
+
+    @Test
+    public void testSourceHostValidation() {
+        Map<String, Object> validConfig = createValidSourceConfig();
+        Assertions.assertDoesNotThrow(() -> validateSource(validConfig));
+
+        Map<String, Object> missingHost = createValidSourceConfig();
+        missingHost.remove(ClickhouseBaseOptions.HOST.key());
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(missingHost));
+
+        Map<String, Object> emptyHost = createValidSourceConfig();
+        emptyHost.put(ClickhouseBaseOptions.HOST.key(), "");
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSource(emptyHost));
+
+        Map<String, Object> whitespaceHost = createValidSourceConfig();
+        whitespaceHost.put(ClickhouseBaseOptions.HOST.key(), "   ");
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validateSource(whitespaceHost));
+
+        Map<String, Object> paddedHost = createValidSourceConfig();
+        paddedHost.put(ClickhouseBaseOptions.HOST.key(), "  localhost:8123  ");
+        Assertions.assertDoesNotThrow(() -> validateSource(paddedHost));
+    }
 
     @Test
     public void testOptionRule() {

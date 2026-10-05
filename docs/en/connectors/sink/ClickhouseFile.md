@@ -13,6 +13,7 @@ should be `true`. Supports Batch and Streaming mode.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
