@@ -172,4 +172,129 @@ public class DataValidatorTransformTest {
 
         assertEquals(row, transform.map(row));
     }
+
+    @Test
+    void rangeRuleShouldValidateBigintFieldAgainstIntegerBounds() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"quantity"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        ImmutableMap.of(
+                                "field_rules",
+                                Arrays.asList(
+                                        ImmutableMap.of(
+                                                "field_name",
+                                                "quantity",
+                                                "rules",
+                                                Arrays.asList(
+                                                        ImmutableMap.of(
+                                                                "rule_type",
+                                                                "RANGE",
+                                                                "min_value",
+                                                                0,
+                                                                "max_value",
+                                                                1000))))));
+        DataValidatorTransform transform = new DataValidatorTransform(config, inputCatalogTable);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {500L});
+
+        assertEquals(row, transform.map(row));
+    }
+
+    @Test
+    void rangeRuleShouldValidateDoubleFieldAgainstIntegerBounds() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"score"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        ImmutableMap.of(
+                                "field_rules",
+                                Arrays.asList(
+                                        ImmutableMap.of(
+                                                "field_name",
+                                                "score",
+                                                "rules",
+                                                Arrays.asList(
+                                                        ImmutableMap.of(
+                                                                "rule_type",
+                                                                "RANGE",
+                                                                "min_value",
+                                                                0,
+                                                                "max_value",
+                                                                100))))));
+        DataValidatorTransform transform = new DataValidatorTransform(config, inputCatalogTable);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {85.5d});
+
+        assertEquals(row, transform.map(row));
+    }
+
+    @Test
+    void rangeRuleShouldRouteNonFiniteDoubleToErrorTableWithIntegerBounds() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"score"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        ImmutableMap.of(
+                                "row_error_handle_way",
+                                "ROUTE_TO_TABLE",
+                                "row_error_handle_way.error_table",
+                                "ffp",
+                                "field_rules",
+                                Arrays.asList(
+                                        ImmutableMap.of(
+                                                "field_name",
+                                                "score",
+                                                "rules",
+                                                Arrays.asList(
+                                                        ImmutableMap.of(
+                                                                "rule_type",
+                                                                "RANGE",
+                                                                "min_value",
+                                                                0,
+                                                                "max_value",
+                                                                100))))));
+        DataValidatorTransform transform = new DataValidatorTransform(config, inputCatalogTable);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {Double.NaN});
+
+        SeaTunnelRow routedRow = transform.map(row);
+        assertEquals("db1.ffp", routedRow.getTableId());
+    }
+
+    @Test
+    void rangeRuleShouldValidateNumericStringFieldAgainstIntegerBounds() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"quantity"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        ImmutableMap.of(
+                                "field_rules",
+                                Arrays.asList(
+                                        ImmutableMap.of(
+                                                "field_name",
+                                                "quantity",
+                                                "rules",
+                                                Arrays.asList(
+                                                        ImmutableMap.of(
+                                                                "rule_type",
+                                                                "RANGE",
+                                                                "min_value",
+                                                                0,
+                                                                "max_value",
+                                                                1000))))));
+        DataValidatorTransform transform = new DataValidatorTransform(config, inputCatalogTable);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"500"});
+
+        assertEquals(row, transform.map(row));
+    }
 }

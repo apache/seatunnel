@@ -46,8 +46,9 @@ public interface ResourceManager {
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 
     /**
-     * Check {@link SlotProfile} is active or not. Not active meaning can't use this slot to deploy
-     * task.
+     * Check whether the same Worker slot allocation is still active for the same owner job. A slot
+     * that has been released and reassigned, including to another task group of the same job, is
+     * not active for the supplied profile and can't be used to deploy its task.
      *
      * @return active or not
      */

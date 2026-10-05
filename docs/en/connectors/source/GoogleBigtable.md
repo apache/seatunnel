@@ -18,12 +18,12 @@ Reads data from Google Cloud Bigtable using the native Bigtable Data v2 Java cli
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
-The source is bounded. It creates one split for the configured table or row-key range, so increasing job parallelism does not split one Bigtable scan into multiple tablet-range reads. Each scan reads every requested cell for the configured row range and emits one SeaTunnel row per Bigtable row.
+The source is bounded. The enumerator calls Bigtable `sampleRowKeys` to cut the table (or the configured `start_rowkey` / `end_rowkey` range) into tablet-sized splits, then assigns them by `hash(splitId) % parallelism`. Set `env.parallelism` (or the source parallelism) greater than 1 so multiple readers scan different key ranges. If sampling fails, returns no keys, or intersects to an empty range, the connector falls back to a single split so the job can still run. Each scan reads every requested cell for the configured row range and emits one SeaTunnel row per Bigtable row.
 
 :::
 
@@ -90,7 +90,7 @@ Maximum number of cell versions to return per column qualifier. Default `1` retu
 
 ### scan_row_limit [int]
 
-Maximum number of rows to return. `-1` (default) means no limit. Use this option together with `start_rowkey` / `end_rowkey` to do paginated full-table scans across multiple jobs.
+Maximum number of rows to return **per split**. `-1` (default) means no limit. When the enumerator produces multiple splits, the job-level upper bound is about `scan_row_limit × split count`, not a single table-wide cap. Use this option together with `start_rowkey` / `end_rowkey` to do paginated full-table scans across multiple jobs.
 
 ### common options
 

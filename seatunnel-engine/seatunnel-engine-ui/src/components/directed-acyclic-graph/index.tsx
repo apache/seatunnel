@@ -64,7 +64,7 @@ const nodeWidth = 300
 register({
   shape: 'dag-node',
   width: nodeWidth,
-  height: 48,
+  height: 36,
   component: AlgoNode,
   ports: {
     groups: {
@@ -244,8 +244,8 @@ export default defineComponent({
       if (!force && userHasZoomed) return
       try {
         graph.zoomToFit({
-          padding: 32,
-          maxScale: 1.2,
+          padding: { top: 16, right: 80, bottom: 16, left: 16 },
+          maxScale: 1.6,
           minScale: 0.2
         })
         graph.centerContent()
@@ -412,7 +412,7 @@ export default defineComponent({
         const matrix = [] as Vertex[][]
         const items: Cell.Metadata[] = []
 
-        const offsetY = 140
+        const offsetY = 72
         const offsetX = nodeWidth + 200
 
         const processed = [] as Vertex[]

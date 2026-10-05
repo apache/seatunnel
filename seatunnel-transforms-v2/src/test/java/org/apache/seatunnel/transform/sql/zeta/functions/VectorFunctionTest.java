@@ -29,11 +29,120 @@ import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.stream.Stream;
 
 public class VectorFunctionTest {
+
+    @ParameterizedTest
+    @MethodSource("vectorBuffers")
+    public void testVectorReadsPreserveBuffer(ByteBuffer buffer) {
+        ByteOrder order = buffer.order();
+        int position = buffer.position();
+        int limit = buffer.limit();
+        buffer.mark();
+        for (int i = 0; i < 2; i++) {
+            Assertions.assertEquals(
+                    2, VectorFunction.vectorDims(Collections.singletonList(buffer)));
+            Assertions.assertEquals(
+                    5.0, VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+            Assertions.assertEquals(
+                    0.0, VectorFunction.cosineDistance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(0.0, VectorFunction.l1Distance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(0.0, VectorFunction.l2Distance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(
+                    25.0, VectorFunction.innerProduct(Arrays.asList(buffer, buffer)));
+            Assertions.assertArrayEquals(
+                    new Float[] {3.0f},
+                    VectorUtils.toFloatArray(
+                            (ByteBuffer) VectorFunction.vectorTruncate(buffer, 1)));
+            Assertions.assertArrayEquals(
+                    new Float[] {0.6f, 0.8f},
+                    VectorUtils.toFloatArray((ByteBuffer) VectorFunction.vectorNormalize(buffer)));
+            Assertions.assertEquals(
+                    1,
+                    VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorRandomProjection(buffer, 1))
+                            .length);
+            Assertions.assertEquals(
+                    1,
+                    VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorSparseProjection(buffer, 1))
+                            .length);
+            Assertions.assertSame(buffer, VectorFunction.vectorTruncate(buffer, 2));
+            Assertions.assertSame(buffer, VectorFunction.vectorRandomProjection(buffer, 2));
+            Assertions.assertSame(buffer, VectorFunction.vectorSparseProjection(buffer, 2));
+            Assertions.assertEquals(position, buffer.position());
+            Assertions.assertEquals(limit, buffer.limit());
+            Assertions.assertEquals(order, buffer.order());
+            Assertions.assertEquals(position, buffer.reset().position());
+            Assertions.assertArrayEquals(
+                    new Float[] {3.0f, 4.0f},
+                    VectorUtils.toFloatArray(buffer.duplicate().order(order)));
+        }
+    }
+
+    private static Stream<ByteBuffer> vectorBuffers() {
+        return Stream.of(ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN)
+                .flatMap(
+                        order -> {
+                            ByteBuffer heap = ByteBuffer.allocate(8).order(order);
+                            heap.putFloat(0, 3.0f).putFloat(4, 4.0f);
+                            ByteBuffer direct = ByteBuffer.allocateDirect(8).order(order);
+                            direct.putFloat(0, 3.0f).putFloat(4, 4.0f);
+                            ByteBuffer parent = ByteBuffer.allocate(16).order(order);
+                            parent.putFloat(4, 3.0f).putFloat(8, 4.0f);
+                            parent.position(4);
+                            parent.limit(12);
+                            ByteBuffer offset = ByteBuffer.allocate(9).order(order);
+                            offset.putFloat(1, 3.0f).putFloat(5, 4.0f);
+                            offset.position(1);
+                            return Stream.of(
+                                    heap,
+                                    direct,
+                                    heap.asReadOnlyBuffer().order(order),
+                                    parent.slice().order(order),
+                                    offset);
+                        });
+    }
+
+    @Test
+    public void testFailedVectorReadPreservesBuffer() {
+        ByteBuffer buffer = VectorUtils.toByteBuffer(new Float[] {1.0f, 3.0f, 4.0f});
+        buffer.position(4);
+        buffer.mark();
+        Assertions.assertThrows(
+                BufferUnderflowException.class,
+                () -> VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+        Assertions.assertEquals(4, buffer.position());
+        Assertions.assertEquals(12, buffer.limit());
+        Assertions.assertEquals(4, buffer.reset().position());
+        buffer.position(0);
+        buffer.limit(8);
+        buffer.mark();
+        Assertions.assertThrows(
+                BufferUnderflowException.class,
+                () -> VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+        Assertions.assertEquals(0, buffer.position());
+        Assertions.assertEquals(8, buffer.limit());
+        Assertions.assertEquals(0, buffer.reset().position());
+    }
+
+    @Test
+    public void testZeroVectorNormalizationPreservesBuffer() {
+        ByteBuffer buffer = VectorUtils.toByteBuffer(new Float[] {0.0f, 0.0f});
+        Assertions.assertSame(buffer, VectorFunction.vectorNormalize(buffer));
+        Assertions.assertEquals(2, VectorFunction.vectorDims(Collections.singletonList(buffer)));
+        Assertions.assertEquals(0, buffer.position());
+    }
 
     @Test
     public void testCosineDistanceFunction() {
