@@ -43,6 +43,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -54,6 +55,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 TASKS_DIR = Path(__file__).resolve().parent / "tasks"
+PRESETS_FILE = Path(__file__).resolve().parent / "presets.json"
 TIER_FILES = {
     1: "tier1_simple.json",
     2: "tier2_medium.json",
@@ -66,7 +68,56 @@ CLARIFICATION_REPLY = (
 )
 
 
-def load_tasks(tiers: list[int], task_ids: list[str] | None = None) -> list[dict]:
+def load_presets() -> dict[str, dict]:
+    data = json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
+    return data["presets"]
+
+
+def load_preset_task_ids(name: str) -> list[str]:
+    """Expand a named preset into its task id list."""
+    presets = load_presets()
+    if name not in presets:
+        raise ValueError(
+            f"Unknown preset: {name}. Available: {', '.join(sorted(presets))}"
+        )
+    task_ids = presets[name]["tasks"]
+    if not task_ids or len(task_ids) != len(set(task_ids)):
+        raise ValueError(f"Preset {name} must list distinct task ids")
+    return list(task_ids)
+
+
+def load_tasks(
+    tiers: list[int], task_ids: list[str] | None = None, suite: str = "baseline"
+) -> list[dict]:
+    if suite not in ("baseline", "paraphrase"):
+        raise ValueError(f"Unknown task suite: {suite}")
+    if suite == "paraphrase":
+        from benchmark.paraphrases import load_paraphrases
+
+        if (
+            not tiers
+            or len(tiers) != len(set(tiers))
+            or any(t not in TIER_FILES for t in tiers)
+        ):
+            raise ValueError("Select distinct tiers from 1, 2 and 3")
+        tasks = [
+            task
+            for task in load_paraphrases(load_tasks(list(TIER_FILES)))
+            if task["tier"] in tiers
+        ]
+        if task_ids is not None:
+            if not task_ids or len(task_ids) != len(set(task_ids)):
+                raise ValueError("Select one or more distinct paraphrase task IDs")
+            unknown = set(task_ids) - {task["id"] for task in tasks}
+            if unknown:
+                raise ValueError(
+                    "Unknown paraphrase tasks in selected tiers: "
+                    + ", ".join(sorted(unknown))
+                )
+            tasks = [task for task in tasks if task["id"] in task_ids]
+        if not tasks:
+            raise ValueError("No paraphrase tasks selected")
+        return tasks
     tasks = []
     for tier in tiers:
         path = TASKS_DIR / TIER_FILES[tier]
@@ -318,12 +369,26 @@ def collect_cli_fingerprint() -> dict:
 
 
 def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
-                  max_repairs: int, trials: int, out_dir: Path) -> dict:
+                  max_repairs: int, trials: int, out_dir: Path,
+                  suite: str = "baseline") -> dict:
+    if suite not in ("baseline", "paraphrase"):
+        raise ValueError("Unknown benchmark suite")
+    if any(("parent_id" in task) != (suite == "paraphrase") for task in tasks):
+        raise ValueError("Task provenance does not match the selected suite")
     out_dir.mkdir(parents=True, exist_ok=True)
     configs_dir = out_dir / "configs"
     configs_dir.mkdir(exist_ok=True)
+    # Freeze the complete task contract (prompt, assertions and execution
+    # probes) so revision reports never infer compatibility from IDs alone.
+    task_fingerprints = {
+        task["id"]: hashlib.sha256(json.dumps(
+            task, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        for task in tasks
+    }
 
     all_results = {
+        "suite": suite,
         "levels": levels,
         "max_repairs": max_repairs,
         "trials": trials,
@@ -357,8 +422,12 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
                     "task_id": task["id"],
                     "tier": task["tier"],
                     "category": task.get("category", ""),
+                    "task_sha256": task_fingerprints[task["id"]],
                     "trials": [],
                 }
+                if "parent_id" in task:
+                    task_entry.update(parent_id=task["parent_id"],
+                                      parent_sha256=task["parent_sha256"])
                 for trial in range(trials):
                     label = task["id"] + (f" trial {trial + 1}/{trials}" if trials > 1 else "")
                     print(f"  [{label}] ...", end="", flush=True)
@@ -428,16 +497,18 @@ def resolve_levels(args_levels: str, tasks: list[dict]) -> list[str]:
     from benchmark.execution import engine_backend, check_services_up
 
     wanted = ["l1"]
+    if args_levels == "l1":
+        # Static-only runs must not probe for an engine they will never use.
+        return wanted
     backend = engine_backend()
-    if args_levels in ("l2", "l3"):
-        if backend:
-            wanted.append("l2")
-            print(f"Engine backend for L2/L3: {backend}")
-        else:
-            print("WARN: no engine available (need SEATUNNEL_HOME dist or "
-                  "docker + apache/seatunnel image) — L2/L3 disabled, "
-                  "running static-only.", file=sys.stderr)
-            return wanted
+    if backend:
+        wanted.append("l2")
+        print(f"Engine backend for L2/L3: {backend}")
+    else:
+        print("WARN: no engine available (need SEATUNNEL_HOME dist or "
+              "docker + apache/seatunnel image) — L2/L3 disabled, "
+              "running static-only.", file=sys.stderr)
+        return wanted
     if args_levels == "l3":
         needed = sorted({
             s for t in tasks for s in t.get("execution", {}).get("services", [])
@@ -531,8 +602,17 @@ def main() -> None:
                              "(DeepSeek, Azure, local vLLM, ...)")
     parser.add_argument("--tiers", type=int, nargs="+", default=[1, 2, 3],
                         choices=[1, 2, 3])
-    parser.add_argument("--tasks", nargs="*", default=None,
-                        help="Optional task id filter")
+    parser.add_argument("--suite", choices=["baseline", "paraphrase"],
+                        default="baseline",
+                        help="Task suite: baseline (100 tasks, default) or "
+                             "paraphrase (12 alternative-wording tasks only)")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--tasks", nargs="*", default=None,
+                           help="Optional task id filter")
+    selection.add_argument("--preset", default=None,
+                           help="Named task subset from benchmark/presets.json "
+                                "(e.g. smoke, a 12-task fast lane); expands "
+                                "into --tasks so repeated runs stay comparable")
     parser.add_argument("--level", default="l3", choices=["l1", "l2", "l3"],
                         help="Deepest gate to run: l1=static only, l2=+engine "
                              "dry-run, l3=+real execution (default; degrades "
@@ -545,13 +625,34 @@ def main() -> None:
     parser.add_argument("--out", default="benchmark/results")
     args = parser.parse_args()
 
+    # Reject invalid task selections before provider setup can require credentials.
+    task_ids = args.tasks
+    try:
+        if args.preset:
+            task_ids = load_preset_task_ids(args.preset)
+        tasks = load_tasks(args.tiers, task_ids, args.suite)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    # A preset is a fixed, checked-in set: silently dropping members would make
+    # its results incomparable with earlier runs, so refuse instead.
+    if args.preset:
+        missing = sorted(set(task_ids) - {task["id"] for task in tasks})
+        if missing:
+            parser.error(
+                f"Preset {args.preset} selects tasks outside --tiers "
+                f"{args.tiers} or --suite {args.suite}: {', '.join(missing)}"
+            )
     models = build_models_from_args(args)
-    tasks = load_tasks(args.tiers, args.tasks)
     if not tasks:
         print("No tasks selected.", file=sys.stderr)
         sys.exit(1)
 
     levels = resolve_levels(args.level, tasks)
+    if args.preset:
+        print(f"Task preset: {args.preset} — "
+              f"{load_presets()[args.preset]['description']}")
+    if args.suite == "paraphrase":
+        print("Task suite: paraphrase (public alternative wording)")
     print(f"Running {len(tasks)} tasks × {len(models)} models × "
           f"{args.trials} trial(s), gates: {' → '.join(levels)}, "
           f"max repairs: {args.max_repairs}")
@@ -564,11 +665,14 @@ def main() -> None:
     # where the user exports them before running seatunnel.sh).
     from benchmark.execution import CREDENTIALS
     for key, value in CREDENTIALS.items():
-        if value:
-            os.environ.setdefault(key, value)
+        # Export empty values too: the benchmark Doris, StarRocks and
+        # Elasticsearch services genuinely have no password, and skipping
+        # them left ${DORIS_PASSWORD} looking unresolved, so those tasks
+        # failed on validation rather than on anything the model produced.
+        os.environ.setdefault(key, value)
 
     results = run_benchmark(models, tasks, levels, args.max_repairs,
-                            args.trials, Path(args.out))
+                            args.trials, Path(args.out), suite=args.suite)
 
     from benchmark.report import print_summary, write_reports
     print_summary(results)

@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
@@ -143,9 +144,15 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
                         .setServerTimeZone(
                                 ZoneId.of(config.get(JdbcSourceOptions.SERVER_TIME_ZONE)))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
-                        .setSchemaChangeResolver(new PostgresRelationSchemaChangeResolver())
+                        .setSchemaChangeResolver(createSchemaChangeResolver(config))
                         .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .build();
+    }
+
+    static SchemaChangeResolver createSchemaChangeResolver(ReadonlyConfig config) {
+        return config.get(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                ? new PostgresRelationSchemaChangeResolver()
+                : null;
     }
 
     @Override

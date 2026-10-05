@@ -57,6 +57,11 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         checkNotNull(databaseList, "The 'database-names' option is required.");
         checkArgument(!databaseList.isEmpty(), "The 'database-names' option must not be empty.");
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        // Deliberately do NOT set "database.include.list": Debezium folds it into
+        // dataCollectionFilter() as a predicate on TableId#catalog, but PostgreSQL table ids are
+        // catalog-less (see PostgresSchema#readTableSchema and the event dispatchers), so every
+        // snapshot schema read and streaming event would be filtered out. Database scoping for
+        // discovery is applied in TableDiscoveryUtils#listTables via an explicit predicate.
 
         // Keep the current in-memory history wiring unchanged to avoid restore drift in phase 1.
         props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());

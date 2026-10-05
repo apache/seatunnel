@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -29,15 +30,20 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -69,6 +75,9 @@ public class CheckpointCoordinatorFailoverIT {
 
     private static final String CLOSE_HANDSHAKE_TEMPLATE_CONF =
             "batch_fake_to_localfile_close_handshake_failover_template.conf";
+
+    private static final String TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF =
+            "stream_fake_to_localfile_checkpoint_trigger_dispatch_failure_template.conf";
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -604,6 +613,167 @@ public class CheckpointCoordinatorFailoverIT {
             }
             if (workerNode != null) {
                 workerNode.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Regression test for the checkpoint-trigger failure in <a
+     * href="https://github.com/apache/seatunnel/issues/10442">#10442</a>, fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10448">#10448</a>. A synchronous
+     * barrier-dispatch failure must fail the job through {@code CHECKPOINT_INSIDE_ERROR}, rather
+     * than leave it RUNNING forever with a pending checkpoint that prevents subsequent triggers.
+     *
+     * <p>After a healthy checkpoint, remove this pipeline's real slot-profile bookkeeping so the
+     * next dispatch fails in {@code JobMaster#queryTaskGroupAddress}. Completion notifications use
+     * the same address lookup, so an allocated checkpoint ID alone is not a safe injection point.
+     * Wait for {@code pendingCounter == 0}, which is reached after completion notifications, and
+     * remove the entry while holding the coordinator's trigger lock. This excludes a new trigger
+     * between the idle check and removal without changing the production error-handling path.
+     */
+    @Test
+    public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
+        String testCaseName = "testStreamJobFailsAfterCheckpointTriggerDispatchFailure";
+        String testClusterName = "CheckpointCoordinatorFailoverIT_" + testCaseName;
+        // Single-pipeline job (one FakeSource, one LocalFile sink): PipelineGenerator assigns
+        // pipeline ids starting at 1, so this is the fixed key identifying this job's sole
+        // pipeline in ownedSlotProfilesIMap.
+        int pipelineId = 1;
+
+        HazelcastInstanceImpl node = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
+        config.getEngineConfig().getHttpConfig().setEnabled(false);
+
+        try {
+            node = SeaTunnelServerStarter.createHazelcastInstance(config);
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(testCaseName, TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, config);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Assertions.assertTrue(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                > 0,
+                                        "Waiting for the source to start producing rows");
+                            });
+
+            CheckpointCoordinator coordinator =
+                    getJobMaster(node, jobId)
+                            .getCheckpointManager()
+                            .getCheckpointCoordinator(pipelineId);
+            // Reflectively access the private lock and pendingCounter to time fault injection.
+            // Keep these field lookups in sync when refactoring CheckpointCoordinator.
+            Object triggerLock =
+                    ReflectionUtils.getField(coordinator, "lock")
+                            .orElseThrow(
+                                    () -> new IllegalStateException("Missing checkpoint lock"));
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(coordinator, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "Missing pending checkpoint counter"));
+            CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(node);
+            String checkpointIdKey =
+                    StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                    node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+            PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                // Trigger creation and pendingCounter increment hold this lock.
+                                // Completion only decrements pendingCounter after notify succeeds.
+                                synchronized (triggerLock) {
+                                    Long currentId = checkpointCounterStore.get(checkpointIdKey);
+                                    Assertions.assertNotNull(
+                                            currentId,
+                                            "waiting for the first checkpoint id to be allocated");
+                                    Assertions.assertTrue(
+                                            currentId >= 2,
+                                            "waiting for at least one checkpoint to be triggered");
+                                    Assertions.assertEquals(
+                                            0,
+                                            pendingCounter.get(),
+                                            "waiting for checkpoint completion notifications"
+                                                    + " before injecting the dispatch failure");
+                                    Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
+                                            ownedSlotProfilesIMap.remove(pipelineLocation);
+                                    Assertions.assertNotNull(
+                                            removedSlotProfiles,
+                                            "the running task's slot-profile bookkeeping should"
+                                                    + " exist before injection");
+                                    log.info(
+                                            "Job {} has no pending checkpoint; removed pipeline {}'s"
+                                                    + " slot-profile bookkeeping ({} task group(s))"
+                                                    + " before the next checkpoint-barrier dispatch.",
+                                            jobId,
+                                            pipelineId,
+                                            removedSlotProfiles.size());
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FAILED, clientJobProxy.getJobStatus()));
+
+            JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+            Assertions.assertEquals(JobStatus.FAILED, jobResult.getStatus());
+            Assertions.assertNotNull(
+                    jobResult.getError(), "a FAILED job should carry a non-null error message");
+            Assertions.assertTrue(
+                    jobResult
+                            .getError()
+                            .contains(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message()),
+                    () ->
+                            "Expected the job failure to be attributed to the checkpoint"
+                                    + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
+                                    + " CheckpointCoordinator#handleCoordinatorError), but got: "
+                                    + jobResult.getError());
+            Assertions.assertTrue(
+                    jobResult.getError().contains("can't find task group address"),
+                    () ->
+                            "Expected the injected address lookup failure, but got: "
+                                    + jobResult.getError());
+            Assertions.assertTrue(
+                    jobResult.getError().contains("CheckpointCoordinator.triggerCheckpoint"),
+                    () -> "Expected a barrier-dispatch failure, but got: " + jobResult.getError());
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (node != null) {
+                node.shutdown();
             }
         }
     }

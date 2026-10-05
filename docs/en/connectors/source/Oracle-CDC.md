@@ -238,8 +238,8 @@ exit;
 | stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer. The only valid value is `never`, so a streaming Oracle CDC source keeps running until the job is stopped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | snapshot.split.size                       | Integer  | No        | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No        | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| server-time-zone                          | String   | No        | UTC     | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone. This value is also used when converting `startup.timestamp` to SCN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                     |
-| connect.timeout.ms                        | Duration | No        | 30000   | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | No        | -       | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone. This value is also used when converting `startup.timestamp` to SCN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                     |
+| connect.timeout.ms                        | Long     | No        | 30000   | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No        | 3       | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No        | 20      | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | incremental.parallelism                   | Integer  | No        | 1       | Number of parallel readers used after the snapshot phase enters incremental log reading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -258,30 +258,6 @@ exit;
 | schema-changes.exclude                     | List     | No        | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | debezium                                  | Config   | No        | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from Oracle server.                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | no        | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| decimal_type_narrowing                    | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-
-
-### decimal_type_narrowing
-
-Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.
-
-eg:
-
-decimal_type_narrowing = true
-
-| Oracle        | SeaTunnel |
-|---------------|-----------|
-| NUMBER(1, 0)  | Boolean   |
-| NUMBER(6, 0)  | INT       |
-| NUMBER(10, 0) | BIGINT    |
-
-decimal_type_narrowing = false
-
-| Oracle        | SeaTunnel      |
-|---------------|----------------|
-| NUMBER(1, 0)  | Decimal(1, 0)  |
-| NUMBER(6, 0)  | Decimal(6, 0)  |
-| NUMBER(10, 0) | Decimal(10, 0) |
 
 ## Task Example
 
@@ -563,6 +539,17 @@ Yes. Set `database-names` to the CDB name and configure the JDBC URL to point to
 ### Does Oracle CDC support tables without primary keys?
 
 By default, Oracle CDC requires primary keys. You can specify a custom primary key column via `table-names-config` with the `primaryKeys` field if the table has a suitable unique column.
+
+### How do I use a custom snapshot query?
+
+Use Debezium's `snapshot.select.statement.overrides` properties inside the `debezium` block. The query is applied before SeaTunnel adds the snapshot-split boundaries, so it must include every column needed by the configured table schema and its split key.
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
 
 ### How do I improve LogMiner performance?
 

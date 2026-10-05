@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfo;
@@ -34,15 +35,18 @@ import java.util.Optional;
 public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
     public static final String STREAMING = "streaming";
 
-    public BigQuerySinkStreamWriter(ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
-        super(readOnlyConfig, serializer);
+    public BigQuerySinkStreamWriter(
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer, TableSchema tableSchema) {
+        super(readOnlyConfig, serializer, tableSchema);
     }
 
     public BigQuerySinkStreamWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer) {
-        super(readOnlyConfig, streamWriter, serializer);
+            BigQuerySerializer serializer,
+            TableSchema tableSchema,
+            BigQueryWriteClient client) {
+        super(readOnlyConfig, streamWriter, serializer, tableSchema, client);
     }
 
     @Override

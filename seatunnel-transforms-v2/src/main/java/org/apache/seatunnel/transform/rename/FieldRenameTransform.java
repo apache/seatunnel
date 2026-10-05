@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
@@ -45,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -78,6 +80,23 @@ public class FieldRenameTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+            CatalogTable restoredTable = event.getChangeAfter();
+            this.inputTable =
+                    CatalogTable.of(
+                            restoredTable.getTableId(),
+                            restoredTable.getTableSchema(),
+                            restoredTable.getOptions(),
+                            restoredTable.getPartitionKeys(),
+                            restoredTable.getComment(),
+                            restoredTable.getCatalogName(),
+                            restoredTable.getMetadataSchema());
+            this.inputCatalogTable = this.inputTable;
+            this.outputCatalogTable = null;
+            event.setChangeAfter(getProducedCatalogTable());
+            return event;
+        }
+
         TableSchema newTableSchema =
                 tableSchemaChangeEventHandler.reset(inputTable.getTableSchema()).apply(event);
         this.inputTable =
@@ -164,10 +183,10 @@ public class FieldRenameTransform extends AbstractCatalogSupportMapTransform {
         if (config.getConvertCase() != null) {
             switch (config.getConvertCase()) {
                 case UPPER:
-                    name = name.toUpperCase();
+                    name = name.toUpperCase(Locale.ROOT);
                     break;
                 case LOWER:
-                    name = name.toLowerCase();
+                    name = name.toLowerCase(Locale.ROOT);
                     break;
                 default:
                     throw new UnsupportedOperationException(
