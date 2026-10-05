@@ -232,23 +232,39 @@ else
       wrapperJarPath=`cygpath --path --windows "$wrapperJarPath"`
     fi
 
+    download_with_retries() {
+        attempts=1
+        delay=5
+        while [ "$attempts" -le 5 ]; do
+            "$@" && return 0
+            rm -f "$wrapperJarPath"
+            if [ "$attempts" -lt 5 ]; then
+                echo "Maven wrapper download failed, retrying in $delay seconds ..." >&2
+                sleep "$delay"
+                delay=`expr "$delay" \* 2`
+            fi
+            attempts=`expr "$attempts" + 1`
+        done
+        return 1
+    }
+
     if command -v wget > /dev/null; then
         if [ "$MVNW_VERBOSE" = true ]; then
           echo "Found wget ... using wget"
         fi
         if [ -z "$MVNW_USERNAME" ] || [ -z "$MVNW_PASSWORD" ]; then
-            wget "$jarUrl" -O "$wrapperJarPath" || rm -f "$wrapperJarPath"
+            download_with_retries wget "$jarUrl" -O "$wrapperJarPath"
         else
-            wget --http-user=$MVNW_USERNAME --http-password=$MVNW_PASSWORD "$jarUrl" -O "$wrapperJarPath" || rm -f "$wrapperJarPath"
+            download_with_retries wget --http-user="$MVNW_USERNAME" --http-password="$MVNW_PASSWORD" "$jarUrl" -O "$wrapperJarPath"
         fi
     elif command -v curl > /dev/null; then
         if [ "$MVNW_VERBOSE" = true ]; then
           echo "Found curl ... using curl"
         fi
         if [ -z "$MVNW_USERNAME" ] || [ -z "$MVNW_PASSWORD" ]; then
-            curl -o "$wrapperJarPath" "$jarUrl" -f
+            download_with_retries curl -o "$wrapperJarPath" "$jarUrl" -f
         else
-            curl --user $MVNW_USERNAME:$MVNW_PASSWORD -o "$wrapperJarPath" "$jarUrl" -f
+            download_with_retries curl --user "$MVNW_USERNAME:$MVNW_PASSWORD" -o "$wrapperJarPath" "$jarUrl" -f
         fi
 
     else

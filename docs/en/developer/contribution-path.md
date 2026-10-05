@@ -21,6 +21,7 @@ Use this page if you want to:
 
 - fix a documentation issue
 - contribute a connector or transform
+- investigate and fix a performance problem
 - fix a bug
 - understand where to ask questions before opening a PR
 
@@ -70,6 +71,19 @@ Start here:
 - [Contribute Transform-V2 Plugins](./contribute-transform-v2-guide.md)
 - [Transform Plugin System](../architecture/transform-plugin-system.md)
 - [Transforms Catalog](../transforms)
+
+### Performance Contribution
+
+Best first steps:
+
+- start from an observed problem or measured regression, not an arbitrary hot-looking method
+- discuss the workload, evidence, and expected benefit with the community before substantial implementation
+- contribute a reproducible benchmark before submitting the optimization
+
+Start here:
+
+- [Contribute Performance Improvements](./contribute-performance-guide.md)
+- [Zeta Benchmark](../engines/zeta/benchmark.md)
 
 ### Code or Architecture Contribution
 
@@ -165,4 +179,5 @@ Pick one path based on your goal:
 - docs path: [Docs Format Specification](./docs-format-specification.md) -> [Getting Started Overview](../getting-started/overview.md)
 - connector path: [How to Create Your Connector](./how-to-create-your-connector.md) -> [Source Connector Development](./source-connector-development.md) or [Sink Connector Development](./sink-connector-development.md)
 - transform path: [Contribute Transform-V2 Plugins](./contribute-transform-v2-guide.md) -> [Transform Plugin System](../architecture/transform-plugin-system.md)
+- performance path: [Contribute Performance Improvements](./contribute-performance-guide.md) -> [Zeta Benchmark](../engines/zeta/benchmark.md)
 - engine path: [Set Up Develop Environment](./setup.md) -> [Architecture Overview](../architecture/overview.md)

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.client.BigtableClient;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
 
@@ -383,8 +384,8 @@ public class BigtableSourceSplitEnumerator
         } else {
             for (BigtableSourceSplit split : pendingSplits) {
                 int owner =
-                        (split.splitId().hashCode() & Integer.MAX_VALUE)
-                                % context.currentParallelism();
+                        HashUtils.bucketIndex(
+                                split.splitId().hashCode(), context.currentParallelism());
                 if (owner == taskId) {
                     toAssign.add(split);
                 }

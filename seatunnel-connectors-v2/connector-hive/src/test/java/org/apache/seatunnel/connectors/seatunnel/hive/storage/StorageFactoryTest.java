@@ -34,6 +34,7 @@ public class StorageFactoryTest {
                     put("s3a://path/to/", S3Storage.class);
                     put("oss://path/to/", OSSStorage.class);
                     put("cosn://path/to/", COSStorage.class);
+                    put("bos://path/to/", BOSStorage.class);
                 }
             };
 

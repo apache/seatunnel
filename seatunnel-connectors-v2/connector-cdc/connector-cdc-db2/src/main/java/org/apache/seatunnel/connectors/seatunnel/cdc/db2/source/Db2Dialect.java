@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.db2.source;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -99,6 +100,17 @@ public class Db2Dialect implements JdbcDataSourceDialect {
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Converts a SeaTunnel table path to the empty-catalog identifier emitted by Db2 Debezium.
+     *
+     * @param tablePath table path from checkpoint schema state
+     * @return Db2 Debezium table identifier
+     */
+    @Override
+    public TableId toTableId(TablePath tablePath) {
+        return new TableId("", tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
