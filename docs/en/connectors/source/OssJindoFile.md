@@ -82,6 +82,7 @@ It only supports hadoop version **2.9.X+**.
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
 | file_filter_pattern        | string  | no       |                             |
+| filename_extension         | string  | no       | -                           |
 | compress_codec             | string  | no       | none                        |
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |
