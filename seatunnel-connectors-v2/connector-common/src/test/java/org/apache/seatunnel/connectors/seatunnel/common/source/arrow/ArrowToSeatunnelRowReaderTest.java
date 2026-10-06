@@ -53,6 +53,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Field;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Schema;
 
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -457,6 +458,88 @@ public class ArrowToSeatunnelRowReaderTest {
                 Assertions.assertEquals(count, rows.size());
             }
         }
+    }
+
+    /**
+     * An arrow stream may carry more than one record batch. Every batch after the first used to
+     * fail, because the conversion loop was bounded by the cumulative size of the accumulated row
+     * list rather than by the row count of the batch in hand, and it indexed the arrow vector by
+     * the absolute row number although the vector only ever holds the current batch.
+     *
+     * <p>The values are asserted in order, not just the row count. Correcting only the loop bound
+     * leaves the vector indexed past its end, which arrow answers with null rather than an
+     * exception, so a row count on its own would still pass while every row of the second batch
+     * came back empty.
+     *
+     * <p>This builds its own vectors rather than calling {@link #buildVectorSchemaRoot}, because
+     * that helper appends to the static expectation lists shared with {@link #testSeatunnelRow}.
+     */
+    @Test
+    public void testMultipleRecordBatchesAreReadInFull() throws Exception {
+        List<Long> expectedLongs = Arrays.asList(10L, 11L, 20L, 21L, 22L);
+
+        byte[] payload;
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+            BigIntVector longVector = new BigIntVector("multi_batch_long", allocator);
+            VarCharVector stringVector = new VarCharVector("multi_batch_string", allocator);
+            List<FieldVector> vectors = Arrays.asList(longVector, stringVector);
+            List<Field> fields =
+                    vectors.stream().map(FieldVector::getField).collect(Collectors.toList());
+
+            try (VectorSchemaRoot multiBatchRoot =
+                            new VectorSchemaRoot(new Schema(fields), vectors, 0);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(
+                                    multiBatchRoot,
+                                    /*DictionaryProvider=*/ null,
+                                    Channels.newChannel(out))) {
+                writer.start();
+                int written = 0;
+                for (int batchSize : new int[] {2, 3}) {
+                    longVector.clear();
+                    stringVector.clear();
+                    for (int i = 0; i < batchSize; i++) {
+                        long value = expectedLongs.get(written + i);
+                        longVector.setSafe(i, value);
+                        stringVector.setSafe(i, ("v" + value).getBytes(StandardCharsets.UTF_8));
+                    }
+                    longVector.setValueCount(batchSize);
+                    stringVector.setValueCount(batchSize);
+                    multiBatchRoot.setRowCount(batchSize);
+                    writer.writeBatch();
+                    written += batchSize;
+                }
+                writer.end();
+                out.flush();
+                payload = out.toByteArray();
+            }
+        }
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"multi_batch_long", "multi_batch_string"},
+                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
+
+        List<Object> actualLongs = new ArrayList<>();
+        List<Object> actualStrings = new ArrayList<>();
+        try (ArrowToSeatunnelRowReader reader =
+                new ArrowToSeatunnelRowReader(payload, rowType).readArrow()) {
+            while (reader.hasNext()) {
+                SeaTunnelRow row = reader.next();
+                actualLongs.add(row.getField(0));
+                actualStrings.add(row.getField(1));
+            }
+        }
+
+        Assertions.assertEquals(
+                expectedLongs,
+                actualLongs,
+                "every record batch must be read, in order, with the values of its own batch");
+        Assertions.assertEquals(
+                expectedLongs.stream().map(value -> "v" + value).collect(Collectors.toList()),
+                actualStrings,
+                "a second column must follow the same batch boundaries");
     }
 
     private SeaTunnelRowType getSeatunnelRowType(boolean allType) {

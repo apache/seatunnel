@@ -135,13 +135,16 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             String name = fieldVector.getField().getName();
             Integer fieldIndex = fieldIndexMap.get(name);
             Types.MinorType minorType = fieldVector.getMinorType();
-            for (int i = 0; i < seatunnelRowBatch.size(); i++) {
+            // Bound by the row count of the batch being converted, not by the cumulative size
+            // of seatunnelRowBatch, which already holds the rows of every earlier batch.
+            for (int i = 0; i < rowCountInOneBatch; i++) {
                 // arrow field not in the Seatunnel Schema field, skip it
                 if (fieldIndex != null) {
                     SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[fieldIndex];
+                    // The vector holds only this batch, so it is indexed from 0, while
+                    // seatunnelRowBatch is cumulative and is indexed from readRowCount.
                     Object fieldValue =
-                            convertArrowData(
-                                    readRowCount + i, minorType, fieldVector, seaTunnelDataType);
+                            convertArrowData(i, minorType, fieldVector, seaTunnelDataType);
                     fieldValue =
                             convertSeatunnelRowValue(
                                     seaTunnelDataType.getSqlType(), minorType, fieldValue);
