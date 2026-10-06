@@ -31,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.catalog.EasysearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -76,6 +75,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     private static final String HOST = "e2e_easysearch";
 
     private static final int PORT = 9200;
+
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 60L;
+
     private List<String> testDataset;
 
     private GenericContainer<?> easysearchServer;
@@ -150,9 +152,15 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/easysearch/easysearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkData();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(), readSinkData()));
     }
 
     @TestTemplate
@@ -163,27 +171,33 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/easysearch/easysearch_source_and_sink_with_save_mode.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // Wait for index refresh
-        Thread.sleep(2000);
-
-        // Verify the index was created with the correct schema
+        // Verify the index was created with the correct schema.
+        // Poll instead of a fixed sleep so a slow index creation or refresh
+        // under CI load does not fail the test.
         String indexName = "st_index_save_mode";
-        try {
-            List<IndexDocsCount> indexDocsCounts = easysearchClient.getIndexDocsCount(indexName);
-            Assertions.assertFalse(indexDocsCounts.isEmpty(), "Index should exist");
-        } catch (Exception e) {
-            Assertions.fail("Index should exist but got exception: " + e.getMessage());
-        }
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        easysearchClient.getIndexDocsCount(indexName).isEmpty(),
+                                        "Index should exist"));
 
         // Verify the data was written correctly
-        List<String> sinkData = readSinkDataFromIndex(indexName);
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(), readSinkDataFromIndex(indexName)));
     }
 
-    private List<String> readSinkDataFromIndex(String indexName) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(2000);
+    private List<String> readSinkDataFromIndex(String indexName) {
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -323,9 +337,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
-    private List<String> readSinkData() throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(2000);
+    private List<String> readSinkData() {
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
