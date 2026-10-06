@@ -226,6 +226,44 @@ class RocketMqAdminUtilTest {
         Assertions.assertEquals(expected, offsets);
     }
 
+    /**
+     * The guard probes the requested topic, not the group's retry topic. On a multi-broker cluster
+     * the retry topic and a later topic in the list can live on different brokers, so losing the
+     * retry topic's broker part way through the loop leaves the later topic resolvable: the guard
+     * passes even though offsets for the earlier topics have already been collected. Discarding
+     * them makes the caller read a cold start and rewind every topic to its first offset, so the
+     * offsets gathered before the failure must survive.
+     */
+    @Test
+    void testCurrentOffsets_laterTopicFailureKeepsOffsetsFromEarlierTopics() throws Exception {
+        MessageQueue firstQueue = new MessageQueue(TOPIC, "broker-a", 0);
+
+        DefaultMQAdminExt adminClient = Mockito.mock(DefaultMQAdminExt.class);
+        Mockito.when(adminClient.examineConsumeStats(GROUP, TOPIC))
+                .thenReturn(consumeStatsFor(firstQueue, 42L));
+        Mockito.when(adminClient.examineConsumeStats(GROUP, OTHER_TOPIC))
+                .thenThrow(
+                        new MQClientException(
+                                ResponseCode.TOPIC_NOT_EXIST,
+                                "No topic route info in name server for the topic: %RETRY%"
+                                        + GROUP));
+        Mockito.when(adminClient.examineTopicRouteInfo(OTHER_TOPIC))
+                .thenReturn(new TopicRouteData());
+
+        Map<MessageQueue, Long> offsets =
+                RocketMqAdminUtil.currentOffsets(
+                        adminClient,
+                        GROUP,
+                        Arrays.asList(TOPIC, OTHER_TOPIC),
+                        new HashSet<>(Arrays.asList(firstQueue)));
+
+        Assertions.assertEquals(
+                Collections.singletonMap(firstQueue, 42L),
+                offsets,
+                "the offset already collected for the first topic must survive a later topic's "
+                        + "missing retry route");
+    }
+
     private static ConsumeStats consumeStatsFor(MessageQueue messageQueue, long committedOffset) {
         OffsetWrapper offsetWrapper = new OffsetWrapper();
         offsetWrapper.setConsumerOffset(committedOffset);
