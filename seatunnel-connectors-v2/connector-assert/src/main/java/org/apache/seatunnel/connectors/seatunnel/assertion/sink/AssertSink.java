@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.shade.com.google.common.base.Throwables;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
