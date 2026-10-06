@@ -692,8 +692,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        // The service is shared across tests and earlier workers may still be finishing.
-        // Match production identity: every deployment needs a globally unique execution ID.
+        // The shared service can still be cleaning up deployments from another test.
         long oldExecutionId = FLAKE_ID_GENERATOR.newId();
         long newExecutionId = FLAKE_ID_GENERATOR.newId();
         TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
@@ -743,6 +742,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         timerFlushFutures.put(newContext, newTimerFlushFutures);
 
         try {
+            // A previous fixture used ID 1: its late cleanup must not own this fixture's timers.
+            Task previousTask = new TestTask(new AtomicBoolean(true), 0, true);
+            TaskGroup previousGroup =
+                    new TaskGroupDefaultImpl(
+                            newTaskGroupLocation(),
+                            "previous-test",
+                            Lists.newArrayList(previousTask));
+            TaskGroupContext previousContext = newTaskGroupContext(1L, previousGroup);
+            TaskExecutionService.TaskGroupExecutionTracker previousTracker =
+                    taskExecutionService
+                    .new TaskGroupExecutionTracker(
+                            new CompletableFuture<>(), previousContext, new CompletableFuture<>());
+            previousTracker.taskDone(previousTask);
+            Mockito.verify(oldTimerFlushFuture, Mockito.never()).cancel(false);
             oldTracker.taskDone(oldTask);
 
             Assertions.assertSame(newContext, executionContexts.get(location));
@@ -809,12 +822,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        // The service is shared across tests and earlier workers may still be finishing.
-        // Match production identity: every deployment needs a globally unique execution ID.
-        long oldExecutionId = FLAKE_ID_GENERATOR.newId();
-        long newExecutionId = FLAKE_ID_GENERATOR.newId();
-        TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(newExecutionId, newTaskGroup);
+        TaskGroupContext oldContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
         TaskExecutionService.TaskGroupExecutionTracker oldTracker =
