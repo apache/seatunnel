@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.AfterAll;
@@ -275,6 +278,29 @@ public class DuckDBCatalogTest {
         }
     }
 
+    @Test
+    @Order(8)
+    public void testMetadataLookupWithApostrophes() throws Exception {
+        TablePath tablePath = TablePath.of(DATABASE_NAME, "odd'schema", "odd'table");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("CREATE SCHEMA \"odd'schema\"");
+            statement.execute("CREATE TABLE \"odd'schema\".\"odd'table\" (id INTEGER)");
+            try {
+                Assertions.assertTrue(catalog.tableExists(tablePath));
+                Assertions.assertFalse(
+                        catalog.tableExists(TablePath.of(DATABASE_NAME, null, "odd'table")));
+                CatalogTable table = catalog.getTable(tablePath);
+                Assertions.assertEquals("id", table.getTableSchema().getColumns().get(0).getName());
+                Assertions.assertFalse(
+                        catalog.tableExists(
+                                TablePath.of(DATABASE_NAME, "odd'schema", "x' OR 1=1 --")));
+            } finally {
+                statement.execute("DROP TABLE \"odd'schema\".\"odd'table\"");
+                statement.execute("DROP SCHEMA \"odd'schema\"");
+            }
+        }
+    }
+
     private void createTestTable(String tableName) throws Exception {
         Connection connection = catalog.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {
@@ -341,5 +367,62 @@ public class DuckDBCatalogTest {
 
     private String quoteTable(String tableName) {
         return String.format("\"%s\".\"%s\"", SCHEMA_NAME, tableName);
+    }
+
+    @Test
+    @Order(8)
+    public void testBitAndLongEnumLabelUseUnboundedSinkTypes() throws Exception {
+        String label = String.join("", Collections.nCopies(400, "m"));
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("CREATE TYPE text_lengths_enum AS ENUM ('short', '" + label + "')");
+            try {
+                statement.execute(
+                        "CREATE TABLE text_lengths (bits BIT, en ENUM('"
+                                + label
+                                + "'), named_en text_lengths_enum)");
+                try {
+                    statement.execute(
+                            "INSERT INTO text_lengths VALUES ('10110'::BIT, '"
+                                    + label
+                                    + "', '"
+                                    + label
+                                    + "'), (NULL, NULL, NULL)");
+
+                    CatalogTable table = catalog.getTable(getMainTablePath("text_lengths"));
+                    Assertions.assertEquals(3, table.getTableSchema().getColumns().size());
+                    for (Column column : table.getTableSchema().getColumns()) {
+                        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+                        Assertions.assertEquals(0L, column.getColumnLength());
+                    }
+
+                    String actualMySQLDDL =
+                            MysqlCreateTableSqlBuilder.builder(
+                                            TablePath.of("test", "downstream_t"),
+                                            table,
+                                            MySqlTypeConverter.DEFAULT_INSTANCE,
+                                            false)
+                                    .build("mysql");
+                    Assertions.assertTrue(
+                            actualMySQLDDL.contains("`bits` LONGTEXT"), actualMySQLDDL);
+                    Assertions.assertTrue(actualMySQLDDL.contains("`en` LONGTEXT"), actualMySQLDDL);
+                    Assertions.assertTrue(
+                            actualMySQLDDL.contains("`named_en` LONGTEXT"), actualMySQLDDL);
+
+                    String actualPostgresDDL =
+                            new PostgresCreateTableSqlBuilder(table, false)
+                                    .build(TablePath.of("test", "public", "downstream_t"));
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"bits\" text"), actualPostgresDDL);
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"en\" text"), actualPostgresDDL);
+                    Assertions.assertTrue(
+                            actualPostgresDDL.contains("\"named_en\" text"), actualPostgresDDL);
+                } finally {
+                    statement.execute("DROP TABLE text_lengths");
+                }
+            } finally {
+                statement.execute("DROP TYPE text_lengths_enum");
+            }
+        }
     }
 }

@@ -38,6 +38,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 通用 JDBC Sink 通过 XA 事务实现精确一次；DuckDB JDBC 驱动没有 XA 数据源。DuckDB 作业不要设置 `is_exactly_once = true`。
 
