@@ -40,6 +40,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufSerializationSchema;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -236,7 +237,16 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
-        Thread.sleep(3000);
+        // Poll until the published messages are visible on the queue instead of a
+        // fixed sleep, so the job cannot start consuming before the data is there.
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () ->
+                                sourceClient.getChannel().messageCount(sourceQueueName)
+                                        >= TEST_DATASET.getValue().size());
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
@@ -348,10 +358,19 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sendData(queue1, type1, 10);
         sendData(queue2, type2, 10);
 
-        // Wait briefly to ensure all messages are fully persisted and available in the RabbitMQ
-        // broker
-        // before the SeaTunnel job starts consuming.
-        Thread.sleep(5000);
+        // Poll until the published messages are visible on both queues instead of
+        // a fixed sleep, so the job cannot start consuming before the data is there.
+        try (RabbitmqClient probe1 = getRabbitmqClient(queue1);
+                RabbitmqClient probe2 = getRabbitmqClient(queue2)) {
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .until(
+                            () ->
+                                    probe1.getChannel().messageCount(queue1) >= 10
+                                            && probe2.getChannel().messageCount(queue2) >= 10);
+        }
 
         // Execute the SeaTunnel synchronization job.
         // The job uses a multi-table configuration to consume from both queues simultaneously.
