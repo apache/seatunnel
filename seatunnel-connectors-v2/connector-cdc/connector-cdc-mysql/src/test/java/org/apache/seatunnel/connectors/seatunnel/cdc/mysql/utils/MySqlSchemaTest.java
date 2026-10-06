@@ -25,8 +25,12 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+
+import org.apache.kafka.connect.data.Struct;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -57,6 +61,7 @@ import static org.mockito.Mockito.when;
 
 public class MySqlSchemaTest {
     private static final String QUOTED_CHARACTER = "`";
+    private static final TableId NO_PK = TableId.parse("db1.no_pk");
 
     @Test
     public void testReadSchemaFallbackDescTable() {
@@ -183,6 +188,32 @@ public class MySqlSchemaTest {
     }
 
     @Test
+    public void testNullableColumnConfiguredAsPrimaryKeyEmitsNull() {
+        // table-names-config: primaryKeys = ["code"], marks the catalog column NOT NULL
+        JdbcSourceTableConfig config = new JdbcSourceTableConfig();
+        config.setTable("db1.no_pk");
+        config.setPrimaryKeys(Collections.singletonList("code"));
+        CatalogTable catalogTable =
+                CatalogTableUtils.mergeCatalogTableConfig(
+                        catalogTable(column("id", false), column("code", true)), config);
+        Table table =
+                parseTable(
+                        "CREATE TABLE `no_pk` (\n"
+                                + "    `id` int NOT NULL,\n"
+                                + "    `code` int DEFAULT NULL,\n"
+                                + "    UNIQUE KEY `uk_code` (`code`)\n"
+                                + ")",
+                        catalogTable);
+
+        Assertions.assertEquals(Arrays.asList("code"), table.primaryKeyColumnNames());
+        Assertions.assertTrue(table.columnWithName("code").isOptional());
+        MySqlDatabaseSchema schema = createDatabaseSchema();
+        schema.refresh(table);
+        Struct value = schema.schemaFor(NO_PK).valueFromColumnData(new Object[] {2, null});
+        Assertions.assertNull(value.get("code"));
+    }
+
+    @Test
     public void testNullableUniqueKeyColumnStaysOptionalInStreamingDdl() {
         MySqlDatabaseSchema schema = createDatabaseSchema();
         parseStreamingDdl(
@@ -238,27 +269,31 @@ public class MySqlSchemaTest {
     }
 
     private static Table parseTable(String createTableSql, PhysicalColumn... columns) {
+        return parseTable(createTableSql, catalogTable(columns));
+    }
+
+    private static Table parseTable(String createTableSql, CatalogTable catalogTable) {
         MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
         factory.hostname("localhost");
         factory.username("test");
         factory.password("test");
-        TableId tableId = TableId.parse("db1.no_pk");
-        CatalogTable catalogTable =
-                CatalogTable.of(
-                        TableIdentifier.of(
-                                "test", TablePath.of(tableId.catalog(), tableId.table())),
-                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
-                        Collections.emptyMap(),
-                        Collections.emptyList(),
-                        null);
         MySqlSchema schema =
                 new MySqlSchema(
-                        factory.create(0), false, Collections.singletonMap(tableId, catalogTable));
+                        factory.create(0), false, Collections.singletonMap(NO_PK, catalogTable));
         return schema.getTableSchema(
                         new MockJdbcConnection(
                                 createTableSql, Collections.<DescTableField>emptyIterator()),
-                        tableId)
+                        NO_PK)
                 .getTable();
+    }
+
+    private static CatalogTable catalogTable(PhysicalColumn... columns) {
+        return CatalogTable.of(
+                TableIdentifier.of("test", TablePath.of(NO_PK.catalog(), NO_PK.table())),
+                TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
     }
 
     private static PhysicalColumn column(String name, boolean nullable) {

@@ -55,7 +55,8 @@ import java.util.stream.Collectors;
  * these columns are emitted as the type default (for example 0). Debezium 2.x avoids it by not
  * promoting such a unique key at all ({@code parseUniqueIndexColumnNames}).
  *
- * <p>Line 418-423, 441 : Only a real primary key marks its columns NOT NULL.
+ * <p>{@link #parsePrimaryIndexColumnNames} is the only modified method: only a real primary key
+ * marks its columns NOT NULL. Re-apply this change, or drop this copy, when upgrading Debezium.
  *
  * @author Roman Kuchár <kucharrom@gmail.com>.
  */
@@ -410,12 +411,18 @@ public class MySqlAntlrDdlParser extends AntlrDdlParser<MySqlLexer, MySqlParser>
      * Parse column names for primary index from {@link MySqlParser.IndexColumnNamesContext}. This
      * method will updates column to be not optional and set primary key column names to table.
      *
+     * <p>SeaTunnel change: Debezium also calls this method to promote the first unique key of a
+     * table without a primary key ({@code UNIQUE KEY}, {@code ALTER TABLE ... ADD UNIQUE KEY},
+     * {@code CREATE UNIQUE INDEX}). Unlike a primary key, a unique key can hold NULLs, so its
+     * columns keep their declared nullability; marking them NOT NULL would make the value
+     * converters emit the type default instead of NULL. Only a real primary key marks its columns
+     * NOT NULL, as MySQL does.
+     *
      * @param indexColumnNamesContext primary key index column names context.
      * @param tableEditor editor for table where primary key index is parsed.
      */
     public void parsePrimaryIndexColumnNames(
             MySqlParser.IndexColumnNamesContext indexColumnNamesContext, TableEditor tableEditor) {
-        // a unique key promoted to the primary key may hold NULLs, keep its columns as declared
         boolean realPrimaryKey =
                 indexColumnNamesContext.getParent()
                                 instanceof MySqlParser.PrimaryKeyTableConstraintContext

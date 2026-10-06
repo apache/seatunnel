@@ -389,28 +389,87 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         // binlog phase
         executeSql(
                 "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
-        executeSql(
-                "INSERT INTO "
-                        + MYSQL_DATABASE
-                        + ".uk_added_null VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
-        executeSql(
-                "INSERT INTO "
-                        + MYSQL_DATABASE
-                        + ".uk_null_single VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
-        executeSql(
-                "INSERT INTO "
-                        + MYSQL_DATABASE
-                        + ".uk_null_composite VALUES (4, 3, NULL, 'binlog-null'), (5, 3, 5, 'binlog-coded')");
-        executeSql(
-                "INSERT INTO "
-                        + MYSQL_DATABASE
-                        + ".pk_null_control VALUES (4, NULL, 'binlog-null'), (5, 5, 'binlog-coded')");
-        executeSql(
-                "INSERT INTO "
-                        + MYSQL_DATABASE
-                        + ".uk_notnull_control VALUES (4, 4, 'binlog-coded'), (5, 5, 'binlog-coded')");
+        insertNullableUniqueKeyRows(4, 5);
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testMysqlCdcNullInNullableUniqueKeyAfterRestore(TestContainer container)
+            throws Exception {
+        // The schema of uk_added_null changes in the binlog phase, so the restored job rebuilds it
+        // from the table history saved in the savepoint: NULL must still reach the sink as NULL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+        String conf = "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf";
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "SAVEPOINT_DONE", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get().getExitCode());
+
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+        insertNullableUniqueKeyRows(6, 7);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(4));
+
+        container.stopJob(jobId);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /** Inserts one row with NULL in the key column and one row with a value into each table. */
+    private void insertNullableUniqueKeyRows(int nullId, int codedId) {
+        for (String table : new String[] {"uk_added_null", "uk_null_single", "pk_null_control"}) {
+            executeSql(
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (%d, NULL, 'binlog-null'), (%d, %d, 'binlog-coded')",
+                            MYSQL_DATABASE, table, nullId, codedId, codedId));
+        }
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_null_composite VALUES (%d, 3, NULL, 'binlog-null'), (%d, 3, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, codedId, codedId));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_notnull_control VALUES (%d, %d, 'binlog-coded'), (%d, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, nullId, codedId, codedId));
     }
 
     private void assertNullableUniqueKeyTablesSynced(int expectedNullRows) {
