@@ -398,14 +398,18 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 "call-and-close-throw",
                                 Lists.newArrayList(task)));
 
+        ClassLoader expectedClassLoader = Thread.currentThread().getContextClassLoader();
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // Worker completed (future done) after call()+close() both threw
-                            // RuntimeException; fallback close was logged and did not abort the
-                            // worker before classloader restore.
+                            // Worker completed after call()+close() both threw RuntimeException;
+                            // fallback close was logged and the pooled thread's context classloader
+                            // was restored in finally.
                             assertEquals(FAILED, future.get().getExecutionState());
                             assertTrue(task.getCloseCalled().get());
+                            assertEquals(
+                                    expectedClassLoader,
+                                    Thread.currentThread().getContextClassLoader());
                         });
     }
 

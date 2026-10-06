@@ -594,7 +594,27 @@ public class SeaTunnelTaskStateTest {
     }
 
     @Test
-    void testCloseRethrowsErrorImmediatelyWithoutClosingLaterCycles() throws Exception {
+    void testCloseAttemptsEveryCycleWhenCycleThrowsNoClassDefFoundError() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle failing = mock(FlowLifeCycle.class);
+        FlowLifeCycle later = mock(FlowLifeCycle.class);
+        NoClassDefFoundError error = new NoClassDefFoundError("missing.PluginClass");
+        doThrow(error).when(failing).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failing);
+        cycles.add(later);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        NoClassDefFoundError ex = assertThrows(NoClassDefFoundError.class, task::close);
+        Assertions.assertSame(error, ex);
+
+        verify(failing, times(1)).close();
+        verify(later, times(1)).close();
+    }
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenCycleThrowsAssertionError() throws Exception {
         doCallRealMethod().when(task).close();
         FlowLifeCycle failing = mock(FlowLifeCycle.class);
         FlowLifeCycle later = mock(FlowLifeCycle.class);
@@ -610,7 +630,51 @@ public class SeaTunnelTaskStateTest {
         Assertions.assertSame(error, ex);
 
         verify(failing, times(1)).close();
+        verify(later, times(1)).close();
+    }
+
+    @Test
+    void testCloseStopsLoopOnVirtualMachineError() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle failing = mock(FlowLifeCycle.class);
+        FlowLifeCycle later = mock(FlowLifeCycle.class);
+        OutOfMemoryError error = new OutOfMemoryError("oom");
+        doThrow(error).when(failing).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failing);
+        cycles.add(later);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        OutOfMemoryError ex = assertThrows(OutOfMemoryError.class, task::close);
+        Assertions.assertSame(error, ex);
+
+        verify(failing, times(1)).close();
         verify(later, never()).close();
+    }
+
+    @Test
+    void testClosePrefersErrorOverEarlierException() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+        IllegalStateException exception = new IllegalStateException("lifecycle-exception");
+        NoClassDefFoundError error = new NoClassDefFoundError("missing.LaterClass");
+        doThrow(exception).when(first).close();
+        doThrow(error).when(second).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        NoClassDefFoundError ex = assertThrows(NoClassDefFoundError.class, task::close);
+        Assertions.assertSame(error, ex);
+        Assertions.assertEquals(1, ex.getSuppressed().length);
+        Assertions.assertSame(exception, ex.getSuppressed()[0]);
+
+        verify(first, times(1)).close();
+        verify(second, times(1)).close();
     }
 
     @Test

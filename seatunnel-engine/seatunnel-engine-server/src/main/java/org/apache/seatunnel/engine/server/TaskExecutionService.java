@@ -1307,16 +1307,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 taskGroupExecutionTracker.exception(e);
             } finally {
-                taskGroupExecutionTracker.taskDone(t);
-                if (result == null || !result.isDone()) {
-                    try {
-                        tracker.task.close();
-                    } catch (Exception e) {
-                        logger.severe("Close task error", e);
+                try {
+                    taskGroupExecutionTracker.taskDone(t);
+                    if (result == null || !result.isDone()) {
+                        try {
+                            tracker.task.close();
+                        } catch (Exception e) {
+                            logger.severe("Close task error", e);
+                        }
                     }
+                } finally {
+                    Thread.currentThread().setContextClassLoader(oldClassLoader);
                 }
             }
-            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
     }
 
