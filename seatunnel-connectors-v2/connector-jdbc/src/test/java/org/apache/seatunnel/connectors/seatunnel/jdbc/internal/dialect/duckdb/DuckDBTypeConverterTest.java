@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -26,11 +30,16 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
 
 public class DuckDBTypeConverterTest {
@@ -643,5 +652,55 @@ public class DuckDBTypeConverterTest {
         Column column = convert("f_enum_array", "ENUM('a','b')[]");
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(255L, column.getColumnLength());
+    }
+
+    @Test
+    void testConvertTimestampAliasesPreserveNativeScale() {
+        // DuckDB native timestamp precision: TIMESTAMP and TIMESTAMP_NS carry 6/9 digits, the
+        // second/millisecond aliases carry 0/3. The converter must not drop that precision.
+        Assertions.assertEquals(6, convert("f_timestamp", "TIMESTAMP").getScale());
+        Assertions.assertEquals(0, convert("f_timestamp_s", "TIMESTAMP_S").getScale());
+        Assertions.assertEquals(3, convert("f_timestamp_ms", "TIMESTAMP_MS").getScale());
+        Assertions.assertEquals(9, convert("f_timestamp_ns", "TIMESTAMP_NS").getScale());
+    }
+
+    @Test
+    void testMysqlDdlPrecisionFollowsDuckDBTimestampAliasScale() {
+        assertMysqlTimestampColumnType("TIMESTAMP", "DATETIME(6)");
+        assertMysqlTimestampColumnType("TIMESTAMP_S", "DATETIME");
+        assertMysqlTimestampColumnType("TIMESTAMP_MS", "DATETIME(3)");
+        // TIMESTAMP_NS reads 9 digits, but MySQL DATETIME tops out at 6 and must be clamped.
+        assertMysqlTimestampColumnType("TIMESTAMP_NS", "DATETIME(6)");
+    }
+
+    /**
+     * Builds the real MySQL production DDL for a single DuckDB timestamp column so the scale
+     * carried by {@link DuckDBTypeConverter#convert(BasicTypeDefine)} is observable end to end.
+     */
+    private void assertMysqlTimestampColumnType(String duckdbType, String expectedMysqlType) {
+        Column column =
+                DuckDBTypeConverter.INSTANCE.convert(
+                        BasicTypeDefine.builder()
+                                .name("c")
+                                .columnType(duckdbType)
+                                .dataType(duckdbType)
+                                .nullable(true)
+                                .build());
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("duckdb_catalog", "default", "t"),
+                        TableSchema.builder().column(column).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        null);
+        String ddl =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of("default", "main", "t"),
+                                catalogTable,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build(DatabaseIdentifier.DUCKDB);
+        Assertions.assertEquals(
+                "CREATE TABLE `t` (\n\t`c` " + expectedMysqlType + " NULL\n);", ddl, duckdbType);
     }
 }

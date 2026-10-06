@@ -46,9 +46,10 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -313,11 +314,22 @@ public class DuckDBSourceAndSinkTest {
             catalog.open();
             catalogTable = catalog.getTable(TablePath.of(DATABASE_NAME, SCHEMA_NAME, table));
         }
-        for (String name : new String[] {"c_ts", "c_ts_s", "c_ts_ms", "c_ts_ns"}) {
+        String[] names = {"c_ts", "c_ts_s", "c_ts_ms", "c_ts_ns"};
+        // Native fractional-second precision reported by the real DuckDB catalog.
+        Integer[] scales = {
+            DuckDBTypeConverter.TIMESTAMP_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_S_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_MS_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_NS_SCALE
+        };
+        for (int index = 0; index < names.length; index++) {
+            String name = names[index];
             Assertions.assertEquals(
                     LocalTimeType.LOCAL_DATE_TIME_TYPE,
                     catalogTable.getTableSchema().getColumn(name).getDataType(),
                     name);
+            Assertions.assertEquals(
+                    scales[index], catalogTable.getTableSchema().getColumn(name).getScale(), name);
         }
     }
 
@@ -358,43 +370,54 @@ public class DuckDBSourceAndSinkTest {
     }
 
     @Test
-    public void testTimestampGetterFallbackIsScopedToResultSetColumn() throws Exception {
+    public void testGenericSqlExceptionOnTypedTimestampReadPropagates() throws Exception {
         DuckDBJdbcRowConverter converter = new DuckDBJdbcRowConverter();
-        ResultSet first = Mockito.mock(ResultSet.class);
-        LocalDateTime expected = LocalDateTime.of(2024, 1, 1, 12, 34, 56, 123000000);
-        Mockito.when(first.getObject(1, LocalDateTime.class))
-                .thenReturn(null)
-                .thenThrow(new SQLException("Unsupported timestamp alias"));
-        Mockito.when(first.getTimestamp(1)).thenReturn(Timestamp.valueOf(expected));
-        Mockito.when(first.getObject(2, LocalDateTime.class)).thenReturn(expected);
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        ResultSetMetaData metadata = Mockito.mock(ResultSetMetaData.class);
+        Mockito.when(resultSet.getMetaData()).thenReturn(metadata);
+        // Column 1 is a real standard TIMESTAMP, so a driver failure on the typed read is a data
+        // error and not a missing typed-getter capability.
+        Mockito.when(metadata.getColumnTypeName(1)).thenReturn("TIMESTAMP");
+        Mockito.when(metadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
 
-        Assertions.assertNull(converter.readTimestamp(first, 1));
-        for (int row = 0; row < 3; row++) {
-            Assertions.assertEquals(expected, converter.readTimestamp(first, 1));
-            Assertions.assertEquals(expected, converter.readTimestamp(first, 2));
-        }
-        Mockito.verify(first, Mockito.times(2)).getObject(1, LocalDateTime.class);
-        Mockito.verify(first, Mockito.times(3)).getTimestamp(1);
-        Mockito.verify(first, Mockito.times(3)).getObject(2, LocalDateTime.class);
-        Mockito.verify(first, Mockito.never()).getTimestamp(2);
+        SQLException failure = new SQLException("boom", "HY000", 1234);
+        Mockito.when(resultSet.getObject(1, LocalDateTime.class)).thenThrow(failure);
+        LocalDateTime other = LocalDateTime.of(2024, 1, 1, 12, 34, 56);
+        Mockito.when(resultSet.getObject(2, LocalDateTime.class)).thenReturn(other);
 
-        ResultSet second = Mockito.mock(ResultSet.class);
-        Mockito.when(second.getObject(1, LocalDateTime.class)).thenReturn(expected);
-        Assertions.assertEquals(expected, converter.readTimestamp(second, 1));
-        Mockito.verify(second).getObject(1, LocalDateTime.class);
-        Mockito.verify(second, Mockito.never()).getTimestamp(1);
+        SQLException thrown =
+                Assertions.assertThrows(
+                        SQLException.class, () -> converter.readTimestamp(resultSet, 1));
+        Assertions.assertSame(failure, thrown);
+        Assertions.assertEquals("boom", thrown.getMessage());
+        Assertions.assertEquals("HY000", thrown.getSQLState());
+        Assertions.assertEquals(1234, thrown.getErrorCode());
+        // A failed typed read must not silently degrade into the lossy Timestamp fallback.
+        Mockito.verify(resultSet, Mockito.never()).getTimestamp(1);
+
+        // The failure must not be remembered: column 1 is still read through the typed getter.
+        Assertions.assertThrows(SQLException.class, () -> converter.readTimestamp(resultSet, 1));
+        Mockito.verify(resultSet, Mockito.times(2)).getObject(1, LocalDateTime.class);
+        Mockito.verify(resultSet, Mockito.never()).getTimestamp(1);
+
+        // Other columns are unaffected by the failure.
+        Assertions.assertEquals(other, converter.readTimestamp(resultSet, 2));
+        Mockito.verify(resultSet).getObject(2, LocalDateTime.class);
+        Mockito.verify(resultSet, Mockito.never()).getTimestamp(2);
     }
 
     @Test
-    public void testUnsupportedTimestampGetterPreservesNulls() throws Exception {
+    public void testTypedTimestampReadPreservesNulls() throws Exception {
         DuckDBJdbcRowConverter converter = new DuckDBJdbcRowConverter();
         ResultSet resultSet = Mockito.mock(ResultSet.class);
-        Mockito.when(resultSet.getObject(1, LocalDateTime.class))
-                .thenThrow(new UnsupportedOperationException("Typed getter unavailable"));
+        Mockito.when(resultSet.getObject(1, LocalDateTime.class)).thenReturn(null);
+
         Assertions.assertNull(converter.readTimestamp(resultSet, 1));
         Assertions.assertNull(converter.readTimestamp(resultSet, 1));
-        Mockito.verify(resultSet).getObject(1, LocalDateTime.class);
-        Mockito.verify(resultSet, Mockito.times(2)).getTimestamp(1);
+
+        // A SQL NULL is a value, not a capability failure: no fallback and no per-column state.
+        Mockito.verify(resultSet, Mockito.times(2)).getObject(1, LocalDateTime.class);
+        Mockito.verify(resultSet, Mockito.never()).getTimestamp(1);
     }
 
     @ResourceLock("java.util.TimeZone.default")
@@ -436,6 +459,163 @@ public class DuckDBSourceAndSinkTest {
                         int id = (Integer) row.getField(0);
                         Assertions.assertEquals(
                                 expected[id - 1], row.getField(1), zone + ", query=" + query);
+                    }
+                }
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testTimestampAliasWallClockAcrossTimeZones() throws Exception {
+        String table = "ts_alias_wall_clock";
+        String tablePath = SCHEMA_NAME + "." + table;
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE \"%s\".\"%s\" (id INTEGER, c_ts TIMESTAMP, "
+                                    + "c_ts_s TIMESTAMP_S, c_ts_ms TIMESTAMP_MS, "
+                                    + "c_ts_ns TIMESTAMP_NS)",
+                            SCHEMA_NAME, table));
+            statement.execute(
+                    String.format(
+                            "INSERT INTO \"%s\".\"%s\" VALUES "
+                                    + "(1, TIMESTAMP '2024-03-10 02:30:00.123456', "
+                                    + "TIMESTAMP_S '2024-03-10 02:30:00', "
+                                    + "TIMESTAMP_MS '2024-03-10 02:30:00.123', "
+                                    + "TIMESTAMP_NS '2024-03-10 02:30:00.123456789'), "
+                                    + "(2, TIMESTAMP '2024-11-03 01:30:00.123456', "
+                                    + "TIMESTAMP_S '2024-11-03 01:30:00', "
+                                    + "TIMESTAMP_MS '2024-11-03 01:30:00.123', "
+                                    + "TIMESTAMP_NS '2024-11-03 01:30:00.123456789'), "
+                                    + "(3, TIMESTAMP '2024-06-15 12:34:56.123456', "
+                                    + "TIMESTAMP_S '2024-06-15 12:34:56', "
+                                    + "TIMESTAMP_MS '2024-06-15 12:34:56.123', "
+                                    + "TIMESTAMP_NS '2024-06-15 12:34:56.123456789'), "
+                                    + "(4, NULL, NULL, NULL, NULL), "
+                                    + "(5, TIMESTAMP '1600-06-15 02:30:00', "
+                                    + "TIMESTAMP_S '1600-06-15 02:30:00', "
+                                    + "TIMESTAMP_MS '1600-06-15 02:30:00.123', NULL), "
+                                    + "(6, TIMESTAMP '1800-06-15 02:30:00', "
+                                    + "TIMESTAMP_S '1800-06-15 02:30:00', "
+                                    + "TIMESTAMP_MS '1800-06-15 02:30:00.123', NULL), "
+                                    + "(7, TIMESTAMP '1970-01-01 00:00:00', "
+                                    + "TIMESTAMP_S '1970-01-01 00:00:00', "
+                                    + "TIMESTAMP_MS '1970-01-01 00:00:00.000', "
+                                    + "TIMESTAMP_NS '1970-01-01 00:00:00.000000000'), "
+                                    + "(8, TIMESTAMP '1970-01-01 00:00:00.000001', "
+                                    + "TIMESTAMP_S '1970-01-01 00:00:00', "
+                                    + "TIMESTAMP_MS '1970-01-01 00:00:00.001', "
+                                    + "TIMESTAMP_NS '1970-01-01 00:00:00.000000001'), "
+                                    + "(9, TIMESTAMP '1969-12-31 23:59:59', "
+                                    + "TIMESTAMP_S '1969-12-31 23:59:59', "
+                                    + "TIMESTAMP_MS '1969-12-31 23:59:59.123', NULL)",
+                            SCHEMA_NAME, table));
+        }
+        // Literal wall clocks stored in DuckDB: a US DST gap (row 1), a US DST overlap (row 2),
+        // a normal value (row 3), all-NULL (row 4), two pre-1970 values (rows 5-6) and the epoch
+        // boundary (rows 7-9). Field 1 is the plain TIMESTAMP control, so the alias columns cannot
+        // be made to pass by regressing the typed read path. Rows 5-6 must keep the previous
+        // plain-getter wall clock outside UTC: the UTC-instant route adds a local-mean-time offset
+        // for pre-epoch values.
+        // Rows 5-6 leave the `TIMESTAMP_NS` column NULL: 1600 is outside the range of that type,
+        // and DuckDB JDBC 1.3.1.0 reads pre-epoch fractional `TIMESTAMP` and `TIMESTAMP_NS` values
+        // one second late. Their whole-second `TIMESTAMP` controls plus the NULL `TIMESTAMP_NS`
+        // column isolate the `TIMESTAMP_S`/`TIMESTAMP_MS` compatibility asserted here. Row 9 (one
+        // second before the epoch) keeps the same NULL `TIMESTAMP_NS`, because its negative
+        // fractional nanoseconds hit that same read defect; rows 7-8 cover the exact epoch and a
+        // positive fractional nanosecond value.
+        LocalDateTime[][] expected = {
+            {
+                LocalDateTime.of(2024, 3, 10, 2, 30, 0, 123_456_000),
+                LocalDateTime.of(2024, 3, 10, 2, 30, 0),
+                LocalDateTime.of(2024, 3, 10, 2, 30, 0, 123_000_000),
+                LocalDateTime.of(2024, 3, 10, 2, 30, 0, 123_456_789)
+            },
+            {
+                LocalDateTime.of(2024, 11, 3, 1, 30, 0, 123_456_000),
+                LocalDateTime.of(2024, 11, 3, 1, 30, 0),
+                LocalDateTime.of(2024, 11, 3, 1, 30, 0, 123_000_000),
+                LocalDateTime.of(2024, 11, 3, 1, 30, 0, 123_456_789)
+            },
+            {
+                LocalDateTime.of(2024, 6, 15, 12, 34, 56, 123_456_000),
+                LocalDateTime.of(2024, 6, 15, 12, 34, 56),
+                LocalDateTime.of(2024, 6, 15, 12, 34, 56, 123_000_000),
+                LocalDateTime.of(2024, 6, 15, 12, 34, 56, 123_456_789)
+            },
+            {null, null, null, null},
+            {
+                LocalDateTime.of(1600, 6, 15, 2, 30, 0),
+                LocalDateTime.of(1600, 6, 15, 2, 30, 0),
+                LocalDateTime.of(1600, 6, 15, 2, 30, 0, 123_000_000),
+                null
+            },
+            {
+                LocalDateTime.of(1800, 6, 15, 2, 30, 0),
+                LocalDateTime.of(1800, 6, 15, 2, 30, 0),
+                LocalDateTime.of(1800, 6, 15, 2, 30, 0, 123_000_000),
+                null
+            },
+            {
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0)
+            },
+            {
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000_000),
+                LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1)
+            },
+            {
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59),
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59),
+                LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_000_000),
+                null
+            }
+        };
+        String query =
+                "SELECT id, c_ts, c_ts_s, c_ts_ms, c_ts_ns FROM main." + table + " ORDER BY id";
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (String zone : new String[] {"UTC", "Asia/Shanghai", "America/Los_Angeles"}) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                for (boolean useQuery : new boolean[] {false, true}) {
+                    String mode = useQuery ? "query" : "table_path";
+                    Map<String, Object> sourceOptions = new HashMap<>();
+                    sourceOptions.put("url", jdbcUrl);
+                    sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+                    sourceOptions.put(
+                            useQuery ? "query" : "table_path", useQuery ? query : tablePath);
+                    List<SeaTunnelRow> rows =
+                            SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                                    ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+                    Assertions.assertEquals(expected.length, rows.size(), zone + ", " + mode);
+                    // `table_path` reads do not guarantee row order, so index the rows by their
+                    // `id` column and assert the count and uniqueness of the ids.
+                    Map<Integer, SeaTunnelRow> rowsById = new HashMap<>();
+                    for (SeaTunnelRow row : rows) {
+                        Integer id = (Integer) row.getField(0);
+                        Assertions.assertNotNull(id, zone + ", " + mode);
+                        Assertions.assertNull(
+                                rowsById.put(id, row), zone + ", " + mode + ", duplicate id " + id);
+                    }
+                    Assertions.assertEquals(expected.length, rowsById.size(), zone + ", " + mode);
+                    for (int id = 1; id <= expected.length; id++) {
+                        SeaTunnelRow row = rowsById.get(id);
+                        String message = zone + ", " + mode + ", id " + id;
+                        Assertions.assertNotNull(row, message);
+                        for (int column = 0; column < expected[id - 1].length; column++) {
+                            Assertions.assertEquals(
+                                    expected[id - 1][column],
+                                    row.getField(column + 1),
+                                    message + ", column " + column);
+                        }
                     }
                 }
             }

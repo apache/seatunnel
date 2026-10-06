@@ -6,7 +6,11 @@
 
 ### DuckDB 时间戳 Source 值
 
-DuckDB 表列 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。读取 DuckDB 时间戳时优先使用 JDBC 的 `LocalDateTime` 接口，不再通过 UTC Calendar 偏移。DuckDB JDBC 1.3.1.0 的 `TIMESTAMP_S/MS/NS` 仍需回退到普通时间戳读取，可能规范化夏令时跳时或公历切换区间内的值；可在 Source 查询中将受影响的别名列转换为 `VARCHAR`，保留数据库文本。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。下游仍需字符串时，可在 Source 查询中将时间戳显式转换为 `VARCHAR`。
+DuckDB 的 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` Source 值现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。四种时间戳类型均上报其原生小数秒精度（`TIMESTAMP` 6、`TIMESTAMP_S` 0、`TIMESTAMP_MS` 3、`TIMESTAMP_NS` 9）。MySQL 自动建表会使用该精度，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。
+
+读取优先使用 JDBC 的 `LocalDateTime` 接口。DuckDB JDBC 1.3.1.0 未为这三种别名实现该接口，因此 1970-01-01 及之后的值改用显式 UTC Calendar 读取，并按 UTC 瞬时值解释。这能保留夏令时跳时或重复区间内存储的本地日期和时间，而普通时间戳接口可能按 JVM 默认时区对这些值做规范化。1970-01-01 之前的别名值沿用先前的普通时间戳接口行为，不再为这些日期加上按 UTC 瞬时值解释时引入的历史地方平时偏移。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 列上的类型化读取错误会被报出，不再静默降级为有损的读取。
+
+较早的别名日期仍有驱动限制：JDBC 时间戳接口仍可能对历史夏令时跳时和公历切换做规范化，且 `TIMESTAMP_NS` 无法存储公历切换时期的日期。1970 年之前带小数秒的值还可能被 DuckDB JDBC 1.3.1.0 读取为晚 1 秒（`TIMESTAMP` 微秒值和 `TIMESTAMP_NS` 纳秒值）。`infinity` 也无法可靠表示。需要保留原始数据库文本时，请在 Source 查询中将列转换为 `VARCHAR`，并在下游保持字符串类型。
 
 ### DuckDB BIT 和 ENUM 自动建表
 
