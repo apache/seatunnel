@@ -411,17 +411,20 @@ public class PostgresDialect implements JdbcDialect {
     }
 
     private String quoteUserDefinedType(String columnType, Column column, boolean sameCatalog) {
-        String sourceType = column.getSourceType();
+        Map<String, Object> options = column.getOptions();
         if (!sameCatalog
-                || StringUtils.isBlank(sourceType)
-                || column.getOptions() == null
-                || !Boolean.TRUE.equals(column.getOptions().get("postgres.userDefinedType"))) {
+                || options == null
+                || !(options.get(PostgresTypeConverter.USER_DEFINED_TYPE_NAME_OPTION)
+                        instanceof String)) {
             return columnType;
         }
-        // User-defined types may be mixed-case or reserved words, so always quote their names.
-        return Arrays.stream(sourceType.split("\\.", -1))
-                .map(part -> "\"" + part.replace("\"", "\"\"") + "\"")
-                .collect(Collectors.joining("."));
+        // Debezium supplies the raw type name without its schema; quote it as one identifier.
+        String sourceType =
+                (String) options.get(PostgresTypeConverter.USER_DEFINED_TYPE_NAME_OPTION);
+        if (StringUtils.isBlank(sourceType)) {
+            return columnType;
+        }
+        return "\"" + sourceType.replace("\"", "\"\"") + "\"";
     }
 
     private List<String> buildUpdateColumnSQL(

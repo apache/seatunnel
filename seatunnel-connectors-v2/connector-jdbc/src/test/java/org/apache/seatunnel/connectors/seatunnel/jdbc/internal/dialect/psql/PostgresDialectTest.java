@@ -47,6 +47,7 @@ public class PostgresDialectTest {
         assertAddColumnType("JobStatus", Types.OTHER, "JobStatus", "\"JobStatus\"");
         assertAddColumnType("order", Types.OTHER, "order", "\"order\"");
         assertAddColumnType("lowercase_type", Types.OTHER, "lowercase_type", "\"lowercase_type\"");
+        assertAddColumnType("JobStatus", Types.VARCHAR, "JobStatus", "\"JobStatus\"");
     }
 
     @Test
@@ -56,6 +57,12 @@ public class PostgresDialectTest {
                 Types.TIMESTAMP_WITH_TIMEZONE,
                 "timestamp with time zone",
                 "timestamp with time zone");
+    }
+
+    @Test
+    void testAddColumnEscapesRawUserDefinedTypeNameAsOneIdentifier() throws Exception {
+        assertAddColumnType("schema.type", Types.OTHER, "schema.type", "\"schema.type\"");
+        assertAddColumnType("custom\"type", Types.OTHER, "custom\"type", "\"custom\"\"type\"");
     }
 
     private void assertAddColumnType(

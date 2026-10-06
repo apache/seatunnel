@@ -36,11 +36,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 // reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
 public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
+
+    static final String USER_DEFINED_TYPE_NAME_OPTION = "postgres.userDefinedTypeName";
 
     // Postgres jdbc driver maps several alias to real type, we use real type rather than alias:
     // boolean <=> bool
@@ -120,6 +123,11 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final int MAX_VARCHAR_LENGTH = 10485760;
     public static final PostgresTypeConverter INSTANCE = new PostgresTypeConverter();
+
+    private static final String TYPE_NAME_PART =
+            "(\"[A-Za-z_][A-Za-z0-9_$]*\"|[A-Za-z_][A-Za-z0-9_$]*)";
+    private static final Pattern USER_DEFINED_TYPE_NAME =
+            Pattern.compile(TYPE_NAME_PART + "(\\." + TYPE_NAME_PART + ")?");
 
     @Override
     public String identifier() {
@@ -286,16 +294,40 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             default:
-                if (typeDefine.getSqlType() == Types.OTHER) {
+                if (isUserDefinedStringType(typeDefine.getSqlType())) {
                     builder.dataType(BasicType.STRING_TYPE);
-                    builder.sourceType(typeDefine.getColumnType());
-                    builder.options(Collections.singletonMap("postgres.userDefinedType", true));
+                    builder.sourceType(userDefinedSourceType(typeDefine.getColumnType()));
+                    if (typeDefine.getColumnType() != null) {
+                        builder.options(
+                                Collections.singletonMap(
+                                        USER_DEFINED_TYPE_NAME_OPTION, typeDefine.getColumnType()));
+                    }
                     break;
                 }
                 throw CommonError.convertToSeaTunnelTypeError(
                         identifier(), typeDefine.getDataType(), typeDefine.getName());
         }
         return builder.build();
+    }
+
+    /**
+     * Whether a type name not handled above is read as STRING. The PostgreSQL JDBC driver and
+     * Debezium report user-defined types as {@link Types#OTHER}, and enum types and the built-in
+     * {@code name} type as {@link Types#VARCHAR}.
+     */
+    protected boolean isUserDefinedStringType(int sqlType) {
+        return sqlType == Types.OTHER || sqlType == Types.VARCHAR;
+    }
+
+    /**
+     * The reported name of a user-defined type is not escaped and may be copied into sink DDL, so
+     * it is kept only when it is a plain or quoted identifier, optionally schema-qualified.
+     */
+    private static String userDefinedSourceType(String typeName) {
+        if (typeName != null && USER_DEFINED_TYPE_NAME.matcher(typeName).matches()) {
+            return typeName;
+        }
+        return PG_TEXT;
     }
 
     @Override
