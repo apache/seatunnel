@@ -24,7 +24,10 @@ import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -36,6 +39,21 @@ public class JobConfig implements IdentifiedDataSerializable {
     private JobContext jobContext;
 
     private Map<String, Object> envOptions = new HashMap<>();
+
+    // These fields are intentionally not part of the serialized JobConfig contract. The parser
+    // converts a trusted local CLI request into internal task options after user env options have
+    // been loaded and sanitized.
+    @Getter(AccessLevel.PACKAGE)
+    @Setter(AccessLevel.PACKAGE)
+    private transient boolean dryRunSample;
+
+    @Getter(AccessLevel.PACKAGE)
+    @Setter(AccessLevel.PACKAGE)
+    private transient int dryRunSampleLimit = DryRunSampleConfig.DEFAULT_LIMIT;
+
+    @Getter(AccessLevel.PACKAGE)
+    @Setter(AccessLevel.PACKAGE)
+    private transient boolean dryRunSamplePrintData;
 
     @Override
     public int getFactoryId() {

@@ -47,17 +47,77 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
+import java.net.ServerSocket;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class TestUtils {
+    // ServerSocket(0) selects from the OS ephemeral port range. Reusing that port as the base of a
+    // Hazelcast range creates a race with outbound connections, especially on Windows CI.
+    private static final int MIN_TEST_PORT = 10000;
+    private static final int MAX_TEST_PORT = 30000;
+    private static final int MAX_PORT_ALLOCATION_ATTEMPTS = 1000;
+    private static final List<int[]> ALLOCATED_PORT_RANGES = new ArrayList<>();
+
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
+    }
+
+    public static int getAvailablePort() {
+        return getAvailablePort(1);
+    }
+
+    public static synchronized int getAvailablePort(int portCount) {
+        if (portCount <= 0 || portCount > MAX_TEST_PORT - MIN_TEST_PORT + 1) {
+            throw new IllegalArgumentException("Invalid port count: " + portCount);
+        }
+        for (int i = 0; i < MAX_PORT_ALLOCATION_ATTEMPTS; i++) {
+            int port = getRandomTestPort(portCount);
+            if (isAvailablePortRange(port, portCount)) {
+                ALLOCATED_PORT_RANGES.add(new int[] {port, port + portCount - 1});
+                return port;
+            }
+        }
+        throw new IllegalStateException("Failed to allocate an available port range");
+    }
+
+    private static int getRandomTestPort(int portCount) {
+        return ThreadLocalRandom.current().nextInt(MIN_TEST_PORT, MAX_TEST_PORT - portCount + 2);
+    }
+
+    private static boolean isAvailablePortRange(int port, int portCount) {
+        if (port < MIN_TEST_PORT || port > MAX_TEST_PORT - portCount + 1) {
+            return false;
+        }
+        int rangeEnd = port + portCount - 1;
+        for (int[] allocatedPortRange : ALLOCATED_PORT_RANGES) {
+            if (port <= allocatedPortRange[1] && rangeEnd >= allocatedPortRange[0]) {
+                return false;
+            }
+        }
+        for (int currentPort = port; currentPort <= rangeEnd; currentPort++) {
+            if (!isBindablePort(currentPort)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isBindablePort(int port) {
+        try (ServerSocket socket = new ServerSocket()) {
+            socket.setReuseAddress(false);
+            socket.bind(new InetSocketAddress(port));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static LogicalDag getTestLogicalDag(JobContext jobContext, JobConfig config)

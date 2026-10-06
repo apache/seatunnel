@@ -21,8 +21,10 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -32,6 +34,55 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class JdbcFieldTypeUtilsTest {
+
+    @Test
+    public void testGetLocalTimePreservesMicroseconds() throws SQLException {
+        LocalTime expected = LocalTime.parse("12:34:56.123456");
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenReturn(expected);
+
+        assertEquals(expected, JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToFractionalText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLFeatureNotSupportedException());
+        when(rs.getString(1)).thenReturn("12:34:56.123456");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToOffsetTimeText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLException("unsupported time type"));
+        when(rs.getString(1)).thenReturn("12:34:56.123456+08:00");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeFallsBackToShortOffsetTimeText() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1, LocalTime.class)).thenThrow(new SQLException("unsupported time type"));
+        when(rs.getString(1)).thenReturn("12:34:56.123456+08");
+
+        assertEquals(LocalTime.parse("12:34:56.123456"), JdbcFieldTypeUtils.getLocalTime(rs, 1));
+    }
+
+    @Test
+    public void testGetLocalTimeReportsUnparseableFallbackTextAsSqlException() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        SQLException original = new SQLException("unsupported time type");
+        when(rs.getObject(1, LocalTime.class)).thenThrow(original);
+        when(rs.getString(1)).thenReturn("24:00:00");
+
+        SQLException exception =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        SQLException.class, () -> JdbcFieldTypeUtils.getLocalTime(rs, 1));
+        assertEquals(original, exception.getCause());
+    }
 
     @Test
     public void testGetOffsetDateTimeFromTimestampUsesInstant() throws SQLException {

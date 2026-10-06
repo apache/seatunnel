@@ -22,9 +22,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -93,6 +96,41 @@ public final class JdbcFieldTypeUtils {
 
     public static Time getTime(ResultSet resultSet, int columnIndex) throws SQLException {
         return resultSet.getTime(columnIndex);
+    }
+
+    /**
+     * Reads a JDBC TIME as LocalTime, falling back from JDBC 4.2 to plain and offset time text.
+     *
+     * <p>MySQL TIME values outside the 24-hour clock range are not representable as LocalTime; a
+     * fallback parse failure is reported as SQLException instead of silently changing the value.
+     */
+    public static LocalTime getLocalTime(ResultSet resultSet, int columnIndex) throws SQLException {
+        try {
+            return resultSet.getObject(columnIndex, LocalTime.class);
+        } catch (SQLException | AbstractMethodError e) {
+            String value = resultSet.getString(columnIndex);
+            if (value == null) {
+                return null;
+            }
+            try {
+                return LocalTime.parse(value.trim());
+            } catch (DateTimeException ignored) {
+                try {
+                    return OffsetTime.parse(value.trim().replaceFirst("([+-]\\d{2})$", "$1:00"))
+                            .toLocalTime();
+                } catch (DateTimeException parseException) {
+                    SQLException exception =
+                            new SQLException(
+                                    "Unable to parse JDBC TIME value at column "
+                                            + columnIndex
+                                            + ": "
+                                            + value,
+                                    e);
+                    exception.addSuppressed(parseException);
+                    throw exception;
+                }
+            }
+        }
     }
 
     public static Timestamp getTimestamp(ResultSet resultSet, int columnIndex) throws SQLException {

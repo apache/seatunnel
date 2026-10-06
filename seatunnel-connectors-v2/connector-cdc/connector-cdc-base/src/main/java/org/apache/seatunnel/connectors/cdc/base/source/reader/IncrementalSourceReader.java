@@ -20,6 +20,11 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -41,10 +46,12 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,6 +137,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        List<TableId> capturedTables = null;
+        boolean capturedTablesDiscovered = false;
         log.info(
                 "subtask {} add splits: {}",
                 subtaskId,
@@ -159,7 +168,23 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                                             + "Changing startup.mode across a restore is not supported.",
                                     split.splitId(), subtaskId));
                 }
-                unfinishedSplits.add(split.asIncrementalSplit());
+                IncrementalSplit incrementalSplit = split.asIncrementalSplit();
+                if (hasRestoredCheckpointMetadata(incrementalSplit)) {
+                    if (!capturedTablesDiscovered) {
+                        capturedTables = discoverCapturedTables();
+                        capturedTablesDiscovered = true;
+                    }
+                    incrementalSplit =
+                            pruneRestoredIncrementalSplit(incrementalSplit, capturedTables);
+                }
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "subtask {} skip restored incremental split {} because all tables have been removed from current configuration.",
+                            subtaskId,
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -180,13 +205,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     protected void onSplitFinished(Map<String, SourceSplitStateBase> finishedSplitIds) {
         for (SourceSplitStateBase splitState : finishedSplitIds.values()) {
             SourceSplitBase sourceSplit = splitState.toSourceSplit();
-            checkState(
-                    sourceSplit.isSnapshotSplit()
-                            && sourceSplit.asSnapshotSplit().isSnapshotReadFinished(),
-                    String.format(
-                            "Only snapshot split could finish, but the actual split is incremental split %s",
-                            sourceSplit));
-            finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
+            if (sourceSplit.isSnapshotSplit()) {
+                checkState(
+                        sourceSplit.asSnapshotSplit().isSnapshotReadFinished(),
+                        String.format(
+                                "Snapshot split should be finished, but the actual split is %s",
+                                sourceSplit));
+                finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
+            } else {
+                log.info(
+                        "Incremental split {} has finished (bounded read completed).",
+                        sourceSplit.splitId());
+            }
         }
         reportFinishedSnapshotSplitsIfNeed();
         context.sendSplitRequest();
@@ -222,14 +252,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointDataType() != null) {
-                log.info(
-                        "The incremental split[{}] has checkpoint datatype {} for restore.",
-                        incrementalSplit.splitId(),
-                        incrementalSplit.getCheckpointDataType());
-                debeziumDeserializationSchema.restoreCheckpointProducedType(
-                        incrementalSplit.getCheckpointTables());
-            }
+            restoreCheckpointState(
+                    incrementalSplit,
+                    debeziumDeserializationSchema,
+                    isSchemaChangeEnabled(sourceConfig));
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
@@ -244,6 +270,181 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             }
             return splitState;
         }
+    }
+
+    /**
+     * Restores the deserializer's runtime schema and Debezium table history from a checkpointed
+     * incremental split.
+     *
+     * <p>The checkpointed runtime schema is only restored when {@code schemaChangeEnabled} is true.
+     * Restoring it replaces the schema discovered from the live database at startup, so any column
+     * added while the job was stopped disappears from the produced rows until the change stream
+     * widens the schema again; only a job that propagates schema changes (MySQL DDL events,
+     * PostgreSQL RELATION messages, all gated on {@code schema-changes.enabled}) can do that. A job
+     * with schema change propagation disabled would otherwise keep silently dropping such columns
+     * after every savepoint restore, so it keeps the live-discovered schema, which is the contract
+     * it always had. Debezium table history is restored in both cases: it only drives how the
+     * change stream itself is decoded and is never widened by SeaTunnel.
+     *
+     * @param incrementalSplit the split restored from checkpoint state
+     * @param debeziumDeserializationSchema the deserializer whose runtime state is restored
+     * @param schemaChangeEnabled whether this job propagates source schema changes downstream
+     */
+    static <T> void restoreCheckpointState(
+            IncrementalSplit incrementalSplit,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
+            boolean schemaChangeEnabled) {
+        List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
+        if (!schemaChangeEnabled) {
+            if ((checkpointTables != null && !checkpointTables.isEmpty())
+                    || incrementalSplit.getCheckpointDataType() != null) {
+                log.info(
+                        "The incremental split[{}] carries a checkpoint schema, but schema change propagation is disabled for this job, so the live discovered schema is kept instead of restoring the checkpoint schema.",
+                        incrementalSplit.splitId());
+            }
+        } else if (checkpointTables != null && !checkpointTables.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has {} checkpoint table(s) for restore: {}.",
+                    incrementalSplit.splitId(),
+                    checkpointTables.size(),
+                    toCheckpointTablePaths(checkpointTables));
+            debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
+        } else if (incrementalSplit.getCheckpointDataType() != null) {
+            // Keep reading checkpoints written before checkpoint tables were introduced.
+            List<CatalogTable> legacyCheckpointTables =
+                    restoreLegacyCheckpointTables(incrementalSplit);
+            if (legacyCheckpointTables.isEmpty()) {
+                log.warn(
+                        "Skip restoring the legacy checkpoint data type for incremental split[{}] because the table identity cannot be recovered from split state.",
+                        incrementalSplit.splitId());
+            } else {
+                log.info(
+                        "The incremental split[{}] restores {} legacy checkpoint table(s): {}.",
+                        incrementalSplit.splitId(),
+                        legacyCheckpointTables.size(),
+                        toCheckpointTablePaths(legacyCheckpointTables));
+                debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
+            }
+        }
+
+        Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
+        if (historyTableChanges != null && !historyTableChanges.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has checkpoint history table changes for restore.",
+                    incrementalSplit.splitId());
+            debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
+        }
+    }
+
+    /**
+     * Resolves whether the job propagates source schema changes downstream, i.e. the value of
+     * {@code schema-changes.enabled} as every JDBC-based CDC connector forwards it to Debezium's
+     * {@code include.schema.changes}. This is the same switch that gates DDL emission in the MySQL
+     * connector and the RELATION listener in the PostgreSQL connector, so it tells exactly whether
+     * a checkpoint-restored runtime schema can ever be widened again by the change stream. Non-JDBC
+     * sources never emit schema change events and therefore report false.
+     *
+     * @param sourceConfig the reader's source configuration
+     * @return true when schema change propagation is enabled for this job
+     */
+    static boolean isSchemaChangeEnabled(SourceConfig sourceConfig) {
+        if (sourceConfig instanceof JdbcSourceConfig) {
+            return ((JdbcSourceConfig) sourceConfig)
+                    .getDbzConnectorConfig()
+                    .isSchemaChangesHistoryEnabled();
+        }
+        return false;
+    }
+
+    private static List<CatalogTable> restoreLegacyCheckpointTables(
+            IncrementalSplit incrementalSplit) {
+        if (incrementalSplit.getCheckpointDataType() instanceof MultipleRowType) {
+            MultipleRowType checkpointTables =
+                    (MultipleRowType) incrementalSplit.getCheckpointDataType();
+            return Arrays.stream(checkpointTables.getTableIds())
+                    .map(
+                            tableId ->
+                                    toLegacyCheckpointTable(
+                                            tableId, checkpointTables.getRowType(tableId)))
+                    .collect(Collectors.toList());
+        }
+
+        List<TableId> tableIds = incrementalSplit.getTableIds();
+        if (tableIds == null || tableIds.size() != 1) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(
+                CatalogTableUtil.getCatalogTable(
+                        "schema",
+                        tableIds.get(0).catalog(),
+                        tableIds.get(0).schema(),
+                        tableIds.get(0).table(),
+                        (SeaTunnelRowType) incrementalSplit.getCheckpointDataType()));
+    }
+
+    private static CatalogTable toLegacyCheckpointTable(
+            String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
+        TablePath tablePath = TablePath.of(tableId);
+        // The deprecated getCatalogTable(String, RowType) overload treats the full table path as a
+        // plain tableName and injects a synthetic "default" prefix. Build the identifier
+        // explicitly so restored legacy checkpoint tables keep their original path.
+        return CatalogTableUtil.getCatalogTable(
+                "schema",
+                tablePath.getDatabaseName(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName(),
+                rowType);
+    }
+
+    private static List<String> toCheckpointTablePaths(List<CatalogTable> checkpointTables) {
+        return checkpointTables.stream()
+                .map(table -> table.getTablePath().getFullName())
+                .collect(Collectors.toList());
+    }
+
+    private List<TableId> discoverCapturedTables() {
+        try {
+            return dataSourceDialect.discoverDataCollections(sourceConfig);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to discover captured tables while restoring CDC split. "
+                            + "Keeping restored checkpoint state unchanged.",
+                    e);
+            return null;
+        }
+    }
+
+    private IncrementalSplit pruneRestoredIncrementalSplit(
+            IncrementalSplit incrementalSplit, List<TableId> capturedTables) {
+        if (capturedTables == null) {
+            return incrementalSplit;
+        }
+        if (capturedTables.isEmpty() && !incrementalSplit.getTableIds().isEmpty()) {
+            log.warn(
+                    "Skip pruning restored incremental split {} because captured table discovery returned "
+                            + "an empty result. Keeping restored checkpoint state unchanged.",
+                    incrementalSplit.splitId());
+            return incrementalSplit;
+        }
+        IncrementalSplit prunedSplit =
+                incrementalSplit.pruneTables(capturedTables, dataSourceDialect::toTableId);
+        if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
+            log.info(
+                    "Pruned restored incremental split {} tables from {} to {} based on current captured tables.",
+                    incrementalSplit.splitId(),
+                    incrementalSplit.getTableIds(),
+                    prunedSplit.getTableIds());
+        }
+        return prunedSplit;
+    }
+
+    private boolean hasRestoredCheckpointMetadata(IncrementalSplit incrementalSplit) {
+        return incrementalSplit.getCheckpointDataType() != null
+                || (incrementalSplit.getCheckpointTables() != null
+                        && !incrementalSplit.getCheckpointTables().isEmpty())
+                || (incrementalSplit.getHistoryTableChanges() != null
+                        && !incrementalSplit.getHistoryTableChanges().isEmpty());
     }
 
     @Override

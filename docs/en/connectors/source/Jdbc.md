@@ -138,6 +138,10 @@ Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configur
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source is a bounded source. It completes the snapshot read once and finishes; use a CDC source connector when the
+job must continue capturing later inserts, updates, and deletes.
+
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 Use `query` to select only the required columns.
@@ -214,6 +218,18 @@ In HOCON strings, a regular-expression backslash must be escaped, so `\d+` is wr
 
 Many JDBC drivers treat schema and table arguments passed to `DatabaseMetaData` as SQL `LIKE` patterns. SeaTunnel performs an exact identifier check after metadata discovery, but you should still use the exact case for case-sensitive database identifiers.
 
+:::note Views and table matching
+
+Whether `table_path` (with or without `use_regex`) also matches database views, not only base tables, depends on the dialect's internal table-listing query. There is no option to explicitly include or exclude views:
+
+- MySQL and PostgreSQL list views alongside base tables, so a broad pattern like `db.*` also matches views.
+- SQL Server filters to `TABLE_TYPE = 'BASE TABLE'` and excludes views.
+- Oracle and Dameng query `ALL_TABLES`, which excludes views as a side effect of that view not listing them.
+
+To read only specific base tables regardless of dialect, list them explicitly in `table_list` instead of relying on a broad regular expression.
+
+:::
+
 ### decimal_type_narrowing
 
 Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.
@@ -274,6 +290,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  |              |          |
 
+Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 
 ## Parallel Reader
 
@@ -497,6 +514,45 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Read with explicit partition column and partition query
+
+Use `partition_column` together with `query` to split a single-table read into parallel chunks. `partition_lower_bound`
+and `partition_upper_bound` are optional; omitting them triggers a `MIN`/`MAX` discovery query before the read starts.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 

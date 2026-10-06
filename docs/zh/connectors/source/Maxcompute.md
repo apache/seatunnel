@@ -4,36 +4,49 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 > Maxcompute 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
-用于从 Maxcompute 读取数据。
+用于从 Maxcompute 读取数据。连接器支持 AccessKey（`accessId`/`accesskey`）认证、STS Token 临时认证，以及阿里云默认凭据链（环境变量、ECS RAM 角色等）免密认证；支持通过 `table_name` 读取单表、通过 `table_list` 读取多表，并支持分区表、自定义列和并行读取所需的 `split_row`。
 
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-| 名称           |  类型  | 必需 | 默认值 |
-|----------------|--------|----|---------------|
-| accessId       | string | 否  | -             |
-| accesskey      | string | 否  | -             |
-| sts_token      | string | 否  | -             |
-| endpoint       | string | 是  | -             |
-| project        | string | 是  | -             |
-| table_name     | string | 未配置 `table_list` 时必填 | -             |
-| schema_name    | string | 否  | -             |
-| partition_spec | string | 否  | -             |
-| split_row      | int    | 否 | 10000         |
-| read_columns   | Array  | 否 | -             |
-| table_list     | Array  | 否 | -             |
-| tunnel_endpoint | string | 否 | -             |
-| common-options | string | 否 |               |
-| schema         | config | 否 |               |
+| 名称            | 类型   | 必需                               | 默认值 | 说明                                                                                                        |
+|-----------------|--------|------------------------------------|--------|-------------------------------------------------------------------------------------------------------------|
+| accessId        | string | 否                                 | -      | 访问 MaxCompute 的 AccessKey ID。                                                                            |
+| accesskey       | string | 否                                 | -      | 访问 MaxCompute 的 AccessKey Secret。                                                                       |
+| sts_token       | string | 否                                 | -      | MaxCompute 临时认证 STS Token。配置 `sts_token` 时，`accessId` 与 `accesskey` 必填。                          |
+| endpoint        | string | 是                                 | -      | MaxCompute 端点，以 `http` 开头。                                                                            |
+| project         | string | 是                                 | -      | 在阿里云中创建的 MaxCompute 项目。                                                                           |
+| table_name      | string | 未配置 `table_list` 时必填          | -      | 目标 MaxCompute 表名，例如 `fake`。                                                                          |
+| schema_name     | string | 否                                 | -      | MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。仅当表位于非默认 Schema 时需要设置。               |
+| partition_spec  | string | 否                                 | -      | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                              |
+| split_row       | int    | 否                                 | 10000  | 每个 split 包含的行数。                                                                                       |
+| read_columns    | Array  | 否                                 | -      | 要读取的列；不设置时读取全部列，例如 `["col1", "col2"]`。                                                    |
+| table_list      | Array  | 否                                 | -      | 要读取的表列表；可替代 `table_name` 一次读取多张 MaxCompute 表。                                              |
+| tunnel_endpoint | string | 否                                 | -      | MaxCompute Tunnel 服务的自定义端点；未配置时根据区域自动推断。                                                |
+| tunnel_name     | string | 否                                 | -      | Tunnel Quota 名称；需同时将 `endpoint` 与 `tunnel_endpoint` 配置为 VPC 端点。                                |
+| connect_timeout_ms        | long | 否 | 10000  | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 连接超时，单位毫秒。默认 10000（10 秒）。            |
+| read_timeout_ms           | long | 否 | 120000 | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 120000（120 秒）。           |
+| retry_times               | int  | 否 | 4      | ODPS REST 客户端最大重试次数。默认 4。                                                              |
+| tunnel_connect_timeout_ms | long | 否 | 180000 | Tunnel 客户端（批量数据下载）的 HTTP 连接超时，单位毫秒。默认 180000（180 秒）。                   |
+| tunnel_read_timeout_ms    | long | 否 | 300000 | Tunnel 客户端（批量数据下载）的 HTTP 读超时，单位毫秒。默认 300000（300 秒）。                     |
+| tunnel_retry_times        | int  | 否 | 4      | Tunnel 客户端最大重试次数。默认 4。                                                                |
+| schema          | config | 否                                 | -      | 源表结构；未配置 `read_columns` 时按 schema 中字段读取。                                                       |
+| common-options  |        | 否                                 | -      | Source 插件通用参数，例如 `plugin_output`。                                                                  |
 
 ### accessId [string]
 
@@ -98,6 +111,62 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 MaxCompute Tunnel 服务的自定义端点。未配置时，连接器会根据区域自动推断默认 Tunnel 端点。
 一般只有自定义网络、调试或本地开发时才需要配置，例如 `http://maxcompute:8080`。
+
+通常，您**不需要**设置 `tunnel_endpoint`。仅在自定义网络、调试或本地开发时才需要。
+
+示例值：
+
+- `https://dt.cn-hangzhou.maxcompute.aliyun.com`
+- `https://dt.ap-southeast-1.maxcompute.aliyun.com`
+- `http://maxcompute:8080`
+
+默认值：未设置（从区域自动推断）
+
+### tunnel_name [String]
+
+`tunnel_name` 指定 Tunnel Quota 名称，用于独占资源组。
+
+Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据传输，从而提供更好的性能和资源隔离。
+
+**重要提示**：Tunnel Quota 仅在 **VPC（虚拟私有云）端点**下生效，暂不支持公共网络访问。使用 `tunnel_name` 时，必须同时配置 `endpoint` 和 `tunnel_endpoint` 为 VPC 端点。
+
+如果未指定，将使用默认的 Tunnel quota。
+
+示例值：
+
+- `your_tunnel_quota_name`
+
+默认值：未设置（使用默认 quota）
+
+> **客户端超时与重试**
+> MaxCompute 有两个 HTTP 客户端。**ODPS REST 客户端**负责控制面（表/schema 查询、catalog 列表），
+> 用 `connect_timeout_ms`、`read_timeout_ms`、`retry_times` 调整；**Tunnel 客户端**负责数据面（批量行下载），
+> 用 `tunnel_*` 系列调整。单独设置 REST 参数**不会**改变 Tunnel 客户端的超时。
+> 毫秒值会被转换为整秒，最小值为 `1000`。
+
+### connect_timeout_ms [long]
+
+`connect_timeout_ms` MaxCompute ODPS REST 客户端的 HTTP 连接超时，该客户端处理元数据与 catalog 调用（表/schema 查询、表列表）。单位毫秒。默认 `10000`（10 秒）。
+
+### read_timeout_ms [long]
+
+`read_timeout_ms` ODPS REST 客户端（元数据/catalog 调用）的 HTTP 读超时，单位毫秒。默认 `120000`（120 秒）。当项目下表非常多或 schema 极宽导致拉取超时时调大。
+
+### retry_times [int]
+
+`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。默认 `4`。
+
+### tunnel_connect_timeout_ms [long]
+
+`tunnel_connect_timeout_ms` Tunnel 客户端（执行批量数据下载）的 HTTP 连接超时，单位毫秒。默认 `180000`（180 秒）。
+
+### tunnel_read_timeout_ms [long]
+
+`tunnel_read_timeout_ms` Tunnel 客户端（批量数据下载）的 HTTP 读超时，单位毫秒。默认 `300000`（300 秒）。当单次读请求超过 5 分钟（大表或大分区）时调大。
+
+### tunnel_retry_times [int]
+
+`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。默认 `4`。
 
 ### common options
 

@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
@@ -41,6 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
+
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
 
 @AutoService(Factory.class)
 @Slf4j
@@ -87,19 +88,15 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN)
                 .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
+                        OracleIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.SPECIFIC,
+                        greaterThan(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN, 0L))
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.TIMESTAMP,
-                        SourceOptions.STOP_TIMESTAMP)
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,

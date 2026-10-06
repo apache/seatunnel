@@ -14,9 +14,9 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -41,6 +41,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | semantics             | String | No       | NON     | Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.                                                                                                                                                                                                                                                                                                                                                                                    |
 | partition_key_fields  | Array  | No       | -       | Configure which fields are used as the key of the kafka message.                                                                                                                                                                                                                                                                                                                                                                                             |
 | kafka_headers_fields  | Array  | No       | -       | Configure which fields are used as the headers of the kafka message. The field value will be converted to a string and used as the header value.                                                                                                                                                                                                                                                                                                             |
+| kafka_message_value_fields | Array  | No       | -       | Configure which fields are used as the value of the kafka message. If not specified, all fields in the row (except those listed in `kafka_headers_fields`) will be used. Note: This option is not supported for `native`, `compatible_debezium_json`, and `compatible_kafka_connect_json` formats.                                                                       |
 | partition             | Int    | No       | -       | We can specify the partition, all messages will be sent to this partition.                                                                                                                                                                                                                                                                                                                                                                                   |
 | assign_partitions     | Array  | No       | -       | We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.                                                                                                                                                                                                                                                                                                                      |
 | transaction_prefix    | String | No       | -       | If `semantics` is `EXACTLY_ONCE`, the producer writes messages in Kafka transactions. Kafka distinguishes transactions by transaction id, so use a different prefix for each job.                                                                                                                                                                                                               |
@@ -358,7 +359,7 @@ The input parameter requirements are as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -366,6 +367,76 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Streaming EXACTLY_ONCE With Checkpoints
+
+For long-running streaming jobs that must not lose or duplicate messages on restart, configure `semantics = EXACTLY_ONCE` and enable checkpointing. SeaTunnel coordinates Kafka transactions with checkpoints so each in-flight batch is committed atomically with the corresponding consumer offset.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_pipeline"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+Important: pick a unique `transaction_prefix` per job. Kafka distinguishes transactions by the transactional id, and reusing the same prefix across concurrent jobs causes Kafka transaction conflicts.
+
+### Round-Trip Headers With NATIVE Format
+
+When the source reads with `format = "NATIVE"` and writes with `format = "NATIVE"`, the headers, key, partition and timestamp fields round-trip back into Kafka as-is. This is useful when forwarding already-Kafka-encoded records between topics without changing their on-the-wire layout.
+
+```hocon
+source {
+  Kafka {
+    topic = "topic_native_source"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "native_forwarder"
+  }
+}
+
+sink {
+  Kafka {
+    topic = "topic_native_sink"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+  }
+}
+```
+
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — `KafkaSinkWriter.getSerializer()` throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
 
 ## FAQ
 
@@ -394,12 +465,25 @@ sink {
     bootstrap.servers = "localhost:9092"
     semantics = EXACTLY_ONCE
     transaction_prefix = "SeaTunnelJob"
-    kafka.transaction.timeout.ms = "900000"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
   }
 }
 ```
 
 Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
+
+Under `EXACTLY_ONCE`, a failed send fails the checkpoint instead of silently dropping records. Two
+errors can be reported in that situation:
+
+| Code     | Name                    | Meaning                                                                       | What to do                                                                                                   |
+|----------|-------------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | The transaction carries records but Kafka never registered it on the broker.   | Check broker availability and whether `transaction.timeout.ms` is shorter than the checkpoint interval.       |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | A record of the transaction failed to be sent asynchronously.                  | Read the exception cause; retriable causes usually recover on checkpoint retry, others need broker-side work. |
+
+Both errors abort the current transaction, so the affected records are re-sent from the last
+completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 

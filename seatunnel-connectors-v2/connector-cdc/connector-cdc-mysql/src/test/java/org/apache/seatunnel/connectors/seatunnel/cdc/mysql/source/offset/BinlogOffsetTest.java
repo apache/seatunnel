@@ -85,4 +85,40 @@ public class BinlogOffsetTest {
         Assertions.assertEquals(
                 0, BinlogOffset.NO_STOPPING_OFFSET.compareTo(BinlogOffset.NO_STOPPING_OFFSET));
     }
+
+    @Test
+    public void testCompareToWithThisHasGtidAndThatDoesNotFallsBackToFilename() {
+        BinlogOffset thisWithGtid =
+                new BinlogOffset("mysql-bin.000002", 4L, 1L, 5L, 0L, GTID_SET_A, 1);
+        BinlogOffset thatWithoutGtid =
+                new BinlogOffset("mysql-bin.000001", 999L, 1L, 5L, 0L, null, 1);
+
+        Assertions.assertTrue(
+                thisWithGtid.compareTo(thatWithoutGtid) > 0,
+                "when this has a GTID but that does not, comparison must fall back to "
+                        + "binlog filename ordering");
+        Assertions.assertTrue(thatWithoutGtid.compareTo(thisWithGtid) < 0);
+    }
+
+    @Test
+    public void testCompareToWithThisHasGtidAndThatDoesNotSameFileUsesPosition() {
+        BinlogOffset thisWithGtid =
+                new BinlogOffset("mysql-bin.000001", 100L, 1L, 5L, 0L, GTID_SET_A, 1);
+        BinlogOffset thatWithoutGtid =
+                new BinlogOffset("mysql-bin.000001", 50L, 1L, 5L, 0L, null, 1);
+
+        Assertions.assertTrue(
+                thisWithGtid.compareTo(thatWithoutGtid) > 0,
+                "same binlog file must be ordered by position when GTIDs are mixed");
+        Assertions.assertTrue(thatWithoutGtid.compareTo(thisWithGtid) < 0);
+    }
+
+    @Test
+    public void testIsNeverStop() {
+        Assertions.assertTrue(
+                BinlogOffset.NO_STOPPING_OFFSET.isNeverStop(),
+                "the unbounded sentinel must report itself as never-stop");
+        BinlogOffset regular = new BinlogOffset("mysql-bin.000001", 4L, 1L, 5L, 0L, GTID_SET_A, 1);
+        Assertions.assertFalse(regular.isNeverStop());
+    }
 }

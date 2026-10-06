@@ -36,6 +36,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] excel
   - [x] xml
   - [x] binary
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -46,7 +47,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | user                                  | string  | yes      | -                                          |                                                                                                                                                                        |
 | password                              | string  | yes      | -                                          |                                                                                                                                                                        |
 | path                                  | string  | yes      | -                                          |                                                                                                                                                                        |
-| tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
 | remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
 | control_encoding                      | string  | no       | UTF-8                                      | Character encoding for the FTP control connection, useful for paths with spaces or non-ASCII characters                                                               |
@@ -68,7 +69,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                              |
-| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_name                            | string  | no       | Sheet0                      | Only used when file_format_type is excel.                                                                                                                              |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
@@ -287,7 +288,16 @@ Existing dir processing method.
 Existing data processing method.
 
 - DROP_DATA: preserve dir and delete data files
-- APPEND_DATA: preserve dir, preserve data files
+- APPEND_DATA: preserve dir and data files. For FTP sinks, new rows are appended to
+  existing target files only when `data_save_mode = "APPEND_DATA"` is explicitly
+  configured in the job config. If this option is omitted and the value only comes from
+  the default, FTP sinks keep the legacy commit path and do not use FTP byte-level append.
+  Byte-level append additionally requires a stable target filename across commits, i.e.
+  `custom_filename = true` with a `file_name_expression` that does not vary per
+  transaction; with the default expression each checkpoint writes a new file, so there is
+  nothing to append to. FTP append is at-least-once: if a checkpoint is aborted while a
+  commit is only partially applied, the rows of that commit can appear twice in the target
+  file, so verify this is acceptable for your target before enabling the mode
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
 ### schema_evolution_enabled [boolean]
@@ -398,6 +408,28 @@ FtpFile {
     data_save_mode=DROP_DATA
 }
 
+```
+
+### Writing via SFTP
+
+The `FtpFile` sink supports `sftp://` URIs alongside `ftp://`. Authentication and host-key trust are configured the same way as for the source — SSH key or password plus a `known_hosts` file (the connector does not auto-trust unknown hosts).
+
+```hocon
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "parquet"
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
 ```
 
 

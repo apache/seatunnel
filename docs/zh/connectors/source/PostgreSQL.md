@@ -28,6 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> PostgreSQL Source 是基于 JDBC 的批连接器，不会持续监听 PostgreSQL 的预写日志。如果需要持续变更捕获，请使用 [PostgreSQL-CDC](../source/PostgreSQL-CDC.md)。
 
 > 支持查询 SQL，并可以实现投影效果。
 
@@ -97,9 +101,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | split.size                                 | Int         | 否   | 8096            | 表的拆分大小（行数），被捕获的表在读取时被拆分为多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double        | 否   | 0.05            | 块键分布因子的下限。此因子用于确定表数据是否均匀分布。<br/> 如果计算出的分布因子大于或等于此下限（即 (MAX(id) - MIN(id) + 1) / 行数），则表块将优化为均匀分布。否则，如果分布因子较小，则将视为不均匀分布，当估计的分片数超过 `sample-sharding.threshold` 指定的值时，将使用基于采样的分片策略。默认值为 0.05。  |
 | split.even-distribution.factor.upper-bound | Double        | 否   | 100             | 块键分布因子的上限。此因子用于确定表数据是否均匀分布。<br/> 如果计算出的分布因子小于或等于此上限（即 (MAX(id) - MIN(id) + 1) / 行数），则表块将优化为均匀分布。否则，如果分布因子较大，则将视为不均匀分布，当估计的分片数超过 `sample-sharding.threshold` 指定的值时，将使用基于采样的分片策略。默认值为 100.0。 |
-| split.sample-sharding.threshold            | Int         | 否   | 10000           | 此配置指定触发样本分片策略的估计分片数阈值。<br/> 当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围时，且估计的分片数（计算为近似行数 / 块大小）超过此阈值，将使用样本分片策略。这可以帮助更高效地处理大数据集。默认值为 1000 个分片。                                                                                   |
+| split.sample-sharding.threshold            | Int         | 否   | 1000            | 此配置指定触发样本分片策略的估计分片数阈值。<br/> 当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围时，且估计的分片数（计算为近似行数 / 块大小）超过此阈值，将使用样本分片策略。这可以帮助更高效地处理大数据集。默认值为 1000 个分片。                                                                                   |
 | split.inverse-sampling.rate                | Int         | 否   | 1000            | 在样本分片策略中使用的采样率的逆数。例如，如果此值设置为 1000，表示在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理非常大的数据集时，较低的采样率尤其有用。默认值为 1000。                                                                                                                                                              |
-|
+| common-options                             |             | 否   | -               | Source 插件通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md) 了解详情                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
 ## 并行读取器
 
 JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些规则来拆分表中的数据，这些数据将交给读取器进行读取。读取器的数量由 `parallelism` 选项确定。
@@ -305,6 +310,74 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 流式增量 ID 区间读取
+
+PostgreSQL Source 是基于 JDBC 的批读取器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound)` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) 做持续变更捕获。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    query = "SELECT * FROM orders WHERE id >= ? AND id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### 带 schema 前缀的表名
+
+PostgreSQL 的全限定名为 `database.schema.table`。如果 `url` 中没有显式指定目标库，需要在 `table_path` 中以 `database.schema.table` 的形式带上 schema。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_path = "demo.public.orders"
+    split.size = 10000
+  }
+}
+```
+
+### 表级 query 覆盖
+
+当 `table_list` 中的多张表需要不同的投影或过滤条件时，可以在每个条目上单独设置 `query`，让 SeaTunnel 直接按这条 SQL 读取，跳过表元数据查找。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_list = [
+      {
+        table_path = "demo.public.orders"
+        query = "select id, status, amount from orders where status = 'PAID'"
+      },
+      {
+        table_path = "demo.public.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
 }
 ```
 

@@ -25,10 +25,12 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -36,7 +38,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -63,8 +68,13 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -90,7 +100,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
-    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
+    private static final String URL = "jdbc:mysql://%s:%s/seatunnel";
 
     private static final String SQL = "select * from seatunnel.source";
 
@@ -240,11 +250,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_decimal_30",
                 };
         defaultCompare(executeKey, fieldNames, "c_bigint_30");
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     @Override
@@ -434,9 +439,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-
         return container;
     }
 
@@ -454,7 +456,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     private String getUrl() {
-        return URL.replace("HOST", dbServer.getHost());
+        return String.format(URL, dbServer.getHost(), jdbcCase.getLocalPort());
     }
 
     @Test
@@ -808,5 +810,82 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         ReflectionUtils.getField(splitter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
         return connection.getProperties();
+    }
+
+    @Test
+    public void testDuckDbUnboundedStringAutoDdl() throws Exception {
+        String label = String.join("", Collections.nCopies(400, "m"));
+        String tableName = "duckdb_string_lengths";
+        DuckDBTypeConverter converter = new DuckDBTypeConverter();
+        Column bit =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("bits")
+                                .columnType("BIT")
+                                .dataType("BIT")
+                                .build());
+        Column en =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("en")
+                                .columnType("ENUM('" + label + "')")
+                                .dataType("ENUM('" + label + "')")
+                                .build());
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", MYSQL_DATABASE, "source"),
+                        TableSchema.builder().column(bit).column(en).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "");
+        String actualDDL =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of(MYSQL_DATABASE, tableName),
+                                table,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build("mysql");
+        Assertions.assertTrue(actualDDL.contains("`bits` LONGTEXT"));
+        Assertions.assertTrue(actualDDL.contains("`en` LONGTEXT"));
+        boolean created = false;
+        try (Connection connection =
+                DriverManager.getConnection(getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(actualDDL);
+                created = true;
+            }
+            try (PreparedStatement insert =
+                    connection.prepareStatement("INSERT INTO " + tableName + " VALUES (?, ?)")) {
+                insert.setString(1, "10110");
+                insert.setString(2, label);
+                Assertions.assertEquals(1, insert.executeUpdate());
+                insert.setString(1, null);
+                insert.setString(2, null);
+                Assertions.assertEquals(1, insert.executeUpdate());
+            }
+            try (PreparedStatement select =
+                            connection.prepareStatement(
+                                    "SELECT bits, en FROM "
+                                            + tableName
+                                            + " ORDER BY bits IS NULL");
+                    ResultSet rs = select.executeQuery()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("10110", rs.getString(1));
+                Assertions.assertEquals(label, rs.getString(2));
+                Assertions.assertTrue(rs.next());
+                Assertions.assertNull(rs.getString(1));
+                Assertions.assertNull(rs.getString(2));
+                Assertions.assertFalse(rs.next());
+            }
+        } finally {
+            if (created) {
+                try (Connection dropConnection =
+                                DriverManager.getConnection(
+                                        getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD);
+                        Statement dropStatement = dropConnection.createStatement()) {
+                    dropStatement.execute("DROP TABLE IF EXISTS " + tableName);
+                }
+            }
+        }
     }
 }
