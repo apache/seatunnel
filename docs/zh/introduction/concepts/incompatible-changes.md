@@ -10,7 +10,9 @@ DuckDB 的 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` Source 值现在映
 
 标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名在 1970-01-01 及之后使用 UTC Calendar 读取，更早的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
 
-历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，本次变更不能保证这些边界值的无损读取。需要原始数据库文本时，请在 Source 查询中将列转换为 `VARCHAR`，并在下游保持 `STRING` 类型。
+历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，类型化读取也不能保证这些边界值无损。在测试使用的驱动中，`getString` 返回的是 `java.sql.Timestamp` 渲染的文本，因此读取文本再解析也无法恢复原始值。
+
+如果在 Source 查询中将时间戳投影为字符串，并在下游保持 `STRING` 类型，请先验证该转换在所用 DuckDB 版本上的结果。测试使用的引擎 v1.3.1 对 `TIMESTAMP_NS` 执行 `CAST(... AS VARCHAR)` 时，可能将小数部分的前导零输出为 NUL 字节；例如 `2024-06-15 12:34:56.000000001` 会在 `001` 前输出 6 个 NUL 字节。不能假定该转换无损。
 
 ### DuckDB BIT 和 ENUM 自动建表
 

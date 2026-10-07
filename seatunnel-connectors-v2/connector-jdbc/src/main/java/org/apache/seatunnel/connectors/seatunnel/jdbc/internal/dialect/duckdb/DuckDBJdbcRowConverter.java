@@ -49,8 +49,9 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
                 log.warn(
                         "DuckDB JDBC 1.3.1 timestamp aliases retain the legacy getter for "
                                 + "pre-epoch values. Historical dates and negative fractional "
-                                + "timestamps may still be normalized by the driver; use SQL "
-                                + "CAST AS VARCHAR when the original text is required");
+                                + "timestamps may still be normalized by the driver. The JDBC "
+                                + "getString accessor is also Timestamp-based; validate SQL "
+                                + "text conversions on your driver version before using them");
             }
             // The driver renders unzoned timestamps in the JVM default zone, which shifts values
             // inside a DST gap/overlap. Reading against an explicit UTC calendar and interpreting

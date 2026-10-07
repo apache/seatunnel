@@ -11,7 +11,9 @@ DuckDB `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` source values now map to
 
 Standard `TIMESTAMP` values are read as `LocalDateTime`, avoiding JVM time-zone and Gregorian-cutover normalization. With SeaTunnel's tested DuckDB JDBC version (1.3.1.0), the three aliases use a UTC-calendar read for values on or after 1970-01-01; earlier alias values retain the previous timestamp-getter behavior. This applies to `table_path`, `table_list` and `query` reads. Errors reading a standard `TIMESTAMP` are reported instead of silently switching to a lossy fallback.
 
-Historical alias dates, pre-1970 fractional-second values and `infinity` remain subject to driver limitations. These edge cases are not made lossless by this change. When the original database text is required, cast the column to `VARCHAR` in the source query and keep it a `STRING` downstream.
+Historical alias dates, pre-1970 fractional-second values and `infinity` remain subject to driver limitations. The typed path does not make these edge cases lossless. In the tested driver, `getString` renders a `java.sql.Timestamp`, so reading text and parsing it does not recover the original value.
+
+If you project a timestamp as a string in the source query and keep it a `STRING` downstream, validate that conversion on your DuckDB version first. With the tested engine v1.3.1, `CAST(TIMESTAMP_NS AS VARCHAR)` can emit NUL bytes in place of leading fractional zeros; for example, `2024-06-15 12:34:56.000000001` produces six NUL bytes before `001`. Do not assume this cast is lossless.
 
 ### DuckDB BIT and ENUM automatic DDL
 
