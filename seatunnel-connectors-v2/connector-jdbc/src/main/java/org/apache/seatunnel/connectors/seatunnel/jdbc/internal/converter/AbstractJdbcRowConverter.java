@@ -146,7 +146,18 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         return Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
     }
 
-    /** Reads an unzoned timestamp; default keeps the existing getter, dialects may override. */
+    /**
+     * Reads a timestamp without a time zone as a local date and time.
+     *
+     * <p>The default delegates to {@link JdbcFieldTypeUtils#getLocalDateTime(ResultSet, int)} and
+     * retains its existing getter strategy and driver limitations. Dialects may override this hook
+     * when their driver needs a different strategy to preserve the stored wall-clock value.
+     *
+     * @param rs result set positioned on the current row
+     * @param resultSetIndex one-based JDBC column index
+     * @return the local date and time, or {@code null} for SQL {@code NULL}
+     * @throws SQLException if the driver cannot read or convert the value
+     */
     protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
         return JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
     }

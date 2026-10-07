@@ -47,11 +47,11 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
-`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`，并保留其原生小数秒精度（6、0、3、9 位）。SeaTunnel 自动生成 MySQL 建表语句时，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。
+`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`，并保留其原生小数秒精度（6、0、3、9 位）。SeaTunnel 自动生成 MySQL 建表语句时，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级指导见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-时间戳-source-值)。
 
-读取优先使用 JDBC 的 `LocalDateTime` 接口，避免 JVM 时区及公历切换日期的规范化。DuckDB JDBC 1.3.1.0 未为 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 实现该接口，因此这三种类型改用显式 UTC Calendar 读取，并按 UTC 瞬时值解释。对于 1970-01-01 及之后的值，这能保留存储的本地日期和时间，包括夏令时跳时或重复区间内的值。1970-01-01 之前的值沿用先前的普通时间戳接口行为，避免按 UTC 瞬时值解释时给这些日期额外加上历史地方平时偏移。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 列上的类型化读取错误会被报出，不再静默降级为有损的时间戳读取。
+标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名在 1970-01-01 及之后使用 UTC Calendar 读取，更早的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
 
-较早的别名日期仍有驱动限制：JDBC 时间戳接口仍可能对历史夏令时跳时和公历切换做规范化，且 `TIMESTAMP_NS` 无法存储公历切换时期的日期。1970 年之前带小数秒的值还可能被 DuckDB JDBC 1.3.1.0 读取为晚 1 秒（`TIMESTAMP` 微秒值和 `TIMESTAMP_NS` 纳秒值）。`infinity` 也无法可靠表示。需要保留原始数据库文本时，请在 Source 查询中将列转换为 `VARCHAR`，并在下游保持字符串类型。
+历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，本次变更不能保证这些边界值的无损读取。需要原始数据库文本时，请在 Source 查询中将列转换为 `VARCHAR`，并在下游保持 `STRING` 类型。
 
 DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
 

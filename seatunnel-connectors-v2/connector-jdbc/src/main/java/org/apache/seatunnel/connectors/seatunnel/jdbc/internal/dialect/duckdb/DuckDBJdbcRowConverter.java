@@ -40,6 +40,7 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
     /** Set once per reader so the remaining historical limitation is not logged per row. */
     private transient boolean aliasTimestampFallbackWarned;
 
+    /** Reads standard timestamps with the typed getter and aliases with the guarded UTC route. */
     @Override
     protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
         if (isAliasTimestamp(rs, resultSetIndex)) {
@@ -75,10 +76,10 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /**
-     * Whether the column is one of the timestamp aliases for which DuckDB JDBC 1.3.1 has no typed
-     * getter: {@code getObject(index, LocalDateTime.class)} throws a plain {@link SQLException}
-     * that cannot be told apart from a real data error. Such columns are recognized from the result
-     * set metadata instead and read through the UTC calendar route.
+     * Whether the column is one of the timestamp aliases for which the tested DuckDB JDBC version
+     * (1.3.1.0) has no typed getter: {@code getObject(index, LocalDateTime.class)} throws a plain
+     * {@link SQLException} that cannot be told apart from a real data error. Such columns are
+     * recognized from the result set metadata instead and read through the UTC calendar route.
      */
     private boolean isAliasTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
         ResultSetMetaData metadata = rs.getMetaData();
