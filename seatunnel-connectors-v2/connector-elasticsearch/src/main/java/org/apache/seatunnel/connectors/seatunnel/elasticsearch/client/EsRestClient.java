@@ -46,6 +46,7 @@ import org.apache.http.util.EntityUtils;
 
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
@@ -542,6 +543,12 @@ public class EsRestClient implements Closeable {
             Response response = restClient.performRequest(request);
             int statusCode = response.getStatusLine().getStatusCode();
             return statusCode == 200;
+        } catch (ResponseException ex) {
+            if (ex.getResponse().getStatusLine().getStatusCode() == 404) {
+                return false;
+            }
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
         } catch (Exception ex) {
             throw new ElasticsearchConnectorException(
                     ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);

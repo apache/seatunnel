@@ -30,6 +30,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -228,9 +229,14 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
+        return createSourceConfigFactory(config, startupConfig, stopConfig);
+    }
+
+    static MySqlSourceConfigFactory createSourceConfigFactory(
+            ReadonlyConfig config, StartupConfig startupConfig, StopConfig stopConfig) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
-        configFactory.fromReadonlyConfig(readonlyConfig);
+        configFactory.fromReadonlyConfig(config);
         // Carry int_type_narrowing through the debezium properties map rather than a factory field.
         // Adding a field/method to the Serializable MySqlSourceConfigFactory drifts its
         // serialVersionUID and breaks rolling upgrades (jobs submitted on the prior version fail to

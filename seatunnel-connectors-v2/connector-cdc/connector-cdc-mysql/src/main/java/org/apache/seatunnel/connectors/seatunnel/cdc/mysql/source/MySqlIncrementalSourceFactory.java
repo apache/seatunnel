@@ -26,8 +26,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -36,17 +39,22 @@ import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSour
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 
 import com.google.auto.service.AutoService;
+import io.debezium.connector.mysql.MySqlConnection;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
 @Slf4j
-public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
+public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory
+        implements SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return MySqlIncrementalSource.IDENTIFIER;
@@ -120,6 +128,19 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
     }
 
     @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        return buildCatalogTables(context, config, Collections.emptyList());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        ReadonlyConfig config = context.getOptions();
+        validateReplicationPrivileges(config);
+    }
+
+    @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
@@ -129,6 +150,48 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                     new MySqlIncrementalSource<>(
                             config, buildCatalogTables(context, config, restoreTables));
         };
+    }
+
+    private void validateReplicationPrivileges(ReadonlyConfig config) {
+        try {
+            MySqlSourceConfigFactory sourceConfigFactory =
+                    MySqlIncrementalSource.createSourceConfigFactory(
+                            config,
+                            MySqlIncrementalSource.createStartupConfig(config),
+                            new StopConfig(
+                                    config.get(MySqlIncrementalSourceOptions.STOP_MODE),
+                                    config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
+                                    config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
+                                    config.get(SourceOptions.STOP_TIMESTAMP)));
+            try (MySqlConnection connection =
+                    MySqlConnectionUtils.createMySqlConnection(
+                            sourceConfigFactory.create(0).getDbzConfiguration())) {
+                validateReplicationPrivileges(connection, config.get(JdbcSourceOptions.USERNAME));
+            }
+        } catch (Exception e) {
+            if (e instanceof SeaTunnelException) {
+                throw (SeaTunnelException) e;
+            }
+            throw new SeaTunnelException("Failed to validate MySQL CDC replication privileges", e);
+        }
+    }
+
+    static void validateReplicationPrivileges(MySqlConnection connection, String username) {
+        for (String privilege : Arrays.asList("REPLICATION SLAVE", "REPLICATION CLIENT")) {
+            if (!connection.userHasPrivileges(privilege)) {
+                String escapedUsername = username.replace("'", "''");
+                throw new SeaTunnelException(
+                        "MySQL CDC user '"
+                                + username
+                                + "' is missing the required '"
+                                + privilege
+                                + "' privilege. Grant it with: GRANT "
+                                + privilege
+                                + " ON *.* TO '"
+                                + escapedUsername
+                                + "'@'%';");
+            }
+        }
     }
 
     /**

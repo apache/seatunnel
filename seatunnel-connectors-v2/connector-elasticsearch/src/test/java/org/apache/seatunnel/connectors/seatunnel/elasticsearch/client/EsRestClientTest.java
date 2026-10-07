@@ -21,10 +21,16 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
+import org.apache.http.HttpHost;
+import org.apache.http.ProtocolVersion;
 import org.apache.http.StatusLine;
+import org.apache.http.message.BasicHttpResponse;
+import org.apache.http.message.BasicRequestLine;
+import org.apache.http.message.BasicStatusLine;
 
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -144,6 +150,30 @@ public class EsRestClientTest {
         Assertions.assertTrue(
                 exception.getMessage().contains(esErrorJson),
                 "Error message should contain ES response body for debugging");
+    }
+
+    @Test
+    void testCheckIndexExistReturnsFalseForNotFound() throws Exception {
+        Constructor<Response> constructor =
+                Response.class.getDeclaredConstructor(
+                        org.apache.http.RequestLine.class,
+                        HttpHost.class,
+                        org.apache.http.HttpResponse.class);
+        constructor.setAccessible(true);
+        Response response =
+                constructor.newInstance(
+                        new BasicRequestLine(
+                                "HEAD", "/missing_index", new ProtocolVersion("HTTP", 1, 1)),
+                        new HttpHost("localhost", 9200),
+                        new BasicHttpResponse(
+                                new BasicStatusLine(
+                                        new ProtocolVersion("HTTP", 1, 1), 404, "Not Found")));
+        ResponseException notFoundException = new ResponseException(response);
+        when(mockRestClient.performRequest(any(Request.class))).thenThrow(notFoundException);
+
+        EsRestClient client = createEsRestClient(mockRestClient);
+
+        Assertions.assertFalse(client.checkIndexExist("missing_index"));
     }
 
     private EsRestClient createEsRestClient(RestClient restClient) throws Exception {

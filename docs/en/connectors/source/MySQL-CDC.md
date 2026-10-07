@@ -620,6 +620,12 @@ The MySQL user must have the following privileges:
 GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
 ```
 
+The `--dry-run connect` check reads the selected table metadata and verifies the `REPLICATION SLAVE`
+and `REPLICATION CLIENT` privileges. It runs only when dry-run is requested. The privilege check
+uses Debezium's `SHOW GRANTS FOR CURRENT_USER` inspection, so privileges available only through an
+inactive MySQL role may not be recognized; make the required grants directly or activate the role
+as the user's default role.
+
 Also enable binary logging in `my.cnf` / `my.ini`:
 
 ```ini
