@@ -20,15 +20,17 @@ package org.apache.seatunnel.common.utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Tests for {@link RetryUtils#retryWithException(RetryUtils.Execution, RetryUtils.RetryMaterial)}.
  *
- * <p>Every {@link RetryUtils.RetryMaterial} used here is built through a constructor with an
- * implicit sleep time of {@code 0}, so no test in this class sleeps or waits.
+ * <p>Retries are exercised with a backoff of {@code 0}. The regression that configures a non-zero
+ * backoff only exercises a rejected failure, which must return without sleeping, so no test in this
+ * class waits for a backoff.
  */
-class RetryUtilsTest {
+public class RetryUtilsTest {
 
     /** Only this exception is classified as retriable by {@link #retriableOnly()}. */
     private static class RetriableException extends Exception {
@@ -50,7 +52,7 @@ class RetryUtilsTest {
      * that have side effects (HTTP POST, bulk index/insert).
      */
     @Test
-    void testNonRetriableFailureWithoutThrowExecutesExactlyOnce() throws Exception {
+    public void testNonRetriableFailureWithoutThrowExecutesExactlyOnce() throws Exception {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(3, false, retriableOnly());
@@ -72,11 +74,41 @@ class RetryUtilsTest {
     }
 
     /**
+     * Such a rejected failure must not wait before returning either: with a configured backoff of
+     * {@code 5000} ms and an exponentially increasing backoff the first wait would be {@code 10000}
+     * ms, which the bounded execution time below rejects.
+     */
+    @Test
+    public void testNonRetriableFailureWithoutThrowDoesNotWaitBeforeReturning() {
+        AtomicInteger invocations = new AtomicInteger();
+        RetryUtils.RetryMaterial retryMaterial =
+                new RetryUtils.RetryMaterial(5, false, retriableOnly(), 5000, true);
+
+        Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () -> {
+                    String result =
+                            RetryUtils.retryWithException(
+                                    () -> {
+                                        invocations.incrementAndGet();
+                                        throw new IllegalStateException("not retriable");
+                                    },
+                                    retryMaterial);
+                    Assertions.assertNull(result, "shouldThrowException=false must return null");
+                });
+
+        Assertions.assertEquals(
+                1,
+                invocations.get(),
+                "a non-retriable failure must not invoke the execution again");
+    }
+
+    /**
      * The neighbouring case: a non-retriable failure with {@code shouldThrowException = true} must
      * propagate the original exception instance, again after a single execution.
      */
     @Test
-    void testNonRetriableFailureWithThrowPropagatesOriginalException() {
+    public void testNonRetriableFailureWithThrowPropagatesOriginalException() {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(3, true, retriableOnly());
@@ -102,7 +134,7 @@ class RetryUtilsTest {
      * times and, with {@code shouldThrowException = false}, the call answers {@code null}.
      */
     @Test
-    void testRetriableFailureIsRetriedUpToRetryTimes() throws Exception {
+    public void testRetriableFailureIsRetriedUpToRetryTimes() throws Exception {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(3, false, retriableOnly());
@@ -121,7 +153,7 @@ class RetryUtilsTest {
 
     /** A successful first attempt is never retried. */
     @Test
-    void testSuccessOnFirstAttemptDoesNotRetry() throws Exception {
+    public void testSuccessOnFirstAttemptDoesNotRetry() throws Exception {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(3, true, retriableOnly());
@@ -140,7 +172,7 @@ class RetryUtilsTest {
 
     /** A retriable failure followed by a success returns the produced value. */
     @Test
-    void testRetriableFailureThenSuccessReturnsValue() throws Exception {
+    public void testRetriableFailureThenSuccessReturnsValue() throws Exception {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(3, false, retriableOnly());
@@ -164,7 +196,7 @@ class RetryUtilsTest {
      * the historical "always retry" behaviour must stay unchanged.
      */
     @Test
-    void testNullRetryConditionStillRetries() throws Exception {
+    public void testNullRetryConditionStillRetries() throws Exception {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial = new RetryUtils.RetryMaterial(2, false, null);
 
@@ -182,7 +214,7 @@ class RetryUtilsTest {
 
     /** A negative retry count is rejected before anything is executed. */
     @Test
-    void testNegativeRetryTimesIsRejected() {
+    public void testNegativeRetryTimesIsRejected() {
         AtomicInteger invocations = new AtomicInteger();
         RetryUtils.RetryMaterial retryMaterial =
                 new RetryUtils.RetryMaterial(-1, false, retriableOnly());
@@ -197,5 +229,27 @@ class RetryUtilsTest {
                                 },
                                 retryMaterial));
         Assertions.assertEquals(0, invocations.get());
+    }
+
+    /**
+     * A retry count of {@code 0} still executes the given execution once, matching the documented
+     * {@code max(1, retryTimes)} executions.
+     */
+    @Test
+    public void testZeroRetryTimesExecutesOnce() throws Exception {
+        AtomicInteger invocations = new AtomicInteger();
+        RetryUtils.RetryMaterial retryMaterial =
+                new RetryUtils.RetryMaterial(0, false, retriableOnly());
+
+        String result =
+                RetryUtils.retryWithException(
+                        () -> {
+                            invocations.incrementAndGet();
+                            throw new RetriableException("retriable");
+                        },
+                        retryMaterial);
+
+        Assertions.assertNull(result);
+        Assertions.assertEquals(1, invocations.get());
     }
 }

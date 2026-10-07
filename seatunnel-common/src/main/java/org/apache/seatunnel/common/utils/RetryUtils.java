@@ -25,12 +25,22 @@ import java.util.concurrent.TimeUnit;
 public class RetryUtils {
 
     /**
-     * Execute the given execution with retry
+     * Execute the given execution with retry.
+     *
+     * <p>The given execution is executed {@code max(1, retryTimes)} times at most, and a failure is
+     * only retried while the retry condition accepts it.
      *
      * @param execution execution to execute
      * @param retryMaterial retry material, defined the condition to retry
      * @param <T> result type
-     * @return result of execution
+     * @return result of execution, or {@code null} either when the failure was rejected by the
+     *     retry condition or when the attempts are exhausted, in both cases only for {@code
+     *     shouldThrowException = false}
+     * @throws IllegalArgumentException if the configured retry times is negative
+     * @throws Exception the original exception when the failure was rejected by the retry condition
+     *     and {@code shouldThrowException = true}
+     * @throws RuntimeException when the attempts are exhausted and {@code shouldThrowException =
+     *     true}, with the last failure as its cause
      */
     public static <T> T retryWithException(
             Execution<T, Exception> execution, RetryMaterial retryMaterial) throws Exception {
@@ -52,6 +62,10 @@ public class RetryUtils {
                     if (retryMaterial.shouldThrowException()) {
                         throw e;
                     }
+                    log.warn(
+                            "Execution failed with {} and is not retriable, giving up after {} attempt(s)",
+                            e.getClass().getName(),
+                            i);
                     return null;
                 } else {
                     // Otherwise it is retriable and we should retry
@@ -88,8 +102,9 @@ public class RetryUtils {
         public static final long MAX_RETRY_TIME = 32;
 
         /**
-         * Retry times, if you set it to 1, the given execution will be executed twice. Should be
-         * greater than 0.
+         * Retry times, the given execution is executed at most {@code max(1, retryTimes)} times:
+         * with {@code 0} or {@code 1} it is executed once, with {@code N > 1} at most {@code N}
+         * times. A negative value is rejected by {@link RetryUtils#retryWithException}.
          */
         private final int retryTimes;
         /** If set true, the given execution will throw exception if it failed after retry. */
