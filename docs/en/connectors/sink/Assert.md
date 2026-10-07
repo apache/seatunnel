@@ -30,7 +30,7 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 | rules                                                                                          | ConfigMap                                       | yes      | -       |
 | rules.field_rules                                                                              | ConfigList                                      | no       | -       |
 | rules.field_rules.field_name                                                                   | string\|ConfigMap                               | yes      | -       |
-| rules.field_rules.field_type                                                                   | string                                          | no       | -       |
+| rules.field_rules.field_type                                                                   | string\|ConfigMap                               | no       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | no       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | no       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | no       | -       |
@@ -54,7 +54,7 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 | rules.catalog_table_rule.column_rule.column_length                                             | int                                             | no       | -       |
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | no       | -       |
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | no       | -       |
-| rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | no       | -       |
+| rules.catalog_table_rule.column_rule.comment                                                   | string                                          | no       | -       |
 | rules.table-names                                                                              | ConfigList                                      | no       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | no       | -       |

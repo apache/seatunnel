@@ -47,7 +47,7 @@ mutation 一起发送。
 | retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败后的最大重试退避时间，单位毫秒。 |
 | connect_timeout_ms | Int | 否 | 12000 | HTTP 连接超时时间，单位毫秒。 |
 | socket_timeout_ms | Int | 否 | 60000 | HTTP socket 超时时间，单位毫秒。 |
-| multi_table_sink_replica | Int | 否 | - | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
+| multi_table_sink_replica | Int | 否 | 1 | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
 | common-options | Config | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ## 注意事项

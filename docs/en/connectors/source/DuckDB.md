@@ -57,22 +57,22 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
-| TINYINT                                                             | TINYINT             |
-| UTINYINT<br/>SMALLINT                                               | SMALLINT            |
-| USMALLINT<br/>INTEGER                                               | INT                 |
-| UINTEGER<br/>BIGINT                                                 | BIGINT              |
-| UBIGINT                                                             | DECIMAL(20,0)       |
+| TINYINT<br/>UTINYINT                                                | TINYINT             |
+| SMALLINT<br/>USMALLINT                                              | SMALLINT            |
+| INTEGER<br/>UINTEGER                                                | INT                 |
+| BIGINT<br/>UBIGINT                                                  | BIGINT              |
 | HUGEINT                                                             | DECIMAL(38,0)       |
 | FLOAT                                                               | FLOAT               |
 | DOUBLE                                                              | DOUBLE              |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)      |
+| DECIMAL(x,y)(precision > 38 or scale > 38)                          | DECIMAL(min(x,38), min(y,38)) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
 | BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+| BLOB                                                                | BYTES               |
+| ARRAY<br/>STRUCT<br/>MAP                                            | STRING              |
 
 > Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 

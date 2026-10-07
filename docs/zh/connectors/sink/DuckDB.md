@@ -47,17 +47,21 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | SeaTunnel 数据类型                  | DuckDB 数据类型    |
 |---------------------------------|----------------|
 | BOOLEAN                         | BOOLEAN        |
-| TINYINT<br/>SMALLINT<br/>INT    | INTEGER        |
+| TINYINT                         | TINYINT        |
+| SMALLINT                        | SMALLINT       |
+| INT                             | INTEGER        |
 | BIGINT                          | BIGINT         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)   | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)   | DECIMAL(38,18) |
+| DECIMAL(x,y)（精度或标度超过 38）        | DECIMAL(min(x,38), min(y,38)) |
 | FLOAT                           | FLOAT          |
 | DOUBLE                          | DOUBLE         |
 | STRING                          | VARCHAR        |
 | DATE                            | DATE           |
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
+| BYTES                           | BLOB           |
+
+> DuckDB JDBC 方言不支持 SeaTunnel 的 `ARRAY`、`ROW`、`MAP` 类型，写入这些类型的列时会抛出类型转换错误。
 
 ## Sink 选项
 

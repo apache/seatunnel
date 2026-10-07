@@ -48,7 +48,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 | retry_backoff_max_ms | Int | No | 10000 | Maximum HTTP retry backoff in milliseconds. |
 | connect_timeout_ms | Int | No | 12000 | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms | Int | No | 60000 | HTTP socket timeout in milliseconds. |
-| multi_table_sink_replica | Int | No | - | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
+| multi_table_sink_replica | Int | No | 1 | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
 | common-options | Config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Notes

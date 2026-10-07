@@ -56,7 +56,8 @@ Greenplum 沿用 PostgreSQL JDBC 驱动映射。下表列出常用类型对照�
 | SMALLINT / INT2 | SMALLINT |
 | INT / INT4 / SERIAL | INT |
 | BIGINT / INT8 / BIGSERIAL | BIGINT |
-| NUMERIC(p, s) / DECIMAL(p, s) / MONEY | DECIMAL(p, s) |
+| NUMERIC(p, s) / DECIMAL(p, s) | DECIMAL(p, s) |
+| MONEY | DECIMAL(30,2) |
 | REAL / FLOAT4 | FLOAT |
 | DOUBLE PRECISION / FLOAT8 | DOUBLE |
 | CHAR / VARCHAR / TEXT / JSON / JSONB | STRING |

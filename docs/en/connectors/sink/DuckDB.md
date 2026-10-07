@@ -51,17 +51,21 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | SeaTunnel Data Type                                                 | DuckDB Data Type |
 |---------------------------------------------------------------------|------------------|
 | BOOLEAN                                                             | BOOLEAN          |
-| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
+| TINYINT                                                             | TINYINT          |
+| SMALLINT                                                            | SMALLINT         |
+| INT                                                                 | INTEGER          |
 | BIGINT                                                              | BIGINT           |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
+| DECIMAL(x,y)(precision > 38 or scale > 38)                          | DECIMAL(min(x,38), min(y,38)) |
 | FLOAT                                                               | FLOAT            |
 | DOUBLE                                                              | DOUBLE           |
 | STRING                                                              | VARCHAR          |
 | DATE                                                                | DATE             |
 | TIME                                                                | TIME             |
 | TIMESTAMP                                                           | TIMESTAMP        |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+| BYTES                                                               | BLOB             |
+
+> `ARRAY`, `ROW`, and `MAP` SeaTunnel types are not supported by the DuckDB JDBC dialect; writing a column of these types fails with a type conversion error.
 
 ## Sink Options
 
