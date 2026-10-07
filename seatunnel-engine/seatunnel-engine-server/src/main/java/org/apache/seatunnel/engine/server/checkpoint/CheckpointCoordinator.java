@@ -1383,16 +1383,13 @@ public class CheckpointCoordinator {
                                 .states(states)
                                 .build());
             }
-            if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
+            // max-retained is the maximum kept, not a batch size. Prune the oldest ids as soon as
+            // a completion would exceed it. Waiting for a multiple of the bound kept about twice
+            // as many checkpoints as the option describes.
+            int maxRetained = coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+            if (maxRetained > 0 && completedCheckpointIds.size() > maxRetained) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
+                while (completedCheckpointIds.size() > maxRetained) {
                     needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
                 }
                 checkpointStorage.deleteCheckpoint(

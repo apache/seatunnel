@@ -87,9 +87,9 @@ public class CheckpointStorageRetentionPruneTest extends AbstractSeaTunnelServer
 
     /**
      * Retention bound applied to the embedded server. {@link
-     * CheckpointCoordinator#completePendingCheckpoint} prunes the oldest {@code max-retained} ids
-     * once {@code 2 * max-retained} checkpoints have completed, so the first prune fires after four
-     * checkpoints, a few seconds into the job at the one second checkpoint interval.
+     * CheckpointCoordinator#completePendingCheckpoint} drops the oldest checkpoint as soon as
+     * completed checkpoints exceed {@code max-retained}, so the first prune fires on the third
+     * checkpoint when the bound is 2.
      */
     private static final int MAX_RETAINED_CHECKPOINTS = 2;
 
@@ -214,11 +214,11 @@ public class CheckpointStorageRetentionPruneTest extends AbstractSeaTunnelServer
                                             + retained
                                             + ", onDisk="
                                             + onDisk);
-                            // The coordinator lets its queue grow to 2 * max-retained before it
-                            // deletes the oldest max-retained entries in the same synchronized
-                            // call, so the number of files must never exceed that bound.
+                            // The coordinator prunes in the same completion that would exceed
+                            // max-retained. A poll can still see one extra file between store and
+                            // delete. The deterministic bound is CheckpointCoordinatorTest.
                             Assertions.assertTrue(
-                                    onDisk.size() <= 2 * maxRetained,
+                                    onDisk.size() <= maxRetained + 1,
                                     "checkpoint files accumulate beyond the retention bound in "
                                             + jobCheckpointDir
                                             + ": "
