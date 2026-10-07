@@ -600,7 +600,8 @@ jobs:
           # surefire.jvm.args. connector-lance does exactly that (Arrow needs
           # --add-opens=java.base/java.nio on JDK 17), and its unit tests failed with
           # InaccessibleObjectException when these flags were removed from this step.
-          # Keep this list in sync with surefire.module.args in the root pom.xml.
+          # Keep this list in sync with surefire.module.args in the root pom.xml. The duplication
+          # is tracked in apache/seatunnel#12655; do not remove these flags before that is fixed.
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
