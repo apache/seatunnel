@@ -25,9 +25,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class FieldNamedPreparedStatementTest {
 
@@ -316,5 +321,111 @@ public class FieldNamedPreparedStatementTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void testConfiguredNamedSqlBindsKnownNameWithSpace() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                Statement ddl = connection.createStatement()) {
+            ddl.execute("CREATE TABLE target (\"first name\" INTEGER)");
+            try (FieldNamedPreparedStatement statement =
+                    FieldNamedPreparedStatement.prepareStatementForCustomSql(
+                            connection,
+                            "INSERT INTO target (\"first name\") VALUES (:first name)",
+                            new String[] {"first name"})) {
+                statement.setInt(1, 42);
+                statement.executeUpdate();
+            }
+            try (ResultSet result = ddl.executeQuery("SELECT \"first name\" FROM target")) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+                assertFalse(result.next());
+            }
+        }
+    }
+
+    @Test
+    public void testParseNamedStatementWithSpacesInColumnNames() {
+        String sql = "INSERT INTO test (first_name, last_name) VALUES (:first name, :last name)";
+        String[] fieldNames = new String[] {"first name", "last name"};
+        String expectedSQL = "INSERT INTO test (first_name, last_name) VALUES (?, ?)";
+
+        Map<String, List<Integer>> paramMap = new HashMap<>();
+        String actualSQL =
+                FieldNamedPreparedStatement.parseNamedStatement(sql, paramMap, fieldNames);
+
+        assertEquals(expectedSQL, actualSQL);
+        assertTrue(paramMap.containsKey("first name"));
+        assertTrue(paramMap.containsKey("last name"));
+        assertEquals(1, paramMap.get("first name").get(0).intValue());
+        assertEquals(2, paramMap.get("last name").get(0).intValue());
+    }
+
+    @Test
+    public void testParseNamedStatementWithSpacesKeepsDefaultBehaviorWithoutKnownNames() {
+        // Without the known field names the default tokenizer must behave exactly as before:
+        // it cuts the token at the first character outside the name class.
+        String sql = "INSERT INTO test VALUES (:first name)";
+        Map<String, List<Integer>> paramMap = new HashMap<>();
+
+        String actualSQL = FieldNamedPreparedStatement.parseNamedStatement(sql, paramMap);
+
+        assertEquals("INSERT INTO test VALUES (? name)", actualSQL);
+        assertTrue(paramMap.containsKey("first"));
+        assertFalse(paramMap.containsKey("first name"));
+    }
+
+    @Test
+    public void testParseNamedStatementWithRepeatedSpacesInColumnNames() {
+        String sql =
+                "INSERT INTO log (message, user, message_backup) VALUES (:user message, :user, :user message)";
+        String[] fieldNames = new String[] {"user message", "user"};
+        String expectedSQL = "INSERT INTO log (message, user, message_backup) VALUES (?, ?, ?)";
+
+        Map<String, List<Integer>> paramMap = new HashMap<>();
+        String actualSQL =
+                FieldNamedPreparedStatement.parseNamedStatement(sql, paramMap, fieldNames);
+
+        assertEquals(expectedSQL, actualSQL);
+        assertEquals(Arrays.asList(1, 3), paramMap.get("user message"));
+        assertEquals(Arrays.asList(2), paramMap.get("user"));
+    }
+
+    @Test
+    public void testParseNamedStatementPrefersLongestKnownName() {
+        // Both known names start at the same offset; the longest one that is not followed by
+        // another name-class character must win.
+        String sql = "SELECT :MY COL \"MY COL\", :MY COLUMN \"MY COLUMN\" FROM t";
+        String[] fieldNames = new String[] {"MY COL", "MY COLUMN"};
+
+        Map<String, List<Integer>> paramMap = new HashMap<>();
+        String actualSQL =
+                FieldNamedPreparedStatement.parseNamedStatement(sql, paramMap, fieldNames);
+
+        assertEquals("SELECT ? \"MY COL\", ? \"MY COLUMN\" FROM t", actualSQL);
+        assertEquals(Arrays.asList(1), paramMap.get("MY COL"));
+        assertEquals(Arrays.asList(2), paramMap.get("MY COLUMN"));
+    }
+
+    @Test
+    public void testPrepareStatementWithSpacesInColumnNames() throws Exception {
+        String sql = "INSERT INTO test (first_name, last_name) VALUES (:first name, :last name)";
+        String[] fieldNames = new String[] {"first name", "last name"};
+        String expectedSQL = "INSERT INTO test (first_name, last_name) VALUES (?, ?)";
+
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        when(connection.prepareStatement(expectedSQL)).thenReturn(statement);
+
+        FieldNamedPreparedStatement namedStatement =
+                FieldNamedPreparedStatement.prepareStatement(connection, sql, fieldNames);
+
+        verify(connection).prepareStatement(expectedSQL);
+        namedStatement.setString(1, "John");
+        namedStatement.setString(2, "Doe");
+        verify(statement).setString(1, "John");
+        verify(statement).setString(2, "Doe");
     }
 }

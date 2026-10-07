@@ -667,9 +667,12 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     /**
-     * Configured custom SQL keeps the previous binding grammar: positional SQL with question marks
-     * is passed through verbatim (preserving dialect literal escaping such as E'' strings), while
-     * named SQL is rewritten with the legacy literal-colon replacement behavior.
+     * Prepares a statement for user-configured custom SQL. Positional SQL containing a question
+     * mark is passed through verbatim, so dialect literal escaping such as {@code E''} strings is
+     * preserved. Named SQL is rewritten with the named-parameter grammar of {@link
+     * #parseNamedStatement(String, Map, String[])}, retaining the existing behavior: a configured
+     * placeholder is bound to the whole name of a known schema field even when that name contains
+     * characters the default tokenizer cannot capture, for example a space in {@code "MY COL"}.
      */
     public static FieldNamedPreparedStatement prepareStatementForCustomSql(
             Connection connection, String sql, String[] fieldNames) throws SQLException {
@@ -680,7 +683,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             return preparePositionalStatement(connection, sql, fieldNames.length);
         }
         HashMap<String, List<Integer>> parameterMap = new HashMap<>();
-        String parsedSQL = parseNamedStatement(sql, parameterMap);
+        String parsedSQL = parseNamedStatement(sql, parameterMap, fieldNames);
         return prepareNamedStatement(connection, sql, parsedSQL, parameterMap, fieldNames);
     }
 
@@ -744,23 +747,55 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @VisibleForTesting
     public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
+        return parseNamedStatement(sql, paramMap, null);
+    }
+
+    /**
+     * Parses named parameters ({@code ":name"}) in the given statement.
+     *
+     * <p>The default tokenizer only accepts characters from the regular expression name class. When
+     * {@code knownParameterNames} is given (the sink schema field names), a name containing
+     * characters outside that class - for example a space in {@code "MY COL"} - is matched as a
+     * whole-name placeholder instead of being cut at the first such character. Names made up only
+     * of name-class characters keep going through the default tokenizer, so the existing behavior
+     * is unchanged.
+     *
+     * @param sql the statement that may contain named parameters
+     * @param paramMap receives each parsed parameter name and its parameter indexes
+     * @param knownParameterNames field names of the current schema, used as the allow-list for
+     *     names containing characters the default tokenizer cannot capture; may be null
+     */
+    @VisibleForTesting
+    public static String parseNamedStatement(
+            String sql, Map<String, List<Integer>> paramMap, String[] knownParameterNames) {
         Pattern pattern =
                 Pattern.compile(":([\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\$\\-\\.@%&*#~!?^+=<>|]+)");
         Matcher matcher = pattern.matcher(sql);
 
-        StringBuffer result = new StringBuffer();
-        int fieldIndex = 1;
+        StringBuilder result = new StringBuilder();
+        int fieldIndex = 1; // SQL statement parameter index starts from 1
+        int appendPosition = 0;
+        int searchFrom = 0;
 
-        while (matcher.find()) {
+        while (matcher.find(searchFrom)) {
             String parameterName = matcher.group(1);
+            int nameStart = matcher.start(1);
+            int nameEnd = matcher.end(1);
+            String knownParameter = matchKnownParameter(sql, nameStart, knownParameterNames);
+            if (knownParameter != null) {
+                parameterName = knownParameter;
+                nameEnd = nameStart + knownParameter.length();
+            }
             checkArgument(
                     !parameterName.isEmpty(),
                     "Named parameters in SQL statement must not be empty.");
             paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex++);
-            matcher.appendReplacement(result, "?");
+            result.append(sql, appendPosition, matcher.start());
+            result.append('?');
+            appendPosition = nameEnd;
+            searchFrom = nameEnd;
         }
-
-        matcher.appendTail(result);
+        result.append(sql, appendPosition, sql.length());
 
         return result.toString();
     }
@@ -815,5 +850,61 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     private static class ParsedStatement {
         private final String sql;
         private final boolean hasPositionalParameters;
+    }
+
+    /**
+     * Returns the longest known parameter name that starts exactly at {@code offset} and contains
+     * at least one character outside the default name class, or {@code null} when there is no such
+     * match. The character right after a candidate match must not be a name-class character,
+     * otherwise the statement contains a longer different token and the candidate is skipped to
+     * avoid splitting it.
+     */
+    private static String matchKnownParameter(
+            String sql, int offset, String[] knownParameterNames) {
+        if (knownParameterNames == null || knownParameterNames.length == 0) {
+            return null;
+        }
+        String best = null;
+        for (String name : knownParameterNames) {
+            if (name == null || name.isEmpty() || name.indexOf(':') >= 0) {
+                continue;
+            }
+            // Names made up only of name-class characters are already handled by the default
+            // tokenizer and must not be hijacked by this allow-list matching.
+            if (isNameClassOnly(name) || !sql.startsWith(name, offset)) {
+                continue;
+            }
+            int end = offset + name.length();
+            if (end < sql.length() && isNameClassChar(sql.charAt(end))) {
+                continue;
+            }
+            if (best == null || name.length() > best.length()) {
+                best = name;
+            }
+        }
+        return best;
+    }
+
+    private static boolean isNameClassOnly(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            if (!isNameClassChar(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Mirrors the name character class of the default tokenizer regular expression. */
+    private static boolean isNameClassChar(char c) {
+        if (Character.isLetter(c)) {
+            return true;
+        }
+        int type = Character.getType(c);
+        if (type == Character.LETTER_NUMBER
+                || type == Character.DECIMAL_DIGIT_NUMBER
+                || type == Character.CONNECTOR_PUNCTUATION) {
+            return true;
+        }
+        return "$-.@%&*#~!?^+=<>|".indexOf(c) >= 0;
     }
 }
