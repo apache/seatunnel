@@ -55,6 +55,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Schema;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -474,10 +475,11 @@ public class ArrowToSeatunnelRowReaderTest {
      * <p>The batch sizes are 2, then 0, then 3. The empty middle batch covers the skip branch of
      * {@link ArrowToSeatunnelRowReader#readArrow()}, which must not advance the read row count. One
      * cell of the last batch is deliberately null, so a genuine null is distinguishable from an
-     * out-of-range read, and a list column is written across the boundary because list offsets are
-     * resolved against the batch in hand. The read row count is asserted too, since that is the
-     * value {@code DorisValueReader} and {@code StarRocksBeReadClient} use to advance their scan
-     * offset.
+     * out-of-range read. A list column and a timestamp column are written across the boundary
+     * because list offsets are resolved against the batch in hand, and the timestamp converters
+     * read the vector through the same per-batch index. The read row count is asserted too, since
+     * that is the value {@code DorisValueReader} and {@code StarRocksBeReadClient} use to advance
+     * their scan offset.
      *
      * <p>This builds its own vectors rather than calling {@link #buildVectorSchemaRoot}, because
      * that helper appends to the static expectation lists shared with {@link #testSeatunnelRow}.
@@ -497,6 +499,13 @@ public class ArrowToSeatunnelRowReaderTest {
                         Arrays.asList(2, 2, 2),
                         Arrays.asList(3),
                         Arrays.asList(4, 4));
+        List<LocalDateTime> expectedTimestamps =
+                Arrays.asList(
+                        LocalDateTime.parse("2026-01-01T00:00:00"),
+                        LocalDateTime.parse("2026-01-02T01:02:03"),
+                        LocalDateTime.parse("2026-01-03T04:05:06"),
+                        LocalDateTime.parse("2026-01-04T07:08:09"),
+                        LocalDateTime.parse("2026-01-05T10:11:12"));
         // The zero-row batch in the middle exercises the continue branch of readArrow(), which
         // skips the batch without advancing readRowCount.
         int[] batchPlan = {2, 0, 3};
@@ -506,7 +515,10 @@ public class ArrowToSeatunnelRowReaderTest {
             BigIntVector longVector = new BigIntVector("multi_batch_long", allocator);
             VarCharVector stringVector = new VarCharVector("multi_batch_string", allocator);
             ListVector arrayVector = ListVector.empty("multi_batch_array", allocator);
-            List<FieldVector> vectors = Arrays.asList(longVector, stringVector, arrayVector);
+            TimeStampMicroVector timestampVector =
+                    new TimeStampMicroVector("multi_batch_timestamp", allocator);
+            List<FieldVector> vectors =
+                    Arrays.asList(longVector, stringVector, arrayVector, timestampVector);
 
             // The first batch is populated before the schema is derived, because a ListVector's
             // child type is only established once a value has gone through its writer. Deriving
@@ -515,11 +527,13 @@ public class ArrowToSeatunnelRowReaderTest {
                     longVector,
                     stringVector,
                     arrayVector,
+                    timestampVector,
                     0,
                     batchPlan[0],
                     expectedLongs,
                     expectedStrings,
-                    expectedArrays);
+                    expectedArrays,
+                    expectedTimestamps);
             List<Field> fields =
                     vectors.stream().map(FieldVector::getField).collect(Collectors.toList());
 
@@ -540,11 +554,13 @@ public class ArrowToSeatunnelRowReaderTest {
                                 longVector,
                                 stringVector,
                                 arrayVector,
+                                timestampVector,
                                 written,
                                 batchSize,
                                 expectedLongs,
                                 expectedStrings,
-                                expectedArrays);
+                                expectedArrays,
+                                expectedTimestamps);
                     }
                     // setRowCount propagates the value count to every child vector.
                     multiBatchRoot.setRowCount(batchSize);
@@ -560,15 +576,22 @@ public class ArrowToSeatunnelRowReaderTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {
-                            "multi_batch_long", "multi_batch_string", "multi_batch_array"
+                            "multi_batch_long",
+                            "multi_batch_string",
+                            "multi_batch_array",
+                            "multi_batch_timestamp"
                         },
                         new SeaTunnelDataType[] {
-                            BasicType.LONG_TYPE, BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE
+                            BasicType.LONG_TYPE,
+                            BasicType.STRING_TYPE,
+                            ArrayType.INT_ARRAY_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
                         });
 
         List<Object> actualLongs = new ArrayList<>();
         List<Object> actualStrings = new ArrayList<>();
         List<Object> actualArrays = new ArrayList<>();
+        List<Object> actualTimestamps = new ArrayList<>();
         int readRowCount;
         try (ArrowToSeatunnelRowReader reader =
                 new ArrowToSeatunnelRowReader(payload, rowType).readArrow()) {
@@ -576,7 +599,12 @@ public class ArrowToSeatunnelRowReaderTest {
                 SeaTunnelRow row = reader.next();
                 actualLongs.add(row.getField(0));
                 actualStrings.add(row.getField(1));
-                actualArrays.add(Arrays.asList((Integer[]) row.getField(2)));
+                // Kept null-tolerant on purpose: an out-of-range vector read comes back as a
+                // null array, and the assertions below report that far more clearly than a
+                // NullPointerException raised while collecting the rows would.
+                Integer[] array = (Integer[]) row.getField(2);
+                actualArrays.add(array == null ? null : Arrays.asList(array));
+                actualTimestamps.add(row.getField(3));
             }
             readRowCount = reader.getReadRowCount();
         }
@@ -594,6 +622,11 @@ public class ArrowToSeatunnelRowReaderTest {
                 actualArrays,
                 "a list column resolves offsets against its own batch, so it must cross the "
                         + "boundary with the rest");
+        Assertions.assertEquals(
+                expectedTimestamps,
+                actualTimestamps,
+                "a timestamp column is read through the same per-batch index, so it must cross "
+                        + "the boundary with the rest");
         Assertions.assertNull(
                 actualLongs.get(3), "the deliberately null cell must still read as null");
         Assertions.assertNotNull(
@@ -606,19 +639,22 @@ public class ArrowToSeatunnelRowReaderTest {
                 "getReadRowCount must count every row surfaced across all batches");
     }
 
-    /** Replaces the contents of the three vectors with one batch of {@code batchSize} rows. */
+    /** Replaces the contents of the four vectors with one batch of {@code batchSize} rows. */
     private static void fillBatch(
             BigIntVector longVector,
             VarCharVector stringVector,
             ListVector arrayVector,
+            TimeStampMicroVector timestampVector,
             int firstRow,
             int batchSize,
             List<Long> longs,
             List<String> strings,
-            List<List<Integer>> arrays) {
+            List<List<Integer>> arrays,
+            List<LocalDateTime> timestamps) {
         longVector.reset();
         stringVector.reset();
         arrayVector.reset();
+        timestampVector.reset();
         UnionListWriter arrayWriter = arrayVector.getWriter();
         for (int i = 0; i < batchSize; i++) {
             int row = firstRow + i;
@@ -635,6 +671,12 @@ public class ArrowToSeatunnelRowReaderTest {
                 arrayWriter.writeInt(element);
             }
             arrayWriter.endList();
+            // The converter reads the stored micros as UTC and shifts them into the default zone,
+            // so the value is written through the same zone to round-trip on any host.
+            timestampVector.setSafe(
+                    i,
+                    timestamps.get(row).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            * 1000);
         }
         arrayWriter.setValueCount(batchSize);
     }
