@@ -30,6 +30,19 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 
 :::
 
+## Connectivity dry-run
+
+Run `bin/seatunnel.sh --config <your-job.conf> --dry-run connect` with your own job configuration.
+
+This source supports connection/authentication and existing-queue metadata checks. It uses the same URI precedence, virtual host, TLS configuration and configured single-table or `tables_configs` schemas as the normal source, without creating a reader.
+
+- Each configured queue is checked with a passive declaration. No queue is created or deleted, no consumer is registered, and no message is read, acknowledged or published.
+- Queues must already exist, even when `passive = false`. A normal job may create a missing queue, but this dry-run deliberately cannot. Exclusive queues owned by another connection cannot be checked.
+- A successful check does **not** prove consumer/read permissions, queue declaration compatibility, payload format/schema compatibility, or runtime delivery guarantees. Passive declarations may refresh a queue's expiration timer.
+- Socket connection, AMQP handshake and channel RPC waits are capped at 10 seconds each; a smaller positive `connection_timeout` is retained. Zero is bounded for this preflight. Queue checks are sequential, so this is not a 10-second limit for the entire command. DNS resolution follows the JVM resolver.
+- Automatic/topology recovery is disabled only on the temporary connection. Cleanup aborts that connection with a one-second wait limit, including after failure. Normal source settings and behavior are unchanged.
+- Validation errors do not include raw connection strings, broker text or secret-bearing exception causes. Sink connectivity remains unsupported.
+
 ## Options
 
 | name                       | type    | required | default value |
