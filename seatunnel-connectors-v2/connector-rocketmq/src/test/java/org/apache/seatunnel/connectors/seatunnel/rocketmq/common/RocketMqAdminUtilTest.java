@@ -264,6 +264,42 @@ class RocketMqAdminUtilTest {
                         + "missing retry route");
     }
 
+    /**
+     * The cold start contract, pinned for a multi-topic list rather than a single topic. Skipping
+     * an unresolved topic instead of returning keeps the loop running to the end, so "every topic
+     * has nothing committed" is now the sum of several skips rather than one early return. The
+     * caller reads an empty map as a cold start and applies the configured start mode, so the
+     * result must still be exactly empty when no topic contributes an offset.
+     */
+    @Test
+    void testCurrentOffsets_everyTopicMissingRetryRouteStillReportsAColdStart() throws Exception {
+        MessageQueue firstQueue = new MessageQueue(TOPIC, "broker-a", 0);
+        MessageQueue secondQueue = new MessageQueue(OTHER_TOPIC, "broker-a", 0);
+
+        DefaultMQAdminExt adminClient = Mockito.mock(DefaultMQAdminExt.class);
+        for (String topic : Arrays.asList(TOPIC, OTHER_TOPIC)) {
+            Mockito.when(adminClient.examineConsumeStats(GROUP, topic))
+                    .thenThrow(
+                            new MQClientException(
+                                    ResponseCode.TOPIC_NOT_EXIST,
+                                    "No topic route info in name server for the topic: %RETRY%"
+                                            + GROUP));
+            Mockito.when(adminClient.examineTopicRouteInfo(topic)).thenReturn(new TopicRouteData());
+        }
+
+        Map<MessageQueue, Long> offsets =
+                RocketMqAdminUtil.currentOffsets(
+                        adminClient,
+                        GROUP,
+                        Arrays.asList(TOPIC, OTHER_TOPIC),
+                        new HashSet<>(Arrays.asList(firstQueue, secondQueue)));
+
+        Assertions.assertTrue(
+                offsets.isEmpty(),
+                "a list in which every topic has no retry route must stay a cold start, not a "
+                        + "partial resume");
+    }
+
     private static ConsumeStats consumeStatsFor(MessageQueue messageQueue, long committedOffset) {
         OffsetWrapper offsetWrapper = new OffsetWrapper();
         offsetWrapper.setConsumerOffset(committedOffset);
