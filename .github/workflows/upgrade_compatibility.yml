@@ -46,12 +46,6 @@ jobs:
     env:
       OLD_SEATUNNEL_VERSION: ${{ github.event.inputs.old_version || '2.3.13' }}
       SCENARIO: ${{ github.event.inputs.scenario || 'all' }}
-      # Not required for startup: the old 2.3.13 distribution runs on JDK 11, where reflective
-      # access to JDK internals is permitted by default (--illegal-access=permit is the default
-      # through JDK 15; JEP 396 made deny the default in JDK 16 and JEP 403 removed the option
-      # in JDK 17), so its bundled config/jvm_*_options needs no --add-opens flags. This single jgss export is kept as before and only affects the
-      # Kerberos reload helpers.
-      JAVA_TOOL_OPTIONS: --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
     steps:
       - uses: actions/checkout@v4
 
