@@ -376,6 +376,59 @@ class ProtobufConverterTest {
     }
 
     /**
+     * The single field case of {@link #testExactCaseProtoFieldNamesAreResolvedExactly()}: a proto
+     * declaring {@code string C_STRING = 6;} and a schema column with the very same name. Writing a
+     * single column means a failure can only come from the {@code C_STRING} column and cannot be
+     * masked by an earlier column of the mixed case fixture.
+     */
+    @Test
+    void testUppercaseProtoStringFieldWithExactSchemaNameRoundTrips() throws Exception {
+        Descriptors.Descriptor descriptor = stringFieldMessage("C_STRING", 6);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"C_STRING"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow convertedRow = roundTrip(descriptor, rowType, new Object[] {"test data"});
+
+        Assertions.assertEquals("test data", convertedRow.getField(0));
+    }
+
+    /**
+     * Reads a proto field declared in upper case ({@code string C_STRING = 6;}) through schema
+     * names that differ only in case. The message is built from the descriptor rather than through
+     * the write path, so the schema column name is the only variable under test.
+     */
+    @Test
+    void testReadOfUppercaseProtoFieldWithDifferentSchemaNameCase() throws Exception {
+        Descriptors.Descriptor descriptor = stringFieldMessage("C_STRING", 6);
+        byte[] protobufMessage =
+                DynamicMessage.newBuilder(descriptor)
+                        .setField(descriptor.findFieldByName("C_STRING"), "test data")
+                        .build()
+                        .toByteArray();
+        DynamicMessage dynamicMessage = DynamicMessage.parseFrom(descriptor, protobufMessage);
+
+        for (String schemaFieldName : new String[] {"C_STRING", "c_string", "C_String"}) {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {schemaFieldName},
+                            new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+            SeaTunnelRow convertedRow =
+                    new ProtobufToRowConverter(UNCOMPILED_PROTO_SOURCE, MESSAGE_NAME)
+                            .converter(descriptor, dynamicMessage, rowType);
+
+            Assertions.assertEquals(
+                    "test data",
+                    convertedRow.getField(0),
+                    String.format(
+                            "schema column [%s] must resolve proto field [C_STRING]",
+                            schemaFieldName));
+        }
+    }
+
+    /**
      * A MAP field whose schema name differs in case from the proto field ({@code Attributes} versus
      * {@code map<string, float> attributes = 9;}) must neither fail while writing nor read back as
      * {@code null}.
