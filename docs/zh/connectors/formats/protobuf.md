@@ -4,6 +4,12 @@ Protobuf（Protocol Buffers）是一种由Google开发的语言中立、平台�
 
 目前支持在 Kafka 中使用 protobuf 格式。
 
+## 字段名匹配
+
+Schema 字段优先按完全相同的名称匹配 proto 字段；没有精确匹配时，再使用与语言环境无关的大小写不敏感匹配。例如，`C_String` 可以匹配 `string c_string = 6;`，读取与写入使用相同规则。
+
+嵌套 `ROW` 的子字段按对应 proto 字段的消息类型解析，消息类型名称不必与列名相同；`MAP` 按所属字段的 map entry 描述符解析。写入非空值时，若 schema 字段没有对应的 proto 字段，作业会报错；读取时未匹配的列为 `null`。
+
 ## Kafka 使用示例
 
 - 模拟随机生成数据源,并以 protobuf 的格式 写入 kafka 的实例
