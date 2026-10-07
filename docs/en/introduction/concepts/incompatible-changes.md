@@ -32,15 +32,18 @@ You need to check this document before you upgrade to related version.
     them. A `DECIMAL` beyond 64 bits (reachable as `COALESCE(int_col, decimal_col)`), a
     `BigInteger`, and `NaN` or an infinity from a `DOUBLE` are each rejected now instead of
     arriving as a truncated value.
-  - **Fractional sources are unchanged**: a value such as `5.7` is still truncated towards zero
-    rather than rejected, which is what this conversion has always done. Only the range behaviour
-    changes. Note this still differs from a string source, where `Integer.parseInt("5.7")` fails;
-    aligning those is a separate decision.
+  - **Fractional sources are unchanged**: reached through `COALESCE` or `IFNULL`, a value such as
+    `5.7` is still truncated towards zero rather than rejected, which is what this conversion has
+    always done. Only the range behaviour changes. A floating-point source written as an explicit
+    `CAST` to an integral target is rejected while the statement is prepared, both before and after
+    this change. Note the truncating path still differs from a string source, where
+    `Integer.parseInt("5.7")` fails; aligning those is a separate decision.
   - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
     by this change; that gap is tracked separately in #12612.
   - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
     cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
     compute it explicitly rather than relying on `CAST`.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length

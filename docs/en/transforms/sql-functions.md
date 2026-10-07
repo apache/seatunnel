@@ -1175,14 +1175,17 @@ Converts a value to a BOOLEAN data type according to the following rules:
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
 NOTE:
-Casting to `TINYINT`, `SMALLINT`, `BYTE` or `INT` | `INTEGER` throws a `TransformException` when the
-value is outside the target's range, for example `CAST(3000000000 AS INT)`. Use `TRY_CAST` to get
-`NULL` instead of an error.
+Casting to `INT` | `INTEGER` throws a `TransformException` when the source value is outside the
+target's range, for example `CAST(3000000000 AS INT)`. `TINYINT` and `SMALLINT` behave the same way
+for a string source, such as `CAST('300' AS TINYINT)`. Use `TRY_CAST` to get `NULL` instead of an
+error.
 
-A floating-point source is handled differently per target. Casting to `INT` | `INTEGER` truncates
-it towards zero, so `CAST(5.7 AS INT)` gives `5`. Casting to `TINYINT`, `SMALLINT` or `BYTE`
-rejects it, including a whole value such as `5.0`, because those targets parse the value's string
-form as an integer.
+A narrowing or floating-point source is rejected earlier, while the statement is prepared rather
+than while a row is read: `CAST(double_col AS INT)` and `CAST(bigint_col AS TINYINT)` both fail with
+`Unsupported CAST FROM ... AS type: ...`, and `TRY_CAST` does not turn those into `NULL`. A
+fractional value reaches an integral target only through `COALESCE` or `IFNULL`, where the target
+type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
+`NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
 ### TRY_CAST
 
