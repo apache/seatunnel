@@ -340,6 +340,16 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
                         container);
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e_timestamp_precision.txt",
+                        "/seatunnel/read/text_timestamp_precision/e2e_timestamp_precision.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/e2e_timestamp_precision.csv",
+                        "/tmp/csv/timestamp_precision/e2e_timestamp_precision.csv",
+                        container);
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -351,6 +361,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+        helper.execute("/csv/local_csv_timestamp_precision_to_assert.conf");
     }
 
     @TestTemplate
@@ -375,6 +386,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/text/local_file_time_format_assert.conf");
         helper.execute("/text/local_file_text_skip_headers.conf");
         helper.execute("/text/local_file_text_to_assert.conf");
+        helper.execute("/text/local_file_mixed_timestamp_precision_to_assert.conf");
         helper.execute("/text/local_file_text_projection_to_assert.conf");
         helper.execute("/text/fake_to_local_file_with_encoding.conf");
         helper.execute("/text/local_file_text_to_console_with_encoding.conf");

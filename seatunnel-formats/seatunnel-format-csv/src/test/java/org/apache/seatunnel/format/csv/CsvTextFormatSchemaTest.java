@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
@@ -344,5 +346,139 @@ public class CsvTextFormatSchemaTest {
         Assertions.assertEquals(
                 java.time.LocalDateTime.of(2024, 1, 1, 3, 0, 0).toInstant(ZoneOffset.UTC),
                 result.toInstant());
+    }
+
+    /**
+     * A single deserializer instance is shared by every row of a file, so a field whose text
+     * precision changes (seconds -> millis -> micros -> nanos -> back to seconds) must parse on
+     * every row instead of being pinned to the formatter matched by the first row.
+     */
+    @Test
+    void testMixedTimestampPrecisionWithinOneField() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .build();
+
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "a,2023-01-01 00:00:00"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_000_000),
+                deserializeTimestamp(deserializationSchema, "b,2023-01-01 00:00:00.123"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_000),
+                deserializeTimestamp(deserializationSchema, "c,2023-01-01 00:00:00.123456"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_789),
+                deserializeTimestamp(deserializationSchema, "d,2023-01-01 00:00:00.123456789"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "e,2023-01-01 00:00:00"));
+    }
+
+    /**
+     * An explicit {@code timestamp_format} chosen by the user keeps writing the configured
+     * precision, and the default deserializer still reads that output back unchanged.
+     */
+    @Test
+    void testExplicitTimestampFormatRoundTripIsUnaffected() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        CsvSerializationSchema csvSerializationSchema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .delimiter(",")
+                        .build();
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .build();
+
+        LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_456_000);
+        byte[] serialized =
+                csvSerializationSchema.serialize(new SeaTunnelRow(new Object[] {timestamp}));
+
+        Assertions.assertEquals("2022-09-24 22:45:00.123456", new String(serialized));
+        Assertions.assertEquals(
+                timestamp, deserializationSchema.deserialize(serialized).getField(0));
+    }
+
+    private LocalDateTime deserializeTimestamp(
+            CsvDeserializationSchema deserializationSchema, String line) throws IOException {
+        return (LocalDateTime) deserializationSchema.deserialize(line.getBytes()).getField(1);
+    }
+
+    @Test
+    void testMixedTimestampPrecisionReverseOrder() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .build();
+
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_789),
+                deserializeTimestamp(deserializationSchema, "a,2023-01-01 00:00:00.123456789"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_000),
+                deserializeTimestamp(deserializationSchema, "b,2023-01-01 00:00:00.123456"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_000_000),
+                deserializeTimestamp(deserializationSchema, "c,2023-01-01 00:00:00.123"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "d,2023-01-01 00:00:00"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 987_654_321),
+                deserializeTimestamp(deserializationSchema, "e,2023-01-01 00:00:00.987654321"));
+    }
+
+    @Test
+    void testMalformedTimestampAfterValidWarmupThrowsCommon33() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .csvLineProcessor(new DefaultCsvLineProcessor())
+                        .build();
+
+        // warm the per-field formatter cache with a valid nanos value
+        deserializeTimestamp(deserializationSchema, "a,2023-01-01 00:00:00.123456789");
+
+        SeaTunnelRuntimeException ex =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                deserializeTimestamp(
+                                        deserializationSchema, "b,not-a-timestamp-value"));
+        Assertions.assertEquals(CommonErrorCode.FORMAT_DATETIME_ERROR, ex.getSeaTunnelErrorCode());
+        Assertions.assertTrue(ex.getSeaTunnelErrorCode().getCode().contains("COMMON-33"));
     }
 }
