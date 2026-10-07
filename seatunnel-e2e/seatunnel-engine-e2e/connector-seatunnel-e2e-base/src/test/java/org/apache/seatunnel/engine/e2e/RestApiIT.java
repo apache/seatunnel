@@ -1324,6 +1324,8 @@ public class RestApiIT {
 
     @Test
     public void testSubmitJobWithJsonFormat() {
+        // The nested schema field name and the top-level key cannot be parsed as config paths,
+        // so both must stay literal instead of failing RestUtil.buildConfig.
         String jsonConfig =
                 "{\n"
                         + "    \"env\": {\n"
@@ -1338,7 +1340,8 @@ public class RestApiIT {
                         + "            \"schema\": {\n"
                         + "                \"fields\": {\n"
                         + "                    \"name\": \"string\",\n"
-                        + "                    \"age\": \"int\"\n"
+                        + "                    \"age\": \"int\",\n"
+                        + "                    \"^t_nova_.*$\": \"string\"\n"
                         + "                }\n"
                         + "            }\n"
                         + "        }\n"

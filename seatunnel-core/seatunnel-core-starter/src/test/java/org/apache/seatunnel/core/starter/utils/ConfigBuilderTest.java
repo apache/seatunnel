@@ -102,6 +102,27 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testWhitespacePaddedKeysTrimmedUnlessGuardQuotesWholeKey() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        // Parsable keys keep path semantics: surrounding unquoted whitespace is trimmed.
+        fields.put("  padded  ", "trimmed");
+        fields.put("  job.mode  ", "dotted");
+        // Unparsable keys: the guard quotes each whole key, so padding stays literal.
+        fields.put("  ^t_nova_.*$  ", "regex");
+        fields.put("  ${FOO}  ", "literal");
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("schema", schema);
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("source", Arrays.asList(source));
+        configMap.put("sink", Arrays.asList(new LinkedHashMap<>()));
+
+        assertWhitespacePaddedKeys(ConfigBuilder.of(configMap));
+        assertWhitespacePaddedKeys(ConfigShadeUtils.decryptConfig(ConfigBuilder.of(configMap)));
+    }
+
+    @Test
     public void testConfigDesensitizationSort() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("a", "1");
@@ -305,5 +326,24 @@ public class ConfigBuilderTest {
 
         Assertions.assertEquals("string", desensitizedFields.get("access_token"));
         Assertions.assertEquals("string", desensitizedFields.get("user-password"));
+    }
+
+    private static void assertWhitespacePaddedKeys(Config config) {
+        Map<?, ?> fields =
+                config.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped();
+
+        Assertions.assertEquals(4, fields.size());
+        Assertions.assertEquals("trimmed", fields.get("padded"));
+        Assertions.assertFalse(fields.containsKey("  padded  "));
+        Assertions.assertEquals("dotted", fields.get("job.mode"));
+        Assertions.assertEquals("regex", fields.get("  ^t_nova_.*$  "));
+        Assertions.assertFalse(fields.containsKey("^t_nova_.*$"));
+        Assertions.assertEquals("literal", fields.get("  ${FOO}  "));
+        Assertions.assertFalse(fields.containsKey("${FOO}"));
     }
 }
