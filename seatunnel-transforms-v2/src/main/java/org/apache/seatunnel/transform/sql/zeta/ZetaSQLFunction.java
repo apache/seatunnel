@@ -34,6 +34,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.CryptoFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.JsonFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
@@ -133,6 +134,9 @@ public class ZetaSQLFunction {
     // -------------------------crypto functions----------------------------
     public static final String AES_ENCRYPT = "AES_ENCRYPT";
     public static final String AES_DECRYPT = "AES_DECRYPT";
+
+    // -------------------------json functions----------------------------
+    public static final String GET_JSON_OBJECT = "GET_JSON_OBJECT";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -541,6 +545,8 @@ public class ZetaSQLFunction {
                 return CryptoFunction.aesEncrypt(args);
             case AES_DECRYPT:
                 return CryptoFunction.aesDecrypt(args);
+            case GET_JSON_OBJECT:
+                return JsonFunction.getJsonObject(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:

@@ -359,6 +359,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TRIM_SCALE:
             case ZetaSQLFunction.AES_ENCRYPT:
             case ZetaSQLFunction.AES_DECRYPT:
+            case ZetaSQLFunction.GET_JSON_OBJECT:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
