@@ -177,7 +177,7 @@ public class JdbcOutputFormatReconnectTest {
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
         outputFormat.flush();
         // The writer committed at the checkpoint, so nothing earlier is pending any more.
-        outputFormat.markTransactionEnded(provider.getConnection());
+        outputFormat.markCommitted(provider.getConnection());
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"BB"}));
 
         outputFormat.flush();
@@ -231,14 +231,99 @@ public class JdbcOutputFormatReconnectTest {
         Assertions.assertDoesNotThrow(
                 () -> outputFormat.checkUncommittedBatchesOn(flushConnection));
 
-        // Rolling back the replacement does not bring "AA" back.
-        outputFormat.markTransactionEnded(replacement);
+        // Rolling back the replacement does not bring "AA" back, so nothing may commit any more.
+        outputFormat.markRolledBack(replacement, false);
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> outputFormat.checkUncommittedBatchesOn(replacement));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> outputFormat.checkUncommittedBatchesOn(flushConnection));
+    }
+
+    @Test
+    public void testCommitOfFlushConnectionClearsPendingBatches() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Connection flushConnection = provider.getConnection();
+        Connection replacement = Mockito.mock(Connection.class);
+        TrackingJdbcBatchExecutor executor = new TrackingJdbcBatchExecutor(null, Integer.MAX_VALUE);
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        outputFormat.flush();
+
+        // Committing a replacement is not a commit of "AA".
+        outputFormat.markCommitted(replacement);
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> outputFormat.checkUncommittedBatchesOn(replacement));
 
-        outputFormat.markTransactionEnded(flushConnection);
+        // Committing the connection that held "AA" makes it durable; nothing is pending.
+        outputFormat.markCommitted(flushConnection);
         Assertions.assertDoesNotThrow(() -> outputFormat.checkUncommittedBatchesOn(replacement));
+    }
+
+    @Test
+    public void testFullRollbackOfOwnReportedBatchesDoesNotBlockLaterCommits() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Connection connection = provider.getConnection();
+        TrackingJdbcBatchExecutor executor = new TrackingJdbcBatchExecutor(null, Integer.MAX_VALUE);
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        outputFormat.flush();
+
+        // Row-level error handling reports the rows it rolls back, so nothing is silently lost.
+        outputFormat.markRolledBack(connection, true);
+        Assertions.assertDoesNotThrow(() -> outputFormat.checkUncommittedBatchesOn(connection));
+    }
+
+    @Test
+    public void testFullRollbackOfUnreportedBatchesBlocksLaterCommits() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Connection connection = provider.getConnection();
+        TrackingJdbcBatchExecutor executor = new TrackingJdbcBatchExecutor(null, Integer.MAX_VALUE);
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        outputFormat.flush();
+
+        // A failed checkpoint rolled "AA" back without reporting it; a later commit on the same
+        // connection must not report this interval as complete.
+        outputFormat.markRolledBack(connection, false);
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> outputFormat.checkUncommittedBatchesOn(connection));
+    }
+
+    @Test
+    public void testLostConnectionBlocksCommitEvenWithoutRetries() throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Connection connection = provider.getConnection();
+        TrackingJdbcBatchExecutor executor =
+                new TrackingJdbcBatchExecutor(new SQLException("connection dropped", "08006"), 2);
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(
+                        provider,
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:postgresql://localhost:5432/test")
+                                .maxRetries(0)
+                                .batchSize(1024)
+                                .build(),
+                        () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        outputFormat.flush();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"BB"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        // "AA" died with the connection; even the same connection object must not commit.
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> outputFormat.checkUncommittedBatchesOn(connection));
     }
 
     @Test

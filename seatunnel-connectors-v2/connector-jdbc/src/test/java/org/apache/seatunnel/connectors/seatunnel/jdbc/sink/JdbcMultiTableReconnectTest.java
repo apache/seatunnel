@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
@@ -36,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
 
 import org.junit.jupiter.api.Test;
@@ -56,8 +59,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -188,16 +193,221 @@ class JdbcMultiTableReconnectTest {
         assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
     }
 
+    /**
+     * Two tables on one queue index share one connection and one transaction. If table A's
+     * checkpoint fails and rolls that transaction back, table B's flushed batch is discarded too,
+     * so table B must not report the checkpoint as complete.
+     */
+    @Test
+    void sharedQueueRollbackFailsOtherTablesPrepareCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-rollback-commit.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        TestJdbcSinkWriter tableA = createWriter(jdbcUrl, "active_table", dialect, manualCommit());
+        TestJdbcSinkWriter tableB = createWriter(jdbcUrl, "idle_table", dialect, manualCommit());
+        try {
+            flushBothTablesThenRollBackThroughTableA(dialect, tableA, tableB);
+
+            assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertTrue(dialect.transactionState.isPoisoned());
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /** Same as above for the close path, which also commits. */
+    @Test
+    void sharedQueueRollbackFailsOtherTablesClose() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-rollback-close.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        TestJdbcSinkWriter tableA = createWriter(jdbcUrl, "active_table", dialect, manualCommit());
+        TestJdbcSinkWriter tableB = createWriter(jdbcUrl, "idle_table", dialect, manualCommit());
+        try {
+            flushBothTablesThenRollBackThroughTableA(dialect, tableA, tableB);
+
+            assertThrows(JdbcConnectorException.class, tableB::close);
+        } finally {
+            closeQuietly(tableA);
+        }
+
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * The pool replaces the dead shared connection after table A flushed. Table B opens on the
+     * replacement and flushes its own batch there, without ever seeing an error. Committing the
+     * replacement would complete the checkpoint without table A's rows.
+     */
+    @Test
+    void sharedQueueReplacedConnectionFailsOtherTablesCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-replaced.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        TestJdbcSinkWriter tableA = createWriter(jdbcUrl, "active_table", dialect, manualCommit());
+        TestJdbcSinkWriter tableB = createWriter(jdbcUrl, "idle_table", dialect, manualCommit());
+        try {
+            // batch_size = 2: table A flushes rows 1 and 2 into the shared transaction.
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.slot().replaceDeadConnectionOnGet();
+
+            // The connection dies; the database rolls rows 1 and 2 back.
+            dialect.slot().dropConnection();
+
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * A savepoint rollback (row-level error handling) keeps the batches flushed before the
+     * savepoint pending. A successful commit of the shared connection, by any table, is what makes
+     * them durable and clears the pending state for every writer.
+     */
+    @Test
+    void sharedQueueSavepointRollbackKeepsEarlierBatchesUntilSharedCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-savepoint.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter tableA =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(rowErrors::add));
+        TestJdbcSinkWriter tableB = createWriter(jdbcUrl, "idle_table", dialect, manualCommit());
+        try {
+            // Rows 1 and 2 are flushed and a savepoint marks them as the last good batch.
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+
+            // Rows 3 and 4 fail with a row-level error and are rolled back to the savepoint.
+            dialect.slot().failNextBatchWith(new SQLException("constraint violated", "23000"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+            assertEquals(2, rowErrors.size());
+
+            // Rows 1 and 2 are still pending in the shared transaction.
+            assertTrue(dialect.transactionState.hasPendingOrLostWork());
+            assertFalse(dialect.transactionState.isPoisoned());
+
+            // Table B commits the shared connection, which covers table A's rows 1 and 2.
+            tableB.prepareCommit(1L);
+            assertFalse(dialect.transactionState.hasPendingOrLostWork());
+            tableA.prepareCommit(1L);
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * A savepoint belongs to the whole shared transaction. If table B flushed after table A's
+     * savepoint, table A's rollback to that savepoint discards table B's batch as well.
+     */
+    @Test
+    void sharedQueueSavepointRollbackOverOtherTablesBatchFailsCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-savepoint-other.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter tableA =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(rowErrors::add));
+        TestJdbcSinkWriter tableB = createWriter(jdbcUrl, "idle_table", dialect, manualCommit());
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            // Table B flushes after table A's savepoint.
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+
+            dialect.slot().failNextBatchWith(new SQLException("constraint violated", "23000"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+            assertEquals(2, rowErrors.size());
+
+            assertTrue(dialect.transactionState.isPoisoned());
+            assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * Both tables flush a batch into the shared transaction. Table A's next batch then fails with
+     * an error that is neither row-level nor a lost connection, so its checkpoint fails and rolls
+     * the shared transaction back, discarding table B's batch.
+     */
+    private static void flushBothTablesThenRollBackThroughTableA(
+            SharedQueueDialect dialect, TestJdbcSinkWriter tableA, TestJdbcSinkWriter tableB)
+            throws Exception {
+        tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+        tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+        tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+        tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+
+        dialect.slot().failNextBatchWith(new SQLException("out of disk space", "53100"));
+        tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+        assertThrows(Exception.class, () -> tableA.prepareCommit(1L));
+    }
+
+    private static Map<String, Object> manualCommit() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("auto_commit", false);
+        options.put("batch_size", 2);
+        return options;
+    }
+
+    private static void closeQuietly(TestJdbcSinkWriter writer) {
+        try {
+            writer.close();
+        } catch (Exception ignored) {
+            // Some tests leave the writer failed on purpose.
+        }
+    }
+
     private static TestJdbcSinkWriter createWriter(
             String jdbcUrl, String table, TrackingSqliteDialect dialect) {
         return createWriter(jdbcUrl, table, dialect, new HashMap<>());
     }
 
     private static TestJdbcSinkWriter createWriter(
+            String jdbcUrl, String table, SqliteDialect dialect, Map<String, Object> extraOptions) {
+        return createWriter(jdbcUrl, table, dialect, extraOptions, new TestSinkWriterContext());
+    }
+
+    private static TestJdbcSinkWriter createWriter(
             String jdbcUrl,
             String table,
-            TrackingSqliteDialect dialect,
-            Map<String, Object> extraOptions) {
+            SqliteDialect dialect,
+            Map<String, Object> extraOptions,
+            TestSinkWriterContext context) {
         Map<String, Object> options = new HashMap<>(extraOptions);
         options.put("url", jdbcUrl);
         options.put("driver", "org.sqlite.JDBC");
@@ -213,7 +423,7 @@ class JdbcMultiTableReconnectTest {
         assertNull(sinkConfig.getSimpleSql());
         return new TestJdbcSinkWriter(
                 TablePath.of("main", table),
-                new TestSinkWriterContext(),
+                context,
                 dialect,
                 sinkConfig,
                 tableSchema(),
@@ -301,6 +511,7 @@ class JdbcMultiTableReconnectTest {
         private Connection connection;
         private Connection delegate;
         private boolean failNextBatch;
+        private SQLException nextBatchFailure;
         private boolean replaceDeadConnectionOnGet;
         private int reestablishConnectionCalls;
 
@@ -310,6 +521,11 @@ class JdbcMultiTableReconnectTest {
 
         private void failNextBatch() {
             failNextBatch = true;
+        }
+
+        /** Fails the next batch with {@code failure} and keeps the connection open. */
+        private void failNextBatchWith(SQLException failure) {
+            nextBatchFailure = failure;
         }
 
         /** Mimics ConnectionPoolManager, which swaps a dead cached connection on getConnection. */
@@ -404,12 +620,82 @@ class JdbcMultiTableReconnectTest {
                                     owner.close();
                                     throw new SQLException("connection dropped", "08S01");
                                 }
+                                if ("executeBatch".equals(method.getName())
+                                        && nextBatchFailure != null) {
+                                    SQLException failure = nextBatchFailure;
+                                    nextBatchFailure = null;
+                                    throw failure;
+                                }
                                 try {
                                     return method.invoke(preparedStatement, args);
                                 } catch (InvocationTargetException exception) {
                                     throw exception.getCause();
                                 }
                             });
+        }
+    }
+
+    /**
+     * Gives every writer created with it a provider on one shared connection and one shared
+     * transaction state, like the writers on one queue index of {@link ConnectionPoolManager}.
+     */
+    private static class SharedQueueDialect extends SqliteDialect {
+        private final JdbcTransactionState transactionState = new JdbcTransactionState();
+        private TrackingConnectionProvider slot;
+
+        @Override
+        public JdbcConnectionProvider getJdbcConnectionProvider(
+                JdbcConnectionConfig jdbcConnectionConfig) {
+            if (slot == null) {
+                slot = new TrackingConnectionProvider(jdbcConnectionConfig);
+            }
+            return new SharedQueueProvider(slot, transactionState);
+        }
+
+        private TrackingConnectionProvider slot() {
+            return slot;
+        }
+    }
+
+    /** One writer's view of the shared connection, like SimpleJdbcConnectionPoolProviderProxy. */
+    private static class SharedQueueProvider implements JdbcConnectionProvider {
+        private final TrackingConnectionProvider slot;
+        private final JdbcTransactionState transactionState;
+
+        private SharedQueueProvider(
+                TrackingConnectionProvider slot, JdbcTransactionState transactionState) {
+            this.slot = slot;
+            this.transactionState = transactionState;
+        }
+
+        @Override
+        public Connection getConnection() {
+            return slot.getConnection();
+        }
+
+        @Override
+        public boolean isConnectionValid() throws SQLException {
+            return slot.isConnectionValid();
+        }
+
+        @Override
+        public Connection getOrEstablishConnection() throws SQLException {
+            return slot.getOrEstablishConnection();
+        }
+
+        @Override
+        public void closeConnection() {
+            slot.closeConnection();
+        }
+
+        @Override
+        public Connection reestablishConnection() throws SQLException {
+            return slot.reestablishConnection();
+        }
+
+        @Override
+        public JdbcTransactionState getTransactionState() {
+            return transactionState;
         }
     }
 
@@ -447,6 +733,21 @@ class JdbcMultiTableReconnectTest {
     }
 
     private static class TestSinkWriterContext implements SinkWriter.Context {
+        private final RowErrorCollector rowErrorCollector;
+
+        private TestSinkWriterContext() {
+            this(null);
+        }
+
+        private TestSinkWriterContext(RowErrorCollector rowErrorCollector) {
+            this.rowErrorCollector = rowErrorCollector;
+        }
+
+        @Override
+        public Optional<RowErrorCollector> getRowErrorCollector() {
+            return Optional.ofNullable(rowErrorCollector);
+        }
+
         @Override
         public int getIndexOfSubtask() {
             return 0;

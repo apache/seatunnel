@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -43,8 +44,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -151,6 +154,36 @@ class JdbcSinkWriterTest {
         verify(fixture.connection, times(1)).rollback(fixture.savepoint);
         verify(fixture.connection, never()).rollback();
         Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+    }
+
+    /**
+     * After a rollback to the savepoint, the rows reported at that savepoint are still uncommitted.
+     * If a second row-level failure then needs a full rollback, those already reported rows are
+     * discarded too, so the rollback must not be treated as fully reported work.
+     */
+    @Test
+    void testFullRollbackAfterSavepointRollbackDiscardsReportedRows() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        WriterFixture fixture = createWriterFixture(false, successCount);
+        JdbcSinkWriter writer = fixture.writer;
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                Mockito.mock(JdbcOutputFormat.class);
+        setOutputFormat(writer, outputFormat);
+        List<SeaTunnelRow> pendingRows = new ArrayList<>();
+        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
+        setPendingRows(writer, pendingRows);
+
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
+        Assertions.assertEquals(1, successCount.get());
+
+        // First row-level failure: rollback to the savepoint keeps the reported row.
+        invokeRollbackIfNeeded(writer);
+        verify(fixture.connection, times(1)).rollback(fixture.savepoint);
+        // Second failure before the next good batch: a full rollback discards the reported row.
+        invokeRollbackIfNeeded(writer);
+
+        verify(fixture.connection, times(1)).rollback();
+        verify(outputFormat).markRolledBack(fixture.connection, false);
     }
 
     @Test
@@ -376,6 +409,33 @@ class JdbcSinkWriterTest {
         Mockito.verify(connection, Mockito.never()).commit();
         Mockito.verify(connection).rollback();
         Mockito.verify(outputFormat).close();
+    }
+
+    /**
+     * In row-error mode, a commit that fails for a reason other than a row-level data error must
+     * roll back before close() closes the connection. Some drivers commit an open transaction on
+     * close, which would commit a partial result.
+     */
+    @Test
+    void testRowErrorCloseRollsBackBeforeClosingWhenCommitIsRefused() throws Exception {
+        WriterFixture fixture = createWriterFixture(false, new AtomicInteger());
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                Mockito.mock(JdbcOutputFormat.class);
+        setOutputFormat(fixture.writer, outputFormat);
+        setIsOpen(fixture.writer, true);
+        doThrow(
+                        new JdbcConnectorException(
+                                JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                                "flushed batches were lost"))
+                .when(outputFormat)
+                .checkUncommittedBatchesOn(any());
+
+        Assertions.assertThrows(IOException.class, fixture.writer::close);
+
+        InOrder inOrder = Mockito.inOrder(fixture.connection, outputFormat);
+        inOrder.verify(fixture.connection).rollback();
+        inOrder.verify(outputFormat).close();
+        verify(fixture.connection, never()).commit();
     }
 
     /**

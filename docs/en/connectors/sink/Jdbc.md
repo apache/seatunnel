@@ -313,6 +313,8 @@ The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requ
 
 With checkpointing enabled and a manual-commit connection (`auto_commit = false`, or Oracle), batches flushed since the last commit (checkpoint or timer flush) are still uncommitted. While such batches exist, or when the database reports that it rolled back the whole transaction (SQLState class `40`, for example a deadlock), a failed flush is not retried, because a retry would re-send only the current batch while the earlier ones may already be rolled back. Likewise, whatever `max_retries` is set to, if the connection holding them is lost and replaced before the commit, the sink fails instead of committing the new connection. In both cases the job recovers from the last checkpoint.
 
+In a multi-table sink, the tables written through the same queue share one connection and one transaction. If flushed batches of any of these tables are lost in a checkpoint interval (the connection is lost or replaced, or another table rolls the transaction back), none of them commits again, and the job recovers from the last checkpoint.
+
 ### batch_size [int]
 
 The maximum number of buffered rows per batch. The sink flushes when the buffer reaches `batch_size`, when a checkpoint prepares a commit, or when the writer closes. A larger value can improve throughput but uses more memory and increases the amount of work retried after a failure.
