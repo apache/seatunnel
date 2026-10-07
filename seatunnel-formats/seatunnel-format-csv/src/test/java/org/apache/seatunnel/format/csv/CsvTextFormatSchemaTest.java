@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -199,6 +200,97 @@ public class CsvTextFormatSchemaTest {
                 () -> {
                     csvSerializationSchemaWithNoneQuotes.serialize(seaTunnelRow);
                 });
+    }
+
+    @Test
+    void testStringFieldContainingDelimiterRoundTrip() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field", "int_field", "nullable_string_field"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+
+        String[] delimiters = {",", "|", "\t", "\u0001"};
+        for (String delimiter : delimiters) {
+            CsvSerializationSchema serializationSchema =
+                    CsvSerializationSchema.builder()
+                            .seaTunnelRowType(rowType)
+                            .delimiter(delimiter)
+                            .quoteMode(CsvStringQuoteMode.MINIMAL)
+                            .nullValue("NULL")
+                            .build();
+            CsvDeserializationSchema deserializationSchema =
+                    CsvDeserializationSchema.builder()
+                            .seaTunnelRowType(rowType)
+                            .delimiter(delimiter)
+                            .nullFormat("NULL")
+                            .build();
+
+            String value = "a" + delimiter + "b";
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[] {value, 42, null});
+
+            byte[] serialized = serializationSchema.serialize(seaTunnelRow);
+            String serializedField = new String(serialized, StandardCharsets.UTF_8);
+
+            Map<Integer, String> splits =
+                    deserializationSchema.splitLineBySeaTunnelRowType(serializedField, rowType, 0);
+            SeaTunnelRow deserialized = deserializationSchema.getSeaTunnelRow(splits);
+
+            assertEquals(
+                    value,
+                    deserialized.getField(0),
+                    "String field must survive round trip with delimiter [" + delimiter + "]");
+            assertEquals(
+                    Integer.valueOf(42),
+                    deserialized.getField(1),
+                    "Int field must survive round trip with delimiter [" + delimiter + "]");
+            Assertions.assertNull(
+                    deserialized.getField(2),
+                    "Null field must survive round trip with delimiter [" + delimiter + "]");
+        }
+    }
+
+    @Test
+    void testStringFieldWithEmbeddedQuotesAndNewlineRoundTrip() {
+        String delimiter = "|";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field", "int_field", "nullable_string_field"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+
+        CsvSerializationSchema serializationSchema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
+                        .nullValue("NULL")
+                        .build();
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .nullFormat("NULL")
+                        .build();
+
+        String value = "say \"hi\"\nand bye";
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[] {value, 42, null});
+
+        byte[] serialized = serializationSchema.serialize(seaTunnelRow);
+        String serializedField = new String(serialized, StandardCharsets.UTF_8);
+
+        Map<Integer, String> splits =
+                deserializationSchema.splitLineBySeaTunnelRowType(serializedField, rowType, 0);
+        SeaTunnelRow deserialized = deserializationSchema.getSeaTunnelRow(splits);
+
+        assertEquals(
+                value,
+                deserialized.getField(0),
+                "String field with embedded quotes and newline must survive round trip");
+        assertEquals(Integer.valueOf(42), deserialized.getField(1));
+        Assertions.assertNull(deserialized.getField(2));
     }
 
     @Test

@@ -261,8 +261,20 @@ public class CsvSerializationSchema implements SerializationSchema {
         }
     }
 
+    /**
+     * Quotes the given top-level string field value according to the configured quote mode.
+     *
+     * <p>Fields are joined with the configured separator and are split back by {@code
+     * DefaultCsvLineProcessor}, which uses the first character of that separator as its delimiter.
+     * The printer therefore uses the same character as its delimiter, so a value which contains the
+     * configured separator is quoted and read back as a single field instead of several fields.
+     */
     private String addQuotesUsingCSVFormat(String fieldValue) {
-        CSVFormat.Builder builder = CSVFormat.DEFAULT.builder().setRecordSeparator("");
+        CSVFormat.Builder builder =
+                CSVFormat.DEFAULT
+                        .builder()
+                        .setRecordSeparator("")
+                        .setDelimiter(separators[0].charAt(0));
         switch (quoteMode) {
             case ALL:
                 builder.setQuoteMode(QuoteMode.ALL);
