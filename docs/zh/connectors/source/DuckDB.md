@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。
+通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。生成的哈希分区 SQL 与 JVM 默认 locale 无关。
 
 ## 支持 DuckDB 版本
 
@@ -59,7 +59,7 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | USMALLINT<br/>INTEGER                                    | INT            |
 | UINTEGER<br/>BIGINT                                      | BIGINT         |
 | UBIGINT                                                  | DECIMAL(20,0)  |
-| HUGEINT                                                  | DECIMAL(38,0)  |
+| HUGEINT<br/>BIGNUM                                                  | DECIMAL(38,0)  |
 | FLOAT                                                    | FLOAT          |
 | DOUBLE                                                   | DOUBLE         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
@@ -69,11 +69,18 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+| BLOB | BYTES |
+| ARRAY<br/>STRUCT<br/>MAP | STRING |
+
+JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 > 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 
+DuckDB 的 `HUGEINT` 和 `BIGNUM` 映射为 `DECIMAL(38,0)`，即 SeaTunnel 的最大小数精度。需要超过 38 位十进制数字的值超出此精度。请将这些值投影为 `VARCHAR`（例如 `CAST(col AS VARCHAR)`），并在下游保持 `STRING` 类型，以保留完整范围。
+
 ## 查询模式发现
+
+`query` 的所有列现在均使用 DuckDB 原生类型名和 DuckDB 类型映射。下面的无符号类型扩宽仅适用于 `query`；`table_path` 模式发现保留现有映射。
 
 `query`（包括别名和表达式）使用 DuckDB 原生结果元数据推断模式。
 `DECIMAL(p,s)` 保留精度和小数位数，`TIMESTAMP WITH TIME ZONE` 输出

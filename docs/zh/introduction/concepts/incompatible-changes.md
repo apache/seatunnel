@@ -6,6 +6,8 @@
 
 ### DuckDB 查询模式元数据
 
+所有查询列现在均使用 DuckDB 原生类型名和 DuckDB 类型映射。ARRAY/LIST、STRUCT 和 MAP 输出驱动提供的文本（`STRING`），而非嵌套类型。`HUGEINT` 和 `BIGNUM` 使用 `DECIMAL(38,0)`；需要超过 38 位十进制数字的值必须投影为 `VARCHAR`，并在下游保持 `STRING`。
+
 DuckDB JDBC `query` 模式发现现在保留原生小数精度和小数位数，并将带时区时间映射为
 `TIMESTAMP_TZ`，而非 `TIMESTAMP`。查询中的无符号类型保留完整范围；UHUGEINT 的
 39 位范围超过 SeaTunnel 小数精度上限，因此使用文本。已有的

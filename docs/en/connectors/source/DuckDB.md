@@ -9,7 +9,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
 talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
 remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
-and reading multiple tables in one job through `table_list`.
+and reading multiple tables in one job through `table_list`. The generated hash partition SQL is independent of the JVM default locale.
 
 ## Support DuckDB Version
 
@@ -62,7 +62,7 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 | USMALLINT<br/>INTEGER                                               | INT                 |
 | UINTEGER<br/>BIGINT                                                 | BIGINT              |
 | UBIGINT                                                             | DECIMAL(20,0)       |
-| HUGEINT                                                             | DECIMAL(38,0)       |
+| HUGEINT<br/>BIGNUM                                                             | DECIMAL(38,0)       |
 | FLOAT                                                               | FLOAT               |
 | DOUBLE                                                              | DOUBLE              |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
@@ -72,11 +72,18 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+| BLOB | BYTES |
+| ARRAY<br/>STRUCT<br/>MAP | STRING |
+
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
 > Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
+DuckDB `HUGEINT` and `BIGNUM` map to `DECIMAL(38,0)`, SeaTunnel's maximum decimal precision. Values requiring more than 38 decimal digits exceed this precision. Project these values as `VARCHAR` (for example, `CAST(col AS VARCHAR)`) and keep them as `STRING` downstream to preserve the full range.
+
 ## Query schema discovery
+
+All `query` columns now use DuckDB native type names and the DuckDB type mapping. The unsigned widening described below applies only to `query`; `table_path` discovery keeps its existing mapping.
 
 For `query` (including aliases and expressions), DuckDB native result metadata determines the
 schema. `DECIMAL(p,s)` preserves its precision and scale, and `TIMESTAMP WITH TIME ZONE` produces
