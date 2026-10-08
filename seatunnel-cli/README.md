@@ -440,6 +440,8 @@ Transform metadata is resolved through the same path as source and sink metadata
 
 The CLI remembers facts across sessions to improve config accuracy:
 
+Conversation summaries use the same credential redaction as saved history: recognized secrets are removed before the summary request and before the summary is saved.
+
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.
 
