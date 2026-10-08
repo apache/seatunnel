@@ -19,15 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -91,6 +94,18 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
         return DuckDBTypeConverter.DUCKDB_TIMESTAMP_S.equalsIgnoreCase(columnTypeName)
                 || DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS.equalsIgnoreCase(columnTypeName)
                 || DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS.equalsIgnoreCase(columnTypeName);
+    }
+
+    @Override
+    protected LocalTime readTime(ResultSet resultSet, int index) throws SQLException {
+        // java.sql.Time discards DuckDB TIME's fractional seconds.
+        return JdbcFieldTypeUtils.getLocalTime(resultSet, index);
+    }
+
+    @Override
+    protected void writeTime(PreparedStatement statement, int index, LocalTime time)
+            throws SQLException {
+        statement.setObject(index, time);
     }
 
     @Override

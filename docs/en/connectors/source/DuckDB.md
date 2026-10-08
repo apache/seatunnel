@@ -9,7 +9,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
 talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
 remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
-and reading multiple tables in one job through `table_list`.
+and reading multiple tables in one job through `table_list`. The generated hash partition SQL is independent of the JVM default locale.
 
 ## Support DuckDB Version
 
@@ -81,6 +81,8 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 | TIME                                                                | TIME                |
 | TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
 > Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 

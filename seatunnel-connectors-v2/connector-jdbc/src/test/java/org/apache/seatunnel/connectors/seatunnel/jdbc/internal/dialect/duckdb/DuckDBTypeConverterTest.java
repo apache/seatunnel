@@ -34,13 +34,18 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateT
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
+import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Properties;
 
 public class DuckDBTypeConverterTest {
 
@@ -540,6 +545,37 @@ public class DuckDBTypeConverterTest {
         Assertions.assertThrows(
                 SeaTunnelRuntimeException.class,
                 () -> DuckDBTypeConverter.INSTANCE.reconvert(mapColumn));
+    }
+
+    @Test
+    @ResourceLock("java.util.Locale")
+    void testReconvertDecimalDdlIsAsciiUnderLocales() throws Exception {
+        Locale original = Locale.getDefault();
+        try (Connection connection = new DuckDBDriver().connect("jdbc:duckdb:", new Properties());
+                Statement statement = connection.createStatement()) {
+            Locale[] locales = {
+                Locale.ROOT, Locale.forLanguageTag("zh-CN"), Locale.forLanguageTag("ar-EG")
+            };
+            for (Locale locale : locales) {
+                Locale.setDefault(locale);
+                BasicTypeDefine<?> typeDefine =
+                        DuckDBTypeConverter.INSTANCE.reconvert(
+                                PhysicalColumn.builder()
+                                        .name("f_decimal_locale")
+                                        .dataType(new DecimalType(10, 2))
+                                        .build());
+                Assertions.assertEquals("DECIMAL(10,2)", typeDefine.getColumnType());
+                statement.execute("DROP TABLE IF EXISTS t_locale");
+                statement.execute("CREATE TABLE t_locale (f " + typeDefine.getColumnType() + ")");
+                statement.execute("INSERT INTO t_locale VALUES (1.23)");
+                try (ResultSet rs = statement.executeQuery("SELECT f FROM t_locale")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals("1.23", rs.getBigDecimal(1).toPlainString());
+                }
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     private Column convert(String name, String dataType) {
