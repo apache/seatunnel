@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.resource.kubernetes.cli;
 
-import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.KubernetesResourceManagerDriver;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
@@ -44,8 +43,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Runs the Kubernetes application master and its single native job. */
-public final class SeatunnelKubernetesMasterCli {
-    private static final Logger LOG = LoggerFactory.getLogger(SeatunnelKubernetesMasterCli.class);
+public final class SeatunnelKubernetesApplicationCli {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(SeatunnelKubernetesApplicationCli.class);
 
     /**
      * Runs one job and maps its final outcome to the Kubernetes Job process exit code.
@@ -140,21 +140,7 @@ public final class SeatunnelKubernetesMasterCli {
                             }
                         },
                         "seatunnel-kubernetes-application-shutdown");
-        try (AutoCloseable runtime =
-                () -> {
-                    boolean interrupted = Thread.interrupted();
-                    try {
-                        if (server.getCoordinatorService().getInitializedResourceManager()
-                                == null) {
-                            driver.close();
-                        }
-                    } finally {
-                        CompletableFuture.runAsync(master::shutdown).join();
-                        if (interrupted) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                }) {
+        try {
             Runtime.getRuntime().addShutdownHook(shutdown);
             new ApplicationJobRunner(server, specification).run();
         } finally {
@@ -163,6 +149,17 @@ public final class SeatunnelKubernetesMasterCli {
             } catch (IllegalStateException ignored) {
                 // The VM is already executing this hook.
             }
+
+            try {
+                if (server.getCoordinatorService().getInitializedResourceManager() == null) {
+                    driver.close();
+                }
+            } finally {
+                if (Thread.interrupted()) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            master.shutdown();
             stopped.countDown();
         }
     }

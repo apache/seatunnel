@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.cli;
+package org.apache.seatunnel.resource.kubernetes.worker;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
 /** Starts one fixed-slot application worker without Kubernetes API access. */
-public final class SeatunnelKubernetesWorkerCli {
-    private SeatunnelKubernetesWorkerCli() {}
+public final class SeatunnelKubernetesApplicationWorker {
+    private SeatunnelKubernetesApplicationWorker() {}
 
     /**
      * Prepares worker configuration and creates its Engine member. Process termination uses

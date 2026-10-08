@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client.job;
+package org.apache.seatunnel.engine.server.application;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;

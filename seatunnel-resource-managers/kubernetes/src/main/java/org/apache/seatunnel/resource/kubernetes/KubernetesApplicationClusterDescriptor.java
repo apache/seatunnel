@@ -26,7 +26,7 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -81,7 +81,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             api.getConfigMap(parameters.getConfigMap());
         }
         String id = KubernetesResourceFactory.newId(specification.getName());
-        String mainClass = SeatunnelKubernetesMasterCli.class.getName();
+        String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         KubernetesJob job = null;
         try {
 

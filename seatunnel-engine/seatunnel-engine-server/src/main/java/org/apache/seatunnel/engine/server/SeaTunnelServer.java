@@ -91,25 +91,25 @@ public class SeaTunnelServer
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     @Getter private SeaTunnelEngineContext engineContext;
-    private NodeEngineImpl nodeEngine;
-    private final LiveOperationRegistry liveOperationRegistry;
+    @Getter private NodeEngineImpl nodeEngine;
+    @Getter private final LiveOperationRegistry liveOperationRegistry;
 
     private volatile SlotService slotService;
-    private TaskExecutionService taskExecutionService;
-    private ClassLoaderService classLoaderService;
+    @Getter private TaskExecutionService taskExecutionService;
+    @Getter private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
-    private volatile RealtimeMetricsService realtimeMetricsService;
+    @Getter private volatile RealtimeMetricsService realtimeMetricsService;
     private volatile JettyService jettyService;
-    private TaskLogManagerService taskLogManagerService;
+    @Getter private TaskLogManagerService taskLogManagerService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
-    private final SeaTunnelConfig seaTunnelConfig;
+    @Getter private final SeaTunnelConfig seaTunnelConfig;
     private final JarPathResolver jarPathResolver;
-    private final ResourceManagerFactory resourceManagerFactory;
+    @Getter private final ResourceManagerFactory resourceManagerFactory;
 
     private volatile boolean isRunning = true;
 
@@ -318,10 +318,6 @@ public class SeaTunnelServer
         return message;
     }
 
-    public LiveOperationRegistry getLiveOperationRegistry() {
-        return liveOperationRegistry;
-    }
-
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
@@ -357,10 +353,6 @@ public class SeaTunnelServer
         }
     }
 
-    public RealtimeMetricsService getRealtimeMetricsService() {
-        return realtimeMetricsService;
-    }
-
     synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {
         if (realtimeMetricsService != null) {
             return;
@@ -375,14 +367,6 @@ public class SeaTunnelServer
             realtimeMetricsService.shutdown();
             realtimeMetricsService = null;
         }
-    }
-
-    public TaskExecutionService getTaskExecutionService() {
-        return taskExecutionService;
-    }
-
-    public ClassLoaderService getClassLoaderService() {
-        return classLoaderService;
     }
 
     /**
@@ -441,10 +425,6 @@ public class SeaTunnelServer
         return coordinatorService.isCoordinatorActive();
     }
 
-    public SeaTunnelConfig getSeaTunnelConfig() {
-        return seaTunnelConfig;
-    }
-
     /** Returns this member's bound HTTP port, or the configured port before Jetty is available. */
     public int getHttpPort() {
         JettyService service = jettyService;
@@ -453,16 +433,8 @@ public class SeaTunnelServer
                 : service.getHttpPort();
     }
 
-    public NodeEngineImpl getNodeEngine() {
-        return nodeEngine;
-    }
-
     public ConnectorPackageService getConnectorPackageService() {
         return getCoordinatorService().getConnectorPackageService();
-    }
-
-    public TaskLogManagerService getTaskLogManagerService() {
-        return taskLogManagerService;
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {

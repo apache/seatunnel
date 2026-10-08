@@ -30,11 +30,11 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.kubernetes.KubernetesApplicationClusterDescriptorFactory;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -324,9 +324,12 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                     for (V1Pod worker : workers(first)) {
                         assertRuntimeConfigMapMounted(worker);
                         List<String> command = worker.getSpec().getContainers().get(0).getCommand();
-                        assertTrue(command.contains(SeatunnelKubernetesWorkerCli.class.getName()));
+                        assertTrue(
+                                command.contains(
+                                        SeatunnelKubernetesApplicationWorker.class.getName()));
                         int entrypoint =
-                                command.indexOf(SeatunnelKubernetesWorkerCli.class.getName());
+                                command.indexOf(
+                                        SeatunnelKubernetesApplicationWorker.class.getName());
                         assertEquals(
                                 SeatunnelApplicationConfig.clusterName(first.getClusterId()),
                                 command.get(entrypoint + 1));

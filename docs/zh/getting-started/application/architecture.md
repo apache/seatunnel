@@ -50,7 +50,7 @@ flowchart LR
 
 一个 Master 可以协调多个 Worker。固定 slot 总量为 `application.worker-count × application.worker.slots`，实际并行度还取决于作业拓扑。
 
-两个平台都使用独立的 Master、Worker 入口：YARN 分别为 `SeatunnelYarnMasterCli`、`SeatunnelYarnWorkerCli`；Kubernetes 分别为 `SeatunnelKubernetesMasterCli`、`SeatunnelKubernetesWorkerCli`。Worker 入口设置集群名、Master 地址和固定 slot 数，再将配置传给 `SeaTunnelServerStarter.createHazelcastInstance`。YARN 额外使用 Master 的发行包根目录，解析各个 Worker 本地化目录中的 jar 路径。Worker 启动不初始化平台客户端，也不承担整个应用的清理。`SeaTunnelServerStarter.main` 保持原有的按配置启动行为。Worker 进程退出时使用 Hazelcast 自带的 shutdown hook。Worker 的回收由外层 application 生命周期和平台 driver 负责，启动器不会因集群成员变化主动关闭 Worker。如果 Master 进程在清理前异常死亡，需要由平台层负责回收 Worker。
+两个平台都使用独立的 Master、Worker 入口：YARN 分别为 `SeatunnelYarnApplicationCli`、`SeatunnelYarnApplicationWorker`；Kubernetes 分别为 `SeatunnelKubernetesApplicationCli`、`SeatunnelKubernetesApplicationWorker`。Worker 入口设置集群名、Master 地址和固定 slot 数，再将配置传给 `SeaTunnelServerStarter.createHazelcastInstance`。YARN 额外使用 Master 的发行包根目录，解析各个 Worker 本地化目录中的 jar 路径。Worker 启动不初始化平台客户端，也不承担整个应用的清理。`SeaTunnelServerStarter.main` 保持原有的按配置启动行为。Worker 进程退出时使用 Hazelcast 自带的 shutdown hook。Worker 的回收由外层 application 生命周期和平台 driver 负责，启动器不会因集群成员变化主动关闭 Worker。如果 Master 进程在清理前异常死亡，需要由平台层负责回收 Worker。
 
 提交时分离应用配置与平台配置：`SeatunnelApplicationConfig.load(path, overrides)` 读取可选应用文件、合并覆盖值并解析引用；`SeatunnelApplicationConfig.parse(jobPath, options)` 单独读取作业文件，构建强类型、不可变的 `ApplicationSpecification`。CLI 和 Java 调用方共用这些方法。`YarnApplicationConfiguration`、`KubernetesApplicationParameters` 分别持有平台参数。规格对象不保留原始 options map、平台类型，也不负责文件读写。本地化配置使用 `format.version=V1`，只写入应用字段和平台运行所需参数，不携带提交端本地分发包路径或 kubeconfig。Master 入口直接构造 driver，不再需要 driver factory SPI。
 

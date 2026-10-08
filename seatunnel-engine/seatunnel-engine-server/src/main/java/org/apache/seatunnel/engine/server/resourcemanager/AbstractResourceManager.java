@@ -101,6 +101,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         if (!isRunning) {
             throw new IllegalStateException("Resource manager has already been closed");
         }
+        syncExistingWorkerProfiles();
     }
 
     /**

@@ -29,8 +29,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnMasterCli;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnApplicationCli;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
@@ -39,6 +38,7 @@ import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 import org.apache.seatunnel.resource.yarn.launch.YarnLocalResourceDescriptor;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
+import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -140,7 +140,7 @@ class YarnApplicationTest {
                 MockedStatic<YarnStagingDirectory> staging =
                         mockStatic(YarnStagingDirectory.class)) {
             configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
-            SeatunnelYarnWorkerCli.main(
+            SeatunnelYarnApplicationWorker.main(
                     new String[] {"yarn-app", "master:5801", "3", masterHome.toString()});
             ArgumentCaptor<JarPathResolver> resolver =
                     ArgumentCaptor.forClass(JarPathResolver.class);
@@ -193,7 +193,7 @@ class YarnApplicationTest {
                 mockStatic(SeaTunnelServerStarter.class)) {
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> SeatunnelYarnWorkerCli.main(new String[] {"yarn-app"}));
+                    () -> SeatunnelYarnApplicationWorker.main(new String[] {"yarn-app"}));
             starter.verifyNoInteractions();
         }
     }
@@ -410,7 +410,9 @@ class YarnApplicationTest {
             assertFalse(launch.getCommands().get(0).contains("starter/*"));
             assertTrue(launch.getCommands().get(0).contains("starter/logging/*"));
             assertTrue(
-                    launch.getCommands().get(0).contains(SeatunnelYarnMasterCli.class.getName()));
+                    launch.getCommands()
+                            .get(0)
+                            .contains(SeatunnelYarnApplicationCli.class.getName()));
             Path staging =
                     new Path(launch.getEnvironment().get(YarnConstants.STAGING_DIRECTORY_ENV));
             try (FileSystem fileSystem = FileSystem.newInstance(configuration)) {

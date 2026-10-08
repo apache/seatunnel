@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client.cluster.application;
+package org.apache.seatunnel.engine.server.application;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
-import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
@@ -29,16 +29,23 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 
+import com.hazelcast.spi.impl.NodeEngineImpl;
+
 import java.util.concurrent.TimeUnit;
 
 /** Runs one application job on an existing master, independently of the resource platform. */
 public final class ApplicationJobRunner {
+
     private final SeaTunnelServer server;
+    private final NodeEngineImpl nodeEngine;
+    private final EngineConfig engineConfig;
     private final ApplicationSpecification specification;
 
     /** Uses an existing master and its localized, resolved application specification. */
     public ApplicationJobRunner(SeaTunnelServer server, ApplicationSpecification specification) {
         this.server = server;
+        this.nodeEngine = server.getNodeEngine();
+        this.engineConfig = server.getSeaTunnelConfig().getEngineConfig();
         this.specification = specification;
     }
 
@@ -51,8 +58,11 @@ public final class ApplicationJobRunner {
      * @throws Exception if startup, execution, cancellation or resource cleanup fails
      */
     public void run() throws Exception {
-        ApplicationResourceManager<?> resources =
-                (ApplicationResourceManager<?>) server.getCoordinatorService().getResourceManager();
+        ApplicationResourceManager resources =
+                (ApplicationResourceManager)
+                        server.getResourceManagerFactory()
+                                .createResourceManager(nodeEngine, engineConfig);
+        resources.startApplicationWorkers();
         CompletableFuture<Void> cancellation = new CompletableFuture<>();
         CompletableFuture<JobResult> execution = null;
         JobResult result = null;

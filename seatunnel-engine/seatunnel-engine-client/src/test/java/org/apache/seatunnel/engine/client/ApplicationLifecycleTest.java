@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client.application;
+package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
-import org.apache.seatunnel.engine.client.SeaTunnelClient;
-import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
-import org.apache.seatunnel.engine.client.job.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
@@ -45,6 +42,8 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.application.ApplicationJobExecutionEnvironment;
+import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;

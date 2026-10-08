@@ -30,8 +30,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
@@ -40,6 +39,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesRes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,7 +113,8 @@ class KubernetesApplicationTest {
                 MockedStatic<KubernetesClientFactory> clients =
                         mockStatic(KubernetesClientFactory.class)) {
             configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
-            SeatunnelKubernetesWorkerCli.main(new String[] {"kubernetes-app", "master:5801", "2"});
+            SeatunnelKubernetesApplicationWorker.main(
+                    new String[] {"kubernetes-app", "master:5801", "2"});
             ArgumentCaptor<JarPathResolver> resolver =
                     ArgumentCaptor.forClass(JarPathResolver.class);
             starter.verify(
@@ -156,12 +157,14 @@ class KubernetesApplicationTest {
                 mockStatic(SeaTunnelServerStarter.class)) {
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> SeatunnelKubernetesWorkerCli.main(new String[] {"kubernetes-app"}));
+                    () ->
+                            SeatunnelKubernetesApplicationWorker.main(
+                                    new String[] {"kubernetes-app"}));
             assertEquals(
                     1,
                     catchSystemExit(
                             () ->
-                                    SeatunnelKubernetesMasterCli.main(
+                                    SeatunnelKubernetesApplicationCli.main(
                                             new String[] {"kubernetes-app", "master:5801", "2"})));
             starter.verifyNoInteractions();
         }
@@ -402,7 +405,7 @@ class KubernetesApplicationTest {
         KubernetesJob job =
                 KubernetesResourceFactory.job(
                         "app",
-                        SeatunnelKubernetesMasterCli.class.getName(),
+                        SeatunnelKubernetesApplicationCli.class.getName(),
                         KubernetesApplicationParameters.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
         job.getInternalResource().getMetadata().setUid("uid-1");

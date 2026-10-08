@@ -32,20 +32,7 @@ public class StandaloneResourceManager extends AbstractResourceManager {
     /** Synchronizes existing worker slots without creating external worker processes. */
     @Override
     public synchronized void init() {
-        super.init();
         log.info("Init standalone ResourceManager");
-        try {
-            syncExistingWorkerProfiles();
-        } catch (Exception e) {
-            IllegalStateException initializationFailure =
-                    new IllegalStateException(
-                            "Could not initialize standalone resource manager", e);
-            try {
-                close();
-            } catch (RuntimeException cleanupFailure) {
-                initializationFailure.addSuppressed(cleanupFailure);
-            }
-            throw initializationFailure;
-        }
+        super.init();
     }
 }

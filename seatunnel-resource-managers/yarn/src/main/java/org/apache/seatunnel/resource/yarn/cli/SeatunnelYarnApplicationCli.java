@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.resource.yarn.cli;
 
-import org.apache.seatunnel.engine.client.cluster.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriver;
@@ -50,9 +49,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Runs the YARN application master and its single native job. */
-public final class SeatunnelYarnMasterCli {
+public final class SeatunnelYarnApplicationCli {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SeatunnelYarnMasterCli.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SeatunnelYarnApplicationCli.class);
 
     /** Runs the native job and releases staged artifacts on normal or interrupted shutdown. */
     public static void main(String[] args) {
@@ -84,8 +83,8 @@ public final class SeatunnelYarnMasterCli {
                         },
                         "seatunnel-yarn-staging-cleanup");
         Runtime.getRuntime().addShutdownHook(cleanup);
-        try (AutoCloseable stagedArtifacts =
-                () -> YarnStagingDirectory.cleanup(configuration, staging)) {
+
+        try {
             String container = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.name());
             String id =
                     ContainerId.fromString(container)
@@ -149,22 +148,9 @@ public final class SeatunnelYarnMasterCli {
                                 }
                             },
                             "seatunnel-yarn-application-shutdown");
-            try (AutoCloseable runtime =
-                    () -> {
-                        boolean interrupted = Thread.interrupted();
-                        try {
-                            if (server.getCoordinatorService().getInitializedResourceManager()
-                                    == null) {
-                                driver.close();
-                            }
-                        } finally {
-                            CompletableFuture.runAsync(master::shutdown).join();
-                            if (interrupted) {
-                                Thread.currentThread().interrupt();
-                            }
-                        }
-                    }) {
+            try {
                 Runtime.getRuntime().addShutdownHook(shutdown);
+
                 new ApplicationJobRunner(server, specification).run();
             } finally {
                 try {
@@ -172,6 +158,18 @@ public final class SeatunnelYarnMasterCli {
                 } catch (IllegalStateException ignored) {
                     // The VM is already executing this hook.
                 }
+
+                try {
+                    if (server.getCoordinatorService().getInitializedResourceManager() == null) {
+                        driver.close();
+                    }
+                } finally {
+                    if (Thread.interrupted()) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+
+                master.shutdown();
                 stopped.countDown();
             }
         } finally {

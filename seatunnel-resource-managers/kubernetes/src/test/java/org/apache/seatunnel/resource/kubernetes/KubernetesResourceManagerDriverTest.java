@@ -24,7 +24,7 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -346,7 +346,7 @@ class KubernetesResourceManagerDriverTest {
         KubernetesJob job =
                 KubernetesResourceFactory.job(
                         "app",
-                        SeatunnelKubernetesMasterCli.class.getName(),
+                        SeatunnelKubernetesApplicationCli.class.getName(),
                         KubernetesApplicationParameters.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
         job.getInternalResource().getMetadata().setUid("uid-1");

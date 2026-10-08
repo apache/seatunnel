@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cli;
+package org.apache.seatunnel.resource.yarn.worker;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -29,8 +29,8 @@ import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import java.nio.file.Paths;
 
 /** Starts one localized application worker without owning YARN application cleanup. */
-public final class SeatunnelYarnWorkerCli {
-    private SeatunnelYarnWorkerCli() {}
+public final class SeatunnelYarnApplicationWorker {
+    private SeatunnelYarnApplicationWorker() {}
 
     /**
      * Prepares worker configuration and local jar resolution before creating the Engine member.

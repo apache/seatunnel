@@ -18,8 +18,8 @@
 package org.apache.seatunnel.resource.yarn.launch;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnMasterCli;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
+import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnApplicationCli;
+import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -54,7 +54,7 @@ public final class YarnContainerLaunchContextFactory {
                 localized,
                 staging,
                 memoryMb,
-                SeatunnelYarnMasterCli.class.getName(),
+                SeatunnelYarnApplicationCli.class.getName(),
                 Collections.emptyList());
     }
 
@@ -80,7 +80,7 @@ public final class YarnContainerLaunchContextFactory {
                 YarnLocalResources.resolve(configuration, staging),
                 staging,
                 specification.getMemoryMb(),
-                SeatunnelYarnWorkerCli.class.getName(),
+                SeatunnelYarnApplicationWorker.class.getName(),
                 Arrays.asList(
                         clusterName,
                         masterAddress,

@@ -114,26 +114,12 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
     /** Initializes this application's worker lifecycle; called once by the coordinator. */
     @Override
     public synchronized void init() {
-        super.init();
         log.info("Init application ResourceManager");
-        try {
-            syncExistingWorkerProfiles();
-            initializeResourceManager();
-        } catch (Exception e) {
-            IllegalStateException initializationFailure =
-                    new IllegalStateException(
-                            "Could not initialize application resource manager", e);
-            try {
-                close();
-            } catch (RuntimeException cleanupFailure) {
-                initializationFailure.addSuppressed(cleanupFailure);
-            }
-            throw initializationFailure;
-        }
+        super.init();
     }
 
     /** Starts driver initialization and worker registration without blocking the master thread. */
-    private void initializeResourceManager() {
+    public void startApplicationWorkers() {
         startupDeadline =
                 System.nanoTime()
                         + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());

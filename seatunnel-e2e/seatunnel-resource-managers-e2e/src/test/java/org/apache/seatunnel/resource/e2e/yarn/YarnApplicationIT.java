@@ -27,8 +27,8 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
+import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -303,7 +303,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                             .getLaunchContext()
                             .getCommands()
                             .get(0)
-                            .contains(SeatunnelYarnWorkerCli.class.getName()));
+                            .contains(SeatunnelYarnApplicationWorker.class.getName()));
             await().atMost(Duration.ofMinutes(3))
                     .untilAsserted(
                             () ->

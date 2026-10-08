@@ -21,14 +21,14 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesMasterCli;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesWorkerCli;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
+import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -56,7 +56,7 @@ class KubernetesResourceFactoryTest {
 
     @TempDir Path temporary;
 
-    private static final String mainClass = SeatunnelKubernetesMasterCli.class.getName();
+    private static final String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
 
     @ParameterizedTest
     @ValueSource(strings = {"Always", "IfNotPresent", "Never"})
@@ -171,7 +171,7 @@ class KubernetesResourceFactoryTest {
                         .getContainers()
                         .get(0)
                         .getCommand()
-                        .contains(SeatunnelKubernetesMasterCli.class.getName()));
+                        .contains(SeatunnelKubernetesApplicationCli.class.getName()));
         assertTrue(jobResource.getSpec().getSuspend());
         assertEquals(0, jobResource.getSpec().getBackoffLimit());
         assertEquals("Never", jobResource.getSpec().getTemplate().getSpec().getRestartPolicy());
@@ -289,7 +289,8 @@ class KubernetesResourceFactoryTest {
                 worker.getSpec().getContainers().get(0).getVolumeMounts().get(0).getMountPath());
         assertEquals("java", worker.getSpec().getContainers().get(0).getCommand().get(0));
         List<String> workerCommand = worker.getSpec().getContainers().get(0).getCommand();
-        int entrypoint = workerCommand.indexOf(SeatunnelKubernetesWorkerCli.class.getName());
+        int entrypoint =
+                workerCommand.indexOf(SeatunnelKubernetesApplicationWorker.class.getName());
         assertTrue(entrypoint >= 0);
         assertEquals(
                 Arrays.asList("isolated-cluster", "10.0.0.1:5801", "2"),
@@ -299,7 +300,7 @@ class KubernetesResourceFactoryTest {
                         .getContainers()
                         .get(0)
                         .getCommand()
-                        .contains(SeatunnelKubernetesWorkerCli.class.getName()));
+                        .contains(SeatunnelKubernetesApplicationWorker.class.getName()));
         assertTrue(
                 worker.getSpec()
                         .getContainers()

@@ -20,8 +20,8 @@ package org.apache.seatunnel.resource.yarn;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnWorkerCli;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
+import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -152,7 +152,7 @@ class YarnResourceManagerDriverTest {
                     ArgumentCaptor.forClass(ContainerLaunchContext.class);
             verify(nodeManager).startContainer(any(), launch.capture());
             String command = launch.getValue().getCommands().get(0);
-            assertTrue(command.contains(SeatunnelYarnWorkerCli.class.getName()));
+            assertTrue(command.contains(SeatunnelYarnApplicationWorker.class.getName()));
             assertTrue(command.contains("'application-test' 'localhost:5801' '2'"));
             assertTrue(command.contains("'" + temporary + "'"));
             assertSame(container, worker.getContainer());
