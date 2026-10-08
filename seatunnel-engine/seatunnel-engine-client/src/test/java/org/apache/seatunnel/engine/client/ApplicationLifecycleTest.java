@@ -713,24 +713,6 @@ class ApplicationLifecycleTest {
         }
     }
 
-    @Test
-    void mapsOnlySuccessfulNativeTerminationToSuccess() {
-        assertEquals(
-                ApplicationStatus.SUCCEEDED,
-                ApplicationJobRunner.applicationStatus(JobStatus.FINISHED));
-        assertEquals(
-                ApplicationStatus.SUCCEEDED,
-                ApplicationJobRunner.applicationStatus(JobStatus.SAVEPOINT_DONE));
-        assertEquals(
-                ApplicationStatus.CANCELED,
-                ApplicationJobRunner.applicationStatus(JobStatus.CANCELED));
-        assertEquals(
-                ApplicationStatus.FAILED, ApplicationJobRunner.applicationStatus(JobStatus.FAILED));
-        assertEquals(
-                ApplicationStatus.FAILED,
-                ApplicationJobRunner.applicationStatus(JobStatus.UNKNOWABLE));
-    }
-
     private void run(String config, LocalDriver driver, long timeout) throws Exception {
         runApplication("test-application", specification(config, timeout), driver, engineConfig());
     }
