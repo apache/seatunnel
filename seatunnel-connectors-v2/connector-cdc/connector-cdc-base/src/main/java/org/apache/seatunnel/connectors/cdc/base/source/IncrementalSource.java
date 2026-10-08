@@ -453,6 +453,13 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
      * captured" matches what the checkpoint actually tracked, regardless of schema drift between
      * job start and restart.
      *
+     * <p>Note on divergence from the hybrid restore path (intentional): unlike the hybrid {@code
+     * restore(...)} path, which reconciles the checkpoint's table set with live discovery, a
+     * snapshot-only restore deliberately uses the checkpoint's table set verbatim. Tables dropped
+     * after the checkpoint are still in the set and their (empty) pending splits resolve at read
+     * time, while tables added after the checkpoint are intentionally not picked up — the job is
+     * completing its original bounded snapshot, not expanding to new tables.
+     *
      * @param snapshotState the checkpoint snapshot phase state
      * @return the set of table IDs captured by this checkpoint
      */

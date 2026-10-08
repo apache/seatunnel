@@ -27,11 +27,13 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -45,11 +47,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.await;
 
 /**
  * End-to-end test for MySQL CDC {@code startup.mode = "snapshot-only"}.
@@ -92,8 +90,10 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
     }
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+    protected final ContainerExtendedFactory extendedFactory =
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @BeforeAll
     @Override
@@ -114,29 +114,23 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
     }
 
     @TestTemplate
-    public void testMysqlCdcSnapshotOnly(TestContainer container) {
-        clearTable(MYSQL_DATABASE, SOURCE_TABLE);
+    public void testMysqlCdcSnapshotOnly(TestContainer container) throws Exception {
+        // The DDL script seeds the source table; keep those rows so the comparison is
+        // meaningful. Only clear the sink so it starts empty.
         clearTable(MYSQL_DATABASE, SINK_TABLE);
 
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob(CONF_FILE);
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        // The source must be non-empty, otherwise the assertion below would pass vacuously.
+        List<List<Object>> expected = query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE));
+        Assertions.assertFalse(
+                expected.isEmpty(), "source table must contain rows for a meaningful comparison");
 
-        // Snapshot-only job should complete and sync all data
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE)),
-                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
-                        });
+        // Run the snapshot-only job synchronously and assert it terminates with exit code 0.
+        Container.ExecResult result = container.executeJob(CONF_FILE);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        // The snapshot-only job must have copied every source row into the sink exactly once.
+        Assertions.assertIterableEquals(
+                expected, query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
     }
 
     private List<List<Object>> query(String sql) {
@@ -196,7 +190,8 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                 + " from "
                 + database
                 + "."
-                + tableName;
+                + tableName
+                + " order by id";
     }
 
     private String getSinkQuerySQL(String database, String tableName) {
@@ -217,6 +212,7 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                 + " from "
                 + database
                 + "."
-                + tableName;
+                + tableName
+                + " order by id";
     }
 }
