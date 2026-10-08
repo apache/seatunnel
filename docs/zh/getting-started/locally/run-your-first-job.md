@@ -27,7 +27,7 @@ connector-console
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(fake|console)'
+ls connectors | grep -E 'connector-(fake|console)'
 ```
 
 ## 步骤 3：使用最小可运行配置
