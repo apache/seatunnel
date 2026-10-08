@@ -208,6 +208,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 planMap,
                 checkpointConfig,
                 checkpointStorage,
+                null,
                 instance.getExecutorService("test"),
                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                 server.getEngineContext(),

@@ -27,6 +27,15 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStor
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestEntry;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestValidator;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointRequest;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -41,14 +50,22 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
+import static org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants.META_FILE_NAME;
+import static org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants.PAYLOAD_FORMAT_V1;
+import static org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants.SAVEPOINT_ROOT_DIR;
+import static org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants.STAGING_DIR;
 
 @Slf4j
-public class HdfsStorage extends AbstractCheckpointStorage {
+public class HdfsStorage extends AbstractCheckpointStorage implements SavepointStorage {
 
     public FileSystem fs;
     private static final String STORAGE_TMP_SUFFIX = "tmp";
@@ -372,6 +389,332 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                             "Failed to read checkpoint data, file name is %s,job id is %s",
                             fileName, jobId),
                     e);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // SavepointStorage capability
+    // ------------------------------------------------------------------------
+
+    @Override
+    public SavepointWriter beginSavepoint(SavepointRequest request) {
+        return new HdfsSavepointWriter(request);
+    }
+
+    @Override
+    public List<SavepointHandle> listCompletedSavepoints(String jobId)
+            throws CheckpointStorageException {
+        try {
+            Path jobDir = savepointJobDirectory(jobId);
+            if (!fs.exists(jobDir)) {
+                return new ArrayList<>();
+            }
+            List<SavepointHandle> handles = new ArrayList<>();
+            for (FileStatus status : fs.listStatus(jobDir)) {
+                if (!status.isDirectory() || STAGING_DIR.equals(status.getPath().getName())) {
+                    continue;
+                }
+                Path metaPath = new Path(status.getPath(), META_FILE_NAME);
+                if (!fs.exists(metaPath)) {
+                    continue;
+                }
+                try {
+                    SavepointMeta meta = SavepointStorageUtils.deserializeMeta(readBytes(metaPath));
+                    SavepointStorageUtils.verifyManifestChecksum(meta);
+                    if (!meta.getSavepointId().equals(status.getPath().getName())) {
+                        continue;
+                    }
+                    if (!manifestFilesComplete(status.getPath(), meta)) {
+                        continue;
+                    }
+                    handles.add(
+                            new SavepointHandle(
+                                    jobId,
+                                    meta.getSavepointId(),
+                                    meta.getFormatVersion(),
+                                    meta.getTriggerTimestamp(),
+                                    meta.getPipelines().size()));
+                } catch (Exception e) {
+                    log.warn("Skip unreadable savepoint bundle {}", status.getPath(), e);
+                }
+            }
+            handles.sort(
+                    Comparator.comparingLong(SavepointHandle::getTriggerTimestamp)
+                            .reversed()
+                            .thenComparing(
+                                    SavepointHandle::getSavepointId, Comparator.reverseOrder()));
+            return handles;
+        } catch (IOException e) {
+            throw new CheckpointStorageException("Failed to list savepoints for job " + jobId, e);
+        }
+    }
+
+    @Override
+    public SavepointData readSavepoint(String jobId, String savepointId)
+            throws CheckpointStorageException {
+        try {
+            Path dir = savepointDirectory(jobId, savepointId);
+            Path metaPath = new Path(dir, META_FILE_NAME);
+            if (!fs.exists(metaPath)) {
+                throw new CheckpointStorageException(
+                        "Savepoint not found: job " + jobId + ", savepoint " + savepointId);
+            }
+            SavepointMeta meta = SavepointStorageUtils.deserializeMeta(readBytes(metaPath));
+            SavepointStorageUtils.verifyManifestChecksum(meta);
+            SavepointManifestValidator.validateMetadata(meta, jobId, savepointId);
+            Map<Integer, PipelineState> pipelineStates = new HashMap<>();
+            for (SavepointManifestEntry entry : meta.getPipelines()) {
+                Path payload = new Path(dir, entry.getPayloadFile());
+                byte[] bytes = readBytes(payload);
+                if (bytes.length != entry.getPayloadLength()) {
+                    throw new CheckpointStorageException(
+                            "Savepoint payload length mismatch for job "
+                                    + jobId
+                                    + ", savepoint "
+                                    + savepointId
+                                    + ", pipeline "
+                                    + entry.getPipelineId()
+                                    + ": expected "
+                                    + entry.getPayloadLength()
+                                    + ", got "
+                                    + bytes.length);
+                }
+                if (!SavepointStorageUtils.sha256Hex(bytes).equals(entry.getPayloadChecksum())) {
+                    throw new CheckpointStorageException(
+                            "Savepoint payload checksum mismatch for job "
+                                    + jobId
+                                    + ", savepoint "
+                                    + savepointId
+                                    + ", pipeline "
+                                    + entry.getPipelineId());
+                }
+                pipelineStates.put(entry.getPipelineId(), deserializeCheckPointData(bytes));
+            }
+            SavepointManifestValidator.validate(meta, jobId, savepointId, pipelineStates);
+            return new SavepointData(jobId, savepointId, meta, pipelineStates);
+        } catch (IOException e) {
+            throw new CheckpointStorageException(
+                    "Failed to read savepoint " + savepointId + " for job " + jobId, e);
+        }
+    }
+
+    @Override
+    public void deleteSavepoint(String jobId, String savepointId)
+            throws CheckpointStorageException {
+        try {
+            Path dir = savepointDirectory(jobId, savepointId);
+            if (fs.exists(dir)) {
+                fs.delete(dir, true);
+            }
+        } catch (IOException e) {
+            throw new CheckpointStorageException(
+                    "Failed to delete savepoint " + savepointId + " for job " + jobId, e);
+        }
+    }
+
+    @Override
+    public void deleteSavepoints(String jobId) throws CheckpointStorageException {
+        try {
+            Path jobDir = savepointJobDirectory(jobId);
+            if (fs.exists(jobDir)) {
+                fs.delete(jobDir, true);
+            }
+        } catch (IOException e) {
+            throw new CheckpointStorageException("Failed to delete savepoints for job " + jobId, e);
+        }
+    }
+
+    private Path savepointRoot() {
+        return new Path(getStorageParentDirectory(), SAVEPOINT_ROOT_DIR);
+    }
+
+    private Path savepointJobDirectory(String jobId) {
+        return new Path(savepointRoot(), jobId);
+    }
+
+    private Path savepointDirectory(String jobId, String savepointId) {
+        return new Path(savepointJobDirectory(jobId), savepointId);
+    }
+
+    private boolean manifestFilesComplete(Path dir, SavepointMeta meta) {
+        for (SavepointManifestEntry entry : meta.getPipelines()) {
+            try {
+                Path payload = new Path(dir, entry.getPayloadFile());
+                if (!fs.exists(payload)
+                        || fs.getFileStatus(payload).getLen() != entry.getPayloadLength()) {
+                    return false;
+                }
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private byte[] readBytes(Path path) throws IOException {
+        try (FSDataInputStream in = fs.open(path);
+                ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            IOUtils.copyBytes(in, stream, 1024);
+            return stream.toByteArray();
+        }
+    }
+
+    /** Savepoint writer implemented on top of the Hadoop file system. */
+    private final class HdfsSavepointWriter implements SavepointWriter {
+
+        private final SavepointRequest request;
+        private final Path stagingDir;
+        /** File name -> serialized payload bytes written to staging. */
+        private final Map<String, byte[]> written = new LinkedHashMap<>();
+
+        private final Map<String, Integer> pipelineIds = new HashMap<>();
+        private final Map<String, Long> checkpointIds = new HashMap<>();
+
+        HdfsSavepointWriter(SavepointRequest request) {
+            this.request = request;
+            this.stagingDir =
+                    new Path(
+                            new Path(new Path(savepointRoot(), request.getJobId()), STAGING_DIR),
+                            request.getAttemptId());
+        }
+
+        /**
+         * Write one pipeline payload. Synchronized because all pipeline coordinators of the job
+         * share this writer and call it concurrently - the in-memory manifest state must be
+         * consistent.
+         */
+        @Override
+        public synchronized void writePipeline(PipelineState state)
+                throws CheckpointStorageException {
+            byte[] data;
+            try {
+                data = serializeCheckPointData(state);
+            } catch (IOException e) {
+                throw new CheckpointStorageException(
+                        "Failed to serialize savepoint pipeline data", e);
+            }
+            String fileName =
+                    SavepointStorageUtils.pipelinePayloadFileName(
+                            state.getPipelineId(), state.getCheckpointId());
+            Path tmp = new Path(stagingDir, fileName + STORAGE_TMP_SUFFIX);
+            Path out = new Path(stagingDir, fileName);
+            try {
+                fs.mkdirs(stagingDir);
+                try (FSDataOutputStream outStream = fs.create(tmp, false)) {
+                    outStream.write(data);
+                }
+                boolean success = fs.rename(tmp, out);
+                if (!success) {
+                    throw new CheckpointStorageException(
+                            "Failed to rename savepoint payload tmp file to " + out);
+                }
+            } catch (IOException e) {
+                throw new CheckpointStorageException("Failed to write savepoint payload " + out, e);
+            }
+            written.put(fileName, data);
+            pipelineIds.put(fileName, state.getPipelineId());
+            checkpointIds.put(fileName, state.getCheckpointId());
+        }
+
+        @Override
+        public synchronized void commitSavepoint(SavepointMeta meta)
+                throws CheckpointStorageException {
+            if (written.isEmpty()) {
+                throw new CheckpointStorageException(
+                        "No pipeline payload written for savepoint " + request.getSavepointId());
+            }
+            if (!request.getSavepointId().equals(meta.getSavepointId())) {
+                throw new CheckpointStorageException(
+                        "Savepoint id mismatch: request "
+                                + request.getSavepointId()
+                                + " vs metadata "
+                                + meta.getSavepointId());
+            }
+            validateCompleteBundle();
+            Path finalDir = savepointDirectory(request.getJobId(), request.getSavepointId());
+            try {
+                if (fs.exists(new Path(finalDir, META_FILE_NAME))) {
+                    throw new CheckpointStorageException(
+                            "Savepoint already exists: job "
+                                    + request.getJobId()
+                                    + ", savepoint "
+                                    + request.getSavepointId());
+                }
+                List<SavepointManifestEntry> entries = new ArrayList<>();
+                written.forEach(
+                        (fileName, data) ->
+                                entries.add(
+                                        new SavepointManifestEntry(
+                                                pipelineIds.get(fileName),
+                                                checkpointIds.get(fileName),
+                                                fileName,
+                                                data.length,
+                                                SavepointStorageUtils.sha256Hex(data),
+                                                PAYLOAD_FORMAT_V1)));
+                meta.setPipelines(entries);
+                SavepointStorageUtils.verifyManifestComplete(request.getSavepointId(), entries);
+                meta.setManifestChecksum(SavepointStorageUtils.manifestChecksum(entries));
+
+                fs.mkdirs(finalDir);
+                FileStatus[] staged =
+                        fs.exists(stagingDir) ? fs.listStatus(stagingDir) : new FileStatus[0];
+                for (FileStatus status : staged) {
+                    if (status.getPath().getName().endsWith(STORAGE_TMP_SUFFIX)) {
+                        continue;
+                    }
+                    Path target = new Path(finalDir, status.getPath().getName());
+                    if (fs.exists(target)) {
+                        fs.delete(target, false);
+                    }
+                    boolean success = fs.rename(status.getPath(), target);
+                    if (!success) {
+                        throw new CheckpointStorageException(
+                                "Failed to move savepoint payload "
+                                        + status.getPath()
+                                        + " to "
+                                        + target);
+                    }
+                }
+                Path metaTmp = new Path(finalDir, META_FILE_NAME + STORAGE_TMP_SUFFIX);
+                try (FSDataOutputStream outStream = fs.create(metaTmp, true)) {
+                    outStream.write(SavepointStorageUtils.serializeMeta(meta));
+                }
+                if (fs.exists(new Path(finalDir, META_FILE_NAME))) {
+                    fs.delete(new Path(finalDir, META_FILE_NAME), false);
+                }
+                boolean success = fs.rename(metaTmp, new Path(finalDir, META_FILE_NAME));
+                if (!success) {
+                    throw new CheckpointStorageException(
+                            "Failed to rename savepoint metadata tmp file for "
+                                    + request.getSavepointId());
+                }
+                if (fs.exists(stagingDir)) {
+                    fs.delete(stagingDir, true);
+                }
+            } catch (CheckpointStorageException e) {
+                throw e;
+            } catch (IOException e) {
+                throw new CheckpointStorageException(
+                        "Failed to commit savepoint " + request.getSavepointId(), e);
+            }
+        }
+
+        /** Rejects a commit that does not cover exactly the expected pipelines (if declared). */
+        private void validateCompleteBundle() throws CheckpointStorageException {
+            Set<Integer> actualPipelineIds = new HashSet<>(pipelineIds.values());
+            SavepointStorageUtils.verifyCompleteBundle(
+                    request.getSavepointId(), actualPipelineIds, request.getExpectedPipelineIds());
+        }
+
+        @Override
+        public synchronized void abortSavepoint() {
+            try {
+                if (fs.exists(stagingDir)) {
+                    fs.delete(stagingDir, true);
+                }
+            } catch (IOException e) {
+                log.warn("Failed to abort savepoint staging {}", stagingDir, e);
+            }
         }
     }
 }
