@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory
 import org.apache.seatunnel.resource.kubernetes.KubernetesResourceManagerDriver;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 
 import org.slf4j.Logger;
@@ -87,7 +88,7 @@ public final class SeatunnelKubernetesApplicationCli {
                 .getNetworkConfig()
                 .setPort(specification.getMasterPort())
                 .setPortAutoIncrement(false);
-        String host = System.getenv("SEATUNNEL_APPLICATION_MASTER_HOST");
+        String host = System.getenv(KubernetesConstants.MASTER_HOST_ENV);
         if (host != null && !host.trim().isEmpty()) {
             engineConfiguration
                     .getHazelcastConfig()
