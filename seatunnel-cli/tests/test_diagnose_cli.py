@@ -92,7 +92,8 @@ def test_a_failed_job_prints_the_error_code_and_exits_nonzero(engine):
     assert code == 1
     assert "mysql-to-doris" in out
     assert "JDBC-05" in out
-    assert engine.paths == ["/job-info/852"]
+    # Both reads are issued, and both are GETs, so the command stays read-only.
+    assert engine.paths == ["/job-info/852", "/jobs/checkpoints/852"]
 
 
 _NOW = 1_760_000_000_000
@@ -344,3 +345,231 @@ def test_credentials_in_the_error_message_are_redacted(engine):
 
     assert code == 1
     assert "sup3rs3cret" not in out
+
+
+def _routed(job_info, checkpoints=None, checkpoint_status=200):
+    """Serve job-info and the checkpoint overview from one fake engine."""
+
+    def script(handler):
+        if handler.path.startswith("/jobs/checkpoints/"):
+            if checkpoints is None:
+                return checkpoint_status, "no checkpoint data"
+            return checkpoint_status, json.dumps(checkpoints)
+        return 200, json.dumps(job_info)
+
+    return script
+
+
+def _slow_checkpoint_history(count=8):
+    # Newest first, matching the engine. Recent checkpoints take 40s, older
+    # ones took 4s, so the job has visibly got slower.
+    now = 1_760_000_000_000
+    entries = []
+    for index in range(count):
+        duration = 40_000 if index < count // 2 else 4_000
+        entries.append(
+            {
+                "pipelineId": 1,
+                "checkpoint": {
+                    "checkpointId": 500 - index,
+                    "status": "COMPLETED",
+                    "triggerTimestamp": now - index * 600_000,
+                    "completedTimestamp": now - index * 600_000 + duration,
+                    "durationMillis": duration,
+                    "stateSize": 4096,
+                },
+            }
+        )
+    return entries
+
+
+def test_a_slowing_cdc_job_is_explained_even_though_rows_still_flow(engine):
+    # This is the case job-info alone cannot answer: RUNNING, both counters
+    # moving, no restores. Without the checkpoint read the only output would
+    # be "Running for ...", which restates the symptom.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobName": "mysql-cdc-to-doris",
+            "jobStatus": "RUNNING",
+            "metrics": {"SourceReceivedCount": "184203311", "SinkWriteCount": "184201902"},
+        },
+        {"jobId": "852", "pipelines": [{"pipelineId": 1, "history": _slow_checkpoint_history()}]},
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    assert "getting slower" in out
+    assert "40.0s" in out and "4.0s" in out
+
+
+def test_a_missing_checkpoint_endpoint_does_not_break_the_diagnosis(engine):
+    # An older engine has no such endpoint. The job diagnosis must survive it,
+    # because losing the whole answer to gain one optional rule is a bad trade.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "FAILED",
+            "errorMsg": "ErrorCode:[JDBC-05], ErrorDescription:[Connection failed]",
+        },
+        checkpoint_status=404,
+    )
+
+    code, out = _run()
+
+    assert code == 1
+    assert "JDBC-05" in out
+    # No notice for a terminal job: a finished or failed job legitimately has
+    # no checkpoint overview retained, so reporting its absence would fire on
+    # every one of them. The live-job case is covered below.
+    assert "No checkpoint history" not in out
+
+
+def test_a_healthy_job_with_no_checkpoint_data_does_not_look_fully_checked(engine):
+    # The combination that matters: the job-level rules ran and found nothing,
+    # while the checkpoint read failed. Without the notice this prints only
+    # "Nothing to report", which reads as "the slowdown checks ran and found
+    # nothing". The job carries a diagnostics block so that this test isolates
+    # the checkpoint gap rather than also tripping the job-level one.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "RUNNING",
+            "diagnostics": {"generatedAt": _NOW, "stateTimestamps": {"RUNNING": _NOW - 5_000}},
+        },
+        checkpoint_status=404,
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    assert "No checkpoint history for this job" in out
+    # The notice replaces "Nothing to report" rather than sitting next to it:
+    # the slowdown half never ran, so a clean bill of health is not something
+    # this output can give.
+    assert "Nothing to report" not in out
+
+
+def test_a_cluster_with_the_monitor_off_is_reported_not_passed_over(engine):
+    # The shape that actually occurs: with the monitor service off, or with
+    # nothing recorded for the job yet, CheckpointMonitorRestService answers
+    # 200 with only {"jobId": ...} and no `pipelines`. That is not an
+    # exception, so an except-only notice would never print and the output
+    # would end on "Nothing to report" with the slowdown half never run.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "RUNNING",
+            "diagnostics": {"generatedAt": _NOW, "stateTimestamps": {"RUNNING": _NOW - 5_000}},
+        },
+        checkpoints={"jobId": "852"},
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    assert "No checkpoint history for this job" in out
+    assert "Nothing to report" not in out
+
+
+def test_an_unparsable_checkpoint_response_does_not_break_the_diagnosis(engine):
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "FAILED",
+            "errorMsg": "ErrorCode:[JDBC-05], ErrorDescription:[Connection failed]",
+        },
+        checkpoint_status=200,
+    )
+
+    code, out = _run()
+
+    assert code == 1
+    assert "JDBC-05" in out
+
+
+def test_a_checkpoint_error_outranks_a_job_level_info_line(engine):
+    # The two rule sets are merged and sorted together. Sorting them
+    # separately would print "Running for 72h" above a stalled checkpoint.
+    now = 1_760_000_000_000
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "RUNNING",
+            "diagnostics": {"stateTimestamps": {"RUNNING": now - 72 * 3600 * 1000}},
+        },
+        {
+            "jobId": "852",
+            "pipelines": [
+                {
+                    "pipelineId": 1,
+                    "inProgress": [
+                        {
+                            "checkpointId": 91,
+                            "triggerTimestamp": now - 1800 * 1000,
+                            "acknowledged": 2,
+                            "total": 6,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    lines = [line for line in out.splitlines() if "[error]" in line or "[info]" in line]
+    assert "[error]" in lines[0]
+    assert "2 of 6" in out
+
+
+def test_the_severity_label_is_printed_and_not_eaten_as_markup(engine):
+    # "error" is a style name in THEME, so rich would treat the "[error]"
+    # prefix as a style tag and drop it, leaving severity carried by colour
+    # alone -- lost in a pipe, in CI, or under NO_COLOR.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "FAILED",
+            "errorMsg": "ErrorCode:[JDBC-05], ErrorDescription:[Connection failed]",
+        },
+        checkpoint_status=404,
+    )
+    console = Console(theme=cli_module.THEME, width=200, record=True, no_color=True)
+
+    code = cli_module.run_diagnose("852", console)
+    out = console.export_text()
+
+    assert code == 1
+    assert "[error]" in out
+
+
+def test_brackets_in_an_engine_message_cannot_corrupt_the_output(engine):
+    # The checkpoint failure reason is engine text passed straight through to
+    # the terminal, and a Java message routinely contains bracketed text. The
+    # error headline would not do here: it keeps only the code and
+    # description, so brackets never reach the output through that path.
+    engine.script = _routed(
+        {"jobId": "852", "jobStatus": "RUNNING"},
+        {
+            "jobId": "852",
+            "pipelines": [
+                {
+                    "pipelineId": 1,
+                    "counts": {"triggered": 10, "completed": 6, "failed": 4},
+                    "latestFailed": {
+                        "failureReason": "expired at Table[/bold] row[nope] idx[0]"
+                    },
+                }
+            ],
+        },
+    )
+
+    code, out = _run()
+
+    # Rich wraps the line, so compare with whitespace normalised.
+    flat = " ".join(out.split())
+    assert code == 0
+    assert "Table[/bold] row[nope] idx[0]" in flat

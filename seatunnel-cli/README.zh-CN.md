@@ -247,8 +247,8 @@ seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model 
 ### 诊断作业
 
 `--diagnose` 用引擎已经暴露的信息回答"这个作业为什么不往前走"。它是只读的——
-只发一次 `GET /job-info/<id>`，不会提交也不会停止作业——并且完全不调用 LLM，
-因此在没有 API key、没有配置任何提供商的情况下也能用：
+只发 `GET /job-info/<id>` 和 `GET /jobs/checkpoints/<id>`，不会提交也不会停止
+作业——并且完全不调用 LLM，因此在没有 API key、没有配置任何提供商的情况下也能用：
 
 ```bash
 seatunnel --diagnose 852362670771666945
@@ -274,6 +274,26 @@ Job 852362670771666945 mysql-to-doris — RUNNING
 运行中作业。只有作业本身处于 `FAILED` 时退出码才非零——卡住但仍存活的作业不会被
 当成命令执行失败。
 
+它还会回答**原本很快的作业为什么变慢了**——这是作业状态本身无法解释的：出现延迟的
+作业仍然是 `RUNNING`，两侧的行数也都在涨。checkpoint 历史补上了缺失的那个对比：
+
+```
+Job 852362670771666945 mysql-cdc-to-doris — RUNNING
+  [warning] Pipeline 1 checkpoints are getting slower: recently 48.0s against 4.0s
+            earlier in the retained history. (median durationMillis 4000 -> 48000 over 16 checkpoints)
+  [warning] Pipeline 1 now spends almost all its time checkpointing: a checkpoint takes
+            48.0s and one is triggered every 1m00s. (recent median duration 48000ms vs interval 60000ms)
+  [info]    Pipeline 1 checkpoint state is growing: recently 120.0MiB against 12.0MiB earlier.
+```
+
+卡住的 checkpoint 还会定位到是哪些 subtask 在挡住 barrier（`3 of 8 subtasks have
+acknowledged it`），指向具体的某一环而不是整个作业。
+
+引擎每个 pipeline 只保留最近 32 个 checkpoint，因此趋势只覆盖这个窗口，而非整个
+运行周期。「几乎全部时间都在做 checkpoint」这条规则不需要基线，所以对于更早就已经
+退化、之后一直慢的作业同样有效。如果集群版本没有该 checkpoint 端点，或其监控服务
+未开启，诊断的其余部分照常输出，并会额外打印一行说明这部分分析没有执行。
+
 每条规则都刻意只说单次响应能证明的事情，因为错误的提示比没有提示代价更大：
 
 - `restoreCount` 统计的是自提交以来的重启次数，所以它的含义完全取决于 pipeline
@@ -287,8 +307,15 @@ Job 852362670771666945 mysql-to-doris — RUNNING
   读数完全相同。
 - `DOING_SAVEPOINT` 只报告持续时长，不会说成任务挂死：状态大时写 savepoint
   本来就要几分钟。
-- 时长以 master 自己的 `diagnostics.generatedAt` 为基准计算，客户端时钟与
-  集群不一致时不会凭空造出一个"卡住"的作业。
+- checkpoint 失败只有在**最近一次失败比最近一次成功更新**时才告警。
+  `counts.failed` 是自提交以来的累计值，一次早已过期的 checkpoint 会让它永远
+  大于零。
+- checkpoint 卡住的判定阈值是进行中超过 2 分钟，高于打包配置里的
+  `checkpoint.timeout`（60 秒）。默认配置下挂死的 checkpoint 会先超时、以失败
+  的形式报出，因此这条规则主要服务于调高了该超时的集群。
+- 时长以引擎自己的时钟为基准计算（作业规则用 `diagnostics.generatedAt`，
+  checkpoint 规则用 `updatedAt`），客户端时钟与集群不一致时不会凭空造出一个
+  "卡住"的作业。
 
 ### CLI 参数
 

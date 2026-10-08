@@ -44,6 +44,8 @@ from .diagnostics import ParsedError, parse_error
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
 
+logger = logging.getLogger(__name__)
+
 
 # ─── Theme ───
 
@@ -1601,11 +1603,12 @@ def run_diagnose(job_id: str, console: Console) -> int:
     and no network beyond the cluster -- which is exactly the situation someone
     is in when a job is stuck in production and they want an answer now.
 
-    It is also read-only: one GET, no submit, no stop, no savepoint. That is
+    It is also read-only: two GETs, no submit, no stop, no savepoint. That is
     what makes it safe to point at a live production job.
     """
     from .connectors import _ENGINE_API_BASE
-    from .diagnostics.jobs import diagnose_job, is_non_terminal
+    from .diagnostics.checkpoints import diagnose_checkpoints
+    from .diagnostics.jobs import as_int, diagnose_job, is_non_terminal, sort_findings
     from .memory import redact_credentials
 
     if not _JOB_ID_RE.match(job_id):
@@ -1684,8 +1687,15 @@ def run_diagnose(job_id: str, console: Console) -> int:
     # for a job the master coordinates, so for a finished or cancelled job its
     # absence is expected and the notice would be noise.
     diagnostics_present = isinstance(job_info.get("diagnostics"), dict)
-    diagnostics_expected = is_non_terminal(status)
-    if diagnostics_expected and not diagnostics_present:
+    live_job = is_non_terminal(status)
+    # `generatedAt` is stamped by the master when it builds the response, so
+    # it is a usable "now" for both rule sets. None means fall back to the
+    # local clock inside each.
+    engine_now_ms = None
+    if diagnostics_present:
+        generated_at = as_int(job_info["diagnostics"].get("generatedAt"))
+        engine_now_ms = generated_at if generated_at and generated_at > 0 else None
+    if live_job and not diagnostics_present:
         console.print(
             "  Restart counts and state ages were not available in this response, "
             "so the crash-loop and stuck-state checks did not run (the master may "
@@ -1694,10 +1704,50 @@ def run_diagnose(job_id: str, console: Console) -> int:
         )
 
     findings = diagnose_job(job_info)
+
+    # Checkpoint history answers "why did it get slower", which job-info alone
+    # cannot. It is fetched best-effort on purpose: an older engine has no
+    # such endpoint and a cluster with the monitor service off returns nothing
+    # useful, and in neither case should a working diagnosis turn into a
+    # failure. Whatever job-info gave us is still worth printing.
+    try:
+        checkpoints = rest.request_json(
+            f"{_ENGINE_API_BASE}/jobs/checkpoints/{job_id}", timeout=10
+        )
+    except Exception as e:
+        checkpoints = None
+        logger.debug("Checkpoint overview for job %s unavailable: %s", job_id, e)
+
+    # A 200 is not the same as data. When the monitor service is off, or has
+    # nothing recorded for the job yet, CheckpointMonitorRestService answers
+    # 200 with only {"jobId": ...} and no `pipelines` -- no exception to catch.
+    # Both that and a failed request leave the slowdown rules with no input,
+    # and staying silent would let the output end on "Nothing to report",
+    # which reads as "the job is fine".
+    checkpoints_usable = isinstance(checkpoints, dict) and isinstance(
+        checkpoints.get("pipelines"), list
+    )
+    if live_job and not checkpoints_usable:
+        console.print(
+            "  No checkpoint history for this job, so the slowdown checks did not run "
+            "(the cluster may predate the endpoint, its monitor service may be off, or "
+            "the job may not have checkpointed yet).",
+            style="info",
+        )
+    if checkpoints_usable:
+        # The engine's own clock, from the /job-info response fetched a moment
+        # ago: diagnostics.generatedAt is stamped at response time, so the
+        # checkpoint ages are computed in the same clock as the timestamps
+        # they are subtracted from.
+        findings = sort_findings(
+            findings + diagnose_checkpoints(checkpoints, now_ms=engine_now_ms)
+        )
+
     if not findings:
         # Only claim a clean bill of health when the rules actually had their
-        # input; otherwise the notice above is the whole story.
-        if diagnostics_present or not diagnostics_expected:
+        # input; otherwise the notices above are the whole story.
+        inputs_complete = not live_job or (diagnostics_present and checkpoints_usable)
+        if inputs_complete:
             console.print("  Nothing to report: no rule matched this job's state.", style="info")
         return 0
 

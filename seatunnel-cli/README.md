@@ -279,9 +279,9 @@ seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model 
 ### Diagnosing a Job
 
 `--diagnose` answers "why is this job not making progress?" from what the
-engine already publishes. It is read-only -- one `GET /job-info/<id>`, never a
-submit or a stop -- and uses no LLM at all, so it works with no API key and no
-provider configured:
+engine already publishes. It is read-only -- a `GET /job-info/<id>` and a
+`GET /jobs/checkpoints/<id>`, never a submit or a stop -- and uses no LLM at
+all, so it works with no API key and no provider configured:
 
 ```bash
 seatunnel --diagnose 852362670771666945
@@ -309,6 +309,30 @@ job whose source reads nothing or whose sink writes nothing. Exit status is
 non-zero only when the job itself is `FAILED`, so a stuck-but-live job does not
 look like a command failure.
 
+It also reports **why a job that used to be fast has got slower**, which the
+job state alone cannot explain: a job that is lagging is still `RUNNING` with
+both row counters moving. Checkpoint history supplies the missing comparison:
+
+```
+Job 852362670771666945 mysql-cdc-to-doris — RUNNING
+  [warning] Pipeline 1 checkpoints are getting slower: recently 48.0s against 4.0s
+            earlier in the retained history. (median durationMillis 4000 -> 48000 over 16 checkpoints)
+  [warning] Pipeline 1 now spends almost all its time checkpointing: a checkpoint takes
+            48.0s and one is triggered every 1m00s. (recent median duration 48000ms vs interval 60000ms)
+  [info]    Pipeline 1 checkpoint state is growing: recently 120.0MiB against 12.0MiB earlier.
+```
+
+A stalled checkpoint is also named down to the subtasks holding up the barrier
+(`3 of 8 subtasks have acknowledged it`), which points at one stage rather than
+at the job as a whole.
+
+The engine keeps the last 32 checkpoints per pipeline, so the trend covers that
+window rather than the whole run. The "spends its time checkpointing" rule
+needs no baseline and so still fires on a job that degraded earlier and has
+been slow since. If the cluster predates the checkpoint endpoint, or its
+monitor service is off, the rest of the diagnosis is printed unchanged, with
+one line noting that this part of the analysis did not run.
+
 Every rule is deliberately limited to what one response can prove, because a
 wrong hint costs more than a missing one:
 
@@ -325,8 +349,16 @@ wrong hint costs more than a missing one:
   than a warning -- a quiet topic and a misconfigured one read the same here.
 - `DOING_SAVEPOINT` is reported as a duration, not as a hung task: a large
   state legitimately takes minutes to write.
-- durations are measured against the master's own `diagnostics.generatedAt`,
-  so a client clock that disagrees with the cluster cannot invent a stuck job.
+- a checkpoint failure is only a warning while the **latest** failure is newer
+  than the latest completion. `counts.failed` is cumulative, so one expired
+  checkpoint would otherwise keep it above zero forever.
+- the stalled-checkpoint rule fires after 2 minutes in progress, which is above
+  the packaged `checkpoint.timeout` of 60s. On default settings a hung
+  checkpoint expires first and is reported as a failure instead, so this rule
+  matters on clusters that have raised that timeout.
+- durations are measured against the engine's own clock -- the job rules use
+  `diagnostics.generatedAt`, the checkpoint rules use `updatedAt` -- so a
+  client clock that disagrees with the cluster cannot invent a stuck job.
 
 ### CLI Arguments
 

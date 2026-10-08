@@ -129,7 +129,17 @@ def is_non_terminal(status) -> bool:
     return isinstance(status, str) and status.strip().upper() in _NON_TERMINAL
 
 
-def _as_int(value) -> int | None:
+def sort_findings(findings: list[Finding]) -> list[Finding]:
+    """Worst severity first, stable so equal severities keep insertion order.
+
+    Shared rather than kept per module because the caller prints findings from
+    several rule sets as a single list: sorting each set on its own would put
+    an informational note from one above an error from another.
+    """
+    return sorted(findings, key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
+
+
+def as_int(value) -> int | None:
     """Engine JSON sends counters as ints, but metrics arrive as strings."""
     if isinstance(value, bool) or value is None:
         return None
@@ -151,10 +161,10 @@ def _state_entered_at(timestamps: dict, status: str) -> int | None:
     """
     if not isinstance(timestamps, dict):
         return None
-    own = _as_int(timestamps.get(status))
+    own = as_int(timestamps.get(status))
     if own and own > 0:
         return own
-    values = [v for v in (_as_int(v) for v in timestamps.values()) if v and v > 0]
+    values = [v for v in (as_int(v) for v in timestamps.values()) if v and v > 0]
     return max(values) if values else None
 
 
@@ -199,11 +209,11 @@ def _crash_loop_findings(pipelines: list, now_ms: int) -> list[Finding]:
     for pipeline in pipelines:
         if not isinstance(pipeline, dict):
             continue
-        restores = _as_int(pipeline.get("restoreCount"))
+        restores = as_int(pipeline.get("restoreCount"))
         if restores is None or restores < CRASH_LOOP_RESTORES:
             continue
         pipeline_id = pipeline.get("pipelineId", "?")
-        limit = _as_int(pipeline.get("maxRestoreCount"))
+        limit = as_int(pipeline.get("maxRestoreCount"))
         exhausted = limit is not None and limit > 0 and restores >= limit
 
         status = pipeline.get("pipelineStatus")
@@ -418,8 +428,8 @@ def _progress_findings(job_info: dict, diagnostics: dict, now_ms: int) -> list[F
     metrics = job_info.get("metrics")
     if not isinstance(metrics, dict):
         return []
-    read = _as_int(metrics.get("SourceReceivedCount"))
-    written = _as_int(metrics.get("SinkWriteCount"))
+    read = as_int(metrics.get("SourceReceivedCount"))
+    written = as_int(metrics.get("SinkWriteCount"))
     if read is None or written is None:
         return []
 
@@ -428,7 +438,7 @@ def _progress_findings(job_info: dict, diagnostics: dict, now_ms: int) -> list[F
     # hour from one that started two seconds ago, and guessing is what these
     # rules are supposed to avoid.
     timestamps = diagnostics.get("stateTimestamps")
-    entered = _as_int(timestamps.get("RUNNING")) if isinstance(timestamps, dict) else None
+    entered = as_int(timestamps.get("RUNNING")) if isinstance(timestamps, dict) else None
     if entered is None or entered <= 0:
         return []
     running_seconds = (now_ms - entered) / 1000.0
@@ -496,7 +506,7 @@ def diagnose_job(job_info: dict, *, now_ms: int | None = None) -> list[Finding]:
     pipelines = pipelines if isinstance(pipelines, list) else []
 
     if now_ms is None:
-        generated_at = _as_int(diagnostics.get("generatedAt"))
+        generated_at = as_int(diagnostics.get("generatedAt"))
         now_ms = (
             generated_at
             if generated_at is not None and generated_at > 0
@@ -512,5 +522,4 @@ def diagnose_job(job_info: dict, *, now_ms: int | None = None) -> list[Finding]:
 
     # Stable sort, so rules of equal severity keep the order above: failure
     # first, then why it is not progressing, then throughput.
-    findings.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
-    return findings
+    return sort_findings(findings)
