@@ -1807,14 +1807,14 @@ Generate the SeaTunnel HOCON config now. Use tools if you need connector details
         Returns the LLM verdict string (must start with PASS/FAIL for the loop).
         When debug is enabled, also emits local + LLM detail events.
         """
-        from .cli import _replace_creds_with_placeholders
+        from .credentials import replace_creds_with_placeholders
         from .debug import first_line_reason
 
         # First do local validation
         local_result = validate_hocon(config)
 
         # Security: replace credentials with placeholders before sending to LLM
-        safe_config, _ = _replace_creds_with_placeholders(config)
+        safe_config, _ = replace_creds_with_placeholders(config)
 
         # Then LLM validation for semantic checks
         prompt = f"""Validate this SeaTunnel HOCON config:
@@ -1829,9 +1829,7 @@ Check for semantic correctness, required parameters, and best practices."""
 
         result = self.client.quick_chat(prompt, system=VALIDATOR_SYSTEM)
         llm_result = (result or "").strip()
-        local_ok = local_result.startswith("PASS") or local_result.upper().startswith(
-            "OK"
-        )
+        local_ok = local_result.startswith("VALID")
         # Always surface both layers under debug so fail loops are diagnosable.
         self._debug(
             "validator_detail",
@@ -1850,12 +1848,15 @@ Check for semantic correctness, required parameters, and best practices."""
 
     def _run_fix(self, config: str, validation_errors: str) -> dict:
         """Attempt to fix config based on validation errors."""
-        from .cli import _replace_creds_with_placeholders, _restore_creds_from_placeholders
+        from .credentials import (
+            replace_creds_with_placeholders,
+            restore_creds_from_placeholders,
+        )
         system = self._build_config_system()
 
         # Security: replace credentials with ${_CRED_N_} placeholders before sending to LLM.
         # After LLM returns the fixed config, restore the original values.
-        safe_config, cred_map = _replace_creds_with_placeholders(config)
+        safe_config, cred_map = replace_creds_with_placeholders(config)
 
         prompt = f"""The following SeaTunnel config has validation issues. Fix them.
 
@@ -1906,7 +1907,7 @@ Fix ALL the issues and return the corrected config. Keep all existing correct pa
             parsed = self._parse_config_response(full_text)
             # Restore original credential values
             if parsed.get("config") and cred_map:
-                parsed["config"] = _restore_creds_from_placeholders(parsed["config"], cred_map)
+                parsed["config"] = restore_creds_from_placeholders(parsed["config"], cred_map)
             return parsed
 
         return {}

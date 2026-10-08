@@ -41,6 +41,10 @@ from prompt_toolkit.history import FileHistory
 from . import __version__, get_data_dir
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
+from .credentials import (
+    replace_creds_with_placeholders as _replace_creds_with_placeholders,
+    restore_creds_from_placeholders as _restore_creds_from_placeholders,
+)
 
 
 # ─── Theme ───
@@ -82,45 +86,6 @@ Generate Apache SeaTunnel configs with natural language.
   [bold]/help[/bold]            — Show this help
   [bold]/quit[/bold]            — Exit
 """
-
-
-# ─── Credential placeholder helpers for config repair ───
-
-_CRED_KV_RE = re.compile(
-    r'((?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s*=\s*)"([^"]*)"',
-    re.IGNORECASE,
-)
-
-
-def _replace_creds_with_placeholders(config: str) -> tuple[str, dict[str, str]]:
-    """Replace credential values with ${_CRED_N_} placeholders.
-
-    Returns (safe_config, mapping) where mapping can restore originals.
-    """
-    cred_map: dict[str, str] = {}
-    counter = [0]
-
-    def _replacer(m: re.Match) -> str:
-        key_part = m.group(1)  # e.g. 'password = '
-        value = m.group(2)
-        if value.startswith("${"):
-            return m.group(0)  # Already a placeholder, skip
-        counter[0] += 1
-        placeholder = f"${{_CRED_{counter[0]}_}}"
-        cred_map[placeholder] = value
-        return f'{key_part}"{placeholder}"'
-
-    safe = _CRED_KV_RE.sub(_replacer, config)
-    return safe, cred_map
-
-
-def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> str:
-    """Restore original credential values from ${_CRED_N_} placeholders."""
-    for placeholder, original in cred_map.items():
-        config = config.replace(placeholder, original)
-    return config
 
 
 class SeaTunnelCLI:
@@ -186,13 +151,15 @@ class SeaTunnelCLI:
         snippet = fields.pop("snippet", None)
         outcome = str(fields.get("outcome", "")).lower()
         style = "warning" if outcome in {"fail", "error", "warn", "missing_info"} else "dim"
-        self.console.print(f"  [{style}]{format_debug_line(stage, **fields)}[/{style}]")
+        # Text(..., style=) avoids Rich markup interpolation of HOCON / snippets
+        # that may contain tags like [sink] or [/x].
+        self.console.print(Text(f"  {format_debug_line(stage, **fields)}", style=style))
         if snippet:
             body = redact_and_truncate(str(snippet), max_len=1200)
             if body.strip():
-                self.console.print(f"  [{style}][debug] detail:[/{style}]")
+                self.console.print(Text("  [debug] detail:", style=style))
                 for line in body.splitlines() or [body]:
-                    self.console.print(f"  [{style}]| {line}[/{style}]")
+                    self.console.print(Text(f"  | {line}", style=style))
 
     def _handle_stream(self, tag: str, event: dict):
         """Handle streaming events from the agent pipeline."""

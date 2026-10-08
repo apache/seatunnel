@@ -36,6 +36,7 @@ from seatunnel_cli.debug import (
 
 @pytest.fixture(autouse=True)
 def _clear_debug_env(monkeypatch):
+    monkeypatch.setattr("seatunnel_cli.debug._enabled", False)
     monkeypatch.delenv(DEBUG_ENV, raising=False)
 
 
@@ -43,6 +44,7 @@ def test_is_debug_enabled_and_enable():
     assert is_debug_enabled() is False
     enable_debug()
     assert is_debug_enabled() is True
+    assert DEBUG_ENV not in os.environ
 
 
 @pytest.mark.parametrize(
@@ -133,6 +135,7 @@ def test_cli_debug_flag_enables_env():
             pytest.raises(_Stop):
         cli.main()
     assert is_debug_enabled() is True
+    assert DEBUG_ENV not in os.environ
 
 
 def test_process_user_input_soft_fail_includes_reason_and_debug_chain():
@@ -209,3 +212,100 @@ def test_process_user_input_soft_fail_includes_reason_and_debug_chain():
     gen = next(f for s, f in events if s == "generator")
     assert gen.get("outcome") == "no_hocon_block"
     assert "refuse" in (gen.get("snippet") or "")
+
+
+@pytest.mark.parametrize(
+    "text,secret",
+    [
+        ('secret_key = "sk_live_abc"', "sk_live_abc"),
+        ('access_key = "AKIAIOSFODNN7EXAMPLE"', "AKIAIOSFODNN7EXAMPLE"),
+        ('"password": "json-secret"', "json-secret"),
+        ("password = 'my pass word'", "my pass word"),
+        ('password: "colon-secret"', "colon-secret"),
+        ('api_key = "quoted-api-key"', "quoted-api-key"),
+    ],
+)
+def test_redact_text_covers_cli_credential_shapes(text, secret):
+    redacted = redact_text(text)
+    assert secret not in redacted
+    assert "***REDACTED***" in redacted
+
+
+def test_redact_text_keeps_env_placeholders():
+    text = 'password = "${MYSQL_PASSWORD}"'
+    assert redact_text(text) == text
+
+
+def test_replace_and_restore_creds_roundtrip():
+    from seatunnel_cli.credentials import (
+        replace_creds_with_placeholders,
+        restore_creds_from_placeholders,
+    )
+
+    config = (
+        'password = "p@ss w0rd"\n'
+        'secret_key = "sk-value"\n'
+        '"access_key": "ak-value"\n'
+        'token = "${ALREADY}"\n'
+    )
+    safe, cred_map = replace_creds_with_placeholders(config)
+    assert "p@ss w0rd" not in safe
+    assert "sk-value" not in safe
+    assert "ak-value" not in safe
+    assert "${ALREADY}" in safe
+    assert restore_creds_from_placeholders(safe, cred_map) == config
+
+
+def test_run_validator_debug_treats_valid_as_local_pass():
+    enable_debug()
+    events = []
+
+    class FakeClient:
+        fast_model_id = "fast"
+
+        def quick_chat(self, prompt, system="", **kwargs):
+            return "PASS ok"
+
+    orch = Orchestrator(
+        client=FakeClient(),
+        on_debug=lambda stage, **fields: events.append((stage, dict(fields))),
+    )
+    with mock.patch(
+        "seatunnel_cli.agents.validate_hocon",
+        return_value="VALID (with warnings)\nWARNING: missing env",
+    ):
+        orch._run_validator("config")
+    local = next(f for s, f in events if s == "validator_detail" and "local" in f)
+    assert local["local"] == "pass"
+    assert local.get("snippet") is None
+
+    events.clear()
+    with mock.patch(
+        "seatunnel_cli.agents.validate_hocon",
+        return_value="INVALID\nERROR: missing sink",
+    ):
+        orch._run_validator("config")
+    local = next(f for s, f in events if s == "validator_detail" and "local" in f)
+    assert local["local"] == "fail"
+    assert "INVALID" in (local.get("snippet") or "")
+
+
+def test_show_debug_does_not_interpret_rich_markup(tmp_path, monkeypatch):
+    from io import StringIO
+
+    from rich.console import Console
+
+    from seatunnel_cli.cli import SeaTunnelCLI
+
+    monkeypatch.setattr("seatunnel_cli.cli.get_data_dir", lambda: tmp_path)
+    buf = StringIO()
+    console = Console(
+        file=buf, force_terminal=True, color_system=None, width=120, markup=True
+    )
+    cli_obj = SeaTunnelCLI(console)
+    snippet = 'sink { Console { plugin_input = "[/x]" } } # [sink]'
+    cli_obj._show_debug("validator_detail", outcome="fail", snippet=snippet)
+    out = buf.getvalue()
+    assert "[/x]" in out
+    assert "[sink]" in out
+    assert "MarkupError" not in out
