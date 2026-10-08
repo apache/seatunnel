@@ -25,11 +25,14 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -55,9 +58,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -301,6 +307,100 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         dropTableWithAssert(postgresCatalog, targetTablePath, true);
 
         postgresCatalog.close();
+    }
+
+    @Test
+    public void testDuckDbUnboundedStringAutoDdl() throws Exception {
+        String label = String.join("", Collections.nCopies(400, "m"));
+        String tableName = "duckdb_string_lengths";
+        DuckDBTypeConverter converter = new DuckDBTypeConverter();
+        Column bit =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("bits")
+                                .columnType("BIT")
+                                .dataType("BIT")
+                                .build());
+        Column en =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("en")
+                                .columnType("ENUM('" + label + "')")
+                                .dataType("ENUM('" + label + "')")
+                                .length(0L)
+                                .build());
+        Column boundedBit =
+                converter.convert(
+                        BasicTypeDefine.builder()
+                                .name("bounded_bits")
+                                .columnType("BIT")
+                                .dataType("BIT")
+                                .length(5L)
+                                .build());
+        CatalogTable sourceTable =
+                CatalogTable.of(
+                        TableIdentifier.of("duckdb", "source", "text_lengths"),
+                        TableSchema.builder().column(bit).column(en).column(boundedBit).build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        TablePath targetTablePath =
+                TablePath.of(POSTGRESQL_CONTAINER.getDatabaseName(), "public", tableName);
+        try (PostgresCatalog postgresCatalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        "public",
+                        null)) {
+            postgresCatalog.open();
+            Assertions.assertFalse(postgresCatalog.tableExists(targetTablePath));
+            postgresCatalog.createTable(targetTablePath, sourceTable, false);
+            try (Connection connection = getJdbcConnection()) {
+                Assertions.assertEquals(
+                        Arrays.asList(
+                                Arrays.asList("bits", "text", null),
+                                Arrays.asList("en", "text", null),
+                                Arrays.asList("bounded_bits", "character varying", 5)),
+                        querySql(
+                                "SELECT column_name, data_type, character_maximum_length "
+                                        + "FROM information_schema.columns WHERE table_schema = 'public' "
+                                        + "AND table_name = '"
+                                        + tableName
+                                        + "' ORDER BY ordinal_position"));
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO public." + tableName + " VALUES (?, ?, ?)")) {
+                    insert.setString(1, "10110");
+                    insert.setString(2, label);
+                    insert.setString(3, "10110");
+                    Assertions.assertEquals(1, insert.executeUpdate());
+                    insert.setString(1, null);
+                    insert.setString(2, null);
+                    insert.setString(3, null);
+                    Assertions.assertEquals(1, insert.executeUpdate());
+                }
+                try (PreparedStatement select =
+                                connection.prepareStatement(
+                                        "SELECT bits, en, bounded_bits FROM public."
+                                                + tableName
+                                                + " ORDER BY bits NULLS LAST");
+                        ResultSet rs = select.executeQuery()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals("10110", rs.getString(1));
+                    Assertions.assertEquals(label, rs.getString(2));
+                    Assertions.assertEquals("10110", rs.getString(3));
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertNull(rs.getString(1));
+                    Assertions.assertNull(rs.getString(2));
+                    Assertions.assertNull(rs.getString(3));
+                    Assertions.assertFalse(rs.next());
+                }
+            } finally {
+                postgresCatalog.dropTable(targetTablePath, false);
+            }
+        }
     }
 
     protected boolean hasIndex(Catalog catalog, TablePath targetTablePath) {
