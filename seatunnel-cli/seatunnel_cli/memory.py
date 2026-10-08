@@ -63,22 +63,29 @@ _CREDENTIAL_VALUE_PATTERNS = re.compile(
 
 # Match the whole quoted value, including spaces, punctuation, and escaped
 # quotes. Keep the prefix separate so a value equal to the key cannot alter it.
+# Quoted values are bound to a single line, and an opening quote that is never
+# closed falls back to the rest of its own line, so a dangling quote can never
+# pair up with an unrelated quote on a later line and swallow what lies between.
+# A match must also start at the left edge of a `[\w.-]` run: without that
+# boundary the leading `[\w.-]*` re-scans every offset of a long credential-free
+# word run, which makes redacting one such line quadratic in its length.
 _CREDENTIAL_KEYS = (
     r"(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|"
     r"auth[-_]?token|secret|credential|private[-_]?key)"
 )
 _CREDENTIAL_ASSIGNMENT_VALUE = (
-    r'''(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s"',:}{)\]]+)'''
+    r'''(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|'''
+    r'''["'][^\r\n]+|[^\s"',:}{)\]]+)'''
 )
 
 _CREDENTIAL_KV_PATTERNS = re.compile(
-    r"(?P<prefix>(?P<key_quote>[\"']?)[\w.-]*" + _CREDENTIAL_KEYS
+    r"(?<![\w.-])(?P<prefix>(?P<key_quote>[\"']?)[\w.-]*" + _CREDENTIAL_KEYS
     + r"(?P=key_quote)\s*[=:]\s*)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
 
 _CREDENTIAL_NL_PATTERNS = re.compile(
-    r"(?P<prefix>[\w.-]*" + _CREDENTIAL_KEYS
+    r"(?<![\w.-])(?P<prefix>[\w.-]*" + _CREDENTIAL_KEYS
     + r"\s+(?:is|was|are|were)\s+)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
@@ -312,7 +319,7 @@ class SessionManager:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            data["summary"] = summary
+            data["summary"] = redact_credentials(summary)
             _atomic_write(path, data)
         except Exception:
             pass
@@ -321,18 +328,20 @@ class SessionManager:
         if len(conversation_history) < 2:
             return ""
         snippets = []
-        for msg in conversation_history[:4] + conversation_history[-2:]:
+        summary_history = conversation_history[:4] + conversation_history[-2:]
+        for msg in _redact_conversation_history(summary_history):
             for block in msg.get("content", []):
                 if "text" in block:
                     snippets.append(f"{msg['role']}: {block['text'][:200]}")
         conversation_text = "\n".join(snippets)[:1500]
 
-        return client.quick_chat(
+        summary = client.quick_chat(
             f"Summarize this SeaTunnel conversation in one sentence (max 80 chars, "
             f"language should match the conversation):\n\n{conversation_text}",
             system="Output ONLY the summary sentence, nothing else.",
             use_fast_model=True,
         ).strip()
+        return redact_credentials(summary)
 
 
 # ─── Memory Store ───

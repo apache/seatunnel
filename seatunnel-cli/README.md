@@ -311,6 +311,8 @@ Options:
 | `/help` | Show help panel |
 | `/quit` | Exit |
 
+`/new`, `/clear`, and a successful `/resume` discard any unanswered clarification from the previous session. The next request uses the selected session only.
+
 ## Examples
 
 ### MySQL to S3 (Batch)
@@ -438,7 +440,9 @@ Transform metadata is resolved through the same path as source and sink metadata
 
 The CLI remembers facts across sessions to improve config accuracy:
 
-Credential redaction recognizes quoted JSON/HOCON keys and removes the complete quoted value, including spaces, punctuation, and escaped quotes. Assignment keys and surrounding configuration remain intact.
+Credential redaction recognizes quoted JSON/HOCON keys and removes the complete quoted value, including spaces, punctuation, and escaped quotes. The value is bound to a single line: an opening quote that is never closed is treated as running to the end of its own line. Assignment keys and surrounding configuration remain intact.
+
+Conversation summaries use the same credential redaction as saved history: recognized secrets are removed before the summary request and before the summary is saved.
 
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.
