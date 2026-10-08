@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.sink;
 
 import java.io.Serializable;
+import java.util.Optional;
 
 /**
  * Selects the downstream writer which owns a record.
@@ -37,7 +38,7 @@ public interface SinkDataPartitioner<T> extends Serializable {
      * Physical target requiring exclusive writer ownership, or empty when no such check is needed.
      * Wrappers use this identity at initialization to reject independent writers for one target.
      */
-    default java.util.Optional<String> targetIdentifier() {
-        return java.util.Optional.empty();
+    default Optional<String> targetIdentifier() {
+        return Optional.empty();
     }
 }
