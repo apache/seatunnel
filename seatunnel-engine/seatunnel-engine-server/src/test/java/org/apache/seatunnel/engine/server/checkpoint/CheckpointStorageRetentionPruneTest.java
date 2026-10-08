@@ -215,8 +215,10 @@ public class CheckpointStorageRetentionPruneTest extends AbstractSeaTunnelServer
                                             + ", onDisk="
                                             + onDisk);
                             // The coordinator prunes in the same completion that would exceed
-                            // max-retained. A poll can still see one extra file between store and
-                            // delete. The deterministic bound is CheckpointCoordinatorTest.
+                            // max-retained, for this coordinator instance. A poll can still see one
+                            // extra file between store and delete. Restore starts a new coordinator
+                            // with an empty deque, so this job does not cover that. The
+                            // deterministic bound is CheckpointCoordinatorTest.
                             Assertions.assertTrue(
                                     onDisk.size() <= maxRetained + 1,
                                     "checkpoint files accumulate beyond the retention bound in "
