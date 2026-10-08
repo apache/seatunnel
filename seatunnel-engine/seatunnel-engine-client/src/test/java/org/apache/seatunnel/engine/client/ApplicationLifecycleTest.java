@@ -44,7 +44,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
-import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -718,19 +717,18 @@ class ApplicationLifecycleTest {
     void mapsOnlySuccessfulNativeTerminationToSuccess() {
         assertEquals(
                 ApplicationStatus.SUCCEEDED,
-                ApplicationResourceManager.applicationStatus(JobStatus.FINISHED));
+                ApplicationJobRunner.applicationStatus(JobStatus.FINISHED));
         assertEquals(
                 ApplicationStatus.SUCCEEDED,
-                ApplicationResourceManager.applicationStatus(JobStatus.SAVEPOINT_DONE));
+                ApplicationJobRunner.applicationStatus(JobStatus.SAVEPOINT_DONE));
         assertEquals(
                 ApplicationStatus.CANCELED,
-                ApplicationResourceManager.applicationStatus(JobStatus.CANCELED));
+                ApplicationJobRunner.applicationStatus(JobStatus.CANCELED));
+        assertEquals(
+                ApplicationStatus.FAILED, ApplicationJobRunner.applicationStatus(JobStatus.FAILED));
         assertEquals(
                 ApplicationStatus.FAILED,
-                ApplicationResourceManager.applicationStatus(JobStatus.FAILED));
-        assertEquals(
-                ApplicationStatus.FAILED,
-                ApplicationResourceManager.applicationStatus(JobStatus.UNKNOWABLE));
+                ApplicationJobRunner.applicationStatus(JobStatus.UNKNOWABLE));
     }
 
     private void run(String config, LocalDriver driver, long timeout) throws Exception {

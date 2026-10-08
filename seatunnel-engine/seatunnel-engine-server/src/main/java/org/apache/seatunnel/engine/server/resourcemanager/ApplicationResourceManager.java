@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.engine.common.job.JobResult;
-import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
@@ -39,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -57,7 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable>
         extends AbstractResourceManager implements ResourceEventHandler<WorkerType> {
 
-    private final String applicationId;
+    @Getter private final String applicationId;
     private final ApplicationSpecification specification;
     private final ResourceManagerDriver<WorkerType> driver;
     private final List<CompletableFuture<WorkerType>> requests = new CopyOnWriteArrayList<>();
@@ -117,7 +117,7 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
         log.info("Init application ResourceManager");
         try {
             super.init();
-            initializeResourceManager();
+            applyWorker();
         } catch (Exception e) {
             IllegalStateException initializationFailure =
                     new IllegalStateException(
@@ -132,7 +132,7 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
     }
 
     /** Starts driver initialization and worker registration without blocking the master thread. */
-    public void initializeResourceManager() {
+    public void applyWorker() {
         startupDeadline =
                 System.nanoTime()
                         + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());
@@ -199,109 +199,6 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
         }
     }
 
-    /**
-     * Releases workers, publishes the application outcome and closes the driver, in that order.
-     * Cleanup failures are retained on the original execution failure and turn success into
-     * failure. The master must remain alive until this method returns so late allocations can be
-     * drained.
-     */
-    public void finishApplication(JobResult result, Exception executionFailure) throws Exception {
-        Exception outcome = executionFailure == null ? null : unwrap(executionFailure);
-        ApplicationStatus status =
-                outcome == null && result != null
-                        ? applicationStatus(result.getStatus())
-                        : outcome != null
-                                        && outcome.getSuppressed().length == 0
-                                        && (outcome instanceof InterruptedException
-                                                || outcome instanceof CancellationException)
-                                ? ApplicationStatus.CANCELED
-                                : ApplicationStatus.FAILED;
-        if (outcome == null && status != ApplicationStatus.SUCCEEDED) {
-            outcome =
-                    status == ApplicationStatus.CANCELED
-                            ? new CancellationException(
-                                    "Application " + applicationId + " was canceled")
-                            : new IllegalStateException(
-                                    "Application "
-                                            + applicationId
-                                            + " failed: "
-                                            + (result == null
-                                                    ? "job did not complete"
-                                                    : result.getError()));
-        }
-        ExecutorService cleanup =
-                Executors.newSingleThreadExecutor(
-                        runnable -> {
-                            Thread thread =
-                                    new Thread(runnable, "seatunnel-application-resources-cleanup");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
-        try {
-            try {
-                cleanup.submit(
-                                () -> {
-                                    stopApplicationWorkers();
-                                    return null;
-                                })
-                        .get(60, TimeUnit.SECONDS);
-            } catch (Exception failure) {
-                outcome = collect(outcome, unwrap(failure));
-                status = ApplicationStatus.FAILED;
-            }
-            final ApplicationStatus finalStatus = status;
-            final String diagnostics = outcome == null ? "" : outcome.toString();
-            try {
-                cleanup.submit(
-                                () -> {
-                                    finish(finalStatus, diagnostics);
-                                    return null;
-                                })
-                        .get(10, TimeUnit.SECONDS);
-            } catch (Exception failure) {
-                outcome = collect(outcome, unwrap(failure));
-            }
-            try {
-                cleanup.submit(
-                                () -> {
-                                    close();
-                                    return null;
-                                })
-                        .get(20, TimeUnit.SECONDS);
-            } catch (Exception failure) {
-                outcome = collect(outcome, unwrap(failure));
-            }
-        } finally {
-            cleanup.shutdownNow();
-        }
-        if (outcome != null) {
-            throw outcome;
-        }
-    }
-
-    /** Maps native job termination to the external application's terminal state. */
-    public static ApplicationStatus applicationStatus(JobStatus status) {
-        if (status == JobStatus.FINISHED || status == JobStatus.SAVEPOINT_DONE) {
-            return ApplicationStatus.SUCCEEDED;
-        }
-        return status == JobStatus.CANCELED ? ApplicationStatus.CANCELED : ApplicationStatus.FAILED;
-    }
-
-    private static Exception unwrap(Exception failure) {
-        while ((failure instanceof ExecutionException
-                        || failure instanceof java.util.concurrent.CompletionException)
-                && failure.getCause() instanceof Exception) {
-            Exception cause = (Exception) failure.getCause();
-            for (Throwable suppressed : failure.getSuppressed()) {
-                if (suppressed != cause) {
-                    cause.addSuppressed(suppressed);
-                }
-            }
-            failure = cause;
-        }
-        return failure;
-    }
-
     /** Stops allocation and releases all platform workers before the Engine master is stopped. */
     public void stopApplicationWorkers() throws Exception {
         if (!workersStopped.compareAndSet(false, true)) {
@@ -328,18 +225,18 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
             try {
                 releases.add(driver.releaseWorker(worker));
             } catch (RuntimeException e) {
-                cleanupFailure = collect(cleanupFailure, e);
+                cleanupFailure = ExceptionUtils.collect(cleanupFailure, e);
             }
         }
         try {
             CompletableFuture.allOf(releases.toArray(new CompletableFuture[0])).get();
         } catch (Exception e) {
-            cleanupFailure = collect(cleanupFailure, e);
+            cleanupFailure = ExceptionUtils.collect(cleanupFailure, e);
         }
         try {
             driver.stopWorkers();
         } catch (Exception e) {
-            cleanupFailure = collect(cleanupFailure, e);
+            cleanupFailure = ExceptionUtils.collect(cleanupFailure, e);
         }
         if (cleanupFailure != null) {
             throw cleanupFailure;
@@ -369,13 +266,13 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                         ApplicationStatus.FAILED,
                         "Application master stopped before job completion");
             } catch (Exception e) {
-                cleanupFailure = collect(cleanupFailure, e);
+                cleanupFailure = ExceptionUtils.collect(cleanupFailure, e);
             }
         }
         try {
             driver.close();
         } catch (Exception e) {
-            cleanupFailure = collect(cleanupFailure, e);
+            cleanupFailure = ExceptionUtils.collect(cleanupFailure, e);
         } finally {
             mainThreadExecutor.shutdownNow();
             ioExecutor.shutdownNow();
@@ -410,8 +307,7 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                                 + diagnostics));
     }
 
-    private <T> T await(java.util.concurrent.Future<T> future, long deadlineNanos)
-            throws Exception {
+    private <T> T await(Future<T> future, long deadlineNanos) throws Exception {
         while (!future.isDone()) {
             checkFailure();
             checkDeadline(deadlineNanos);
@@ -431,13 +327,5 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                             + specification.getWorkerCount()
                             + " application workers");
         }
-    }
-
-    private static Exception collect(Exception current, Exception next) {
-        if (current == null) {
-            return next;
-        }
-        current.addSuppressed(next);
-        return current;
     }
 }
