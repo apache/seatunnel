@@ -191,6 +191,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 "collect() must return empty when coordinator is not ready"
                         + " to avoid blocking Hazelcast operation threads");
         Mockito.verify(mockServer, Mockito.never()).getThreadPoolStatusMetrics();
+        Mockito.verify(mockServer, Mockito.never()).getLifecycleThreadPoolStatusMetrics();
     }
 
     @Test
@@ -199,6 +200,10 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
         ThreadPoolStatus status = new ThreadPoolStatus(1, 2, 10, 3, 100L, 110L, 0L, 0L);
         Mockito.when(mockServer.getThreadPoolStatusMetrics()).thenReturn(status);
+        Mockito.when(mockServer.getLifecycleThreadPoolStatusMetrics())
+                .thenReturn(new ThreadPoolStatus(7, 0, Integer.MAX_VALUE, 8, 200L, 210L, 0L, 0L));
+        Mockito.when(mockServer.getCoordinatorService())
+                .thenThrow(new AssertionError("Metrics must not wait for coordinator activation"));
 
         JobThreadPoolStatusExports exports = new JobThreadPoolStatusExports(mockNode);
         List<Collector.MetricFamilySamples> result = exports.collect();
@@ -206,6 +211,27 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Assertions.assertFalse(
                 result.isEmpty(), "collect() must return metrics when coordinator is ready");
         Mockito.verify(mockServer).getThreadPoolStatusMetrics();
+        Mockito.verify(mockServer).getLifecycleThreadPoolStatusMetrics();
+        Mockito.verify(mockServer, Mockito.never()).getCoordinatorService();
+        Assertions.assertEquals(16, result.size());
+        assertSingleMetricSample(
+                result.stream()
+                        .filter(s -> "job_thread_pool_activeCount".equals(s.name))
+                        .findFirst()
+                        .get(),
+                1D);
+        assertSingleMetricSample(
+                result.stream()
+                        .filter(s -> "job_lifecycle_thread_pool_activeCount".equals(s.name))
+                        .findFirst()
+                        .get(),
+                7D);
+        assertSingleMetricSample(
+                result.stream()
+                        .filter(s -> "job_lifecycle_thread_pool_poolSize".equals(s.name))
+                        .findFirst()
+                        .get(),
+                8D);
     }
 
     @Test

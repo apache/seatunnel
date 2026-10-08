@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
@@ -352,6 +353,94 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 pendingJobCleanupIMap.containsKey(jobId),
                 "restore submit should consume stale pending cleanup record");
         Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+    }
+
+    @Test
+    void testEarlyCleanupPreservesRecordAndReschedulesUntilDelayElapses() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long cleanupDelayMillis = TimeUnit.HOURS.toMillis(1);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(100L, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        JobCleanupRecord record =
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipelineLocation),
+                        stateKeys(jobId, pipelineLocation),
+                        System.currentTimeMillis());
+        pendingJobCleanupIMap.put(jobId, record);
+
+        ScheduledExecutorService originalMonitor = server.getMonitorService();
+        long originalDelay =
+                server.getSeaTunnelConfig().getEngineConfig().getStateCleanupDelayMillis();
+        ScheduledExecutorService scheduler = Mockito.mock(ScheduledExecutorService.class);
+        ArgumentCaptor<Runnable> callbacks = ArgumentCaptor.forClass(Runnable.class);
+        ArgumentCaptor<Long> delays = ArgumentCaptor.forClass(Long.class);
+        server.getSeaTunnelConfig()
+                .getEngineConfig()
+                .setStateCleanupDelayMillis(cleanupDelayMillis);
+        ReflectionUtils.setField(server, "monitorService", scheduler);
+        try {
+            coordinatorService.schedulePendingJobCleanup(jobId, record);
+            Mockito.verify(scheduler)
+                    .schedule(
+                            callbacks.capture(),
+                            delays.capture(),
+                            Mockito.eq(TimeUnit.MILLISECONDS));
+
+            // Fire the actual scheduled callback early, without waiting for a wall-clock race.
+            callbacks.getValue().run();
+            Assertions.assertEquals(record, pendingJobCleanupIMap.get(jobId));
+            Assertions.assertNotNull(runningJobInfoIMap.get(jobId));
+            Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
+            Assertions.assertEquals("pipeline", runningJobStateIMap.get(pipelineLocation));
+            Assertions.assertTrue(runningJobStateTimestampsIMap.containsKey(jobId));
+            Assertions.assertTrue(runningJobStateTimestampsIMap.containsKey(pipelineLocation));
+
+            Mockito.verify(scheduler, Mockito.times(2))
+                    .schedule(
+                            callbacks.capture(),
+                            delays.capture(),
+                            Mockito.eq(TimeUnit.MILLISECONDS));
+            Assertions.assertTrue(delays.getValue() > 0);
+            Assertions.assertTrue(delays.getValue() <= cleanupDelayMillis);
+            Runnable retry = callbacks.getValue();
+
+            // Advance the persisted record's age past the deadline, keeping the configured delay.
+            // This avoids sleeps while exercising the real deadline check and cleanup callback.
+            record.setCreateTimeMillis(System.currentTimeMillis() - cleanupDelayMillis - 1L);
+            pendingJobCleanupIMap.put(jobId, record);
+            retry.run();
+
+            Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+            Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
+            Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+            Assertions.assertFalse(runningJobStateIMap.containsKey(pipelineLocation));
+            Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(jobId));
+            Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(pipelineLocation));
+            Mockito.verify(scheduler, Mockito.times(2))
+                    .schedule(
+                            Mockito.any(Runnable.class),
+                            Mockito.anyLong(),
+                            Mockito.eq(TimeUnit.MILLISECONDS));
+        } finally {
+            ReflectionUtils.setField(server, "monitorService", originalMonitor);
+            server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(originalDelay);
+        }
     }
 
     @Test

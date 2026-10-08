@@ -137,16 +137,24 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 These metrics are exported by the active master only; scraping a worker node's endpoint will not return them.
 
-| MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |
-|-------------------------------------|---------|--------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| job_thread_pool_activeCount         | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The activeCount of seatunnel coordinator job's executor cached thread pool     |
-| job_thread_pool_corePoolSize        | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The corePoolSize of seatunnel coordinator job's executor cached thread pool    |
-| job_thread_pool_maximumPoolSize     | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The maximumPoolSize of seatunnel coordinator job's executor cached thread pool |
-| job_thread_pool_poolSize            | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The poolSize of seatunnel coordinator job's executor cached thread pool        |
-| job_thread_pool_queueTaskCount      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queueTaskCount of seatunnel coordinator job's executor cached thread pool  |
-| job_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completedTask of seatunnel coordinator job's executor cached thread pool   |
-| job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
-| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
+| MetricName                                    | Type    | Labels                                                             | DESCRIPTION                                                        |
+|-----------------------------------------------|---------|--------------------------------------------------------------------|--------------------------------------------------------------------|
+| job_thread_pool_activeCount                   | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The active thread count of the coordinator admission thread pool   |
+| job_thread_pool_corePoolSize                  | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The core size of the coordinator admission thread pool             |
+| job_thread_pool_maximumPoolSize               | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The maximum size of the coordinator admission thread pool          |
+| job_thread_pool_poolSize                      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The current size of the coordinator admission thread pool          |
+| job_thread_pool_queueTaskCount                | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queued task count of the coordinator admission thread pool     |
+| job_thread_pool_completedTask_total           | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completed task count of the coordinator admission thread pool  |
+| job_thread_pool_task_total                    | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The submitted task count of the coordinator admission thread pool  |
+| job_thread_pool_rejection_total               | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejected task count of the coordinator admission thread pool   |
+| job_lifecycle_thread_pool_activeCount         | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The active thread count of the coordinator lifecycle thread pool   |
+| job_lifecycle_thread_pool_corePoolSize        | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The core size of the coordinator lifecycle thread pool             |
+| job_lifecycle_thread_pool_maximumPoolSize     | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The maximum size of the coordinator lifecycle thread pool          |
+| job_lifecycle_thread_pool_poolSize            | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The current size of the coordinator lifecycle thread pool          |
+| job_lifecycle_thread_pool_queueTaskCount      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queued task count of the coordinator lifecycle thread pool     |
+| job_lifecycle_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completed task count of the coordinator lifecycle thread pool  |
+| job_lifecycle_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The submitted task count of the coordinator lifecycle thread pool  |
+| job_lifecycle_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejected task count of the coordinator lifecycle thread pool   |
 
 ### Report Metrics Operation
 
