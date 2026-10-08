@@ -83,6 +83,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
 | Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
 | FakeSource | Yes (schema inference only, no external system) | - |
+| Clickhouse | No | Yes ([initial-host connectivity + target metadata](../../connectors/sink/Clickhouse.md#connectivity-dry-run); no write permission or field compatibility check) |
 | RabbitMQ | Yes ([existing-queue metadata + configured schema; not consumer permissions](../../connectors/source/Rabbitmq.md#connectivity-dry-run)) | No |
 | S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
 | Redis | Yes ([connectivity + authentication](../../connectors/source/Redis.md#connectivity-dry-run) + configured schema; no key access) | Yes ([connectivity + authentication](../../connectors/sink/Redis.md#connectivity-dry-run); no field compatibility or write permission check) |

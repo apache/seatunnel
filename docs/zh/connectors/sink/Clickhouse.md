@@ -24,6 +24,25 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 用于将数据写入 Clickhouse。
 
+## 连通性 dry-run
+
+`--dry-run connect` 使用 sink 的连接配置检查第一个 `host`，并对 `system.tables`
+执行只读元数据查询。它不会创建 writer、读取业务数据、执行 `custom_sql` 或执行任何表结构/数据保存模式。
+
+- 当 `schema_save_mode = ERROR_WHEN_SCHEMA_NOT_EXIST` 时，目标表必须在 `system.tables`
+  中可见。表不存在或不可见都会导致校验失败。
+- 其他表结构保存模式允许目标表不存在。创建模式也允许数据库不存在；校验不会创建数据库或表，也不验证创建权限。
+- 连接和 socket 超时最多为 10 秒，保留更短的正值配置。服务端查询超时最多为 10 秒，
+  禁用重试和故障转移，不复用配置的 session。这些限制仅适用于 dry-run。
+- dry-run 不支持 `clickhouse.config.custom_http_params`，因为它可以在请求中附加 SQL。
+  也不支持自定义 `X-ClickHouse-Query-Id` 请求头，避免复用正在执行的查询标识。
+  空用户名或密码为空的非 default 用户也会被拒绝：当前 sink 无法解析这些凭据而不回退到驱动的默认账户。
+  支持密码为空的 default 用户。
+
+校验成功仅确认元数据连接可用，不保证字段/类型兼容性、写入或 DDL 权限、
+`ERROR_WHEN_DATA_EXISTS` 条件、自定义 SQL 的正确性，或 `split_mode` 下所有分片的连通性。
+Clickhouse source 和 ClickhouseFile sink 的行为不变。
+
 ## 支持的数据源信息
 
 为了使用 Clickhouse 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。

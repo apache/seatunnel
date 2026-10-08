@@ -24,6 +24,30 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 Used to write data to Clickhouse.
 
+## Connectivity dry-run
+
+`--dry-run connect` checks the first configured `host`, using the sink's connection
+settings and a read-only query against `system.tables`. It does not create a writer,
+read business rows, run `custom_sql`, or execute schema/data save modes.
+
+- With `schema_save_mode = ERROR_WHEN_SCHEMA_NOT_EXIST`, the target table must be
+  visible in `system.tables`. A missing or invisible target fails validation.
+- Other schema save modes allow a missing table. A missing database is also allowed
+  for creation modes; validation does not create either object or verify creation permissions.
+- Connect and socket timeouts are capped at 10 seconds, preserving shorter positive
+  values. Server query time is capped at 10 seconds, retries/failover are disabled,
+  and the check does not reuse a configured session. These overrides apply only to dry-run.
+- `clickhouse.config.custom_http_params` is not supported by dry-run because it can
+  add SQL to the request. A custom `X-ClickHouse-Query-Id` header is also rejected to
+  avoid reusing a running query's identifier. An empty username, or a non-default username with an empty
+  password, is rejected: the current sink cannot resolve those credentials without
+  falling back to the driver's default account. The default user with an empty password
+  is supported.
+
+Successful validation confirms this metadata connection, not field/type compatibility,
+write or DDL permissions, `ERROR_WHEN_DATA_EXISTS`, custom SQL correctness, or connectivity
+to every shard in `split_mode`. Clickhouse source and ClickhouseFile sink are unchanged.
+
 ## Supported DataSource Info
 
 In order to use the Clickhouse connector, the following dependencies are required.
