@@ -94,6 +94,31 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
 
+    /** Sink table fed through a {@code select *} SQL transform. */
+    private static final String SINK_TABLE_SQL_STAR =
+            "mysql_cdc_e2e_sink_table_with_schema_change_sql_star";
+
+    /** Sink table fed through a projecting SQL transform with an expression column. */
+    private static final String SINK_TABLE_SQL_PROJECTION =
+            "mysql_cdc_e2e_sink_table_with_schema_change_sql_projection";
+
+    /** Columns the projecting SQL transform emits, in the order the sink must keep them. */
+    private static final List<String> SQL_PROJECTION_COLUMNS =
+            Arrays.asList("double_weight", "id", "name", "weight");
+
+    /**
+     * Source side of the projection comparison. Values are cast to a fixed scale so FLOAT, DOUBLE
+     * and DECIMAL representations compare equal before and after the operand type changes.
+     */
+    private static final String SQL_PROJECTION_SOURCE_QUERY =
+            "select id, name, cast(weight as decimal(12,3)), cast(weight * 2 as decimal(12,3))"
+                    + " from %s.%s order by id";
+
+    /** Sink side of the projection comparison, reading the expression column by its alias. */
+    private static final String SQL_PROJECTION_SINK_QUERY =
+            "select id, name, cast(weight as decimal(12,3)), cast(double_weight as decimal(12,3))"
+                    + " from %s.%s order by id";
+
     /** Stable projection used after add-column evolution to compare source and sink rows. */
     private static final String STABLE_QUERY =
             "select id,name,description,weight from %s.%s order by id";
@@ -266,6 +291,207 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 });
 
         assertSchemaEvolution(container, MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+    }
+
+    /**
+     * A {@code select *} SQL transform between the CDC source and the JDBC sink must let the sink
+     * evolve exactly like it does without a transform: through a savepoint and a restore with a DDL
+     * applied while the job is stopped, through the cases applied to the running job, and through a
+     * rename that reuses the old name and a drop that re-creates the dropped name, each in one
+     * statement.
+     */
+    @Order(5)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionThroughSqlStarTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String jobConfigFile = "/mysqlcdc_to_mysql_with_schema_change_sql_star.conf";
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // case1 add columns with cdc data at same time
+        assertSchemaEvolutionForAddColumns(
+                container, MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+
+        // savepoint, then case2 drop columns while the job is stopped: on restore the source emits
+        // the checkpoint schema, the transform resynchronises from it and translates the drop that
+        // follows in the binlog against that state
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        shopDatabase.setTemplateName("drop_columns").createAndInitialize();
+        restoreJobAsync(container, jobConfigFile, jobId);
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+
+        // case3 to case5 with the restored job running
+        assertCaseByDdlName("change_columns", MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+        assertCaseByDdlName("modify_columns", MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+        assertCaseByDdlName("comment_changes", MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
+
+        // case6 rename with name reuse, then drop and re-create, each in one statement; the sink
+        // applies DROP and ADD as two statements, so a poll can hit the moment in between
+        shopDatabase.setTemplateName("rename_reuse_columns").createAndInitialize();
+        assertTableStructureAndDataTolerant(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+    }
+
+    /**
+     * A projecting SQL transform absorbs changes to columns it does not project, forwards a modify
+     * of a referenced column with the source type, keeps working across a savepoint and a restore
+     * both without and with a DDL applied while the job is stopped (FLOAT to DECIMAL turns {@code
+     * weight * 2} from DOUBLE into DECIMAL), translates a DDL that follows the restore, and turns a
+     * drop plus re-add of a referenced column into a drop plus re-add of the sink column.
+     */
+    @Order(6)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionThroughSqlProjectionTransform(
+            TestContainer container) throws IOException, InterruptedException {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String jobConfigFile = "/mysqlcdc_to_mysql_with_schema_change_sql_projection.conf";
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertSqlProjectionConverges(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS);
+        waitForIncrementalRead(container, MYSQL_DATABASE + "." + SOURCE_TABLE);
+
+        // add, drop and rename of columns the projection does not reference are absorbed
+        shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+        shopDatabase.setTemplateName("drop_columns").createAndInitialize();
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+        shopDatabase.setTemplateName("change_columns").createAndInitialize();
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+
+        // a modify of a referenced column reaches the sink with the source type
+        shopDatabase.setTemplateName("modify_columns").createAndInitialize();
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "name", "longtext");
+
+        // savepoint, rows only while the job is stopped, restore: the checkpoint schema equals the
+        // planning-time schema, so no restore event is emitted and the rows must land through the
+        // transform as they are
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        shopDatabase.setTemplateName("rows_only_after_restore").createAndInitialize();
+        restoreJobAsync(container, jobConfigFile, jobId);
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+
+        // savepoint, operand type change while the job is stopped, restore: the checkpoint schema
+        // differs from the planning-time schema, so the source's restore event resynchronises the
+        // transform first and the modify is then translated against that state; weight * 2 is
+        // DOUBLE for a FLOAT operand and becomes DECIMAL(12,3) once weight is DECIMAL(12,3)
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        shopDatabase.setTemplateName("modify_weight_type").createAndInitialize();
+        restoreJobAsync(container, jobConfigFile, jobId);
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "weight", "decimal(12,3)");
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "double_weight", "decimal(12,3)");
+
+        // a drop plus re-add of a referenced column in one statement, applied to the restored job,
+        // re-creates the sink column
+        shopDatabase.setTemplateName("drop_readd_projected").createAndInitialize();
+        assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "name", "varchar(64)");
+    }
+
+    /** Restores the job from its savepoint in the background, the way the job itself is started. */
+    private static void restoreJobAsync(
+            TestContainer container, String jobConfigFile, String jobId) {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+    }
+
+    /**
+     * Waits until the sink table matches the source table for structure and data while a column is
+     * being dropped and re-created. The sink executes DROP and ADD as two statements, so a query
+     * issued in between fails with an unknown column; such polls are retried until the timeout.
+     */
+    private void assertTableStructureAndDataTolerant(
+            String database, String sourceTable, String sinkTable) {
+        await().ignoreExceptions()
+                .atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
+        await().ignoreExceptions()
+                .atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Waits until the projection sink holds exactly the projected columns and data. Queries that
+     * fail while the sink is between two DDL statements of one composite are retried.
+     */
+    private void assertSqlProjectionConverges(long timeoutMs) {
+        await().ignoreExceptions()
+                .atMost(timeoutMs, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<String> sinkColumns =
+                                    getColumnNames(MYSQL_DATABASE, SINK_TABLE_SQL_PROJECTION)
+                                            .stream()
+                                            .map(String::toLowerCase)
+                                            .sorted()
+                                            .collect(Collectors.toList());
+                            Assertions.assertEquals(SQL_PROJECTION_COLUMNS, sinkColumns);
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    SQL_PROJECTION_SOURCE_QUERY,
+                                                    MYSQL_DATABASE,
+                                                    SOURCE_TABLE)),
+                                    query(
+                                            String.format(
+                                                    SQL_PROJECTION_SINK_QUERY,
+                                                    MYSQL_DATABASE,
+                                                    SINK_TABLE_SQL_PROJECTION)));
+                        });
+    }
+
+    /** Waits until DESCRIBE reports the expected MySQL type for one sink column. */
+    private void assertSinkColumnType(String table, String column, String expectedType) {
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedType,
+                                        query(String.format(DESC, MYSQL_DATABASE, table)).stream()
+                                                .filter(
+                                                        row ->
+                                                                column.equalsIgnoreCase(
+                                                                        String.valueOf(row.get(0))))
+                                                .map(
+                                                        row ->
+                                                                String.valueOf(row.get(1))
+                                                                        .toLowerCase())
+                                                .findFirst()
+                                                .orElse(null)));
     }
 
     /** Default wait used while polling the shared-name multi-database source tables. */
