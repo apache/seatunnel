@@ -85,12 +85,13 @@ public class OracleUtils {
     public static long queryApproximateRowCnt(
             OracleSourceConfig oracleSourceConfig, JdbcConnection jdbc, TableId tableId)
             throws SQLException {
-        Boolean useSelectCount = oracleSourceConfig.getUseSelectCount();
-        String rowCountQuery;
-        if (useSelectCount) {
-            rowCountQuery = String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
+        final String selectCountQuery =
+                String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
+        final String rowCountQuery;
+        if (oracleSourceConfig.getUseSelectCount()) {
+            rowCountQuery = selectCountQuery;
         } else {
-            rowCountQuery =
+            String query =
                     String.format(
                             "select NUM_ROWS from all_tables where TABLE_NAME = '%s'",
                             tableId.table());
@@ -108,11 +109,10 @@ public class OracleUtils {
                             "Failed to analyze table {}, falling back to select count(*). Error: {}",
                             tableId,
                             e.getMessage());
-                    useSelectCount = true;
-                    rowCountQuery =
-                            String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
+                    query = selectCountQuery;
                 }
             }
+            rowCountQuery = query;
         }
         log.info("row count query: {}", rowCountQuery);
         return jdbc.queryAndMap(
