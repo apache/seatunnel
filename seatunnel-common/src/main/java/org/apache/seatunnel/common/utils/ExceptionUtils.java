@@ -63,7 +63,6 @@ public class ExceptionUtils {
         if (current == null) {
             return next;
         }
-
         current.addSuppressed(next);
         return current;
     }
@@ -82,15 +81,12 @@ public class ExceptionUtils {
     public static Exception unwrap(Exception failure) {
         while ((failure instanceof ExecutionException || failure instanceof CompletionException)
                 && failure.getCause() instanceof Exception) {
-
             Exception cause = (Exception) failure.getCause();
-
             for (Throwable suppressed : failure.getSuppressed()) {
                 if (suppressed != cause) {
                     cause.addSuppressed(suppressed);
                 }
             }
-
             failure = cause;
         }
 
