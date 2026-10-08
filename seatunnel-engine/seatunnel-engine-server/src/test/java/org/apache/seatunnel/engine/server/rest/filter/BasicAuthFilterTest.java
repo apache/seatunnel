@@ -120,6 +120,72 @@ public class BasicAuthFilterTest {
         verify(response, never()).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
     }
 
+    @Test
+    void testEmptyConfiguredCredentialMatchesOnlyAnEmptyProvidedValue() throws Exception {
+        // An unset credential is refused by an explicit null guard, but an empty one is not the
+        // same thing: two zero-length byte arrays compare equal, so a deployment that configures
+        // an empty password accepts an empty one. That is unchanged from String.equals and is
+        // pinned here because it is surprising enough to be worth stating rather than
+        // rediscovering.
+        AtomicInteger emptyAccepted = new AtomicInteger();
+        HttpServletResponse acceptResponse = mock(HttpServletResponse.class);
+
+        doFilterWith(config("", ""), "", "", acceptResponse, emptyAccepted);
+
+        Assertions.assertEquals(
+                1, emptyAccepted.get(), "an empty credential pair must still match");
+        verify(acceptResponse, never())
+                .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+
+        // Empty on one side only must be refused, in both directions.
+        AtomicInteger emptyAgainstConfigured = new AtomicInteger();
+        HttpServletResponse emptyResponse = mock(HttpServletResponse.class);
+
+        doFilterWith(config(USER, PASSWORD), "", "", emptyResponse, emptyAgainstConfigured);
+
+        Assertions.assertEquals(
+                0, emptyAgainstConfigured.get(), "an empty credential must not match a set one");
+        verify(emptyResponse).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+
+        AtomicInteger configuredAgainstEmpty = new AtomicInteger();
+        HttpServletResponse setResponse = mock(HttpServletResponse.class);
+
+        doFilterWith(config("", ""), USER, PASSWORD, setResponse, configuredAgainstEmpty);
+
+        Assertions.assertEquals(
+                0, configuredAgainstEmpty.get(), "a set credential must not match an empty one");
+        verify(setResponse).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+    }
+
+    @Test
+    void testMultiByteCredentialIsComparedByItsUtf8Bytes() throws Exception {
+        // The comparison moved from String.equals to a byte comparison, so the encoding now
+        // matters. The filter decodes the header with StandardCharsets.UTF_8, and these pin that
+        // a multi-byte credential both matches itself and is still distinguished from a near
+        // miss, whether or not the near miss has the same byte length.
+        String multiByte = "pässwörd";
+        AtomicInteger accepted = new AtomicInteger();
+        HttpServletResponse acceptResponse = mock(HttpServletResponse.class);
+
+        doFilterWith(config(USER, multiByte), USER, multiByte, acceptResponse, accepted);
+
+        Assertions.assertEquals(1, accepted.get(), "a multi-byte credential must match itself");
+        verify(acceptResponse, never())
+                .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+
+        // "pässwürd" differs by one multi-byte character and so has the same UTF-8 length as the
+        // configured value; "passwörd" substitutes ASCII and is a byte shorter. Both must fail.
+        for (String nearMiss : new String[] {"pässwürd", "passwörd"}) {
+            AtomicInteger chainCalls = new AtomicInteger();
+            HttpServletResponse response = mock(HttpServletResponse.class);
+
+            doFilterWith(config(USER, multiByte), USER, nearMiss, response, chainCalls);
+
+            Assertions.assertEquals(0, chainCalls.get(), nearMiss + " must be rejected");
+            verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        }
+    }
+
     private static HttpConfig config(String username, String password) {
         HttpConfig config = new HttpConfig();
         config.setEnableBasicAuth(true);
