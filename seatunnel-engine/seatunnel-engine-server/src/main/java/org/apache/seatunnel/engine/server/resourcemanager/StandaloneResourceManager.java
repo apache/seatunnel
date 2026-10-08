@@ -33,6 +33,18 @@ public class StandaloneResourceManager extends AbstractResourceManager {
     @Override
     public synchronized void init() {
         log.info("Init standalone ResourceManager");
-        super.init();
+        try {
+            super.init();
+        } catch (Exception e) {
+            IllegalStateException initializationFailure =
+                    new IllegalStateException(
+                            "Could not initialize standalone resource manager", e);
+            try {
+                close();
+            } catch (RuntimeException cleanupFailure) {
+                initializationFailure.addSuppressed(cleanupFailure);
+            }
+            throw initializationFailure;
+        }
     }
 }
