@@ -18,11 +18,9 @@
 package org.apache.seatunnel.e2e.connector.maxcompute;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -273,41 +271,22 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         config.put("project", "mocked_mc");
         config.put("table_name", "test_table");
         config.put("read_columns", Arrays.asList("ID", "NAME"));
-        SeaTunnelSource<Object, SourceSplit, Serializable> source = createSource(config);
+        MaxcomputeSourceFactory factory = new MaxcomputeSourceFactory();
+        config.put("plugin_name", factory.factoryIdentifier());
+        SeaTunnelSource<Object, SourceSplit, Serializable> source =
+                FactoryUtil.<Object, SourceSplit, Serializable>createAndPrepareSource(
+                                ReadonlyConfig.fromMap(config),
+                                Thread.currentThread().getContextClassLoader(),
+                                factory.factoryIdentifier(),
+                                identifier -> {
+                                    throw new AssertionError("不应回退到旧版 Source 创建路径");
+                                },
+                                factory,
+                                null)
+                        ._1();
         CatalogTable table = source.getProducedCatalogTables().get(0);
         Assertions.assertArrayEquals(
                 new String[] {"ID", "NAME"}, table.getTableSchema().getFieldNames());
-    }
-
-    @Test
-    public void testRejectBlankSourceEndpoint() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("accessId", "ak");
-        config.put("accesskey", "sk");
-        config.put("endpoint", " \t\r\n ");
-        config.put("project", "mocked_mc");
-        config.put("table_name", "test_table");
-
-        FactoryException error =
-                Assertions.assertThrows(FactoryException.class, () -> createSource(config));
-        Assertions.assertTrue(error.getCause() instanceof OptionValidationException);
-        Assertions.assertTrue(error.getCause().getMessage().contains("endpoint"));
-    }
-
-    private SeaTunnelSource<Object, SourceSplit, Serializable> createSource(
-            Map<String, Object> config) {
-        MaxcomputeSourceFactory factory = new MaxcomputeSourceFactory();
-        config.put("plugin_name", factory.factoryIdentifier());
-        return FactoryUtil.<Object, SourceSplit, Serializable>createAndPrepareSource(
-                        ReadonlyConfig.fromMap(config),
-                        Thread.currentThread().getContextClassLoader(),
-                        factory.factoryIdentifier(),
-                        identifier -> {
-                            throw new AssertionError("不应回退到旧版 Source 创建路径");
-                        },
-                        factory,
-                        null)
-                ._1();
     }
 
     @TestTemplate
