@@ -408,9 +408,8 @@ public class MySqlUtils {
                     sql.append(" AND ");
                     sql.append(buildLexicographicNotEqualCondition(columns));
                 }
-                sql.append(" AND (");
+                sql.append(" AND ");
                 sql.append(buildLexicographicUpperBoundCondition(columns, true));
-                sql.append(")");
                 condition = sql.toString();
             }
         }
@@ -619,11 +618,15 @@ public class MySqlUtils {
     private static String buildLexicographicLowerBoundCondition(
             List<Column> columns, boolean inclusive) {
         StringBuilder sb = new StringBuilder();
+        sb.append("(");
         for (int i = 0; i < columns.size(); i++) {
             if (i > 0) {
                 sb.append(" OR ");
             }
-            sb.append("(");
+            // Each clause after the first is parenthesized so the ANDs bind within it.
+            if (i > 0) {
+                sb.append("(");
+            }
             for (int j = 0; j < i; j++) {
                 sb.append(quote(columns.get(j).name())).append(" = ? AND ");
             }
@@ -635,8 +638,11 @@ public class MySqlUtils {
                 operator = " > ?";
             }
             sb.append(quote(columns.get(i).name())).append(operator);
-            sb.append(")");
+            if (i > 0) {
+                sb.append(")");
+            }
         }
+        sb.append(")");
         return sb.toString();
     }
 
@@ -648,11 +654,15 @@ public class MySqlUtils {
     private static String buildLexicographicUpperBoundCondition(
             List<Column> columns, boolean inclusive) {
         StringBuilder sb = new StringBuilder();
+        sb.append("(");
         for (int i = 0; i < columns.size(); i++) {
             if (i > 0) {
                 sb.append(" OR ");
             }
-            sb.append("(");
+            // Each clause after the first is parenthesized so the ANDs bind within it.
+            if (i > 0) {
+                sb.append("(");
+            }
             for (int j = 0; j < i; j++) {
                 sb.append(quote(columns.get(j).name())).append(" = ? AND ");
             }
@@ -664,8 +674,11 @@ public class MySqlUtils {
                 operator = " < ?";
             }
             sb.append(quote(columns.get(i).name())).append(operator);
-            sb.append(")");
+            if (i > 0) {
+                sb.append(")");
+            }
         }
+        sb.append(")");
         return sb.toString();
     }
 
@@ -682,11 +695,13 @@ public class MySqlUtils {
     }
 
     private static int getLexicographicLowerBoundParamCount(int numColumns) {
-        return 2 * numColumns - 1;
+        // Clause i (0-based) contains i equality placeholders plus one comparison
+        // placeholder, so the OR chain has sum_{i=0}^{N-1} (i + 1) = N*(N+1)/2 placeholders.
+        return numColumns * (numColumns + 1) / 2;
     }
 
     private static int getLexicographicUpperBoundParamCount(int numColumns) {
-        return 2 * numColumns - 1;
+        return numColumns * (numColumns + 1) / 2;
     }
 
     /** Bind lexicographic lower bound parameters to a PreparedStatement. */
@@ -695,8 +710,10 @@ public class MySqlUtils {
             throws SQLException {
         int idx = startIdx;
         for (int i = 0; i < numColumns; i++) {
-            if (i < numColumns - 1) {
-                ps.setObject(idx++, values[i]);
+            // Clause i binds the equality values for columns 0..i-1, then the comparison
+            // value for column i.
+            for (int j = 0; j < i; j++) {
+                ps.setObject(idx++, values[j]);
             }
             ps.setObject(idx++, values[i]);
         }
