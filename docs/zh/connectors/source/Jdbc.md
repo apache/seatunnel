@@ -288,6 +288,8 @@ int_type_narrowing = false
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 
+达梦 `NVARCHAR2` 源字段同样会映射为 SeaTunnel `STRING`（与 `NVARCHAR` 一并识别，并在生成的 DDL 中保留原始类型名）。
+
 ## 并行读取器
 
 任务 `parallelism` 决定最多可以同时运行多少个 Reader；分片配置决定实际有多少个独立 split 可以分配给 Reader。
