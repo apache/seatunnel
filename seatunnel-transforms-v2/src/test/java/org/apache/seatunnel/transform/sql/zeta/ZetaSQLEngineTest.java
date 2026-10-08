@@ -451,6 +451,100 @@ public class ZetaSQLEngineTest {
     }
 
     @Test
+    public void testFractionalStringSourceIsRejectedForEveryIntegralTarget() {
+        // This is the measurement the scope decision rests on. TINYINT, SMALLINT and BYTE are
+        // left untouched because Byte.parseByte and Short.parseShort already reject a fractional
+        // string, whereas routing them through the numeric helper would have gone through
+        // Number.longValue() and quietly truncated '5.7' to 5. Pinned so a later unification of
+        // the integral targets cannot loosen them without turning this red.
+        for (String target : new String[] {"TINYINT", "SMALLINT", "INT"}) {
+            Assertions.assertThrows(
+                    Exception.class,
+                    () ->
+                            castResult(
+                                    String.format(
+                                            "select cast(c_str as %s) as r from test", target),
+                                    rowWith(0L, "5.7")),
+                    target + " should reject the fractional string 5.7");
+            Assertions.assertNull(
+                    castResult(
+                            String.format("select try_cast(c_str as %s) as r from test", target),
+                            rowWith(0L, "5.7")),
+                    target + " TRY_CAST should be null for the fractional string 5.7");
+        }
+        // Control: the same targets still accept an integral string, so the rejection above is
+        // about the fractional part and not about the cast failing outright.
+        Assertions.assertEquals(
+                (byte) 5,
+                castResult("select cast(c_str as TINYINT) as r from test", rowWith(0L, "5")),
+                "TINYINT should still accept an integral string");
+    }
+
+    @Test
+    public void testNarrowingAndFloatingSourcesAreRejectedWhileThePlanIsPrepared() {
+        // The docs note shipped with this change states that a narrowing or floating-point source
+        // is rejected earlier, while the statement is prepared rather than while a row is read,
+        // and that TRY_CAST does not turn those into NULL. Both halves are pinned here: the throw
+        // comes out of typeMapping, before any row exists, and TRY_CAST behaves identically
+        // because its catch sits in the per-row path that is never reached.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_tinyint", "c_bigint", "c_double"},
+                        new SeaTunnelDataType[] {
+                            BasicType.BYTE_TYPE, BasicType.LONG_TYPE, BasicType.DOUBLE_TYPE
+                        });
+
+        String[][] cases = {
+            {"cast(c_double as INT)", "Unsupported CAST FROM DOUBLE AS type: INT"},
+            {"try_cast(c_double as INT)", "Unsupported CAST FROM DOUBLE AS type: INT"},
+            {"cast(c_bigint as TINYINT)", "Unsupported CAST FROM BIGINT AS type: TINYINT"},
+            {"try_cast(c_bigint as TINYINT)", "Unsupported CAST FROM BIGINT AS type: TINYINT"}
+        };
+        for (String[] c : cases) {
+            ZetaSQLEngine engine = new ZetaSQLEngine();
+            engine.init("test", "test", rowType, "select " + c[0] + " as r from test");
+            TransformException thrown =
+                    Assertions.assertThrows(
+                            TransformException.class,
+                            () -> engine.typeMapping(new ArrayList<>()),
+                            c[0] + " should be rejected while the plan is prepared");
+            Assertions.assertTrue(
+                    thrown.getMessage().contains(c[1]),
+                    c[0] + " should report \"" + c[1] + "\" but reported: " + thrown.getMessage());
+        }
+    }
+
+    @Test
+    public void testCoalesceTruncatesAFractionalSourceTowardsZero() {
+        // The one route by which a fractional value reaches an integral target: COALESCE and
+        // IFNULL infer the target from the first non-null argument, so the user writes no cast and
+        // the double is narrowed. The docs note states it truncates towards zero; this pins both
+        // signs, because truncation and rounding differ for 5.7 and agree for nothing useful.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_double"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.DOUBLE_TYPE});
+
+        for (String fn : new String[] {"coalesce", "ifnull"}) {
+            for (Object[] c : new Object[][] {{5.7d, 5}, {-5.7d, -5}}) {
+                ZetaSQLEngine engine = new ZetaSQLEngine();
+                engine.init(
+                        "test",
+                        "test",
+                        rowType,
+                        "select " + fn + "(c_int, c_double) as r from test");
+                SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+                Assertions.assertEquals(
+                        c[1],
+                        engine.transformBySQL(new SeaTunnelRow(new Object[] {null, c[0]}), outType)
+                                .get(0)
+                                .getField(0),
+                        fn + " should truncate " + c[0] + " towards zero");
+            }
+        }
+    }
+
+    @Test
     public void testCaseExpressionWidensAndIsUnaffected() {
         // CASE also reaches castAs, but ZetaSQLType infers the widest branch type for it, so no
         // narrowing happens and the range check cannot fire. Pinned so a later change to that
