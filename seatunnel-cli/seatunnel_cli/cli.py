@@ -336,6 +336,7 @@ class SeaTunnelCLI:
             loaded, last_config = self.session_manager.load_session(session_id)
             self.orchestrator.load_history(loaded)
             self.last_config = last_config
+            self._pending_request = None
             self.console.print(
                 f"  Resumed [bold]{session_id}[/bold] ({len(loaded)} messages)", style="success"
             )
@@ -356,6 +357,7 @@ class SeaTunnelCLI:
                 pass
         self.orchestrator.conversation_history.clear()
         self.last_config = None
+        self._pending_request = None
         sid = self.session_manager.new_session()
         self.console.print(f"  New session: [bold]{sid}[/bold]", style="success")
 
@@ -1102,6 +1104,7 @@ class SeaTunnelCLI:
             )
             self.orchestrator.conversation_history.clear()
             self.last_config = None
+            self._pending_request = None
             self.session_manager.new_session()
             self.console.print("  Cleared. New session started.", style="info")
 
