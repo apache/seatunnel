@@ -573,6 +573,9 @@ When we can't get the job info, the response will be:
 ]
 ```
 
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+
+
 </details>
 
 ------------------------------------------------------------------------------------------
@@ -1004,6 +1007,13 @@ If you'd like to view the log list first, you can use a `GET` request to retriev
 
 The supported formats are `json` and `html`, with `html` as the default.
 
+#### Response Size Limit
+
+Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
+(64 MB by default), exactly as the [v2 endpoint](rest-api-v2.md#log-response-size-limit) does. A
+larger log file is represented by its tail and the response opens with a line saying so. Set the
+option to `0` to restore unlimited reads.
+
 #### Examples
 
 Retrieve logs for all nodes with the `jobId` of `733584788375666689`: `http://localhost:5801/hazelcast/rest/maps/logs/733584788375666689`
@@ -1026,5 +1036,8 @@ Returns a list of logs from the requested node.
 
 To get a list of logs from the current node: `http://localhost:5801/hazelcast/rest/maps/log`
 To get the content of a log file: `http://localhost:5801/hazelcast/rest/maps/log/job-898380162133917698.log`
+
+Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
+all-node endpoint above.
 
 </details>
