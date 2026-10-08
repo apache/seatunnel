@@ -200,6 +200,30 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
+    public void testFindSplitKeyFallsBackToSingleColumnForStringCompositeKey() throws SQLException {
+        JdbcSourceConfig config = config();
+        CatalogTable ct =
+                catalogTable(
+                        Arrays.asList(
+                                PhysicalColumn.builder()
+                                        .name("code")
+                                        .sourceType("varchar")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .build(),
+                                compositePkColumns().get(1)),
+                        new PrimaryKey("pk", Arrays.asList("code", "line_no")));
+        JdbcSourceTable table = table(ct);
+
+        DynamicChunkSplitter splitter =
+                splitterWithConnection(config, connectionWithMetadata(databaseMetaData(8)));
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        Assertions.assertEquals(1, splitKey.get().getTotalFields());
+        Assertions.assertEquals("code", splitKey.get().getFieldName(0));
+    }
+
+    @Test
     public void testFindSplitKeyFallsBackToSingleColumnForDialectNotOptedIn() throws SQLException {
         // A dialect that has not opted in via supportCompositeKeySplit() (DB2 default false)
         // must keep the pre-PR single-column behavior even for an all-supported composite PK.

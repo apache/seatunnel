@@ -434,7 +434,10 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 List<Column> pkColumns = new ArrayList<>();
                 for (String pkField : pkColumnNames) {
                     Column column = columnMap.get(pkField);
-                    if (column != null && isSupportSplitColumn(column)) {
+                    if (column != null
+                            && isSupportSplitColumn(column)
+                            && !org.apache.seatunnel.api.table.type.SqlType.STRING.equals(
+                                    column.getDataType().getSqlType())) {
                         pkColumns.add(column);
                     }
                 }
