@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 > ActiveMQ Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于把 SeaTunnel 数据写入 ActiveMQ 队列。每一行数据都会被序列化成一条 JSON 文本消息。
@@ -31,7 +37,16 @@ import ChangeLog from '../changelog/connector-activemq.md';
 | dispatch_async                        | boolean | 否    | -   | Broker 是否异步分发消息。                                                                                       |
 | nested_map_and_list_enabled           | boolean | 否    | -   | 是否允许结构化消息属性和 `MapMessage` 条目中包含嵌套的 `Map`、`List` 对象。                                               |
 | warn_about_unstarted_connection_timeout | int   | 否    | -   | 连接没有正确启动时，ActiveMQ 客户端发出警告前等待的毫秒数。设置为小于 `0` 的值可以关闭这个警告。                              |
-| consumer_expiry_check_enabled           | boolean | 否    | -   | 是否在每个 `MessageConsumer` 分发消息前检查消息是否已经过期。                                                  |
+| consumer_expiry_check_enabled           | boolean | 否    | -     | 是否在每个 `MessageConsumer` 分发消息前检查消息是否已经过期。                                                  |
+| max_thread_pool_size                    | int     | 否    | 1000  | ActiveMQ 连接工厂内部用于消息分发的线程池最大大小。默认值为 `1000`。                                            |
+| send_timeout                            | int     | 否    | 0     | ActiveMQ 连接工厂的发送超时时间，单位毫秒。值为 `0` 表示不超时。默认值为 `0`。                                  |
+| use_compression                         | boolean | 否    | false | 是否在发送消息前对消息体进行压缩。默认值为 `false`。                                                          |
+| connect_response_timeout               | int     | 否    | 0     | 连接建立时等待 Broker 响应的超时时间，单位毫秒。值为 `0` 表示不超时。默认值为 `0`。                              |
+| delivery_mode                          | int     | 否    | 2     | JMS 投递模式：`1` 为非持久化，`2` 为持久化。默认值为 `2`（持久化）。                                              |
+| priority                               | int     | 否    | 4     | JMS 消息优先级，0（最低）到 9（最高）。默认值为 `4`。                                                            |
+| producer_window_size                   | int     | 否    | 0     | 异步发送时的流控窗口大小，单位字节。值为 `0` 表示不限流。默认值为 `0`。                                          |
+| time_to_live                           | int     | 否    | 0     | 消息存活时间，单位毫秒。值为 `0` 表示永不过期。默认值为 `0`。                                                    |
+| use_async_send                         | boolean | 否    | false | 为 true 时发送不等 Broker 确认直接返回，提升吞吐量。默认值为 `false`。                                           |
 
 ## 注意事项
 

@@ -38,6 +38,15 @@ For consuming queues, see the separate [ActiveMQ source](../source/Activemq.md).
 | nested_map_and_list_enabled             | boolean | no       | -             | Whether structured message properties and `MapMessage` entries can contain nested `Map` and `List` objects.                                                           |
 | warn_about_unstarted_connection_timeout | int     | no       | -             | Timeout in milliseconds before ActiveMQ warns that a connection was not started correctly. Set a value less than `0` to disable the warning in the ActiveMQ client. |
 | consumer_expiry_check_enabled            | boolean | no       | -             | Whether the ActiveMQ client checks message expiration in each `MessageConsumer` before dispatching messages.                                                                                                  |
+| max_thread_pool_size                    | int     | no       | 1000          | Maximum thread pool size for the ActiveMQ connection factory's internal thread pool used for dispatching messages. Defaults to `1000`.                              |
+| send_timeout                            | int     | no       | 0             | Send timeout in milliseconds for the ActiveMQ connection factory. A value of `0` means no timeout. Defaults to `0`.                                                |
+| use_compression                         | boolean | no       | false         | Whether message bodies are compressed before being sent to the broker. Defaults to `false`.                                                                        |
+| connect_response_timeout               | int     | no       | 0             | Timeout in milliseconds for waiting for the broker's response during connection establishment. A value of `0` means no timeout. Defaults to `0`. |
+| delivery_mode                           | int     | no       | 2             | JMS delivery mode: `1` for NON_PERSISTENT or `2` for PERSISTENT. Defaults to `2` (PERSISTENT). |
+| priority                                | int     | no       | 4             | JMS message priority from 0 (lowest) to 9 (highest). Defaults to `4`. |
+| producer_window_size                    | int     | no       | 0             | Flow control window size in bytes for async sends. A value of `0` means no flow control. Defaults to `0`. |
+| time_to_live                            | int     | no       | 0             | Message time-to-live in milliseconds. A value of `0` means never expires. Defaults to `0`. |
+| use_async_send                          | boolean | no       | false         | When true, sends return without waiting for broker confirmation. Defaults to `false`. |
 
 ## Notes
 

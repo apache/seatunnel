@@ -122,4 +122,81 @@ public class ActivemqSinkOptions implements Serializable {
                     .withDescription(
                             "Controls whether message expiration checking is done in each "
                                     + "MessageConsumer prior to dispatching a message.");
+
+    public static final Option<Integer> MAX_THREAD_POOL_SIZE =
+            Options.key("max_thread_pool_size")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription(
+                            "Sets the maximum thread pool size for the ActiveMQ connection factory's "
+                                    + "internal thread pool used for dispatching messages.");
+
+    public static final Option<Integer> SEND_TIMEOUT =
+            Options.key("send_timeout")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Sets the send timeout in milliseconds for the ActiveMQ connection factory. "
+                                    + "A value of 0 means no timeout.");
+
+    public static final Option<Boolean> USE_COMPRESSION =
+            Options.key("use_compression")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When true, message bodies are compressed before being sent to the broker.");
+
+    public static final Option<Integer> CONNECT_RESPONSE_TIMEOUT =
+            Options.key("connect_response_timeout")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Timeout in milliseconds for waiting for the broker's response during "
+                                    + "connection establishment. A value of 0 means no timeout. "
+                                    + "Defaults to 0.");
+
+    public static final Option<Integer> DELIVERY_MODE =
+            Options.key("delivery_mode")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription(
+                            "JMS delivery mode: 1 for NON_PERSISTENT (message kept in memory, "
+                                    + "lost if broker crashes) or 2 for PERSISTENT (message written "
+                                    + "to disk before acknowledge). Defaults to 2 (PERSISTENT).");
+
+    public static final Option<Integer> PRIORITY =
+            Options.key("priority")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription(
+                            "JMS message priority from 0 (lowest) to 9 (highest). The broker "
+                                    + "delivers higher-priority messages before lower-priority ones. "
+                                    + "Defaults to 4.");
+
+    public static final Option<Integer> PRODUCER_WINDOW_SIZE =
+            Options.key("producer_window_size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Flow control window size in bytes for async sends. A value of 0 means "
+                                    + "no flow control. Used together with use_async_send to prevent "
+                                    + "unbounded memory growth. Defaults to 0.");
+
+    public static final Option<Integer> TIME_TO_LIVE =
+            Options.key("time_to_live")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Message time-to-live in milliseconds. A value of 0 means the message "
+                                    + "never expires. The broker discards messages after the TTL "
+                                    + "expires. Defaults to 0.");
+
+    public static final Option<Boolean> USE_ASYNC_SEND =
+            Options.key("use_async_send")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When true, the producer sends messages without waiting for the broker "
+                                    + "to confirm receipt, improving throughput at the risk of message "
+                                    + "loss if the broker fails. Defaults to false.");
 }

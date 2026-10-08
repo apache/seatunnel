@@ -39,13 +39,22 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CHECK_FOR_DUPLICATE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLIENT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONNECT_RESPONSE_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DELIVERY_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.MAX_THREAD_POOL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRIORITY;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRODUCER_WINDOW_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.SEND_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.TIME_TO_LIVE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.URI;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_ASYNC_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_COMPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 
 @Slf4j
@@ -53,6 +62,8 @@ public class ActivemqClient {
     private final ReadonlyConfig config;
     private final ActiveMQConnectionFactory connectionFactory;
     private final Connection connection;
+    private final Session session;
+    private final MessageProducer producer;
 
     public ActivemqClient(ReadonlyConfig config) {
         this.config = config;
@@ -60,10 +71,23 @@ public class ActivemqClient {
             this.connectionFactory = getConnectionFactory();
             log.info("connection factory created");
             this.connection = createConnection(config);
+            this.connection.start();
+            this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(config.get(QUEUE_NAME));
+            this.producer = session.createProducer(destination);
+            this.producer.setDeliveryMode(config.get(DELIVERY_MODE));
+            this.producer.setTimeToLive(config.get(TIME_TO_LIVE));
+            this.producer.setPriority(config.get(PRIORITY));
             log.info("connection created");
 
         } catch (Exception e) {
             log.error("Error while creating AMQ client", e);
+            // Best-effort cleanup of partially-created resources to avoid leaks
+            try {
+                close();
+            } catch (Exception ignored) {
+                // best-effort cleanup during construction failure
+            }
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
                     "Error while create AMQ client ",
@@ -72,7 +96,9 @@ public class ActivemqClient {
     }
 
     public ActiveMQConnectionFactory getConnectionFactory() {
-        log.info("broker url : " + config.get(URI));
+        // Strip credentials from URI before logging to avoid leaking sensitive information
+        String safeUri = config.get(URI).replaceAll("(://)[^@:]+:[^@]+@", "$1***@");
+        log.info("broker url : " + safeUri);
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.get(URI));
 
         if (config.get(ALWAYS_SESSION_ASYNC) != null) {
@@ -109,39 +135,82 @@ public class ActivemqClient {
         if (config.get(NESTED_MAP_AND_LIST_ENABLED) != null) {
             factory.setNestedMapAndListEnabled(config.get(NESTED_MAP_AND_LIST_ENABLED));
         }
+
+        if (config.get(MAX_THREAD_POOL_SIZE) != null) {
+            factory.setMaxThreadPoolSize(config.get(MAX_THREAD_POOL_SIZE));
+        }
+
+        if (config.get(SEND_TIMEOUT) != null) {
+            factory.setSendTimeout(config.get(SEND_TIMEOUT));
+        }
+
+        if (config.get(USE_COMPRESSION) != null) {
+            factory.setUseCompression(config.get(USE_COMPRESSION));
+        }
+
+        if (config.get(CONNECT_RESPONSE_TIMEOUT) != null) {
+            factory.setConnectResponseTimeout(config.get(CONNECT_RESPONSE_TIMEOUT));
+        }
+
+        if (config.get(PRODUCER_WINDOW_SIZE) != null) {
+            factory.setProducerWindowSize(config.get(PRODUCER_WINDOW_SIZE));
+        }
+
+        if (config.get(USE_ASYNC_SEND) != null) {
+            factory.setUseAsyncSend(config.get(USE_ASYNC_SEND));
+        }
         return factory;
     }
 
     public void write(byte[] msg) {
         try {
-            this.connection.start();
-            Session session = this.connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            Destination destination = session.createQueue(config.get(QUEUE_NAME));
-            MessageProducer producer = session.createProducer(destination);
             String messageBody = new String(msg, StandardCharsets.UTF_8);
-            TextMessage objectMessage = session.createTextMessage(messageBody);
-            producer.send(objectMessage);
+            TextMessage textMessage = session.createTextMessage(messageBody);
+            producer.send(textMessage);
 
         } catch (JMSException e) {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.SEND_MESSAGE_FAILED,
                     String.format(
                             "Cannot send AMQ message %s at %s",
-                            config.get(QUEUE_NAME), config.get(CLIENT_ID)),
+                            config.get(QUEUE_NAME), config.get(URI)),
                     e);
         }
     }
 
     public void close() {
+        JMSException firstError = null;
+        try {
+            if (producer != null) {
+                producer.close();
+            }
+        } catch (JMSException e) {
+            firstError = e;
+        }
+        try {
+            if (session != null) {
+                session.close();
+            }
+        } catch (JMSException e) {
+            if (firstError == null) {
+                firstError = e;
+            }
+        }
         try {
             if (connection != null) {
                 connection.close();
             }
         } catch (JMSException e) {
+            if (firstError == null) {
+                firstError = e;
+            }
+        }
+        if (firstError != null) {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CLOSE_CONNECTION_FAILED,
                     String.format(
-                            "Error while closing AMQ connection with  %s", config.get(QUEUE_NAME)));
+                            "Error while closing AMQ connection with %s", config.get(QUEUE_NAME)),
+                    firstError);
         }
     }
 
