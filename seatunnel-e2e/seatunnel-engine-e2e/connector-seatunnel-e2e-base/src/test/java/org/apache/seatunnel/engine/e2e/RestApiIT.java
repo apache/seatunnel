@@ -1415,6 +1415,69 @@ public class RestApiIT {
                         });
     }
 
+    /**
+     * HOCON bodies are parsed by the HOCON parser before the submit flow decrypts them. A key such
+     * as {@code "$systemId"} has to be quoted in the body, because {@code $} is a reserved HOCON
+     * character, and it has to stay a literal key when the decrypted config is re-parsed so that
+     * the FieldMapper mapping keeps working.
+     */
+    @Test
+    public void testSubmitJobWithHoconFormatAndQuotedLiteralKey() {
+        String hoconConfig =
+                "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fake\"\n"
+                        + "    row.num = 2\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        name = \"string\"\n"
+                        + "        age = \"int\"\n"
+                        + "        \"$systemId\" = \"string\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "transform {\n"
+                        + "  FieldMapper {\n"
+                        + "    plugin_input = \"fake\"\n"
+                        + "    plugin_output = \"mapped\"\n"
+                        + "    field_mapper = {\n"
+                        + "      \"$systemId\" = \"nova_system_id\"\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  Console {\n"
+                        + "    plugin_input = \"mapped\"\n"
+                        + "  }\n"
+                        + "}";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(hoconConfig)
+                                                .queryParam("format", "hocon")
+                                                .queryParam("jobName", "test-hocon-literal-key-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body(
+                                                        "jobName",
+                                                        equalTo("test-hocon-literal-key-job"));
+                                    });
+                        });
+    }
+
     @Test
     public void testCheckpointOverviewAndHistoryApi() {
         long jobId = clientJobProxy.getJobId();

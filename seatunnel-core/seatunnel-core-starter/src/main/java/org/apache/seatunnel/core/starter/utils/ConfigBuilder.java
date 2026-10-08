@@ -238,8 +238,7 @@ public class ConfigBuilder {
         log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
-            Config config =
-                    ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(flattenedMap));
+            Config config = ConfigFactory.parseMap(flattenedMap);
             return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
         } catch (ParserException | IllegalArgumentException e) {
             throw e;
