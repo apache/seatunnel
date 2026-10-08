@@ -41,6 +41,10 @@ from prompt_toolkit.history import FileHistory
 from . import __version__, get_data_dir
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
+from .credentials import (
+    replace_creds_with_placeholders as _replace_creds_with_placeholders,
+    restore_creds_from_placeholders as _restore_creds_from_placeholders,
+)
 
 
 # ─── Theme ───
@@ -84,45 +88,6 @@ Generate Apache SeaTunnel configs with natural language.
 """
 
 
-# ─── Credential placeholder helpers for config repair ───
-
-_CRED_KV_RE = re.compile(
-    r'((?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s*=\s*)"([^"]*)"',
-    re.IGNORECASE,
-)
-
-
-def _replace_creds_with_placeholders(config: str) -> tuple[str, dict[str, str]]:
-    """Replace credential values with ${_CRED_N_} placeholders.
-
-    Returns (safe_config, mapping) where mapping can restore originals.
-    """
-    cred_map: dict[str, str] = {}
-    counter = [0]
-
-    def _replacer(m: re.Match) -> str:
-        key_part = m.group(1)  # e.g. 'password = '
-        value = m.group(2)
-        if value.startswith("${"):
-            return m.group(0)  # Already a placeholder, skip
-        counter[0] += 1
-        placeholder = f"${{_CRED_{counter[0]}_}}"
-        cred_map[placeholder] = value
-        return f'{key_part}"{placeholder}"'
-
-    safe = _CRED_KV_RE.sub(_replacer, config)
-    return safe, cred_map
-
-
-def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> str:
-    """Restore original credential values from ${_CRED_N_} placeholders."""
-    for placeholder, original in cred_map.items():
-        config = config.replace(placeholder, original)
-    return config
-
-
 class SeaTunnelCLI:
     """Interactive CLI for SeaTunnel config generation."""
 
@@ -158,6 +123,7 @@ class SeaTunnelCLI:
                 client=self.client,
                 on_status=self._show_status,
                 on_stream=self._handle_stream,
+                on_debug=self._show_debug,
                 memory_store=self.memory_store,
             )
             return True
@@ -176,6 +142,24 @@ class SeaTunnelCLI:
         icon = icons.get(phase, "⏳")
         self.status_text = f"{icon} {message}"
         self.console.print(f"  {icon} {message}", style="info")
+
+    def _show_debug(self, stage: str, **fields):
+        """Print one pipeline debug event (redacted). Only used when debug is on."""
+        from .debug import format_debug_line, redact_and_truncate
+
+        self._stop_live()
+        snippet = fields.pop("snippet", None)
+        outcome = str(fields.get("outcome", "")).lower()
+        style = "warning" if outcome in {"fail", "error", "warn", "missing_info"} else "dim"
+        # Text(..., style=) avoids Rich markup interpolation of HOCON / snippets
+        # that may contain tags like [sink] or [/x].
+        self.console.print(Text(f"  {format_debug_line(stage, **fields)}", style=style))
+        if snippet:
+            body = redact_and_truncate(str(snippet), max_len=1200)
+            if body.strip():
+                self.console.print(Text("  [debug] detail:", style=style))
+                for line in body.splitlines() or [body]:
+                    self.console.print(Text(f"  | {line}", style=style))
 
     def _handle_stream(self, tag: str, event: dict):
         """Handle streaming events from the agent pipeline."""
@@ -1588,6 +1572,12 @@ def main():
         help="Interactive first-time setup: choose LLM provider and save config",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print agent pipeline diagnostics (also: SEATUNNEL_CLI_DEBUG=1). "
+             "Includes stage outcomes and redacted model snippets on failures.",
+    )
+    parser.add_argument(
         "--export-metadata",
         nargs="?",
         const="auto",
@@ -1598,6 +1588,11 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.debug:
+        from .debug import enable_debug
+
+        enable_debug()
 
     # --init: interactive setup, no LLM needed
     if args.init:
@@ -1703,7 +1698,7 @@ def _install_secret_log_filter():
     # Also cover our package loggers explicitly
     for name in ("seatunnel_cli", "seatunnel_cli.llm_provider",
                  "seatunnel_cli.agents", "seatunnel_cli.connectors",
-                 "seatunnel_cli.memory"):
+                 "seatunnel_cli.memory", "seatunnel_cli.debug"):
         pkg_logger = logging.getLogger(name)
         pkg_logger.addFilter(secret_filter)
 

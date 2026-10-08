@@ -249,6 +249,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
+| `SEATUNNEL_CLI_DEBUG` | No | off | Set to `1`/`true` to print agent pipeline diagnostics (same as `--debug`) |
 
 ## Usage
 
@@ -288,10 +289,13 @@ Options:
   --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
+  --debug                  Print agent pipeline diagnostics (stages + redacted snippets on failure)
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source
   -V, --version            Show version
   -h, --help               Show help message
 ```
+
+When config generation fails with a soft error (for example no HOCON block in the model reply), the CLI prints a short reason. Re-run with `--debug` or `SEATUNNEL_CLI_DEBUG=1` to see the full planner → skill → generator → validator chain and a redacted snippet of the failing model output.
 
 ### Interactive Commands
 
