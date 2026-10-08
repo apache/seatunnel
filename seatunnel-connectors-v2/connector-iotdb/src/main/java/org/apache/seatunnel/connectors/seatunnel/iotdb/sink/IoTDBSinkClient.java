@@ -165,20 +165,56 @@ public class IoTDBSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        flush();
+        Exception flushFailure = null;
+        try {
+            flush();
+        } catch (Exception e) {
+            log.error("Flush IoTDB records before closing clients failed.", e);
+            flushFailure = e;
+        }
 
+        // Every created session is closed even when the flush above failed or an earlier close
+        // failed, so one broken node cannot leak the remaining sessions; the first close failure
+        // wins and the later ones are attached as suppressed exceptions.
+        Exception closeFailure = null;
         for (int i = 0; i < sessions.length; i++) {
-            if (sessions[i] != null) {
-                try {
-                    sessions[i].close();
-                } catch (IoTDBConnectionException e) {
-                    log.error("Close IoTDB client failed.", e);
-                    throw new IotdbConnectorException(
-                            IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED,
-                            "Close IoTDB client failed.",
-                            e);
+            Session session = sessions[i];
+            sessions[i] = null;
+            if (session == null) {
+                continue;
+            }
+            try {
+                session.close();
+            } catch (Exception e) {
+                log.error("Close IoTDB client for {} failed.", sinkConfig.getNodeUrls().get(i), e);
+                if (closeFailure == null) {
+                    closeFailure = e;
+                } else {
+                    closeFailure.addSuppressed(e);
                 }
             }
+        }
+
+        if (flushFailure != null) {
+            if (closeFailure != null) {
+                flushFailure.addSuppressed(closeFailure);
+            }
+            if (flushFailure instanceof RuntimeException) {
+                throw (RuntimeException) flushFailure;
+            }
+            if (flushFailure instanceof IOException) {
+                throw (IOException) flushFailure;
+            }
+            throw new IotdbConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Writing records to IoTDB failed.",
+                    flushFailure);
+        }
+        if (closeFailure != null) {
+            throw new IotdbConnectorException(
+                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED,
+                    "Close IoTDB client failed.",
+                    closeFailure);
         }
     }
 
@@ -186,7 +222,8 @@ public class IoTDBSinkClient {
      * Writes are routed per device to the node that last accepted them (the region leader). A
      * REDIRECTION_RECOMMEND reply means the current node is no longer the leader for those devices:
      * the affected devices are re-routed to another node and retried immediately, without waiting.
-     * Only network-level failures go through backoff waiting.
+     * Only network-level failures consume the retry budget and go through backoff waiting, so
+     * adding endpoints never increases the configured network retry limit.
      */
     synchronized void flush() throws IOException {
         checkFlushException();
@@ -196,10 +233,12 @@ public class IoTDBSinkClient {
 
         List<IoTDBRecord> remaining = new ArrayList<>(batchList);
         Exception[] lastError = new Exception[1];
-        int nodeCount = sessions.length;
-        // Redirects rotate endpoints without consuming the retry budget; the round bound only
-        // exists so a leaderless or broken cluster can never spin this loop forever.
-        int maxRounds = nodeCount + retryBudget() + 1;
+        // Network retries draw from a budget of their own, independent of the endpoint count;
+        // redirect traversal is bounded only by the round limit below, which exists so a
+        // leaderless or broken cluster can never spin this loop forever.
+        int networkBudget = retryBudget();
+        int[] networkFailures = new int[1];
+        int maxRounds = sessions.length + networkBudget + 1;
 
         for (int round = 0; !remaining.isEmpty(); round++) {
             if (round >= maxRounds) {
@@ -227,7 +266,14 @@ public class IoTDBSinkClient {
             boolean networkFailure = false;
             for (Map.Entry<Integer, List<IoTDBRecord>> group : endpointGroups.entrySet()) {
                 networkFailure |=
-                        writeGroup(group.getKey(), group.getValue(), nextRound, round, lastError);
+                        writeGroup(
+                                group.getKey(),
+                                group.getValue(),
+                                nextRound,
+                                round,
+                                lastError,
+                                networkBudget,
+                                networkFailures);
             }
             for (Map.Entry<String, List<IoTDBRecord>> group : probeGroups.entrySet()) {
                 networkFailure |=
@@ -236,7 +282,9 @@ public class IoTDBSinkClient {
                                 group.getValue(),
                                 nextRound,
                                 round,
-                                lastError);
+                                lastError,
+                                networkBudget,
+                                networkFailures);
             }
 
             if (nextRound.isEmpty()) {
@@ -254,14 +302,17 @@ public class IoTDBSinkClient {
     /**
      * Writes one group to the given node. Returns true when the failure was network-level (the
      * caller then backs off before the next round). Records that must be retried are appended to
-     * nextRound.
+     * nextRound. Network failures consume the shared retry budget; once it is exhausted the group
+     * fails immediately instead of being requeued.
      */
     private boolean writeGroup(
             int index,
             List<IoTDBRecord> records,
             List<IoTDBRecord> nextRound,
             int round,
-            Exception[] lastError)
+            Exception[] lastError,
+            int networkBudget,
+            int[] networkFailures)
             throws IOException {
         try {
             insertRecords(sessionFor(index), records);
@@ -306,6 +357,16 @@ public class IoTDBSinkClient {
                     buildFailureMessage(records, e),
                     e);
         } catch (IoTDBConnectionException e) {
+            if (networkFailures[0] >= networkBudget) {
+                // The configured network retry budget is exhausted; redirect rounds must not
+                // enlarge it, so the group fails here instead of being requeued again.
+                lastError[0] = e;
+                throw new IotdbConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        buildFailureMessage(records, e),
+                        e);
+            }
+            networkFailures[0]++;
             log.warn(
                     "Writing {} records to IoTDB node {} failed (attempt {});"
                             + " rebuilding session and retrying.",
