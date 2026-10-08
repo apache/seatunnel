@@ -16,9 +16,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data to a DuckDB database file through JDBC. Supports batch and streaming modes, supports concurrent
-writing, and supports exactly-once semantics when the underlying JDBC driver exposes an XA datasource
-(set `is_exactly_once = true` and provide `xa_data_source_class_name`). DuckDB runs in-process, so the connector
+Write data to a DuckDB database file through JDBC. Supports batch and streaming modes and concurrent
+writing. The DuckDB JDBC driver used by this connector does not provide an XA datasource, so the JDBC sink's
+XA-based exactly-once option is unavailable for DuckDB. DuckDB runs in-process, so the connector
 works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database.
 
 ## Using Dependency
@@ -33,11 +33,11 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> The generic JDBC sink implements exactly-once through XA transactions. The DuckDB JDBC driver does not
+> provide an XA datasource; do not set `is_exactly_once = true` for DuckDB.
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
@@ -72,22 +72,22 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | username                                  | String  | No       | -                            | Connection instance user name. DuckDB does not require authentication for local files; leave empty unless you wrap it with a custom authenticator.                                                                                            |
 | password                                  | String  | No       | -                            | Connection instance password. DuckDB does not require authentication for local files; leave empty unless you wrap it with a custom authenticator.                                                                                             |
 | query                                     | String  | No       | -                            | Use this SQL to write upstream input data to the database, for example `INSERT ...`. When `query` is set, it has higher priority than `database`/`table`/`table_list`.                                                                       |
-| database                                  | String  | No       | main                         | Use this `database` and `table` to auto-generate SQL and write upstream input data to the database. This option is mutually exclusive with `query` and has a higher priority.                                                                 |
-| table                                     | String  | No       | -                            | Use database and this table name to auto-generate SQL and write upstream input data to the database. This option is mutually exclusive with `query` and has a higher priority.                                                                |
+| database                                  | String  | No       | -                            | Use this `database` and `table` to auto-generate SQL and write upstream input data to the database. This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                                 |
+| table                                     | String  | No       | -                            | Use database and this table name to auto-generate SQL and write upstream input data to the database. This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                                |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generating SQL.                                                                                                                          |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit a failed `executeBatch` call.                                                                                                                                                                                  |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
-| is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which uses XA transactions. When enabled, you must also set `xa_data_source_class_name`.                                                                                                              |
+| is_exactly_once                           | Boolean | No       | false                        | Generic JDBC XA option. Keep `false` for DuckDB because its JDBC driver has no XA datasource.                                                                                                                                                  |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
-| xa_data_source_class_name                 | String  | No       | -                            | The XA datasource class name of the database driver. For DuckDB, use `org.duckdb.DuckDBXADataSource`.                                                                                                                                          |
+| xa_data_source_class_name                 | String  | No       | -                            | Generic JDBC XA datasource class option. The DuckDB JDBC driver does not provide one, so this option cannot enable exactly-once for DuckDB.                                                                                                    |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures.                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is `-1` (never timeout). Note that setting the timeout may affect exactly-once semantics.                                                                                             |
 | auto_commit                               | Boolean | No       | true                         | Whether to enable automatic transaction commit. Set to `false` when `is_exactly_once = true`.                                                                                                                                                 |
 | field_ide                                 | String  | No       | -                            | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed; `UPPERCASE` indicates conversion to uppercase; `LOWERCASE` indicates conversion to lowercase.     |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters. When properties and URL have the same parameters, the priority is determined by the specific driver implementation. For DuckDB, properties take precedence over the URL.                         |
 | common-options                            |         | No       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                    |
-| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the existing table schema on the target side before the sync task starts. Supported values: `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`.                                                     |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the existing table schema on the target side before the sync task starts. Supported values: `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`.                                                     |
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  | How to handle existing data on the target side before the sync task starts. Supported values: `DROP_DATA`, `APPEND_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`.                                                                      |
 | custom_sql                                | String  | No       | -                            | When `data_save_mode = CUSTOM_PROCESSING`, fill in the CUSTOM_SQL parameter. This is a SQL statement that runs before the synchronization task.                                                                                               |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by `primary_keys`. If the task only has `insert`, setting this parameter to `false` can speed up data import.                                                                                                                   |
@@ -167,43 +167,6 @@ sink {
 }
 ```
 
-### Exactly-Once
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    parallelism = 1
-    row_num = 1000
-    schema = {
-      fields {
-        id = "int"
-        name = "string"
-        age = "int"
-        email = "string"
-      }
-    }
-  }
-}
-
-sink {
-  Jdbc {
-    url = "jdbc:duckdb:/tmp/test.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "sink_table"
-    username = ""
-    password = ""
-
-    is_exactly_once = "true"
-
-    xa_data_source_class_name = "org.duckdb.DuckDBXADataSource"
-  }
-}
-```
 
 ## Changelog
 

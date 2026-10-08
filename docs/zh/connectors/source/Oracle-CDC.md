@@ -237,8 +237,8 @@ exit;
 | stop.mode                                 | Enum     | 否      | NEVER   | Oracle CDC 使用者的可选停止模式。当前唯一有效值是 `never`，因此流式 Oracle CDC source 会一直运行，直到任务被停止。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | snapshot.split.size                       | Integer  | 否      | 8096    | 表快照的拆分大小（行数），在读取表快照时，捕获的表将被拆分为多个拆分块。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否      | 1024    | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| server-time-zone                          | String   | 否      | UTC     | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。该参数也用于将 `startup.timestamp` 转换为 SCN。若数据库时区与 JVM 时区不同，建议显式配置。                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| connect.timeout.ms                        | Duration | 否      | 30000   | 连接器在尝试连接数据库服务器后超时的最大等待时间。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | 否      | -       | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。该参数也用于将 `startup.timestamp` 转换为 SCN。若数据库时区与 JVM 时区不同，建议显式配置。                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| connect.timeout.ms                        | Long     | 否      | 30000   | 连接器在尝试连接数据库服务器后超时的最大等待时间。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否      | 3       | 连接器尝试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否      | 20      | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | incremental.parallelism                   | Integer  | 否      | 1       | 全量快照阶段结束、进入增量日志读取后使用的并行读取数量。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -257,30 +257,6 @@ exit;
 | schema-changes.exclude                     | List     | 否      | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                                                                                                                                                                                   |
 | debezium                                  | Config   | 否      | -       | 透传 [Debezium 属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) 给 Debezium Embedded Engine，该引擎用于捕获 Oracle 服务器的数据更改。                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | 否      | -       | 源端插件常用参数，详情请参阅 [源端常用选项](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| decimal_type_narrowing                    | Boolean | 否      | true            | 数值类型收缩，如果为 true，则在不损失精度的情况下，将 decimal 类型收缩为 int 或 long 类型。目前仅支持 Oracle。请参阅下文的 `decimal_type_narrowing`。                                                                                                                                                                                                                                                                                                                                                                                                              |
-
-
-### decimal_type_narrowing
-
-数值类型收缩，如果为 true，则在不损失精度的情况下，将 decimal 类型收缩为 int 或 long 类型。目前仅支持 Oracle。
-
-例如：
-
-decimal_type_narrowing = true
-
-| Oracle        | SeaTunnel |
-|---------------|-----------|
-| NUMBER(1, 0)  | Boolean   |
-| NUMBER(6, 0)  | INT       |
-| NUMBER(10, 0) | BIGINT    |
-
-decimal_type_narrowing = false
-
-| Oracle        | SeaTunnel      |
-|---------------|----------------|
-| NUMBER(1, 0)  | Decimal(1, 0)  |
-| NUMBER(6, 0)  | Decimal(6, 0)  |
-| NUMBER(10, 0) | Decimal(10, 0) |
 
 ## 任务示例
 
@@ -557,6 +533,17 @@ ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 ### Oracle CDC 是否支持无主键表？
 
 默认情况下，Oracle CDC 需要主键。如果表中存在合适的唯一列，可通过 `table-names-config` 中的 `primaryKeys` 字段指定自定义主键列。
+
+### 如何使用自定义快照查询？
+
+在 `debezium` 块中配置 Debezium 的 `snapshot.select.statement.overrides` 属性。SeaTunnel 会先使用该查询，再追加快照分片边界条件，因此查询必须包含已配置表结构和分片键所需的全部列。
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
 
 ### 如何提升 LogMiner 性能？
 

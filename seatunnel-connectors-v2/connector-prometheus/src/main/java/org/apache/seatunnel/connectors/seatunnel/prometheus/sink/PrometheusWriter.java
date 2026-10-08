@@ -54,6 +54,13 @@ public class PrometheusWriter extends HttpSinkWriter {
 
     private final List<Point> batchList;
     private final Integer batchSize;
+    // Retry configuration for the remote-write flush, sourced from the shared HTTP retry options
+    // (retry / retry_backoff_multiplier_ms / retry_backoff_max_ms). The base HttpClientProvider
+    // retries transport IOExceptions with these; the writer reuses the same values to retry
+    // retryable HTTP statuses (5xx/429), which the base retryer cannot see.
+    private final int retry;
+    private final int retryBackoffMultiplierMs;
+    private final int retryBackoffMaxMs;
     private final PrometheusSinkConfig sinkConfig;
     private final Serializer serializer;
     protected final HttpClientProvider httpClient;
@@ -68,6 +75,9 @@ public class PrometheusWriter extends HttpSinkWriter {
         this.batchList = new ArrayList<>();
         this.sinkConfig = PrometheusSinkConfig.loadConfig(pluginConfig);
         this.batchSize = sinkConfig.getBatchSize();
+        this.retry = Math.max(0, httpParameter.getRetry());
+        this.retryBackoffMultiplierMs = httpParameter.getRetryBackoffMultiplierMillis();
+        this.retryBackoffMaxMs = httpParameter.getRetryBackoffMaxMillis();
         this.serializer =
                 new PrometheusSerializer(
                         seaTunnelRowType,
@@ -139,33 +149,162 @@ public class PrometheusWriter extends HttpSinkWriter {
             if (batchList.isEmpty()) {
                 return;
             }
+            final byte[] body;
             try {
-                byte[] body = snappy(batchList);
-                ByteArrayEntity byteArrayEntity = new ByteArrayEntity(body);
-                HttpResponse response =
-                        httpClient.doPost(
-                                httpParameter.getUrl(),
-                                httpParameter.getHeaders(),
-                                byteArrayEntity);
-                if (HttpStatus.SC_NO_CONTENT == response.getCode()) {
-                    batchList.clear();
-                    return;
-                }
-                // Propagate the failure to the engine instead of silently dropping the batch, so a
-                // flush that did not succeed is not treated as a successful flush.
+                body = snappy(batchList);
+            } catch (IOException e) {
+                // Encoding failure is a bug, not a transient error, so do not retry it.
                 throw new PrometheusConnectorException(
                         CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                        String.format(
-                                "Writing records to prometheus failed, http response status code:[%d], content:[%s]",
-                                response.getCode(), response.getContent()));
-            } catch (PrometheusConnectorException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new PrometheusConnectorException(
-                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                        "Writing records to prometheus failed.",
+                        "Failed to compress records for the prometheus remote-write request.",
                         e);
             }
+            // The base HttpClientProvider already retries transport IOExceptions (using the same
+            // retry / retry_backoff_* options). Here we additionally retry retryable HTTP statuses
+            // (5xx and 429), which the base retryer cannot see because they come back as responses
+            // rather than exceptions. Other 4xx fail fast, and a duplicate/out-of-order 400 is
+            // treated as delivered (see sendOnce). After the retries are exhausted flush() throws,
+            // so a genuine outage fails the caller (a checkpoint via prepareCommit, batch_size, the
+            // timer flush, or close()) instead of silently dropping the batch.
+            //
+            // `retry` is the total attempt budget here, matching the base transport
+            // retryer (which uses stopAfterAttempt(retry)). The base uses a Fibonacci
+            // backoff while this status path uses a capped exponential backoff, both
+            // bounded by the retry_backoff_* options.
+            int maxAttempts = Math.max(1, retry);
+            for (int attempt = 1; ; attempt++) {
+                try {
+                    sendOnce(body);
+                    batchList.clear();
+                    return;
+                } catch (RetryableFlushException e) {
+                    if (attempt >= maxAttempts) {
+                        throw new PrometheusConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                String.format(
+                                        "Writing records to prometheus failed after %d attempt(s).",
+                                        attempt),
+                                e);
+                    }
+                    log.warn(
+                            "Prometheus remote-write attempt {}/{} failed with a retryable response, "
+                                    + "retrying: {}",
+                            attempt,
+                            maxAttempts,
+                            e.getMessage());
+                    sleepBeforeRetry(attempt);
+                }
+            }
+        }
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        // Exponential backoff (multiplier * 2^(attempt-1)) capped at retry_backoff_max_ms. The
+        // attempt >= 31 guard keeps the left shift from overflowing on a large attempt count.
+        long backoff =
+                attempt >= 31
+                        ? retryBackoffMaxMs
+                        : Math.min(
+                                (long) retryBackoffMultiplierMs << (attempt - 1),
+                                retryBackoffMaxMs);
+        if (backoff <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(backoff);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new PrometheusConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Interrupted while backing off before a prometheus remote-write retry.",
+                    ie);
+        }
+    }
+
+    /**
+     * Send the current batch once. Returns normally when the batch is delivered (HTTP 204) or when
+     * the receiver rejects it as a duplicate/out-of-order sample (HTTP 400 with a matching body),
+     * which per the remote-write spec must not be retried and is safe to treat as delivered on a
+     * replay. Throws {@link RetryableFlushException} for a retryable HTTP status (5xx and 429) so
+     * flush() retries it, and a non-retryable {@link PrometheusConnectorException} for a
+     * transport-level failure (already retried by the base client) or any other response.
+     */
+    private void sendOnce(byte[] body) {
+        HttpResponse response;
+        try {
+            response =
+                    httpClient.doPost(
+                            httpParameter.getUrl(),
+                            httpParameter.getHeaders(),
+                            new ByteArrayEntity(body));
+        } catch (Exception e) {
+            // Transport-level failure (connect/read timeout, reset, DNS, etc.). The base
+            // HttpClientProvider has already applied its own IOException retries via the retry /
+            // retry_backoff_* options, so surface it here rather than retrying a second time.
+            throw new PrometheusConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Prometheus remote-write request failed to complete.",
+                    e);
+        }
+        int code = response.getCode();
+        if (HttpStatus.SC_NO_CONTENT == code) {
+            return;
+        }
+        if (HttpStatus.SC_BAD_REQUEST == code
+                && indicatesDuplicateOrOutOfOrder(response.getContent())) {
+            // A replay after a restore can re-send samples the receiver already has or that are
+            // older than its head for the series; the receiver returns 400 for these. Per the
+            // remote-write spec 4xx must not be retried, and failing here would loop the job on the
+            // same batch, so treat it as delivered. The match on the response body is best effort
+            // (see indicatesDuplicateOrOutOfOrder), so log at WARN: it discards an error response,
+            // and a false positive would drop the batch rather than resend it.
+            log.warn(
+                    "Prometheus returned HTTP 400 whose body matches a duplicate/out-of-order "
+                            + "rejection; treating the batch as delivered. If this receiver returns "
+                            + "400 for an unrelated reason, the batch would be dropped. content:[{}]",
+                    response.getContent());
+            return;
+        }
+        if (isRetryableStatus(code)) {
+            throw new RetryableFlushException(
+                    String.format(
+                            "Writing records to prometheus failed with retryable http status "
+                                    + "code:[%d], content:[%s]",
+                            code, response.getContent()));
+        }
+        throw new PrometheusConnectorException(
+                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                String.format(
+                        "Writing records to prometheus failed, http response status code:[%d], content:[%s]",
+                        code, response.getContent()));
+    }
+
+    private static boolean isRetryableStatus(int code) {
+        // Per the remote-write spec 5xx should be retried; 429 (Too Many Requests) is a transient
+        // backpressure signal, so retry it too.
+        return code == 429 || (code >= 500 && code <= 599);
+    }
+
+    private static boolean indicatesDuplicateOrOutOfOrder(String content) {
+        if (content == null) {
+            return false;
+        }
+        String lower = content.toLowerCase();
+        return lower.contains("duplicate sample")
+                || lower.contains("out of order")
+                || lower.contains("out-of-order")
+                || lower.contains("too old")
+                || lower.contains("out of bounds");
+    }
+
+    /** Internal marker for a flush failure that should be retried. */
+    private static class RetryableFlushException extends RuntimeException {
+        RetryableFlushException(String message) {
+            super(message);
+        }
+
+        RetryableFlushException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
