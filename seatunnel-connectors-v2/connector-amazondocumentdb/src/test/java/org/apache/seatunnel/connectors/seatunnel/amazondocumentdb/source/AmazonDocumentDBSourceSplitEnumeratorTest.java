@@ -135,6 +135,47 @@ public class AmazonDocumentDBSourceSplitEnumeratorTest {
         Assertions.assertTrue(context.noMoreSplitReaders.contains(0));
     }
 
+    @Test
+    public void testSplitOwnerRoutesSplitIdsByBucketIndex() {
+        RecordingContext context = new RecordingContext(3, new HashSet<>(Arrays.asList(0, 1, 2)));
+        AmazonDocumentDBSourceSplitEnumerator enumerator =
+                new AmazonDocumentDBSourceSplitEnumerator(context, null, "{}", null);
+        // bucketIndex(4, 3) is 1 and bucketIndex(5, 3) is 2, so two splits handed back together
+        // are owned by different readers.
+        enumerator.addSplitsBack(
+                Arrays.asList(
+                        new AmazonDocumentDBSourceSplit(4, "{}", null),
+                        new AmazonDocumentDBSourceSplit(5, "{}", null)),
+                0);
+
+        enumerator.registerReader(1);
+        enumerator.registerReader(2);
+
+        Assertions.assertEquals(1, context.assignedSplits.get(1).size());
+        Assertions.assertEquals("4", context.assignedSplits.get(1).get(0).splitId());
+        Assertions.assertEquals(1, context.assignedSplits.get(2).size());
+        Assertions.assertEquals("5", context.assignedSplits.get(2).get(0).splitId());
+    }
+
+    @Test
+    public void testSplitOwnerKeepsIntegerMinValueSplitIdInRange() {
+        RecordingContext context = new RecordingContext(3, new HashSet<>(Arrays.asList(0, 1, 2)));
+        AmazonDocumentDBSourceSplitEnumerator enumerator =
+                new AmazonDocumentDBSourceSplitEnumerator(context, null, "{}", null);
+        // Clearing the sign bit is what keeps this in range. Math.abs(Integer.MIN_VALUE) is
+        // itself negative, so routing by absolute value would yield a negative owner index.
+        enumerator.addSplitsBack(
+                Collections.singletonList(
+                        new AmazonDocumentDBSourceSplit(Integer.MIN_VALUE, "{}", null)),
+                0);
+
+        enumerator.registerReader(0);
+
+        Assertions.assertEquals(1, context.assignedSplits.get(0).size());
+        Assertions.assertEquals(
+                String.valueOf(Integer.MIN_VALUE), context.assignedSplits.get(0).get(0).splitId());
+    }
+
     private static class RecordingContext
             implements SourceSplitEnumerator.Context<AmazonDocumentDBSourceSplit> {
 

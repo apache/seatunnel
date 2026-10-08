@@ -56,6 +56,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | path                       | string  | 是    | -                   |
 | file_format_type           | string  | 是    | -                   |
 | read_columns               | list    | 否    | -                   |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
 | row_delimiter              | string  | 否    | \n                  |
 | parse_partition_from_path  | boolean | 否    | true                |
@@ -100,9 +101,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_split_size            | long    | 否    | 134217728           | 
 | quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
-| metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
+| metalake_type              | string  | 否    | gravitino          |
 | recursive_file_scan        | boolean | 否    | true                |
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| sort_files_by_modification_time | boolean | 否 | false               |
 
 ### path [string]
 
