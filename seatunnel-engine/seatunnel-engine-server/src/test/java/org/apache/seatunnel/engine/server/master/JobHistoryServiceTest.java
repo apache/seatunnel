@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -32,17 +33,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.doThrow;
 
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -206,6 +211,55 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(
                 finishedJobDAGInfoImap.removeEntryListener(dagInfoListenerId),
                 "finishedJobDAGInfo listener should have been removed by shutdown()");
+    }
+
+    /**
+     * Regression test for the master-role-loss cleanup path: {@code clearCoordinatorService()} must
+     * deregister the {@link JobHistoryService} IMap listeners <em>before</em> any step that can
+     * throw, so a later failure still cannot leak listeners across a master switch.
+     *
+     * <p>This injects a {@link JobMaster} whose {@code interrupt()} throws into {@code
+     * runningJobMasterMap} (a step that runs after {@code jobHistoryService.shutdown()}) and
+     * asserts that {@code shutdown()} was still invoked on the way out.
+     */
+    @Test
+    public void testShutdownRunsBeforeThrowingCleanupStep() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        JobHistoryService real = coordinatorService.getJobHistoryService();
+        Assertions.assertNotNull(real);
+
+        JobHistoryService spied = Mockito.spy(real);
+        ReflectionUtils.setField(coordinatorService, "jobHistoryService", spied);
+
+        // Put a JobMaster whose interrupt() throws into runningJobMasterMap, which
+        // clearCoordinatorService() iterates AFTER calling jobHistoryService.shutdown().
+        JobMaster throwingMaster = Mockito.mock(JobMaster.class);
+        doThrow(new RuntimeException("simulated interrupt failure"))
+                .when(throwingMaster)
+                .interrupt();
+        Map<Long, JobMaster> runningJobMasterMap =
+                (Map<Long, JobMaster>)
+                        ReflectionUtils.getField(coordinatorService, "runningJobMasterMap")
+                                .orElseGet(ConcurrentHashMap::new);
+        runningJobMasterMap.put(System.currentTimeMillis(), throwingMaster);
+
+        // Reset the guard so clearCoordinatorService() actually executes its body
+        // (it is a final AtomicBoolean; mutate it rather than replacing the field).
+        java.util.concurrent.atomic.AtomicBoolean cleared =
+                (java.util.concurrent.atomic.AtomicBoolean)
+                        ReflectionUtils.getField(coordinatorService, "coordinatorServiceCleared")
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalStateException(
+                                                        "coordinatorServiceCleared field not found"));
+        cleared.set(false);
+
+        Assertions.assertThrows(
+                RuntimeException.class, coordinatorService::clearCoordinatorService);
+
+        // The listener deregistration must have happened even though the later step threw.
+        Mockito.verify(spied).shutdown();
+        runningJobMasterMap.clear();
     }
 
     private void startJob(Long jobid, String path) {
