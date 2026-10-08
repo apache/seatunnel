@@ -43,3 +43,4 @@ seatunnel:
              port: 8080
              enable-dynamic-port: true
              port-range: 200
+             log-response-max-size-mb: 32
