@@ -355,6 +355,10 @@ exactly-once semantics
 
 Automatic transaction commit is enabled by default
 
+For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_commit = true`.
+This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
+When checkpointing is disabled, the transaction is committed after every successful `batch_size` / `batch_interval_ms` triggered flush, so flushed rows are not held in one unbounded transaction until the writer closes. When checkpointing is enabled, the commit boundary remains the checkpoint.
+
 ### field_ide [String]
 
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
@@ -570,7 +574,7 @@ When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to g
 INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
-This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`. Oracle sink still uses manual commit internally when writing data.
 
 ### create_index [boolean]
 
@@ -846,6 +850,51 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+The `${table_name}` placeholder in `table` is filled from the upstream record's table metadata so each source table
+(`full_types`, `full_types_2`) is written to its own sink table (`sink_full_types`, `sink_full_types_2`). Pair this with
+`generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can emit the right INSERT/UPSERT for each
+upstream table.
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -893,6 +942,10 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
+(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
+`is_exactly_once` at its default of `false`.
 
 ## Troubleshooting
 

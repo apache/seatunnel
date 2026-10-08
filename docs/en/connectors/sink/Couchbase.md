@@ -78,11 +78,28 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | bucket                | String        | Yes      | -          | Target bucket name. |
 | scope                 | String        | No       | `_default` | Target scope name within the bucket. |
 | collection            | String        | Yes      | -          | Target collection name. |
+| ready.timeout         | Integer       | No       | `30`       | Maximum seconds to wait for the target bucket to become ready during writer initialization. Must be greater than zero. |
 | primary-key           | `List<String>` | No       | -          | Field names used to build the document key (length-prefixed encoding: `<len>:<value>` components separated by `#`). A random UUID is used when not set. |
 | upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. |
 | buffer-flush.max-rows | Integer       | No       | `1000`     | Maximum rows to buffer before a batch write is triggered. Use `-1` to disable. |
 | retry.max             | Integer       | No       | `3`        | Maximum retry attempts on transient write failure. |
 | retry.interval        | Long          | No       | `1000`     | Base milliseconds for linear retry delay. Attempt `n` waits `retry.interval × n` ms. |
+
+### Startup readiness
+
+`ready.timeout` controls the bucket-readiness wait during writer initialization. The default
+remains 30 seconds. For a cluster that needs more time to become available, set a larger positive
+value, for example `ready.timeout = 60`.
+
+The value is in seconds, not milliseconds. No connector-specific upper limit is enforced;
+choose the smallest budget that covers the cluster's observed recovery time. Excessively large
+values can delay writer-initialization failure when the bucket remains unavailable.
+
+The Couchbase SDK handles connection attempts within this wait; the connector does not add an
+outer bootstrap retry loop. `retry.max` and `retry.interval` still apply only to writes. This
+option does not change individual SDK operation timeouts or the engine's job-startup timeout.
+An expired readiness wait still fails writer initialization and disconnects the client.
+Increasing the budget does not correct invalid credentials, incorrect addresses or a missing bucket.
 
 ## Security
 

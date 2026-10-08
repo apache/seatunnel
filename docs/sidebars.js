@@ -26,6 +26,7 @@ const sidebars = {
             "items": [
                 "introduction/about",
                 "introduction/how-it-works",
+                "introduction/rag-data-processing",
                 {
                     "type": "category",
                     "label": "Concepts",
@@ -212,6 +213,7 @@ const sidebars = {
                 "transforms/jsonpath",
                 "transforms/llm",
                 "transforms/metadata",
+                "transforms/python",
                 "transforms/regexextract",
                 "transforms/replace",
                 "transforms/rowkind-extractor",
@@ -386,7 +388,8 @@ const sidebars = {
                 "tools/overview",
                 "tools/seatunnel-skill",
                 "tools/seatunnel-mcp",
-                "tools/x2seatunnel"
+                "tools/x2seatunnel",
+                "tools/dolphinscheduler-integration"
             ]
         },
         {
@@ -405,6 +408,7 @@ const sidebars = {
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
                 "developer/contribute-transform-v2-guide",
+                "developer/contribute-performance-guide",
                 "developer/docs-format-specification",
                 "developer/new-license"
             ]
