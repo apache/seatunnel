@@ -107,6 +107,15 @@ class PayPalClientTest {
         assertThrows(IllegalStateException.class, reader::open);
     }
 
+    /**
+     * Upper bound for waits on the loopback HTTP round-trip (the embedded {@link HttpServer} and
+     * this test's client share the JVM, but the request still crosses the OS network stack).
+     * Windows CI runners have shown this round-trip occasionally exceeding several seconds under
+     * load, so this is generous rather than tuned to the fast common case; a genuine hang in the
+     * client's close/cancel wiring still fails the test, just with a larger bound.
+     */
+    private static final long NETWORK_WAIT_SECONDS = 15;
+
     private HttpServer server;
     private ExecutorService executor;
     private final Queue<Reply> replies = new ConcurrentLinkedQueue<>();
@@ -174,14 +183,21 @@ class PayPalClientTest {
                 arrived.countDown();
                 release.await(5, TimeUnit.SECONDS);
             } else {
-                exchange.getResponseBody().write(reply.body);
+                // Release the latch before the body write. PayPalClient does not read the body
+                // of a transient status (it returns as soon as it has the status line and then
+                // aborts the request), so on Windows the peer close can turn this write into an
+                // IOException, and the countDown that used to follow it was skipped.
                 arrived.countDown();
+                exchange.getResponseBody().write(reply.body);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException ignored) {
             /* Cancellation intentionally closes the peer socket. */
         } finally {
+            // The request reached the server whichever branch failed above, so a test must
+            // never keep waiting on the latch only because the response could not be written.
+            arrived.countDown();
             exchange.close();
         }
     }
@@ -383,9 +399,9 @@ class PayPalClientTest {
         PayPalClient transport = client();
         Future<?> result =
                 executor.submit(() -> assertThrows(Exception.class, () -> transport.page(1)));
-        assertTrue(arrived.await(3, TimeUnit.SECONDS));
+        assertTrue(arrived.await(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS));
         transport.close();
-        result.get(3, TimeUnit.SECONDS);
+        result.get(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Test
@@ -404,14 +420,14 @@ class PayPalClientTest {
                             }
                         });
         worker.start();
-        assertTrue(arrived.await(3, TimeUnit.SECONDS));
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        assertTrue(arrived.await(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS));
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(NETWORK_WAIT_SECONDS);
         while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
             Thread.sleep(10);
         }
         assertEquals(Thread.State.TIMED_WAITING, worker.getState());
         transport.close();
-        assertTrue(complete.await(3, TimeUnit.SECONDS));
+        assertTrue(complete.await(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS));
         worker.join();
         assertEquals(1, requests.size());
     }

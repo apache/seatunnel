@@ -151,6 +151,7 @@ driver = "org.mariadb.jdbc.Driver"
 Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA。具体要求见 [Exactly-once 前置条件](#exactly-once-前置条件)。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)（仅 Zeta 引擎）
 
 ## Options
@@ -408,6 +409,10 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 默认启用自动事务提交
 
+对于 Oracle JDBC Sink，即使配置 `auto_commit = true`，SeaTunnel 写入时也会在内部使用手动提交。
+这样可以保证失败批次的原子性，避免原始数据错误被后续的主键重复错误掩盖。
+关闭 checkpoint 时，每次由 `batch_size` / `batch_interval_ms` 触发并成功的批量写入会立即提交事务，避免已刷出的数据一直停留在同一个未结束的事务中直到 writer 关闭；开启 checkpoint 时，提交边界仍然是 checkpoint。
+
 ### field_ide [String]
 
 字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE'
@@ -623,7 +628,7 @@ Oracle 插入模式。默认值为 `CONVENTIONAL`，保持现有 JDBC insert 行
 INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
-该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
+该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。Oracle Sink 实际写入时仍会在内部使用手动提交。
 
 ### create_index [boolean]
 

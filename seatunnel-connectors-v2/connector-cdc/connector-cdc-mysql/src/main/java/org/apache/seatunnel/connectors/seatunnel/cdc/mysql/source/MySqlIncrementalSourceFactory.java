@@ -54,6 +54,16 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
 
     @Override
     public OptionRule optionRule() {
+        return getOptionRuleBuilder().build();
+    }
+
+    /**
+     * Create the common MySQL CDC source option rule builder.
+     *
+     * <p>Subclasses that reuse the MySQL CDC runtime can add connector-specific options before
+     * building the rule.
+     */
+    protected OptionRule.Builder getOptionRuleBuilder() {
         return JdbcSourceOptions.getBaseRule()
                 .required(
                         MySqlIncrementalSourceOptions.USERNAME,
@@ -101,8 +111,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
-                .build();
+                        SourceOptions.STARTUP_TIMESTAMP);
     }
 
     @Override
@@ -115,51 +124,60 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
-            // Load the JDBC driver in to DriverManager
-            try {
-                Class.forName("com.mysql.cj.jdbc.Driver");
-            } catch (Exception e) {
-                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
-            }
             ReadonlyConfig config = context.getOptions();
-            List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(config, context.getClassLoader());
-            boolean enableSchemaChange =
-                    context.getOptions()
-                            .getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
-                            .orElse(
-                                    // TODO remove this after all users used the new schema change
-                                    // option
-                                    context.getOptions()
-                                            .getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
-                                            .map(
-                                                    e ->
-                                                            e.getOrDefault(
-                                                                    MySqlSourceConfigFactory
-                                                                            .SCHEMA_CHANGE_KEY,
-                                                                    SourceOptions
-                                                                            .SCHEMA_CHANGES_ENABLED
-                                                                            .defaultValue()
-                                                                            .toString()))
-                                            .map(Boolean::parseBoolean)
-                                            .orElse(
-                                                    SourceOptions.SCHEMA_CHANGES_ENABLED
-                                                            .defaultValue()));
-            if (!restoreTables.isEmpty() && enableSchemaChange) {
-                catalogTables = mergeTableStruct(catalogTables, restoreTables);
-            }
-
-            Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
-            if (tableConfigs.isPresent()) {
-                catalogTables =
-                        CatalogTableUtils.mergeCatalogTableConfig(
-                                catalogTables,
-                                tableConfigs.get(),
-                                text -> TablePath.of(text, false));
-            }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new MySqlIncrementalSource<>(config, catalogTables);
+                    new MySqlIncrementalSource<>(
+                            config, buildCatalogTables(context, config, restoreTables));
         };
+    }
+
+    /**
+     * Build source tables from the current configuration and checkpoint state.
+     *
+     * <p>Subclasses that reuse the MySQL CDC runtime can provide a normalized connector
+     * configuration while keeping catalog discovery and checkpoint merge behavior aligned.
+     */
+    protected List<CatalogTable> buildCatalogTables(
+            TableSourceFactoryContext context,
+            ReadonlyConfig config,
+            List<CatalogTable> restoreTables) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
+        List<CatalogTable> catalogTables =
+                CatalogTableUtil.getCatalogTables(config, context.getClassLoader());
+        boolean enableSchemaChange =
+                config.getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                        .orElse(
+                                // TODO remove this after all users used the new schema change
+                                // option
+                                config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                                        .map(
+                                                e ->
+                                                        e.getOrDefault(
+                                                                MySqlSourceConfigFactory
+                                                                        .SCHEMA_CHANGE_KEY,
+                                                                SourceOptions.SCHEMA_CHANGES_ENABLED
+                                                                        .defaultValue()
+                                                                        .toString()))
+                                        .map(Boolean::parseBoolean)
+                                        .orElse(
+                                                SourceOptions.SCHEMA_CHANGES_ENABLED
+                                                        .defaultValue()));
+        if (!restoreTables.isEmpty() && enableSchemaChange) {
+            catalogTables = mergeTableStruct(catalogTables, restoreTables);
+        }
+
+        Optional<List<JdbcSourceTableConfig>> tableConfigs =
+                config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
+        if (tableConfigs.isPresent()) {
+            catalogTables =
+                    CatalogTableUtils.mergeCatalogTableConfig(
+                            catalogTables, tableConfigs.get(), text -> TablePath.of(text, false));
+        }
+        return catalogTables;
     }
 }

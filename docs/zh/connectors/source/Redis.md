@@ -8,6 +8,20 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 用于从 `Redis` 读取数据
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配置的凭据。客户端通过与正常作业
+运行相同的连接逻辑创建，因此 `user` 和 `auth` 会按运行时的方式进行验证：配置了 `user` 时发送
+`AUTH user auth`，仅配置了 `auth` 时发送 `AUTH auth`。`SINGLE` 模式下随后发送 `SELECT db_num` 和
+`PING`。`CLUSTER` 模式下会基于 `nodes` 初始化集群 slot 缓存（`CLUSTER SLOTS`），并从一个节点读取
+`INFO`。连接超时和 socket 超时沿用运行时的默认值（2 秒），无论成功或失败都会关闭所有客户端。校验不会
+读取、扫描、写入任何 key，不会设置过期时间或创建 key 空间，也不会修改任何 ACL 条目。正常作业运行保持不变。
+
+输出 schema 通过与正常运行相同的路径，从配置的 `schema` 或 `tables_configs` 中获取，不会读取任何
+Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `data_type` 或 `format` 相符，也不代表
+凭据具备读取这些 key 的权限。`CLUSTER` 模式下只要有一个节点响应即可通过校验，因此无法发现集群中
+部分节点不可达的情况。
+
 ## 支持引擎
 
 > Spark<br/>
@@ -224,11 +238,17 @@ redis 数据类型, 支持 `key` `string` `hash` `list` `set` `zset`。
 
 ### user [string]
 
-Redis 认证身份用户，当连接到加密集群时需要使用
+Redis ACL 用户名（需要 Redis 6 或更新版本），支持 `SINGLE` 和 `CLUSTER` 模式。
+当用户名非空白时，连接器通过 `AUTH user auth` 认证，不会创建或修改 ACL 用户。
+启动作业前，请创建用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+`SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+若省略 `user`，或其值为空字符串、仅包含空白字符，则非空白的 `auth` 将用于默认用户的密码认证；
+否则不发送认证命令。
 
 ### auth [string]
 
-Redis 认证密钥，当连接到加密集群时需要使用
+Redis 认证密码。当 `user` 非空白时，密码将原样传递，包括空白字符。
+省略密码或使用空字符串时，将发送空密码，仅当该 ACL 用户允许时才能成功认证（例如配置了 `nopass` 的用户）。
 
 ### db_num [int]
 
