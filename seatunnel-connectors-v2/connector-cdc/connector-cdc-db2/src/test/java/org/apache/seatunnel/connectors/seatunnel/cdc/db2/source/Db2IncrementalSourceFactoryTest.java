@@ -17,12 +17,33 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.source;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.cdc.db2.config.Db2SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.db2.config.Db2SourceConfigFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import io.debezium.relational.TableId;
+
+import java.util.Collections;
 
 class Db2IncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new Db2IncrementalSourceFactory()).optionRule());
+    }
+
+    /** Verifies Db2 checkpoint tables use the empty-catalog identifier returned by discovery. */
+    @Test
+    public void testToTableIdDropsCatalog() {
+        Db2SourceConfigFactory configFactory = Mockito.mock(Db2SourceConfigFactory.class);
+        Mockito.when(configFactory.create(0)).thenReturn(Mockito.mock(Db2SourceConfig.class));
+        Db2Dialect dialect = new Db2Dialect(configFactory, Collections.emptyList());
+
+        Assertions.assertEquals(
+                new TableId("", "DB2INST1", "CUSTOMERS"),
+                dialect.toTableId(TablePath.of("SAMPLE", "DB2INST1", "CUSTOMERS")));
     }
 }

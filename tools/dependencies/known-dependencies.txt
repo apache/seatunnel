@@ -134,3 +134,4 @@ seatunnel-shade-scala-compiler-2.12-3.0.0.jar
 seatunnel-shade-calcite-1.38.0-3.0.0.jar
 seatunnel-shade-jackson-yaml-2.15.4-3.0.0.jar
 openlineage-java-1.29.0.jar
+

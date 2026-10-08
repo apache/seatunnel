@@ -310,6 +310,74 @@ public class PostgresTypeConverterTest {
     }
 
     @Test
+    public void testConvertEnumReportedAsVarcharAsString() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("m")
+                        .columnType("\"inv\".\"mood\"")
+                        .dataType("\"inv\".\"mood\"")
+                        .sqlType(Types.VARCHAR)
+                        .nullable(true)
+                        .build();
+
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals("\"inv\".\"mood\"", column.getSourceType());
+        Assertions.assertNull(column.getColumnLength());
+    }
+
+    @Test
+    public void testConvertUserDefinedTypeKeepsOnlyIdentifierNames() {
+        Assertions.assertEquals("mood", convertUserDefined("mood", Types.VARCHAR).getSourceType());
+        Assertions.assertEquals(
+                "inv.mood", convertUserDefined("inv.mood", Types.VARCHAR).getSourceType());
+        Assertions.assertEquals(
+                "\"inv\".\"JobStatus\"",
+                convertUserDefined("\"inv\".\"JobStatus\"", Types.OTHER).getSourceType());
+    }
+
+    @Test
+    public void testConvertUserDefinedTypeWithUnsafeNameAsText() {
+        String[] unsafeNames = {
+            "text;DROP TABLE t--", "\"a\"b\"", "inv.\"Weird Name\"", "a.b.c", "mood NULL"
+        };
+        for (String name : unsafeNames) {
+            for (int sqlType : new int[] {Types.VARCHAR, Types.OTHER}) {
+                Column column = convertUserDefined(name, sqlType);
+                Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+                Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, column.getSourceType());
+            }
+        }
+    }
+
+    private static Column convertUserDefined(String typeName, int sqlType) {
+        return PostgresTypeConverter.INSTANCE.convert(
+                BasicTypeDefine.builder()
+                        .name("m")
+                        .columnType(typeName)
+                        .dataType(typeName)
+                        .sqlType(sqlType)
+                        .build());
+    }
+
+    @Test
+    public void testTypeMapperMapsEnumReportedAsVarchar() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnLabel(1)).thenReturn("m");
+        when(metadata.getColumnTypeName(1)).thenReturn("mood");
+        when(metadata.getColumnType(1)).thenReturn(Types.VARCHAR);
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(metadata.getPrecision(1)).thenReturn(Integer.MAX_VALUE);
+        when(metadata.getScale(1)).thenReturn(0);
+
+        Column column = new PostgresTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals("mood", column.getSourceType());
+    }
+
+    @Test
     public void testConvertBinary() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
