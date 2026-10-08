@@ -49,10 +49,6 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     private final KubernetesClient api;
     private final ReadonlyConfig options;
 
-    KubernetesApplicationClusterDescriptor(KubernetesClient api) {
-        this(api, Collections.emptyMap());
-    }
-
     KubernetesApplicationClusterDescriptor(KubernetesClient api, Map<String, String> options) {
         this.api = api;
         this.options = ReadonlyConfig.fromMap(new HashMap<>(options));
