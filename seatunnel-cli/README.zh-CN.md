@@ -421,6 +421,22 @@ CLI 跨会话记忆信息，以提高配置准确性：
 | **自动修复** | LLM 驱动 | 生成过程中最多 3 轮自动纠错 |
 | **自动修复** | LLM 驱动 | `/check` 或 `/run` 失败时自动诊断和配置修补 |
 
+本地校验对未解析的 `${VAR}` 占位符采用分层严重级别：
+
+- **生成 / `/check`** — 未设置的 `${ENV}`（如 `${MYSQL_PASSWORD}`）记为 **警告**，
+  配置仍可为 `VALID (with warnings)`，便于保留凭据占位符。
+- **`/run`** — 同样未设置的占位符记为 **硬错误**；执行前须在当前 shell 中 `export`。
+
+引擎解析的文件 Sink 模板占位符除外（见
+[LocalFile Sink 文档](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)）：
+
+| 字段 | 允许的引擎占位符 |
+|------|------------------|
+| `file_name_expression` | `${now}`, `${uuid}`, `${transactionId}` |
+| `partition_dir_expression` | `${k0}`, `${v0}`, `${k1}`, `${v1}`, ... |
+
+在其他字段（URL、凭据、路径）中使用同名占位符时，遵循上述分层 `${ENV}` 规则。
+
 ## 连接器元数据
 
 CLI 内置 `connector_metadata.json`，通过运行时反射从 SeaTunnel 引擎导出。它包含 Source、Sink 和 Transform 插件的选项规则、条件选项和值约束，无需额外步骤。

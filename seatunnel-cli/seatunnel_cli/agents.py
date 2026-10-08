@@ -394,8 +394,16 @@ def _validate_routing_pairs(
             )
 
 
-def validate_hocon(config_str: str) -> str:
-    """Validate HOCON config — syntax, structure, and connector-level required params."""
+def validate_hocon(config_str: str, *, strict_env: bool = False) -> str:
+    """Validate HOCON config — syntax, structure, and connector-level required params.
+
+    Args:
+        config_str: HOCON job config text.
+        strict_env: When True, unset ``${ENV}`` placeholders (outside engine template
+            fields) are treated as hard errors. When False (default), they are warnings
+            so generation and ``/check`` accept intentional credential placeholders;
+            ``/run`` should call with ``strict_env=True``.
+    """
     errors = []
     warnings = []
 
@@ -528,8 +536,10 @@ def validate_hocon(config_str: str) -> str:
     if password_pattern.search(config_str):
         warnings.append("Hardcoded password detected. Consider using environment variable: ${PASSWORD}")
 
-    # Check for unresolved ${ENV_VAR} placeholders — these will be passed as literal
-    # strings to connectors at runtime, causing authentication/connection failures.
+    # Check for unresolved ${ENV_VAR} placeholders.
+    # Generation and /check treat these as warnings: placeholders are the recommended
+    # way to keep secrets out of configs. /run uses strict_env=True so unset vars
+    # still block execution.
     # SeaTunnel's engine resolves certain placeholders itself, but only in
     # specific file sink fields (see docs/en/connectors/sink/LocalFile.md):
     #   file_name_expression     -> ${now}, ${uuid}, ${transactionId}
@@ -537,18 +547,44 @@ def validate_hocon(config_str: str) -> str:
     #                               vN = partition value)
     # The exemption is field-aware so that the same names used in unrelated
     # fields (URLs, credentials, ...) are still diagnosed as env vars.
+    unresolved_vars = find_unresolved_env_vars(config_str)
+    if unresolved_vars:
+        var_list = ", ".join(sorted(unresolved_vars))
+        message = (
+            f"Unresolved environment variables: {var_list}. "
+            f"Export them before /run: export {sorted(unresolved_vars)[0]}=<value>"
+        )
+        if strict_env:
+            errors.append(message)
+        else:
+            warnings.append(message)
+
+    # ── Result ──
+    if errors:
+        return "INVALID\n" + "\n".join(f"ERROR: {e}" for e in errors) + (
+            "\n" + "\n".join(f"WARNING: {w}" for w in warnings) if warnings else ""
+        )
+    elif warnings:
+        return "VALID (with warnings)\n" + "\n".join(f"WARNING: {w}" for w in warnings)
+    else:
+        return "VALID"
+
+
+def find_unresolved_env_vars(config_str: str) -> set[str]:
+    """Return unset ``${ENV}`` names in config, excluding engine template fields."""
     engine_template_fields = {
         "file_name_expression": re.compile(r"now|uuid|transactionId"),
         "partition_dir_expression": re.compile(r"[kv]\d+"),
     }
-    env_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+    env_var_pattern = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
     # HOCON accepts both `key = value` and `key : value` separators
     field_pattern = re.compile(r'^\s*"?([\w.]+)"?\s*[=:]')
-    unresolved_vars = set()
+    unresolved_vars: set[str] = set()
     for line in config_str.splitlines():
         field_match = field_pattern.match(line)
-        allowed = engine_template_fields.get(
-            field_match.group(1)) if field_match else None
+        allowed = (
+            engine_template_fields.get(field_match.group(1)) if field_match else None
+        )
         for m in env_var_pattern.finditer(line):
             var_name = m.group(1)
             if allowed and allowed.fullmatch(var_name):
@@ -560,22 +596,7 @@ def validate_hocon(config_str: str) -> str:
             # not be reported as something still to be exported.
             if os.environ.get(var_name) is None:
                 unresolved_vars.add(var_name)
-    if unresolved_vars:
-        var_list = ", ".join(sorted(unresolved_vars))
-        errors.append(
-            f"Unresolved environment variables: {var_list}. "
-            f"Set them before running: export {sorted(unresolved_vars)[0]}=<value>"
-        )
-
-    # ── Result ──
-    if errors:
-        return "INVALID\n" + "\n".join(f"ERROR: {e}" for e in errors) + (
-            "\n" + "\n".join(f"WARNING: {w}" for w in warnings) if warnings else ""
-        )
-    elif warnings:
-        return "VALID (with warnings)\n" + "\n".join(f"WARNING: {w}" for w in warnings)
-    else:
-        return "VALID"
+    return unresolved_vars
 
 
 # ─── Dry-run validation ───
@@ -1205,10 +1226,13 @@ Your job is to review a generated SeaTunnel HOCON config and catch errors that w
 ### Warnings (PASS with notes):
 6. STREAMING jobs without checkpoint.interval
 7. Missing `env` block
+8. Unset `${ENV}` credential placeholders (e.g. `${MYSQL_PASSWORD}`) — these are
+   intentional; the user exports them before `/run`. Prefer `PASS_WITH_NOTES`.
 
 ### NOT an issue (do NOT flag):
 - Hardcoded passwords (user explicitly provided them)
 - Missing optional parameters (they have defaults)
+- `${ENV}` placeholders that are not exported in the current shell (warn only)
 
 Output one of:
 - "PASS" — config is valid

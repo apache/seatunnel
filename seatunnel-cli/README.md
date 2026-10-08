@@ -453,9 +453,15 @@ Memory is stored locally at `.data/memory.json` (co-located with the CLI package
 | **Auto-fix** | LLM-powered | Up to 3 rounds of automatic error correction during generation |
 | **Auto-repair** | LLM-powered | Automatic diagnosis and config patching on `/check` or `/run` failure |
 
-Local validation flags unresolved `${VAR}` placeholders as missing environment
-variables, with a field-aware exemption for SeaTunnel's engine-resolved file
-sink template placeholders (see the
+Local validation treats unresolved `${VAR}` placeholders with layered severity:
+
+- **Generation / `/check`** — unset `${ENV}` placeholders (e.g. `${MYSQL_PASSWORD}`)
+  are **warnings**. Config can still be `VALID (with warnings)` so credential
+  placeholders remain intentional until you export them.
+- **`/run`** — the same unset placeholders are **hard errors**. Export the
+  variables in the current shell before executing.
+
+Engine-resolved file sink template placeholders are exempt (see the
 [LocalFile sink docs](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)):
 
 | Field | Engine placeholders allowed |
@@ -463,8 +469,8 @@ sink template placeholders (see the
 | `file_name_expression` | `${now}`, `${uuid}`, `${transactionId}` |
 | `partition_dir_expression` | `${k0}`, `${v0}`, `${k1}`, `${v1}`, ... |
 
-The same names used in any other field (URLs, credentials, paths) are treated
-as regular environment variables and reported if unset.
+The same names used in any other field (URLs, credentials, paths) follow the
+layered `${ENV}` rules above.
 
 ## Connector Metadata
 
