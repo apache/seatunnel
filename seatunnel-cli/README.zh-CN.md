@@ -279,6 +279,8 @@ seatunnel [request] [options]
 | `/help` | 显示帮助面板 |
 | `/quit` | 退出 |
 
+`/new`、`/clear` 和成功的 `/resume` 会丢弃上一会话未回答的澄清请求，下一条请求只使用所选会话的上下文。
+
 ## 示例
 
 ### MySQL 到 S3（批处理）
