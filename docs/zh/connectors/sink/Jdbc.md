@@ -365,6 +365,13 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 附加连接配置参数，当属性和URL具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，属性配置优先于 URL。
 
+这里识别两类键：
+
+- **HikariCP 连接池属性** —— `maxLifetime`、`idleTimeout`、`keepaliveTime`、`validationTimeout`、`connectionTimeout`、`maximumPoolSize`、`minimumIdle`、`connectionTestQuery`（或 `connection-test-query`）。这些属性作用于连接池本身（不会转发给 JDBC 驱动），用于控制池化连接的生命周期。
+- 其他键会作为连接属性转发给底层 JDBC `DataSource`（例如 MySQL 的 `useSSL`、`rewriteBatchedStatements`）。
+
+配置 `connectionTestQuery` 后，连接器会使用该 SQL 语句校验池化连接，而不是 `Connection.isValid()`，适用于 `isValid()` 会误判的驱动。当缓存连接被判定为失效（空闲超时、服务端 `wait_timeout` 或连接被断开）时，会在下一次写入前关闭并重建。
+
 ### common options
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情

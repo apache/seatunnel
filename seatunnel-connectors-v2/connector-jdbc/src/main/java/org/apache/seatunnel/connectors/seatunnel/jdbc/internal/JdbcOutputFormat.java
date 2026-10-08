@@ -58,6 +58,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private final boolean commitOnFlush;
 
     private transient E jdbcStatementExecutor;
+    /**
+     * The connection that {@link #jdbcStatementExecutor}'s prepared statements were bound to. It is
+     * captured only when the executor is (re)created, so callers can detect a silent connection
+     * replacement without triggering a validation/eviction round trip on the write hot path.
+     */
+    private transient Connection executorConnection = null;
+
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
     private transient volatile boolean flushFailed = false;
@@ -101,7 +108,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
         E exec = statementExecutorFactory.get();
         try {
-            exec.prepareStatements(connectionProvider.getConnection());
+            Connection connection = connectionProvider.getConnection();
+            exec.prepareStatements(connection);
+            executorConnection = connection;
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
@@ -451,10 +460,21 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             }
             LOG.error("Close JDBC statement failed on reconnect.", e);
         }
-        jdbcStatementExecutor.prepareStatements(
+        Connection executorConnection =
                 reconnect
                         ? connectionProvider.reestablishConnection()
-                        : connectionProvider.getConnection());
+                        : connectionProvider.getConnection();
+        jdbcStatementExecutor.prepareStatements(executorConnection);
+        this.executorConnection = executorConnection;
+    }
+
+    /**
+     * Returns the connection the statement executor was last prepared with, or {@code null} if the
+     * executor has not been opened yet. This does not validate or evict the underlying pooled
+     * connection, so it is safe to call on the write hot path.
+     */
+    public Connection getExecutorConnection() {
+        return executorConnection;
     }
 
     private boolean shouldRefreshExecutor(List<SQLException> sqlExceptions) throws SQLException {

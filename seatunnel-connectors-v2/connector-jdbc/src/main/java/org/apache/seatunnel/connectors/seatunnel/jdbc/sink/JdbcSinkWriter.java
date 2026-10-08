@@ -440,9 +440,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         tryOpen();
         // Track the connection the writes in this branch are recorded on, so a silent
         // replacement by ConnectionPoolManager is caught at commit time instead of silently
-        // committing an empty replacement connection.
-        Connection connection = connectionProvider.getConnection();
-        transactionConnection = connection;
+        // committing an empty replacement connection. Use the connection bound to the statement
+        // executor (refreshed only when the executor reconnects) rather than calling the
+        // validating/evicting ConnectionPoolManager.getConnection() on the per-row hot path.
+        transactionConnection = outputFormat.getExecutorConnection();
         outputFormat.writeRecord(element);
     }
 
