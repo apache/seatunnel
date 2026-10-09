@@ -122,4 +122,63 @@ public class ActivemqSinkOptions implements Serializable {
                     .withDescription(
                             "Controls whether message expiration checking is done in each "
                                     + "MessageConsumer prior to dispatching a message.");
+
+    public static final Option<Integer> MAX_THREAD_POOL_SIZE =
+            Options.key("max_thread_pool_size")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription(
+                            "The maximum number of threads in the ActiveMQ connection thread pool.");
+
+    public static final Option<Integer> SEND_TIMEOUT =
+            Options.key("send_timeout")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "The timeout in milliseconds for synchronous sends. Zero disables the timeout.");
+
+    public static final Option<Boolean> USE_COMPRESSION =
+            Options.key("use_compression")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to compress messages sent to the ActiveMQ broker.");
+
+    public static final Option<Integer> CONNECT_RESPONSE_TIMEOUT =
+            Options.key("connect_response_timeout")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "The timeout in milliseconds to wait for a broker connection response.");
+
+    public static final Option<Integer> PRODUCER_WINDOW_SIZE =
+            Options.key("producer_window_size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription("The producer window size in bytes for asynchronous sends.");
+
+    public static final Option<Boolean> USE_ASYNC_SEND =
+            Options.key("use_async_send")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to use asynchronous sends to the ActiveMQ broker.");
+
+    public static final Option<Integer> DELIVERY_MODE =
+            Options.key("delivery_mode")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription(
+                            "The JMS delivery mode: 1 for non-persistent or 2 for persistent delivery.");
+
+    public static final Option<Integer> TIME_TO_LIVE =
+            Options.key("time_to_live")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "The message time to live in milliseconds. Zero means no expiration.");
+
+    public static final Option<Integer> PRIORITY =
+            Options.key("priority")
+                    .intType()
+                    .defaultValue(4)
+                    .withDescription("The JMS message priority, from 0 (lowest) to 9 (highest).");
 }

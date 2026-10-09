@@ -31,13 +31,22 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CHECK_FOR_DUPLICATE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLIENT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONNECT_RESPONSE_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DELIVERY_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.MAX_THREAD_POOL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRIORITY;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PRODUCER_WINDOW_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.SEND_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.TIME_TO_LIVE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.URI;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_ASYNC_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USE_COMPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 
 @AutoService(Factory.class)
@@ -63,7 +72,16 @@ public class ActivemqSinkFactory implements TableSinkFactory {
                         CONSUMER_EXPIRY_CHECK_ENABLED,
                         DISPATCH_ASYNC,
                         NESTED_MAP_AND_LIST_ENABLED,
-                        WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
+                        WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT,
+                        MAX_THREAD_POOL_SIZE,
+                        SEND_TIMEOUT,
+                        USE_COMPRESSION,
+                        CONNECT_RESPONSE_TIMEOUT,
+                        PRODUCER_WINDOW_SIZE,
+                        USE_ASYNC_SEND,
+                        DELIVERY_MODE,
+                        TIME_TO_LIVE,
+                        PRIORITY)
                 .build();
     }
 

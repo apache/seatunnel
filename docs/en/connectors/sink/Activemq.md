@@ -38,6 +38,15 @@ a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
 | nested_map_and_list_enabled             | boolean | no       | -             | Whether structured message properties and `MapMessage` entries can contain nested `Map` and `List` objects.                                                           |
 | warn_about_unstarted_connection_timeout | int     | no       | -             | Timeout in milliseconds before ActiveMQ warns that a connection was not started correctly. Set a value less than `0` to disable the warning in the ActiveMQ client. |
 | consumer_expiry_check_enabled            | boolean | no       | -             | Whether the ActiveMQ client checks message expiration in each `MessageConsumer` before dispatching messages.                                                                                                  |
+| max_thread_pool_size                     | int     | no       | 1000          | Maximum number of threads in the ActiveMQ connection thread pool.                                                                                                        |
+| send_timeout                             | int     | no       | 0             | Timeout in milliseconds for synchronous sends. Zero disables the timeout.                                                                                               |
+| use_compression                          | boolean | no       | false         | Whether to compress messages sent to the broker.                                                                                                                         |
+| connect_response_timeout                 | int     | no       | 0             | Timeout in milliseconds for a broker connection response.                                                                                                               |
+| producer_window_size                     | int     | no       | 0             | Producer window size in bytes for asynchronous sends.                                                                                                                    |
+| use_async_send                           | boolean | no       | false         | Whether to use asynchronous sends to the broker.                                                                                                                         |
+| delivery_mode                            | int     | no       | 2             | JMS delivery mode: `1` for non-persistent or `2` for persistent delivery.                                                                                               |
+| time_to_live                             | int     | no       | 0             | Message time to live in milliseconds. Zero means no expiration.                                                                                                          |
+| priority                                 | int     | no       | 4             | JMS message priority from `0` (lowest) to `9` (highest).                                                                                                                 |
 
 ## Notes
 
@@ -135,4 +144,3 @@ No. The sink is best-effort with bounded reconnect behavior driven by the underl
 ## Changelog
 
 <ChangeLog />
-
