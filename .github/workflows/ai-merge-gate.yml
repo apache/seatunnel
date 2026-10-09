@@ -1,0 +1,73 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: ai-merge gate
+
+on:
+  # Runs on the base branch with a write token and NEVER checks out PR code: the script only
+  # reads the PR through the GitHub API.
+  pull_request_target:
+    types: [labeled, synchronize]
+  # Periodic sweep: approvals and CI results from forks do not trigger a write-token run, so the
+  # merge gate is re-evaluated for every labeled PR on a timer.
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
+
+concurrency:
+  group: ai-merge-gate-${{ github.event.pull_request.number || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  enforce:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Default checkout of pull_request_target is the base branch, which is exactly what we want.
+      - uses: actions/checkout@v4
+      - name: Strip stale label / validate label provenance and eligibility
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_MERGE_LABEL_ACTORS: ${{ vars.AI_MERGE_LABEL_ACTORS }}
+          AI_MERGE_APPROVERS: ${{ vars.AI_MERGE_APPROVERS }}
+        run: python3 -I tools/ai_merge_gate.py enforce
+
+  sweep:
+    if: github.event_name != 'pull_request_target' && github.repository == 'apache/seatunnel'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+      - name: Evaluate the merge gate for every ai-merge PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_MERGE_LABEL_ACTORS: ${{ vars.AI_MERGE_LABEL_ACTORS }}
+          AI_MERGE_APPROVERS: ${{ vars.AI_MERGE_APPROVERS }}
+          AI_MERGE_REQUIRED_CHECKS: ${{ vars.AI_MERGE_REQUIRED_CHECKS }}
+          # Merging stays a dry run until the repository variable AI_MERGE_ENABLED is set to true.
+          AI_MERGE_ENABLED: ${{ vars.AI_MERGE_ENABLED }}
+        run: python3 -I tools/ai_merge_gate.py sweep --merge
