@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -57,9 +58,11 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -218,10 +221,20 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        reportedPipelineRunning(pipelineId, alreadyStarted, Collections.emptySet());
+    }
+
+    /**
+     * @param closedIdleTaskGroups task groups of idle readers that were already closed (FINISHED)
+     *     before the master switch
+     */
+    public void reportedPipelineRunning(
+            int pipelineId, boolean alreadyStarted, Set<TaskGroupLocation> closedIdleTaskGroups) {
         log.debug(
                 "reported pipeline running stack: {}",
                 Arrays.toString(Thread.currentThread().getStackTrace()));
-        getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
+        getCheckpointCoordinator(pipelineId)
+                .restoreCoordinator(alreadyStarted, closedIdleTaskGroups);
         if (!alreadyStarted && checkpointMonitorService != null) {
             checkpointMonitorService.onPipelineRestored(jobId, pipelineId);
         }
