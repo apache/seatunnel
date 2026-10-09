@@ -38,7 +38,7 @@ from prompt_toolkit import prompt as pt_prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
-from . import __version__, get_data_dir
+from . import __version__, get_data_dir, rest
 from .diagnostics import ParsedError, parse_error
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
@@ -1331,29 +1331,21 @@ class SeaTunnelCLI:
 
     def _run_via_rest_api(self, api_base: str):
         """Submit job via REST API and poll status."""
-        import json as _json
-        import urllib.request
-        import urllib.error
-
         self.console.print("  Submitting job via REST API...", style="info")
         try:
-            url = f"{api_base}/submit-job?format=hocon"
-            req = urllib.request.Request(
-                url,
+            body = rest.request_json(
+                f"{api_base}/submit-job?format=hocon",
+                method="POST",
                 data=self.last_config.encode("utf-8"),
                 headers={"Content-Type": "text/plain"},
-                method="POST",
+                timeout=30,
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = _json.loads(resp.read().decode("utf-8"))
-
             job_id = body.get("jobId")
             job_name = body.get("jobName", "")
             self.console.print(f"  Job submitted: [bold]{job_id}[/bold] ({job_name})", style="success")
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8", errors="replace")
-            self.console.print(f"  [error]Submit failed ({e.code}):[/error]")
-            self._show_error_and_diagnose(error_body)
+        except rest.RestError as e:
+            self.console.print(f"  [error]Submit failed ({e.status}):[/error]")
+            self._show_error_and_diagnose(e.body)
             return
         except Exception as e:
             self.console.print(f"  [error]Submit failed: {e}[/error]")
@@ -1364,9 +1356,6 @@ class SeaTunnelCLI:
 
     def _poll_job_status(self, api_base: str, job_id: str):
         """Poll job status until terminal state, then show results."""
-        import json as _json
-        import urllib.request
-
         terminal_states = {"FINISHED", "CANCELED", "FAILED"}
         self.console.print("  Waiting for job to complete...", style="info")
 
@@ -1377,10 +1366,7 @@ class SeaTunnelCLI:
         for _ in range(max_polls):
             time.sleep(poll_interval)
             try:
-                url = f"{api_base}/job-info/{job_id}"
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    info = _json.loads(resp.read().decode("utf-8"))
+                info = rest.request_json(f"{api_base}/job-info/{job_id}", timeout=10)
 
                 status = info.get("jobStatus", "UNKNOWN")
                 if status != last_status:
