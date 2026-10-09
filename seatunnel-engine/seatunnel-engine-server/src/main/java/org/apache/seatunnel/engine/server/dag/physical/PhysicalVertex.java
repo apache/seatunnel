@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -72,6 +73,16 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class PhysicalVertex {
+
+    /**
+     * Matches the exact failure message emitted when a deployed worker leaves the cluster. The
+     * message may be flattened by ExceptionUtils, so it can appear as the message of an exception
+     * stack-trace line instead of as a bare string.
+     */
+    private static final Pattern DEPLOYED_NODE_OFFLINE_ERROR_PATTERN =
+            Pattern.compile(
+                    "(?m)^(?:(?:Caused by: )?[\\w.$]+(?:Exception|Error): )?"
+                            + "The taskGroup\\([^\\r\\n]+\\) deployed node\\([^\\r\\n]+\\) offline\\r?$");
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -136,30 +147,25 @@ public class PhysicalVertex {
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull NodeEngine nodeEngine,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull IMap<Object, Object> runningJobStateIMap,
+            @NonNull IMap<Object, Long[]> runningJobStateTimestampsIMap) {
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
         this.pluginJarsUrls = pluginJarsUrls;
         this.connectorJarIdentifiers = connectorJarIdentifiers;
 
-        Long[] stateTimestamps = new Long[ExecutionState.values().length];
-        if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
-            stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(taskGroup.getTaskGroupLocation(), stateTimestamps);
-        }
-
-        if (runningJobStateIMap.get(taskGroupLocation) == null) {
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
-            stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(taskGroupLocation, stateTimestamps);
-
-            runningJobStateIMap.put(taskGroupLocation, ExecutionState.CREATED);
-        }
-
-        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        this.currExecutionState =
+                DistributedStateTransition.initialize(
+                        runningJobStateIMap,
+                        taskGroupLocation,
+                        ExecutionState.CREATED,
+                        ExecutionState.class,
+                        runningJobStateTimestampsIMap,
+                        ExecutionState.values().length,
+                        ExecutionState.INITIALIZING.ordinal(),
+                        initializationTimestamp,
+                        ExecutionState.CREATED.ordinal());
 
         this.nodeEngine = nodeEngine;
         this.taskFullName =
@@ -350,49 +356,57 @@ public class PhysicalVertex {
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
-            ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-            if (current == null) {
+            DistributedStateTransition.Result<ExecutionState> transitionResult =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    DistributedStateTransition.transition(
+                                            runningJobStateIMap,
+                                            taskGroupLocation,
+                                            currExecutionState,
+                                            ExecutionState.CREATED,
+                                            targetState,
+                                            ExecutionState.class,
+                                            ExecutionState::isEndState,
+                                            this::canPersistState,
+                                            this::lockMissingStatePersistence,
+                                            this::unlockMissingStatePersistence,
+                                            runningJobStateTimestampsIMap,
+                                            ExecutionState.values().length,
+                                            targetState.ordinal()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+            ExecutionState current = transitionResult.getPreviousState();
+            if (transitionResult.isStateEntryMissing()) {
                 log.warn(
-                        "{} current state is null, skip transition to {}. Task execution location: {}",
+                        "{} state entry missing from distributed map (possibly due to node "
+                                + "removal during scaling down), using local state {} as fallback, "
+                                + "target state: {}",
+                        taskFullName,
+                        current,
+                        targetState);
+            }
+            if (transitionResult.isPersistenceBlocked()) {
+                log.info(
+                        "{} task state persistence is blocked by its generation fence",
+                        taskFullName);
+                return;
+            }
+            if (!transitionResult.isTransitioned()) {
+                ExecutionState localState = this.currExecutionState;
+                this.currExecutionState = transitionResult.getCurrentState();
+                log.info(
+                        "{} did not transition to {} because distributed state {} won the race",
                         taskFullName,
                         targetState,
-                        taskGroupLocation);
+                        transitionResult.getCurrentState());
+                if (localState != transitionResult.getCurrentState()) {
+                    stateProcess();
+                }
                 return;
             }
-            log.debug(
-                    String.format(
-                            "Try to update the task %s state from %s to %s",
-                            taskFullName, current, targetState));
-
-            if (current.equals(targetState)) {
-                log.info(
-                        "{} current state equals target state: {}, skip",
-                        taskFullName,
-                        targetState);
-                return;
-            }
-
-            // consistency check
-            if (current.isEndState()) {
-                String message = "Task is trying to leave terminal state " + current;
-                log.error(message);
-                return;
-            }
-
-            // now do the actual state transition
-            RetryUtils.retryWithException(
-                    () -> {
-                        updateStateTimestamps(targetState);
-                        if (runningJobStateIMap.get(taskGroupLocation) != null) {
-                            runningJobStateIMap.set(taskGroupLocation, targetState);
-                        }
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            ExceptionUtil::isOperationNeedRetryException,
-                            Constant.OPERATION_RETRY_SLEEP));
             this.currExecutionState = targetState;
             log.info(
                     String.format(
@@ -403,6 +417,37 @@ public class PhysicalVertex {
             if (!targetState.equals(ExecutionState.FAILING)) {
                 makeTaskGroupFailing(e);
             }
+        }
+    }
+
+    /**
+     * Checks whether this task's exact generation still owns distributed persistence.
+     *
+     * <p>A false result fences both ordinary transitions and terminal-state resets.
+     */
+    private boolean canPersistState() {
+        return jobMaster == null || jobMaster.isStatePersistenceAllowed();
+    }
+
+    /**
+     * Locks the cleanup fence only when a transition is about to recreate a missing state key.
+     *
+     * <p>Existing task-state updates remain synchronized only by their own state-key lock.
+     */
+    private void lockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.lockStatePersistenceFence();
+        }
+    }
+
+    /**
+     * Releases the missing-key cleanup fence after the state-key lock has been released.
+     *
+     * <p>This release order preserves the cleanup-to-state lock hierarchy.
+     */
+    private void unlockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.unlockStatePersistenceFence();
         }
     }
 
@@ -464,61 +509,56 @@ public class PhysicalVertex {
         }
     }
 
-    private void updateStateTimestamps(@NonNull ExecutionState targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(taskGroupLocation);
-        if (stateTimestamps == null) {
-            log.warn(
-                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
-                    taskFullName,
-                    targetState);
-            return;
-        }
-        stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(taskGroupLocation, stateTimestamps);
-    }
-
     public ExecutionState getExecutionState() {
         return currExecutionState;
     }
 
+    /**
+     * Resets a terminal task without allowing an obsolete generation to recreate its keys.
+     *
+     * <p>The local cache advances only after the timestamp-first distributed reset succeeds.
+     */
     private void resetExecutionState() {
         synchronized (this) {
-            ExecutionState executionState = getExecutionState();
-            if (!executionState.isEndState()) {
-                String message =
-                        String.format(
-                                "%s reset state failed, only end state can be reset, current is %s",
-                                getTaskFullName(), executionState);
-                log.error(message);
-                throw new IllegalStateException(message);
-            }
             try {
-                RetryUtils.retryWithException(
-                        () -> {
-                            updateStateTimestamps(ExecutionState.CREATED);
-                            runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
-                            // reset the errorByPhysicalVertex
-                            errorByPhysicalVertex = new AtomicReference<>();
-                            return null;
-                        },
-                        new RetryUtils.RetryMaterial(
-                                Constant.OPERATION_RETRY_TIME,
-                                true,
-                                ExceptionUtil::isOperationNeedRetryException,
-                                Constant.OPERATION_RETRY_SLEEP));
+                DistributedStateTransition.Result<ExecutionState> result =
+                        RetryUtils.retryWithException(
+                                () ->
+                                        DistributedStateTransition.reset(
+                                                runningJobStateIMap,
+                                                taskGroupLocation,
+                                                ExecutionState.CREATED,
+                                                ExecutionState.class,
+                                                ExecutionState::isEndState,
+                                                this::canPersistState,
+                                                runningJobStateTimestampsIMap,
+                                                ExecutionState.values().length,
+                                                ExecutionState.CREATED.ordinal()),
+                                new RetryUtils.RetryMaterial(
+                                        Constant.OPERATION_RETRY_TIME,
+                                        true,
+                                        ExceptionUtil::isOperationNeedRetryException,
+                                        Constant.OPERATION_RETRY_SLEEP));
+                if (result.isPersistenceBlocked()) {
+                    log.info(
+                            "Skip resetting {} because its generation no longer owns distributed state",
+                            taskFullName);
+                    return;
+                }
+                errorByPhysicalVertex = new AtomicReference<>();
+                this.currExecutionState = result.getCurrentState();
+                log.info(
+                        "{} turned from state {} to {}.",
+                        taskFullName,
+                        result.getPreviousState(),
+                        result.getCurrentState());
             } catch (Exception e) {
                 log.warn(ExceptionUtils.getMessage(e));
-                // If master/worker node done, The job will restore and fix the state from
-                // TaskExecutionService
                 log.warn(
                         String.format(
-                                "Set %s state %s to Imap failed, skip.",
+                                "Reset %s state to %s in IMap failed, keep the current state.",
                                 getTaskFullName(), ExecutionState.CREATED));
             }
-            this.currExecutionState = ExecutionState.CREATED;
-            log.info(String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
     }
 
@@ -614,17 +654,20 @@ public class PhysicalVertex {
                 return;
             case FAILED:
                 stopPhysicalVertex();
-                log.error(
-                        String.format(
-                                "%s end with state %s and Exception: %s",
-                                this.taskFullName,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                String errorMsg = errorByPhysicalVertex.get();
+                if (isDeployedNodeOfflineFailure(errorMsg)) {
+                    log.warn(
+                            String.format(
+                                    "%s end with state %s due to node offline: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                } else {
+                    log.error(
+                            String.format(
+                                    "%s end with state %s and Exception: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                }
                 taskFuture.complete(
-                        new TaskExecutionState(
-                                taskGroupLocation,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, errorMsg));
                 return;
             case FINISHED:
                 stopPhysicalVertex();
@@ -643,5 +686,14 @@ public class PhysicalVertex {
     public void makeTaskGroupFailing(Throwable err) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
         updateTaskState(ExecutionState.FAILING);
+    }
+
+    /**
+     * Uses the coordinator's exact offline-node message template so only expected scale-down
+     * failures are downgraded to warn logs.
+     */
+    @VisibleForTesting
+    static boolean isDeployedNodeOfflineFailure(String errorMsg) {
+        return errorMsg != null && DEPLOYED_NODE_OFFLINE_ERROR_PATTERN.matcher(errorMsg).find();
     }
 }

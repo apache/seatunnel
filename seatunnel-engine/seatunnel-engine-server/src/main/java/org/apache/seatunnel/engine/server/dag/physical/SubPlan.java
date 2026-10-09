@@ -117,8 +117,8 @@ public class SubPlan {
             @NonNull List<PhysicalVertex> coordinatorVertexList,
             @NonNull JobImmutableInformation jobImmutableInformation,
             @NonNull ExecutorService executorService,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull IMap<Object, Object> runningJobStateIMap,
+            @NonNull IMap<Object, Long[]> runningJobStateTimestampsIMap,
             Map<String, String> tags) {
         this.pipelineId = pipelineId;
         this.pipelineLocation =
@@ -147,22 +147,17 @@ public class SubPlan {
                                                 EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS
                                                         .defaultValue())
                                 .toString());
-        Long[] stateTimestamps = new Long[PipelineStatus.values().length];
-        if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
-            stateTimestamps[PipelineStatus.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(pipelineLocation, stateTimestamps);
-        }
-
-        if (runningJobStateIMap.get(pipelineLocation) == null) {
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
-            stateTimestamps[PipelineStatus.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(pipelineLocation, stateTimestamps);
-
-            runningJobStateIMap.put(pipelineLocation, PipelineStatus.CREATED);
-        }
-
-        this.currPipelineStatus = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+        this.currPipelineStatus =
+                DistributedStateTransition.initialize(
+                        runningJobStateIMap,
+                        pipelineLocation,
+                        PipelineStatus.CREATED,
+                        PipelineStatus.class,
+                        runningJobStateTimestampsIMap,
+                        PipelineStatus.values().length,
+                        PipelineStatus.INITIALIZING.ordinal(),
+                        initializationTimestamp,
+                        PipelineStatus.CREATED.ordinal());
 
         this.pipelineFullName =
                 String.format(
@@ -344,51 +339,57 @@ public class SubPlan {
 
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
-            PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (current == null) {
+            DistributedStateTransition.Result<PipelineStatus> transitionResult =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    DistributedStateTransition.transition(
+                                            runningJobStateIMap,
+                                            pipelineLocation,
+                                            currPipelineStatus,
+                                            PipelineStatus.CREATED,
+                                            targetState,
+                                            PipelineStatus.class,
+                                            PipelineStatus::isEndState,
+                                            this::canPersistState,
+                                            this::lockMissingStatePersistence,
+                                            this::unlockMissingStatePersistence,
+                                            runningJobStateTimestampsIMap,
+                                            PipelineStatus.values().length,
+                                            targetState.ordinal()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+            PipelineStatus current = transitionResult.getPreviousState();
+            if (transitionResult.isStateEntryMissing()) {
                 log.warn(
-                        "{} current state is null, skip transition to {}",
+                        "{} state entry missing from distributed map (possibly due to node "
+                                + "removal during scaling down), using local state {} as fallback, "
+                                + "target state: {}",
                         pipelineFullName,
+                        current,
                         targetState);
-                return;
             }
-            log.debug(
-                    String.format(
-                            "Try to update the %s state from %s to %s",
-                            pipelineFullName, current, targetState));
-
-            if (current.equals(targetState)) {
+            if (transitionResult.isPersistenceBlocked()) {
                 log.info(
-                        "{} current state equals target state: {}, skip",
+                        "{} pipeline state persistence is blocked by its generation fence",
+                        pipelineFullName);
+                return;
+            }
+            if (!transitionResult.isTransitioned()) {
+                PipelineStatus localState = this.currPipelineStatus;
+                this.currPipelineStatus = transitionResult.getCurrentState();
+                log.info(
+                        "{} did not transition to {} because distributed state {} won the race",
                         pipelineFullName,
-                        targetState);
+                        targetState,
+                        transitionResult.getCurrentState());
+                if (localState != transitionResult.getCurrentState()) {
+                    stateProcess();
+                }
                 return;
             }
-
-            // consistency check
-            if (current.isEndState()) {
-                String message = "Pipeline is trying to leave terminal state " + current;
-                log.info(message);
-                return;
-            }
-
-            // now do the actual state transition
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
-            PipelineStatus finalTargetState = targetState;
-            RetryUtils.retryWithException(
-                    () -> {
-                        updateStateTimestamps(finalTargetState);
-                        if (runningJobStateIMap.get(pipelineLocation) != null) {
-                            runningJobStateIMap.set(pipelineLocation, finalTargetState);
-                        }
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
-                            Constant.OPERATION_RETRY_SLEEP));
             this.currPipelineStatus = targetState;
             log.info(
                     String.format(
@@ -400,6 +401,37 @@ public class SubPlan {
             if (!targetState.equals(PipelineStatus.FAILING)) {
                 makePipelineFailing(e);
             }
+        }
+    }
+
+    /**
+     * Checks whether this pipeline's exact generation still owns distributed persistence.
+     *
+     * <p>A false result fences both ordinary transitions and terminal-state resets.
+     */
+    private boolean canPersistState() {
+        return jobMaster == null || jobMaster.isStatePersistenceAllowed();
+    }
+
+    /**
+     * Locks the cleanup fence only when a transition is about to recreate a missing state key.
+     *
+     * <p>Existing pipeline-state updates remain synchronized only by their own state-key lock.
+     */
+    private void lockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.lockStatePersistenceFence();
+        }
+    }
+
+    /**
+     * Releases the missing-key cleanup fence after the state-key lock has been released.
+     *
+     * <p>This release order preserves the cleanup-to-state lock hierarchy.
+     */
+    private void unlockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.unlockStatePersistenceFence();
         }
     }
 
@@ -434,51 +466,43 @@ public class SubPlan {
         physicalVertexList.forEach(PhysicalVertex::reset);
     }
 
-    private void updateStateTimestamps(@NonNull PipelineStatus targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
-        if (stateTimestamps == null) {
-            log.warn(
-                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
-                    pipelineFullName,
-                    targetState);
-            return;
-        }
-        stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
-    }
-
+    /**
+     * Resets a terminal pipeline without allowing an obsolete generation to recreate its keys.
+     *
+     * <p>The distributed state remains authoritative. A blocked or failed persistence attempt
+     * aborts the restore instead of advancing only the local cached state.
+     */
     private void resetPipelineState() throws Exception {
-        RetryUtils.retryWithException(
-                () -> {
-                    PipelineStatus pipelineState = getPipelineState();
-                    if (!pipelineState.isEndState()) {
-                        String message =
-                                String.format(
-                                        "%s reset state failed, only end state can be reset, current is %s",
-                                        getPipelineFullName(), pipelineState);
-                        log.error(message);
-                        throw new IllegalStateException(message);
-                    }
-                    log.info(
-                            String.format(
-                                    "Reset pipeline %s state to %s",
-                                    getPipelineFullName(), PipelineStatus.CREATED));
-                    updateStateTimestamps(PipelineStatus.CREATED);
-                    runningJobStateIMap.set(pipelineLocation, PipelineStatus.CREATED);
-                    this.currPipelineStatus = PipelineStatus.CREATED;
-                    log.info(
-                            String.format(
-                                    "Reset pipeline %s state to %s complete",
-                                    getPipelineFullName(), PipelineStatus.CREATED));
-                    return null;
-                },
-                new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
-                        true,
-                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
-                        Constant.OPERATION_RETRY_SLEEP));
+        DistributedStateTransition.Result<PipelineStatus> result =
+                RetryUtils.retryWithException(
+                        () ->
+                                DistributedStateTransition.reset(
+                                        runningJobStateIMap,
+                                        pipelineLocation,
+                                        PipelineStatus.CREATED,
+                                        PipelineStatus.class,
+                                        PipelineStatus::isEndState,
+                                        this::canPersistState,
+                                        runningJobStateTimestampsIMap,
+                                        PipelineStatus.values().length,
+                                        PipelineStatus.CREATED.ordinal()),
+                        new RetryUtils.RetryMaterial(
+                                Constant.OPERATION_RETRY_TIME,
+                                true,
+                                ExceptionUtil::isOperationNeedRetryException,
+                                Constant.OPERATION_RETRY_SLEEP));
+        if (result.isPersistenceBlocked()) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Pipeline %s reset is blocked by its generation fence",
+                            getPipelineFullName()));
+        }
+        this.currPipelineStatus = result.getCurrentState();
+        log.info(
+                "Reset pipeline {} state from {} to {} complete",
+                getPipelineFullName(),
+                result.getPreviousState(),
+                result.getCurrentState());
     }
 
     /**

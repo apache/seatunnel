@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -91,32 +90,28 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    private volatile JobStatus currJobStatus;
+
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
             @NonNull ExecutorService executorService,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull IMap<Object, Object> runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull IMap<Object, Long[]> runningJobStateTimestampsIMap) {
         this.jobImmutableInformation = jobImmutableInformation;
         this.jobId = jobImmutableInformation.getJobId();
-        Long[] stateTimestamps = new Long[JobStatus.values().length];
-        if (runningJobStateTimestampsIMap.get(jobId) == null) {
-            stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
-        }
-
-        if (runningJobStateIMap.get(jobId) == null) {
-            // We must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap.
-            // Because if a new Master Node become active, we can recover ExecutionState and
-            // PipelineState and JobStatus
-            // from TaskExecutionService. But we can not recover stateTimestamps.
-            stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
-
-            runningJobStateIMap.put(jobId, JobStatus.CREATED);
-        }
+        JobStatus initializedJobStatus =
+                DistributedStateTransition.initialize(
+                        runningJobStateIMap,
+                        jobId,
+                        JobStatus.CREATED,
+                        JobStatus.class,
+                        runningJobStateTimestampsIMap,
+                        JobStatus.values().length,
+                        JobStatus.INITIALIZING.ordinal(),
+                        initializationTimestamp,
+                        JobStatus.CREATED.ordinal());
 
         this.pipelineList = pipelineList;
         if (pipelineList.isEmpty()) {
@@ -131,6 +126,7 @@ public class PhysicalPlan {
 
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.currJobStatus = initializedJobStatus;
     }
 
     public void setJobMaster(JobMaster jobMaster) {
@@ -197,6 +193,10 @@ public class PhysicalPlan {
 
     public void cancelJob() {
         JobStatus jobStatus = getJobStatus();
+        if (jobStatus == null) {
+            log.error("{} job state is null, cannot cancel", jobFullName);
+            return;
+        }
         if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
@@ -204,7 +204,7 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
@@ -268,39 +268,6 @@ public class PhysicalPlan {
         return pipelineList;
     }
 
-    private void updateStateInfo(JobStatus current, JobStatus targetState) throws Exception {
-        RetryUtils.retryWithException(
-                () -> {
-                    updateStateTimestamps(targetState);
-                    if (runningJobStateIMap.get(jobId) != null) {
-                        runningJobStateIMap.set(jobId, targetState);
-                    }
-                    return null;
-                },
-                new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
-                        true,
-                        ExceptionUtil::isOperationNeedRetryException,
-                        Constant.OPERATION_RETRY_SLEEP));
-        log.info(
-                String.format("%s turned from state %s to %s.", jobFullName, current, targetState));
-    }
-
-    private void updateStateTimestamps(@NonNull JobStatus targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
-        if (stateTimestamps == null) {
-            log.warn(
-                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
-                    jobFullName,
-                    targetState);
-            return;
-        }
-        stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
-    }
-
     public synchronized Long getStateTimestamp(@NonNull JobStatus jobStatus) {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         if (stateTimestamps == null) {
@@ -311,34 +278,62 @@ public class PhysicalPlan {
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
-            JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
-            if (current == null) {
+            DistributedStateTransition.Result<JobStatus> transitionResult =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    DistributedStateTransition.transition(
+                                            runningJobStateIMap,
+                                            jobId,
+                                            currJobStatus,
+                                            JobStatus.CREATED,
+                                            targetState,
+                                            JobStatus.class,
+                                            JobStatus::isEndState,
+                                            this::canPersistState,
+                                            this::lockMissingStatePersistence,
+                                            this::unlockMissingStatePersistence,
+                                            runningJobStateTimestampsIMap,
+                                            JobStatus.values().length,
+                                            targetState.ordinal()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+            JobStatus current = transitionResult.getPreviousState();
+            if (transitionResult.isStateEntryMissing()) {
                 log.warn(
-                        "{} current state is null, skip transition to {}",
+                        "{} job state entry missing from distributed map (possibly due to node "
+                                + "removal during scaling down), using local state {} as fallback, "
+                                + "target state: {}",
                         jobFullName,
+                        current,
                         targetState);
-                return;
             }
-            log.debug(
-                    "Try to update the {} state from {} to {}", jobFullName, current, targetState);
-
-            if (current.equals(targetState)) {
+            if (transitionResult.isPersistenceBlocked()) {
                 log.info(
-                        "{} current state equals target state: {}, skip", jobFullName, targetState);
+                        "{} job state persistence is blocked by its generation fence", jobFullName);
                 return;
             }
-
-            // consistency check
-            if (current.isEndState()) {
-                String message = "Job is trying to leave terminal state " + current;
-                throw new SeaTunnelEngineException(message);
+            if (!transitionResult.isTransitioned()) {
+                JobStatus localState = this.currJobStatus;
+                this.currJobStatus = transitionResult.getCurrentState();
+                log.info(
+                        "{} did not transition to {} because distributed state {} won the race",
+                        jobFullName,
+                        targetState,
+                        transitionResult.getCurrentState());
+                if (localState != transitionResult.getCurrentState()) {
+                    reportJobStateEvent(transitionResult.getCurrentState());
+                    stateProcess();
+                }
+                return;
             }
-
-            // Now do the actual state transition, we must update runningJobStateTimestampsIMap
-            // first and then can update runningJobStateIMap
-            updateStateInfo(current, targetState);
+            this.currJobStatus = targetState;
+            log.info(
+                    String.format(
+                            "%s turned from state %s to %s.", jobFullName, current, targetState));
             reportJobStateEvent(targetState);
-
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -348,12 +343,53 @@ public class PhysicalPlan {
         }
     }
 
+    /**
+     * Checks whether this physical plan's exact generation still owns distributed persistence.
+     *
+     * <p>Construction runs before the JobMaster is attached and is protected by the coordinator's
+     * job cleanup lock; later transitions require the durable owner token to match.
+     */
+    private boolean canPersistState() {
+        return jobMaster == null || jobMaster.isStatePersistenceAllowed();
+    }
+
+    /**
+     * Locks the cleanup fence only when a transition is about to recreate a missing state key.
+     *
+     * <p>Existing job-state updates remain synchronized only by their own state-key lock.
+     */
+    private void lockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.lockStatePersistenceFence();
+        }
+    }
+
+    /**
+     * Releases the missing-key cleanup fence after the state-key lock has been released.
+     *
+     * <p>This release order preserves the cleanup-to-state lock hierarchy.
+     */
+    private void unlockMissingStatePersistence() {
+        if (jobMaster != null) {
+            jobMaster.unlockStatePersistenceFence();
+        }
+    }
+
     public JobImmutableInformation getJobImmutableInformation() {
         return jobImmutableInformation;
     }
 
     public JobStatus getJobStatus() {
-        return (JobStatus) runningJobStateIMap.get(jobId);
+        JobStatus status = (JobStatus) runningJobStateIMap.get(jobId);
+        if (status == null) {
+            log.warn(
+                    "{} job state entry missing from distributed map, "
+                            + "using local cached state {} as fallback",
+                    jobFullName,
+                    currJobStatus);
+            return currJobStatus;
+        }
+        return status;
     }
 
     public String getJobFullName() {
