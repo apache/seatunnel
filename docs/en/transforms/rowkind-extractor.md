@@ -24,10 +24,12 @@ Input (CDC data):
   RowKind: -D (DELETE)
   Data: id=1, name="test1", age=20
 
-Output (Append-Only data):
+Output (Append-Only data, with the default `transform_type = SHORT`):
   RowKind: +I (INSERT)
-  Data: id=1, name="test1", age=20, row_kind="DELETE"
+  Data: id=1, name="test1", age=20, row_kind="-D"
 ```
+
+With `transform_type = FULL`, the field stores the full name instead: `row_kind="DELETE"`.
 
 **Typical Use Cases:**
 - Writing CDC data to data lakes that only support Append mode

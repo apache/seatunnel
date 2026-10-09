@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 import Tabs from '@theme/Tabs';
@@ -27,12 +27,38 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
+在 Windows 上，可以从 [SeaTunnel下载页面](https://seatunnel.apache.org/download) 下载 `.zip` 压缩包，
+然后使用文件资源管理器或 PowerShell 解压：
+
+```powershell
+$version = "3.0.0"
+Invoke-WebRequest `
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.zip" `
+  -OutFile "apache-seatunnel-$version-bin.zip"
+Expand-Archive "apache-seatunnel-$version-bin.zip" -DestinationPath .
+Set-Location "apache-seatunnel-$version"
+```
+
 ### 下载连接器插件
 
 从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/`目录下，如果是2.3.5之前则需要放入`connectors/seatunnel`目录下)。
 
 ```bash
 sh bin/install-plugin.sh
+```
+
+在 Windows 上，请在解压后的目录中运行发行包自带的批处理脚本。该脚本使用 Maven Wrapper，
+因此无需单独安装 Maven：
+
+```bat
+cd apache-seatunnel-3.0.0
+bin\install-plugin.cmd
+```
+
+如需为特定版本安装连接器，向同一脚本传入版本号即可：
+
+```bat
+bin\install-plugin.cmd 3.0.0
 ```
 
 如果您需要指定的连接器版本，以3.0.0为例，您需要执行如下命令：

@@ -40,7 +40,7 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 ```shell
 cd seatunnel
 # Use already sett maven profile
-mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=3.0.0 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=3.0.0 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -49,7 +49,7 @@ docker images | grep apache/seatunnel
 ##### 分步骤构建
 ```shell
 # Build binary package from source code
-mvn clean package -DskipTests -Dskip.spotless=true
+sh ./mvnw clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
@@ -138,7 +138,7 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connecto
 ```shell
 # flink version between `1.12.x` and `1.14.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-13-connector-v2.sh -c config/v2.streaming.conf.template'
-# flink version between `1.15.x` and `1.16.x`
+# flink version between `1.15.x` and `1.18.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
 
@@ -237,6 +237,7 @@ services:
       "
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -280,7 +281,7 @@ networks:
 
 
 启动完成后，可以运行`docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
-当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
+当你访问`http://localhost:8080/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
 #### 集群扩容
 当你需要对集群扩容, 例如需要添加一个worker节点时
@@ -299,6 +300,7 @@ services:
       "
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 

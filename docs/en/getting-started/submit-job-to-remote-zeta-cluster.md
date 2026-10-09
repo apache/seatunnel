@@ -58,9 +58,11 @@ See [REST API v2](../engines/zeta/rest-api-v2.md) for the complete request and r
 ```bash
 docker run -d --name seatunnel \
   -p 8080:8080 \
-  -e ST_DOCKER_MEMBER_COUNT=1 \
   apache/seatunnel:<version>
 ```
+
+A single container forms a working one-node cluster with the default configuration, so no extra
+environment variables are needed.
 
 ### 3.2 Submit a job from outside the container
 
@@ -100,6 +102,9 @@ inside that container process.
 
 ### 4.1 Docker Compose example
 
+The cluster membership is passed to each container with the `ST_DOCKER_MEMBER_LIST` environment
+variable (this is the only cluster-discovery environment variable the engine reads):
+
 ```yaml
 version: "3.8"
 services:
@@ -110,7 +115,7 @@ services:
       - "8080:8080"
       - "5801:5801"
     environment:
-      ST_DOCKER_MEMBER_COUNT: 2
+      ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
     networks:
       - st-net
 
@@ -118,7 +123,7 @@ services:
     image: apache/seatunnel:<version>
     container_name: seatunnel-worker
     environment:
-      ST_DOCKER_MEMBER_COUNT: 2
+      ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
     networks:
       - st-net
     depends_on:
@@ -163,12 +168,14 @@ After deploying SeaTunnel to Kubernetes (see [Kubernetes Deployment](kubernetes/
 master pod's REST port to your local machine:
 
 ```bash
-# Find the master pod
-kubectl get pods -n seatunnel
+# Find the master pod (the Helm chart deploys master as a Deployment)
+MASTER_POD=$(kubectl get pods -n seatunnel \
+  -l app.kubernetes.io/name=seatunnel-master \
+  -o jsonpath='{.items[0].metadata.name}')
 
 # Forward REST port
 kubectl port-forward -n seatunnel \
-  pod/seatunnel-master-0 8080:8080
+  pod/${MASTER_POD} 8080:8080
 ```
 
 In a second terminal, submit a job:
@@ -179,30 +186,36 @@ curl -X POST http://localhost:8080/submit-job \
   -d @job.json
 ```
 
-### 5.2 Using NodePort service (staging / production)
+### 5.2 Using the master Service (default chart deployment)
 
-If your cluster exposes the SeaTunnel master via a `NodePort` service:
+The Helm chart only creates a headless Service for the master, so there is no separate REST
+Service or NodePort out of the box. Forward the master Service's REST port to your local machine:
 
 ```bash
-# Get the NodePort
-kubectl get svc -n seatunnel seatunnel-master-rest
+kubectl port-forward -n seatunnel svc/seatunnel-master 8080:8080
+```
 
-# Submit via node IP and node port
-curl -X POST http://<node-ip>:<node-port>/submit-job \
+In a second terminal, submit a job:
+
+```bash
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
 
-### 5.3 Using LoadBalancer service
+### 5.3 Using an Ingress (staging / production)
+
+If you enable the chart's Ingress (`ingress.enabled: true`, see the
+[Helm Chart Reference](kubernetes/helm.md)), submit jobs through the Ingress host instead:
 
 ```bash
-LB_IP=$(kubectl get svc -n seatunnel seatunnel-master-rest \
-  -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-curl -X POST http://${LB_IP}:8080/submit-job \
+curl -X POST http://<your-ingress-host>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
+
+If you expose the REST API with your own `NodePort` or `LoadBalancer` Service, submit to that
+Service's address the same way.
 
 ---
 
@@ -249,7 +262,7 @@ volumes:
 Then submit via `kubectl exec`:
 
 ```bash
-kubectl exec -n seatunnel seatunnel-master-0 -- \
+kubectl exec -n seatunnel ${MASTER_POD} -- \
   /opt/seatunnel/bin/seatunnel.sh \
   --config /opt/seatunnel/jobs/cdc-job.conf
 ```
@@ -260,42 +273,54 @@ kubectl exec -n seatunnel seatunnel-master-0 -- \
 
 ### 7.1 Helm install
 
-```bash
-helm repo add seatunnel https://apache.github.io/seatunnel-helm-charts
-helm repo update
+The SeaTunnel Helm chart is published as an OCI artifact on Docker Hub (there is no
+`https://apache.github.io/seatunnel-helm-charts` chart repository):
 
-helm install seatunnel seatunnel/seatunnel \
+```bash
+# Choose the corresponding version yourself
+export VERSION=2.3.10
+helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
+tar -xvf seatunnel-helm-${VERSION}.tgz
+cd seatunnel-helm
+
+helm install seatunnel . \
   --namespace seatunnel \
-  --create-namespace \
-  --set master.replicaCount=2 \
-  --set worker.replicaCount=4 \
-  --set master.service.type=LoadBalancer
+  --create-namespace
 ```
 
-### 7.2 EKS-specific: retrieve the load balancer hostname
+Scale masters and workers with the `master.replicas` and `worker.replicas` values:
 
 ```bash
-kubectl get svc -n seatunnel seatunnel-master \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+helm upgrade seatunnel . --namespace seatunnel \
+  --set master.replicas=2 \
+  --set worker.replicas=4
 ```
 
-Use that hostname as the API endpoint:
+### 7.2 EKS-specific: reaching the REST API
+
+The default chart creates only headless Services, so there is no automatically provisioned load
+balancer. Either enable the chart Ingress and read its address:
 
 ```bash
-export ST_HOST=$(kubectl get svc -n seatunnel seatunnel-master \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+kubectl get ingress -n seatunnel
+```
 
-curl -X POST http://${ST_HOST}:8080/submit-job \
+and use that host as the API endpoint:
+
+```bash
+curl -X POST http://<your-ingress-host>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
+
+or use `kubectl port-forward svc/seatunnel-master 8080:8080` as shown in section 5.2.
 
 ### 7.3 Customizing resources via Helm values
 
 ```yaml
 # values-prod.yaml
 master:
-  replicaCount: 2
+  replicas: "2"
   resources:
     requests:
       memory: "4Gi"
@@ -305,7 +330,7 @@ master:
       cpu: "4"
 
 worker:
-  replicaCount: 8
+  replicas: "8"
   resources:
     requests:
       memory: "8Gi"
@@ -313,22 +338,18 @@ worker:
     limits:
       memory: "16Gi"
       cpu: "8"
-
-seatunnel:
-  config:
-    engine:
-      backup-count: 2
-      queue-type: blockingqueue
-      print-execution-info-interval: 60
-      http:
-        enable-http: true
-        port: 8080
 ```
+
+The chart has no `seatunnel.config` values tree. To customize engine files such as
+`seatunnel.yaml` or `hazelcast*.yaml`, let the chart generate the ConfigMap from the chart's
+`conf/` files (default), or ship your own ConfigMap and set `configMap.create: false` plus
+`configMap.existingConfigMapName` — see the chart's `values.yaml` and the
+[Helm Chart Reference](kubernetes/helm.md).
 
 Apply with:
 
 ```bash
-helm upgrade seatunnel seatunnel/seatunnel \
+helm upgrade seatunnel . \
   --namespace seatunnel \
   -f values-prod.yaml
 ```
@@ -359,7 +380,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: seatunnel
+              kubernetes.io/metadata.name: seatunnel
       ports:
         - port: 5801
 ```
@@ -374,7 +395,7 @@ spec:
 | Workers not joining the cluster | Firewall blocks port 5801 | Open TCP 5801 between all cluster nodes |
 | `kubectl port-forward` disconnects | Idle timeout or pod restart | Restart port-forward; consider NodePort instead |
 | Job submitted but status always `WAITING` | No available worker slots | Scale up worker replicas or check resource quotas |
-| EKS LoadBalancer hostname not resolving | DNS propagation delay | Wait 1–2 minutes; verify with `nslookup` |
+| EKS Ingress hostname not resolving | DNS propagation delay | Wait 1–2 minutes; verify with `nslookup` |
 | Helm install fails with `pending-install` | Previous failed release | Run `helm rollback` or `helm uninstall` then retry |
 
 ---
