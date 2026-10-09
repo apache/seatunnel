@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -49,6 +50,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -1373,6 +1375,192 @@ public class CheckpointCoordinatorTest
                 expected,
                 delivered,
                 scenario + ": every checkpointed subtask state must be restored exactly once");
+    }
+
+    @Test
+    void testUpdateStatusShouldPersistStateOnlyForLiveJob() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("checkpoint-state-lock").newId();
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        checkpointConfig,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        runningJobStateIMap,
+                        server.getEngineContext(),
+                        null);
+        CheckpointCoordinator coordinator = checkpointManager.getCheckpointCoordinator(1);
+        String stateKey = "checkpoint_state_" + jobId + "_1";
+        try {
+            // the first transition of a live job creates the state key
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+            coordinator.restoreCoordinator(false);
+            Assertions.assertEquals(
+                    CheckpointCoordinatorStatus.RUNNING, runningJobStateIMap.get(stateKey));
+
+            // transitions of a terminal job are not persisted anymore; cancelCheckpoint targets
+            // CANCELED, so the RUNNING value below can only survive when the gate really skips
+            runningJobStateIMap.put(jobId, JobStatus.FAILED);
+            coordinator.cancelCheckpoint();
+            Assertions.assertEquals(
+                    CheckpointCoordinatorStatus.RUNNING, runningJobStateIMap.get(stateKey));
+
+            // transitions of a cleaned job cannot resurrect the state key; restoreCoordinator
+            // targets RUNNING while the key is absent, so a broken gate would recreate it
+            runningJobStateIMap.remove(jobId);
+            runningJobStateIMap.remove(stateKey);
+            coordinator.restoreCoordinator(false);
+            Assertions.assertNull(runningJobStateIMap.get(stateKey));
+        } finally {
+            runningJobStateIMap.remove(jobId);
+            runningJobStateIMap.remove(stateKey);
+        }
+    }
+
+    @Test
+    void testUpdateStatusWaitsForJobStateLockAndCannotResurrectCleanedState() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("checkpoint-state-lock").newId();
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        checkpointConfig,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        runningJobStateIMap,
+                        server.getEngineContext(),
+                        null);
+        CheckpointCoordinator coordinator = checkpointManager.getCheckpointCoordinator(1);
+        String stateKey = "checkpoint_state_" + jobId + "_1";
+        boolean lockHeldByTest = false;
+        try {
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+
+            // hold the job state lock the way the state cleanup does, a late coordinator
+            // callback must not write the checkpoint state key in the meantime
+            runningJobStateIMap.lock(jobId);
+            lockHeldByTest = true;
+            Thread lateCallback = new Thread(() -> coordinator.cancelCheckpoint());
+            lateCallback.start();
+            Thread.sleep(1000);
+            Assertions.assertNull(
+                    runningJobStateIMap.get(stateKey),
+                    "a late callback must not persist while the job state lock is held");
+
+            // simulate that the cleanup removed the job state before releasing the lock
+            runningJobStateIMap.remove(jobId);
+            runningJobStateIMap.unlock(jobId);
+            lockHeldByTest = false;
+            lateCallback.join(60000);
+            Assertions.assertFalse(lateCallback.isAlive());
+            Assertions.assertNull(
+                    runningJobStateIMap.get(stateKey),
+                    "a late callback must not resurrect the checkpoint state key after cleanup");
+
+            // a live job still persists its transitions once the lock is available again
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+            coordinator.restoreCoordinator(false);
+            Assertions.assertEquals(
+                    CheckpointCoordinatorStatus.RUNNING, runningJobStateIMap.get(stateKey));
+        } finally {
+            if (lockHeldByTest) {
+                try {
+                    runningJobStateIMap.unlock(jobId);
+                } catch (IllegalMonitorStateException ignore) {
+                    // the lock is already released
+                }
+            }
+            runningJobStateIMap.remove(jobId);
+            runningJobStateIMap.remove(stateKey);
+        }
+    }
+
+    @Test
+    void testIsNoErrorCompletedShouldTolerateMissingStateKey() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("checkpoint-state-lock").newId();
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        1,
+                        1,
+                        Instant.now().toEpochMilli(),
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        Instant.now().toEpochMilli(),
+                        new HashMap<>(),
+                        new HashMap<>());
+        PipelineState pipelineState =
+                PipelineState.builder()
+                        .jobId(jobId + "")
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
+                        .build();
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+        String stateKey = "checkpoint_state_" + jobId + "_1";
+        try {
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            checkpointStorage,
+                            new CheckpointConfig(),
+                            jobId,
+                            CheckpointPlan.builder().pipelineId(1).build(),
+                            new StandaloneCheckpointIDCounter(),
+                            pipelineState,
+                            instance.getExecutorService("test"),
+                            runningJobStateIMap,
+                            false,
+                            null);
+            // simulate a live job whose checkpoint state key is missing: should return false
+            // instead of treating the missing state as a completed pipeline
+            runningJobStateIMap.remove(stateKey);
+            Assertions.assertFalse(coordinator.isNoErrorCompleted());
+
+            // the constructor marks a checkpoint restored from storage as restored; reset the
+            // flag to reach the same state as a checkpoint completed by this coordinator run
+            Field latestCompletedCheckpointField =
+                    CheckpointCoordinator.class.getDeclaredField("latestCompletedCheckpoint");
+            latestCompletedCheckpointField.setAccessible(true);
+            ((CompletedCheckpoint) latestCompletedCheckpointField.get(coordinator))
+                    .setRestored(false);
+
+            // a persisted FINISHED state of the same final checkpoint means no-error completed
+            runningJobStateIMap.put(stateKey, CheckpointCoordinatorStatus.FINISHED);
+            Assertions.assertTrue(coordinator.isNoErrorCompleted());
+
+            // any other persisted status is not no-error completed
+            runningJobStateIMap.put(stateKey, CheckpointCoordinatorStatus.RUNNING);
+            Assertions.assertFalse(coordinator.isNoErrorCompleted());
+        } finally {
+            runningJobStateIMap.remove(jobId);
+            runningJobStateIMap.remove(stateKey);
+        }
     }
 }
 

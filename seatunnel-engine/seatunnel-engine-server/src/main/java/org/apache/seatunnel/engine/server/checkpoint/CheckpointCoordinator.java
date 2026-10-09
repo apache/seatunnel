@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -92,6 +93,9 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
  */
 public class CheckpointCoordinator {
     private static final Logger LOG = LoggerFactory.getLogger(CheckpointCoordinator.class);
+
+    /** Bounded wait for the per job state lock, keep the checkpoint path from blocking forever. */
+    private static final long JOB_STATE_LOCK_TIMEOUT_SECONDS = 5;
 
     private final long jobId;
 
@@ -1471,12 +1475,29 @@ public class CheckpointCoordinator {
                 && !latestCompletedCheckpoint.isRestored();
     }
 
+    /**
+     * Returns whether the pipeline finished its final checkpoint without any coordinator error.
+     *
+     * <p>When the persisted coordinator state is missing (for example a job whose state has been
+     * cleaned, or an in-flight job whose first status transition has not been persisted yet), the
+     * pipeline is conservatively treated as NOT no-error completed: the restore path then
+     * re-deploys the pipeline through the standard recovery flow and surfaces real errors, instead
+     * of force-finishing a pipeline whose real outcome is unknown.
+     */
     public boolean isNoErrorCompleted() {
         if (latestCompletedCheckpoint == null) {
             return false;
         }
         CheckpointCoordinatorStatus status =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+        if (status == null) {
+            LOG.error(
+                    "Job {} pipeline {} checkpoint state {} is missing, treat the pipeline as not no-error completed",
+                    jobId,
+                    pipelineId,
+                    checkpointStateImapKey);
+            return false;
+        }
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
                 && (CheckpointCoordinatorStatus.FINISHED.equals(status)
                         || CheckpointCoordinatorStatus.SUSPEND.equals(status))
@@ -1508,24 +1529,77 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
     }
 
+    /**
+     * Persists a coordinator status transition to the shared job state IMap.
+     *
+     * <p>The checkpoint state key of a live job is created by its first transition, so the gate is
+     * the owning job state, not the state key itself: transitions are persisted only while the job
+     * is alive, which keeps the cleaned-job protection (a cleaned job has no job state key anymore)
+     * without blocking the state creation of live jobs.
+     *
+     * <p>The check and the write run while holding the per job lock of {@code runningJobStateIMap},
+     * pairing with {@code CoordinatorService#cleanupPendingJobStateMaps}: the job state cleanup
+     * removes the job key and the {@code checkpoint_state_*} keys under the same lock, so a
+     * transition either happens before the cleanup or observes the cleaned job key and is skipped.
+     * It can never recreate a {@code checkpoint_state_*} key that the cleanup already removed.
+     *
+     * <p>The wait for the lock is bounded; when the lock cannot be acquired the transition is
+     * skipped, which degrades the same way as the "job already cleaned" skip and never blocks the
+     * checkpoint path forever.
+     */
     private synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
         try {
             RetryUtils.retryWithException(
                     () -> {
-                        Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
-                        if (currentStatus == null) {
+                        boolean locked = false;
+                        try {
+                            locked =
+                                    runningJobStateIMap.tryLock(
+                                            jobId,
+                                            JOB_STATE_LOCK_TIMEOUT_SECONDS,
+                                            TimeUnit.SECONDS);
+                        } catch (Exception e) {
                             LOG.warn(
                                     String.format(
-                                            "%s has already been cleaned, skip persisting transition to %s",
-                                            checkpointStateImapKey, targetStatus));
+                                            "Acquire the job state lock of job %s failed, skip persisting %s transition to %s",
+                                            jobId, checkpointStateImapKey, targetStatus),
+                                    e);
+                        }
+                        if (!locked) {
+                            LOG.warn(
+                                    String.format(
+                                            "Timed out waiting the job state lock of job %s, skip persisting %s transition to %s",
+                                            jobId, checkpointStateImapKey, targetStatus));
                             return null;
                         }
-                        LOG.info(
-                                "Turn {} state from {} to {}",
-                                checkpointStateImapKey,
-                                currentStatus,
-                                targetStatus);
-                        runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
+                        try {
+                            Object jobState = runningJobStateIMap.get(jobId);
+                            if (!(jobState instanceof JobStatus)) {
+                                LOG.warn(
+                                        String.format(
+                                                "Job %s state has been cleaned, skip persisting %s transition to %s from a late callback",
+                                                jobId, checkpointStateImapKey, targetStatus));
+                                return null;
+                            }
+                            if (((JobStatus) jobState).isEndState()) {
+                                LOG.info(
+                                        String.format(
+                                                "Job %s is in terminal state %s, skip persisting %s transition to %s",
+                                                jobId,
+                                                jobState,
+                                                checkpointStateImapKey,
+                                                targetStatus));
+                                return null;
+                            }
+                            Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
+                            LOG.info(
+                                    String.format(
+                                            "Turn %s state from %s to %s",
+                                            checkpointStateImapKey, currentStatus, targetStatus));
+                            runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
+                        } finally {
+                            runningJobStateIMap.unlock(jobId);
+                        }
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
