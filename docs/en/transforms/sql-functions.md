@@ -1185,6 +1185,19 @@ Converts a value to a BOOLEAN data type according to the following rules:
 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.
 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
+NOTE:
+Casting to `INT` | `INTEGER` throws a `TransformException` when the source value is outside the
+target's range, for example `CAST(3000000000 AS INT)`. `TINYINT` and `SMALLINT` behave the same way
+for a string source, such as `CAST('300' AS TINYINT)`. Use `TRY_CAST` to get `NULL` instead of an
+error.
+
+A narrowing or floating-point source is rejected earlier, while the statement is prepared rather
+than while a row is read: `CAST(double_col AS INT)` and `CAST(bigint_col AS TINYINT)` both fail with
+`Unsupported CAST FROM ... AS type: ...`, and `TRY_CAST` does not turn those into `NULL`. A
+fractional value reaches an integral target only through `COALESCE` or `IFNULL`, where the target
+type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
+`NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

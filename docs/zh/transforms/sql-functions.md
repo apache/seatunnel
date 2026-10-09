@@ -1192,6 +1192,16 @@ CAST(FLAG AS BOOLEAN)
 2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
 3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
 
+注意：转换为 INT | INTEGER 时，如果来源值超出目标类型的取值范围，将抛出 TransformException，
+例如 `CAST(3000000000 AS INT)`。对于字符串来源，TINYINT 与 SMALLINT 的行为相同，例如
+`CAST('300' AS TINYINT)`。若希望得到 NULL 而不是异常，请使用 TRY_CAST。
+
+收窄来源与浮点来源会在更早的阶段被拒绝：发生在语句准备期间，而不是读取数据行时。
+`CAST(double_col AS INT)` 与 `CAST(bigint_col AS TINYINT)` 都会以
+`Unsupported CAST FROM ... AS type: ...` 失败，并且 TRY_CAST 不会把这类失败转成 NULL。
+小数值只能通过 COALESCE 或 IFNULL 到达整型目标（这两者的目标类型是推断出来的，而不是显式写出的），
+此时会向零截断：当 `int_col` 为 NULL 时，`COALESCE(int_col, double_col)` 对 `5.7` 得到 `5`。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

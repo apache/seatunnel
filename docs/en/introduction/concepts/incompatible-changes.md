@@ -9,6 +9,45 @@ You need to check this document before you upgrade to related version.
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
 
+### Zeta SQL Transform: CAST to INT rejects out-of-range numeric values
+
+- **Behavior change: `CAST` to `INT` from a numeric source now fails instead of silently wrapping**
+  - **Affected component**: `seatunnel-transforms-v2`, `SystemFunction.castAs` (Zeta SQL transform)
+  - **Description**: Converting a numeric value to `INT` | `INTEGER` went through
+    `Number.intValue()`, which keeps only the low-order 32 bits, so `CAST(bigint_col AS INT)` on
+    `3000000000` returned `-1294967296` and a value just below `Integer.MIN_VALUE` came back as
+    `2147483647`, flipping sign. A string source already went through `Integer.parseInt` and
+    reported the overflow, so the same expression either failed or corrupted the value depending
+    only on the source column type. The numeric path now reports it too. `TINYINT`, `SMALLINT` and
+    `BYTE` are unchanged, because they convert with `Byte.parseByte` and `Short.parseShort`, which
+    already rejected an out-of-range value. Planner acceptance is unchanged: the set of source
+    types allowed for each target is exactly what it was.
+  - **Impact**: A job that relied on the wraparound, deliberately or not, now fails at the row that
+    overflows rather than writing a wrong number. In-range values, widening casts and identity casts
+    are unaffected. `FLOAT` and `DOUBLE` are out of scope for this change and still return
+    `Infinity` for values they cannot represent.
+  - **Also affects `COALESCE` and `IFNULL`**: these reach the same conversion boundary, and their
+    result type is inferred from the first non-null argument rather than the widest one. So
+    `COALESCE(int_col, bigint_col)` targets `INT`, and an out-of-range value taken from the
+    `BIGINT` argument was silently truncated in the same way. It now fails too. `CASE` expressions
+    are not affected, because their type is inferred as the widest branch, so no narrowing occurs.
+  - **Covers wide and non-finite numeric sources**: the range check runs per numeric family rather
+    than after a single widening step, because `Number.longValue()` is itself lossy for some of
+    them. A `DECIMAL` beyond 64 bits (reachable as `COALESCE(int_col, decimal_col)`), a
+    `BigInteger`, and `NaN` or an infinity from a `DOUBLE` are each rejected now instead of
+    arriving as a truncated value.
+  - **Fractional sources are unchanged**: reached through `COALESCE` or `IFNULL`, a value such as
+    `5.7` is still truncated towards zero rather than rejected, which is what this conversion has
+    always done. Only the range behaviour changes. A floating-point source written as an explicit
+    `CAST` to an integral target is rejected while the statement is prepared, both before and after
+    this change. Note the truncating path still differs from a string source, where
+    `Integer.parseInt("5.7")` fails; aligning those is a separate decision.
+  - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
+    by this change; that gap is tracked separately in #12612.
+  - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
+    cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
+    compute it explicitly rather than relying on `CAST`.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
