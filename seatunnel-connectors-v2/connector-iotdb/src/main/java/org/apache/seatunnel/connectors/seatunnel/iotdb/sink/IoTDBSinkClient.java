@@ -33,31 +33,88 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 public class IoTDBSinkClient {
 
+    /** TSStatusCode.REDIRECTION_RECOMMEND: the node is not the leader of the target region. */
+    private static final int REDIRECTION_RECOMMEND = 400;
+
+    private static final int DEFAULT_IOTDB_PORT = 6667;
+
     private final SinkConfig sinkConfig;
     private final List<IoTDBRecord> batchList;
 
-    private Session session;
+    /** One lazily-created session per configured node url. */
+    private final Session[] sessions;
+
+    /**
+     * Device -> index in nodeUrls of the node that last accepted its writes (the region leader).
+     * Writes are grouped by this so each group goes straight to the right leader.
+     */
+    private final Map<String, Integer> deviceLeaderIndex = new HashMap<>();
+
+    /**
+     * Devices whose leader is not known yet (or just changed). They are written one device per
+     * request until a node accepts them, because a batch mixing devices of different regions is
+     * rejected as a whole. Once accepted, the device goes back to normal batched routing.
+     */
+    private final Set<String> probingDevices = new HashSet<>();
+
     private volatile boolean initialize;
     private volatile Exception flushException;
 
     public IoTDBSinkClient(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
+        this.sessions = new Session[sinkConfig.getNodeUrls().size()];
     }
 
     private void tryInit() throws IOException {
         if (initialize) {
             return;
         }
+        try {
+            sessionFor(0);
+        } catch (IoTDBConnectionException e) {
+            log.error("Initialize IoTDB client failed.", e);
+            throw new IotdbConnectorException(
+                    IotdbConnectorErrorCode.INITIALIZE_CLIENT_FAILED,
+                    "Initialize IoTDB client failed.",
+                    e);
+        }
+        initialize = true;
+    }
 
+    private Session sessionFor(int index) throws IoTDBConnectionException {
+        if (sessions[index] != null) {
+            return sessions[index];
+        }
+        String nodeUrl = sinkConfig.getNodeUrls().get(index);
+        String host = nodeUrl;
+        int port = DEFAULT_IOTDB_PORT;
+        int colonIndex = nodeUrl.lastIndexOf(':');
+        if (colonIndex > 0) {
+            host = nodeUrl.substring(0, colonIndex);
+            port = Integer.parseInt(nodeUrl.substring(colonIndex + 1));
+        }
+        Session session = buildSession(host, port);
+        sessions[index] = session;
+        return session;
+    }
+
+    /** Builds and opens the session to one node; overridable for tests. */
+    protected Session buildSession(String host, int port) throws IoTDBConnectionException {
         Session.Builder sessionBuilder =
                 new Session.Builder()
-                        .nodeUrls(sinkConfig.getNodeUrls())
+                        .host(host)
+                        .port(port)
                         .username(sinkConfig.getUsername())
                         .password(sinkConfig.getPassword());
         if (sinkConfig.getThriftDefaultBufferSize() != null) {
@@ -70,25 +127,31 @@ public class IoTDBSinkClient {
             sessionBuilder.zoneId(sinkConfig.getZoneId());
         }
 
-        session = sessionBuilder.build();
-        try {
-            if (sinkConfig.getConnectionTimeoutInMs() != null) {
-                session.open(
-                        sinkConfig.getEnableRPCCompression(),
-                        sinkConfig.getConnectionTimeoutInMs());
-            } else if (sinkConfig.getEnableRPCCompression() != null) {
-                session.open(sinkConfig.getEnableRPCCompression());
-            } else {
-                session.open();
-            }
-        } catch (IoTDBConnectionException e) {
-            log.error("Initialize IoTDB client failed.", e);
-            throw new IotdbConnectorException(
-                    IotdbConnectorErrorCode.INITIALIZE_CLIENT_FAILED,
-                    "Initialize IoTDB client failed.",
-                    e);
+        Session session = sessionBuilder.build();
+        if (sinkConfig.getConnectionTimeoutInMs() != null) {
+            session.open(
+                    sinkConfig.getEnableRPCCompression(), sinkConfig.getConnectionTimeoutInMs());
+        } else if (sinkConfig.getEnableRPCCompression() != null) {
+            session.open(sinkConfig.getEnableRPCCompression());
+        } else {
+            session.open();
         }
-        initialize = true;
+        return session;
+    }
+
+    private void closeSessionQuietly(int index) {
+        Session stale = sessions[index];
+        sessions[index] = null;
+        if (stale != null) {
+            try {
+                stale.close();
+            } catch (Exception e) {
+                log.warn(
+                        "Close stale IoTDB session for {} failed.",
+                        sinkConfig.getNodeUrls().get(index),
+                        e);
+            }
+        }
     }
 
     public synchronized void write(IoTDBRecord record) throws IOException {
@@ -102,68 +165,291 @@ public class IoTDBSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        flush();
-
+        Exception flushFailure = null;
         try {
-            if (session != null) {
-                session.close();
+            flush();
+        } catch (Exception e) {
+            log.error("Flush IoTDB records before closing clients failed.", e);
+            flushFailure = e;
+        }
+
+        // Every created session is closed even when the flush above failed or an earlier close
+        // failed, so one broken node cannot leak the remaining sessions; the first close failure
+        // wins and the later ones are attached as suppressed exceptions.
+        Exception closeFailure = null;
+        for (int i = 0; i < sessions.length; i++) {
+            Session session = sessions[i];
+            sessions[i] = null;
+            if (session == null) {
+                continue;
             }
-        } catch (IoTDBConnectionException e) {
-            log.error("Close IoTDB client failed.", e);
+            try {
+                session.close();
+            } catch (Exception e) {
+                log.error("Close IoTDB client for {} failed.", sinkConfig.getNodeUrls().get(i), e);
+                if (closeFailure == null) {
+                    closeFailure = e;
+                } else {
+                    closeFailure.addSuppressed(e);
+                }
+            }
+        }
+
+        if (flushFailure != null) {
+            if (closeFailure != null) {
+                flushFailure.addSuppressed(closeFailure);
+            }
+            if (flushFailure instanceof RuntimeException) {
+                throw (RuntimeException) flushFailure;
+            }
+            if (flushFailure instanceof IOException) {
+                throw (IOException) flushFailure;
+            }
             throw new IotdbConnectorException(
-                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close IoTDB client failed.", e);
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Writing records to IoTDB failed.",
+                    flushFailure);
+        }
+        if (closeFailure != null) {
+            throw new IotdbConnectorException(
+                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED,
+                    "Close IoTDB client failed.",
+                    closeFailure);
         }
     }
 
+    /**
+     * Writes are routed per device to the node that last accepted them (the region leader). A
+     * REDIRECTION_RECOMMEND reply means the current node is no longer the leader for those devices:
+     * the affected devices are re-routed to another node and retried immediately, without waiting.
+     * Only network-level failures consume the retry budget and go through backoff waiting, so
+     * adding endpoints never increases the configured network retry limit.
+     */
     synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
 
-        BatchRecords batchRecords = new BatchRecords(batchList);
-        for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
-            try {
-                if (batchRecords.getTypesList().isEmpty()) {
-                    session.insertRecords(
-                            batchRecords.getDeviceIds(),
-                            batchRecords.getTimestamps(),
-                            batchRecords.getMeasurementsList(),
-                            batchRecords.getStringValuesList());
-                } else {
-                    session.insertRecords(
-                            batchRecords.getDeviceIds(),
-                            batchRecords.getTimestamps(),
-                            batchRecords.getMeasurementsList(),
-                            batchRecords.getTypesList(),
-                            batchRecords.getValuesList());
-                }
-            } catch (IoTDBConnectionException | StatementExecutionException e) {
-                log.error("Writing records to IoTDB failed, retry times = {}", i, e);
-                if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IotdbConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "Writing records to IoTDB failed.",
-                            e);
-                }
+        List<IoTDBRecord> remaining = new ArrayList<>(batchList);
+        Exception[] lastError = new Exception[1];
+        // Network retries draw from a budget of their own, independent of the endpoint count;
+        // redirect traversal is bounded only by the round limit below, which exists so a
+        // leaderless or broken cluster can never spin this loop forever.
+        int networkBudget = retryBudget();
+        int[] networkFailures = new int[1];
+        int maxRounds = sessions.length + networkBudget + 1;
 
-                try {
-                    long backoff =
-                            Math.min(
-                                    sinkConfig.getRetryBackoffMultiplierMs() * i,
-                                    sinkConfig.getMaxRetryBackoffMs());
-                    Thread.sleep(backoff);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    throw new IotdbConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "Unable to flush; interrupted while doing another attempt.",
-                            e);
+        for (int round = 0; !remaining.isEmpty(); round++) {
+            if (round >= maxRounds) {
+                throw new IotdbConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        buildFailureMessage(remaining, lastError[0]),
+                        lastError[0]);
+            }
+
+            // Batched groups by cached leader, plus one single-device group per probing device.
+            Map<Integer, List<IoTDBRecord>> endpointGroups = new LinkedHashMap<>();
+            Map<String, List<IoTDBRecord>> probeGroups = new LinkedHashMap<>();
+            for (IoTDBRecord record : remaining) {
+                String device = record.getDevice();
+                if (probingDevices.contains(device)) {
+                    probeGroups.computeIfAbsent(device, k -> new ArrayList<>()).add(record);
+                } else {
+                    endpointGroups
+                            .computeIfAbsent(leaderIndexOf(device), k -> new ArrayList<>())
+                            .add(record);
                 }
+            }
+
+            List<IoTDBRecord> nextRound = new ArrayList<>();
+            boolean networkFailure = false;
+            for (Map.Entry<Integer, List<IoTDBRecord>> group : endpointGroups.entrySet()) {
+                networkFailure |=
+                        writeGroup(
+                                group.getKey(),
+                                group.getValue(),
+                                nextRound,
+                                round,
+                                lastError,
+                                networkBudget,
+                                networkFailures);
+            }
+            for (Map.Entry<String, List<IoTDBRecord>> group : probeGroups.entrySet()) {
+                networkFailure |=
+                        writeGroup(
+                                leaderIndexOf(group.getKey()),
+                                group.getValue(),
+                                nextRound,
+                                round,
+                                lastError,
+                                networkBudget,
+                                networkFailures);
+            }
+
+            if (nextRound.isEmpty()) {
+                break;
+            }
+            remaining = nextRound;
+            if (networkFailure) {
+                sleepBackoff(round);
             }
         }
 
         batchList.clear();
+    }
+
+    /**
+     * Writes one group to the given node. Returns true when the failure was network-level (the
+     * caller then backs off before the next round). Records that must be retried are appended to
+     * nextRound. Network failures consume the shared retry budget; once it is exhausted the group
+     * fails immediately instead of being requeued.
+     */
+    private boolean writeGroup(
+            int index,
+            List<IoTDBRecord> records,
+            List<IoTDBRecord> nextRound,
+            int round,
+            Exception[] lastError,
+            int networkBudget,
+            int[] networkFailures)
+            throws IOException {
+        try {
+            insertRecords(sessionFor(index), records);
+            for (IoTDBRecord record : records) {
+                probingDevices.remove(record.getDevice());
+            }
+            return false;
+        } catch (StatementExecutionException e) {
+            if (isRedirectionRecommendation(e)) {
+                Set<String> devices = new HashSet<>();
+                for (IoTDBRecord record : records) {
+                    devices.add(record.getDevice());
+                }
+                if (devices.size() > 1) {
+                    // The batch mixes devices of different regions, so the node rejected the
+                    // whole request; each device must find its own leader first.
+                    log.info(
+                            "IoTDB node {} rejected a batch of {} records mixing {} devices;"
+                                    + " switching them to per-device routing.",
+                            sinkConfig.getNodeUrls().get(index),
+                            records.size(),
+                            devices.size());
+                    probingDevices.addAll(devices);
+                } else {
+                    String device = devices.iterator().next();
+                    log.info(
+                            "IoTDB node {} is not the leader for device {}; re-routing to the"
+                                    + " next configured node.",
+                            sinkConfig.getNodeUrls().get(index),
+                            device);
+                    deviceLeaderIndex.put(device, (index + 1) % sessions.length);
+                    probingDevices.add(device);
+                }
+                nextRound.addAll(records);
+                lastError[0] = e;
+                return false;
+            }
+            // The server rejected the data itself; neither waiting nor re-routing to another
+            // node can fix that.
+            throw new IotdbConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    buildFailureMessage(records, e),
+                    e);
+        } catch (IoTDBConnectionException e) {
+            if (networkFailures[0] >= networkBudget) {
+                // The configured network retry budget is exhausted; redirect rounds must not
+                // enlarge it, so the group fails here instead of being requeued again.
+                lastError[0] = e;
+                throw new IotdbConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        buildFailureMessage(records, e),
+                        e);
+            }
+            networkFailures[0]++;
+            log.warn(
+                    "Writing {} records to IoTDB node {} failed (attempt {});"
+                            + " rebuilding session and retrying.",
+                    records.size(),
+                    sinkConfig.getNodeUrls().get(index),
+                    round + 1,
+                    e);
+            closeSessionQuietly(index);
+            nextRound.addAll(records);
+            lastError[0] = e;
+            return true;
+        }
+    }
+
+    private void insertRecords(Session session, List<IoTDBRecord> records)
+            throws IoTDBConnectionException, StatementExecutionException {
+        BatchRecords batchRecords = new BatchRecords(records);
+        if (batchRecords.getTypesList().isEmpty()) {
+            session.insertRecords(
+                    batchRecords.getDeviceIds(),
+                    batchRecords.getTimestamps(),
+                    batchRecords.getMeasurementsList(),
+                    batchRecords.getStringValuesList());
+        } else {
+            session.insertRecords(
+                    batchRecords.getDeviceIds(),
+                    batchRecords.getTimestamps(),
+                    batchRecords.getMeasurementsList(),
+                    batchRecords.getTypesList(),
+                    batchRecords.getValuesList());
+        }
+    }
+
+    private int leaderIndexOf(String device) {
+        Integer index = deviceLeaderIndex.get(device);
+        return index == null ? 0 : index;
+    }
+
+    private static boolean isRedirectionRecommendation(StatementExecutionException e) {
+        String message = e.getMessage();
+        if (message == null || message.isEmpty()) {
+            return false;
+        }
+        int colonIndex = message.indexOf(':');
+        String code = colonIndex > 0 ? message.substring(0, colonIndex) : message;
+        try {
+            return Integer.parseInt(code.trim()) == REDIRECTION_RECOMMEND;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    private int retryBudget() {
+        return Math.max(0, sinkConfig.getMaxRetries());
+    }
+
+    private void sleepBackoff(int round) throws IOException {
+        long multiplier = sinkConfig.getRetryBackoffMultiplierMs();
+        if (multiplier <= 0) {
+            return;
+        }
+        long backoff = Math.min(multiplier * (round + 1L), sinkConfig.getMaxRetryBackoffMs());
+        try {
+            Thread.sleep(backoff);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IotdbConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                    "Unable to flush; interrupted while waiting to retry IoTDB write.",
+                    ex);
+        }
+    }
+
+    private static String buildFailureMessage(List<IoTDBRecord> records, Exception cause) {
+        IoTDBRecord first = records.get(0);
+        long firstTimestamp = first.getTimestamp() == null ? -1L : first.getTimestamp();
+        return String.format(
+                "Writing %d records to IoTDB failed; first device: %s; first timestamp: %d;"
+                        + " cause: %s",
+                records.size(),
+                first.getDevice(),
+                firstTimestamp,
+                cause == null ? "unknown" : cause.getMessage());
     }
 
     private void checkFlushException() {
