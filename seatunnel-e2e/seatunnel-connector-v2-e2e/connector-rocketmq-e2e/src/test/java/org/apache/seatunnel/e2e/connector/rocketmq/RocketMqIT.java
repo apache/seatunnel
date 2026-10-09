@@ -92,6 +92,9 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
+    /** Rows the three fake-source sink jobs each write, asserted after the sink completes. */
+    private static final int EXPECTED_SINK_ROWS = 10;
+
     private static final String IMAGE = "apache/rocketmq:4.9.4";
     private static final String ROCKETMQ_GROUP = "SeaTunnel-rocketmq-group";
     private static final String HOST = "rocketmq-e2e";
@@ -185,33 +188,54 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkRocketMq(TestContainer container) throws IOException, InterruptedException {
-        waitForTopicRoute("test_topic");
+        final String topicName = "test_topic_" + uniqueTestSuffix();
+        waitForTopicRoute(topicName);
 
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-sink_fake_to_rocketmq.conf");
+                container.executeJob(
+                        "/rocketmq-sink_fake_to_rocketmq.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        String topicName = "test_topic";
+        // Wait until every row the job wrote is visible to an admin offset read before the
+        // single consuming read below. The topic is new, so each queue starts at offset 0 and
+        // the summed max offset is exactly the number of rows stored. Without this the read can
+        // poll before the last rows are readable and the count assertion fails low; it cannot be
+        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
+        // second call would resume past them.
+        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
     }
 
     @TestTemplate
     public void testTextFormatSinkRocketMq(TestContainer container)
             throws IOException, InterruptedException {
-        waitForTopicRoute("test_text_topic");
+        final String topicName = "test_text_topic_" + uniqueTestSuffix();
+        waitForTopicRoute(topicName);
 
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-text-sink_fake_to_rocketmq.conf");
+                container.executeJob(
+                        "/rocketmq-text-sink_fake_to_rocketmq.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        String topicName = "test_text_topic";
+
+        // Wait until every row the job wrote is visible to an admin offset read before the
+        // single consuming read below. The topic is new, so each queue starts at offset 0 and
+        // the summed max offset is exactly the number of rows stored. Without this the read can
+        // poll before the last rows are readable and the count assertion fails low; it cannot be
+        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
+        // second call would resume past them.
+        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
     }
 
     @TestTemplate
@@ -410,20 +434,37 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSinkRocketMqMessageTag(TestContainer container)
             throws IOException, InterruptedException {
+        final String topicName = "test_topic_message_tag_" + uniqueTestSuffix();
+        // Warm the route before the job, not after. With the previous fixed topic a later
+        // template invocation always found the topic already created; a per-invocation topic
+        // does not exist yet, so the sink would otherwise depend on broker auto-creation
+        // racing the name server, which is the "No topic route info in name server" failure
+        // this file has hit before.
+        waitForTopicRoute(topicName);
+
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-sink_fake_to_rocketmq_message_tag.conf");
+                container.executeJob(
+                        "/rocketmq-sink_fake_to_rocketmq_message_tag.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        String topicName = "test_topic_message_tag";
         String tag = "test_tag";
-        waitForTopicRoute(topicName);
+
+        // Wait until every row the job wrote is visible to an admin offset read before the
+        // single consuming read below. The topic is new, so each queue starts at offset 0 and
+        // the summed max offset is exactly the number of rows stored. Without this the read can
+        // poll before the last rows are readable and the count assertion fails low; it cannot be
+        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
+        // second call would resume past them.
+        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
         Assertions.assertEquals(tag, data.get(key).getTag());
     }
 
