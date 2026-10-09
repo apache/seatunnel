@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，也支持并发写入。此连接器使用的 DuckDB JDBC 驱动没有提供 XA 数据源，因此 DuckDB 无法使用 JDBC Sink 基于 XA 的精确一次选项。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。
+通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，也支持并发写入。此连接器使用的 DuckDB JDBC 驱动没有提供 XA 数据源，因此 DuckDB 无法使用 JDBC Sink 基于 XA 的精确一次选项。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。生成的 DECIMAL DDL 与默认 locale 无关。
 
 ## 需要的依赖项
 
@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 通用 JDBC Sink 通过 XA 事务实现精确一次；DuckDB JDBC 驱动没有 XA 数据源。DuckDB 作业不要设置 `is_exactly_once = true`。
 
@@ -57,6 +58,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIME                            | TIME           |
 | TIMESTAMP                       | TIMESTAMP      |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
+
+JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 ## Sink 选项
 

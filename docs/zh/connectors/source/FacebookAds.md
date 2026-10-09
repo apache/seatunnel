@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-facebook-ads.md';
+
 # FacebookAds
 
 > Facebook Ads 源连接器
@@ -155,8 +157,6 @@ source {
 - 无精确一次语义；重跑作业会重新读取数据。
 - 所有列均为 STRING；嵌套对象输出为 JSON 字符串而非嵌套行。
 
-## 变更日志
+## Changelog
 
-### next version
-
-- 新增 Facebook Ads 源连接器，支持游标分页和多表读取
+<ChangeLog />
