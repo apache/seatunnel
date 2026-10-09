@@ -40,9 +40,9 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
-import urllib.error
 from pathlib import Path
+
+from . import rest
 
 logger = logging.getLogger(__name__)
 
@@ -72,12 +72,7 @@ def _check_engine() -> bool:
     now = time.monotonic()
     if _ENGINE_AVAILABLE is not None and (now - _ENGINE_CHECK_TS) < 60:
         return _ENGINE_AVAILABLE
-    try:
-        req = urllib.request.Request(f"{_ENGINE_API_BASE}/running-jobs", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            _ENGINE_AVAILABLE = resp.status == 200
-    except Exception:
-        _ENGINE_AVAILABLE = False
+    _ENGINE_AVAILABLE = rest.is_reachable(f"{_ENGINE_API_BASE}/running-jobs", timeout=2)
     _ENGINE_CHECK_TS = now
     return _ENGINE_AVAILABLE
 
@@ -127,13 +122,10 @@ def _fetch_option_rules(plugin_type: str, plugin_name: str) -> dict | None:
     if _check_engine():
         try:
             url = f"{_ENGINE_API_BASE}/option-rules?type={plugin_type}&plugin={plugin_name}"
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    _API_CACHE[cache_key] = data
-                    _write_disk_cache(cache_key, data)
-                    return data
+            data = rest.request_json(url, timeout=5)
+            _API_CACHE[cache_key] = data
+            _write_disk_cache(cache_key, data)
+            return data
         except Exception as e:
             logger.debug(f"option-rules API call failed for {cache_key}: {e}")
 
