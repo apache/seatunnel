@@ -28,6 +28,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.beust.jcommander.ParameterException;
+
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -331,5 +333,44 @@ public class ClientCommandArgsTest {
 
     private static ClientCommandArgs buildClientCommandArgs(String configFile) {
         return buildClientCommandArgs(configFile, null);
+    }
+
+    @Test
+    public void testLocalModeWithDefaultPort() throws FileNotFoundException, URISyntaxException {
+        String configurePath = "/config/fake_to_inmemory.json";
+        String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
+        ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
+        // Default null preserves the port configured in hazelcast.yaml.
+        Assertions.assertNull(clientCommandArgs.getHazelcastPort());
+        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
+    }
+
+    @Test
+    public void testLocalModeWithCustomPort() throws FileNotFoundException, URISyntaxException {
+        String configurePath = "/config/fake_to_inmemory.json";
+        String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
+        ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
+        clientCommandArgs.setHazelcastPort(5801);
+        Assertions.assertEquals(5801, clientCommandArgs.getHazelcastPort());
+        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
+    }
+
+    @Test
+    public void testPortValidator() {
+        ClientCommandArgs.PortValidator validator = new ClientCommandArgs.PortValidator();
+
+        // Valid ports
+        Assertions.assertDoesNotThrow(() -> validator.validate("-port", "0"));
+        Assertions.assertDoesNotThrow(() -> validator.validate("-port", "5801"));
+        Assertions.assertDoesNotThrow(() -> validator.validate("--hazelcast-port", "65535"));
+
+        // Invalid ports - out of range
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", "-1"));
+        Assertions.assertThrows(
+                ParameterException.class, () -> validator.validate("-port", "65536"));
+
+        // Invalid ports - not a number
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", "abc"));
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", ""));
     }
 }
