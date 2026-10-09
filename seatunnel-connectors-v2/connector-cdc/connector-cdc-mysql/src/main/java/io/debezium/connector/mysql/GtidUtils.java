@@ -83,6 +83,22 @@ public class GtidUtils {
         return new GtidSet(newSet);
     }
 
+    /**
+     * Returns the lineages of {@code previousGtids} that the restored GTID set does not track.
+     *
+     * <p>The value comes from the Previous_gtids event of the binlog file being resumed from, so
+     * every transaction in it was executed before that file. A lineage the restored set does not
+     * mention has therefore already been passed over, while a lineage it does mention keeps the
+     * position recorded for it.
+     */
+    public static GtidSet untrackedGtids(String previousGtids, GtidSet restoredGtidSet) {
+        if (previousGtids == null || previousGtids.trim().isEmpty()) {
+            return new GtidSet(new HashMap<>());
+        }
+        return new GtidSet(previousGtids)
+                .retainAll(uuid -> restoredGtidSet.forServerWithId(uuid) == null);
+    }
+
     private static long getIntervalEnd(GtidSet.UUIDSet uuidSet) {
         return uuidSet.getIntervals().stream()
                 .mapToLong(GtidSet.Interval::getEnd)
