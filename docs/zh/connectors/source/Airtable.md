@@ -52,6 +52,10 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 | enable_multi_lines          | boolean | 否 | false                  | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。 |
 | connect_timeout_ms          | int     | 否 | 12000                  | HTTP 连接超时时间（毫秒），默认 12000ms。 |
 | socket_timeout_ms           | int     | 否 | 60000                  | HTTP 套接字超时时间（毫秒），默认 60000ms。 |
+| retry                       | int     | 否 | -                      | 请求抛出 `IOException` 时的最大重试次数。 |
+| retry_backoff_multiplier_ms | int     | 否 | 100                    | 请求失败时的重试退避时间倍数（毫秒）。 |
+| retry_backoff_max_ms        | int     | 否 | 10000                  | 最大重试退避时间（毫秒）。 |
+| poll_interval_millis        | int     | 否 | -                      | 流式模式下请求 API 的时间间隔（毫秒）。 |
 | common-options              | config  | 否 | -                      | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。 |
 
 ## 使用提示

@@ -54,22 +54,22 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |
-| TINYINT                                                  | TINYINT        |
-| UTINYINT<br/>SMALLINT                                    | SMALLINT       |
-| USMALLINT<br/>INTEGER                                    | INT            |
-| UINTEGER<br/>BIGINT                                      | BIGINT         |
-| UBIGINT                                                  | DECIMAL(20,0)  |
+| TINYINT<br/>UTINYINT                                     | TINYINT        |
+| SMALLINT<br/>USMALLINT                                   | SMALLINT       |
+| INTEGER<br/>UINTEGER                                     | INT            |
+| BIGINT<br/>UBIGINT                                       | BIGINT         |
 | HUGEINT                                                  | DECIMAL(38,0)  |
 | FLOAT                                                    | FLOAT          |
 | DOUBLE                                                   | DOUBLE         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
+| DECIMAL(x,y)（精度或标度超过 38）                                 | DECIMAL(min(x,38), min(y,38)) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
 | BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+| BLOB                                                     | BYTES          |
+| ARRAY<br/>STRUCT<br/>MAP                                 | STRING         |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
