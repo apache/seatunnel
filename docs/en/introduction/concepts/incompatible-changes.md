@@ -5,6 +5,27 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Runtime Requirements
+
+- **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
+  - **Affected component**: every module — the whole distribution, the Zeta engine, all connectors, and the published Docker image
+  - **Description**: The build now targets Java 11 (`maven.compiler.source` and `maven.compiler.target` are `11`), so every published jar contains class file version 55. GitHub CI compiles and tests on JDK 17 against this Java 11 baseline, and the published Docker image moved from `seatunnelhub/openjdk:8u342` to `eclipse-temurin:11-jdk`, keeping a full JDK rather than a JRE so `jps`/`jstack`/`jmap` stay available for diagnosing a running node.
+  - **Impact**:
+    - A Java 8 JVM can no longer load SeaTunnel classes. Startup fails with `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`. This applies to the client, to the Zeta master and worker nodes, and to any process that loads connector jars.
+    - **Flink**: the JobManager and TaskManager JVMs load SeaTunnel connector classes, so the whole Flink cluster must run Java 11 or later, not just the submitting client. Flink supports Java 11 from 1.13 onward, and the official Flink images publish `-java11` tags.
+    - **Spark**: the driver and executor JVMs load SeaTunnel connector classes, so the whole Spark cluster must run Java 11 or later. Spark only gained official Java 11 support in Spark 3.0 (SPARK-24417). Spark 2.4 does still start under Java 11, but it logs illegal reflective access warnings and puts an old commons-lang3 on the classpath that some connectors trip over, so Spark 3.x is strongly recommended.
+    - Third-party connectors that are themselves compiled for Java 8 keep working. A Java 11 JVM loads older class files without changes, so only the JVM version matters, not the bytecode level of your own jars.
+  - **Migration Guide**:
+    1. Upgrade the JVM to Java 11 or Java 17 on every node that runs SeaTunnel code: the client, the Zeta master and workers, and the Flink or Spark cluster you submit to.
+    2. If you submit to Flink, move the cluster onto an image or deployment that runs Java 11 or later.
+    3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
+    4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
+    5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
+
+### SQL TINYINT array schema
+
+The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length

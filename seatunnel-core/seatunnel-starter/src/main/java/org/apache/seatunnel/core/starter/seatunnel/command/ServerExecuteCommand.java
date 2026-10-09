@@ -40,8 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 @Slf4j
@@ -85,31 +83,15 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
     }
 
     private void checkEnvironment() {
-        if (isAllocatingThreadGetName()) {
+        if (isUnsupportedJavaVersion()) {
             log.warn(
-                    "The current JDK version is not recommended. Please upgrade to JDK 1.8.0_102 or higher. "
-                            + "The current version will affect the performance of log printing. "
-                            + "For details, please refer to https://issues.apache.org/jira/browse/LOG4J2-2052");
+                    "The current JDK version is not supported. "
+                            + "Please use JDK 11 or JDK 17 to run SeaTunnel.");
         }
     }
 
-    static boolean isAllocatingThreadGetName() {
-        // LOG4J2-2052, LOG4J2-2635 JDK 8u102 ("1.8.0_102") removed the String allocation in
-        // Thread.getName()
-        if (SystemUtils.IS_JAVA_1_8) {
-            try {
-                Pattern javaVersionPattern = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)_(\\d+)");
-                Matcher m = javaVersionPattern.matcher(System.getProperty("java.version"));
-                if (m.matches()) {
-                    return Integer.parseInt(m.group(3)) == 0 && Integer.parseInt(m.group(4)) < 102;
-                }
-                return true;
-            } catch (Exception e) {
-                return true;
-            }
-        } else {
-            return !SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_1_8);
-        }
+    static boolean isUnsupportedJavaVersion() {
+        return !SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_11);
     }
 
     @VisibleForTesting
