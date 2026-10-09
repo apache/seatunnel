@@ -26,7 +26,10 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
 import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
+import org.apache.seatunnel.api.source.managed.ManagedSourceReader;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
@@ -46,17 +49,23 @@ import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElem
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.task.source.ManagedReaderCheckpointState;
+import org.apache.seatunnel.engine.server.task.source.ManagedReaderCheckpointStateSerializer;
+import org.apache.seatunnel.engine.server.task.source.ManagedSourceReaderRuntime;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionAck;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionStatus;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandEnvelope;
 
 import com.hazelcast.cluster.Address;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -110,7 +119,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final TaskLocation currentTaskLocation;
 
-    @Setter private SeaTunnelSourceCollector<T> collector;
+    private SeaTunnelSourceCollector<T> collector;
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
@@ -119,11 +128,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private transient Counter sourceReadNs;
     private transient Counter sourceIdleNs;
 
+    /** Timing metrics shared by the legacy reader path and the future managed runtime. */
+    private transient SourceRuntimeMetrics sourceRuntimeMetrics;
+
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
     private final long flushIntervalMs;
+    private final ManagedSourceRuntimeSelection runtimeSelection;
 
     private transient volatile ScheduledFuture<?> flushFuture;
+    private transient ManagedSourceRuntimeConfig managedSourceRuntimeConfig;
+    private transient ManagedSourceReaderRuntime<T, SplitT> managedReaderRuntime;
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
@@ -134,6 +149,28 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             CompletableFuture<Void> completableFuture,
             MetricsContext metricsContext,
             long flushIntervalMs) {
+        this(
+                sourceAction,
+                indexID,
+                enumeratorTaskLocation,
+                runningTask,
+                currentTaskLocation,
+                completableFuture,
+                metricsContext,
+                flushIntervalMs,
+                ManagedSourceRuntimeSelection.legacy());
+    }
+
+    public SourceFlowLifeCycle(
+            SourceAction<T, SplitT, ?> sourceAction,
+            int indexID,
+            TaskLocation enumeratorTaskLocation,
+            SeaTunnelTask runningTask,
+            TaskLocation currentTaskLocation,
+            CompletableFuture<Void> completableFuture,
+            MetricsContext metricsContext,
+            long flushIntervalMs,
+            ManagedSourceRuntimeSelection runtimeSelection) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
@@ -141,6 +178,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.currentTaskLocation = currentTaskLocation;
         this.metricsContext = metricsContext;
         this.flushIntervalMs = flushIntervalMs;
+        this.runtimeSelection = runtimeSelection;
         this.eventListener =
                 new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
     }
@@ -166,8 +204,48 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         eventListener);
         this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
+        if (runningTask.isObservabilityEnabled()) {
+            this.sourceRuntimeMetrics =
+                    new SourceRuntimeMetrics(
+                            metricsContext,
+                            sourceAction.getId(),
+                            runningTask.getExecutionContext().getExecutionId());
+        }
+        this.managedSourceRuntimeConfig =
+                runningTask
+                        .getExecutionContext()
+                        .getTaskExecutionService()
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getManagedSourceRuntimeConfig();
         this.reader = sourceAction.getSource().createReader(context);
+        if (isManagedReaderRuntime() && !(reader instanceof ManagedSourceReader)) {
+            throw new IllegalStateException(
+                    "Source "
+                            + sourceAction.getName()
+                            + " selected the managed Reader lane but did not create a ManagedSourceReader");
+        }
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
+    }
+
+    public void setCollector(SeaTunnelSourceCollector<T> collector) {
+        this.collector = collector;
+        if (isManagedReaderRuntime()) {
+            @SuppressWarnings("unchecked")
+            ManagedSourceReader<T, SplitT> managedReader = (ManagedSourceReader<T, SplitT>) reader;
+            this.managedReaderRuntime =
+                    new ManagedSourceReaderRuntime<>(
+                            runningTask,
+                            sourceAction,
+                            currentTaskLocation,
+                            enumeratorTaskLocation,
+                            enumeratorTaskAddress,
+                            managedReader,
+                            splitSerializer,
+                            collector,
+                            managedSourceRuntimeConfig,
+                            runtimeSelection);
+        }
     }
 
     /**
@@ -181,8 +259,19 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void open() throws Exception {
         context.getEventListener().onEvent(new ReaderOpenEvent());
+        if (isManagedReaderRuntime()) {
+            ((ManagedSourceReader<?, ?>) reader).activateManagedRuntime();
+        }
         reader.open();
-        register();
+        if (isManagedReaderRuntime()) {
+            if (managedReaderRuntime == null) {
+                throw new IllegalStateException(
+                        "Managed Source Reader runtime was not initialized with a collector");
+            }
+            managedReaderRuntime.start();
+        } else {
+            register();
+        }
     }
 
     /**
@@ -197,8 +286,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             return;
         }
         try {
-            collector.sendFlushSignal(
-                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            if (isManagedReaderRuntime()) {
+                managedReaderRuntime.admitFlushSignal(
+                        currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            } else {
+                collector.sendFlushSignal(
+                        currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            }
         } catch (Exception e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
         }
@@ -215,6 +309,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void close() throws IOException {
         try {
+            if (managedReaderRuntime != null) {
+                managedReaderRuntime.close();
+            }
             context.getEventListener().onEvent(new ReaderCloseEvent());
             reader.close();
             super.close();
@@ -253,7 +350,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws Exception if polling or schema-change triggering fails
      */
     public void collect() throws Exception {
-        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        if (isManagedReaderRuntime()) {
+            if (!managedReaderRuntime.runOneTurn()) {
+                Thread.sleep(managedSourceRuntimeConfig.getIdleWaitMillis());
+            }
+            return;
+        }
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
         if (!prepareClose) {
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
@@ -266,8 +369,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
             collector.resetEmptyThisPollNext();
             long startNs = metricsEnabled ? System.nanoTime() : 0L;
-            reader.pollNext(collector);
-            long pollCostNs = metricsEnabled ? (System.nanoTime() - startNs) : 0L;
+            long pollCostNs = 0L;
+            try {
+                reader.pollNext(collector);
+            } finally {
+                if (metricsEnabled) {
+                    pollCostNs = System.nanoTime() - startNs;
+                    sourceRuntimeMetrics.recordPoll(pollCostNs);
+                }
+            }
             if (collector.isEmptyThisPollNext()) {
                 if (metricsEnabled) {
                     sourceIdleNs.inc(pollCostNs);
@@ -326,6 +436,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws RuntimeException if the deregistration message fails to send
      */
     public void signalNoMoreElement() {
+        if (isManagedReaderRuntime()) {
+            this.prepareClose = true;
+            managedReaderRuntime.signalNoMoreElement();
+            return;
+        }
         // ready close this reader
         try {
             this.prepareClose = true;
@@ -406,6 +521,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws RuntimeException if the split request fails due to communication errors
      */
     public void requestSplit() {
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.requestSplit();
+            return;
+        }
         try {
             runningTask
                     .getExecutionContext()
@@ -420,6 +539,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     }
 
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.sendSourceEvent(sourceEvent);
+            return;
+        }
         try {
             runningTask
                     .getExecutionContext()
@@ -445,11 +568,31 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      *     splits
      */
     public void receivedSplits(List<SplitT> splits) {
-        if (splits.isEmpty()) {
-            reader.handleNoMoreSplits();
-        } else {
-            reader.addSplits(splits);
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.admitLegacySplits(splits);
+            return;
         }
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            if (splits.isEmpty()) {
+                reader.handleNoMoreSplits();
+            } else {
+                reader.addSplits(splits);
+            }
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
+        }
+    }
+
+    public void receivedSerializedSplits(List<byte[]> splits) {
+        if (!isManagedReaderRuntime()) {
+            throw new IllegalStateException(
+                    "Serialized split admission is only valid in the managed Reader lane");
+        }
+        managedReaderRuntime.admitSerializedLegacySplits(splits);
     }
 
     /**
@@ -473,25 +616,51 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws Exception if state snapshotting or barrier acknowledgment fails
      */
     public void triggerBarrier(Barrier barrier) throws Exception {
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.admitBarrier(barrier);
+            return;
+        }
         log.debug("source trigger barrier [{}]", barrier);
 
         long startTime = System.currentTimeMillis();
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long checkpointStartNanos = metricsEnabled ? System.nanoTime() : 0L;
 
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordCheckpointLockWait(
+                        System.nanoTime() - checkpointStartNanos);
+            }
             if (barrier.prepareClose(this.currentTaskLocation)) {
                 this.prepareClose = true;
             }
             if (barrier.snapshot()) {
-                List<byte[]> states =
-                        serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
-                runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                long snapshotStartNanos = metricsEnabled ? System.nanoTime() : 0L;
+                try {
+                    List<byte[]> states =
+                            serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
+                    runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                } finally {
+                    if (metricsEnabled) {
+                        sourceRuntimeMetrics.recordCheckpointSnapshot(
+                                System.nanoTime() - snapshotStartNanos);
+                    }
+                }
             }
-            // ack after #addState
-            runningTask.ack(barrier);
-            log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
-            collector.sendRecordToNext(new Record<>(barrier));
-            log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
+            long barrierForwardStartNanos = metricsEnabled ? System.nanoTime() : 0L;
+            try {
+                // ack after #addState
+                runningTask.ack(barrier);
+                log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
+                collector.sendRecordToNext(new Record<>(barrier));
+                log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
+            } finally {
+                if (metricsEnabled) {
+                    sourceRuntimeMetrics.recordBarrierForward(
+                            System.nanoTime() - barrierForwardStartNanos);
+                }
+            }
         }
 
         log.debug(
@@ -546,7 +715,19 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      */
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        reader.notifyCheckpointComplete(checkpointId);
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.admitCheckpointComplete(checkpointId);
+            return;
+        }
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            reader.notifyCheckpointComplete(checkpointId);
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
+        }
     }
 
     /**
@@ -563,7 +744,19 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      */
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
-        reader.notifyCheckpointAborted(checkpointId);
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.admitCheckpointAborted(checkpointId);
+            return;
+        }
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            reader.notifyCheckpointAborted(checkpointId);
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
+        }
         if (schemaChangePhase.get() != null
                 && schemaChangePhase.get().getCheckpointId() == checkpointId) {
             throw new IllegalStateException(
@@ -575,6 +768,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        if (isManagedReaderRuntime()) {
+            managedReaderRuntime.admitCheckpointEnd(checkpointId);
+            return;
+        }
         if (schemaChangePhase.get() != null
                 && schemaChangePhase.get().getCheckpointId() == checkpointId) {
             log.info(
@@ -596,6 +793,30 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         .flatMap(Collection::stream)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toList());
+        if (isManagedReaderRuntime()) {
+            if (splits.stream()
+                    .anyMatch(
+                            state ->
+                                    !ManagedReaderCheckpointStateSerializer.isManagedState(
+                                            state))) {
+                throw new IllegalStateException(
+                        "Cannot restore a managed Source Reader from legacy checkpoint state");
+            }
+            List<ManagedReaderCheckpointState> restoredStates = new ArrayList<>();
+            for (byte[] state : splits) {
+                ManagedReaderCheckpointState restored =
+                        ManagedReaderCheckpointStateSerializer.deserialize(state);
+                restoredStates.add(restored);
+            }
+            managedReaderRuntime.restoreMetadata(restoredStates);
+            // The managed Reader replays connector state and ownership proofs through its fenced
+            // Reader-to-coordinator channel before acknowledging the new coordinator epoch.
+            return;
+        } else if (splits.stream()
+                .anyMatch(ManagedReaderCheckpointStateSerializer::isManagedState)) {
+            throw new IllegalStateException(
+                    "Cannot silently restore managed Source Reader state in the legacy lane");
+        }
         try {
             runningTask
                     .getExecutionContext()
@@ -607,6 +828,31 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             log.warn("source request split failed.", e);
             throw new RuntimeException(e);
         }
+    }
+
+    public SourceCommandAdmissionAck admitManagedSourceCommand(SourceCommandEnvelope command) {
+        if (!isManagedReaderRuntime() || managedReaderRuntime == null) {
+            return SourceCommandAdmissionAck.of(
+                    SourceCommandAdmissionStatus.STALE_TARGET,
+                    command,
+                    -1L,
+                    0L,
+                    "Source Reader is in the legacy lane");
+        }
+        return managedReaderRuntime.admitCommand(command);
+    }
+
+    /** Propagates an asynchronous checkpoint transport failure to the managed Reader owner. */
+    public void reportManagedRuntimeFailure(Throwable failure) {
+        if (!isManagedReaderRuntime() || managedReaderRuntime == null) {
+            throw new IllegalStateException(
+                    "Managed Source runtime failure reported to the legacy lane", failure);
+        }
+        managedReaderRuntime.reportAsynchronousFailure(failure);
+    }
+
+    public boolean isManagedReaderRuntime() {
+        return runtimeSelection != null && runtimeSelection.getMode().hasManagedReader();
     }
 
     @Getter

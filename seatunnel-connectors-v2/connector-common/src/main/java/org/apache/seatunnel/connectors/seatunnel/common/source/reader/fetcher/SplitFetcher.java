@@ -58,6 +58,24 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             @NonNull Consumer<Throwable> errorHandler,
             @NonNull Runnable shutdownHook,
             @NonNull Consumer<Collection<String>> splitFinishedHook) {
+        this(
+                fetcherId,
+                elementsQueue,
+                splitReader,
+                errorHandler,
+                shutdownHook,
+                splitFinishedHook,
+                () -> {});
+    }
+
+    SplitFetcher(
+            int fetcherId,
+            @NonNull BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            @NonNull SplitReader<E, SplitT> splitReader,
+            @NonNull Consumer<Throwable> errorHandler,
+            @NonNull Runnable shutdownHook,
+            @NonNull Consumer<Collection<String>> splitFinishedHook,
+            @NonNull Runnable availabilityNotifier) {
         this.fetcherId = fetcherId;
         this.splitReader = splitReader;
         this.errorHandler = errorHandler;
@@ -71,7 +89,8 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
                             splitFinishedHook.accept(finishedSplits);
                             log.info("Finished reading from splits {}", finishedSplits);
                         },
-                        fetcherId);
+                        fetcherId,
+                        availabilityNotifier);
     }
 
     @Override
@@ -122,6 +141,16 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
                 log.info("Shutting down split fetcher {}", fetcherId);
                 wakeUpUnsafe(false);
             }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Wakes the current fetch without transferring state ownership to the caller. */
+    public void wakeUp() {
+        lock.lock();
+        try {
+            wakeUpUnsafe(false);
         } finally {
             lock.unlock();
         }
