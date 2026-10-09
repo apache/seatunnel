@@ -21,8 +21,10 @@ import os
 from unittest import mock
 
 import pytest
+from rich.console import Console
 
 from seatunnel_cli.agents import validate_hocon
+from seatunnel_cli.cli import THEME, SeaTunnelCLI, classify_run_env
 
 
 def _config_with_sink(sink_body: str) -> str:
@@ -62,8 +64,8 @@ def test_partition_dir_expression_engine_placeholders_accepted():
     ('topic = "${transactionId}"', "transactionId"),
     ('path = "/data/${k0}"', "k0"),
 ])
-def test_engine_placeholder_names_warned_outside_their_fields(field_line, var):
-    assert var not in os.environ
+def test_engine_placeholder_names_warned_outside_their_fields(field_line, var, monkeypatch):
+    monkeypatch.delenv(var, raising=False)
     config = _config_with_sink(field_line)
     result = validate_hocon(config)
     assert result.startswith("VALID")
@@ -76,9 +78,9 @@ def test_engine_placeholder_names_warned_outside_their_fields(field_line, var):
     assert var in strict
 
 
-def test_unset_env_var_still_diagnosed_in_expression_fields():
+def test_unset_env_var_still_diagnosed_in_expression_fields(monkeypatch):
     # A non-engine placeholder inside file_name_expression is still an env var
-    assert "MY_UNSET_PREFIX" not in os.environ
+    monkeypatch.delenv("MY_UNSET_PREFIX", raising=False)
     config = _config_with_sink(
         'custom_filename = true\n  '
         'file_name_expression = "${MY_UNSET_PREFIX}_${now}"')
@@ -107,8 +109,8 @@ def test_colon_separator_engine_placeholders_accepted():
     assert "Unresolved environment variables" not in result
 
 
-def test_colon_separator_still_diagnoses_env_vars_elsewhere():
-    assert "now" not in os.environ
+def test_colon_separator_still_diagnoses_env_vars_elsewhere(monkeypatch):
+    monkeypatch.delenv("now", raising=False)
     config = _config_with_sink('topic: "${now}"')
     result = validate_hocon(config)
     assert result.startswith("VALID")
@@ -116,9 +118,9 @@ def test_colon_separator_still_diagnoses_env_vars_elsewhere():
     assert validate_hocon(config, strict_env=True).startswith("INVALID")
 
 
-def test_credential_placeholders_are_warnings_by_default():
-    assert "MYSQL_USER" not in os.environ
-    assert "MYSQL_PASSWORD" not in os.environ
+def test_credential_placeholders_are_warnings_by_default(monkeypatch):
+    monkeypatch.delenv("MYSQL_USER", raising=False)
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
     config = _config_with_sink(
         'user = "${MYSQL_USER}"\n  password = "${MYSQL_PASSWORD}"'
     )
@@ -249,3 +251,120 @@ sink { Console { plugin_input = "same_label" } }
     result = validate_hocon(config)
     assert 'in transform.Sql' in result
     assert 'already used by transform.Sql' in result
+
+
+def test_benchmark_parse_success_ignores_unset_placeholders(monkeypatch):
+    from benchmark.scoring import score_task
+
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    result = score_task(
+        {"id": "unset-env", "expect": {}},
+        _config_with_sink('password = "${MYSQL_PASSWORD}"'),
+    )
+    assert result.checks["parse_success"]
+
+
+def _credential_config() -> str:
+    return _config_with_sink(
+        'user = "${MYSQL_USER}"\n  password = "${MYSQL_PASSWORD}"'
+    )
+
+
+def test_classify_run_env_blocks_local_cli_and_warns_for_rest(monkeypatch):
+    monkeypatch.delenv("MYSQL_USER", raising=False)
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    config = _credential_config()
+
+    action, lines = classify_run_env(config, submit_via_rest=False)
+    assert action == "block"
+    assert lines
+    assert "MYSQL_USER" in lines[0]
+    assert "MYSQL_PASSWORD" in lines[0]
+
+    action, lines = classify_run_env(config, submit_via_rest=True)
+    assert action == "warn"
+    assert "MYSQL_USER" in lines[0]
+
+
+def test_classify_run_env_ok_when_placeholders_are_set(monkeypatch):
+    monkeypatch.setenv("MYSQL_USER", "root")
+    monkeypatch.setenv("MYSQL_PASSWORD", "secret")
+    action, lines = classify_run_env(_credential_config(), submit_via_rest=False)
+    assert action == "ok"
+    assert lines == []
+
+
+def _cli(monkeypatch, tmp_path) -> tuple[SeaTunnelCLI, Console]:
+    monkeypatch.setenv("SEATUNNEL_CLI_DATA", str(tmp_path))
+    console = Console(record=True, theme=THEME, width=120, force_terminal=False)
+    return SeaTunnelCLI(console), console
+
+
+def test_run_blocks_before_confirm_on_local_cli(monkeypatch, tmp_path):
+    monkeypatch.delenv("MYSQL_USER", raising=False)
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    cli, buf = _cli(monkeypatch, tmp_path)
+    cli.last_config = _credential_config()
+    prompted = {"called": False}
+
+    def fake_prompt(*_args, **_kwargs):
+        prompted["called"] = True
+        return "no"
+
+    with mock.patch("seatunnel_cli.connectors._check_engine", return_value=False), \
+            mock.patch("seatunnel_cli.cli.pt_prompt", side_effect=fake_prompt):
+        cli._run_config()
+
+    assert prompted["called"] is False
+    text = buf.export_text()
+    assert "Cannot /run" in text
+    assert "MYSQL_USER" in text
+
+
+def test_run_warns_and_still_confirms_for_rest(monkeypatch, tmp_path):
+    monkeypatch.delenv("MYSQL_USER", raising=False)
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    cli, buf = _cli(monkeypatch, tmp_path)
+    cli.last_config = _credential_config()
+
+    with mock.patch("seatunnel_cli.connectors._check_engine", return_value=True), \
+            mock.patch("seatunnel_cli.cli.pt_prompt", return_value="no"):
+        cli._run_config()
+
+    text = buf.export_text()
+    assert "Cannot /run" not in text
+    assert "engine" in text
+    assert "MYSQL_PASSWORD" in text
+    assert "Execution cancelled" in text
+
+
+def test_run_continues_to_confirm_when_env_is_set(monkeypatch, tmp_path):
+    monkeypatch.setenv("MYSQL_USER", "root")
+    monkeypatch.setenv("MYSQL_PASSWORD", "secret")
+    cli, buf = _cli(monkeypatch, tmp_path)
+    cli.last_config = _credential_config()
+
+    with mock.patch("seatunnel_cli.connectors._check_engine", return_value=False), \
+            mock.patch("seatunnel_cli.cli.pt_prompt", return_value="no"):
+        cli._run_config()
+
+    text = buf.export_text()
+    assert "Cannot /run" not in text
+    assert "Execution cancelled" in text
+
+
+def test_check_config_prints_unset_env_warnings(monkeypatch, tmp_path):
+    monkeypatch.delenv("MYSQL_USER", raising=False)
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    cli, buf = _cli(monkeypatch, tmp_path)
+    cli.last_config = _credential_config()
+
+    with mock.patch("seatunnel_cli.agents._find_seatunnel_sh", return_value=None), \
+            mock.patch("seatunnel_cli.connectors._check_engine", return_value=False):
+        cli._check_config()
+
+    text = buf.export_text()
+    assert "with warnings" in text
+    assert "WARNING:" in text
+    assert "MYSQL_USER" in text
+    assert "MYSQL_PASSWORD" in text

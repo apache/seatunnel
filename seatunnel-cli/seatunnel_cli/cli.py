@@ -28,6 +28,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
@@ -121,6 +122,39 @@ def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> s
     for placeholder, original in cred_map.items():
         config = config.replace(placeholder, original)
     return config
+
+
+def classify_run_env(config: str, *, submit_via_rest: bool) -> tuple[str, list[str]]:
+    """Classify unset ``${ENV}`` placeholders before ``/run``.
+
+    Local ``seatunnel.sh`` inherits this process, so unset placeholders block.
+    REST submission posts the config text unchanged; the engine resolves
+    placeholders from its own process environment, so the same finding is only
+    a confirmation-time warning.
+
+    Returns:
+        ``("ok", [])`` when no unset placeholders remain.
+        ``("block", error_lines)`` for local CLI submission.
+        ``("warn", error_lines)`` for REST submission.
+
+    Other strict validation errors are left to ``/check`` and the engine.
+    """
+    from .agents import validate_hocon
+
+    strict = validate_hocon(config, strict_env=True)
+    if not (
+        strict.startswith("INVALID")
+        and "Unresolved environment variables" in strict
+    ):
+        return "ok", []
+    lines = [
+        line
+        for line in strict.splitlines()
+        if line.startswith("ERROR:") and "Unresolved environment variables" in line
+    ]
+    if submit_via_rest:
+        return "warn", lines
+    return "block", lines
 
 
 class SeaTunnelCLI:
@@ -1210,7 +1244,6 @@ class SeaTunnelCLI:
         # Phase 1 result
         phase1 = result["phase1_local"]
         if phase1.startswith("VALID"):
-            label = "PASS"
             if "WARNING:" in phase1:
                 self.console.print(
                     "  [1] Local validation: [bold green]PASS[/bold green] "
@@ -1264,20 +1297,22 @@ class SeaTunnelCLI:
             self.console.print("  No config to run. Generate one first.", style="warning")
             return
 
-        from .agents import validate_hocon
         from .connectors import _check_engine, _ENGINE_API_BASE
 
-        # Block execution when credential/env placeholders are unset in this shell.
-        strict = validate_hocon(self.last_config, strict_env=True)
-        if strict.startswith("INVALID") and "Unresolved environment variables" in strict:
+        # Local seatunnel.sh inherits this shell, so unset placeholders block.
+        # REST leaves them for the engine process and only warns at confirmation.
+        submit_via_rest = _check_engine()
+        action, env_lines = classify_run_env(
+            self.last_config, submit_via_rest=submit_via_rest
+        )
+        if action == "block":
             self.console.print()
             self.console.print(
                 "[error]Cannot /run: required environment variables are not set "
                 "in the current shell.[/error]"
             )
-            for line in strict.splitlines():
-                if line.startswith("ERROR:"):
-                    self.console.print(f"  {line}", style="error")
+            for line in env_lines:
+                self.console.print(f"  {line}", style="error")
             self.console.print(
                 "  Export the variables above, then retry /run. "
                 "Use /check to validate structure without requiring exports.",
@@ -1286,12 +1321,23 @@ class SeaTunnelCLI:
             return
 
         # ── Security: mandatory confirmation before execution ──
+        confirm_body = (
+            "[bold yellow]⚠️  You are about to execute a SeaTunnel job.[/bold yellow]\n\n"
+            "This will read from SOURCE systems and write to SINK systems.\n"
+            "Make sure the config targets the correct environment (dev/staging/prod)."
+        )
+        if action == "warn":
+            confirm_body += (
+                "\n\n[yellow]Unset ${ENV} placeholders will be sent to the engine "
+                "as-is. The engine resolves them from its own environment, not "
+                "this shell. Export them on the engine if they are not already "
+                "set.[/yellow]\n"
+                + escape("\n".join(env_lines))
+            )
         self.console.print()
         self.console.print(
             Panel(
-                "[bold yellow]⚠️  You are about to execute a SeaTunnel job.[/bold yellow]\n\n"
-                "This will read from SOURCE systems and write to SINK systems.\n"
-                "Make sure the config targets the correct environment (dev/staging/prod).",
+                confirm_body,
                 border_style="yellow",
                 padding=(1, 2),
             )
@@ -1308,7 +1354,7 @@ class SeaTunnelCLI:
                 if name and name not in ("env", "source", "sink", "transform") and not name.startswith("//"):
                     connectors.append(name)
 
-        if _check_engine():
+        if submit_via_rest:
             target = f"REST API → {_ENGINE_API_BASE}"
         else:
             target = "Local CLI (seatunnel.sh -e local)"
@@ -1329,7 +1375,7 @@ class SeaTunnelCLI:
             return
 
         # Prefer REST API submission for better feedback
-        if _check_engine():
+        if submit_via_rest:
             self._run_via_rest_api(_ENGINE_API_BASE)
             return
 

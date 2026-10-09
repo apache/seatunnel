@@ -401,8 +401,15 @@ def validate_hocon(config_str: str, *, strict_env: bool = False) -> str:
         config_str: HOCON job config text.
         strict_env: When True, unset ``${ENV}`` placeholders (outside engine template
             fields) are treated as hard errors. When False (default), they are warnings
-            so generation and ``/check`` accept intentional credential placeholders;
-            ``/run`` should call with ``strict_env=True``.
+            so generation and ``/check`` accept intentional credential placeholders.
+            Local ``seatunnel.sh`` ``/run`` passes True because that subprocess inherits
+            the CLI shell. REST ``/run`` does not: the engine process resolves
+            substitutions.
+
+            The lenient default applies to every caller, including the benchmark
+            scorer's ``parse_success`` check, which only looks at ``ERROR:`` lines.
+            ``benchmark/runner.py`` exports credential placeholders before scoring,
+            so those runs stay aligned with a shell that already exported them.
     """
     errors = []
     warnings = []
@@ -538,8 +545,9 @@ def validate_hocon(config_str: str, *, strict_env: bool = False) -> str:
 
     # Check for unresolved ${ENV_VAR} placeholders.
     # Generation and /check treat these as warnings: placeholders are the recommended
-    # way to keep secrets out of configs. /run uses strict_env=True so unset vars
-    # still block execution.
+    # way to keep secrets out of configs. Local seatunnel.sh /run passes
+    # strict_env=True so unset vars still block that subprocess. REST /run does not
+    # block on the CLI shell, because the engine process resolves substitutions.
     # SeaTunnel's engine resolves certain placeholders itself, but only in
     # specific file sink fields (see docs/en/connectors/sink/LocalFile.md):
     #   file_name_expression     -> ${now}, ${uuid}, ${transactionId}
@@ -1227,7 +1235,8 @@ Your job is to review a generated SeaTunnel HOCON config and catch errors that w
 6. STREAMING jobs without checkpoint.interval
 7. Missing `env` block
 8. Unset `${ENV}` credential placeholders (e.g. `${MYSQL_PASSWORD}`) — these are
-   intentional; the user exports them before `/run`. Prefer `PASS_WITH_NOTES`.
+   intentional. Local `/run` requires them in the CLI shell; REST `/run` resolves
+   them in the engine process. Prefer `PASS_WITH_NOTES`.
 
 ### NOT an issue (do NOT flag):
 - Hardcoded passwords (user explicitly provided them)

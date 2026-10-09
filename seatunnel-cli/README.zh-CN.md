@@ -424,8 +424,12 @@ CLI 跨会话记忆信息，以提高配置准确性：
 本地校验对未解析的 `${VAR}` 占位符采用分层严重级别：
 
 - **生成 / `/check`** — 未设置的 `${ENV}`（如 `${MYSQL_PASSWORD}`）记为 **警告**，
-  配置仍可为 `VALID (with warnings)`，便于保留凭据占位符。
-- **`/run`** — 同样未设置的占位符记为 **硬错误**；执行前须在当前 shell 中 `export`。
+  配置仍可为 `VALID (with warnings)`，便于保留凭据占位符。benchmark 打分使用同一默认：
+  未设置的占位符不会让 `parse_success` 失败。
+- **通过本地 `seatunnel.sh` 执行 `/run`** — 同样未设置的占位符记为 **硬错误**，
+  因为子进程继承当前 shell。执行前须在此 shell 中 `export`。
+- **通过 REST 执行 `/run`** — 配置原文提交，由 **引擎进程** 解析占位符，而不是当前 shell。
+  `/run` 只给出警告，并仍然要求确认。
 
 引擎解析的文件 Sink 模板占位符除外（见
 [LocalFile Sink 文档](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)）：

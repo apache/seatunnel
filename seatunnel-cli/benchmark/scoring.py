@@ -147,7 +147,10 @@ def score_task(task: dict, config: str | None, run_engine_check: bool = False) -
         ts.details["error"] = "no config generated"
         return ts
 
-    # 1. Parse success + 2. field completeness — via local validator
+    # 1. Parse success + 2. field completeness — via local validator.
+    # validate_hocon defaults to warnings for unset ${ENV} placeholders, so
+    # those do not fail parse_success. The benchmark runner exports the
+    # credential placeholders before scoring.
     validation = validate_hocon(config)
     parse_errors = [
         line for line in validation.splitlines()

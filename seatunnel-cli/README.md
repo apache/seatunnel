@@ -457,9 +457,15 @@ Local validation treats unresolved `${VAR}` placeholders with layered severity:
 
 - **Generation / `/check`** — unset `${ENV}` placeholders (e.g. `${MYSQL_PASSWORD}`)
   are **warnings**. Config can still be `VALID (with warnings)` so credential
-  placeholders remain intentional until you export them.
-- **`/run`** — the same unset placeholders are **hard errors**. Export the
-  variables in the current shell before executing.
+  placeholders remain intentional until you export them. Benchmark scoring
+  uses the same default, so unset placeholders do not fail `parse_success`.
+- **`/run` via local `seatunnel.sh`** — the same unset placeholders are
+  **hard errors**. The CLI subprocess inherits the current shell, so export
+  the variables there before executing.
+- **`/run` via REST** — the config text is sent unresolved. The engine
+  process substitutes `${ENV}` from its own environment, not the CLI shell.
+  Names that are unset locally are a confirmation-time warning and do not
+  block submit.
 
 Engine-resolved file sink template placeholders are exempt (see the
 [LocalFile sink docs](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)):

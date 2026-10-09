@@ -106,6 +106,18 @@ def test_broken_hocon_fails_parse():
     assert not result.checks["parse_success"]
 
 
+def test_unset_env_placeholder_does_not_fail_parse_success(monkeypatch):
+    monkeypatch.delenv("MYSQL_PASSWORD", raising=False)
+    task = load_tasks([1], task_ids=["t1_mysql_console"])[0]
+    config = GOOD_CONFIG.replace(
+        'user = "root"',
+        'user = "root"\n    password = "${MYSQL_PASSWORD}"',
+    )
+    result = score_task(task, config)
+    assert result.checks["parse_success"]
+    assert "Unresolved" not in result.details.get("parse_success", "")
+
+
 def test_empty_config_scores_zero():
     task = load_tasks([1], task_ids=["t1_mysql_console"])[0]
     for empty in (None, "", "   "):
