@@ -242,23 +242,17 @@ class ApplicationExecuteCommandTest {
         when(loader.<String>getClusterClientFactory(DeployType.YARN)).thenReturn(factory);
         when(factory.create(Collections.emptyMap())).thenReturn(descriptor);
         when(descriptor.deployApplication(specification)).thenReturn("application_1");
-        ApplicationClusterDeployer deployer = new ApplicationClusterDeployer(loader);
-        assertEquals(
-                "application_1",
-                deployer.<String>run(DeployType.YARN, Collections.emptyMap(), specification));
+        ApplicationClusterDeployer deployer =
+                new ApplicationClusterDeployer(
+                        loader, DeployType.YARN, specification, Collections.emptyMap());
+        assertEquals("application_1", deployer.<String>run());
         verify(descriptor).close();
 
         Exception failure = new Exception("submission rejected");
         Exception closeFailure = new Exception("close failed");
         when(descriptor.deployApplication(specification)).thenThrow(failure);
         doThrow(closeFailure).when(descriptor).close();
-        assertSame(
-                failure,
-                assertThrows(
-                        Exception.class,
-                        () ->
-                                deployer.run(
-                                        DeployType.YARN, Collections.emptyMap(), specification)));
+        assertSame(failure, assertThrows(Exception.class, deployer::run));
         assertSame(closeFailure, failure.getSuppressed()[0]);
         verify(descriptor, times(2)).close();
         verify(descriptor, never()).cancelApplication(any());

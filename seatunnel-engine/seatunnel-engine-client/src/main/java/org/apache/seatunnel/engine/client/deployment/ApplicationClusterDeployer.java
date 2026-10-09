@@ -31,10 +31,27 @@ public final class ApplicationClusterDeployer {
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationClusterDeployer.class);
 
     private final ClusterClientServiceLoader clientServiceLoader;
+    private final DeployType deployType;
+    private final Map<String, String> options;
+    private final ApplicationSpecification specification;
 
-    public ApplicationClusterDeployer(ClusterClientServiceLoader clientServiceLoader) {
+    public ApplicationClusterDeployer(
+            DeployType deployType,
+            ApplicationSpecification specification,
+            Map<String, String> options) {
+        this(new ClusterClientServiceLoader(), deployType, specification, options);
+    }
+
+    public ApplicationClusterDeployer(
+            ClusterClientServiceLoader clientServiceLoader,
+            DeployType deployType,
+            ApplicationSpecification specification,
+            Map<String, String> options) {
         this.clientServiceLoader =
                 Objects.requireNonNull(clientServiceLoader, "clientServiceLoader");
+        this.specification = Objects.requireNonNull(specification, "specification");
+        this.deployType = Objects.requireNonNull(deployType, "deployType;");
+        this.options = options;
     }
 
     /**
@@ -44,19 +61,13 @@ public final class ApplicationClusterDeployer {
      * specification contains only the resolved application fields that must reach the master; the
      * deployer does not copy arbitrary options into that runtime payload.
      *
-     * @param target resource platform to deploy to
-     * @param options platform deployment settings, owned by the platform descriptor
-     * @param specification resolved, platform-independent application requirements
      * @param <ID> native ID type of the selected platform
      * @return the platform ID, without opening an Engine client
      */
-    public <ID> ID run(
-            DeployType target, Map<String, String> options, ApplicationSpecification specification)
-            throws Exception {
-        Objects.requireNonNull(specification, "specification");
+    public <ID> ID run() throws Exception {
         LOG.info("Submitting application in Application Mode.");
         ApplicationClusterDescriptorFactory<ID> clientFactory =
-                clientServiceLoader.getClusterClientFactory(target);
+                clientServiceLoader.getClusterClientFactory(deployType);
         try (ClusterDescriptor<ID> descriptor = clientFactory.create(options)) {
             return descriptor.deployApplication(specification);
         }

@@ -22,7 +22,6 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
-import org.apache.seatunnel.engine.client.deployment.ClusterClientServiceLoader;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
@@ -648,19 +647,17 @@ public class KubernetesApplicationIT extends TestSuiteBase {
 
     private KubernetesApplicationClient deployApplication(
             ApplicationSpecification specification, String scenario) throws Exception {
-        return new KubernetesApplicationClient(
-                platformMonitor,
-                new ApplicationClusterDeployer(new ClusterClientServiceLoader())
-                        .run(
-                                DeployType.KUBERNETES,
-                                SeatunnelApplicationConfig.load(
-                                        getResourcesFile(
-                                                        "/kubernetes/"
-                                                                + scenario
-                                                                + "/application.config")
-                                                .toPath(),
-                                        Collections.emptyMap()),
-                                specification));
+
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(
+                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
+                                .toPath(),
+                        Collections.emptyMap());
+
+        ApplicationClusterDeployer deployer =
+                new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
+
+        return new KubernetesApplicationClient(platformMonitor, deployer.run());
     }
 
     private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {

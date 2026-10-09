@@ -494,16 +494,16 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     private YarnApplicationClient deployApplication(
             ApplicationSpecification specification, String scenario) throws Exception {
-        ApplicationId id =
-                new ApplicationClusterDeployer(clientServiceLoader)
-                        .run(
-                                DeployType.YARN,
-                                SeatunnelApplicationConfig.load(
-                                        ContainerUtil.getResourcesFile(
-                                                        "/yarn/" + scenario + "/application.config")
-                                                .toPath(),
-                                        Collections.emptyMap()),
-                                specification);
+
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(
+                        ContainerUtil.getResourcesFile("/yarn/" + scenario + "/application.config")
+                                .toPath(),
+                        Collections.emptyMap());
+        ApplicationClusterDeployer deployer =
+                new ApplicationClusterDeployer(
+                        clientServiceLoader, DeployType.YARN, specification, options);
+        ApplicationId id = deployer.run();
         return platformMonitor(id.toString());
     }
 

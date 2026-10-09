@@ -83,9 +83,13 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
             ApplicationSpecification specification =
                     SeatunnelApplicationConfig.parse(
                             Paths.get(applicationCommandArgs.getConfig()), options);
-            Object submittedId =
-                    new ApplicationClusterDeployer(clientServiceLoader)
-                            .run(applicationCommandArgs.getTarget(), options, specification);
+            ApplicationClusterDeployer deployer =
+                    new ApplicationClusterDeployer(
+                            clientServiceLoader,
+                            applicationCommandArgs.getTarget(),
+                            specification,
+                            options);
+            Object submittedId = deployer.run();
             applicationId = submittedId.toString();
             System.out.println("Application ID: " + applicationId);
             System.out.println("Job ID: " + specification.getJobId());
