@@ -363,6 +363,22 @@ public class DmdbTypeConverterTest {
     }
 
     @Test
+    public void testNvarchar2() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nvarchar2(2)")
+                        .dataType("nvarchar2")
+                        .length(2L)
+                        .build();
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
     public void testConvertNchar() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
