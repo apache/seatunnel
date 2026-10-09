@@ -19,6 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -226,5 +230,25 @@ class ConnectionPoolManagerTest {
         Assertions.assertSame(second, manager.getConnection(1));
 
         verify(pool, times(2)).getConnection();
+    }
+
+    @Test
+    void sharesOneTransactionStatePerQueueIndex() {
+        HikariDataSource pool = mock(HikariDataSource.class);
+        ConnectionPoolManager manager = new ConnectionPoolManager(pool);
+        JdbcConnectionConfig config = JdbcConnectionConfig.builder().url("jdbc:test").build();
+
+        // Writers of two tables on queue index 0 share one connection, so they must see the
+        // same transaction state; a writer on another index has its own.
+        JdbcTransactionState tableA =
+                new SimpleJdbcConnectionPoolProviderProxy(manager, config, 0).getTransactionState();
+        JdbcTransactionState tableB =
+                new SimpleJdbcConnectionPoolProviderProxy(manager, config, 0).getTransactionState();
+        JdbcTransactionState otherQueue =
+                new SimpleJdbcConnectionPoolProviderProxy(manager, config, 1).getTransactionState();
+
+        Assertions.assertNotNull(tableA);
+        Assertions.assertSame(tableA, tableB);
+        Assertions.assertNotSame(tableA, otherQueue);
     }
 }

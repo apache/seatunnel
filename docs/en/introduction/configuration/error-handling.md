@@ -310,6 +310,8 @@ The above behavior is a current implementation detail at the Connector level, an
   - When enabling error handling, reduce `batch_size` (even set to `1`) so that each batch contains at most one record;
   - It is strongly recommended to thoroughly validate with your actual database and JDBC driver in a test environment before enabling this capability in production.
 
+- In a multi-table JDBC sink with checkpointing and a manual-commit connection (`auto_commit = false`, or Oracle), the tables written through the same queue share one connection and one transaction. Rolling back a failed batch (to the last savepoint, or the whole transaction) can therefore also discard a batch that another table flushed. When that happens the sink cannot drop only the bad batch: no table on that connection commits again and the job recovers from the last checkpoint. With small batches, a row-level error can then behave like a job failure. A smaller `batch_size` makes this less likely.
+
 ## Current Status of Multi-Table Sink
 
 > **Experimental capability, not yet fully supported.**

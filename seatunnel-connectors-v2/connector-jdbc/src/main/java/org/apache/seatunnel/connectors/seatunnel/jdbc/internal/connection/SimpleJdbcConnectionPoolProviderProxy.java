@@ -79,4 +79,10 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
         closeConnection();
         return getOrEstablishConnection();
     }
+
+    /** Writers on one queue index share a connection, so they also share its transaction state. */
+    @Override
+    public JdbcTransactionState getTransactionState() {
+        return poolManager.getTransactionState(queueIndex);
+    }
 }
