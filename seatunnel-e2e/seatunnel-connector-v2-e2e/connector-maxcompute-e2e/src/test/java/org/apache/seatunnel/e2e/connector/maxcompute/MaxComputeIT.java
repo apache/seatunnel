@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -271,19 +271,13 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         config.put("project", "mocked_mc");
         config.put("table_name", "test_table");
         config.put("read_columns", Arrays.asList("ID", "NAME"));
-        MaxcomputeSourceFactory factory = new MaxcomputeSourceFactory();
-        config.put("plugin_name", factory.factoryIdentifier());
         SeaTunnelSource<Object, SourceSplit, Serializable> source =
-                FactoryUtil.<Object, SourceSplit, Serializable>createAndPrepareSource(
-                                ReadonlyConfig.fromMap(config),
-                                Thread.currentThread().getContextClassLoader(),
-                                factory.factoryIdentifier(),
-                                identifier -> {
-                                    throw new AssertionError("不应回退到旧版 Source 创建路径");
-                                },
-                                factory,
-                                null)
-                        ._1();
+                new MaxcomputeSourceFactory()
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(config),
+                                        Thread.currentThread().getContextClassLoader()))
+                        .createSource();
         CatalogTable table = source.getProducedCatalogTables().get(0);
         Assertions.assertArrayEquals(
                 new String[] {"ID", "NAME"}, table.getTableSchema().getFieldNames());
