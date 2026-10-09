@@ -61,6 +61,7 @@ EXCLUDED_FROM_ALL = {
     "connector-common",
     "connector-file-base",
     "connector-file-base-hadoop",
+    "connector-file-adls-runtime",
     "connector-cdc-base",
 }
 

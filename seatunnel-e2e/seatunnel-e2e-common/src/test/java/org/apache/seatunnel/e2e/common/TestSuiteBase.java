@@ -52,7 +52,7 @@ public abstract class TestSuiteBase {
     protected static final Network NETWORK = TestContainer.NETWORK;
 
     @TestContainers
-    private TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
+    protected TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
 
     protected DockerClient dockerClient = DockerClientFactory.lazyClient();
 
