@@ -129,6 +129,7 @@ public class ZetaSQLFunction {
     public static final String TRANSLATE = "TRANSLATE";
     public static final String SPLIT = "SPLIT";
     public static final String MURMUR64 = "MURMUR64";
+    public static final String MD5 = "MD5";
 
     // -------------------------crypto functions----------------------------
     public static final String AES_ENCRYPT = "AES_ENCRYPT";
@@ -282,6 +283,21 @@ public class ZetaSQLFunction {
             SignedExpression signedExpression = (SignedExpression) expression;
             if (signedExpression.getSign() == '-') {
                 Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value == null) {
+                    return null;
+                }
+                if (value instanceof Byte) {
+                    return (byte) -((Byte) value);
+                }
+                if (value instanceof Short) {
+                    return (short) -((Short) value);
+                }
+                if (value instanceof Float) {
+                    return -((Float) value);
+                }
+                if (value instanceof BigDecimal) {
+                    return ((BigDecimal) value).negate();
+                }
                 if (value instanceof Integer) {
                     return -((Integer) value);
                 }
@@ -294,8 +310,8 @@ public class ZetaSQLFunction {
                 if (value instanceof Number) {
                     return -((Number) value).doubleValue();
                 }
-            } else {
-                return computeForValue(signedExpression, inputFields);
+            } else if (signedExpression.getSign() == '+') {
+                return computeForValue(signedExpression.getExpression(), inputFields);
             }
         }
         if (expression instanceof DoubleValue) {
@@ -537,6 +553,8 @@ public class ZetaSQLFunction {
                 return StringFunction.split(args);
             case MURMUR64:
                 return StringFunction.murmur64(args);
+            case MD5:
+                return StringFunction.md5(args);
             case AES_ENCRYPT:
                 return CryptoFunction.aesEncrypt(args);
             case AES_DECRYPT:
