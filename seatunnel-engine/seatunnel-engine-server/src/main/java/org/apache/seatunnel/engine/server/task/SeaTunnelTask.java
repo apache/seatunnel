@@ -75,10 +75,12 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -139,6 +141,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
     private SeaTunnelMetricsContext metricsContext;
 
     private transient boolean observabilityEnabled;
+
+    /**
+     * Guards {@link #close()} so BlockingWorker fallback cannot re-close lifecycles.
+     *
+     * <p>Must stay non-transient: {@link SeaTunnelTask} is serialized before deploy, and a
+     * transient final field would be null after deserialization.
+     */
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public SeaTunnelTask(
             long jobID,
@@ -290,14 +300,20 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 }
                 break;
             case CLOSED:
-                this.close();
-                progress.done();
+                try {
+                    this.close();
+                } finally {
+                    progress.done();
+                }
                 return;
                 // TODO support cancel by outside
             case CANCELLING:
-                this.close();
-                currState = CANCELED;
-                progress.done();
+                try {
+                    this.close();
+                } finally {
+                    currState = CANCELED;
+                    progress.done();
+                }
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
@@ -437,39 +453,84 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     /**
-     * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
+     * Performs an ordered, idempotent teardown of all {@link FlowLifeCycle} objects in this task.
      *
-     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
-     * remaining lifecycles from being closed.
+     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order with teardown
+     * order preserved. A failure in one lifecycle — checked ({@link IOException}), unchecked
+     * ({@link RuntimeException}), or non-fatal {@link Error} (for example {@link
+     * NoClassDefFoundError}) — is collected and does not prevent the remaining lifecycles from
+     * being closed. The loop stops early only for {@link VirtualMachineError} and {@link
+     * ThreadDeath}. An {@link Error} takes priority over any earlier {@link Exception} when
+     * choosing what to rethrow; other subsequent failures are attached as {@linkplain
+     * Throwable#addSuppressed suppressed}. A second {@code close()} is a no-op so the
+     * BlockingWorker fallback cannot re-close already-closed lifecycles.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
+     * @throws IOException if the primary failure is an {@link IOException}
+     * @throws RuntimeException if the primary failure is an unchecked {@link Exception} (via
+     *     sneakyThrow)
+     * @throws Error if the primary failure is an {@link Error} (via sneakyThrow), including
+     *     early-stopped {@link VirtualMachineError} / {@link ThreadDeath}
      */
     @Override
     public void close() throws IOException {
-        IOException[] closeException = {null};
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        Throwable[] closeException = {null};
         try {
-            super.close();
-        } catch (IOException e) {
+            closeSuper();
+        } catch (Exception e) {
+            // Production AbstractTask.close() does not throw; this catch is a test seam for
+            // closeSuper() stubs that inject parent-close failures.
             closeException[0] = e;
         }
-        MDCTracer.tracing(allCycles.stream())
-                .forEach(
-                        flowLifeCycle -> {
-                            try {
-                                flowLifeCycle.close();
-                            } catch (IOException e) {
-                                log.error("Close FlowLifeCycle error.", e);
-                                if (closeException[0] == null) {
-                                    closeException[0] = e;
-                                } else {
-                                    closeException[0].addSuppressed(e);
-                                }
-                            }
-                        });
-        if (closeException[0] != null) {
-            throw closeException[0];
+        if (allCycles != null) {
+            // Use a traditional loop (not forEach) so VirtualMachineError / ThreadDeath can
+            // early-stop after recording.
+            Iterator<FlowLifeCycle> iterator = MDCTracer.tracing(allCycles.stream()).iterator();
+            while (iterator.hasNext()) {
+                FlowLifeCycle flowLifeCycle = iterator.next();
+                try {
+                    flowLifeCycle.close();
+                } catch (Throwable t) {
+                    log.error(
+                            "Task {} close FlowLifeCycle {} error.",
+                            taskLocation,
+                            flowLifeCycle.getClass().getSimpleName(),
+                            t);
+                    if (closeException[0] == null) {
+                        closeException[0] = t;
+                    } else if (t != closeException[0]) {
+                        if (t instanceof Error && !(closeException[0] instanceof Error)) {
+                            t.addSuppressed(closeException[0]);
+                            closeException[0] = t;
+                        } else {
+                            closeException[0].addSuppressed(t);
+                        }
+                    }
+                    if (t instanceof VirtualMachineError || t instanceof ThreadDeath) {
+                        break;
+                    }
+                }
+            }
         }
+        if (closeException[0] != null) {
+            if (closeException[0] instanceof IOException) {
+                throw (IOException) closeException[0];
+            }
+            sneakyThrow(closeException[0]);
+        }
+    }
+
+    /**
+     * Invokes {@link AbstractTask#close()}. Package-visible for unit tests.
+     *
+     * <p>Production {@link AbstractTask#close()} only cancels {@code restoreComplete} and does not
+     * throw; the {@link Exception} catch around this call exists so tests can inject a parent-close
+     * failure via a stub.
+     */
+    void closeSuper() throws IOException {
+        super.close();
     }
 
     /**
