@@ -75,6 +75,27 @@ _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
 ) - {"connector-jdbc-e2e"}
 
 
+# Paths that no other change filter in backend.yml covers, mapped to the module whose
+# tests exercise them. These tests only run in the unit-test job.
+STANDALONE_MODULE_PATHS = (
+    ("seatunnel-trace/", "seatunnel-trace-analyzer"),
+    ("seatunnel-e2e/seatunnel-core-e2e/", "seatunnel-starter-e2e"),
+)
+
+
+def build_standalone_modules(files):
+    modules = []
+    for file in json.loads(files):
+        for path_prefix, module in STANDALONE_MODULE_PATHS:
+            if file.startswith(path_prefix) and module not in modules:
+                modules.append(module)
+    return modules
+
+
+def get_standalone_modules(files):
+    print("".join("," + module for module in build_standalone_modules(files)))
+
+
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
@@ -295,6 +316,8 @@ def main(argv):
         get_cv2_e2e_modules(argv[2])
     elif argv[1] == "engine":
         get_engine_modules(argv[2])
+    elif argv[1] == "standalone":
+        get_standalone_modules(argv[2])
     elif argv[1] == "engine-e2e":
         get_engine_e2e_modules(argv[2])
     elif argv[1] == "tree":
