@@ -4,6 +4,10 @@
 
 ## dev
 
+### SQL TINYINT 数组模式
+
+Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
