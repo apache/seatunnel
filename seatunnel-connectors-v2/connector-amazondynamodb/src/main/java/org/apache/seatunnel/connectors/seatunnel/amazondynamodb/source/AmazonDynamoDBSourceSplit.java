@@ -32,9 +32,15 @@ public class AmazonDynamoDBSourceSplit implements SourceSplit {
     private Integer splitId;
     private Integer totalSegments;
     private Integer itemCount;
+    /** Table identity for tables_configs; null for single-table splits and older checkpoints. */
+    private String tableId;
+
+    public AmazonDynamoDBSourceSplit(Integer splitId, Integer totalSegments, Integer itemCount) {
+        this(splitId, totalSegments, itemCount, null);
+    }
 
     @Override
     public String splitId() {
-        return splitId.toString();
+        return tableId == null ? splitId.toString() : tableId + ":" + splitId;
     }
 }
