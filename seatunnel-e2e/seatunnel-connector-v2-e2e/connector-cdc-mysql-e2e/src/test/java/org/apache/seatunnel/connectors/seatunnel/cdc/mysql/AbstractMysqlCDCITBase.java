@@ -184,6 +184,156 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case verifies Zeta automatic checkpoint recovery after a sink failure.")
+    public void testMysqlCdcContinuesAfterSinkFailure(TestContainer container) throws Exception {
+        // Regression guard for restored-split reassignment after a sink failure. With
+        // parallelism = 1 (see the conf), this clean full-pipeline restart drives the
+        // pre-existing handleSplitRequest() dispatch path: the restored split lands in the
+        // assigner while the enumerator is not yet running, and the reader picks it up via
+        // its requestSplit() -> handleSplitRequest() call. The new running == true branch in
+        // IncrementalSourceEnumerator.addSplitsBack() is covered deterministically by the unit
+        // test IncrementalSourceEnumeratorTest#shouldAssignRestoredSplitsToWaitingReader; this
+        // e2e proves the end-to-end recovery path through the real engine.
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+        Long jobId = JobIdGenerator.newJobId();
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        CompletableFuture<Container.ExecResult> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mysqlcdc_to_mysql_with_sink_failure_recovery.conf",
+                                        String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+
+        // The test config checkpoints every five seconds. Wait until the snapshot state is
+        // durably checkpointed before failing the incremental CDC stream.
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(String.valueOf(jobId))
+                                                > 0));
+        String triggerName = "fail_cdc_sink_once";
+        executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+        executeSql(
+                "CREATE TRIGGER "
+                        + MYSQL_DATABASE
+                        + "."
+                        + triggerName
+                        + " BEFORE INSERT ON "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SINK_TABLE
+                        + " FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected sink failure'");
+        try {
+            int logOffset = container.getServerLogs().length();
+            executeSql(
+                    "UPDATE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " SET f_bigint = 20000 WHERE id = 5");
+            // The injected trigger makes the JDBC sink's insert fail, so the engine detects
+            // the sink failure and enters the restart cycle (job.retry.interval.seconds = 15).
+            // Wait for a positive signal in the engine log that the injected failure actually
+            // fired instead of a fixed sleep, so the test cannot silently pass without
+            // exercising the recovery path. The job status cannot be used here because on dev
+            // it stays RUNNING throughout the restart window. Once the failure is observed the
+            // finally block removes the trigger, so the post-restart replay of the
+            // f_bigint=20000 binlog event normally does not hit the trigger a second time. If
+            // the restart still wins that race, the replay fails once more and consumes one of
+            // the extra retries granted by job.retry.times in the conf; the trigger is gone by
+            // the next cycle, so the job recovers anyway. The two-minute budget matches the
+            // other waits in this test.
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                String serverLogs = container.getServerLogs();
+                                // The engine log can be truncated or rotated while the job
+                                // restarts; clamp the offset so a shorter log is treated as
+                                // "no match yet" instead of throwing
+                                // StringIndexOutOfBoundsException and aborting the wait.
+                                Assertions.assertTrue(
+                                        serverLogs
+                                                .substring(Math.min(logOffset, serverLogs.length()))
+                                                .contains("injected sink failure"),
+                                        "injected sink failure was not observed in the "
+                                                + "engine logs after the f_bigint=20000 update");
+                            });
+        } finally {
+            executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+        }
+
+        // The job restarts from the last checkpoint and replays the binlog events written
+        // after it (including the f_bigint=20000 update). The trigger must be gone before
+        // that replay reaches the sink, otherwise the restored job fails again. Verify the
+        // trigger was actually dropped, then wait until the job is back to RUNNING (replay
+        // finished) before injecting the next change.
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0L,
+                                        ((Number)
+                                                        query(
+                                                                        "SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema = '"
+                                                                                + MYSQL_DATABASE
+                                                                                + "' AND trigger_name = '"
+                                                                                + triggerName
+                                                                                + "'")
+                                                                .get(0)
+                                                                .get(0))
+                                                .longValue()));
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
+
+        executeSql(
+                "UPDATE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " SET f_bigint = 30000 WHERE id = 5");
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+        Assertions.assertEquals("RUNNING", container.getJobStatus(String.valueOf(jobId)));
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "CANCELED", container.getJobStatus(String.valueOf(jobId))));
+        Assertions.assertEquals(0, executeJobFuture.get(60, TimeUnit.SECONDS).getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMysqlCdcCheckDataE2eWithHeartbeat(TestContainer container)
             throws InterruptedException {
