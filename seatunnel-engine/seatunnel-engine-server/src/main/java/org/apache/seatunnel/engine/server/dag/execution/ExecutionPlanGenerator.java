@@ -44,10 +44,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -58,6 +60,9 @@ public class ExecutionPlanGenerator {
     private final EngineConfig engineConfig;
     private final IdGenerator idGenerator = new IdGenerator();
     private final ObservabilityConfig observabilityConfig;
+    private final Map<ExecutionVertex, Set<Long>> logicalIdsByExecutionVertex =
+            new IdentityHashMap<>();
+    private final Map<Long, Set<Integer>> pipelineIdsByLogicalVertex = new HashMap<>();
 
     public ExecutionPlanGenerator(
             @NonNull LogicalDag logicalPlan,
@@ -74,6 +79,8 @@ public class ExecutionPlanGenerator {
 
     public ExecutionPlan generate() {
         log.debug("Generate execution plan using logical plan:");
+        logicalIdsByExecutionVertex.clear();
+        pipelineIdsByLogicalVertex.clear();
 
         Set<ExecutionEdge> executionEdges = generateExecutionEdges(logicalPlan.getEdges());
         log.debug("Phase 1: generate execution edge list {}", executionEdges);
@@ -83,11 +90,43 @@ public class ExecutionPlanGenerator {
 
         List<Pipeline> pipelines = generatePipelines(executionEdges);
         log.debug("Phase 3: generate pipeline list {}", pipelines);
+        for (Pipeline pipeline : pipelines) {
+            for (ExecutionVertex vertex : pipeline.getVertexes().values()) {
+                for (Long logicalId :
+                        logicalIdsByExecutionVertex.getOrDefault(vertex, Collections.emptySet())) {
+                    pipelineIdsByLogicalVertex
+                            .computeIfAbsent(logicalId, ignored -> new HashSet<>())
+                            .add(pipeline.getId());
+                }
+            }
+        }
 
         ExecutionPlan executionPlan = new ExecutionPlan(pipelines, jobImmutableInformation);
         log.debug("Phase 4: generate execution plan: {}", executionPlan);
 
         return executionPlan;
+    }
+
+    public Set<Integer> getPipelineIdsForLogicalEdge(long inputVertexId, long targetVertexId) {
+        Set<Integer> inputPipelines = pipelineIdsByLogicalVertex.get(inputVertexId);
+        Set<Integer> targetPipelines = pipelineIdsByLogicalVertex.get(targetVertexId);
+        if (inputPipelines == null || targetPipelines == null) {
+            throw new IllegalStateException(
+                    "No execution pipeline for logical edge "
+                            + inputVertexId
+                            + " -> "
+                            + targetVertexId);
+        }
+        Set<Integer> sharedPipelines = new TreeSet<>(inputPipelines);
+        sharedPipelines.retainAll(targetPipelines);
+        if (sharedPipelines.isEmpty()) {
+            throw new IllegalStateException(
+                    "No shared execution pipeline for logical edge "
+                            + inputVertexId
+                            + " -> "
+                            + targetVertexId);
+        }
+        return sharedPipelines;
     }
 
     public static Action recreateAction(Action action, Long id, int parallelism) {
@@ -156,42 +195,32 @@ public class ExecutionPlanGenerator {
             ExecutionVertex executionInputVertex =
                     logicalVertexIdToExecutionVertexMap.computeIfAbsent(
                             logicalInputVertex.getVertexId(),
-                            vertexId -> {
-                                long newId = idGenerator.getNextId();
-                                Action newLogicalInputAction =
-                                        recreateAction(
-                                                logicalInputVertex.getAction(),
-                                                newId,
-                                                logicalInputVertex.getParallelism());
-                                return new ExecutionVertex(
-                                        newId,
-                                        newLogicalInputAction,
-                                        logicalInputVertex.getParallelism());
-                            });
+                            vertexId -> createExecutionVertex(logicalInputVertex));
 
             LogicalVertex logicalTargetVertex =
                     logicalPlan.getLogicalVertexMap().get(logicalEdge.getTargetVertexId());
             ExecutionVertex executionTargetVertex =
                     logicalVertexIdToExecutionVertexMap.computeIfAbsent(
                             logicalTargetVertex.getVertexId(),
-                            vertexId -> {
-                                long newId = idGenerator.getNextId();
-                                Action newLogicalTargetAction =
-                                        recreateAction(
-                                                logicalTargetVertex.getAction(),
-                                                newId,
-                                                logicalTargetVertex.getParallelism());
-                                return new ExecutionVertex(
-                                        newId,
-                                        newLogicalTargetAction,
-                                        logicalTargetVertex.getParallelism());
-                            });
+                            vertexId -> createExecutionVertex(logicalTargetVertex));
 
             ExecutionEdge executionEdge =
                     new ExecutionEdge(executionInputVertex, executionTargetVertex);
             executionEdges.add(executionEdge);
         }
         return executionEdges;
+    }
+
+    private ExecutionVertex createExecutionVertex(LogicalVertex logicalVertex) {
+        long id = idGenerator.getNextId();
+        ExecutionVertex vertex =
+                new ExecutionVertex(
+                        id,
+                        recreateAction(
+                                logicalVertex.getAction(), id, logicalVertex.getParallelism()),
+                        logicalVertex.getParallelism());
+        logicalIdsByExecutionVertex.put(vertex, Collections.singleton(logicalVertex.getVertexId()));
+        return vertex;
     }
 
     private Set<ExecutionEdge> generateTransformChainEdges(Set<ExecutionEdge> executionEdges) {
@@ -325,6 +354,11 @@ public class ExecutionPlanGenerator {
             ExecutionVertex executionVertex =
                     new ExecutionVertex(
                             newVertexId, transformChainAction, currentVertex.getParallelism());
+            Set<Long> logicalIds = new HashSet<>();
+            for (ExecutionVertex chainedVertex : transformChainedVertices) {
+                logicalIds.addAll(logicalIdsByExecutionVertex.get(chainedVertex));
+            }
+            logicalIdsByExecutionVertex.put(executionVertex, logicalIds);
             transformChainVertexMap.put(newVertexId, executionVertex);
             chainedTransformVerticesMapping.put(
                     currentVertex.getVertexId(), executionVertex.getVertexId());
@@ -392,7 +426,10 @@ public class ExecutionPlanGenerator {
             executionVertices.add(edge.getRightVertex());
         }
         PipelineGenerator pipelineGenerator =
-                new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges));
+                new PipelineGenerator(
+                        executionVertices,
+                        new ArrayList<>(executionEdges),
+                        logicalIdsByExecutionVertex);
         List<Pipeline> pipelines = normalizePipelines(pipelineGenerator.generatePipelines());
 
         Set<String> duplicatedActionNames = new HashSet<>();

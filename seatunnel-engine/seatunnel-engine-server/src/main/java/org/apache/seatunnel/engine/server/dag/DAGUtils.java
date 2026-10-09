@@ -101,10 +101,9 @@ public class DAGUtils {
             boolean isPhysicalDAGInfo,
             ExecutionAddress master,
             Set<ExecutionAddress> historyExecutionAddress) {
-        List<Pipeline> pipelines =
-                new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, engineConfig)
-                        .generate()
-                        .getPipelines();
+        ExecutionPlanGenerator planGenerator =
+                new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, engineConfig);
+        List<Pipeline> pipelines = planGenerator.generate().getPipelines();
         if (isPhysicalDAGInfo) {
             // Generate ExecutePlan DAG
             Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
@@ -160,28 +159,16 @@ public class DAGUtils {
                             .collect(
                                     Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
 
-            Map<Integer, List<Edge>> pipelineWithEdges =
-                    edges.stream()
-                            .collect(
-                                    Collectors.groupingBy(
-                                            e -> {
-                                                LogicalVertex info =
-                                                        logicalVertexMap.get(
-                                                                e.getInputVertexId() != null
-                                                                        ? e.getInputVertexId()
-                                                                        : e.getTargetVertexId());
-                                                return pipelines.stream()
-                                                        .filter(
-                                                                p ->
-                                                                        p.getActions()
-                                                                                .containsKey(
-                                                                                        info.getAction()
-                                                                                                .getId()))
-                                                        .findFirst()
-                                                        .get()
-                                                        .getId();
-                                            },
-                                            Collectors.toList()));
+            Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
+            for (Edge edge : edges) {
+                for (int pipelineId :
+                        planGenerator.getPipelineIdsForLogicalEdge(
+                                edge.getInputVertexId(), edge.getTargetVertexId())) {
+                    pipelineWithEdges
+                            .computeIfAbsent(pipelineId, ignored -> new ArrayList<>())
+                            .add(edge);
+                }
+            }
             return new JobDAGInfo(
                     jobImmutableInformation.getJobId(),
                     logicalDag.getJobConfig().getEnvOptions(),
