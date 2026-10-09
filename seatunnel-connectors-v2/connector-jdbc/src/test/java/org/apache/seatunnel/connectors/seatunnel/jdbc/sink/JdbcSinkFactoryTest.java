@@ -3,8 +3,8 @@
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * (the "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -241,5 +243,72 @@ class JdbcSinkFactoryTest {
                 "Factory-level validation and createSink should succeed even when "
                         + "CatalogTable has primary keys; the PK + APPEND_VALUES conflict "
                         + "is guarded at runtime by JdbcOutputFormatBuilder.validateOracleInsertMode");
+    }
+
+    /**
+     * Verifies that runtime-created tables reuse the same database override and naming rules as the
+     * startup table template.
+     */
+    @Test
+    void testResolveSinkTableUsesDynamicNamingRules() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(JdbcSinkOptions.DATABASE.key(), "target_db");
+                                put(JdbcSinkOptions.TABLE_PREFIX.key(), "ods_");
+                                put(JdbcSinkOptions.TABLE_SUFFIX.key(), "_sync");
+                            }
+                        });
+        CatalogTable sourceTable =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql", "source_db", null, "orders"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        null);
+
+        JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
+                JdbcSinkFactory.resolveSinkTable(config, sourceTable);
+
+        Assertions.assertEquals(
+                TablePath.of("target_db", "ods_orders_sync"),
+                resolvedSinkTable.getCatalogTable().getTablePath());
+        Assertions.assertEquals(
+                "ods_orders_sync", resolvedSinkTable.getOptions().get(JdbcSinkOptions.TABLE));
+        Assertions.assertEquals(
+                "target_db", resolvedSinkTable.getOptions().get(JdbcSinkOptions.DATABASE));
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                resolvedSinkTable
+                        .getCatalogTable()
+                        .getTableSchema()
+                        .getPrimaryKey()
+                        .getColumnNames());
+    }
+
+    @Test
+    void testResolveSinkTableExplicitEmptyPrimaryKeysClearsInheritedPrimaryKey() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(JdbcSinkOptions.PRIMARY_KEYS.key(), "[]");
+                            }
+                        });
+
+        JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
+                JdbcSinkFactory.resolveSinkTable(config, createCatalogTable(true));
+
+        Assertions.assertTrue(
+                resolvedSinkTable.getOptions().get(JdbcSinkOptions.PRIMARY_KEYS).isEmpty());
+        Assertions.assertNull(resolvedSinkTable.getCatalogTable().getTableSchema().getPrimaryKey());
     }
 }

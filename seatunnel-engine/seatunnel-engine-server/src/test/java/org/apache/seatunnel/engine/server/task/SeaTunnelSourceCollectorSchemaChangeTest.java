@@ -20,14 +20,18 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -42,6 +46,7 @@ import java.io.IOException;
 import java.util.Collections;
 
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -79,6 +84,58 @@ class SeaTunnelSourceCollectorSchemaChangeTest {
                                 "new_name", BasicType.STRING_TYPE, (Long) null, true, null, null)));
 
         verify(output, never()).received(Mockito.any());
+    }
+
+    /**
+     * Verifies a runtime create-table event seeds its row type before the first data row is
+     * forwarded to the downstream flow.
+     */
+    @Test
+    void shouldForwardCreateTableEventForUnknownTableInMultipleRowType() throws IOException {
+        TablePath knownTable = TablePath.of("test_db", "known_table");
+        TablePath newlyAddedTable = TablePath.of("test_db", "new_table");
+        SeaTunnelRowType knownRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        MultipleRowType multipleRowType =
+                new MultipleRowType(
+                        new String[] {knownTable.toString()},
+                        new SeaTunnelRowType[] {knownRowType});
+
+        OneInputFlowLifeCycle<Record<?>> output = Mockito.mock(OneInputFlowLifeCycle.class);
+        SeaTunnelSourceCollector<Object> collector =
+                new SeaTunnelSourceCollector<>(
+                        new Object(),
+                        Collections.singletonList(output),
+                        metricsContext(),
+                        FlowControlStrategy.builder().build(),
+                        multipleRowType,
+                        Collections.singletonList(knownTable),
+                        sourceTask(),
+                        new EngineConfig());
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("", newlyAddedTable),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        collector.collect(new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId(newlyAddedTable.toString());
+        collector.collect(row);
+
+        verify(output, times(2)).received(Mockito.any());
     }
 
     private static SeaTunnelTask sourceTask() {
