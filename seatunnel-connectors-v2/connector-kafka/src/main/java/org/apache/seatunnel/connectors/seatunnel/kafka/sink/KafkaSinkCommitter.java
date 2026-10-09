@@ -47,13 +47,19 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             return commitInfos;
         }
         for (KafkaCommitInfo commitInfo : commitInfos) {
-            String transactionId = commitInfo.getTransactionId();
-            if (log.isDebugEnabled()) {
-                log.debug("Committing transaction {}, commitInfo {}", transactionId, commitInfo);
-            }
-            KafkaProducer<?, ?> producer = getProducer(commitInfo);
-            producer.commitTransaction();
-            producer.flush();
+            KafkaClientUtils.runWithConnectorClassLoader(
+                    () -> {
+                        String transactionId = commitInfo.getTransactionId();
+                        if (log.isDebugEnabled()) {
+                            log.debug(
+                                    "Committing transaction {}, commitInfo {}",
+                                    transactionId,
+                                    commitInfo);
+                        }
+                        KafkaProducer<?, ?> producer = getProducer(commitInfo);
+                        producer.commitTransaction();
+                        producer.flush();
+                    });
         }
         closeProducer();
         return commitInfos;
@@ -65,8 +71,11 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             return;
         }
         for (KafkaCommitInfo commitInfo : commitInfos) {
-            KafkaProducer<?, ?> producer = getProducer(commitInfo);
-            producer.abortTransaction();
+            KafkaClientUtils.runWithConnectorClassLoader(
+                    () -> {
+                        KafkaProducer<?, ?> producer = getProducer(commitInfo);
+                        producer.abortTransaction();
+                    });
         }
         closeProducer();
     }
@@ -78,9 +87,14 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             Properties kafkaProperties = commitInfo.getKafkaProperties();
             kafkaProperties.setProperty(
                     ProducerConfig.TRANSACTIONAL_ID_CONFIG, commitInfo.getTransactionId());
-            kafkaProducer =
-                    new KafkaInternalProducer<>(
-                            commitInfo.getKafkaProperties(), commitInfo.getTransactionId());
+            KafkaInternalProducer<?, ?>[] producer = new KafkaInternalProducer[1];
+            KafkaClientUtils.runWithConnectorClassLoader(
+                    () ->
+                            producer[0] =
+                                    new KafkaInternalProducer<>(
+                                            commitInfo.getKafkaProperties(),
+                                            commitInfo.getTransactionId()));
+            kafkaProducer = producer[0];
         }
         kafkaProducer.resumeTransaction(
                 commitInfo.getProducerId(), commitInfo.getEpoch(), commitInfo.isTxnStarted());
