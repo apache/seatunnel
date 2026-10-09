@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -269,7 +270,7 @@ public class VectorFunction {
             return null;
         }
 
-        switch (method.toUpperCase()) {
+        switch (method.toUpperCase(Locale.ROOT)) {
             case "TRUNCATE":
                 return vectorTruncate(vectorData, targetDimension);
             case "RANDOM_PROJECTION":
