@@ -17,14 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE;
-import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_POS;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +30,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE;
+import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_POS;
 
 public class MySqlIncrementalSourceFactoryTest {
 

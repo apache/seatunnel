@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import com.google.auto.service.AutoService;
-
-import lombok.extern.slf4j.Slf4j;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -42,6 +38,9 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSpecificOffsetGuards;
+
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
