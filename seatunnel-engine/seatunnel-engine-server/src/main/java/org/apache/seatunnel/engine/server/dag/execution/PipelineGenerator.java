@@ -99,7 +99,7 @@ public class PipelineGenerator {
                                                         ExecutionVertex destination =
                                                                 vertexes.get(
                                                                         edge.getRightVertexId());
-                                                        return new ExecutionEdge(
+                                                        return edge.withVertices(
                                                                 source, destination);
                                                     })
                                             .collect(Collectors.toList());
@@ -121,6 +121,9 @@ public class PipelineGenerator {
 
     private List<List<ExecutionEdge>> splitUnionEdge(List<ExecutionEdge> edges) {
         fillVerticesMap(edges);
+        if (edges.stream().anyMatch(PortAwareExecutionEdge.class::isInstance)) {
+            return Collections.singletonList(edges);
+        }
         if (checkCanSplit(edges)) {
             List<ExecutionVertex> sourceVertices = getSourceVertices();
             List<List<ExecutionEdge>> pipelines = new ArrayList<>();
