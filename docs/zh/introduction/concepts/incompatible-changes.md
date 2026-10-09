@@ -25,6 +25,17 @@
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
 
+### DuckDB 查询模式元数据
+
+所有查询列现在均使用 DuckDB 原生类型名和 DuckDB 类型映射。ARRAY/LIST、STRUCT 和 MAP 输出驱动提供的文本（`STRING`），而非嵌套类型。`HUGEINT` 和 `BIGNUM` 使用 `DECIMAL(38,0)`；需要超过 38 位十进制数字的值必须投影为 `VARCHAR`，并在下游保持 `STRING`。
+
+DuckDB JDBC `query` 模式发现现在保留原生小数精度和小数位数，并将带时区时间映射为
+`TIMESTAMP_TZ`，而非 `TIMESTAMP`。查询中的无符号类型保留完整范围；UHUGEINT 的
+39 位范围超过 SeaTunnel 小数精度上限，因此使用文本。已有的
+`TIMESTAMP_S`/`TIMESTAMP_MS`/`TIMESTAMP_NS` 查询值仍为 `LocalDateTime`，`table_path`
+模式发现保持不变。升级前请调整下游模式，或显式将查询表达式转换为旧类型。
+完整映射见 DuckDB Source 指南中的查询模式发现章节。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。

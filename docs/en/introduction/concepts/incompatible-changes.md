@@ -26,6 +26,18 @@ You need to check this document before you upgrade to related version.
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
 
+### DuckDB query schema metadata
+
+All query columns now use DuckDB native type names and the DuckDB type mapping. ARRAY/LIST, STRUCT and MAP are driver-provided text (`STRING`), not nested values. `HUGEINT` and `BIGNUM` use `DECIMAL(38,0)`; values requiring more than 38 decimal digits must be projected as `VARCHAR` and kept as `STRING` downstream.
+
+DuckDB JDBC `query` discovery now preserves native decimal precision/scale and maps timezone
+values to `TIMESTAMP_TZ` instead of `TIMESTAMP`. Unsigned query types retain their full range;
+UHUGEINT is text because its 39-digit range exceeds SeaTunnel's decimal limit. Existing
+`TIMESTAMP_S`/`TIMESTAMP_MS`/`TIMESTAMP_NS` query values remain `LocalDateTime`, and `table_path`
+discovery is unchanged. Update downstream schemas for corrected query types, or explicitly cast
+query expressions to the previous types before upgrading. See the DuckDB source guide's query
+schema section for the full mapping.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
