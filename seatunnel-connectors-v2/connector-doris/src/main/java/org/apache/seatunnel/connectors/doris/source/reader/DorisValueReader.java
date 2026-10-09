@@ -144,41 +144,52 @@ public class DorisValueReader {
         return params;
     }
 
-    protected Thread asyncThread =
-            new Thread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            clientLock.lock();
-                            try {
-                                TScanNextBatchParams nextBatchParams = new TScanNextBatchParams();
-                                nextBatchParams.setContextId(contextId);
-                                while (!eos.get()) {
-                                    nextBatchParams.setOffset(offset);
-                                    TScanBatchResult nextResult = client.getNext(nextBatchParams);
-                                    eos.set(nextResult.isEos());
-                                    if (!eos.get()) {
-                                        ArrowToSeatunnelRowReader rowBatch =
-                                                new ArrowToSeatunnelRowReader(
-                                                                nextResult.getRows(),
-                                                                seaTunnelRowType)
-                                                        .readArrow();
-                                        offset += rowBatch.getReadRowCount();
-                                        rowBatch.close();
-                                        try {
-                                            rowBatchBlockingQueue.put(rowBatch);
-                                        } catch (InterruptedException e) {
-                                            throw new DorisConnectorException(
-                                                    DorisConnectorErrorCode.ROW_BATCH_GET_FAILED,
-                                                    e);
-                                        }
-                                    }
-                                }
-                            } finally {
-                                clientLock.unlock();
-                            }
-                        }
-                    });
+    /**
+     * Failure of {@link #asyncThread}, if any. The fetch thread cannot throw to the reader, so it
+     * records the failure here and {@link #hasNext()} reports it instead of returning an end of
+     * stream.
+     */
+    protected volatile Throwable asyncFailure;
+
+    protected Thread asyncThread = new Thread(this::asyncFetchBatches);
+
+    /**
+     * Fetches row batches from the backend until the scan is exhausted. Runs on {@link
+     * #asyncThread}.
+     *
+     * <p>{@code eos} is set even when the fetch fails: the consumer waits for either a batch or
+     * {@code eos}, so a fetch thread that died while {@code eos} was still false would leave {@link
+     * #hasNext()} polling forever instead of failing the job.
+     */
+    private void asyncFetchBatches() {
+        clientLock.lock();
+        try {
+            TScanNextBatchParams nextBatchParams = new TScanNextBatchParams();
+            nextBatchParams.setContextId(contextId);
+            while (!eos.get()) {
+                nextBatchParams.setOffset(offset);
+                TScanBatchResult nextResult = client.getNext(nextBatchParams);
+                eos.set(nextResult.isEos());
+                if (!eos.get()) {
+                    ArrowToSeatunnelRowReader rowBatch =
+                            new ArrowToSeatunnelRowReader(nextResult.getRows(), seaTunnelRowType)
+                                    .readArrow();
+                    offset += rowBatch.getReadRowCount();
+                    rowBatch.close();
+                    rowBatchBlockingQueue.put(rowBatch);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            asyncFailure =
+                    new DorisConnectorException(DorisConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
+        } catch (Throwable t) {
+            asyncFailure = t;
+        } finally {
+            eos.set(true);
+            clientLock.unlock();
+        }
+    }
 
     protected boolean asyncThreadStarted() {
         boolean started = false;
@@ -204,6 +215,7 @@ public class DorisValueReader {
                         try {
                             rowBatch = rowBatchBlockingQueue.take();
                         } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
                             throw new DorisConnectorException(
                                     DorisConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                         }
@@ -214,8 +226,19 @@ public class DorisValueReader {
                         try {
                             Thread.sleep(5);
                         } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new DorisConnectorException(
+                                    DorisConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                         }
                     }
+                }
+                // The queue is drained and the fetch thread has finished. If it finished with a
+                // failure, report it instead of reporting that the scan reached its end.
+                if (asyncFailure != null) {
+                    throw asyncFailure instanceof DorisConnectorException
+                            ? (DorisConnectorException) asyncFailure
+                            : new DorisConnectorException(
+                                    DorisConnectorErrorCode.ROW_BATCH_GET_FAILED, asyncFailure);
                 }
             } else {
                 hasNext = true;
@@ -266,6 +289,13 @@ public class DorisValueReader {
     }
 
     public void close() {
+        // Stop the asynchronous fetch before taking the client lock: the fetch thread holds that
+        // lock for the whole scan, so a reader that is still waiting for its first batch would
+        // otherwise block close() until the scan finishes on its own.
+        eos.set(true);
+        if (asyncThreadStarted) {
+            asyncThread.interrupt();
+        }
         clientLock.lock();
         try {
             TScanCloseParams closeParams = new TScanCloseParams();
