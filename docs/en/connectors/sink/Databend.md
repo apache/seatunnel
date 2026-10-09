@@ -49,7 +49,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | url                 | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username            | String | Yes | - | Databend database username                    |
 | password            | String | Yes | - | Databend database password                     |
-| database            | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
+| database            | String | No | - | Databend database name used when `generate_sink_sql = true` (together with `table`) to generate the write SQL. No default is applied when unset |
 | table               | String | No | - | Databend table name                       |
 | batch_size          | Integer | No | 1000 | Number of records for batch writing                           |
 | auto_commit         | Boolean | No | true | Whether to auto-commit transactions                           |

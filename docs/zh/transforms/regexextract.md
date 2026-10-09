@@ -31,6 +31,9 @@
 
 当正则表达式模式不匹配或源字段为 null 时，输出字段的默认值。如果提供，大小必须与输出字段数量匹配。
 
+### common options [string]
+
+转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 
 ## 示例
 
