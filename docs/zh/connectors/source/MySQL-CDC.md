@@ -26,7 +26,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 | 数据源 |                                                                  支持的版本                                                                  |          Driver          |               Url                |                                Maven                                 |
 |------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## 依赖
 

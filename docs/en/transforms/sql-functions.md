@@ -351,6 +351,17 @@ Example:
 MURMUR64('hello world')
 MURMUR64(NAME)
 
+### MD5
+
+```MD5(string|binary) -> STRING```
+
+Calculate the MD5 hash of the input string or binary value and return the result as a 32-character lowercase hexadecimal string, compatible with Hive's `md5` function. This method returns null if the input parameter is null.
+
+Example:
+
+MD5('hello world')
+MD5(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -465,6 +476,16 @@ Calculate the arc tangent. See also Java Math.atan.
 Example:
 
 ATAN(D)
+
+### ATAN2
+
+```ATAN2(numeric, numeric) -> DOUBLE```
+
+Calculate the arc tangent of the quotient of the two arguments. See also Java Math.atan2.
+
+Example:
+
+ATAN2(Y, X)
 
 ### COS
 
@@ -1100,6 +1121,87 @@ local_date_time AT TIME ZONE '+09:00'
 
 offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
+## Crypto Functions
+
+### AES_ENCRYPT
+
+```AES_ENCRYPT(value, key[, iv]) -> STRING```
+
+Encrypts `value` with AES/CBC/PKCS5Padding and returns a Base64-encoded ciphertext. Returns **NULL** if `value` is **NULL**.
+
+- `value`: the plaintext to encrypt. Any non-null scalar value is converted to a string; array and map inputs are rejected.
+- `key`: the secret key. If it starts with `base64:`, the remainder is decoded as a raw AES key and must be 16, 24, or 32 bytes (AES-128/192/256); only this `base64:` form is wire-compatible with the `AesCbcEncryptor` used by the `FieldEncryptTransform`. Any other value is treated as a passphrase: it is hashed once with SHA-256 and the first 16 bytes are used as an AES-128 key, so arbitrary-length passphrases are supported. Passphrase mode is an unsalted fast KDF; for strong protection use a random `base64:` key and treat it as a secret. A `base64:` key and a passphrase are not interchangeable.
+- `iv`: optional initialization vector. If provided, its UTF-8 bytes are used as the IV and must be exactly 16 bytes; the returned ciphertext contains only the encrypted bytes and the caller is responsible for storing the IV. If omitted, a random 16-byte IV is generated per call and prepended to the ciphertext, so `AES_DECRYPT` can recover it without an explicit IV. An explicit `NULL` IV is rejected (omit the argument instead).
+
+Example:
+
+AES_ENCRYPT(name, 'mySecretPass')
+
+AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+
+AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+SELECT AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass') AS name_enc FROM dual
+
+NOTE:
+- CBC is an unauthenticated mode: a wrong key or a corrupted ciphertext may (about once in 256) decrypt to garbage instead of throwing. Do not rely on a decryption error to detect a wrong key.
+- When `iv` is omitted the ciphertext is non-deterministic (a fresh random IV is generated for each call). To get a deterministic ciphertext, provide an explicit `iv`.
+
+### AES_DECRYPT
+
+```AES_DECRYPT(value, key[, iv]) -> STRING```
+
+Decrypts a Base64 AES/CBC/PKCS5Padding ciphertext. Returns **NULL** if `value` is **NULL**.
+
+- `value`: the Base64-encoded ciphertext produced by `AES_ENCRYPT`.
+- `key`: the secret key, with the same conventions as `AES_ENCRYPT`. It must match the key used for encryption.
+- `iv`: optional initialization vector. When omitted, the first 16 bytes of the decoded payload are treated as the IV (the format produced by `AES_ENCRYPT` without an IV). When provided, its UTF-8 bytes are used as the IV (must be 16 bytes) and the whole decoded payload is treated as the ciphertext. An explicit `NULL` IV is rejected.
+
+Example:
+
+AES_DECRYPT(cipher, 'mySecretPass')
+
+AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+
+AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
+## JSON Functions
+
+### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Available in both the Zeta and Calcite SQL transforms.
+
+Supported path syntax:
+
+- `$` — the root document
+- `.field` — object field access
+- `[n]` — array index (non-negative integer)
+- `['field']` / `["field"]` — bracket field access (for keys containing `.` or `[`)
+
+Wildcards (`[*]`, `.*`), recursive descent (`..`) and filter expressions (`[?(...)]`) are not supported.
+
+Return semantics:
+
+- Any null input (`json` or `path`) → `null`
+- Invalid JSON → `null`
+- Path does not match / array index out of bounds → `null`
+- A JSON `null` value → `null`
+- A string value → the unquoted string content
+- A number or boolean → the value rendered as text
+- An object or array → the raw (compact) JSON text of that node
+
+Example:
+
+GET_JSON_OBJECT('{"a":"hello","b":[10,20]}', '$.a')
+
+GET_JSON_OBJECT('{"a":{"b":1}}', '$.a')
+
+GET_JSON_OBJECT('{"b":[10,20]}', '$.b[1]')
+
+SELECT CASE WHEN GET_JSON_OBJECT(name, '$.key1') = 'value1' THEN 'A' ELSE 'B' END AS r FROM dual
+
 ## System Functions
 
 ### CAST
@@ -1108,7 +1210,7 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY, BOOLEAN
 
 Example:
 * CAST(NAME AS INT)
@@ -1126,7 +1228,7 @@ Converts a value to a BOOLEAN data type according to the following rules:
 
 This function is similar to CAST, but when the conversion fails, it returns NULL instead of throwing an exception.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP | DATETIME, TIMESTAMP_TZ, DATE, TIME, BYTES | BINARY, BOOLEAN
 
 Example:
 
@@ -1260,6 +1362,17 @@ select ARRAY(column1,column2,column3) as arrays
 
 notes: Currently only string, double, long, int types are supported
 
+### MAP
+
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<K, V>```
+
+Create a map from alternating key/value arguments. The number of arguments must be even and keys cannot be NULL. Keys are converted to strings at runtime, but the declared key type of the result follows the key expressions' types, so prefer string key expressions; the declared value type follows the value expressions.
+
+Example:
+
+select MAP('a', 1, 'b', 2) as maps
+select MAP('k1', column1, 'k2', column2) as maps
+
 ### LATERAL VIEW
 #### EXPLODE
 ```EXPLODE(array of T) -> rows(value: T)``` 
@@ -1285,6 +1398,8 @@ SELECT * FROM dual
 ```
 
 ## Vector Functions
+
+Vector functions do not consume or modify their input vector buffers. The same vector field can be used in multiple expressions or as both arguments to a distance function, and remains available to downstream transforms and sinks.
 
 ### VECTOR_DIMS
 

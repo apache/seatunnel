@@ -6,8 +6,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 ## 描述
 
-用于把 SeaTunnel 数据写入 ActiveMQ 队列。每一行数据都会被序列化成一条 JSON 文本消息。这个连接器只支持
-Sink，SeaTunnel 目前没有提供 ActiveMQ Source 连接器。
+用于把 SeaTunnel 数据写入 ActiveMQ 队列。每一行数据都会被序列化成一条 JSON 文本消息。
+消费队列请参见独立的 [ActiveMQ Source](../source/Activemq.md)。
 
 ## 关键特性
 
@@ -128,4 +128,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-
