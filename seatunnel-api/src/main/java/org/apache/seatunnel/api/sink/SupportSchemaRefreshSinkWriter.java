@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.schema.coordinator;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.annotation.Experimental;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-/**
- * Interface for sink subtasks to provide their schema processing state This allows the coordinator
- * to query the actual processing state during recovery
- */
-public interface SinkStateProvider {
+import java.io.IOException;
+
+/** Writer capability for reconciling local state with an authoritative evolved sink schema. */
+@Experimental
+public interface SupportSchemaRefreshSinkWriter {
+
     /**
-     * Get the last processed epoch for a specific table
+     * Rebuilds all schema-dependent writer-local state from the complete evolved schema.
      *
-     * @param tableId the table identifier
-     * @return the last processed epoch, or null if never processed
+     * <p>The engine drains old-schema records and applies the external schema change before this
+     * method is called. Implementations must not execute external DDL from this method. Repeating a
+     * refresh with the same schema must be safe.
      */
-    Long getLastProcessedEpoch(TableIdentifier tableId);
+    void refreshSchema(CatalogTable evolvedSchema) throws IOException;
 }

@@ -26,10 +26,12 @@ import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCoordinatedSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -66,7 +68,7 @@ public class MultiTableSink
                         MultiTableState,
                         MultiTableCommitInfo,
                         MultiTableAggregatedCommitInfo>,
-                SupportSchemaEvolutionSink {
+                SupportCoordinatedSchemaEvolutionSink {
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
@@ -222,6 +224,77 @@ public class MultiTableSink
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    @Override
+    public boolean supportsCoordinatedSchemaEvolution() {
+        return !sinks.isEmpty()
+                && sinks.values().stream()
+                        .allMatch(
+                                sink ->
+                                        sink instanceof SupportCoordinatedSchemaEvolutionSink
+                                                && ((SupportCoordinatedSchemaEvolutionSink) sink)
+                                                        .supportsCoordinatedSchemaEvolution());
+    }
+
+    @Override
+    public SchemaChangeApplier createSchemaChangeApplier(TablePath requestedTablePath)
+            throws IOException {
+        SeaTunnelSink logicalSink = sinks.get(requestedTablePath);
+        if (logicalSink != null) {
+            return createSchemaChangeApplier(
+                    requestedTablePath,
+                    logicalSink,
+                    resolvePhysicalSinkTable(requestedTablePath, logicalSink));
+        }
+
+        List<Map.Entry<TablePath, SeaTunnelSink>> physicalMatches =
+                sinks.entrySet().stream()
+                        .filter(
+                                entry ->
+                                        resolvePhysicalSinkTable(entry.getKey(), entry.getValue())
+                                                .equals(requestedTablePath))
+                        .collect(Collectors.toList());
+        if (physicalMatches.size() > 1) {
+            String logicalTables =
+                    physicalMatches.stream()
+                            .map(entry -> entry.getKey().getFullName())
+                            .sorted()
+                            .collect(Collectors.joining(", "));
+            throw new IOException(
+                    "Ambiguous physical sink table "
+                            + requestedTablePath
+                            + " is shared by logical tables: "
+                            + logicalTables);
+        }
+        if (physicalMatches.size() == 1) {
+            Map.Entry<TablePath, SeaTunnelSink> match = physicalMatches.get(0);
+            return createSchemaChangeApplier(match.getKey(), match.getValue(), requestedTablePath);
+        }
+
+        throw new IOException("No sink found for schema change table " + requestedTablePath);
+    }
+
+    private SchemaChangeApplier createSchemaChangeApplier(
+            TablePath logicalTablePath, SeaTunnelSink sink, TablePath physicalSinkTable)
+            throws IOException {
+        if (!(sink instanceof SupportCoordinatedSchemaEvolutionSink)
+                || !((SupportCoordinatedSchemaEvolutionSink) sink)
+                        .supportsCoordinatedSchemaEvolution()) {
+            throw new IOException(
+                    "Sink for logical table "
+                            + logicalTablePath
+                            + " does not support coordinated schema evolution");
+        }
+        return ((SupportCoordinatedSchemaEvolutionSink) sink)
+                .createSchemaChangeApplier(physicalSinkTable);
+    }
+
+    private TablePath resolvePhysicalSinkTable(TablePath logicalTablePath, SeaTunnelSink sink) {
+        Optional<?> writeCatalogTable = sink.getWriteCatalogTable();
+        return writeCatalogTable.isPresent()
+                ? ((CatalogTable) writeCatalogTable.get()).getTablePath()
+                : logicalTablePath;
     }
 
     private boolean shouldSkipFailedTable(

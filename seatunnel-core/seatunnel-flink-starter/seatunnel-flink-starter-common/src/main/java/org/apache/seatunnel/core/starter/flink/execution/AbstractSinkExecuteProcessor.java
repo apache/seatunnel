@@ -206,10 +206,17 @@ public abstract class AbstractSinkExecuteProcessor
                             ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
                             : envParallelism
                                     ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                                    : 1;
+                                    : stream.getDataStream()
+                                            .getExecutionEnvironment()
+                                            .getParallelism();
 
             DataStreamSink<SeaTunnelRow> dataStreamSink =
-                    createVersionSpecificDataStreamSink(stream, sink, parallelism, sinkConfig);
+                    createVersionSpecificDataStreamSink(
+                            stream,
+                            sink,
+                            parallelism,
+                            sinkParallelism || envParallelism,
+                            sinkConfig);
 
             if (sinkParallelism || envParallelism) {
                 dataStreamSink.setParallelism(parallelism);
@@ -232,7 +239,11 @@ public abstract class AbstractSinkExecuteProcessor
 
     /** Create version-specific DataStreamSink with multi-table and parallelism support. */
     protected abstract DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig);
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            boolean parallelismConfigured,
+            Config sinkConfig);
 
     // if not support multi table, rollback
     public SeaTunnelSink tryGenerateMultiTableSink(
