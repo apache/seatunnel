@@ -52,18 +52,8 @@ public class FragmentConverter {
             String datasetPath) {
 
         List<FragmentMetadata> fragmentMetas;
-        try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
-            root.allocateNew();
-            int rowIndex = 0;
-            for (Field field : schema.getFields()) {
-                FieldVector vector = root.getVector(field.getName());
-                int fieldIndex = seaTunnelRowType.indexOf(field.getName());
-                if (fieldIndex >= 0) {
-                    Object fieldValue = seaTunnelRow.getField(fieldIndex);
-                    setVectorValue(vector, field, fieldValue, rowIndex, allocator);
-                }
-            }
-            root.setRowCount(1);
+        try (VectorSchemaRoot root =
+                convertToVectorSchemaRoot(seaTunnelRow, seaTunnelRowType, schema, allocator)) {
             fragmentMetas =
                     Fragment.create(
                             datasetPath,
@@ -73,6 +63,36 @@ public class FragmentConverter {
                                     .withMaxRowsPerFile(Integer.MAX_VALUE)
                                     .build());
             return fragmentMetas;
+        }
+    }
+
+    static VectorSchemaRoot convertToVectorSchemaRoot(
+            SeaTunnelRow seaTunnelRow,
+            SeaTunnelRowType seaTunnelRowType,
+            Schema schema,
+            BufferAllocator allocator) {
+        VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        try {
+            root.allocateNew();
+            int rowIndex = 0;
+            for (Field field : schema.getFields()) {
+                FieldVector vector = root.getVector(field.getName());
+                int fieldIndex = seaTunnelRowType.indexOf(field.getName(), false);
+                if (fieldIndex >= 0) {
+                    Object fieldValue = seaTunnelRow.getField(fieldIndex);
+                    setVectorValue(vector, field, fieldValue, rowIndex, allocator);
+                } else {
+                    // The persisted dataset can be ahead of the restored checkpoint schema when a
+                    // failover occurs after the physical schema change but before the checkpoint.
+                    // Keep the dataset layout and explicitly materialize the missing runtime field.
+                    vector.setNull(rowIndex);
+                }
+            }
+            root.setRowCount(1);
+            return root;
+        } catch (RuntimeException | Error e) {
+            root.close();
+            throw e;
         }
     }
 

@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.flink.Flink18Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink20Container;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.junit.TestContainers;
@@ -58,6 +59,10 @@ import java.util.stream.Collectors;
     TimingExtension.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DisabledOnContainer(
+        value = {TestContainerId.FLINK_1_13},
+        disabledReason =
+                "The Flink 1.13 image cannot install Python because its Debian security metadata is expired")
 public class TestPythonTransformIT {
 
     private static final String BASE_PATH = "/python_transform/";
