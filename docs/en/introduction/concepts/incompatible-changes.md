@@ -5,6 +5,34 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC Sink: fewer retries with manual commit and checkpointing
+
+- **Behavior change: a lost manual-commit transaction now fails the job instead of being retried or committed**
+  - **Affected component**: JDBC sink (non-XA writer) with checkpointing enabled and a manual-commit
+    connection: `auto_commit = false`, or Oracle, which always uses manual commit.
+  - **Description**: Batches flushed between two commits live only in one open transaction. In a
+    multi-table sink, the tables written through the same queue share that connection and
+    transaction. The sink now tracks this shared transaction and fails instead of silently committing
+    an incomplete result:
+    - once any table on the connection has flushed in the current checkpoint interval, a failed flush
+      is no longer retried, whatever `max_retries` is;
+    - a flush that fails with a lost connection (SQLState `08`) or a transaction rollback (SQLState
+      class `40`, for example a deadlock or serialization failure) while flushed work is pending is
+      not retried, and no table on that connection commits again; a class `40` error with nothing
+      pending is still retried;
+    - if the connection holding flushed work is lost or replaced before the commit, the next commit
+      fails, whatever `max_retries` is;
+    - in a multi-table sink with row-level error handling, a row-level error whose rollback also
+      discards a batch another table flushed fails the job instead of dropping only the bad batch.
+  - **Impact**: Affected jobs restart from the last checkpoint in these cases instead of retrying in
+    place. Before this change, the checkpoint could succeed with flushed rows missing. Auto-commit
+    connections, jobs without checkpointing, and the XA / exactly-once writer are not affected.
+  - **Migration Guide**: No configuration change is required. To reduce restarts, use a shorter
+    checkpoint interval or a smaller `batch_size`, so less work is pending at a time, or use
+    `auto_commit = true` where per-batch commits are acceptable for the target. With row-level error
+    handling in a multi-table sink, a smaller `batch_size` also reduces how often one table's error
+    rolls back another table's batch.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length

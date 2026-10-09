@@ -267,15 +267,14 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
-                if (transactionState().hasPendingOrLostWork() || transactionRolledBack) {
+                if (transactionState().hasPendingOrLostWork()) {
                     // A retry would re-send only the current batch. Earlier batches live only in
                     // the open transaction, which a reconnect discards and a deadlock or abort can
                     // already have rolled back, so retrying could commit a partial result. The
                     // state is shared by the writers of a multi-table sink that use the same
-                    // connection, so this also covers batches flushed by another table. A
-                    // transaction rollback is checked even without any recorded batch, because
-                    // writers that share a connection may not share this state (for example with
-                    // a custom provider).
+                    // connection, so this also covers batches flushed by another table. When
+                    // nothing is pending, a class-40 rollback discarded only the failed batch,
+                    // so re-sending it is safe.
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                             "JDBC flush failed while the open transaction may hold earlier"
@@ -413,6 +412,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * Called by the writer after it committed {@code connection} successfully. Clears the pending
      * work for every writer that shares the connection, because the commit covered all of them.
      *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
+     *
      * @param connection the connection the writer committed
      */
     public void markCommitted(Connection connection) {
@@ -423,6 +425,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * Called by the writer after it rolled back the whole transaction of {@code connection}. If the
      * rollback discarded flushed work that nobody reports, no writer on that connection may commit
      * in this checkpoint interval any more.
+     *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
      *
      * @param connection the connection the writer rolled back
      * @param ownWorkReported whether the writer reports its own discarded rows (row-level error
@@ -436,6 +441,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * Sequence number of the latest flush on this writer's transaction. The writer stores it with a
      * savepoint, so a later rollback to that savepoint can tell whether another writer flushed
      * after it.
+     *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
      */
     public long currentFlushSequence() {
         return transactionState().currentFlushSequence();
@@ -444,6 +452,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     /**
      * Called by the writer after it rolled back to a savepoint taken at {@code savepointSequence}.
      * Work flushed before the savepoint stays pending.
+     *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
      *
      * @param savepointSequence the value of {@link #currentFlushSequence()} when the savepoint was
      *     set
@@ -458,6 +469,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
      * on {@code getConnection()}, and committing the replacement would succeed while the batches on
      * the lost connection were rolled back with it), or flushed work of this checkpoint interval
      * was already lost, possibly by another writer on the same connection.
+     *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
      *
      * @param commitConnection the connection the writer is about to commit
      */

@@ -377,6 +377,109 @@ class JdbcMultiTableReconnectTest {
         assertThrows(Exception.class, () -> tableA.prepareCommit(1L));
     }
 
+    /**
+     * The shared-queue path through the production wiring: {@link
+     * JdbcSinkWriter#initMultiTableResourceManager} builds the HikariCP-backed {@link
+     * ConnectionPoolManager}, and both table writers get a pooled provider on queue index 0. The
+     * cached connection is then closed, as a dropped connection would leave it; HikariCP rolls its
+     * open transaction back and the pool replaces it on the next {@code getConnection(0)}. Neither
+     * table may commit the replacement.
+     */
+    @Test
+    void realPoolReplacedSharedConnectionFailsBothTablesCommit() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("real-pool-replaced.db");
+        createTables(jdbcUrl);
+        JdbcSinkWriter tableA = createPooledWriter(jdbcUrl, "active_table");
+        JdbcSinkWriter tableB = createPooledWriter(jdbcUrl, "idle_table");
+        MultiTableResourceManager<ConnectionPoolManager> resourceManager =
+                tableA.initMultiTableResourceManager(2, 1);
+        ConnectionPoolManager pool = resourceManager.getSharedResource().get();
+        try {
+            tableA.setMultiTableResourceManager(resourceManager, 0);
+            tableB.setMultiTableResourceManager(resourceManager, 0);
+
+            // batch_size = 2: both tables flush a batch into the shared transaction.
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+
+            pool.getConnection(0).close();
+
+            assertThrows(JdbcConnectorException.class, () -> tableA.prepareCommit(1L));
+            assertThrows(JdbcConnectorException.class, () -> tableB.prepareCommit(1L));
+            assertTrue(pool.getTransactionState(0).isPoisoned());
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+            resourceManager.close();
+        }
+
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+        assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * Healthy path through the same production wiring: two tables on one queue index, several
+     * checkpoints, no failures. Every checkpoint must commit and leave nothing pending, so the
+     * shared state never fails a healthy job.
+     */
+    @Test
+    void realPoolSharedQueueCommitsHealthyCheckpoints() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("real-pool-healthy.db");
+        createTables(jdbcUrl);
+        JdbcSinkWriter tableA = createPooledWriter(jdbcUrl, "active_table");
+        JdbcSinkWriter tableB = createPooledWriter(jdbcUrl, "idle_table");
+        MultiTableResourceManager<ConnectionPoolManager> resourceManager =
+                tableA.initMultiTableResourceManager(2, 1);
+        ConnectionPoolManager pool = resourceManager.getSharedResource().get();
+        try {
+            tableA.setMultiTableResourceManager(resourceManager, 0);
+            tableB.setMultiTableResourceManager(resourceManager, 0);
+
+            for (int checkpoint = 1; checkpoint <= 3; checkpoint++) {
+                // Table A flushes on batch_size; table B's single row is flushed by prepareCommit.
+                tableA.write(insertRow(ACTIVE_TABLE_ID, checkpoint * 10 + 1, "a" + checkpoint));
+                tableA.write(insertRow(ACTIVE_TABLE_ID, checkpoint * 10 + 2, "b" + checkpoint));
+                tableB.write(insertRow(IDLE_TABLE_ID, checkpoint * 10, "c" + checkpoint));
+
+                tableA.prepareCommit(checkpoint);
+                tableB.prepareCommit(checkpoint);
+
+                assertFalse(pool.getTransactionState(0).hasPendingOrLostWork());
+            }
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+            resourceManager.close();
+        }
+
+        assertEquals(
+                Arrays.asList("11:a1", "12:b1", "21:a2", "22:b2", "31:a3", "32:b3"),
+                queryRows(jdbcUrl, "active_table"));
+        assertEquals(Arrays.asList("10:c1", "20:c2", "30:c3"), queryRows(jdbcUrl, "idle_table"));
+    }
+
+    /** A plain {@link JdbcSinkWriter}, so the real pooled provider is used once it is wired. */
+    private static JdbcSinkWriter createPooledWriter(String jdbcUrl, String table) {
+        Map<String, Object> options = new HashMap<>(manualCommit());
+        options.put("url", jdbcUrl);
+        options.put("driver", "org.sqlite.JDBC");
+        options.put("database", "main");
+        options.put("table", table);
+        options.put("generate_sink_sql", true);
+        options.put("primary_keys", Arrays.asList("id"));
+        options.put("max_retries", 1);
+        return new JdbcSinkWriter(
+                TablePath.of("main", table),
+                new TestSinkWriterContext(),
+                new SqliteDialect(),
+                JdbcSinkConfig.of(ReadonlyConfig.fromMap(options)),
+                tableSchema(),
+                tableSchema(),
+                0);
+    }
+
     private static Map<String, Object> manualCommit() {
         Map<String, Object> options = new HashMap<>();
         options.put("auto_commit", false);
@@ -384,7 +487,7 @@ class JdbcMultiTableReconnectTest {
         return options;
     }
 
-    private static void closeQuietly(TestJdbcSinkWriter writer) {
+    private static void closeQuietly(JdbcSinkWriter writer) {
         try {
             writer.close();
         } catch (Exception ignored) {

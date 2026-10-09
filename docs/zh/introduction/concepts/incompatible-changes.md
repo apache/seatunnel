@@ -4,6 +4,27 @@
 
 ## dev
 
+### JDBC Sink：手动提交且开启 checkpoint 时重试减少
+
+- **行为变更：手动提交的事务丢失后，作业会失败，而不是重试或提交**
+  - **影响组件**：开启 checkpoint 且使用手动提交连接（`auto_commit = false`，或始终使用手动提交的 Oracle）的
+    JDBC sink（非 XA writer）。
+  - **说明**：两次提交之间 flush 的 batch 只存在于一个未提交的事务中。在多表 sink 中，经由同一个队列写入的多张表
+    共用这个连接和事务。现在 sink 会跟踪这个共享事务，并在以下情况下直接失败，而不是静默地提交不完整的结果：
+    - 当前 checkpoint 周期内，只要该连接上任意一张表已经 flush 过，之后失败的 flush 都不再重试，无论
+      `max_retries` 设置为多少；
+    - 存在待提交数据时，如果 flush 因连接丢失（SQLState `08`）或事务回滚（SQLState `40` 类，例如死锁或
+      序列化失败）而失败，不会重试，该连接上的所有表也都不会再提交；没有待提交数据时，`40` 类错误仍会重试；
+    - 持有已 flush 数据的连接在提交前丢失或被替换时，下一次提交会失败，无论 `max_retries` 设置为多少；
+    - 在启用行级错误处理的多表 sink 中，如果某个行级错误的回滚同时丢弃了另一张表已 flush 的 batch，作业会失败，
+      而不是只丢弃出错的 batch。
+  - **影响**：在上述情况下，受影响的作业会从上一个 checkpoint 恢复，而不是原地重试。在此变更之前，checkpoint
+    可能在已 flush 的行丢失的情况下仍然成功。自动提交连接、未开启 checkpoint 的作业以及 XA / exactly-once writer
+    不受影响。
+  - **迁移指南**：无需修改配置。若想减少作业重启，可以缩短 checkpoint 间隔或调小 `batch_size`，减少同一时间待提交的
+    数据量；如果目标库可以接受每个 batch 单独提交，也可以使用 `auto_commit = true`。在启用行级错误处理的多表 sink
+    中，调小 `batch_size` 也能降低一张表的错误回滚另一张表 batch 的频率。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。

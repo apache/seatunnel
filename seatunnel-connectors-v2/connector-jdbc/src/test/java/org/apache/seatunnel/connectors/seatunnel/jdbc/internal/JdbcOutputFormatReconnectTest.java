@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
@@ -327,8 +328,7 @@ public class JdbcOutputFormatReconnectTest {
     }
 
     @Test
-    public void testFlushShouldNotRetryRolledBackTransactionSharedWithOtherWriters()
-            throws Exception {
+    public void testFlushShouldRetryRolledBackBatchWhenNothingIsPending() throws Exception {
         JdbcConnectionProvider provider = manualCommitProvider();
         Mockito.when(provider.isConnectionValid()).thenReturn(true);
         TrackingJdbcBatchExecutor executor =
@@ -337,11 +337,40 @@ public class JdbcOutputFormatReconnectTest {
                 new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
         outputFormat.open();
 
-        // No earlier batch of this writer, but in a multi-table sink other writers can share the
-        // connection, and the rollback discarded their uncommitted batches too.
+        // Nothing was flushed into the transaction yet, so the deadlock discarded only this batch
+        // and re-sending it is safe.
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+        outputFormat.flush();
+
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+        Assertions.assertDoesNotThrow(
+                () -> outputFormat.checkUncommittedBatchesOn(provider.getConnection()));
+    }
+
+    @Test
+    public void testFlushShouldNotRetryRolledBackTransactionSharedWithOtherWriters()
+            throws Exception {
+        JdbcConnectionProvider provider = manualCommitProvider();
+        Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        // Another table on the same queue index already flushed into the shared transaction.
+        JdbcTransactionState sharedState = new JdbcTransactionState("test queue");
+        sharedState.recordFlush(new Object(), provider.getConnection());
+        Mockito.when(provider.getTransactionState()).thenReturn(sharedState);
+        TrackingJdbcBatchExecutor executor =
+                new TrackingJdbcBatchExecutor(new SQLException("deadlock detected", "40001"), 1);
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+
+        // The rollback discarded the other table's batch too, so this writer must not retry, and
+        // no writer on the connection may commit.
         outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
         Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
         Assertions.assertEquals(1, executor.executeBatchCalls);
+        Assertions.assertTrue(sharedState.isPoisoned());
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> outputFormat.checkUncommittedBatchesOn(provider.getConnection()));
     }
 
     @Test

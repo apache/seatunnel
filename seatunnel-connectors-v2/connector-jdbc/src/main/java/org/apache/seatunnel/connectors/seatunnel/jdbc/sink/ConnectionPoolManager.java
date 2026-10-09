@@ -171,7 +171,8 @@ public class ConnectionPoolManager {
      * the index gets the same instance.
      */
     public JdbcTransactionState getTransactionState(int index) {
-        return transactionStates.computeIfAbsent(index, i -> new JdbcTransactionState());
+        return transactionStates.computeIfAbsent(
+                index, i -> new JdbcTransactionState("JDBC sink queue index " + i));
     }
 
     public boolean containsConnection(int index) {

@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -52,10 +55,27 @@ import java.util.Map;
  */
 public class JdbcTransactionState {
 
+    private static final Logger LOG = LoggerFactory.getLogger(JdbcTransactionState.class);
+
+    // Names the connection in log messages, for example the queue index of a pooled connection.
+    private final String description;
     private Connection connection;
     private final Map<Object, Long> lastFlushByOwner = new IdentityHashMap<>();
     private long flushSequence;
     private String lostWorkReason;
+
+    /** State of a connection used by a single writer. */
+    public JdbcTransactionState() {
+        this("the writer's JDBC connection");
+    }
+
+    /**
+     * @param description names the connection in log messages, for example {@code "JDBC sink queue
+     *     index 2"}
+     */
+    public JdbcTransactionState(String description) {
+        this.description = description;
+    }
 
     /**
      * Records a successful flush of {@code owner} into the open transaction of {@code
@@ -203,6 +223,14 @@ public class JdbcTransactionState {
     private void poison(String reason) {
         if (lostWorkReason == null) {
             lostWorkReason = reason;
+            // Logged once, when the work is lost: the failed commit that follows can come a whole
+            // checkpoint interval later.
+            LOG.warn(
+                    "Flushed but uncommitted JDBC batches on {} were lost: {}. No writer on this"
+                            + " connection will commit again; the job will recover from the last"
+                            + " checkpoint.",
+                    description,
+                    reason);
         }
     }
 }
