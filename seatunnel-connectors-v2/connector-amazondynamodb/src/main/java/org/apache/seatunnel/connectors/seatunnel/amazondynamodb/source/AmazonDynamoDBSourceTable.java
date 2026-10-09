@@ -17,30 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 
-@AllArgsConstructor
+import java.io.Serializable;
+
+/** A DynamoDB table read by the source, with the read options and row type used for it. */
 @Getter
-@Setter
-public class AmazonDynamoDBSourceSplit implements SourceSplit {
+@AllArgsConstructor
+class AmazonDynamoDBSourceTable implements Serializable {
 
-    private static final long serialVersionUID = -5148142613656330674L;
-    private Integer splitId;
-    private Integer totalSegments;
-    private Integer itemCount;
-    /** Table identity for tables_configs; null for single-table splits and older checkpoints. */
-    private String tableId;
+    private static final long serialVersionUID = 1L;
 
-    public AmazonDynamoDBSourceSplit(Integer splitId, Integer totalSegments, Integer itemCount) {
-        this(splitId, totalSegments, itemCount, null);
-    }
+    /** Identity carried by splits and rows; null for a single-table source. */
+    private final String tableId;
 
-    @Override
-    public String splitId() {
-        return tableId == null ? splitId.toString() : tableId + ":" + splitId;
-    }
+    private final AmazonDynamoDBConfig config;
+
+    private final SeaTunnelRowType rowType;
 }
