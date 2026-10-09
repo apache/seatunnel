@@ -403,6 +403,9 @@ class YarnApplicationTest {
             assertEquals(3, launch.getLocalResources().size());
             assertTrue(launch.getCommands().get(0).contains("-Dseatunnel.home=\"{{PWD}}\"/"));
             assertEquals("{{PWD}}", launch.getEnvironment().get("HADOOP_CONF_DIR"));
+            assertEquals(
+                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
+                    launch.getEnvironment().get("HADOOP_USER_NAME"));
             assertTrue(
                     launch.getCommands()
                             .get(0)
@@ -430,6 +433,9 @@ class YarnApplicationTest {
             assertEquals(specification.getJobConfig(), localized.getJobConfig());
             assertEquals(specification.getJobId(), localized.getJobId());
             assertEquals("worker-pool", localizedDeployment.getWorkerNodeLabel());
+            assertEquals(
+                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
+                    localizedDeployment.getHadoopUserName());
             String localizedContent =
                     new String(
                             Files.readAllBytes(
@@ -523,7 +529,11 @@ class YarnApplicationTest {
                                         LocalResourceVisibility.APPLICATION,
                                         resource.getVisibility()));
         assertEquals(
-                YarnContainerLaunchContextFactory.master(configuration, staging, 512)
+                YarnContainerLaunchContextFactory.master(
+                                configuration,
+                                staging,
+                                512,
+                                YarnOptions.HADOOP_USER_NAME.defaultValue())
                         .getLocalResources(),
                 registered.getResources());
     }

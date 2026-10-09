@@ -343,6 +343,19 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 String.valueOf(
                                         firstSpecification.getWorkerSpecification().getSlots()),
                                 command.get(entrypoint + 3));
+                        assertTrue(command.contains("-Dhazelcast.logging.type=log4j2"));
+                        assertTrue(
+                                command.stream()
+                                        .anyMatch(
+                                                argument ->
+                                                        argument.startsWith(
+                                                                "-Dlog4j2.configurationFile=")));
+                        assertTrue(
+                                command.stream()
+                                        .anyMatch(
+                                                argument ->
+                                                        argument.startsWith(
+                                                                "-Dseatunnel.logs.path=")));
                         assertTrue(command.contains(firstMaster));
                         assertFalse(command.contains(secondMaster));
                         assertEquals(
@@ -393,6 +406,23 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         ApplicationStatus.FAILED,
                         application.getStatus(),
                         "Worker cleanup must preserve the original application failure");
+            } finally {
+                deployer.cancelApplication(application.getClusterId());
+            }
+            awaitAllResourcesRemoved(application);
+        }
+    }
+
+    @Test
+    void masterExitTerminatesWorkersWithoutMasterCleanup() throws Exception {
+        try (KubernetesApplicationClient application = deployApplication("isolation")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                awaitJobRunning(application);
+                V1Pod master = masterPod(application);
+                killMasterContainer(master);
+                awaitStatus(application, ApplicationStatus.FAILED);
+                awaitWorkersExited(application);
             } finally {
                 deployer.cancelApplication(application.getClusterId());
             }
@@ -627,7 +657,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 return current.getStatus() != null
                                         && current.getStatus().getHard() != null;
                             });
-            try (KubernetesApplicationClient application = deployApplication("quota")) {
+            try (KubernetesApplicationClient application =
+                    deployApplicationWithoutStartupWait(specification("quota"), "quota")) {
                 try {
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
@@ -659,6 +690,19 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
 
         return new KubernetesApplicationClient(platformMonitor, deployer.run());
+    }
+
+    private KubernetesApplicationClient deployApplicationWithoutStartupWait(
+            ApplicationSpecification specification, String scenario) throws Exception {
+        Map<String, String> options =
+                SeatunnelApplicationConfig.load(
+                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
+                                .toPath(),
+                        Collections.emptyMap());
+        String id =
+                new KubernetesApplicationClusterDescriptorFactory()
+                        .deployApplicationWithoutWaitingForStartup(specification, options);
+        return new KubernetesApplicationClient(platformMonitor, id);
     }
 
     private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {
@@ -762,6 +806,48 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
+    }
+
+    private void awaitWorkersExited(KubernetesApplicationClient application) {
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<V1Pod> workers = workers(application);
+                            assertFalse(
+                                    workers.isEmpty(),
+                                    "The application must launch at least one worker");
+                            assertTrue(
+                                    workers.stream()
+                                            .allMatch(
+                                                    pod ->
+                                                            pod.getStatus() != null
+                                                                    && ("Succeeded"
+                                                                                    .equals(
+                                                                                            pod.getStatus()
+                                                                                                    .getPhase())
+                                                                            || "Failed"
+                                                                                    .equals(
+                                                                                            pod.getStatus()
+                                                                                                    .getPhase()))));
+                        });
+    }
+
+    private void killMasterContainer(V1Pod master) throws Exception {
+        Process process =
+                new Exec(apiClient)
+                        .exec(
+                                master,
+                                new String[] {"/bin/sh", "-c", "kill -9 1"},
+                                "seatunnel",
+                                false,
+                                false);
+        try {
+            assertTrue(process.waitFor(15, TimeUnit.SECONDS), "Master kill did not complete");
+            assertEquals(0, process.exitValue(), "kill -9 1 failed inside the master container");
+        } finally {
+            process.destroyForcibly();
+        }
     }
 
     private static void assertRuntimeConfigMapMounted(V1Pod pod) {

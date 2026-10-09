@@ -48,7 +48,7 @@ public final class YarnApplicationClient implements AutoCloseable {
     /** Reads native application state and retries artifact cleanup after any terminal state. */
     public ApplicationStatus getStatus() throws Exception {
         ApplicationReport report = client.getApplicationReport(yarnId);
-        ApplicationStatus status = status(report);
+        ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
         if (status.isTerminal()) {
             YarnStagingDirectory.cleanup(configuration, staging);
         }
@@ -65,33 +65,5 @@ public final class YarnApplicationClient implements AutoCloseable {
     @Override
     public void close() {
         client.stop();
-    }
-
-    static ApplicationStatus status(ApplicationReport report) {
-        switch (report.getYarnApplicationState()) {
-            case NEW:
-            case NEW_SAVING:
-            case SUBMITTED:
-                return ApplicationStatus.CREATED;
-            case ACCEPTED:
-                return ApplicationStatus.DEPLOYING;
-            case RUNNING:
-                return ApplicationStatus.RUNNING;
-            case KILLED:
-                return ApplicationStatus.CANCELED;
-            case FAILED:
-                return ApplicationStatus.FAILED;
-            case FINISHED:
-                switch (report.getFinalApplicationStatus()) {
-                    case SUCCEEDED:
-                        return ApplicationStatus.SUCCEEDED;
-                    case KILLED:
-                        return ApplicationStatus.CANCELED;
-                    default:
-                        return ApplicationStatus.FAILED;
-                }
-            default:
-                return ApplicationStatus.UNKNOWN;
-        }
     }
 }

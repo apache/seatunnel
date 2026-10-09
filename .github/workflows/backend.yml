@@ -276,7 +276,7 @@ jobs:
           echo "helm=$true_or_false" >> $GITHUB_OUTPUT
           echo "helm_files=$file_list" >> $GITHUB_OUTPUT
 
-          resource_manager_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "pom.xml" "seatunnel-resource-managers/**" "seatunnel-core/seatunnel-starter/**" "seatunnel-e2e/pom.xml" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-e2e/seatunnel-resource-managers-e2e/**" "config/application-mode/**" "plugin-mapping.properties" "seatunnel-connectors-v2/connector-fake/**" "seatunnel-connectors-v2/connector-console/**" "seatunnel-connectors-v2/connector-assert/**" "seatunnel-dist/**" ".github/workflows/backend.yml" ".github/workflows/build_main.yml"`
+          resource_manager_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "pom.xml" "seatunnel-resource-managers/**" "seatunnel-core/seatunnel-starter/**" "seatunnel-e2e/pom.xml" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-e2e/seatunnel-resource-managers-e2e/**" "config/v1.*.conf.template" "plugin-mapping.properties" "seatunnel-connectors-v2/connector-fake/**" "seatunnel-connectors-v2/connector-console/**" "seatunnel-connectors-v2/connector-assert/**" "seatunnel-dist/**" ".github/workflows/backend.yml" ".github/workflows/build_main.yml"`
           true_or_false=${resource_manager_files%%$'\n'*}
           echo "resource-managers=$true_or_false" >> $GITHUB_OUTPUT
 

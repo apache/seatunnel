@@ -24,8 +24,18 @@ import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hazelcast.cluster.MembershipEvent;
+import com.hazelcast.cluster.MembershipListener;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+
 /** Starts one fixed-slot application worker without Kubernetes API access. */
 public final class SeatunnelKubernetesApplicationWorker {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(SeatunnelKubernetesApplicationWorker.class);
+
     private SeatunnelKubernetesApplicationWorker() {}
 
     /**
@@ -43,7 +53,28 @@ public final class SeatunnelKubernetesApplicationWorker {
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
-        SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, JarPathResolver.identity(), new ResourceManagerFactory());
+        HazelcastInstanceImpl worker =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        config, null, JarPathResolver.identity(), new ResourceManagerFactory());
+        worker.getCluster().addMembershipListener(new MasterExitListener());
+    }
+
+    /**
+     * Exits this worker when the sole non-lite master member leaves, so an unclean master exit
+     * cannot leave lite workers alive and holding their full pod reservations until Job TTL.
+     */
+    private static final class MasterExitListener implements MembershipListener {
+        @Override
+        public void memberAdded(MembershipEvent membershipEvent) {}
+
+        @Override
+        public void memberRemoved(MembershipEvent membershipEvent) {
+            if (!membershipEvent.getMember().isLiteMember()) {
+                LOG.warn(
+                        "Application master {} left the cluster; shutting down worker",
+                        membershipEvent.getMember().getAddress());
+                System.exit(1);
+            }
+        }
     }
 }

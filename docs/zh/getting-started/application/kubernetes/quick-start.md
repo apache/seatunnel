@@ -25,7 +25,7 @@ title: 快速开始
 使用下载或源码构建得到的标准发行包创建镜像：
 
 ```dockerfile
-FROM eclipse-temurin:8-jdk
+FROM eclipse-temurin:11-jdk
 ADD apache-seatunnel-<version>-bin.tar.gz /opt/
 RUN mv /opt/apache-seatunnel-<version> /opt/seatunnel
 ENV SEATUNNEL_HOME=/opt/seatunnel

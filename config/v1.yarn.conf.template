@@ -25,4 +25,7 @@ application {
 yarn {
   distribution = "/path/to/apache-seatunnel-<version>-bin.tar.gz"
   config-dir = "/etc/hadoop/conf"
+  # Hadoop user propagated to the AM and worker containers under simple authentication.
+  # Defaults to the submitting OS user.
+  # hadoop-user-name = "your-hadoop-user"
 }

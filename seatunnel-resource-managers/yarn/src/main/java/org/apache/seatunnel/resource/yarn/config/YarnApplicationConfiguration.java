@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -55,6 +56,7 @@ public final class YarnApplicationConfiguration {
     private final Set<String> tags;
     private final String masterNodeLabel;
     private final String workerNodeLabel;
+    private final String hadoopUserName;
 
     private YarnApplicationConfiguration(
             ApplicationSpecification specification,
@@ -89,6 +91,10 @@ public final class YarnApplicationConfiguration {
         this.masterNodeLabel = emptyToNull(options.get(YarnOptions.MASTER_NODE_LABEL));
         String worker = emptyToNull(options.get(YarnOptions.WORKER_NODE_LABEL));
         this.workerNodeLabel = worker == null ? masterNodeLabel : worker;
+        this.hadoopUserName = options.get(YarnOptions.HADOOP_USER_NAME).trim();
+        if (hadoopUserName.isEmpty()) {
+            throw new IllegalArgumentException("yarn.hadoop-user-name must not be empty");
+        }
     }
 
     /**
@@ -108,8 +114,9 @@ public final class YarnApplicationConfiguration {
      *
      * <p>YARN localizes application.properties into the container working directory. This is a
      * generated runtime file, not the submitter's original HOCON file. Only the resolved worker
-     * node label is needed from YARN deployment options; Hadoop settings and the staging path
-     * arrive through the localized Hadoop XML and container environment respectively.
+     * node label and Hadoop user name are needed from YARN deployment options; Hadoop settings and
+     * the staging path arrive through the localized Hadoop XML and container environment
+     * respectively.
      *
      * @param path localized application configuration file
      * @return YARN configuration that does not require the submitter-local distribution path
@@ -119,19 +126,24 @@ public final class YarnApplicationConfiguration {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
+        Map<String, Object> options = new HashMap<>();
+        options.put(
+                YarnOptions.WORKER_NODE_LABEL.key(),
+                properties.getProperty(YarnOptions.WORKER_NODE_LABEL.key(), ""));
+        options.put(
+                YarnOptions.HADOOP_USER_NAME.key(),
+                properties.getProperty(
+                        YarnOptions.HADOOP_USER_NAME.key(),
+                        YarnOptions.HADOOP_USER_NAME.defaultValue()));
         return new YarnApplicationConfiguration(
                 SeatunnelApplicationConfig.fromProperties(properties),
-                ReadonlyConfig.fromMap(
-                        new HashMap<>(
-                                Collections.singletonMap(
-                                        YarnOptions.WORKER_NODE_LABEL.key(),
-                                        properties.getProperty(
-                                                YarnOptions.WORKER_NODE_LABEL.key(), "")))),
+                ReadonlyConfig.fromMap(options),
                 false);
     }
 
     /**
-     * Writes common application fields and resolved worker placement for the remote master.
+     * Writes common application fields, resolved worker placement and Hadoop user for the remote
+     * master.
      *
      * <p>Queue, priority, tags and local distribution paths are submission inputs, not driver
      * settings. Do not serialize the original options map here. The uploader owns this writer and
@@ -142,6 +154,7 @@ public final class YarnApplicationConfiguration {
         if (workerNodeLabel != null) {
             properties.setProperty(YarnOptions.WORKER_NODE_LABEL.key(), workerNodeLabel);
         }
+        properties.setProperty(YarnOptions.HADOOP_USER_NAME.key(), hadoopUserName);
         properties.store(writer, "SeaTunnel YARN application");
     }
 
@@ -161,6 +174,9 @@ public final class YarnApplicationConfiguration {
     }
 
     private static String emptyToNull(String value) {
-        return value == null || value.trim().isEmpty() ? null : value.trim();
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
     }
 }

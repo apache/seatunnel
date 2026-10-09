@@ -20,6 +20,7 @@ title: 配置参考
 | `yarn.tags` | String | 空 | 以逗号分隔的 YARN application tag。 |
 | `yarn.master.node-label` | String | 空 | ApplicationMaster 使用的 node-label expression。 |
 | `yarn.worker.node-label` | String | 空 | Worker 使用的 node-label expression；为空时继承 `yarn.master.node-label`。 |
+| `yarn.hadoop-user-name` | String | 提交机 OS 用户 | 在 simple authentication 下传递给 AM 和 Worker Container 的 Hadoop 用户。 |
 
 `yarn.config-dir` 只用于配置 Hadoop 客户端。SeaTunnel 运行时与日志配置来自 `yarn.distribution` 内的 `config/seatunnel.yaml` 和 `config/log4j2_client.properties`。YARN 会为 ApplicationMaster 和所有 Worker 本地化同一份只读发行包；需要自定义 JVM、引擎、checkpoint 或日志配置时，应在创建归档前修改这些文件。
 

@@ -43,20 +43,11 @@ public final class ApplicationJobRunner {
 
     private final SeaTunnelServer server;
     private final ApplicationSpecification specification;
-    private final ExecutorService cleanupExecutor;
 
     /** Uses an existing master and its localized, resolved application specification. */
     public ApplicationJobRunner(SeaTunnelServer server, ApplicationSpecification specification) {
         this.server = server;
         this.specification = specification;
-        this.cleanupExecutor =
-                Executors.newSingleThreadExecutor(
-                        runnable -> {
-                            Thread thread =
-                                    new Thread(runnable, "seatunnel-application-resources-cleanup");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
     }
 
     /**
@@ -136,46 +127,42 @@ public final class ApplicationJobRunner {
         }
 
         try {
-            try {
-                runCleanup(
-                        () -> {
-                            try {
-                                resources.stopApplicationWorkers();
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        },
-                        60,
-                        "stop application workers");
-            } catch (Exception failure) {
-                outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
-                status = ApplicationStatus.FAILED;
-            }
+            runCleanup(
+                    () -> {
+                        try {
+                            resources.stopApplicationWorkers();
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    },
+                    60,
+                    "stop application workers");
+        } catch (Exception failure) {
+            outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
+            status = ApplicationStatus.FAILED;
+        }
 
-            String diagnostics = outcome == null ? "" : outcome.toString();
-            try {
-                ApplicationStatus finalStatus = status;
-                runCleanup(
-                        () -> {
-                            try {
-                                resources.finish(finalStatus, diagnostics);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        },
-                        10,
-                        "finish application");
-            } catch (Exception failure) {
-                outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
-            }
+        String diagnostics = outcome == null ? "" : outcome.toString();
+        try {
+            ApplicationStatus finalStatus = status;
+            runCleanup(
+                    () -> {
+                        try {
+                            resources.finish(finalStatus, diagnostics);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    },
+                    10,
+                    "finish application");
+        } catch (Exception failure) {
+            outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
+        }
 
-            try {
-                runCleanup(resources::close, 20, "close application resources");
-            } catch (Exception failure) {
-                outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
-            }
-        } finally {
-            cleanupExecutor.shutdownNow();
+        try {
+            runCleanup(resources::close, 20, "close application resources");
+        } catch (Exception failure) {
+            outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
         }
 
         if (outcome != null) {
@@ -185,6 +172,14 @@ public final class ApplicationJobRunner {
 
     private void runCleanup(Runnable action, long timeoutSeconds, String operation)
             throws Exception {
+        ExecutorService cleanupExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(runnable, "seatunnel-application-resources-cleanup");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         try {
             cleanupExecutor.submit(action).get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
@@ -194,6 +189,8 @@ public final class ApplicationJobRunner {
             throw e;
         } catch (TimeoutException e) {
             throw new TimeoutException("Timed out while trying to " + operation);
+        } finally {
+            cleanupExecutor.shutdownNow();
         }
     }
 

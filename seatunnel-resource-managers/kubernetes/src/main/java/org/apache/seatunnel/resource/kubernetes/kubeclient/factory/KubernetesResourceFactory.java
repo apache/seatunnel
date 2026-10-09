@@ -30,6 +30,7 @@ import io.kubernetes.client.openapi.models.V1JobSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 import io.kubernetes.client.openapi.models.V1Secret;
 
@@ -132,39 +133,33 @@ public final class KubernetesResourceFactory {
      */
     public static KubernetesJob job(
             String id, String mainClass, KubernetesApplicationParameters parameters) {
+        V1PodSpec masterSpec = KubernetesPodFactory.master(id, mainClass, parameters);
+        V1ObjectMeta masterMetadata =
+                podMetadata(
+                        id,
+                        KubernetesConstants.MASTER_ROLE,
+                        parameters.getMasterLabels(),
+                        parameters.getMasterAnnotations());
+        V1PodTemplateSpec template =
+                new V1PodTemplateSpec().metadata(masterMetadata).spec(masterSpec);
+        V1JobSpec spec =
+                new V1JobSpec()
+                        .suspend(true)
+                        .backoffLimit(0)
+                        .completions(1)
+                        .parallelism(1)
+                        .ttlSecondsAfterFinished(parameters.getRetentionSeconds())
+                        .template(template);
+        V1ObjectMeta metadata =
+                new V1ObjectMeta()
+                        .name(id)
+                        .labels(ownershipLabels(id, KubernetesConstants.MASTER_ROLE));
         return new KubernetesJob(
                 new V1Job()
                         .apiVersion(KubernetesConstants.BATCH_API_VERSION)
                         .kind(KubernetesConstants.JOB_KIND)
-                        .metadata(
-                                new V1ObjectMeta()
-                                        .name(id)
-                                        .labels(
-                                                ownershipLabels(
-                                                        id, KubernetesConstants.MASTER_ROLE)))
-                        .spec(
-                                new V1JobSpec()
-                                        .suspend(true)
-                                        .backoffLimit(0)
-                                        .completions(1)
-                                        .parallelism(1)
-                                        .ttlSecondsAfterFinished(parameters.getRetentionSeconds())
-                                        .template(
-                                                new V1PodTemplateSpec()
-                                                        .metadata(
-                                                                podMetadata(
-                                                                        id,
-                                                                        KubernetesConstants
-                                                                                .MASTER_ROLE,
-                                                                        parameters
-                                                                                .getMasterLabels(),
-                                                                        parameters
-                                                                                .getMasterAnnotations()))
-                                                        .spec(
-                                                                KubernetesPodFactory.master(
-                                                                        id,
-                                                                        mainClass,
-                                                                        parameters)))));
+                        .metadata(metadata)
+                        .spec(spec));
     }
 
     /**
@@ -217,21 +212,22 @@ public final class KubernetesResourceFactory {
             WorkerSpecification resources,
             String clusterName,
             String masterAddress) {
+        V1ObjectMeta metadata =
+                metadata(job, name, KubernetesConstants.WORKER_ROLE)
+                        .labels(
+                                podLabels(
+                                        job.getName(),
+                                        KubernetesConstants.WORKER_ROLE,
+                                        parameters.getWorkerLabels()))
+                        .annotations(parameters.getWorkerAnnotations());
+        V1PodSpec spec =
+                KubernetesPodFactory.worker(parameters, resources, clusterName, masterAddress);
         return new KubernetesPod(
                 new V1Pod()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                         .kind(KubernetesConstants.POD_KIND)
-                        .metadata(
-                                metadata(job, name, KubernetesConstants.WORKER_ROLE)
-                                        .labels(
-                                                podLabels(
-                                                        job.getName(),
-                                                        KubernetesConstants.WORKER_ROLE,
-                                                        parameters.getWorkerLabels()))
-                                        .annotations(parameters.getWorkerAnnotations()))
-                        .spec(
-                                KubernetesPodFactory.worker(
-                                        parameters, resources, clusterName, masterAddress)));
+                        .metadata(metadata)
+                        .spec(spec));
     }
 
     private static V1ObjectMeta metadata(KubernetesJob job, String name, String role) {

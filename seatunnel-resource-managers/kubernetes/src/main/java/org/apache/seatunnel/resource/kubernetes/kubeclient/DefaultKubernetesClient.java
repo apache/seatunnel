@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -24,6 +25,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.custom.V1Patch;
 import io.kubernetes.client.openapi.ApiClient;
@@ -37,6 +41,8 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -47,6 +53,8 @@ import java.util.function.Consumer;
  * requests and resource cleanup complete.
  */
 final class DefaultKubernetesClient implements KubernetesClient {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultKubernetesClient.class);
+
     private final ApiClient client;
     private final CoreV1Api core;
     private final BatchV1Api batch;
@@ -154,19 +162,70 @@ final class DefaultKubernetesClient implements KubernetesClient {
                             return thread;
                         });
 
-        executor.scheduleWithFixedDelay(
+        AtomicBoolean stopped = new AtomicBoolean();
+        AtomicLong firstFailureNanos = new AtomicLong();
+
+        Runnable runnable =
                 () -> {
-                    try {
-                        listener.accept(listPods(selector));
-                    } catch (Exception failure) {
-                        executor.shutdown();
-                        errorHandler.accept(failure);
+                    if (stopped.get()) {
+                        return;
                     }
-                },
-                0,
-                intervalMillis,
-                TimeUnit.MILLISECONDS);
-        return executor::shutdownNow;
+                    try {
+                        List<KubernetesPod> pods = listPods(selector);
+                        firstFailureNanos.set(0L);
+                        listener.accept(pods);
+                    } catch (Exception failure) {
+                        if (isNonRetryable(failure)) {
+                            stopAndReport(executor, stopped, errorHandler, failure);
+                            return;
+                        }
+                        long started = firstFailureNanos.get();
+                        if (started == 0L) {
+                            firstFailureNanos.compareAndSet(0L, System.nanoTime());
+                            started = firstFailureNanos.get();
+                        }
+                        LOG.warn(
+                                "Could not list application pods for selector {}; will keep polling",
+                                selector,
+                                failure);
+                        if (System.nanoTime() - started
+                                >= TimeUnit.MILLISECONDS.toNanos(
+                                        KubernetesConstants
+                                                .WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS)) {
+                            stopAndReport(
+                                    executor,
+                                    stopped,
+                                    errorHandler,
+                                    new IllegalStateException(
+                                            "Kubernetes pod watch exceeded the transient failure budget for selector "
+                                                    + selector,
+                                            failure));
+                        }
+                    }
+                };
+        executor.scheduleWithFixedDelay(runnable, 0, intervalMillis, TimeUnit.MILLISECONDS);
+        return () -> {
+            stopped.set(true);
+            executor.shutdownNow();
+        };
+    }
+
+    private static void stopAndReport(
+            ScheduledExecutorService executor,
+            AtomicBoolean stopped,
+            Consumer<Exception> errorHandler,
+            Exception failure) {
+        stopped.set(true);
+        executor.shutdown();
+        errorHandler.accept(failure);
+    }
+
+    private static boolean isNonRetryable(Exception failure) {
+        if (failure instanceof ApiException) {
+            int code = ((ApiException) failure).getCode();
+            return code == 401 || code == 403 || code == 404;
+        }
+        return false;
     }
 
     /**

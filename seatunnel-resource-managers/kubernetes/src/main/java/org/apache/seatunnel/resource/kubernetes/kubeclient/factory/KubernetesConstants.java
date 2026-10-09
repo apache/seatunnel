@@ -89,6 +89,7 @@ public final class KubernetesConstants {
     /** Probe timing and command values shared by application Pods. */
     public static final int STARTUP_PROBE_PERIOD_MILLIS = 5000;
 
+    public static final long WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS = 90_000;
     public static final int PROBE_PERIOD_SECONDS = 10;
     public static final int PROBE_TIMEOUT_SECONDS = 2;
     public static final int PROBE_FAILURE_THRESHOLD = 3;

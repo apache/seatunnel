@@ -56,7 +56,15 @@ public final class SeatunnelKubernetesApplicationCli {
     public static void main(String[] args) {
         int exitCode = 0;
         try {
-            runApplication(args);
+            String id = applicationId(args);
+            KubernetesApplicationParameters parameters =
+                    KubernetesApplicationParameters.read(Paths.get(args[1]));
+            ApplicationSpecification specification = parameters.getSpecification();
+            SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
+            KubernetesResourceManagerDriver driver = createDriver(parameters, id, clusterName(id));
+            HazelcastInstanceImpl master =
+                    startMaster(engineConfiguration, specification, id, driver);
+            runJob(specification, master, driver);
         } catch (Exception failure) {
             LOG.error("Kubernetes application failed", failure);
             exitCode = 1;
@@ -64,22 +72,42 @@ public final class SeatunnelKubernetesApplicationCli {
         System.exit(exitCode);
     }
 
-    /** Starts the master, runs its job and closes the master before returning. */
-    private static void runApplication(String[] args) throws Exception {
+    /**
+     * Validates the Kubernetes master entrypoint arguments.
+     *
+     * @param args application ID followed by the mounted specification path
+     * @return the Kubernetes application ID
+     */
+    private static String applicationId(String[] args) {
         if (args.length != 2) {
             throw new IllegalArgumentException("Expected application id and specification path");
         }
-        String id = args[0];
-        // args[1] is application.properties mounted from the application Secret, not the user's
-        // HOCON input file. Decode once and pass the resolved objects to the runtime components.
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.read(Paths.get(args[1]));
-        ApplicationSpecification specification = parameters.getSpecification();
+        return args[0];
+    }
+
+    /**
+     * Builds the isolated Hazelcast cluster name for one application.
+     *
+     * @param id Kubernetes application ID
+     * @return cluster name shared only by this application's master and workers
+     */
+    private static String clusterName(String id) {
+        return SeatunnelApplicationConfig.clusterName(id);
+    }
+
+    /**
+     * Prepares the master's Engine and Hazelcast configuration.
+     *
+     * @param id Kubernetes application ID used for the cluster name
+     * @param specification resolved application fields
+     * @return configuration ready for master startup
+     */
+    private static SeaTunnelConfig configureEngine(
+            String id, ApplicationSpecification specification) {
         SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
-        String clusterName = SeatunnelApplicationConfig.clusterName(id);
         SeatunnelApplicationConfig.configure(
                 engineConfiguration,
-                clusterName,
+                clusterName(id),
                 null,
                 specification.getWorkerSpecification().getSlots());
         SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
@@ -93,31 +121,52 @@ public final class SeatunnelKubernetesApplicationCli {
             engineConfiguration
                     .getHazelcastConfig()
                     .getNetworkConfig()
-                    .setPublicAddress(
-                            (host.contains(":") ? "[" + host + "]" : host)
-                                    + ":"
-                                    + specification.getMasterPort());
+                    .setPublicAddress(masterAddress(host, specification.getMasterPort()));
         }
+        return engineConfiguration;
+    }
 
-        KubernetesResourceManagerDriver driver =
-                new KubernetesResourceManagerDriver(
-                        KubernetesClientFactory.create(
-                                Collections.singletonMap(
-                                        KubernetesOptions.NAMESPACE.key(),
-                                        parameters.getNamespace()),
-                                true),
-                        parameters,
-                        id,
-                        clusterName);
-        HazelcastInstanceImpl master;
+    /**
+     * Opens the in-cluster Kubernetes client and creates the resource manager driver.
+     *
+     * @param parameters resolved Kubernetes settings
+     * @param id Kubernetes application ID
+     * @param clusterName isolated Hazelcast cluster name
+     * @return driver that owns the in-cluster SDK connection
+     */
+    private static KubernetesResourceManagerDriver createDriver(
+            KubernetesApplicationParameters parameters, String id, String clusterName)
+            throws Exception {
+        return new KubernetesResourceManagerDriver(
+                KubernetesClientFactory.create(
+                        Collections.singletonMap(
+                                KubernetesOptions.NAMESPACE.key(), parameters.getNamespace()),
+                        true),
+                parameters,
+                id,
+                clusterName);
+    }
+
+    /**
+     * Starts the Hazelcast master and closes the driver if startup fails.
+     *
+     * @param engineConfiguration prepared Engine/Hazelcast configuration
+     * @param specification resolved application fields
+     * @param id Kubernetes application ID
+     * @param driver resource manager driver owned by the master
+     * @return started Hazelcast master instance
+     */
+    private static HazelcastInstanceImpl startMaster(
+            SeaTunnelConfig engineConfiguration,
+            ApplicationSpecification specification,
+            String id,
+            KubernetesResourceManagerDriver driver) {
         try {
-            master =
-                    SeaTunnelServerStarter.createHazelcastInstance(
-                            engineConfiguration,
-                            null,
-                            JarPathResolver.identity(),
-                            new ResourceManagerFactory(
-                                    DeployType.KUBERNETES, id, specification, driver));
+            return SeaTunnelServerStarter.createHazelcastInstance(
+                    engineConfiguration,
+                    null,
+                    JarPathResolver.identity(),
+                    new ResourceManagerFactory(DeployType.KUBERNETES, id, specification, driver));
         } catch (Exception failure) {
             try {
                 driver.close();
@@ -126,42 +175,99 @@ public final class SeatunnelKubernetesApplicationCli {
             }
             throw failure;
         }
+    }
+
+    /**
+     * Runs the application job and releases driver and master resources afterwards.
+     *
+     * @param specification resolved application fields
+     * @param master started Hazelcast master instance
+     * @param driver resource manager driver to close during cleanup
+     */
+    private static void runJob(
+            ApplicationSpecification specification,
+            HazelcastInstanceImpl master,
+            KubernetesResourceManagerDriver driver)
+            throws Exception {
         SeaTunnelServer server =
                 master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-        Thread owner = Thread.currentThread();
         CountDownLatch stopped = new CountDownLatch(1);
-        Thread shutdown =
-                new Thread(
-                        () -> {
-                            owner.interrupt();
-                            try {
-                                stopped.await(155, TimeUnit.SECONDS);
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                            }
-                        },
-                        "seatunnel-kubernetes-application-shutdown");
+        Thread shutdown = shutdownHook(stopped);
         try {
             Runtime.getRuntime().addShutdownHook(shutdown);
             new ApplicationJobRunner(server, specification).run();
         } finally {
+            removeShutdownHook(shutdown);
+            closeDriverIfNeeded(server, driver);
             try {
-                Runtime.getRuntime().removeShutdownHook(shutdown);
-            } catch (IllegalStateException ignored) {
-                // The VM is already executing this hook.
-            }
-
-            try {
-                if (server.getCoordinatorService().getInitializedResourceManager() == null) {
-                    driver.close();
-                }
+                master.shutdown();
             } finally {
-                if (Thread.interrupted()) {
-                    Thread.currentThread().interrupt();
-                }
+                stopped.countDown();
             }
-            master.shutdown();
-            stopped.countDown();
         }
+    }
+
+    /**
+     * Creates the shutdown hook that interrupts the owning thread and waits for cleanup.
+     *
+     * @param stopped latch released when the owning thread finishes cleanup
+     * @return JVM shutdown hook thread
+     */
+    private static Thread shutdownHook(CountDownLatch stopped) {
+        Thread owner = Thread.currentThread();
+        return new Thread(
+                () -> {
+                    owner.interrupt();
+                    try {
+                        stopped.await(155, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                },
+                "seatunnel-kubernetes-application-shutdown");
+    }
+
+    /**
+     * Removes a shutdown hook, tolerating the VM already executing it.
+     *
+     * @param shutdown hook thread to remove
+     */
+    private static void removeShutdownHook(Thread shutdown) {
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdown);
+        } catch (IllegalStateException ignored) {
+            // The VM is already executing this hook.
+        }
+    }
+
+    /**
+     * Closes the driver when the runtime has not already initialized the resource manager.
+     *
+     * @param server running master server
+     * @param driver driver to close if cleanup ownership belongs to this process
+     */
+    private static void closeDriverIfNeeded(
+            SeaTunnelServer server, KubernetesResourceManagerDriver driver) throws Exception {
+        try {
+            if (server.getCoordinatorService().getInitializedResourceManager() == null) {
+                driver.close();
+            }
+        } finally {
+            if (Thread.interrupted()) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * Formats a master endpoint with IPv6 brackets when required.
+     *
+     * @param host master host or IP address
+     * @param port master port
+     * @return host:port endpoint suitable for Hazelcast public address configuration
+     */
+    private static String masterAddress(String host, int port) {
+        String formattedHost = host.contains(":") ? "[" + host + "]" : host;
+        return formattedHost + ":" + port;
     }
 }

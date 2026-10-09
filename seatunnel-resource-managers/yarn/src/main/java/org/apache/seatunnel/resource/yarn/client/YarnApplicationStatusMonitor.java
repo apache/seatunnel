@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.resource.yarn.client;
 
+import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
@@ -49,15 +50,11 @@ public final class YarnApplicationStatusMonitor {
         while (true) {
             ApplicationReport report = client.getApplicationReport(applicationId);
             YarnApplicationState state = report.getYarnApplicationState();
-            if (state == YarnApplicationState.RUNNING
-                    || (state == YarnApplicationState.FINISHED
-                            && report.getFinalApplicationStatus()
-                                    == FinalApplicationStatus.SUCCEEDED)) {
+            ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
+            if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
                 return report;
             }
-            if (state == YarnApplicationState.FINISHED
-                    || state == YarnApplicationState.FAILED
-                    || state == YarnApplicationState.KILLED) {
+            if (status == ApplicationStatus.FAILED || status == ApplicationStatus.CANCELED) {
                 throw new IllegalStateException(
                         "YARN application "
                                 + applicationId

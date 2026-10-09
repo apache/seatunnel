@@ -74,48 +74,54 @@ final class KubernetesPodFactory {
                                 + "/"
                                 + KubernetesConstants.SPECIFICATION_FILE));
         container.addVolumeMountsItem(
-                new V1VolumeMount()
-                        .name(KubernetesConstants.APPLICATION_VOLUME)
-                        .mountPath(KubernetesConstants.CONFIG_DIRECTORY)
-                        .readOnly(true));
-        container.addEnvItem(
-                new V1EnvVar()
-                        .name(KubernetesConstants.MASTER_HOST_ENV)
-                        .valueFrom(
-                                new V1EnvVarSource()
-                                        .fieldRef(
-                                                new V1ObjectFieldSelector()
-                                                        .fieldPath(
-                                                                KubernetesConstants
-                                                                        .POD_IP_FIELD_PATH))));
+                volumeMount(
+                        KubernetesConstants.APPLICATION_VOLUME,
+                        KubernetesConstants.CONFIG_DIRECTORY,
+                        true));
+        container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification.getMasterPort(), specification);
-        V1PodSpec pod =
-                pod(parameters, container, true)
-                        .addVolumesItem(
-                                new V1Volume()
-                                        .name(KubernetesConstants.APPLICATION_VOLUME)
-                                        .secret(
-                                                new V1SecretVolumeSource()
-                                                        .secretName(id)
-                                                        .defaultMode(
-                                                                KubernetesConstants
-                                                                        .APPLICATION_SECRET_MODE)));
+        V1PodSpec pod = pod(parameters, container, true).addVolumesItem(applicationVolume(id));
         mountRuntimeConfiguration(parameters, container, pod);
         String checkpointClaim = parameters.getCheckpointPvc();
         if (checkpointClaim != null) {
             container.addVolumeMountsItem(
-                    new V1VolumeMount()
-                            .name(KubernetesConstants.CHECKPOINT_VOLUME)
-                            .mountPath(KubernetesConstants.CHECKPOINT_DIRECTORY));
-            pod.addVolumesItem(
-                    new V1Volume()
-                            .name(KubernetesConstants.CHECKPOINT_VOLUME)
-                            .persistentVolumeClaim(
-                                    new V1PersistentVolumeClaimVolumeSource()
-                                            .claimName(checkpointClaim)
-                                            .readOnly(false)));
+                    volumeMount(
+                            KubernetesConstants.CHECKPOINT_VOLUME,
+                            KubernetesConstants.CHECKPOINT_DIRECTORY,
+                            false));
+            pod.addVolumesItem(checkpointVolume(checkpointClaim));
         }
         return pod;
+    }
+
+    private static V1EnvVar masterHostEnv() {
+        return new V1EnvVar()
+                .name(KubernetesConstants.MASTER_HOST_ENV)
+                .valueFrom(
+                        new V1EnvVarSource()
+                                .fieldRef(
+                                        new V1ObjectFieldSelector()
+                                                .fieldPath(KubernetesConstants.POD_IP_FIELD_PATH)));
+    }
+
+    private static V1Volume applicationVolume(String id) {
+        return new V1Volume()
+                .name(KubernetesConstants.APPLICATION_VOLUME)
+                .secret(
+                        new V1SecretVolumeSource()
+                                .secretName(id)
+                                .defaultMode(KubernetesConstants.APPLICATION_SECRET_MODE));
+    }
+
+    private static V1Volume checkpointVolume(String claim) {
+        return new V1Volume()
+                .name(KubernetesConstants.CHECKPOINT_VOLUME)
+                .persistentVolumeClaim(
+                        new V1PersistentVolumeClaimVolumeSource().claimName(claim).readOnly(false));
+    }
+
+    private static V1VolumeMount volumeMount(String name, String path, boolean readOnly) {
+        return new V1VolumeMount().name(name).mountPath(path).readOnly(readOnly);
     }
 
     /**
@@ -154,14 +160,11 @@ final class KubernetesPodFactory {
             return;
         }
         container.addVolumeMountsItem(
-                new V1VolumeMount()
-                        .name(KubernetesConstants.CONFIG_VOLUME)
-                        .mountPath(parameters.getSeatunnelHome() + "/config")
-                        .readOnly(true));
-        pod.addVolumesItem(
-                new V1Volume()
-                        .name(KubernetesConstants.CONFIG_VOLUME)
-                        .configMap(new V1ConfigMapVolumeSource().name(parameters.getConfigMap())));
+                volumeMount(
+                        KubernetesConstants.CONFIG_VOLUME,
+                        parameters.getSeatunnelHome() + "/config",
+                        true));
+        pod.addVolumesItem(configMapVolume(parameters.getConfigMap()));
     }
 
     private static V1PodSpec pod(
@@ -184,74 +187,93 @@ final class KubernetesPodFactory {
 
     private static V1Container container(
             KubernetesApplicationParameters parameters, int memory, int cpu) {
-        Map<String, Quantity> resources = new HashMap<>();
-        resources.put(
-                KubernetesConstants.MEMORY_RESOURCE,
-                Quantity.fromString(memory + KubernetesConstants.MEBIBYTE_SUFFIX));
-        resources.put(KubernetesConstants.CPU_RESOURCE, Quantity.fromString(Integer.toString(cpu)));
         String home = parameters.getSeatunnelHome();
+        V1ResourceRequirements requirements = resourceRequirements(memory, cpu);
         return new V1Container()
                 .name(KubernetesConstants.CONTAINER_NAME)
                 .image(parameters.getImage())
                 .imagePullPolicy(parameters.getImagePullPolicy())
                 .workingDir(home)
-                .addEnvItem(new V1EnvVar().name(KubernetesConstants.SEATUNNEL_HOME_ENV).value(home))
-                .resources(
-                        new V1ResourceRequirements()
-                                .requests(resources)
-                                .limits(new HashMap<>(resources)));
+                .addEnvItem(homeEnv(home))
+                .resources(requirements);
+    }
+
+    private static V1EnvVar homeEnv(String home) {
+        return new V1EnvVar().name(KubernetesConstants.SEATUNNEL_HOME_ENV).value(home);
+    }
+
+    private static V1ResourceRequirements resourceRequirements(int memory, int cpu) {
+        Map<String, Quantity> resources = new HashMap<>();
+        resources.put(
+                KubernetesConstants.MEMORY_RESOURCE,
+                Quantity.fromString(memory + KubernetesConstants.MEBIBYTE_SUFFIX));
+        resources.put(KubernetesConstants.CPU_RESOURCE, Quantity.fromString(Integer.toString(cpu)));
+        return new V1ResourceRequirements().requests(resources).limits(new HashMap<>(resources));
+    }
+
+    private static V1Volume configMapVolume(String configMap) {
+        return new V1Volume()
+                .name(KubernetesConstants.CONFIG_VOLUME)
+                .configMap(new V1ConfigMapVolumeSource().name(configMap));
     }
 
     private static List<String> command(
             KubernetesApplicationParameters parameters, int memory, String main, String... args) {
         String home = parameters.getSeatunnelHome();
-        long mem =
-                Math.max(
-                        KubernetesConstants.MINIMUM_JVM_HEAP_MB,
-                        memory
-                                * (long) KubernetesConstants.JVM_HEAP_NUMERATOR
-                                / KubernetesConstants.JVM_HEAP_DENOMINATOR);
-
-        String classPatch =
-                String.format(KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home);
-        List<String> command =
-                new ArrayList<>(
-                        Arrays.asList(
-                                KubernetesConstants.JAVA_COMMAND,
-                                "-Xmx" + mem + "m",
-                                "-XX:+ExitOnOutOfMemoryError",
-                                "-Dseatunnel.home=" + home,
-                                "-Dseatunnel.config="
-                                        + home
-                                        + KubernetesConstants.SEATUNNEL_CONFIG_FILE,
-                                "-Dlog4j2.configurationFile="
-                                        + home
-                                        + KubernetesConstants.LOG4J_CONFIG_FILE,
-                                "-cp",
-                                home + classPatch,
-                                main));
+        List<String> command = new ArrayList<>();
+        command.add(KubernetesConstants.JAVA_COMMAND);
+        command.add("-Xmx" + heapMb(memory) + "m");
+        command.add("-XX:+ExitOnOutOfMemoryError");
+        command.add("-Dhazelcast.logging.type=log4j2");
+        command.add("-Dseatunnel.logs.path=" + home + "/logs");
+        command.add("-Dseatunnel.logs.file_name=seatunnel-application");
+        command.add("-Dseatunnel.home=" + home);
+        command.add("-Dseatunnel.config=" + home + KubernetesConstants.SEATUNNEL_CONFIG_FILE);
+        command.add("-Dlog4j2.configurationFile=" + home + KubernetesConstants.LOG4J_CONFIG_FILE);
+        command.add("-cp");
+        command.add(home + classpath(home));
+        command.add(main);
         command.addAll(Arrays.asList(args));
         return command;
+    }
+
+    /**
+     * Reserves 75% of the container memory for the JVM heap: {@code max(1 MiB, memory * 3 / 4)}.
+     */
+    private static long heapMb(int memoryMb) {
+        return Math.max(
+                KubernetesConstants.MINIMUM_JVM_HEAP_MB,
+                memoryMb
+                        * (long) KubernetesConstants.JVM_HEAP_NUMERATOR
+                        / KubernetesConstants.JVM_HEAP_DENOMINATOR);
+    }
+
+    /** Builds the Java classpath shared by master and worker containers. */
+    private static String classpath(String home) {
+        return String.format(KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home);
     }
 
     private static void addMasterProbes(
             V1Container container, int port, ApplicationSpecification specification) {
         V1Probe tcpProbe = tcpProbe(port);
-        int startupFailures =
-                Math.max(
-                        1,
-                        (int)
-                                Math.ceil(
-                                        specification.getStartupTimeoutMillis()
-                                                / (double)
-                                                        KubernetesConstants
-                                                                .STARTUP_PROBE_PERIOD_MILLIS));
+        int startupFailures = startupFailureThreshold(specification.getStartupTimeoutMillis());
         container.setStartupProbe(
                 tcpProbe(port)
                         .periodSeconds(KubernetesConstants.STARTUP_PROBE_PERIOD_MILLIS / 1000)
                         .failureThreshold(startupFailures));
         container.setReadinessProbe(tcpProbe);
         container.setLivenessProbe(tcpProbe(port));
+    }
+
+    /** Maps the startup timeout to probe failures: {@code max(1, ceil(timeout / probePeriod))}. */
+    private static int startupFailureThreshold(long startupTimeoutMillis) {
+        return Math.max(
+                1,
+                (int)
+                        Math.ceil(
+                                startupTimeoutMillis
+                                        / (double)
+                                                KubernetesConstants.STARTUP_PROBE_PERIOD_MILLIS));
     }
 
     private static V1Probe tcpProbe(int port) {
@@ -263,14 +285,15 @@ final class KubernetesPodFactory {
     }
 
     private static V1Probe processProbe() {
+        V1ExecAction action =
+                new V1ExecAction()
+                        .command(
+                                Arrays.asList(
+                                        KubernetesConstants.SHELL_COMMAND,
+                                        "-c",
+                                        KubernetesConstants.PROCESS_PROBE_COMMAND));
         return new V1Probe()
-                .exec(
-                        new V1ExecAction()
-                                .command(
-                                        Arrays.asList(
-                                                KubernetesConstants.SHELL_COMMAND,
-                                                "-c",
-                                                KubernetesConstants.PROCESS_PROBE_COMMAND)))
+                .exec(action)
                 .timeoutSeconds(KubernetesConstants.PROBE_TIMEOUT_SECONDS)
                 .periodSeconds(KubernetesConstants.PROBE_PERIOD_SECONDS)
                 .failureThreshold(KubernetesConstants.PROBE_FAILURE_THRESHOLD);

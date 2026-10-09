@@ -48,6 +48,9 @@ import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hazelcast.client.config.ClientConfig;
 
 import java.util.Collections;
@@ -57,6 +60,9 @@ import java.util.function.Supplier;
 
 /** Submits one distribution and one job as a private, single-attempt YARN application. */
 public final class YarnApplicationClusterDescriptor implements ClusterDescriptor<ApplicationId> {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(YarnApplicationClusterDescriptor.class);
+
     /** YARN application type shown by the ResourceManager UI and CLI. */
     private static final String APPLICATION_TYPE = "SeaTunnel";
 
@@ -79,20 +85,13 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
     public YarnApplicationClusterDescriptor(
             Configuration configuration,
             Supplier<YarnClient> clientFactory,
-            boolean allowLocalStaging) {
-        this(configuration, clientFactory, allowLocalStaging, Collections.emptyMap());
-    }
-
-    public YarnApplicationClusterDescriptor(
-            Configuration configuration,
-            Supplier<YarnClient> clientFactory,
             boolean allowLocalStaging,
             Map<String, String> options) {
-        this.options = ReadonlyConfig.fromMap(new HashMap<String, Object>(options));
+        this.options = ReadonlyConfig.fromMap(new HashMap<>(options));
         this.allowLocalStaging = allowLocalStaging;
         this.clientFactory = clientFactory;
         YarnConfigurationUtils.requireSimpleAuthentication(configuration);
-        this.configuration = YarnConfigurationUtils.withBoundedRpc(configuration);
+        this.configuration = new Configuration(configuration);
     }
 
     /**
@@ -116,6 +115,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             YarnClientApplication application = client.createApplication();
             ApplicationSubmissionContext submission = application.getApplicationSubmissionContext();
             yarnId = submission.getApplicationId();
+            LOG.info("Submitting YARN application {}", yarnId);
             int masterMemory = specification.getMasterMemoryMb();
             int masterCores = specification.getMasterCpuCores();
             Resource maximum =
@@ -152,7 +152,8 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                 YarnLocalResourceDescriptor resources = uploader.upload();
                 staging = uploader.getApplicationDir();
                 submission.setAMContainerSpec(
-                        YarnContainerLaunchContextFactory.master(staging, masterMemory, resources));
+                        YarnContainerLaunchContextFactory.master(
+                                staging, masterMemory, resources, deployment.getHadoopUserName()));
             }
             // A lost submit response can still mean the RM accepted the application.
             submitted = true;
@@ -170,7 +171,8 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             }
             if (staging != null) {
                 try {
-                    YarnStagingDirectory.cleanup(configuration, staging);
+                    YarnStagingDirectory.cleanup(
+                            YarnConfigurationUtils.withBoundedRpc(configuration), staging);
                 } catch (Exception cleanup) {
                     failure.addSuppressed(cleanup);
                 }
@@ -179,6 +181,9 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                 close();
             } catch (RuntimeException cleanup) {
                 failure.addSuppressed(cleanup);
+            }
+            if (failure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
             }
             throw failure;
         }
@@ -212,7 +217,11 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                 new Path(
                         new Path(options.get(YarnOptions.STAGING_DIRECTORY)),
                         applicationId.toString());
-        return new YarnApplicationClient(yarnClient(), configuration, applicationId, staging);
+        return new YarnApplicationClient(
+                yarnClient(),
+                YarnConfigurationUtils.withBoundedRpc(configuration),
+                applicationId,
+                staging);
     }
 
     private SeatunnelClientProvider createClientProvider(
@@ -223,10 +232,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             throw new IllegalStateException(
                     "YARN application " + id + " has no live master endpoint");
         }
-        String address =
-                (host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host)
-                        + ":"
-                        + port;
+        String address = masterAddress(host, port);
         ClientConfig config = ConfigProvider.locateAndGetClientConfig();
         config.setClusterName(SeatunnelApplicationConfig.clusterName(id.toString()));
         config.getNetworkConfig().setAddresses(Collections.singletonList(address));
@@ -234,6 +240,12 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                 .getConnectionRetryConfig()
                 .setClusterConnectTimeoutMillis(timeout);
         return () -> new SeaTunnelClient(config);
+    }
+
+    private static String masterAddress(String host, int port) {
+        String formattedHost =
+                host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
+        return formattedHost + ":" + port;
     }
 
     private YarnClient yarnClient() {

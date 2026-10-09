@@ -48,7 +48,20 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
     @Override
     public void execute() throws CommandExecuteException {
         try {
-            executeApplication();
+            Map<String, String> options = resolveOptions();
+            ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
+            String applicationId = applicationCommandArgs.getId();
+
+            if (applicationCommandArgs.getOperation() == ApplicationOperation.SUBMIT) {
+                applicationId = submit(options);
+                if (!applicationCommandArgs.isWait()) {
+                    return;
+                }
+            } else {
+                System.out.println("Application ID: " + applicationId);
+            }
+
+            executePlatformOperation(clientServiceLoader, options, applicationId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CommandExecuteException("Application command was interrupted", e);
@@ -57,57 +70,11 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         }
     }
 
-    private void executeApplication() throws Exception {
-        ApplicationOperation operation = applicationCommandArgs.getOperation();
-        // Named job-ID flags take precedence over -i. Shared loading applies these values over
-        // the application file before resolving substitutions; it has no dependency on CLI args.
-        Map<String, String> overrides = new LinkedHashMap<>(applicationCommandArgs.getOptions());
-        if (applicationCommandArgs.getJobId() != null) {
-            overrides.put(
-                    ApplicationOptions.JOB_ID.key(), applicationCommandArgs.getJobId().toString());
-        }
-        if (applicationCommandArgs.getRestoreJobId() != null) {
-            overrides.put(
-                    ApplicationOptions.RESTORE_JOB_ID.key(),
-                    applicationCommandArgs.getRestoreJobId().toString());
-        }
-        String applicationConfig = applicationCommandArgs.getApplicationConfig();
-        Map<String, String> options =
-                SeatunnelApplicationConfig.load(
-                        applicationConfig == null ? null : Paths.get(applicationConfig), overrides);
-
-        ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
-        String applicationId = applicationCommandArgs.getId();
-        if (operation == ApplicationOperation.SUBMIT) {
-            // Only submit reads a job file. Status/cancel need platform connection settings only.
-            ApplicationSpecification specification =
-                    SeatunnelApplicationConfig.parse(
-                            Paths.get(applicationCommandArgs.getConfig()), options);
-            ApplicationClusterDeployer deployer =
-                    new ApplicationClusterDeployer(
-                            clientServiceLoader,
-                            applicationCommandArgs.getTarget(),
-                            specification,
-                            options);
-            Object submittedId = deployer.run();
-            applicationId = submittedId.toString();
-            System.out.println("Application ID: " + applicationId);
-            System.out.println("Job ID: " + specification.getJobId());
-            if (!applicationCommandArgs.isWait()) {
-                return;
-            }
-        } else {
-            System.out.println("Application ID: " + applicationId);
-        }
-        manageApplication(
-                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget()),
-                options,
-                applicationId);
-    }
-
-    private <ID> void manageApplication(
-            ApplicationClusterDescriptorFactory<ID> factory, Map<String, String> options, String id)
+    private <ID> void executePlatformOperation(
+            ClusterClientServiceLoader clientServiceLoader, Map<String, String> options, String id)
             throws Exception {
+        ApplicationClusterDescriptorFactory<ID> factory =
+                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget());
         ID applicationId = factory.parseApplicationId(id);
         try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
             if (applicationCommandArgs.getOperation() == ApplicationOperation.CANCEL) {
@@ -122,6 +89,38 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         }
     }
 
+    private Map<String, String> resolveOptions() {
+        // Named job-ID flags take precedence over -i. Shared loading applies these values over
+        // the application file before resolving substitutions; it has no dependency on CLI args.
+        Map<String, String> overrides = new LinkedHashMap<>(applicationCommandArgs.getOptions());
+        if (applicationCommandArgs.getJobId() != null) {
+            overrides.put(
+                    ApplicationOptions.JOB_ID.key(), applicationCommandArgs.getJobId().toString());
+        }
+        if (applicationCommandArgs.getRestoreJobId() != null) {
+            overrides.put(
+                    ApplicationOptions.RESTORE_JOB_ID.key(),
+                    applicationCommandArgs.getRestoreJobId().toString());
+        }
+        String applicationConfig = applicationCommandArgs.getApplicationConfig();
+        return SeatunnelApplicationConfig.load(
+                applicationConfig == null ? null : Paths.get(applicationConfig), overrides);
+    }
+
+    private String submit(Map<String, String> options) throws Exception {
+        // Only submit reads a job file. Status/cancel need platform connection settings only.
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(
+                        Paths.get(applicationCommandArgs.getConfig()), options);
+        ApplicationClusterDeployer deployer =
+                new ApplicationClusterDeployer(
+                        applicationCommandArgs.getTarget(), specification, options);
+        String applicationId = deployer.run().toString();
+        System.out.println("Application ID: " + applicationId);
+        System.out.println("Job ID: " + specification.getJobId());
+        return applicationId;
+    }
+
     static <ID> int printResult(ClusterDescriptor<ID> descriptor, ID applicationId, boolean wait)
             throws Exception {
         ApplicationStatus status = descriptor.getApplicationStatus(applicationId);
@@ -130,10 +129,6 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
             status = descriptor.getApplicationStatus(applicationId);
         }
         System.out.println("Status: " + status);
-        return status == ApplicationStatus.FAILED
-                        || status == ApplicationStatus.CANCELED
-                        || status == ApplicationStatus.UNKNOWN
-                ? 1
-                : 0;
+        return status.isFailure() ? 1 : 0;
     }
 }

@@ -25,7 +25,7 @@ To test unreleased functionality or local code changes, run from the repository 
 Build an image from the downloaded or locally built standard distribution:
 
 ```dockerfile
-FROM eclipse-temurin:8-jdk
+FROM eclipse-temurin:11-jdk
 ADD apache-seatunnel-<version>-bin.tar.gz /opt/
 RUN mv /opt/apache-seatunnel-<version> /opt/seatunnel
 ENV SEATUNNEL_HOME=/opt/seatunnel

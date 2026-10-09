@@ -34,47 +34,49 @@ public final class YarnContainerLaunchContextFactory {
     private YarnContainerLaunchContextFactory() {}
 
     /**
-     * Creates the localized ApplicationMaster context for client-side submission.
+     * Resolves local resources from staged Hadoop configuration and creates the master context.
      *
      * @param configuration Hadoop settings used to read shared staging storage
      * @param staging application-owned remote staging directory
      * @param memoryMb master container memory used to size its JVM heap
+     * @param hadoopUserName Hadoop user propagated to the container
      * @return complete YARN master container launch context
      * @throws Exception if staged local resources cannot be resolved
      */
     public static ContainerLaunchContext master(
-            Configuration configuration, Path staging, int memoryMb) throws Exception {
-        return master(staging, memoryMb, YarnLocalResources.resolve(configuration, staging));
+            Configuration configuration, Path staging, int memoryMb, String hadoopUserName)
+            throws Exception {
+        return master(
+                staging,
+                memoryMb,
+                YarnLocalResources.resolve(configuration, staging),
+                hadoopUserName);
     }
 
-    /** Creates the master context directly from resources registered during upload. */
+    /** Creates the master context with the resolved Hadoop user.name. */
     public static ContainerLaunchContext master(
-            Path staging, int memoryMb, YarnLocalResourceDescriptor localized) {
+            Path staging,
+            int memoryMb,
+            YarnLocalResourceDescriptor localized,
+            String hadoopUserName) {
         return create(
                 localized,
                 staging,
                 memoryMb,
                 SeatunnelYarnApplicationCli.class.getName(),
-                Collections.emptyList());
+                Collections.emptyList(),
+                hadoopUserName);
     }
 
-    /**
-     * Creates a worker context that joins one isolated application master.
-     *
-     * @param configuration localized Hadoop settings
-     * @param staging application-owned remote staging directory
-     * @param clusterName isolated Hazelcast cluster name
-     * @param masterAddress advertised application master address
-     * @param specification per-worker resources and fixed slots
-     * @return complete YARN worker container launch context
-     * @throws Exception if staged local resources cannot be resolved
-     */
+    /** Creates a worker context with the resolved Hadoop user.name. */
     public static ContainerLaunchContext worker(
             Configuration configuration,
             Path staging,
             String clusterName,
             String masterAddress,
-            WorkerSpecification specification)
+            WorkerSpecification specification,
+            String hadoopUserName,
+            String masterDistributionHome)
             throws Exception {
         return create(
                 YarnLocalResources.resolve(configuration, staging),
@@ -85,7 +87,8 @@ public final class YarnContainerLaunchContextFactory {
                         clusterName,
                         masterAddress,
                         String.valueOf(specification.getSlots()),
-                        System.getProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY)));
+                        masterDistributionHome),
+                hadoopUserName);
     }
 
     private static ContainerLaunchContext create(
@@ -93,10 +96,11 @@ public final class YarnContainerLaunchContextFactory {
             Path staging,
             int memoryMb,
             String mainClass,
-            List<String> arguments) {
+            List<String> arguments,
+            String submittingUser) {
         return ContainerLaunchContext.newInstance(
                 localized.getResources(),
-                YarnContainerCommand.environment(staging, localized.getHome()),
+                YarnContainerCommand.environment(staging, localized.getHome(), submittingUser),
                 Collections.singletonList(
                         YarnContainerCommand.command(
                                 localized.getHome(), memoryMb, mainClass, arguments)),

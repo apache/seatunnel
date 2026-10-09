@@ -28,6 +28,8 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
+import org.apache.seatunnel.resource.yarn.config.YarnOptions;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -42,6 +44,7 @@ import org.apache.hadoop.net.ScriptBasedMapping;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
@@ -106,6 +109,9 @@ public class YarnApplicationIT extends TestSuiteBase {
                 MiniDFSCluster.HDFS_MINIDFS_BASEDIR, temporary.toPath().resolve("hdfs").toString());
         hdfs = new MiniDFSCluster.Builder(hdfsConfiguration).numDataNodes(1).build();
         hdfs.waitActive();
+        assertTrue(
+                hdfs.getFileSystem().getConf().getBoolean("dfs.permissions.enabled", false),
+                "YARN E2E must run with HDFS permissions enabled");
         YarnConfiguration yarnConfiguration = new YarnConfiguration(hdfsConfiguration);
         yarnConfiguration.set("fs.defaultFS", hdfs.getFileSystem().getUri().toString());
         yarn = new MiniYARNCluster("seatunnel-yarn-application", 1, 1, 1);
@@ -210,22 +216,32 @@ public class YarnApplicationIT extends TestSuiteBase {
     @Test
     void batchRunsInAllocatedWorkersAndCleansHdfsArtifacts() throws Exception {
         try (YarnApplicationClient client = deployApplication("batch")) {
-            ApplicationStatus status = awaitTerminal(client);
+            String id = client.getClusterId().toString();
+            await().atMost(Duration.ofMinutes(5))
+                    .pollInterval(Duration.ofMillis(500))
+                    .until(() -> rawTerminal(id));
+            // The AM must remove staging itself; this client has not yet called getStatus().
+            await().atMost(Duration.ofSeconds(30))
+                    .until(
+                            () ->
+                                    !hdfs.getFileSystem()
+                                            .exists(new Path("/seatunnel-applications/" + id)));
+            ApplicationStatus status = client.getStatus();
             assertEquals(ApplicationStatus.SUCCEEDED, status, diagnostics(client));
             assertEquals(
                     2,
-                    launchedWorkers(client.getClusterId().toString()).size(),
+                    launchedWorkers(id).size(),
                     "The successful batch must launch two distinct worker JVMs");
             assertEquals(
                     4,
-                    outputRows(client.getClusterId().toString()),
+                    outputRows(id),
                     "Both parallel readers must emit both splits to the Console sink");
             assertCleaned(client);
             assertEquals(
                     ApplicationStatus.SUCCEEDED,
                     client.getStatus(),
                     "Runner cleanup must preserve the successful application result");
-            assertStatusFromApplicationCli(client.getClusterId().toString());
+            assertStatusFromApplicationCli(id);
         }
     }
 
@@ -304,6 +320,18 @@ public class YarnApplicationIT extends TestSuiteBase {
                             .getCommands()
                             .get(0)
                             .contains(SeatunnelYarnApplicationWorker.class.getName()));
+            assertTrue(workerCommand.contains("-Dhazelcast.logging.type=log4j2"));
+            assertTrue(workerCommand.contains("-Dlog4j2.configurationFile="));
+            assertTrue(workerCommand.contains("-Dseatunnel.logs.path="));
+            assertEquals(
+                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
+                    yarn.getNodeManager(0)
+                            .getNMContext()
+                            .getContainers()
+                            .get(worker)
+                            .getLaunchContext()
+                            .getEnvironment()
+                            .get(YarnConstants.HADOOP_USER_NAME_ENV));
             await().atMost(Duration.ofMinutes(3))
                     .untilAsserted(
                             () ->
@@ -510,6 +538,19 @@ public class YarnApplicationIT extends TestSuiteBase {
     private ApplicationStatus applicationStatus(
             ClusterDescriptor<ApplicationId> descriptor, String id) throws Exception {
         return descriptor.getApplicationStatus(ApplicationId.fromString(id));
+    }
+
+    private boolean rawTerminal(String id) throws Exception {
+        try (YarnClient client = YarnClient.createYarnClient()) {
+            client.init(configuration);
+            client.start();
+            YarnApplicationState state =
+                    client.getApplicationReport(ApplicationId.fromString(id))
+                            .getYarnApplicationState();
+            return state == YarnApplicationState.FINISHED
+                    || state == YarnApplicationState.FAILED
+                    || state == YarnApplicationState.KILLED;
+        }
     }
 
     private void cancelApplication(ClusterDescriptor<ApplicationId> descriptor, String id)

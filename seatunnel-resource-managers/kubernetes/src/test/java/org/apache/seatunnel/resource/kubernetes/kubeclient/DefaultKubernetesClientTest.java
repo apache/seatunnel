@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
+
 import org.junit.jupiter.api.Test;
 
 import io.kubernetes.client.openapi.ApiClient;
@@ -27,7 +29,14 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import okio.Buffer;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultKubernetesClientTest {
     @Test
@@ -63,6 +72,56 @@ class DefaultKubernetesClientTest {
                         .build());
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             api.startJob("application");
+        }
+    }
+
+    @Test
+    void retriesTransientPodListingFailures() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        CountDownLatch listed = new CountDownLatch(1);
+        AtomicReference<Exception> error = new AtomicReference<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    if (requests.getAndIncrement() == 0) {
+                                                        return new Response.Builder()
+                                                                .request(chain.request())
+                                                                .protocol(Protocol.HTTP_1_1)
+                                                                .code(500)
+                                                                .message("Internal Server Error")
+                                                                .body(
+                                                                        ResponseBody.create(
+                                                                                "{\"message\":\"transient failure\"}",
+                                                                                MediaType.get(
+                                                                                        "application/json")))
+                                                                .build();
+                                                    }
+                                                    return new Response.Builder()
+                                                            .request(chain.request())
+                                                            .protocol(Protocol.HTTP_1_1)
+                                                            .code(200)
+                                                            .message("OK")
+                                                            .body(
+                                                                    ResponseBody.create(
+                                                                            "{\"apiVersion\":\"v1\",\"kind\":\"PodList\",\"items\":[]}",
+                                                                            MediaType.get(
+                                                                                    "application/json")))
+                                                            .build();
+                                                })
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            KubernetesWatch watch =
+                    api.watchPods("role=worker", 10, pods -> listed.countDown(), error::set);
+            try {
+                assertTrue(listed.await(5, TimeUnit.SECONDS));
+                assertTrue(requests.get() >= 2);
+                assertNull(error.get());
+            } finally {
+                watch.close();
+            }
         }
     }
 }

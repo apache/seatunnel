@@ -36,6 +36,9 @@ public final class YarnConstants {
 
     public static final String HADOOP_CONF_DIR_ENV = "HADOOP_CONF_DIR";
 
+    /** Impersonation hint passed to containers so simple-auth HDFS uses the submitter. */
+    public static final String HADOOP_USER_NAME_ENV = "HADOOP_USER_NAME";
+
     /** JVM property used by workers to locate their distribution root. */
     public static final String SEATUNNEL_HOME_PROPERTY = "seatunnel.home";
 

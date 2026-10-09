@@ -84,4 +84,15 @@ public final class YarnOptions {
                     .defaultValue("")
                     .withDescription(
                             "YARN node-label expression used for worker containers; empty inherits yarn.master.node-label.");
+
+    public static final Option<String> HADOOP_USER_NAME =
+            Options.key("yarn.hadoop-user-name")
+                    .stringType()
+                    .defaultValue(defaultHadoopUserName())
+                    .withDescription(
+                            "Hadoop user name propagated to YARN containers with simple authentication; defaults to the submitting OS user.");
+
+    private static String defaultHadoopUserName() {
+        return System.getProperty("user.name", "");
+    }
 }

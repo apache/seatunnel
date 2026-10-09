@@ -70,6 +70,26 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
+        String id = submitApplication(specification);
+        try {
+            awaitDeployment(id, specification.getStartupTimeoutMillis());
+            return id;
+        } catch (Exception failure) {
+            try {
+                api.deleteApplication(id);
+            } catch (Exception cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            throw failure;
+        }
+    }
+
+    /**
+     * Creates and starts the owner Job without waiting for a live master. This is used by tests
+     * that intentionally submit applications which fail during startup and must observe the
+     * master's own partial cleanup.
+     */
+    String submitApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification, options);
         if (parameters.getConfigMap() != null) {
@@ -86,7 +106,6 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             api.createSecret(KubernetesResourceFactory.secret(job, parameters));
             api.createService(KubernetesResourceFactory.service(job, parameters));
             api.startJob(id);
-            awaitDeployment(id, specification.getStartupTimeoutMillis());
             return id;
         } catch (Exception failure) {
             if (job == null
@@ -152,10 +171,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         validateApplicationId(applicationId);
         long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
         String host = awaitMaster(applicationId, timeout);
-        String address =
-                (host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host)
-                        + ":"
-                        + options.get(ApplicationOptions.MASTER_PORT);
+        String address = masterAddress(host, options.get(ApplicationOptions.MASTER_PORT));
         ClientConfig config = ConfigProvider.locateAndGetClientConfig();
         config.setClusterName(SeatunnelApplicationConfig.clusterName(applicationId));
         config.getNetworkConfig().setAddresses(Collections.singletonList(address));
@@ -163,6 +179,12 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                 .getConnectionRetryConfig()
                 .setClusterConnectTimeoutMillis(timeout);
         return () -> new SeaTunnelClient(config);
+    }
+
+    private static String masterAddress(String host, int port) {
+        String formattedHost =
+                host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
+        return formattedHost + ":" + port;
     }
 
     @Override

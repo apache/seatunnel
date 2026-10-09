@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.yarn.launch;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,14 +34,16 @@ final class YarnContainerCommand {
      *
      * @param staging application-owned remote staging directory
      * @param home localized SeaTunnel home relative to the container working directory
+     * @param submittingUser user propagated through {@code HADOOP_USER_NAME} for simple-auth HDFS
      * @return mutable environment map owned by the launch context
      */
-    static Map<String, String> environment(Path staging, String home) {
+    static Map<String, String> environment(Path staging, String home, String submittingUser) {
         String workingDirectory = ApplicationConstants.Environment.PWD.$$();
         Map<String, String> environment = new HashMap<>();
         environment.put(YarnConstants.STAGING_DIRECTORY_ENV, staging.toString());
         environment.put(YarnConstants.SEATUNNEL_HOME_ENV, workingDirectory + Path.SEPARATOR + home);
         environment.put(YarnConstants.HADOOP_CONF_DIR_ENV, workingDirectory);
+        environment.put(YarnConstants.HADOOP_USER_NAME_ENV, submittingUser);
         return environment;
     }
 
@@ -54,38 +57,53 @@ final class YarnContainerCommand {
      * @return shell command executed by the NodeManager
      */
     static String command(String home, int memoryMb, String mainClass, List<String> arguments) {
-        String classpath =
-                String.format(YarnConstants.YARN_CLASSPATH, home, home, home, home, home);
+        String classpath = classpath(home);
         String workingDirectory = ApplicationConstants.Environment.PWD.$$();
-        StringBuilder command =
-                new StringBuilder("\"")
-                        .append(ApplicationConstants.Environment.JAVA_HOME.$$())
-                        .append("/bin/java\" -Xmx")
-                        .append(
-                                Math.max(
-                                        YarnConstants.MINIMUM_JVM_HEAP_MB,
-                                        memoryMb
-                                                * (long) YarnConstants.JVM_HEAP_NUMERATOR
-                                                / YarnConstants.JVM_HEAP_DENOMINATOR))
-                        .append("m -Dseatunnel.home=")
-                        .append("\"")
-                        .append(workingDirectory)
-                        .append("\"/")
-                        .append(quote(home))
-                        .append(" -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=")
-                        .append(quote(home + YarnConstants.LOG4J_CONFIG_FILE))
-                        .append(" -cp ")
-                        .append(quote(classpath))
-                        .append(' ')
-                        .append(quote(mainClass));
+        List<String> command = new ArrayList<>();
+        command.add(javaExecutable());
+        command.add("-Xmx" + heapMb(memoryMb) + "m");
+        command.add("-Dseatunnel.home=\"" + workingDirectory + "\"/" + quote(home));
+        command.add("-Dhazelcast.logging.type=log4j2");
+        command.add(
+                "-Dlog4j2.configurationFile="
+                        + quote(
+                                workingDirectory
+                                        + Path.SEPARATOR
+                                        + home
+                                        + YarnConstants.LOG4J_CONFIG_FILE));
+        command.add(
+                "-Dseatunnel.logs.path="
+                        + quote(workingDirectory + Path.SEPARATOR + home + "/logs"));
+        command.add("-Dseatunnel.logs.file_name=seatunnel-application");
+        command.add("-cp");
+        command.add(quote(classpath));
+        command.add(quote(mainClass));
         for (String argument : arguments) {
-            command.append(' ').append(quote(argument));
+            command.add(quote(argument));
         }
-        return command.append(" 1>")
-                .append(quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout"))
-                .append(" 2>")
-                .append(quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr"))
-                .toString();
+        command.add("1>" + quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout"));
+        command.add("2>" + quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr"));
+        return String.join(" ", command);
+    }
+
+    private static String javaExecutable() {
+        return "\"" + ApplicationConstants.Environment.JAVA_HOME.$$() + "/bin/java\"";
+    }
+
+    /** Builds the Java classpath from the localized YARN distribution layout. */
+    private static String classpath(String home) {
+        return String.format(YarnConstants.YARN_CLASSPATH, home, home, home, home, home);
+    }
+
+    /**
+     * Reserves 75% of the container memory for the JVM heap: {@code max(64 MiB, memory * 3 / 4)}.
+     */
+    private static long heapMb(int memoryMb) {
+        return Math.max(
+                YarnConstants.MINIMUM_JVM_HEAP_MB,
+                memoryMb
+                        * (long) YarnConstants.JVM_HEAP_NUMERATOR
+                        / YarnConstants.JVM_HEAP_DENOMINATOR);
     }
 
     /** Quotes one untrusted argument for the NodeManager's POSIX shell command. */

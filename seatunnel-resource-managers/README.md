@@ -9,15 +9,15 @@ seatunnel-resource-managers/
 ├── pom.xml                       # Parent and aggregator; inherits the repository root
 ├── yarn/                         # Maven artifact: seatunnel-resource-manager-yarn
 │   ├── pom.xml
-│   └── src/                      # Entrypoint plus config/, client/ and cluster/
+│   └── src/                      # Entrypoint plus config/, client/, cli/, launch/ and worker/
 └── kubernetes/                   # Maven artifact: seatunnel-resource-manager-kubernetes
     ├── pom.xml
-    └── src/                      # Entrypoint plus config/, client/ and cluster/
+    └── src/                      # Entrypoint plus config/, cli/, kubeclient/ and worker/
 ```
 
 There is no resource-manager `core` module. Shared `ApplicationSpecification` and `WorkerSpecification` live in engine-common under `org.apache.seatunnel.engine.common.config.spec`; `ApplicationOptions` lives in `engine.common.config.server` and `SeatunnelApplicationConfig` in `engine.common.config`. `ApplicationJarPathResolver` lives in engine-core. These modules do not depend on platform SDKs.
 
-Engine client owns native Zeta job communication, the deployment SPI and `ApplicationJobExecutionEnvironment`. Engine server owns the external worker-driver SPI, resource lifecycle and existing slot scheduler. Platform providers implement deployment and worker drivers; separate Master/Worker CLIs prepare configuration and call `SeaTunnelServerStarter.createHazelcastInstance`. Master CLIs own job cancellation signaling and master shutdown.
+Engine client owns native Zeta job communication and the deployment SPI. Engine server owns `ApplicationJobExecutionEnvironment`, `ApplicationJobRunner`, the external worker-driver SPI, resource lifecycle and the existing slot scheduler. Platform providers implement deployment and worker drivers; separate Master/Worker CLIs prepare configuration and call `SeaTunnelServerStarter.createHazelcastInstance`. Master CLIs own job cancellation signaling and master shutdown.
 
 ```text
 engine-common → seatunnel-api

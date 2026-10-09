@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
-import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+import org.apache.seatunnel.resource.yarn.client.YarnApplicationStatus;
 import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 
 import org.apache.hadoop.conf.Configuration;
@@ -68,6 +68,8 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private final Configuration configuration;
     private final Path staging;
     private final String clusterName;
+    private final String hadoopUserName;
+    private final String masterDistributionHome;
     private final AMRMClient<AMRMClient.ContainerRequest> resourceManager;
     private final NMClient nodeManager;
     private final String workerNodeLabel;
@@ -85,12 +87,11 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private boolean nodeManagerInitialized;
 
     public YarnResourceManagerDriver(
-            Configuration configuration, Path staging, String clusterName, String workerNodeLabel) {
+            Configuration configuration, Path staging, YarnDriverSettings settings) {
         this(
                 configuration,
                 staging,
-                clusterName,
-                workerNodeLabel,
+                settings,
                 new DefaultYarnResourceManagerClientFactory().create(),
                 new DefaultYarnNodeManagerClientFactory().create());
     }
@@ -98,16 +99,36 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     public YarnResourceManagerDriver(
             Configuration configuration,
             Path staging,
-            String clusterName,
-            String workerNodeLabel,
+            YarnDriverSettings settings,
             AMRMClient<AMRMClient.ContainerRequest> resourceManager,
             NMClient nodeManager) {
-        this.configuration = YarnConfigurationUtils.withBoundedRpc(configuration);
+        this.configuration = new Configuration(configuration);
         this.staging = staging;
-        this.clusterName = clusterName;
-        this.workerNodeLabel = workerNodeLabel;
+        this.clusterName = settings.clusterName;
+        this.hadoopUserName = settings.hadoopUserName;
+        this.masterDistributionHome = settings.masterDistributionHome;
+        this.workerNodeLabel = settings.workerNodeLabel;
         this.resourceManager = resourceManager;
         this.nodeManager = nodeManager;
+    }
+
+    /** Immutable identity and placement settings for one YARN application driver. */
+    public static final class YarnDriverSettings {
+        private final String clusterName;
+        private final String workerNodeLabel;
+        private final String hadoopUserName;
+        private final String masterDistributionHome;
+
+        public YarnDriverSettings(
+                String clusterName,
+                String workerNodeLabel,
+                String hadoopUserName,
+                String masterDistributionHome) {
+            this.clusterName = clusterName;
+            this.workerNodeLabel = workerNodeLabel;
+            this.hadoopUserName = hadoopUserName;
+            this.masterDistributionHome = masterDistributionHome;
+        }
     }
 
     /** Registers this AM before requesting workers and keeps its allocation lease alive. */
@@ -226,7 +247,9 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                                     staging,
                                     clusterName,
                                     masterAddress.get(),
-                                    worker.specification));
+                                    worker.specification,
+                                    hadoopUserName,
+                                    masterDistributionHome));
                     synchronized (this) {
                         if (active
                                 && workers.containsKey(workerNode.getWorkerId())
@@ -304,13 +327,8 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         active = false;
         if (registered && !finished) {
             FinalApplicationStatus finalStatus =
-                    status == ApplicationStatus.SUCCEEDED
-                            ? FinalApplicationStatus.SUCCEEDED
-                            : status == ApplicationStatus.CANCELED
-                                    ? FinalApplicationStatus.KILLED
-                                    : FinalApplicationStatus.FAILED;
-            resourceManager.unregisterApplicationMaster(
-                    finalStatus, diagnostics == null ? "" : diagnostics, "");
+                    YarnApplicationStatus.toFinalApplicationStatus(status);
+            resourceManager.unregisterApplicationMaster(finalStatus, diagnostics, "");
             finished = true;
         }
     }

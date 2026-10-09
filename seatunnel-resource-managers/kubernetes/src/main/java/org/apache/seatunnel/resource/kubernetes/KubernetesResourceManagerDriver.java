@@ -53,6 +53,7 @@ public final class KubernetesResourceManagerDriver
     private final String clusterName;
     private final Map<String, KubernetesWorkerNode> workers = new HashMap<>();
     private final Set<String> releasing = new HashSet<>();
+    private final Set<String> missingWorkers = new HashSet<>();
     private final Set<CompletableFuture<Void>> launches = new HashSet<>();
     private final Map<String, CompletableFuture<KubernetesWorkerNode>> pending = new HashMap<>();
     private Supplier<String> masterAddress;
@@ -232,6 +233,7 @@ public final class KubernetesResourceManagerDriver
 
     private void checkWorkers(List<KubernetesPod> pods) {
         Set<String> observed;
+        Set<String> missingNow = new HashSet<>();
         synchronized (this) {
             if (!running) {
                 return;
@@ -240,6 +242,7 @@ public final class KubernetesResourceManagerDriver
             observed.removeAll(pending.keySet());
             observed.removeAll(releasing);
             if (observed.isEmpty()) {
+                missingWorkers.clear();
                 return;
             }
         }
@@ -247,6 +250,8 @@ public final class KubernetesResourceManagerDriver
         for (KubernetesPod pod : pods) {
             current.put(pod.getName(), pod);
         }
+        KubernetesWorkerNode terminatedWorker = null;
+        String diagnostics = null;
         synchronized (this) {
             if (!running) {
                 return;
@@ -259,21 +264,34 @@ public final class KubernetesResourceManagerDriver
                 KubernetesPod pod = current.get(name);
                 if (pod != null && pod.isSucceeded()) {
                     workers.remove(name);
+                    missingWorkers.remove(name);
                     continue;
                 }
                 if (pod == null || pod.isTerminating() || pod.isTerminated()) {
-                    running = false;
-                    mainThreadExecutor.execute(
-                            () ->
-                                    resourceEventHandler.onWorkerTerminated(
-                                            worker,
-                                            pod == null
-                                                    ? "Worker pod disappeared"
-                                                    : "Worker pod terminated with phase "
-                                                            + pod.getPhase()));
-                    return;
+                    if (missingWorkers.contains(name)) {
+                        terminatedWorker = worker;
+                        diagnostics =
+                                pod == null
+                                        ? "Worker pod disappeared"
+                                        : "Worker pod terminated with phase " + pod.getPhase();
+                        break;
+                    }
+                    missingNow.add(name);
                 }
             }
+            if (terminatedWorker != null) {
+                running = false;
+                missingWorkers.clear();
+            } else {
+                missingWorkers.clear();
+                missingWorkers.addAll(missingNow);
+            }
+        }
+        if (terminatedWorker != null) {
+            KubernetesWorkerNode worker = terminatedWorker;
+            String reason = diagnostics;
+            mainThreadExecutor.execute(
+                    () -> resourceEventHandler.onWorkerTerminated(worker, reason));
         }
     }
 

@@ -21,6 +21,13 @@
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
 
+### Application Mode 内部 API 变更
+
+- `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
+  YARN 或 Kubernetes 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+- `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
+  提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+
 ### SQL TINYINT 数组模式
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。

@@ -50,6 +50,11 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Cluster;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.cluster.MembershipEvent;
+import com.hazelcast.cluster.MembershipListener;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobStatus;
@@ -113,6 +118,17 @@ class KubernetesApplicationTest {
                 MockedStatic<KubernetesClientFactory> clients =
                         mockStatic(KubernetesClientFactory.class)) {
             configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
+            HazelcastInstanceImpl worker = mock(HazelcastInstanceImpl.class);
+            Cluster cluster = mock(Cluster.class);
+            when(worker.getCluster()).thenReturn(cluster);
+            starter.when(
+                            () ->
+                                    SeaTunnelServerStarter.createHazelcastInstance(
+                                            any(SeaTunnelConfig.class),
+                                            isNull(),
+                                            any(JarPathResolver.class),
+                                            any(ResourceManagerFactory.class)))
+                    .thenReturn(worker);
             SeatunnelKubernetesApplicationWorker.main(
                     new String[] {"kubernetes-app", "master:5801", "2"});
             ArgumentCaptor<JarPathResolver> resolver =
@@ -126,6 +142,7 @@ class KubernetesApplicationTest {
                                     any(ResourceManagerFactory.class)));
             starter.verifyNoMoreInteractions();
             clients.verifyNoInteractions();
+            verify(cluster).addMembershipListener(any(MembershipListener.class));
             assertEquals("kubernetes-app", config.getHazelcastConfig().getClusterName());
             assertEquals(
                     EngineConfig.ClusterRole.WORKER, config.getEngineConfig().getClusterRole());
@@ -148,6 +165,40 @@ class KubernetesApplicationTest {
                     config.getHazelcastConfig().getProperty("hazelcast.shutdownhook.policy"));
             List<URL> jars = Collections.emptyList();
             assertSame(jars, resolver.getValue().resolve(jars));
+        }
+    }
+
+    @Test
+    void workerExitsWhenMasterMemberLeaves() throws Exception {
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        try (MockedStatic<ConfigProvider> configurations = mockStatic(ConfigProvider.class);
+                MockedStatic<SeaTunnelServerStarter> starter =
+                        mockStatic(SeaTunnelServerStarter.class);
+                MockedStatic<KubernetesClientFactory> clients =
+                        mockStatic(KubernetesClientFactory.class)) {
+            configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
+            HazelcastInstanceImpl worker = mock(HazelcastInstanceImpl.class);
+            Cluster cluster = mock(Cluster.class);
+            when(worker.getCluster()).thenReturn(cluster);
+            starter.when(
+                            () ->
+                                    SeaTunnelServerStarter.createHazelcastInstance(
+                                            any(SeaTunnelConfig.class),
+                                            isNull(),
+                                            any(JarPathResolver.class),
+                                            any(ResourceManagerFactory.class)))
+                    .thenReturn(worker);
+            SeatunnelKubernetesApplicationWorker.main(
+                    new String[] {"kubernetes-app", "master:5801", "2"});
+
+            ArgumentCaptor<MembershipListener> listener =
+                    ArgumentCaptor.forClass(MembershipListener.class);
+            verify(cluster).addMembershipListener(listener.capture());
+            MembershipEvent event = mock(MembershipEvent.class);
+            Member member = mock(Member.class);
+            when(event.getMember()).thenReturn(member);
+            when(member.isLiteMember()).thenReturn(false);
+            assertEquals(1, catchSystemExit(() -> listener.getValue().memberRemoved(event)));
         }
     }
 

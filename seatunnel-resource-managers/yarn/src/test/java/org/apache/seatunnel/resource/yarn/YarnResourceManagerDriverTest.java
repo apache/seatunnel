@@ -136,8 +136,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        null,
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
                         resourceManager,
                         nodeManager)) {
             driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
@@ -210,8 +210,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        null,
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
                         resourceManager,
                         nodeManager);
         assertThrows(
@@ -239,8 +239,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        null,
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
                         resourceManager,
                         nodeManager);
         driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
@@ -270,8 +270,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        "worker-pool",
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", "worker-pool", "test-user", "master-home"),
                         resourceManager,
                         nodeManager);
         driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
@@ -297,8 +297,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        null,
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
                         resourceManager,
                         nodeManager);
         driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
@@ -329,8 +329,8 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
-                        "application-test",
-                        null,
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
                         resourceManager,
                         nodeManager);
         try {

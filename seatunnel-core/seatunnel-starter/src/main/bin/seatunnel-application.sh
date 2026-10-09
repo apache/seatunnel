@@ -46,7 +46,10 @@ case "${application_target}" in
     [Yy][Aa][Rr][Nn]) application_target="yarn" ;;
     [Kk][Uu][Bb][Ee][Rr][Nn][Ee][Tt][Ee][Ss]) application_target="kubernetes" ;;
     "") ;;
-    *) echo "Unsupported --target: ${application_target}" >&2 exit 1 ;;
+    *)
+        echo "Unsupported --target: ${application_target}" >&2
+        exit 1
+        ;;
 esac
 
 # Load only the SDK required by the selected deployment platform.

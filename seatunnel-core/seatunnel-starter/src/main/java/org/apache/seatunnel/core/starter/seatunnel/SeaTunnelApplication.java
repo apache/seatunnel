@@ -36,6 +36,7 @@ public final class SeaTunnelApplication {
             SeaTunnel.run(applicationCommandArgs.buildCommand());
         } catch (Exception e) {
             System.err.println("Application command failed: " + e.getMessage());
+            e.printStackTrace(System.err);
             System.exit(1);
         }
     }

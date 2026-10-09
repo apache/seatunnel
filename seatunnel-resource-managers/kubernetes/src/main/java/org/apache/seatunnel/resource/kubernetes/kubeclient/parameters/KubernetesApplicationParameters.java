@@ -89,10 +89,7 @@ public final class KubernetesApplicationParameters {
             throw new IllegalArgumentException(
                     "kubernetes.finished-job-retention-seconds must be positive");
         }
-        this.checkpointPvc = options.get(KubernetesOptions.CHECKPOINT_PVC);
-        if (checkpointPvc != null && checkpointPvc.trim().isEmpty()) {
-            throw new IllegalArgumentException("kubernetes.checkpoint-pvc must not be empty");
-        }
+        this.checkpointPvc = optionalNonBlank(options, KubernetesOptions.CHECKPOINT_PVC);
         this.masterLabels = labels(options, KubernetesOptions.MASTER_LABELS);
         this.workerLabels = labels(options, KubernetesOptions.WORKER_LABELS);
         this.masterAnnotations = pairs(options, KubernetesOptions.MASTER_ANNOTATIONS);

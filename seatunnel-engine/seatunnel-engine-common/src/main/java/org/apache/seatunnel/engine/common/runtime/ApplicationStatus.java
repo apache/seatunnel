@@ -38,4 +38,9 @@ public enum ApplicationStatus {
     public boolean isTerminal() {
         return this == SUCCEEDED || this == FAILED || this == CANCELED;
     }
+
+    /** @return whether this state represents a failed, canceled, or unknown application */
+    public boolean isFailure() {
+        return this == FAILED || this == CANCELED || this == UNKNOWN;
+    }
 }

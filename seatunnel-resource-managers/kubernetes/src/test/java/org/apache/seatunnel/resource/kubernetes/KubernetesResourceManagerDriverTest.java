@@ -181,6 +181,9 @@ class KubernetesResourceManagerDriverTest {
         driver.requestWorker(specification().getWorkerSpecification()).get();
         failed.set(true);
         driver.checkWorkers();
+        // A one-tick missing Pod may be caused by listPods racing with a concurrent create.
+        verifyNoInteractions(events);
+        driver.checkWorkers();
         if ("Succeeded".equals(terminalPhase)) {
             verifyNoInteractions(events);
             // A previously successful Pod may later disappear through garbage collection.
