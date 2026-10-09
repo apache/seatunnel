@@ -136,7 +136,10 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
         startupDeadline =
                 System.nanoTime()
                         + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());
-        startup.execute(
+
+        // Run driver initialization and worker registration asynchronously to avoid blocking the
+        // master thread.
+        Runnable startWorkersAndAwaitRegistration =
                 () -> {
                     try {
                         driver.initialize(
@@ -161,7 +164,8 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                     } finally {
                         startup.shutdown();
                     }
-                });
+                };
+        startup.execute(startWorkersAndAwaitRegistration);
     }
 
     /** Waits for resources within the startup timeout, including driver initialization. */
