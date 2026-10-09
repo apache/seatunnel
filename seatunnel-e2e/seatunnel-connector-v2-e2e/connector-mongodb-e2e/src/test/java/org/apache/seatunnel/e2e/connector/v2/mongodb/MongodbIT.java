@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -50,25 +51,286 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.bson.BsonDocument;
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Timeout;
+import org.mockito.MockedStatic;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerImageName;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Sorts;
 import com.mongodb.client.model.WriteModel;
+import com.mongodb.event.CommandListener;
+import com.mongodb.event.CommandStartedEvent;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 @Slf4j
 public class MongodbIT extends AbstractMongodbIT {
+
+    @Test
+    @Timeout(60)
+    public void testSinkDryRunLeavesDataAndMissingCollectionsUntouched() {
+        String uri =
+                "mongodb://"
+                        + mongodbContainer.getHost()
+                        + ":"
+                        + mongodbContainer.getMappedPort(MONGODB_PORT)
+                        + "/?serverSelectionTimeoutMS=2000&connectTimeoutMS=2000&socketTimeoutMS=2000";
+        String existing = "dry_run_existing";
+        String missing = "dry_run_missing";
+        Document original = new Document("_id", 1).append("value", "keep");
+        MongoCollection<Document> collection =
+                client.getDatabase(MONGODB_DATABASE).getCollection(existing);
+        collection.insertOne(original);
+        try {
+            for (DataSaveMode mode :
+                    Arrays.asList(
+                            DataSaveMode.APPEND_DATA,
+                            DataSaveMode.DROP_DATA,
+                            DataSaveMode.ERROR_WHEN_DATA_EXISTS)) {
+                Map<String, Object> config = sinkDryRunConfig(uri, existing);
+                config.put(MongodbSinkOptions.DATA_SAVE_MODE.key(), mode.name());
+                config.put(MongodbSinkOptions.TRANSACTION.key(), true);
+                validateSinkDryRun(config);
+                Assertions.assertEquals(
+                        Collections.singletonList(original),
+                        collection.find().into(new ArrayList<>()),
+                        mode.name());
+            }
+            validateSinkDryRun(sinkDryRunConfig(uri, missing));
+            Assertions.assertFalse(
+                    client.getDatabase(MONGODB_DATABASE)
+                            .listCollectionNames()
+                            .into(new ArrayList<>())
+                            .contains(missing));
+            Map<String, Object> newDatabase = sinkDryRunConfig(uri, missing);
+            newDatabase.put(MongodbSinkOptions.DATABASE.key(), "dry_run_missing_database");
+            validateSinkDryRun(newDatabase);
+            Assertions.assertFalse(
+                    client.listDatabaseNames()
+                            .into(new ArrayList<>())
+                            .contains("dry_run_missing_database"));
+        } finally {
+            collection.drop();
+        }
+    }
+
+    @Test
+    @Timeout(180)
+    public void testSinkDryRunAuthenticatesWithoutDataPrivileges() {
+        try (GenericContainer<?> authenticated =
+                new GenericContainer<>(DockerImageName.parse("mongo:8.0.11"))
+                        .withEnv("MONGO_INITDB_ROOT_USERNAME", "admin")
+                        .withEnv("MONGO_INITDB_ROOT_PASSWORD", "admin-password")
+                        .withExposedPorts(MONGODB_PORT)
+                        .waitingFor(Wait.forLogMessage(".*Waiting for connections.*", 2))
+                        .withStartupTimeout(Duration.ofMinutes(2))) {
+            authenticated.start();
+            String endpoint =
+                    authenticated.getHost() + ":" + authenticated.getMappedPort(MONGODB_PORT);
+            String options =
+                    "/?authSource=admin&serverSelectionTimeoutMS=2000&connectTimeoutMS=2000&socketTimeoutMS=2000";
+            try (MongoClient admin =
+                    MongoClients.create("mongodb://admin:admin-password@" + endpoint + options)) {
+                admin.getDatabase("admin")
+                        .runCommand(
+                                new Document("createUser", "probe")
+                                        .append("pwd", "probe-password")
+                                        .append("roles", Collections.emptyList()));
+                MongoCollection<Document> collection =
+                        admin.getDatabase(MONGODB_DATABASE).getCollection("dry_run_auth");
+                Document original = new Document("_id", 1).append("value", "keep");
+                collection.insertOne(original);
+
+                String uri = "mongodb://probe:probe-password@" + endpoint + options;
+                // The account has no document privileges. Only ping (and driver session cleanup)
+                // may be sent, and even destructive save modes must leave the documents intact.
+                List<String> commands = new CopyOnWriteArrayList<>();
+                MongoClientSettings settings =
+                        MongoClientSettings.builder()
+                                .applyConnectionString(new ConnectionString(uri))
+                                .addCommandListener(
+                                        new CommandListener() {
+                                            @Override
+                                            public void commandStarted(CommandStartedEvent event) {
+                                                commands.add(event.getCommandName());
+                                            }
+                                        })
+                                .build();
+                try (MongoClient observed = spy(MongoClients.create(settings));
+                        MockedStatic<MongoClients> clients = mockStatic(MongoClients.class)) {
+                    clients.when(() -> MongoClients.create(any(MongoClientSettings.class)))
+                            .thenReturn(observed);
+                    Map<String, Object> config = sinkDryRunConfig(uri, "dry_run_auth");
+                    config.put(
+                            MongodbSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
+                    config.put(MongodbSinkOptions.TRANSACTION.key(), true);
+                    validateSinkDryRun(config);
+                    verify(observed).close();
+                }
+                Assertions.assertEquals(1, commands.stream().filter("ping"::equals).count());
+                Assertions.assertTrue(
+                        commands.stream()
+                                .allMatch(
+                                        command ->
+                                                command.equals("ping")
+                                                        || command.equals("endSessions")),
+                        commands.toString());
+                Assertions.assertEquals(
+                        Collections.singletonList(original),
+                        collection.find().into(new ArrayList<>()));
+
+                // Exercise the unmodified client creation path against an authenticated server too.
+                validateSinkDryRun(sinkDryRunConfig(uri, "not_created"));
+                Assertions.assertFalse(
+                        admin.getDatabase(MONGODB_DATABASE)
+                                .listCollectionNames()
+                                .into(new ArrayList<>())
+                                .contains("not_created"));
+                IllegalStateException failure =
+                        Assertions.assertThrows(
+                                IllegalStateException.class,
+                                () ->
+                                        validateSinkDryRun(
+                                                sinkDryRunConfig(
+                                                        "mongodb://probe:wrong-password@"
+                                                                + endpoint
+                                                                + options,
+                                                        "dry_run_auth")));
+                Assertions.assertEquals(
+                        "MongoDB sink dry-run authentication failed.", failure.getMessage());
+                Assertions.assertNull(failure.getCause());
+                Assertions.assertEquals(0, failure.getSuppressed().length);
+                // Without configured credentials ping only establishes connectivity, not write
+                // access.
+                validateSinkDryRun(
+                        sinkDryRunConfig("mongodb://" + endpoint + options, "dry_run_auth"));
+            }
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testSinkDryRunFailsWithinConfiguredTimeout() throws IOException {
+        // Keep the port occupied but never speak MongoDB: no race with another process binding it.
+        try (ServerSocket unresponsive =
+                new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            String uri =
+                    "mongodb://127.0.0.1:"
+                            + unresponsive.getLocalPort()
+                            + "/?serverSelectionTimeoutMS=1000&connectTimeoutMS=1000&socketTimeoutMS=1000";
+            IllegalStateException failure =
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () -> validateSinkDryRun(sinkDryRunConfig(uri, "not_created")));
+            Assertions.assertEquals(
+                    "MongoDB sink dry-run connection timed out.", failure.getMessage());
+            Assertions.assertNull(failure.getCause());
+            Assertions.assertEquals(0, failure.getSuppressed().length);
+        }
+    }
+
+    private Map<String, Object> sinkDryRunConfig(String uri, String collection) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(MongodbSinkOptions.URI.key(), uri);
+        config.put(MongodbSinkOptions.DATABASE.key(), MONGODB_DATABASE);
+        config.put(MongodbSinkOptions.COLLECTION.key(), collection);
+        return config;
+    }
+
+    @Test
+    @Timeout(60)
+    public void testSinkDryRunDoesNotChangeRuntimeSaveModes() throws Exception {
+        String uri =
+                "mongodb://"
+                        + mongodbContainer.getHost()
+                        + ":"
+                        + mongodbContainer.getMappedPort(MONGODB_PORT);
+        String name = "dry_run_then_write";
+        MongoCollection<Document> collection =
+                client.getDatabase(MONGODB_DATABASE).getCollection(name);
+        for (DataSaveMode mode :
+                Arrays.asList(
+                        DataSaveMode.APPEND_DATA,
+                        DataSaveMode.DROP_DATA,
+                        DataSaveMode.ERROR_WHEN_DATA_EXISTS)) {
+            Document original = new Document("_id", 0).append("value", "keep");
+            collection.insertOne(original);
+            try {
+                Map<String, Object> config = sinkDryRunConfig(uri, name);
+                config.put(MongodbSinkOptions.DATA_SAVE_MODE.key(), mode.name());
+                config.put(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS.key(), 1);
+                TableSinkFactoryContext context =
+                        new TableSinkFactoryContext(
+                                getCatalogTable(name),
+                                ReadonlyConfig.fromMap(config),
+                                getClass().getClassLoader());
+                MongodbSinkFactory factory = new MongodbSinkFactory();
+                factory.validateConnectionForDryRun(context);
+                Assertions.assertEquals(
+                        Collections.singletonList(original),
+                        collection.find().into(new ArrayList<>()));
+                MongodbSink sink = (MongodbSink) factory.createSink(context).createSink();
+                try (SaveModeHandler handler = sink.getSaveModeHandler().get()) {
+                    handler.open();
+                    if (mode == DataSaveMode.ERROR_WHEN_DATA_EXISTS) {
+                        Assertions.assertThrows(
+                                SeaTunnelRuntimeException.class, handler::handleSaveMode);
+                        Assertions.assertEquals(1, collection.countDocuments());
+                        continue;
+                    }
+                    handler.handleSaveMode();
+                }
+                SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
+                        sink.createWriter(new DefaultSinkWriterContext(0, 1));
+                try {
+                    writer.write(getSeaTunnelRowOne());
+                } finally {
+                    writer.close();
+                }
+                Assertions.assertEquals(
+                        mode == DataSaveMode.APPEND_DATA ? 2 : 1,
+                        collection.countDocuments(),
+                        mode.name());
+            } finally {
+                collection.drop();
+            }
+        }
+    }
+
+    private void validateSinkDryRun(Map<String, Object> config) {
+        new MongodbSinkFactory()
+                .validateConnectionForDryRun(
+                        new TableSinkFactoryContext(
+                                null, ReadonlyConfig.fromMap(config), getClass().getClassLoader()));
+    }
 
     @TestTemplate
     public void testMongodbSourceAndSink(TestContainer container)

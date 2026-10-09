@@ -84,6 +84,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
 | FakeSource | Yes (schema inference only, no external system) | - |
 | Cassandra | Yes ([prepared SELECT metadata](../../connectors/source/Cassandra.md#connectivity-dry-run); no application-row reads) | No |
+| MongoDB | No | Yes ([connectivity + configured authentication](../../connectors/sink/MongoDB.md#connectivity-dry-run); no collection, schema, write permission or transaction checks) |
 | RabbitMQ | Yes ([existing-queue metadata + configured schema; not consumer permissions](../../connectors/source/Rabbitmq.md#connectivity-dry-run)) | No |
 | S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
 | Redis | Yes ([connectivity + authentication](../../connectors/source/Redis.md#connectivity-dry-run) + configured schema; no key access) | Yes ([connectivity + authentication](../../connectors/sink/Redis.md#connectivity-dry-run); no field compatibility or write permission check) |
