@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -51,6 +52,7 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1111,6 +1113,197 @@ public class CheckpointCoordinatorTest
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    /**
+     * {@code checkpoint.storage.max-retained} is the maximum number of completed checkpoints this
+     * coordinator keeps. Retention must drop the oldest id as soon as a new completion would exceed
+     * that bound, not wait until the queue reaches twice the bound. A new coordinator does not see
+     * files left by a previous instance.
+     */
+    @Test
+    void testRetentionPrunesAsSoonAsCompletedCheckpointsExceedMaxRetained() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            int maxRetained = 3;
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+            storageConfig.setMaxRetainedCheckpoints(maxRetained);
+            checkpointConfig.setStorage(storageConfig);
+
+            TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(Collections.singleton(taskLocation))
+                            .startingSubtasks(Collections.singleton(taskLocation))
+                            .build();
+            CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            storage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            runningJobStateIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            List<String> completionEvents = new ArrayList<>();
+            Mockito.doAnswer(
+                            invocation -> {
+                                completionEvents.add("notify");
+                                return true;
+                            })
+                    .when(spy)
+                    .notifyCompleted(Mockito.any());
+            Mockito.doAnswer(
+                            invocation -> {
+                                completionEvents.add("delete");
+                                return null;
+                            })
+                    .when(storage)
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
+
+            for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
+                spy.completePendingCheckpoint(completedCheckpoint(checkpointId));
+                ArrayDeque<String> retained = completedCheckpointIds(spy);
+                Assertions.assertTrue(
+                        retained.size() <= maxRetained,
+                        "after checkpoint "
+                                + checkpointId
+                                + " retained "
+                                + retained
+                                + ", max-retained is "
+                                + maxRetained);
+            }
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> deleted = ArgumentCaptor.forClass(List.class);
+            Mockito.verify(storage, Mockito.atLeastOnce())
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), deleted.capture());
+            List<String> pruned =
+                    deleted.getAllValues().stream()
+                            .flatMap(List::stream)
+                            .collect(Collectors.toList());
+            Assertions.assertEquals(
+                    Arrays.asList("1", "2"),
+                    pruned,
+                    "oldest checkpoints must be pruned once the bound is exceeded");
+            int firstDelete = completionEvents.indexOf("delete");
+            Assertions.assertTrue(
+                    firstDelete >= 0, "retention must delete after the bound is exceeded");
+            Assertions.assertEquals(
+                    4,
+                    Collections.frequency(completionEvents.subList(0, firstDelete), "notify"),
+                    "checkpoint completion notification must happen before retention delete");
+            Assertions.assertEquals(
+                    Arrays.asList("3", "4", "5"), new ArrayList<>(completedCheckpointIds(spy)));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * A retention delete failure must not fail the checkpoint. Popped ids go back on the deque and
+     * the next completion retries them.
+     */
+    @Test
+    void testRetentionDeleteFailureRetriesOnNextCompletion() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            int maxRetained = 3;
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+            storageConfig.setMaxRetainedCheckpoints(maxRetained);
+            checkpointConfig.setStorage(storageConfig);
+
+            TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(Collections.singleton(taskLocation))
+                            .startingSubtasks(Collections.singleton(taskLocation))
+                            .build();
+            CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+            Mockito.doThrow(new CheckpointStorageException("listing failed"))
+                    .when(storage)
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            storage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            runningJobStateIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            for (long checkpointId = 1; checkpointId <= 4; checkpointId++) {
+                long id = checkpointId;
+                Assertions.assertDoesNotThrow(
+                        () -> spy.completePendingCheckpoint(completedCheckpoint(id)),
+                        "retention delete failure must not fail the checkpoint");
+            }
+            Assertions.assertEquals(
+                    Arrays.asList("1", "2", "3", "4"),
+                    new ArrayList<>(completedCheckpointIds(spy)),
+                    "failed deletes must leave the ids on the deque");
+
+            Mockito.doNothing()
+                    .when(storage)
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
+            spy.completePendingCheckpoint(completedCheckpoint(5));
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> deleted = ArgumentCaptor.forClass(List.class);
+            Mockito.verify(storage, Mockito.atLeastOnce())
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), deleted.capture());
+            List<String> retried = deleted.getAllValues().get(deleted.getAllValues().size() - 1);
+            Assertions.assertEquals(
+                    Arrays.asList("1", "2"),
+                    retried,
+                    "the next completion must retry the ids the failed delete put back");
+            Assertions.assertEquals(
+                    Arrays.asList("3", "4", "5"), new ArrayList<>(completedCheckpointIds(spy)));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    private static CompletedCheckpoint completedCheckpoint(long checkpointId) {
+        return new CompletedCheckpoint(
+                1L,
+                1,
+                checkpointId,
+                1_000L + checkpointId,
+                CheckpointType.CHECKPOINT_TYPE,
+                2_000L + checkpointId,
+                new HashMap<>(),
+                new HashMap<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ArrayDeque<String> completedCheckpointIds(CheckpointCoordinator coordinator) {
+        return (ArrayDeque<String>)
+                ReflectionUtils.getField(coordinator, "completedCheckpointIds")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "completedCheckpointIds field not found"));
     }
 
     /**
