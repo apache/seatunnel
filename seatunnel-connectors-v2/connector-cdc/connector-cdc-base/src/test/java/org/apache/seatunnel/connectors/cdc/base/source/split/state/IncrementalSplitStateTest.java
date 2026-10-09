@@ -32,7 +32,9 @@ import lombok.ToString;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -128,6 +130,55 @@ public class IncrementalSplitStateTest {
         splitState = new IncrementalSplitState(split);
         Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
         Assertions.assertFalse(splitState.autoEnterPureIncrementPhaseIfAllowed());
+    }
+
+    @Test
+    public void testCheckpointAdvancesOnlyTheTableThatProducedTheRecord() {
+        TableId firstTable = TableId.parse("db.schema.first");
+        TableId secondTable = TableId.parse("db.schema.second");
+        Offset firstStartupOffset = new TestOffset(100);
+        Offset secondStartupOffset = new TestOffset(200);
+        Map<TableId, Offset> tableStartupOffsets = new HashMap<>();
+        tableStartupOffsets.put(firstTable, firstStartupOffset);
+        tableStartupOffsets.put(secondTable, secondStartupOffset);
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Arrays.asList(firstTable, secondTable),
+                        firstStartupOffset,
+                        null,
+                        Collections.emptyList(),
+                        tableStartupOffsets);
+
+        IncrementalSplitState state = new IncrementalSplitState(split);
+        Offset checkpointOffset = new TestOffset(300);
+        state.setStartupOffset(checkpointOffset, firstTable);
+        state.setStartupOffset(new TestOffset(350), secondTable);
+
+        IncrementalSplit checkpointSplit = state.toSourceSplit();
+        Assertions.assertEquals(new TestOffset(350), checkpointSplit.getStartupOffset());
+        Assertions.assertEquals(
+                checkpointOffset, checkpointSplit.getTableStartupOffsets().get(firstTable));
+        Assertions.assertEquals(
+                new TestOffset(350), checkpointSplit.getTableStartupOffsets().get(secondTable));
+
+        Offset heartbeatOffset = new TestOffset(400);
+        state.setStartupOffset(heartbeatOffset, null);
+        checkpointSplit = state.toSourceSplit();
+        Assertions.assertEquals(heartbeatOffset, checkpointSplit.getStartupOffset());
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(firstTable));
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(secondTable));
+
+        state.setStartupOffset(new TestOffset(390), firstTable);
+        state.setStartupOffset(new TestOffset(350), null);
+        checkpointSplit = state.toSourceSplit();
+        Assertions.assertEquals(heartbeatOffset, checkpointSplit.getStartupOffset());
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(firstTable));
+        Assertions.assertEquals(
+                heartbeatOffset, checkpointSplit.getTableStartupOffsets().get(secondTable));
     }
 
     private static IncrementalSplit createIncrementalSplit(

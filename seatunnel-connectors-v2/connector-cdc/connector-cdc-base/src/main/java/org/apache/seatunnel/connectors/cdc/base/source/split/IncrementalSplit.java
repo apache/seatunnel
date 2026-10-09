@@ -47,6 +47,9 @@ public class IncrementalSplit extends SourceSplitBase {
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private final Offset startupOffset;
 
+    /** Checkpoint watermark for each table, when the split combines restored tables. */
+    private final Map<TableId, Offset> tableStartupOffsets;
+
     /** Obtained by configuration, may not end */
     private final Offset stopOffset;
 
@@ -76,7 +79,26 @@ public class IncrementalSplit extends SourceSplitBase {
                 stopOffset,
                 completedSnapshotSplitInfos,
                 new ArrayList<>(),
+                new HashMap<>(),
                 new HashMap<>());
+    }
+
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            Map<TableId, Offset> tableStartupOffsets) {
+        this(
+                splitId,
+                capturedTables,
+                startupOffset,
+                stopOffset,
+                completedSnapshotSplitInfos,
+                new ArrayList<>(),
+                new HashMap<>(),
+                tableStartupOffsets);
     }
 
     @Deprecated
@@ -87,7 +109,10 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStartupOffset(),
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
-                checkpointDataType);
+                split.getCheckpointTables(),
+                split.getHistoryTableChanges(),
+                split.getTableStartupOffsets());
+        this.checkpointDataType = checkpointDataType;
     }
 
     public IncrementalSplit(
@@ -101,7 +126,8 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
                 tables,
-                historyTableChanges);
+                historyTableChanges,
+                split.getTableStartupOffsets());
     }
 
     @Deprecated
@@ -119,6 +145,7 @@ public class IncrementalSplit extends SourceSplitBase {
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
         this.checkpointDataType = checkpointDataType;
         this.historyTableChanges = new HashMap<>();
+        this.tableStartupOffsets = new HashMap<>();
     }
 
     public IncrementalSplit(
@@ -129,6 +156,26 @@ public class IncrementalSplit extends SourceSplitBase {
             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
             List<CatalogTable> checkpointTables,
             Map<TableId, byte[]> historyTableChanges) {
+        this(
+                splitId,
+                capturedTables,
+                startupOffset,
+                stopOffset,
+                completedSnapshotSplitInfos,
+                checkpointTables,
+                historyTableChanges,
+                new HashMap<>());
+    }
+
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            List<CatalogTable> checkpointTables,
+            Map<TableId, byte[]> historyTableChanges,
+            Map<TableId, Offset> tableStartupOffsets) {
         super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
@@ -136,6 +183,8 @@ public class IncrementalSplit extends SourceSplitBase {
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
         this.checkpointTables = checkpointTables;
         this.historyTableChanges = historyTableChanges;
+        this.tableStartupOffsets =
+                tableStartupOffsets == null ? new HashMap<>() : new HashMap<>(tableStartupOffsets);
     }
 
     /**
@@ -184,6 +233,12 @@ public class IncrementalSplit extends SourceSplitBase {
                         : historyTableChanges.entrySet().stream()
                                 .filter(entry -> capturedTableSet.contains(entry.getKey()))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<TableId, Offset> filteredTableStartupOffsets =
+                tableStartupOffsets == null
+                        ? new HashMap<>()
+                        : tableStartupOffsets.entrySet().stream()
+                                .filter(entry -> capturedTableSet.contains(entry.getKey()))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         IncrementalSplit prunedSplit =
                 new IncrementalSplit(
                         splitId(),
@@ -192,7 +247,8 @@ public class IncrementalSplit extends SourceSplitBase {
                         stopOffset,
                         filteredCompletedSnapshotSplitInfos,
                         filteredCheckpointTables,
-                        filteredHistoryTableChanges);
+                        filteredHistoryTableChanges,
+                        filteredTableStartupOffsets);
         // Keep compatibility with checkpoints created before table-level schema history.
         prunedSplit.checkpointDataType = checkpointDataType;
         return prunedSplit;

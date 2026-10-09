@@ -25,7 +25,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** The state of split to describe the change log of table(s). */
 @Getter
@@ -34,8 +38,13 @@ public class IncrementalSplitState extends SourceSplitStateBase {
 
     private List<TableId> tableIds;
 
+    private final Set<TableId> capturedTableIds;
+
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private Offset startupOffset;
+
+    /** Last checkpoint position observed for each captured table in this split. */
+    private Map<TableId, Offset> tableStartupOffsets;
 
     /** Obtained by configuration, may not end */
     private Offset stopOffset;
@@ -46,8 +55,13 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
+        this.capturedTableIds = new HashSet<>(tableIds);
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
+        this.tableStartupOffsets =
+                split.getTableStartupOffsets() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(split.getTableStartupOffsets());
 
         if (split.getCompletedSnapshotSplitInfos().isEmpty()) {
             this.maxSnapshotSplitsHighWatermark = null;
@@ -71,7 +85,37 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getTableIds(),
                 getStartupOffset(),
                 getStopOffset(),
-                incrementalSplit.getCompletedSnapshotSplitInfos());
+                incrementalSplit.getCompletedSnapshotSplitInfos(),
+                getTableStartupOffsets());
+    }
+
+    /**
+     * Advances the split and per-table checkpoint positions. Heartbeats advance every captured
+     * table, while records and schema changes advance only their own table; no watermark moves
+     * backwards when replayed records arrive out of order.
+     */
+    public void setStartupOffset(Offset startupOffset, TableId tableId) {
+        if (startupOffset == null) {
+            return;
+        }
+        if (this.startupOffset == null || startupOffset.isAfter(this.startupOffset)) {
+            this.startupOffset = startupOffset;
+        }
+        if (tableId == null) {
+            // Heartbeats have a source-wide offset that safely advances every captured table.
+            for (TableId capturedTableId : capturedTableIds) {
+                advanceTableStartupOffset(capturedTableId, startupOffset);
+            }
+        } else if (capturedTableIds.contains(tableId)) {
+            advanceTableStartupOffset(tableId, startupOffset);
+        }
+    }
+
+    private void advanceTableStartupOffset(TableId tableId, Offset startupOffset) {
+        Offset currentStartupOffset = tableStartupOffsets.get(tableId);
+        if (currentStartupOffset == null || startupOffset.isAfter(currentStartupOffset)) {
+            tableStartupOffsets.put(tableId, startupOffset);
+        }
     }
 
     public synchronized boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {
