@@ -99,7 +99,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
 | Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 不支持 |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
-| MongoDB | 支持（[集合可见性 + 配置的 schema](../../connectors/source/MongoDB.md#连通性预检查)，要求 MongoDB 4.0+，不验证文档读取权限） | 不支持 |
+| MongoDB | 支持（[集合可见性 + 配置的 schema](../../connectors/source/MongoDB.md#连通性预检查)，要求 MongoDB 4.0+，不验证文档读取权限） | 支持（[连通性 + 配置的认证](../../connectors/sink/MongoDB.md#连通性-dry-run)，不检查集合、schema、写入权限或事务） |
 | RabbitMQ | 支持（[已有队列元数据 + 配置 schema，不含消费权限](../../connectors/source/Rabbitmq.md#连接预检查)） | 不支持 |
 | S3File | 支持（元数据连通性 + 内联 schema，仅单表 text/csv/json/xml；参见[支持范围](../../connectors/source/S3File.md#连接预检查)） | - |
 | Redis | 支持（[连通性 + 认证](../../connectors/source/Redis.md#连通性-dry-run) + 配置的 schema，不访问 key） | 支持（[连通性 + 认证](../../connectors/sink/Redis.md#连通性-dry-run)，不校验字段兼容性和写入权限） |
