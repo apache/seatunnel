@@ -39,4 +39,15 @@ public class TestCopyIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/copy_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /**
+     * Verifies JSON and array-of-JSON fields retain their types and values after Copy.
+     *
+     * <p>The Assert sink checks both the copied schema and exact structured values.
+     */
+    @TestTemplate
+    public void testCopyJsonType(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/copy_transform_json_type.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
 }

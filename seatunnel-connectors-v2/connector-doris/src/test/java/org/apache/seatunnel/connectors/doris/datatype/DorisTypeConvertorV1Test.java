@@ -304,17 +304,34 @@ public class DorisTypeConvertorV1Test {
                 BasicTypeDefine.builder().name("test").columnType("json").dataType("json").build();
         Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
-                BasicTypeDefine.builder().name("test").columnType("json").dataType("json").build();
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("jsonb")
+                        .dataType("jsonb")
+                        .build();
         column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    /**
+     * Verifies that SeaTunnel JSON is created as Doris JSON.
+     *
+     * <p>This protects native JSON table creation from falling back to a text column.
+     */
+    @Test
+    public void testReconvertJson() {
+        Column column = PhysicalColumn.builder().name("test").dataType(BasicType.JSON_TYPE).build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV1.INSTANCE.reconvert(column);
+
+        Assertions.assertEquals(DorisTypeConverterV1.DORIS_JSON, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV1.DORIS_JSON, typeDefine.getDataType());
     }
 
     @Test
