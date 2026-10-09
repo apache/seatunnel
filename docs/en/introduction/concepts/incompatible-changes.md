@@ -422,6 +422,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
 
 ### Engine Behavior Changes
 
+- **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
+  - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.
+  - **Impact**: Clusters using file-based IMap persistence can upgrade and restart across the #9689 relocation without manual WAL surgery. Writing is unaffected: new WAL entries always record the current class names. Note that the rewrite is one-directional: WAL files written by a current distribution contain class names that older releases cannot resolve, so downgrading a cluster after it has written new WAL entries requires deleting or manually rewriting the persisted WAL data. (#11781)
+
 - **Behavior change: the REST log-content endpoints return at most 64 MB by default**
   - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
     `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
