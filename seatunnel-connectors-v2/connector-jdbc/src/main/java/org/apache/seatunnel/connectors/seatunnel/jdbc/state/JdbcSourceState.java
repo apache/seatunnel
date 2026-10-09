@@ -22,15 +22,31 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Enumerator checkpoint state for JDBC source split planning.
+ *
+ * <p>{@code generatorState} may be null when restoring older checkpoints that only persisted
+ * pending tables/splits, or when no table is mid-generation.
+ */
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class JdbcSourceState implements Serializable {
+    // Keep the original UID so pre-PR checkpoints deserialize with generatorState=null.
     private static final long serialVersionUID = -6441009212721284346L;
     private List<TablePath> pendingTables;
     private Map<Integer, List<JdbcSourceSplit>> pendingSplits;
+    /** Cursor for the table currently being lazily split; null if none. */
+    private JdbcSplitGeneratorState generatorState;
+
+    public JdbcSourceState(
+            List<TablePath> pendingTables, Map<Integer, List<JdbcSourceSplit>> pendingSplits) {
+        this(pendingTables, pendingSplits, null);
+    }
 }

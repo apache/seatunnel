@@ -47,6 +47,22 @@ public class JdbcSourceConfigTest {
         assertEquals(StringSplitStrategy.RANGE, sourceConfig.getStringSplitStrategy());
     }
 
+    @Test
+    public void testSplitAssignBatchSizeDefault() {
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(baseConfig()));
+        assertEquals(
+                JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE.defaultValue(),
+                sourceConfig.getSplitAssignBatchSize());
+    }
+
+    @Test
+    public void testSplitMaxPendingSplitsDefault() {
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(baseConfig()));
+        assertEquals(
+                JdbcSourceOptions.SPLIT_MAX_PENDING_SPLITS.defaultValue(),
+                sourceConfig.getSplitMaxPendingSplits());
+    }
+
     private Map<String, Object> baseConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("url", "jdbc:postgresql://localhost:5432/test");
