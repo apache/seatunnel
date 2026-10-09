@@ -70,6 +70,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
@@ -1021,6 +1022,100 @@ public class CheckpointCoordinatorTest
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    @Test
+    void testCheckpointErrorReportDoesNotRunOnCallerThread() throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        CountDownLatch executorStarted = new CountDownLatch(1);
+        CountDownLatch releaseExecutor = new CountDownLatch(1);
+        try {
+            executorService.submit(
+                    () -> {
+                        executorStarted.countDown();
+                        releaseExecutor.await();
+                        return null;
+                    });
+            Assertions.assertTrue(executorStarted.await(5, TimeUnit.SECONDS));
+
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointManager checkpointManager = checkpointManagerOf(coordinator);
+            coordinator.reportCheckpointErrorFromTask("restore failed");
+
+            Mockito.verifyNoInteractions(checkpointManager);
+
+            // Once the executor is released the report must actually be handled, not merely
+            // accepted: the caller returning is not by itself evidence the error was propagated.
+            releaseExecutor.countDown();
+            Mockito.verify(checkpointManager, Mockito.timeout(5000))
+                    .handleCheckpointError(Mockito.eq(1), Mockito.eq(false));
+        } finally {
+            releaseExecutor.countDown();
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * A rejected submission must still un-park a caller waiting on the coordinator future.
+     *
+     * <p>{@code clearCoordinatorService()} shuts the coordinator executor down during a master
+     * switch; before the fix an error report arriving in that window was dropped, and {@code
+     * waitCheckpointCoordinatorComplete().join()} had nothing left to wake it.
+     */
+    @Test
+    void testCheckpointErrorReportCompletesFutureWhenExecutorRejects() throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.shutdownNow();
+        CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+
+        coordinator.reportCheckpointErrorFromTask("restore failed");
+
+        // get(...) throws TimeoutException if the future is never completed, which is the
+        // parked-waiter symptom this guards against.
+        Assertions.assertNotNull(
+                coordinator.waitCheckpointCoordinatorComplete().get(5, TimeUnit.SECONDS));
+    }
+
+    /**
+     * The rejected path must still reach cancellation, and it must not do that work on the
+     * Hazelcast operation thread that reported the error.
+     */
+    @Test
+    void testCheckpointErrorReportRejectionStillReachesCancellationOffCallerThread()
+            throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.shutdownNow();
+        CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+        CheckpointManager checkpointManager = checkpointManagerOf(coordinator);
+
+        AtomicReference<String> handlerThread = new AtomicReference<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            handlerThread.set(Thread.currentThread().getName());
+                            return null;
+                        })
+                .when(checkpointManager)
+                .handleCheckpointError(Mockito.anyInt(), Mockito.anyBoolean());
+
+        String callerThread = Thread.currentThread().getName();
+        coordinator.reportCheckpointErrorFromTask("restore failed");
+
+        Mockito.verify(checkpointManager, Mockito.timeout(5000))
+                .handleCheckpointError(Mockito.eq(1), Mockito.eq(false));
+        Assertions.assertNotNull(handlerThread.get(), "the error handler should have run");
+        Assertions.assertNotEquals(
+                callerThread,
+                handlerThread.get(),
+                "the rejected report must not traverse the state machine on the caller thread");
+    }
+
+    private static CheckpointManager checkpointManagerOf(CheckpointCoordinator coordinator) {
+        return (CheckpointManager)
+                ReflectionUtils.getField(coordinator, "checkpointManager")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "checkpointManager field not found"));
     }
 
     /**

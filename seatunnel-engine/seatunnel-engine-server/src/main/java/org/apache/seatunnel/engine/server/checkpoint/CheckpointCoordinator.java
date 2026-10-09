@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -70,6 +71,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -191,6 +193,22 @@ public class CheckpointCoordinator {
     private final AtomicBoolean isAllTaskReady = new AtomicBoolean(false);
 
     private final ExecutorService executorService;
+
+    /**
+     * Last-resort pool for checkpoint error reports that {@link #executorService} rejected.
+     *
+     * <p>Deliberately independent of {@code executorService}: that pool is shut down by the
+     * master-switch teardown, and a report rejected in that window must still reach cancellation
+     * instead of being dropped. Shared and single-threaded because rejection is an exceptional
+     * path, and daemon so a leftover thread can never hold the JVM open after the JobMaster is
+     * gone.
+     */
+    private static final ExecutorService ERROR_REPORT_FALLBACK_EXECUTOR =
+            Executors.newSingleThreadExecutor(
+                    new ThreadFactoryBuilder()
+                            .setNameFormat("checkpoint-error-report-fallback-%d")
+                            .setDaemon(true)
+                            .build());
 
     private CompletableFuture<CheckpointCoordinatorState> checkpointCoordinatorFuture;
 
@@ -534,10 +552,58 @@ public class CheckpointCoordinator {
     }
 
     public void reportCheckpointErrorFromTask(String errorMsg) {
-        handleCoordinatorError(
-                "report error from task",
-                new SeaTunnelException(errorMsg),
-                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+        // Error reports arrive through Hazelcast operation threads. Keep the remote operation
+        // short: cancellation and restore handling may synchronously traverse the JobMaster state
+        // machine and must run on the coordinator executor instead of blocking the operation pool.
+        //
+        // The report must not be dropped, though. If it is, nothing completes the coordinator
+        // future and a caller parked in waitCheckpointCoordinatorComplete().join() stays parked,
+        // which is the hang this path exists to prevent.
+        Runnable reportError =
+                () ->
+                        handleCoordinatorError(
+                                "report error from task",
+                                new SeaTunnelException(errorMsg),
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+        try {
+            executorService.execute(reportError);
+        } catch (RejectedExecutionException e) {
+            // The coordinator executor is shut down (a master switch calls
+            // clearCoordinatorService(), which shuts it down) or saturated. Retrying on the
+            // coordinator executor cannot help, and handling it inline would put the state
+            // machine traversal back on the Hazelcast operation thread, so dispatch on a pool
+            // that clearCoordinatorService cannot shut down.
+            LOG.warn(
+                    "Checkpoint error report for job {} pipeline {} was rejected by the "
+                            + "coordinator executor; dispatching on the fallback executor "
+                            + "instead.",
+                    jobId,
+                    pipelineId,
+                    e);
+            try {
+                ERROR_REPORT_FALLBACK_EXECUTOR.execute(reportError);
+            } catch (RejectedExecutionException fallbackFailure) {
+                // Nothing could run the handler, so complete the future as a last resort: it
+                // cannot drive cancellation itself, but it does release waiters instead of
+                // leaving them parked forever. Cancellation is then owned by whatever tears the
+                // JobMaster down for the failed coordinator state.
+                LOG.error(
+                        "Fallback dispatch of the checkpoint error report for job {} pipeline {} "
+                                + "also failed; completing the coordinator future without "
+                                + "cancellation.",
+                        jobId,
+                        pipelineId,
+                        fallbackFailure);
+                errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
+                if (!checkpointCoordinatorFuture.isDone()) {
+                    updateStatus(CheckpointCoordinatorStatus.FAILED);
+                    checkpointCoordinatorFuture.complete(
+                            new CheckpointCoordinatorState(
+                                    CheckpointCoordinatorStatus.FAILED,
+                                    errorByPhysicalVertex.get()));
+                }
+            }
+        }
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
