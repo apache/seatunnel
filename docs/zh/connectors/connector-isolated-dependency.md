@@ -45,5 +45,5 @@ SEATUNNEL_HOME/
 - 通过追踪任务日志，确认每个连接器只加载了自己独立的依赖 jar。
 
     ```log
-    2025-08-13T17:55:48.7732601Z [] 2025-08-13 17:55:47,270 INFO  org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery - find connector jar and dependency for PluginIdentifier{engineType='seatunnel', pluginType='source', pluginName='Jdbc'}: [file:/tmp/seatunnel/plugins/Jdbc/lib/vertica-jdbc-12.0.3-0.jar, file:/tmp/seatunnel/connectors/connector-jdbc-3.0.0-SNAPSHOT-2.12.15.jar]
+    2025-08-13T17:55:48.7732601Z [] 2025-08-13 17:55:47,270 INFO  org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery - find connector jar and dependency for PluginIdentifier{engineType='seatunnel', pluginType='source', pluginName='Jdbc'}: [file:/tmp/seatunnel/plugins/Jdbc/lib/vertica-jdbc-12.0.3-0.jar, file:/tmp/seatunnel/connectors/connector-jdbc-3.0.1-SNAPSHOT-2.12.15.jar]
     ```

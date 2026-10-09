@@ -31,7 +31,7 @@ minikube start --kubernetes-version=v1.23.3
 使用默认配置安装：
 ```bash
 # 自行选择对应版本
-export VERSION=2.3.10
+export VERSION=3.0.1
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
