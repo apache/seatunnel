@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
