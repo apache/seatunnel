@@ -61,21 +61,32 @@ _CREDENTIAL_VALUE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Patterns that match key=value credential assignments (password=X, password: X)
+# Match the whole quoted value, including spaces, punctuation, and escaped
+# quotes. Keep the prefix separate so a value equal to the key cannot alter it.
+# Quoted values are bound to a single line, and an opening quote that is never
+# closed falls back to the rest of its own line, so a dangling quote can never
+# pair up with an unrelated quote on a later line and swallow what lies between.
+# A match must also start at the left edge of a `[\w.-]` run: without that
+# boundary the leading `[\w.-]*` re-scans every offset of a long credential-free
+# word run, which makes redacting one such line quadratic in its length.
+_CREDENTIAL_KEYS = (
+    r"(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|"
+    r"auth[-_]?token|secret|credential|private[-_]?key)"
+)
+_CREDENTIAL_ASSIGNMENT_VALUE = (
+    r'''(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|'''
+    r'''["'][^\r\n]+|[^\s"',:}{)\]]+)'''
+)
+
 _CREDENTIAL_KV_PATTERNS = re.compile(
-    r'(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s*[=:]\s*'
-    r'["\']?([^\s"\',:}{)\]]{3,})["\']?',
+    r"(?<![\w.-])(?P<prefix>(?P<key_quote>[\"']?)[\w.-]*" + _CREDENTIAL_KEYS
+    + r"(?P=key_quote)\s*[=:]\s*)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
 
-# Patterns that match natural language credential disclosure (password is X, password was X)
 _CREDENTIAL_NL_PATTERNS = re.compile(
-    r'(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s+(?:is|was|are|were)\s+'
-    r'["\']?([^\s"\',:}{)\]]{3,})["\']?',
+    r"(?<![\w.-])(?P<prefix>[\w.-]*" + _CREDENTIAL_KEYS
+    + r"\s+(?:is|was|are|were)\s+)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
 
@@ -107,6 +118,12 @@ def contains_credential(text: str) -> bool:
     return False
 
 
+def _redact_assignment(match: re.Match) -> str:
+    value = match.group("value")
+    quote = value[0] if value[0] in "\"'" else ""
+    return match.group("prefix") + quote + "***REDACTED***" + quote
+
+
 def redact_credentials(text: str) -> str:
     """Replace credential values in text with placeholder markers.
 
@@ -115,16 +132,9 @@ def redact_credentials(text: str) -> str:
     """
     # Redact known token patterns
     text = _CREDENTIAL_VALUE_PATTERNS.sub("***REDACTED***", text)
-    # Redact key=value credential pairs (replace only the value part)
-    text = _CREDENTIAL_KV_PATTERNS.sub(
-        lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
-        text,
-    )
-    # Redact natural language credential disclosure ("password is X")
-    text = _CREDENTIAL_NL_PATTERNS.sub(
-        lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
-        text,
-    )
+    # Redact assignment values while preserving their key and quote style.
+    text = _CREDENTIAL_KV_PATTERNS.sub(_redact_assignment, text)
+    text = _CREDENTIAL_NL_PATTERNS.sub(_redact_assignment, text)
     # Redact JDBC URL embedded passwords (jdbc:mysql://user:PASSWORD@host)
     text = _JDBC_CREDENTIAL_PATTERN.sub(
         lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
