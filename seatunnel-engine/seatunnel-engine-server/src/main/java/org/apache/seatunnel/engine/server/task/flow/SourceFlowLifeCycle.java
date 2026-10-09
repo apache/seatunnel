@@ -453,6 +453,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     }
 
     /**
+     * Delivers a source event sent by the remote split enumerator to this reader.
+     *
+     * <p>This runs on a Hazelcast operation thread, not the reader's task thread, so the
+     * implementation must be safe against concurrent access with the {@code pollNext} loop. The
+     * event is dispatched to {@link SourceReader#handleSourceEvent(SourceEvent)}, which connectors
+     * such as the CDC sources use to receive enumerator acknowledgements.
+     *
+     * @param sourceEvent the event sent by the enumerator
+     */
+    public void receivedSourceEvent(SourceEvent sourceEvent) {
+        reader.handleSourceEvent(sourceEvent);
+    }
+
+    /**
      * Injects a checkpoint barrier into the record stream.
      *
      * <p>This method acquires the {@code checkpointLock} on the collector to ensure mutual
