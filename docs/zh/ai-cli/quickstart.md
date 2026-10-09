@@ -36,6 +36,7 @@ bin/seatunnel-ai.sh
 ```bash
 cd seatunnel-cli
 bash setup.sh          # 安装全部提供商依赖 + 开发工具
+source .venv/bin/activate
 seatunnel --init       # 交互式配置提供商
 ```
 

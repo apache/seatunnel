@@ -85,7 +85,7 @@ Child modules declare dependencies **without** a `<version>` element — the ver
 
 ### Prerequisites
 
-- Java 8+
+- Java 11+
 - Maven 3.x
 
 ### Clone and Build
