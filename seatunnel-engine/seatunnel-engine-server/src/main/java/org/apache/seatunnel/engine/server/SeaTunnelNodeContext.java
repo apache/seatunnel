@@ -79,7 +79,7 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
      * @return a fresh SeaTunnel extension with the node-local jar resolver
      */
     @Override
-    public com.hazelcast.instance.impl.NodeExtension createNodeExtension(@NonNull Node node) {
+    public NodeExtension createNodeExtension(@NonNull Node node) {
         return new NodeExtension(node, seaTunnelConfig, jarPathResolver, resourceManagerFactory);
     }
 

@@ -150,7 +150,6 @@ public final class SeatunnelYarnApplicationCli {
                             "seatunnel-yarn-application-shutdown");
             try {
                 Runtime.getRuntime().addShutdownHook(shutdown);
-
                 new ApplicationJobRunner(server, specification).run();
             } finally {
                 try {

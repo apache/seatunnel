@@ -61,6 +61,7 @@ ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
     "connector-seatunnel-e2e-base",
     "connector-console-seatunnel-e2e",
     "seatunnel-edge-agent-e2e",
+    "seatunnel-resource-managers-e2e",
 )
 
 ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
@@ -301,6 +302,7 @@ def get_sub_update_it_modules(modules, total_num, current_num):
             "connector-console-seatunnel-e2e",
             "seatunnel-engine-k8s-e2e",
             "seatunnel-edge-agent-e2e",
+            "seatunnel-resource-managers-e2e",
         },
     )
     for i, module in enumerate(module_list):

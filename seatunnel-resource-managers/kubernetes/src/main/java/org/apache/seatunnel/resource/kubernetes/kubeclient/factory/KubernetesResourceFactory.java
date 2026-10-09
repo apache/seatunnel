@@ -84,6 +84,21 @@ public final class KubernetesResourceFactory {
         return KubernetesConstants.APPLICATION_LABEL + "=" + id;
     }
 
+    /**
+     * Select resources belonging to an application and specify roles.
+     *
+     * @param id generated application Job name
+     * @param role role
+     * @return equality selector for the application's ownership label
+     */
+    public static String selector(String id, String role) {
+        return KubernetesResourceFactory.selector(id)
+                + ","
+                + KubernetesResourceFactory.ROLE_LABEL
+                + "="
+                + role;
+    }
+
     private static Map<String, String> labels(
             String id, String role, Map<String, String> customLabels) {
         Map<String, String> result = new HashMap<>();

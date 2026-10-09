@@ -153,6 +153,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
                             thread.setDaemon(true);
                             return thread;
                         });
+
         executor.scheduleWithFixedDelay(
                 () -> {
                     try {

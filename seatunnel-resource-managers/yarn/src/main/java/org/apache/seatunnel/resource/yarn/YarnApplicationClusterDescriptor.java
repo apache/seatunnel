@@ -44,6 +44,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 
@@ -189,8 +190,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
         long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
         ApplicationReport report =
                 new YarnApplicationStatusMonitor(yarnClient()).awaitRunning(applicationId, timeout);
-        if (report.getYarnApplicationState()
-                != org.apache.hadoop.yarn.api.records.YarnApplicationState.RUNNING) {
+        if (report.getYarnApplicationState() != YarnApplicationState.RUNNING) {
             throw new IllegalStateException(
                     "YARN application " + applicationId + " has no live master");
         }

@@ -45,13 +45,7 @@ public final class KubernetesClientFactory {
     public static KubernetesClient create(Map<String, String> options, boolean inCluster)
             throws IOException {
         ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<>(options));
-        String kubeconfig = config.get(KubernetesOptions.KUBE_CONFIG);
-        ApiClient client =
-                inCluster
-                        ? Config.fromCluster()
-                        : kubeconfig == null
-                                ? Config.defaultClient()
-                                : Config.fromConfig(kubeconfig);
+        ApiClient client = getApiClient(inCluster, config);
         client.setConnectTimeout(API_TIMEOUT_MILLIS);
         client.setReadTimeout(API_TIMEOUT_MILLIS);
         client.setHttpClient(
@@ -60,5 +54,26 @@ public final class KubernetesClientFactory {
                         .callTimeout(API_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                         .build());
         return new DefaultKubernetesClient(client, config.get(KubernetesOptions.NAMESPACE));
+    }
+
+    /**
+     * Creates Kubernetes ApiClient based on running environment.
+     *
+     * @param inCluster whether running inside kubernetes cluster, use in-cluster service account if
+     *     true
+     * @param config readonly configuration holder that provides kubeconfig file path
+     * @return initialized kubernetes ApiClient
+     * @throws IOException if load config failed
+     */
+    private static ApiClient getApiClient(boolean inCluster, ReadonlyConfig config)
+            throws IOException {
+        String kubeconfig = config.get(KubernetesOptions.KUBE_CONFIG);
+        if (inCluster) {
+            return Config.fromCluster();
+        } else if (kubeconfig == null) {
+            return Config.defaultClient();
+        } else {
+            return Config.fromConfig(kubeconfig);
+        }
     }
 }

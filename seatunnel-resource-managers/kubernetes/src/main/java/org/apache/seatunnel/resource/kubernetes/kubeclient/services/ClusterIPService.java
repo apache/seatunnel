@@ -39,13 +39,11 @@ public class ClusterIPService extends KubernetesService {
      * @param selector labels selecting backend Pods
      * @param portName stable endpoint name
      * @param port exposed and target TCP port
+     * @param clusterIp static ClusterIP; empty string means auto-assign by Kubernetes
+     * @param publishNotReadyAddresses if true, endpoints include not-ready Pod IPs in service
+     *     endpoints
      */
     public ClusterIPService(
-            V1ObjectMeta metadata, Map<String, String> selector, String portName, int port) {
-        this(metadata, selector, portName, port, null, false);
-    }
-
-    protected ClusterIPService(
             V1ObjectMeta metadata,
             Map<String, String> selector,
             String portName,

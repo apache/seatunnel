@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -109,7 +110,8 @@ public final class KubernetesResourceManagerDriver
         this.running = true;
         this.workerWatch =
                 api.watchPods(
-                        workerSelector(),
+                        KubernetesResourceFactory.selector(
+                                job.getName(), KubernetesConstants.WORKER_ROLE),
                         WORKER_WATCH_INTERVAL_MILLIS,
                         this::checkWorkers,
                         this::onWatchFailure);
@@ -219,7 +221,10 @@ public final class KubernetesResourceManagerDriver
 
     void checkWorkers() {
         try {
-            checkWorkers(api.listPods(workerSelector()));
+            String selector =
+                    KubernetesResourceFactory.selector(
+                            job.getName(), KubernetesConstants.WORKER_ROLE);
+            checkWorkers(api.listPods(selector));
         } catch (Exception failure) {
             onWatchFailure(failure);
         }
@@ -279,13 +284,6 @@ public final class KubernetesResourceManagerDriver
                 mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
             }
         }
-    }
-
-    private String workerSelector() {
-        return KubernetesResourceFactory.selector(job.getName())
-                + ","
-                + KubernetesResourceFactory.ROLE_LABEL
-                + "=worker";
     }
 
     /**

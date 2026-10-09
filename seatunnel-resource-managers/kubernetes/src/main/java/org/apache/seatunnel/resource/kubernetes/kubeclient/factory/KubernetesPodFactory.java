@@ -205,19 +205,21 @@ final class KubernetesPodFactory {
     private static List<String> command(
             KubernetesApplicationParameters parameters, int memory, String main, String... args) {
         String home = parameters.getSeatunnelHome();
+        long mem =
+                Math.max(
+                        KubernetesConstants.MINIMUM_JVM_HEAP_MB,
+                        memory
+                                * (long) KubernetesConstants.JVM_HEAP_NUMERATOR
+                                / KubernetesConstants.JVM_HEAP_DENOMINATOR);
+
+        String classPatch =
+                String.format(KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home);
         List<String> command =
                 new ArrayList<>(
                         Arrays.asList(
                                 KubernetesConstants.JAVA_COMMAND,
-                                "-Xmx"
-                                        + Math.max(
-                                                KubernetesConstants.MINIMUM_JVM_HEAP_MB,
-                                                memory
-                                                        * (long)
-                                                                KubernetesConstants
-                                                                        .JVM_HEAP_NUMERATOR
-                                                        / KubernetesConstants.JVM_HEAP_DENOMINATOR)
-                                        + "m",
+                                "-Xmx" + mem + "m",
+                                "-XX:+ExitOnOutOfMemoryError",
                                 "-Dseatunnel.home=" + home,
                                 "-Dseatunnel.config="
                                         + home
@@ -226,13 +228,7 @@ final class KubernetesPodFactory {
                                         + home
                                         + KubernetesConstants.LOG4J_CONFIG_FILE,
                                 "-cp",
-                                home
-                                        + String.format(
-                                                KubernetesConstants.KUBERNETES_CLASSPATH,
-                                                home,
-                                                home,
-                                                home,
-                                                home),
+                                home + classPatch,
                                 main));
         command.addAll(Arrays.asList(args));
         return command;

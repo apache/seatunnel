@@ -253,7 +253,7 @@ class ConnectorItShardingTest(unittest.TestCase):
             "connector-jdbc-e2e"
         }
         condition_modules.update(
-            {"seatunnel-edge-agent-e2e", "seatunnel-engine-k8s-e2e"}
+            {"seatunnel-edge-agent-e2e", "seatunnel-engine-k8s-e2e", "seatunnel-resource-managers-e2e"}
         )
         for module in sorted(condition_modules):
             with self.subTest(module=module):

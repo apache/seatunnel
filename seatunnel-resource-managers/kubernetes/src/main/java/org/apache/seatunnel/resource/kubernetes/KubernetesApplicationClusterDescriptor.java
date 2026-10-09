@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -126,12 +127,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                                 + " has no live master: "
                                 + job.getFailureReason());
             }
-            for (KubernetesPod pod :
-                    api.listPods(
-                            KubernetesResourceFactory.selector(id)
-                                    + ","
-                                    + KubernetesResourceFactory.ROLE_LABEL
-                                    + "=master")) {
+            String selector =
+                    KubernetesResourceFactory.selector(id, KubernetesConstants.MASTER_ROLE);
+            for (KubernetesPod pod : api.listPods(selector)) {
                 if (pod.isRunning() && !pod.isTerminating()) {
                     String host = pod.getInternalResource().getStatus().getPodIP();
                     if (host != null && !host.isEmpty()) {

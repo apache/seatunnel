@@ -19,11 +19,14 @@ package org.apache.seatunnel.resource.kubernetes.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
 import io.kubernetes.client.openapi.ApiException;
+
+import java.util.List;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
 public final class KubernetesApplicationClient implements AutoCloseable {
@@ -59,12 +62,11 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
-                for (KubernetesPod pod :
-                        api.listPods(
-                                KubernetesResourceFactory.selector(applicationId)
-                                        + ","
-                                        + KubernetesResourceFactory.ROLE_LABEL
-                                        + "=master")) {
+                String selector =
+                        KubernetesResourceFactory.selector(
+                                applicationId, KubernetesConstants.WORKER_ROLE);
+                List<KubernetesPod> pods = api.listPods(selector);
+                for (KubernetesPod pod : pods) {
                     if (pod.isRunning()) {
                         state = ApplicationStatus.RUNNING;
                         break;

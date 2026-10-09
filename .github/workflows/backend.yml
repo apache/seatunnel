@@ -632,13 +632,13 @@ jobs:
 
   engine-resource-managers-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.resource-managers == 'true' || needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: needs.changes.outputs.resource-managers == 'true' || needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'seatunnel-resource-managers-e2e')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -657,6 +657,11 @@ jobs:
             -pl :seatunnel-resource-managers-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   benchmark-test:
     needs: [ changes, sanity-check ]

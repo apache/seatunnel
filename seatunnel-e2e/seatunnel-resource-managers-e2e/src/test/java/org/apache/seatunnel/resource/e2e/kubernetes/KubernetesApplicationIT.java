@@ -70,6 +70,7 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -856,7 +857,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private void assertStatusFromApplicationCli(String applicationId) throws Exception {
         String classpath =
                 DependencyJar.staged("seatunnel-starter.jar").path()
-                        + java.io.File.pathSeparator
+                        + File.pathSeparator
                         + DependencyJar.staged("seatunnel-resource-manager-kubernetes.jar").path();
         Path output = temporary.resolve("application-status.log");
         Process process =
