@@ -58,21 +58,25 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
 | TINYINT                                                             | TINYINT             |
-| UTINYINT<br/>SMALLINT                                               | SMALLINT            |
-| USMALLINT<br/>INTEGER                                               | INT                 |
-| UINTEGER<br/>BIGINT                                                 | BIGINT              |
-| UBIGINT                                                             | DECIMAL(20,0)       |
+| UTINYINT                                                            | TINYINT             |
+| SMALLINT                                                            | SMALLINT            |
+| USMALLINT                                                           | SMALLINT            |
+| INTEGER                                                             | INT                 |
+| UINTEGER                                                            | INT                 |
+| BIGINT<br/>UBIGINT                                                  | BIGINT              |
 | HUGEINT                                                             | DECIMAL(38,0)       |
 | FLOAT                                                               | FLOAT               |
 | DOUBLE                                                              | DOUBLE              |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)      |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)       |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
 | BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+| TIMESTAMP                                                           | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE                                            | TIMESTAMP_TZ        |
+| BLOB                                                                | BYTES               |
+| ARRAY<br/>STRUCT<br/>MAP                                            | STRING              |
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
@@ -86,7 +90,7 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use DuckDB the value is `org.duckdb.DuckDBDriver`.                                                                                                                                       |
 | username                     | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                       |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                        |
-| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                     |
+| query                        | String     | No       | -               | Query statement. Required when neither `table_path` nor `table_list` is configured.                                                                                                                                                                                                                                                     |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                  |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type primary key, and only can config one column.                                                                                                                                                 |
 | partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |

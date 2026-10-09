@@ -27,7 +27,7 @@ You can secure your REST-API-V2 service by enabling HTTPS. Both HTTP and HTTPS c
 
 | Parameter Name | Required | Description |
 |----------------|----------|-------------|
-| `enable-http` | No | Whether to enable HTTP service, default is `true` |
+| `enable-http` | No | Whether to enable HTTP service, default is `false` |
 | `port` | No | HTTP service port, default is `8080` |
 | `enable-https` | No | Whether to enable HTTPS service, default is `false` |
 | `https-port` | No | HTTPS service port, default is `8443` |

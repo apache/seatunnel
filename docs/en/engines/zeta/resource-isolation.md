@@ -47,7 +47,7 @@ SeaTunnel can add `tag` to each worker node, when you submit job you can use `ta
 
 2. add `tag_filter` to your job config
 
-```hacon
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

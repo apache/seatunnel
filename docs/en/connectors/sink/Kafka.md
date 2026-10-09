@@ -507,7 +507,7 @@ sink {
 
 ### What message formats does Kafka Sink support?
 
-Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `compatible_debezium_json`, `ogg_json`, `maxwell_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
 
 ## Changelog
 

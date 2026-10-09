@@ -62,8 +62,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                              |
 | DATE                                    | LOCAL_DATE                                                                                          |
 | TIME                                    | LOCAL_TIME                                                                                          |
-| DATETIME<br />DATETIME2<br />SMALLDATETIME<br />DATETIMEOFFSET | LOCAL_DATE_TIME                                                                                     |
-| TIMESTAMP<br />BINARY<br />VARBINARY<br />IMAGE<br />UNKNOWN | 尚未支持                                                                                            |
+| DATETIME<br />DATETIME2<br />SMALLDATETIME                    | LOCAL_DATE_TIME                                                                                     |
+| DATETIMEOFFSET                                               | OFFSET_DATE_TIME                                                                                    |
+| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP             | BYTES                                                                                               |
+| UNKNOWN                                                    | 尚未支持                                                                                            |
 
 ## 接收器选项
 
