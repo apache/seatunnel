@@ -32,6 +32,15 @@ Sink，SeaTunnel 目前没有提供 ActiveMQ Source 连接器。
 | nested_map_and_list_enabled           | boolean | 否    | -   | 是否允许结构化消息属性和 `MapMessage` 条目中包含嵌套的 `Map`、`List` 对象。                                               |
 | warn_about_unstarted_connection_timeout | int   | 否    | -   | 连接没有正确启动时，ActiveMQ 客户端发出警告前等待的毫秒数。设置为小于 `0` 的值可以关闭这个警告。                              |
 | consumer_expiry_check_enabled           | boolean | 否    | -   | 是否在每个 `MessageConsumer` 分发消息前检查消息是否已经过期。                                                  |
+| max_thread_pool_size                    | int     | 否    | 1000 | ActiveMQ 连接线程池中的最大线程数。                                                                            |
+| send_timeout                            | int     | 否    | 0    | 同步发送超时时间，单位毫秒。`0` 表示不设置超时。                                                                |
+| use_compression                         | boolean | 否    | false | 是否压缩发送到 Broker 的消息。                                                                                 |
+| connect_response_timeout                | int     | 否    | 0    | 等待 Broker 连接响应的超时时间，单位毫秒。                                                                     |
+| producer_window_size                    | int     | 否    | 0    | 异步发送时 Producer 窗口大小，单位字节。                                                                       |
+| use_async_send                          | boolean | 否    | false | 是否使用异步方式向 Broker 发送消息。                                                                           |
+| delivery_mode                           | int     | 否    | 2    | JMS 发送模式：`1` 表示非持久化，`2` 表示持久化。                                                              |
+| time_to_live                            | int     | 否    | 0    | 消息存活时间，单位毫秒。`0` 表示不过期。                                                                       |
+| priority                                | int     | 否    | 4    | JMS 消息优先级，范围为 `0`（最低）到 `9`（最高）。                                                             |
 
 ## 注意事项
 
@@ -128,4 +137,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-

@@ -83,6 +83,15 @@ class ActivemqFactoryTest {
         config.put(ActivemqSinkOptions.CLOSE_TIMEOUT.key(), 1000);
         config.put(ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED.key(), true);
         config.put(ActivemqSinkOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key(), -1);
+        config.put(ActivemqSinkOptions.MAX_THREAD_POOL_SIZE.key(), 1000);
+        config.put(ActivemqSinkOptions.SEND_TIMEOUT.key(), 0);
+        config.put(ActivemqSinkOptions.USE_COMPRESSION.key(), false);
+        config.put(ActivemqSinkOptions.CONNECT_RESPONSE_TIMEOUT.key(), 0);
+        config.put(ActivemqSinkOptions.PRODUCER_WINDOW_SIZE.key(), 0);
+        config.put(ActivemqSinkOptions.USE_ASYNC_SEND.key(), false);
+        config.put(ActivemqSinkOptions.DELIVERY_MODE.key(), 2);
+        config.put(ActivemqSinkOptions.TIME_TO_LIVE.key(), 0L);
+        config.put(ActivemqSinkOptions.PRIORITY.key(), 4);
         Assertions.assertDoesNotThrow(() -> validate(config));
     }
 
