@@ -20,6 +20,7 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
 | api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |
+| process_batch_size             | int    | 否    | 100    | 每次处理的数据行批量大小。旧配置名 `inference_batch_size` 仍可作为回退使用。               |
 | dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
 | oauth_path                     | string | 否    | -      | oauth 服务的 API 。                                                  |
 | custom_config                  | map    | 否    |        | 模型的自定义配置。                                                        |
@@ -40,7 +41,7 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 
 ### model_provider
 
-用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
+用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`ZHIPU`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
 模型的请求以及获取。
 
 ### api_key

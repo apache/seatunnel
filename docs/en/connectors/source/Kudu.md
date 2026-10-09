@@ -33,7 +33,9 @@ The tested kudu version is 1.11.1.
 |      kudu Data Type      | SeaTunnel Data Type |
 |--------------------------|---------------------|
 | BOOL                     | BOOLEAN             |
-| INT8<br/>INT16<br/>INT32 | INT                 |
+| INT8                     | TINYINT             |
+| INT16                    | SMALLINT            |
+| INT32                    | INT                 |
 | INT64                    | BIGINT              |
 | DECIMAL                  | DECIMAL             |
 | FLOAT                    | FLOAT               |

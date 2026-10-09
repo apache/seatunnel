@@ -170,12 +170,14 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
-| dialect                                   | String  | No       | -                            | 
+| dialect                                   | String  | No       | -                            |
 | database                                  | String  | No       | -                            |
+| schema                                    | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | connect_timeout_ms                        | Int     | No       | 86400000                     |
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
@@ -262,6 +264,14 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
+
+### schema [string]
+
+For databases that support the schema parameter (e.g. SQL Server, Oracle, PostgreSQL), gives the target schema priority in generated SQL / auto-creation paths.
+
+### multi_table_sink_replica [int]
+
+The replica number of multi table sink writer. Only takes effect in multi-table jobs.
 
 ### table [string]
 

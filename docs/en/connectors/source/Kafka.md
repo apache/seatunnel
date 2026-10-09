@@ -68,7 +68,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , compatible_kafka_connect_json, protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats/overview.md) |
 | avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
 | value_converter_schema_enabled      | Boolean                                                                    | No       | true                     | Effective only when `format = compatible_kafka_connect_json`. Whether the Kafka Connect value converter carries its schema in the JSON payload.                                                                                                                                                                                                                                                                                                                                                       |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
@@ -111,7 +111,7 @@ When back-pressure occurs downstream, the queue may fill up, and the upper bound
 
 :::caution
 
-When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `max.poll.records` in `kafka.config`.
 
 :::
 
@@ -736,7 +736,7 @@ Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `maxwell_j
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass authentication settings via `kafka.*` properties in the connector configuration:
+Pass authentication settings through the `kafka.config` map (the connector ignores unknown top-level `kafka.*` keys):
 
 ```hocon
 source {
@@ -744,13 +744,15 @@ source {
     bootstrap.servers = "broker:9092"
     topic = "secure-topic"
     consumer.group = "my-group"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
