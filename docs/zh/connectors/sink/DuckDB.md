@@ -28,6 +28,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
 
+## 写入已挂载的 DuckLake catalog
+
+通过 DuckDB JDBC 驱动的 `session_init_sql_file` URL 参数让每个连接挂载目标湖（已用 DuckDB JDBC 1.3.1 验证）。例如，在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中，把 DuckLake 的 `LOAD` 和 `ATTACH IF NOT EXISTS` 语句放在 `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` 标记之后，写法见 [DuckDB Source 文档](../source/DuckDB.md#读取已挂载的-ducklake-catalog)。JDBC Sink 设置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`、`database = "lake"`、`table = "main.events"` 和 `generate_sink_sql = true`。这里的 `database` 是已挂载的 DuckLake 别名，**不是** PostgreSQL 元数据数据库；`main.events` 是湖内 schema 和表。Source 文档还给出了如何分别指定 PostgreSQL 元数据数据库和 `METADATA_SCHEMA`。追加写入前目标表必须已存在。初始化文件以及元数据目录、对象存储凭据须在每个 Worker 上可用，且不要提交到版本库。使用 DuckDB JDBC 1.3.1 时，SQLite 元数据 DuckLake 的并发写入即使在直接 JDBC 复现中也会报事务错误；此组合应使用一个 Sink 写入器。PostgreSQL 元数据 + S3 的双写入器只做过冒烟，不能当作并发保证。此路径提供 JDBC 批量写入，不代表具有基于 XA 的精确一次交付保证。
+
+只访问 DuckLake 的作业也可使用 Source 文档中的连接独立内存 URL。若使用本地 `work.db`，不能让多个 Worker JVM 共享该文件进行读写；共享的湖是元数据数据库与数据路径，而不是这个本地 DuckDB 文件。
+
 ## 主要功能
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -70,7 +76,7 @@ JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表
 | username                     | String  | 否    | -                            | 连接实例用户名                                                                                     |
 | password                     | String  | 否    | -                            | 连接实例密码                                                                                      |
 | query                        | String  | 否    | -                            | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                       |
-| database                     | String  | 否    | -                            | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。        |
+| database                     | String  | 否    | -                            | 使用 `main` 或 `default` 选择当前 DuckDB catalog，或指定已挂载的 catalog 别名。省略时会继承上游数据库名，该名称必须对应已挂载的 catalog；未知名称会在保存模式处理之前报错。用于自动生成 SQL；显式 `query` 优先。 |
 | table                        | String  | 否    | -                            | 使用数据库和此表名自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。                             |
 | primary_keys                 | Array   | 否    | -                            | 此选项用于在自动生成 sql 时支持 `insert`、`delete` 和 `update` 等操作。                                        |
 | connection_check_timeout_sec | Int     | 否    | 30                           | 等待用于验证连接的数据库操作完成的时间（以秒为单位）。                                                                 |
@@ -165,6 +171,12 @@ sink {
   }
 }
 ```
+
+### Catalog 选择与迁移
+
+`main` 和 `default` 是当前 catalog 的兼容别名（不区分大小写），不要将它们用作挂载 catalog 的别名。其他名称表示已挂载的 catalog，也不区分大小写。SeaTunnel 不会自动创建或挂载未知 catalog；请通过连接初始化脚本在每个连接上挂载所需别名。
+
+对于从 MySQL、PostgreSQL 等上游写入 DuckDB 的 Sink，请显式设置 `database = main` 来保留原来写入当前 catalog 的行为，或将 `database` 设为目标挂载别名。此前上游数据库名可能被静默忽略，现在会校验该名称，包括 `schema_save_mode = IGNORE` 的情况。显式 `query` 不使用自动生成的表路由。
 
 ## Changelog
 

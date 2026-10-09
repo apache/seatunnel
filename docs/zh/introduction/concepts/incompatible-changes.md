@@ -25,6 +25,13 @@
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
 
+### DuckDB JDBC catalog 选择
+
+- DuckDB Source/Sink 现在会使用显式选择的挂载 catalog。`database = main` 和 `database = default` 仍表示当前 catalog。
+- 其他 `database` 值必须对应已挂载的 catalog，不再被静默忽略。Sink 省略 `database` 并继承非 DuckDB 上游数据库名时也受影响，包括 `schema_save_mode = IGNORE`；未知 catalog 会在保存模式修改之前报错并提示迁移方法。
+- 显式设置 `database = main`（或 `default`）可保留之前写入当前 catalog 的行为；写入挂载 catalog 时，请指定目标别名并在每个连接上挂载。显式 `query` 仍使用自身的 SQL 路由。本次修改不改变 checkpoint 状态格式。
+- Catalog 表查询和 `--dry-run connect` 也会对未挂载的 catalog 报错，不再将其视为表不存在。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。

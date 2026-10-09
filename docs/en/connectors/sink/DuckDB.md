@@ -31,6 +31,12 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
+## Writing to an attached DuckLake catalog
+
+Attach the lake on every JDBC connection using the driver's `session_init_sql_file` URL option (verified with DuckDB JDBC 1.3.1). For example, put the DuckLake `LOAD` and `ATTACH IF NOT EXISTS` statements below the `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` marker in `/etc/duckdb/lake-init.sql` on each worker, as shown in the [DuckDB source guide](../source/DuckDB.md#reading-an-attached-ducklake-catalog). Then configure the JDBC sink with `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`, `database = "lake"`, `table = "main.events"`, and `generate_sink_sql = true`. Here `database` is the attached DuckLake alias, **not** the PostgreSQL metadata database; `main.events` is the lake schema and table. The source guide also shows how to select a PostgreSQL metadata database and `METADATA_SCHEMA` separately. The target table must exist before an append-only job. Keep the init file and any object-store or metadata-catalog credentials available to each worker but outside version control. With DuckDB JDBC 1.3.1, concurrent writers against a SQLite-metadata DuckLake failed with a transaction error even in a direct JDBC reproduction; use one sink writer for that setup. A two-writer PostgreSQL-metadata/S3 run passed as a smoke test, but is not a concurrency guarantee. DuckLake writes through this path are JDBC batch writes; they do not imply XA-based exactly-once delivery.
+
+For DuckLake-only jobs, the connection-private in-memory URL described in the source guide is also supported by this sink. If a local `work.db` is used, it must not be shared for read-write access by multiple worker JVMs; the shared lake is the metadata database and data path, not that local DuckDB file.
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -74,7 +80,7 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 | username                                  | String  | No       | -                            | Connection instance user name. DuckDB does not require authentication for local files; leave empty unless you wrap it with a custom authenticator.                                                                                            |
 | password                                  | String  | No       | -                            | Connection instance password. DuckDB does not require authentication for local files; leave empty unless you wrap it with a custom authenticator.                                                                                             |
 | query                                     | String  | No       | -                            | Use this SQL to write upstream input data to the database, for example `INSERT ...`. When `query` is set, it has higher priority than `database`/`table`/`table_list`.                                                                       |
-| database                                  | String  | No       | -                            | Use this `database` and `table` to auto-generate SQL and write upstream input data to the database. This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                                 |
+| database                                  | String  | No       | -                            | Select the current DuckDB catalog with `main` or `default`, or specify an attached catalog alias. If omitted, the upstream database name is inherited and must identify an attached catalog. Unknown names fail before save-mode handling. Applies to generated SQL; explicit `query` takes precedence. |
 | table                                     | String  | No       | -                            | Use database and this table name to auto-generate SQL and write upstream input data to the database. This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                                |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generating SQL.                                                                                                                          |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
@@ -169,6 +175,12 @@ sink {
 }
 ```
 
+
+### Catalog selection and migration
+
+`main` and `default` are reserved compatibility aliases for the current catalog (case-insensitive); do not use them as attached catalog aliases. Other names identify attached catalogs and are matched case-insensitively. SeaTunnel does not create or attach an unknown catalog automatically. Attach the requested alias on every connection through the initialization script.
+
+For a DuckDB Sink fed by MySQL, PostgreSQL or another upstream, explicitly set `database = main` to retain the previous current-catalog target, or set `database` to the intended attached alias. Previously the upstream database name could be silently ignored; it is now validated, including when `schema_save_mode = IGNORE`. An explicit `query` bypasses generated table routing.
 
 ## Changelog
 
