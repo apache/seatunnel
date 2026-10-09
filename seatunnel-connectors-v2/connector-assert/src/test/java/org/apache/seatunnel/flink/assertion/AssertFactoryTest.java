@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import org.apache.seatunnel.api.configuration.util.ConditionOperator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,5 +32,11 @@ public class AssertFactoryTest {
         AssertSinkFactory factory = new AssertSinkFactory();
         OptionRule optionRule = factory.optionRule();
         Assertions.assertNotNull(optionRule);
+        Assertions.assertEquals(1, optionRule.getValueConstraints().size());
+        Assertions.assertEquals(
+                ConditionOperator.MAP_NOT_EMPTY,
+                optionRule.getValueConstraints().get(0).getOperator());
+        Assertions.assertEquals(
+                AssertSinkOptions.RULES, optionRule.getValueConstraints().get(0).getOption());
     }
 }
