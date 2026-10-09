@@ -4,6 +4,16 @@ Protobuf (Protocol Buffers) is a language-neutral, platform-independent data ser
 
 Currently, Protobuf format can be used with Kafka.
 
+## Field Name Matching
+
+The schema field names and the proto field names are declared independently, so they are not required to use the same case. Every schema field is resolved against the protobuf descriptor as follows:
+
+- The exact name is matched first, so a proto file that declares mixed case field names such as `C_INT32` is still resolved exactly.
+- Only when there is no exact match, a case-insensitive fallback is used. The fallback is locale independent, so a schema field such as `C_String` matches `string c_string = 6;` even under a locale such as Turkish, and the same resolution is used when reading and when writing.
+- Nested types are resolved against the descriptor that owns them: the fields of a `ROW` column are matched against the message type of the protobuf field the column maps to, and the entries of a `MAP` column are matched against the map entry descriptor of that field.
+
+A non-null schema field without a matching proto field fails the job when writing, and is read as `null` when reading.
+
 ## Kafka Usage Example
 
 - Example of simulating a randomly generated data source and writing it to Kafka in Protobuf format

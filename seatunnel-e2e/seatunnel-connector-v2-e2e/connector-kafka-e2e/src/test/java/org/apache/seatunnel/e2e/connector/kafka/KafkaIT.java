@@ -1770,41 +1770,10 @@ public class KafkaIT extends AbstractKafkaIT {
                 container.executeJob("/protobuf/fake_to_kafka_protobuf.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        // Define the SeaTunnelRowType for the address field
-        SeaTunnelRowType addressType =
-                new SeaTunnelRowType(
-                        new String[] {"city", "state", "street"},
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.STRING_TYPE, BasicType.STRING_TYPE, BasicType.STRING_TYPE
-                        });
-
-        // Define the SeaTunnelRowType for the main schema
-        SeaTunnelRowType seaTunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "c_int32",
-                            "c_int64",
-                            "c_float",
-                            "c_double",
-                            "c_bool",
-                            "c_string",
-                            "c_bytes",
-                            "Address",
-                            "attributes",
-                            "phone_numbers"
-                        },
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            BasicType.BOOLEAN_TYPE,
-                            BasicType.STRING_TYPE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            addressType,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.FLOAT_TYPE),
-                            ArrayType.STRING_ARRAY_TYPE
-                        });
+        // Define the SeaTunnelRowType of the schema declared by the roundtrip configuration. The
+        // field names intentionally use a different case than the proto file, see
+        // buildMixedCaseSeaTunnelRowType().
+        SeaTunnelRowType seaTunnelRowType = buildMixedCaseSeaTunnelRowType();
 
         // Parse the configuration file
         String path = getTestConfigFile("/protobuf/fake_to_kafka_protobuf.conf");
@@ -1889,7 +1858,7 @@ public class KafkaIT extends AbstractKafkaIT {
         Config config = ConfigFactory.parseFile(new File(path));
         Config sinkConfig = config.getConfigList("source").get(0);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
-        SeaTunnelRowType seaTunnelRowType = buildSeaTunnelRowType();
+        SeaTunnelRowType seaTunnelRowType = buildMixedCaseSeaTunnelRowType();
 
         // Prepare schema properties
         Map<String, String> schemaProperties = new HashMap<>();
@@ -2948,6 +2917,53 @@ public class KafkaIT extends AbstractKafkaIT {
                     "Address",
                     "attributes",
                     "phone_numbers"
+                },
+                new SeaTunnelDataType<?>[] {
+                    BasicType.INT_TYPE,
+                    BasicType.LONG_TYPE,
+                    BasicType.FLOAT_TYPE,
+                    BasicType.DOUBLE_TYPE,
+                    BasicType.BOOLEAN_TYPE,
+                    BasicType.STRING_TYPE,
+                    PrimitiveByteArrayType.INSTANCE,
+                    addressType,
+                    new MapType<>(BasicType.STRING_TYPE, BasicType.FLOAT_TYPE),
+                    ArrayType.STRING_ARRAY_TYPE
+                });
+    }
+
+    /**
+     * Builds the row type of the schema declared by the direct protobuf roundtrip configurations.
+     *
+     * <p>The field names on purpose use a different case than the field names of the proto file, so
+     * these tests cover the name resolution of the protobuf format: the exact name is matched first
+     * and a locale independent case-insensitive fallback is only used when there is no exact match.
+     * Nested fields are resolved against the descriptor that owns them, so the nested {@code City},
+     * {@code state} and {@code Street} fields are matched against the {@code Address} message type
+     * of the {@code ADDRESS} column.
+     *
+     * @return row type of the protobuf schema declared by the roundtrip test configurations
+     */
+    private SeaTunnelRowType buildMixedCaseSeaTunnelRowType() {
+        SeaTunnelRowType addressType =
+                new SeaTunnelRowType(
+                        new String[] {"City", "state", "Street"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                        });
+
+        return new SeaTunnelRowType(
+                new String[] {
+                    "C_INT32",
+                    "c_int64",
+                    "C_Float",
+                    "c_double",
+                    "c_bool",
+                    "C_String",
+                    "c_bytes",
+                    "ADDRESS",
+                    "ATTRIBUTES",
+                    "PHONE_NUMBERS"
                 },
                 new SeaTunnelDataType<?>[] {
                     BasicType.INT_TYPE,

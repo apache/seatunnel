@@ -21,7 +21,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum ProtobufFormatErrorCode implements SeaTunnelErrorCode {
     DESCRIPTOR_CONVERT_FAILED("PROTOBUF-01", "Protobuf descriptor conversion failed."),
-    UNSUPPORTED_DATA_TYPE("PROTOBUF-02", "Unsupported data type.");
+    UNSUPPORTED_DATA_TYPE("PROTOBUF-02", "Unsupported data type."),
+    FIELD_NOT_FOUND("PROTOBUF-03", "Field not found in the protobuf descriptor.");
 
     private final String code;
     private final String description;
