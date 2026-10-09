@@ -40,16 +40,27 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.URI;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CHECK_FOR_DUPLICATE;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLIENT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONNECT_RESPONSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.URI;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.MAX_IN_FLIGHT_MESSAGES;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.MESSAGE_SELECTOR;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.RECEIVE_TIMEOUT;
 
 /** Factory for the streaming, checkpoint-aware ActiveMQ Classic queue source. */
 @AutoService(Factory.class)
@@ -70,6 +81,16 @@ public class ActivemqSourceFactory implements TableSourceFactory {
                 .optional(FORMAT)
                 .optional(FIELD_DELIMITER, notBlank(FIELD_DELIMITER))
                 .optional(MAX_IN_FLIGHT_MESSAGES, greaterThan(MAX_IN_FLIGHT_MESSAGES, 0))
+                .optional(MESSAGE_SELECTOR, notBlank(MESSAGE_SELECTOR))
+                .optional(RECEIVE_TIMEOUT, greaterThan(RECEIVE_TIMEOUT, 0))
+                .optional(CLIENT_ID, notBlank(CLIENT_ID))
+                .optional(CLOSE_TIMEOUT, greaterOrEqual(CLOSE_TIMEOUT, 0))
+                .optional(CONNECT_RESPONSE_TIMEOUT, greaterOrEqual(CONNECT_RESPONSE_TIMEOUT, 0))
+                .optional(ALWAYS_SESSION_ASYNC)
+                .optional(CHECK_FOR_DUPLICATE)
+                .optional(DISPATCH_ASYNC)
+                .optional(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
+                .optional(CONSUMER_EXPIRY_CHECK_ENABLED)
                 .build();
     }
 

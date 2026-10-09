@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.activemq.sink.ActivemqSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.activemq.source.ActivemqSourceFactory;
@@ -66,7 +67,7 @@ class ActivemqFactoryTest {
     @Test
     void testBlankClientIdRejected() {
         Map<String, Object> config = requiredConfig();
-        config.put(ActivemqSinkOptions.CLIENT_ID.key(), "");
+        config.put(ActivemqBaseOptions.CLIENT_ID.key(), "");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
     }
 
@@ -86,14 +87,14 @@ class ActivemqFactoryTest {
     @Test
     void testSupportedOptionalOptions() {
         Map<String, Object> config = requiredConfig();
-        config.put(ActivemqSinkOptions.CLIENT_ID.key(), "client-id");
-        config.put(ActivemqSinkOptions.CLOSE_TIMEOUT.key(), 1000);
-        config.put(ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED.key(), true);
-        config.put(ActivemqSinkOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key(), -1);
+        config.put(ActivemqBaseOptions.CLIENT_ID.key(), "client-id");
+        config.put(ActivemqBaseOptions.CLOSE_TIMEOUT.key(), 1000);
+        config.put(ActivemqBaseOptions.CONSUMER_EXPIRY_CHECK_ENABLED.key(), true);
+        config.put(ActivemqBaseOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT.key(), -1);
         config.put(ActivemqSinkOptions.MAX_THREAD_POOL_SIZE.key(), 100);
         config.put(ActivemqSinkOptions.SEND_TIMEOUT.key(), 5000);
         config.put(ActivemqSinkOptions.USE_COMPRESSION.key(), true);
-        config.put(ActivemqSinkOptions.CONNECT_RESPONSE_TIMEOUT.key(), 5000);
+        config.put(ActivemqBaseOptions.CONNECT_RESPONSE_TIMEOUT.key(), 5000);
         config.put(ActivemqSinkOptions.DELIVERY_MODE.key(), 1);
         config.put(ActivemqSinkOptions.PRIORITY.key(), 9);
         config.put(ActivemqSinkOptions.PRODUCER_WINDOW_SIZE.key(), 1048576);
@@ -122,7 +123,8 @@ class ActivemqFactoryTest {
 
     @Test
     void testSourceRejectsInvalidOptions() {
-        for (String key : new String[] {"uri", "queue_name", "field_delimiter"}) {
+        for (String key :
+                new String[] {"uri", "queue_name", "field_delimiter", "message_selector"}) {
             Map<String, Object> config = sourceConfig();
             config.put(key, " ");
             Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
@@ -132,11 +134,37 @@ class ActivemqFactoryTest {
             config.put("max_in_flight_messages", value);
             Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
         }
+        for (int value : new int[] {0, -1}) {
+            Map<String, Object> config = sourceConfig();
+            config.put("receive_timeout", value);
+            Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
+        }
         for (String key : new String[] {"username", "password"}) {
             Map<String, Object> config = sourceConfig();
             config.put(key, "test");
             Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
         }
+        for (String key : new String[] {"close_timeout", "connect_response_timeout"}) {
+            Map<String, Object> config = sourceConfig();
+            config.put(key, -1);
+            Assertions.assertThrows(OptionValidationException.class, () -> createSource(config));
+        }
+    }
+
+    @Test
+    void testSourceSupportedSourceOptions() {
+        Map<String, Object> config = sourceConfig();
+        config.put("message_selector", "JMSType = 'car'");
+        config.put("receive_timeout", 500);
+        config.put("client_id", "source-client");
+        config.put("close_timeout", 3000);
+        config.put("connect_response_timeout", 8000);
+        config.put("always_session_async", false);
+        config.put("check_for_duplicate", false);
+        config.put("dispatch_async", false);
+        config.put("warn_about_unstarted_connection_timeout", 1000);
+        config.put("consumer_expiry_check_enabled", false);
+        Assertions.assertDoesNotThrow(() -> createSource(config));
     }
 
     @Test

@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 | check_for_duplicate                   | boolean | 否    | -   | 是否让 ActiveMQ 客户端检查重复消息。                                                                               |
 | always_session_async                  | boolean | 否    | -   | 是否始终为每个 Session 使用独立线程分发消息。                                                                          |
 | always_sync_send                      | boolean | 否    | -   | 是否始终使用同步方式发送消息。                                                                                       |
-| close_timeout                         | int     | 否    | -   | 关闭连接的超时时间，单位毫秒。                                                                                        |
+| close_timeout                         | int     | 否    | 5000  | 关闭连接的超时时间，单位毫秒。                                                                                        |
 | dispatch_async                        | boolean | 否    | -   | Broker 是否异步分发消息。                                                                                       |
 | nested_map_and_list_enabled           | boolean | 否    | -   | 是否允许结构化消息属性和 `MapMessage` 条目中包含嵌套的 `Map`、`List` 对象。                                               |
 | warn_about_unstarted_connection_timeout | int   | 否    | -   | 连接没有正确启动时，ActiveMQ 客户端发出警告前等待的毫秒数。设置为小于 `0` 的值可以关闭这个警告。                              |
@@ -41,7 +41,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 | max_thread_pool_size                    | int     | 否    | 1000  | ActiveMQ 连接工厂内部用于消息分发的线程池最大大小。默认值为 `1000`。                                            |
 | send_timeout                            | int     | 否    | 0     | ActiveMQ 连接工厂的发送超时时间，单位毫秒。值为 `0` 表示不超时。默认值为 `0`。                                  |
 | use_compression                         | boolean | 否    | false | 是否在发送消息前对消息体进行压缩。默认值为 `false`。                                                          |
-| connect_response_timeout               | int     | 否    | 0     | 连接建立时等待 Broker 响应的超时时间，单位毫秒。值为 `0` 表示不超时。默认值为 `0`。                              |
+| connect_response_timeout               | int     | 否    | 10000 | 连接建立时等待 Broker 响应的超时时间，单位毫秒。                              |
 | delivery_mode                          | int     | 否    | 2     | JMS 投递模式：`1` 为非持久化，`2` 为持久化。默认值为 `2`（持久化）。                                              |
 | priority                               | int     | 否    | 4     | JMS 消息优先级，0（最低）到 9（最高）。默认值为 `4`。                                                            |
 | producer_window_size                   | int     | 否    | 0     | 异步发送时的流控窗口大小，单位字节。值为 `0` 表示不限流。默认值为 `0`。                                          |
@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 - Broker 地址请使用 `uri` 配置，`host` 和 `port` 不是 ActiveMQ Sink 的配置项。
 - 该 Sink 前面可以接任意 SeaTunnel Source。ActiveMQ 连接器只负责把最终的数据行发送到队列。
 - 当 `use_async_send = true` 或 `delivery_mode = 1`（非持久化）时，ActiveMQ 客户端发送消息后不等 Broker 确认即返回，且本连接器未注册 `ExceptionListener`，因此发送失败可能不会通知到作业。仅在可接受消息丢失的场景下使用这些选项。
-- 工厂级选项（`max_thread_pool_size`、`send_timeout`、`use_compression`、`connect_response_timeout`、`producer_window_size`、`use_async_send`）仅在显式配置时生效。未配置时，使用 `uri` 中对应的 `jms.*` 参数（如果存在）或 ActiveMQ 客户端默认值。
+- 工厂级选项（`close_timeout`、`max_thread_pool_size`、`send_timeout`、`use_compression`、`connect_response_timeout`、`producer_window_size`、`use_async_send`）仅在显式配置时生效。未配置时，使用 `uri` 中对应的 `jms.*` 参数（如果存在）或 ActiveMQ 客户端默认值。
 
 ## 示例
 

@@ -213,6 +213,25 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testSourceMessageSelectorFiltersMessages() throws Exception {
+        String queue = newQueue();
+        publish(queue, "{\"value\":\"match\"}", "msg_type", "car");
+        publish(queue, "{\"value\":\"skip\"}", "msg_type", "truck");
+
+        try (SourceReader<SeaTunnelRow, Split> reader =
+                createReader(queue, "JSON", 10, "msg_type = 'car'")) {
+            RowCollector rows = new RowCollector();
+            awaitRows(reader, rows, 1);
+            assertEquals("match", rows.rows.get(0).getField(0));
+            reader.snapshotState(1);
+            reader.notifyCheckpointComplete(1);
+        }
+        // The non-matching message remains on the queue for a separate consumer.
+        assertEquals("{\"value\":\"skip\"}", receive(queue));
+        assertNull(receive(queue));
+    }
+
+    @Test
     public void testSourceMalformedMessageRemainsOnQueue() throws Exception {
         String queue = newQueue();
         publish(queue, "not-json");
@@ -298,16 +317,24 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
 
     private SourceReader<SeaTunnelRow, Split> createReader(String queue, String format)
             throws Exception {
-        return createReader(queue, format, 10);
+        return createReader(queue, format, 10, null);
     }
 
     private SourceReader<SeaTunnelRow, Split> createReader(
             String queue, String format, int inFlight) throws Exception {
+        return createReader(queue, format, inFlight, null);
+    }
+
+    private SourceReader<SeaTunnelRow, Split> createReader(
+            String queue, String format, int inFlight, String selector) throws Exception {
         Map<String, Object> options = new HashMap<>();
         options.put("uri", brokerUrl());
         options.put("queue_name", queue);
         options.put("format", format);
         options.put("max_in_flight_messages", inFlight);
+        if (selector != null) {
+            options.put("message_selector", selector);
+        }
         options.put(
                 "schema",
                 Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
@@ -352,6 +379,18 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         MessageProducer sender = session.createProducer(session.createQueue(queue));
         try {
             sender.send(session.createTextMessage(text));
+        } finally {
+            sender.close();
+        }
+    }
+
+    private void publish(String queue, String text, String propertyKey, String propertyValue)
+            throws JMSException {
+        MessageProducer sender = session.createProducer(session.createQueue(queue));
+        try {
+            TextMessage message = session.createTextMessage(text);
+            message.setStringProperty(propertyKey, propertyValue);
+            sender.send(message);
         } finally {
             sender.close();
         }
