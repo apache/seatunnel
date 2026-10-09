@@ -25,11 +25,13 @@ public class TaskTracker {
     public final AtomicInteger expiredTimes = new AtomicInteger(0);
     public final TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker;
     public final Task task;
+    public final TaskGroupContext context;
 
     public TaskTracker(
             Task task, TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker) {
         this.task = task;
         this.taskGroupExecutionTracker = taskGroupExecutionTracker;
+        this.context = taskGroupExecutionTracker.getContext();
     }
 
     @Override

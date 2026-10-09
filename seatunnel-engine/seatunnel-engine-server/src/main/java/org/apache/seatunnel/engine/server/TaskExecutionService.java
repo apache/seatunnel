@@ -317,6 +317,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
+     * Suppresses terminal notifications from this node's old task generations and cancels active
+     * task groups when Hazelcast resets managed services during a cluster merge. The master detects
+     * the reset worker through cluster membership; until those contexts finish, execution probes
+     * treat reset-requested contexts as absent so a concurrent master cancellation can complete
+     * without relying on a terminal notification from the stale generation.
+     */
+    public void reset() {
+        List<CompletableFuture<Void>> cancellations = new ArrayList<>();
+        synchronized (this) {
+            for (TaskGroupContext context : finishedExecutionContexts.values()) {
+                context.setResetRequested(true);
+            }
+            for (TaskGroupContext context : executionContexts.values()) {
+                context.setResetRequested(true);
+                CompletableFuture<Void> cancellationFuture = cancellationFutures.get(context);
+                if (cancellationFuture != null) {
+                    cancellations.add(cancellationFuture);
+                }
+            }
+        }
+        if (!cancellations.isEmpty()) {
+            logger.info(
+                    String.format(
+                            "reset requested, cancelling %d task group(s)", cancellations.size()));
+        }
+        // Completing a cancellation future runs its task-cancellation callbacks inline. Do that
+        // after releasing the service monitor so connector shutdown cannot block deployments or
+        // Hazelcast's cluster-merge thread while holding this lock.
+        cancellations.forEach(cancellation -> cancellation.cancel(false));
+    }
+
+    /**
      * Gets the execution context for a task group. First checks active execution contexts, then
      * falls back to finished execution contexts.
      *
@@ -522,25 +554,36 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
 
             synchronized (this) {
-                if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                    // Task is actively running (present in executionContexts, not
-                    // finishedExecutionContexts). This happens during master failover: the new
-                    // master restores state and tries to re-deploy tasks that never stopped on
-                    // the worker. Return success so the master reconnects without interrupting
-                    // the running task. The worker will notify the master of the terminal state
-                    // via NotifyTaskStatusOperation when the task eventually completes.
-                    logger.warning(
-                            String.format(
-                                    "TaskGroupLocation %s already exists and is active, "
-                                            + "skipping redeploy for master failover recovery",
-                                    taskGroup.getTaskGroupLocation()));
-                    // Release classloaders acquired during deserialization
-                    for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
-                        classLoaderService.releaseClassLoader(
-                                taskImmutableInfo.getJobId(), entry.getValue());
+                TaskGroupContext activeContext =
+                        executionContexts.get(taskGroup.getTaskGroupLocation());
+                if (activeContext != null) {
+                    if (activeContext.isResetRequested()) {
+                        logger.info(
+                                String.format(
+                                        "TaskGroupLocation %s is being cancelled; deploying "
+                                                + "replacement execution [%s]",
+                                        taskGroup.getTaskGroupLocation(),
+                                        taskImmutableInfo.getExecutionId()));
+                    } else {
+                        // Task is actively running (present in executionContexts, not
+                        // finishedExecutionContexts). This happens during master failover: the new
+                        // master restores state and tries to re-deploy tasks that never stopped on
+                        // the worker. Return success so the master reconnects without interrupting
+                        // the running task. The worker will notify the master of the terminal state
+                        // via NotifyTaskStatusOperation when the task eventually completes.
+                        logger.warning(
+                                String.format(
+                                        "TaskGroupLocation %s already exists and is active, "
+                                                + "skipping redeploy for master failover recovery",
+                                        taskGroup.getTaskGroupLocation()));
+                        // Release classloaders acquired during deserialization
+                        for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
+                            classLoaderService.releaseClassLoader(
+                                    taskImmutableInfo.getJobId(), entry.getValue());
+                        }
+                        acquiredClassLoaderJars.clear();
+                        return TaskDeployState.success();
                     }
-                    acquiredClassLoaderJars.clear();
-                    return TaskDeployState.success();
                 }
                 AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
                 deployLocalTask(
@@ -632,6 +675,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskGroupContext context = new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
         resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
@@ -654,6 +698,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
+                            if (context.isResetRequested()) {
+                                logger.info(
+                                        String.format(
+                                                "Skip terminal status for task group %s execution %s "
+                                                        + "after cluster-merge reset",
+                                                taskGroup.getTaskGroupLocation(), executionId));
+                                return;
+                            }
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
                 MDCTracer.tracing(executorService));
@@ -698,8 +750,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 return true;
                                             }));
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-            TaskGroupContext context =
-                    new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
             TaskGroupExecutionTracker executionTracker =
                     new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
 
@@ -1278,10 +1328,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
             ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
+                    tracker.context.getClassLoaders().get(tracker.task.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
@@ -1417,8 +1464,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     // run task
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
+                            taskTracker
+                                    .context
                                     .getClassLoaders()
                                     .get(taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
@@ -1556,6 +1603,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          */
         void exception(Throwable t) {
             executionException.compareAndSet(null, t);
+        }
+
+        public TaskGroupContext getContext() {
+            return context;
         }
 
         /**
