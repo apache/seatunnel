@@ -182,14 +182,14 @@ public class StarRocksStreamLoadVisitor {
         // cluster was just restarted), so the batch may only be released after the label state is
         // explicitly confirmed VISIBLE/COMMITTED; an ABORTED label authorizes a resend under a new
         // label, and an unresolved label fails closed so the job replays from its checkpoint.
-        LOG.info(
-                "StreamLoad for label[{}] on table[{}.{}} returned non-final status[{}];"
+        LOG.warn(
+                "StreamLoad for label[{}] on table[{}.{}] returned non-final status[{}];"
                         + " resolving the label state before releasing the batch.",
                 flushData.getLabel(),
                 sinkConfig.getDatabase(),
                 sinkConfig.getTable(),
                 resultStatus);
-        checkLabelState(host, flushData.getLabel());
+        checkLabelState(host, flushData.getLabel(), loadResult);
         return true;
     }
 
@@ -253,9 +253,14 @@ public class StarRocksStreamLoadVisitor {
      * then fails closed. {@code UNKNOWN} is polled rather than failed immediately because a
      * front-end that is still recovering from a restart may report {@code UNKNOWN} for a label
      * whose transaction is in fact committed.
+     *
+     * @param host StarRocks front-end host that answered the stream load
+     * @param label label used by the current batch
+     * @param loadResult stream load response whose non-final outcome is being resolved
      */
     @SuppressWarnings("unchecked")
-    private void checkLabelState(String host, String label) throws IOException {
+    private void checkLabelState(String host, String label, Map<String, Object> loadResult)
+            throws IOException {
         int idx = 0;
         long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(labelStateTimeoutMs);
         while (System.nanoTime() < deadlineNanos) {
@@ -317,8 +322,13 @@ public class StarRocksStreamLoadVisitor {
         throw new StarRocksConnectorException(
                 StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
                 String.format(
-                        "Timed out after %d ms while checking the final state of label[%s].",
-                        labelStateTimeoutMs, label));
+                        "Timed out after %d ms while checking the final state of label[%s]"
+                                + " returned for non-final stream load response Status[%s]"
+                                + " Message[%s].",
+                        labelStateTimeoutMs,
+                        label,
+                        loadResult.get("Status"),
+                        loadResult.get("Message")));
     }
 
     /**
