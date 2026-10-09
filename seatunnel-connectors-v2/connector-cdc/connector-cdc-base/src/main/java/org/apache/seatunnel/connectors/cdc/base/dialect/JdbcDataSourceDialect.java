@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.commons.collections4.CollectionUtils;
 
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.Column;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
@@ -121,6 +122,35 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
                                 constraintKey.getConstraintType()
                                         == ConstraintKey.ConstraintType.UNIQUE_KEY)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Whether the column can hold NULL, according to the database metadata.
+     *
+     * <p>The parsed {@link Column} is not reliable for this: for a MySQL table without a primary
+     * key, the column of a nullable unique key is reported as not optional.
+     *
+     * @param jdbcConnection the JDBC connection
+     * @param tableId the table the column belongs to
+     * @param column the column to check
+     * @return true if the column is nullable, or the metadata does not describe it and the parsed
+     *     column is optional
+     */
+    default boolean isColumnNullable(JdbcConnection jdbcConnection, TableId tableId, Column column)
+            throws SQLException {
+        DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+        try (ResultSet rs =
+                metaData.getColumns(
+                        tableId.catalog(), tableId.schema(), tableId.table(), column.name())) {
+            while (rs.next()) {
+                // table and column names are LIKE patterns, so match them exactly
+                if (tableId.table().equals(rs.getString("TABLE_NAME"))
+                        && column.name().equals(rs.getString("COLUMN_NAME"))) {
+                    return !"NO".equalsIgnoreCase(rs.getString("IS_NULLABLE"));
+                }
+            }
+        }
+        return column.isOptional();
     }
 
     default List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId)
