@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+> By default, `semantics` is `NON`, which does not guarantee that messages are sent to Kafka exactly once. To get exactly-once semantics, set `semantics` to `EXACTLY_ONCE` and enable checkpointing.
 
 ## Description
 
@@ -49,6 +49,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | Datasource | Supported Versions | Maven                                                                               |
 |------------|--------------------|-------------------------------------------------------------------------------------|
 | Kafka      | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
+
+> Note: `partition` and `partition_key_fields` are mutually exclusive; configuring both fails validation. You can configure only one of them.
 
 ## Sink Options
 
@@ -506,27 +508,29 @@ completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass broker authentication settings via `kafka.*` properties:
+Pass broker authentication settings through the `kafka.config` map (the connector ignores unknown top-level `kafka.*` keys):
 
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
 
 ### What message formats does Kafka Sink support?
 
-Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `compatible_debezium_json`, `ogg_json`, `maxwell_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
 
 ## Changelog
 

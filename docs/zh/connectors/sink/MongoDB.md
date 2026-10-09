@@ -105,6 +105,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | primary-key           | List     | 否       | -              | 用于 upsert 或更新的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
+| multi_table_sink_replica | Int   | 否       | 1              | 多表作业中每张表的 sink writer 副本数。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### 提示

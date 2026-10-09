@@ -67,7 +67,7 @@ header 字段和事件时间元数据。
 | poll.timeout                        | Long                                | 否    | 10000                        | kafka主动拉取时间间隔(毫秒)。                                                                                                                                                                                                                                                                                                             |
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
-| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
+| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , compatible_kafka_connect_json, protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats/overview.md) |
 | avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
 | value_converter_schema_enabled      | Boolean                             | 否    | true                         | 仅在 `format = compatible_kafka_connect_json` 时生效。Kafka Connect value 转换后的 JSON 载荷是否携带 schema。                                                                                                                                                                                                                                                                                |
 | format_error_handle_way             | String                              | 否    | fail                         | 数据格式错误的处理方式。默认值为 fail，可选值为 fail 和 skip。当选择 fail 时，数据格式错误将阻塞并抛出异常。当选择 skip 时，数据格式错误将跳过此行数据。                                                                                                                                                                                                                                     |
@@ -109,7 +109,7 @@ header 字段和事件时间元数据。
 
 :::caution
 
-当消费的消息体较大时，过高的值会导致堆内存占用过高。如果观察到内存压力，请减小此值或降低 `kafka.max.poll.records`。
+当消费的消息体较大时，过高的值会导致堆内存占用过高。如果观察到内存压力，请减小此值或在 `kafka.config` 中降低 `max.poll.records`。
 
 :::
 
@@ -726,7 +726,7 @@ transform {
 
 ### 如何配置 SASL/Kerberos 认证？
 
-通过 `kafka.*` 属性传入认证参数：
+认证参数需要通过 `kafka.config` 传递（连接器不会识别顶层的 `kafka.*` 扁平配置）：
 
 ```hocon
 source {
@@ -734,13 +734,15 @@ source {
     bootstrap.servers = "broker:9092"
     topic = "secure-topic"
     consumer.group = "my-group"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```

@@ -12,19 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported file formats include text, CSV, parquet, ORC, JSON, and markdown. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
-
-When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each extracted element is converted to a document-element row with the following schema:
-- `element_id`: Unique identifier for the element
-- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
-- `heading_level`: Level of heading (1-6, null for non-heading elements)
-- `text`: Text content of the element
-- `page_number`: Page number (default: 1)
-- `position_index`: Position index within the document
-- `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
-
-Note: Markdown format only supports reading, not writing.
+Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported file formats are text, parquet, and ORC, determined by the target Hive table's `STORED AS` setting. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
 
 :::tip
 
@@ -46,19 +34,16 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format
   - [x] text
-  - [x] csv
   - [x] parquet
   - [x] orc
-  - [x] json
-  - [x] markdown
 
 ## Options
 
 |         name          |  type  | required | default value  | description |
 |-----------------------|--------|----------|----------------|-------------|
 | table_name            | string | no       | Required for single-table mode | Target Hive table name in the form `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` to match multiple tables. |
-| table_list            | array  | no       | Deprecated, use `tables_configs` instead | Deprecated multi-table configuration list. New jobs should use `tables_configs`. Kept for backward compatibility; will be removed in a future release. |
-| tables_configs        | array  | no       | -              | List of Hive table configurations for multi-table reading. Each item can override any of the root-level options. |
+| table_list            | array  | no       | -              | Multi-table configuration list. This is the recommended way to read multiple Hive tables (Hive is a structured data source). Each item can override any of the root-level options. |
+| tables_configs        | array  | no       | -              | Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `table_list`. |
 | use_regex             | boolean| no       | false          | Treat `table_name` as a regular expression that matches multiple tables. Works at the root level and inside each `table_list` / `tables_configs` entry. |
 | metastore_uri         | string | no       | Required for single-table mode | Hive metastore URI. Comma-separated values enable HA failover; whitespace is ignored. |
 | krb5_path             | string | no       | /etc/krb5.conf | Path of the `krb5.conf` file used for Kerberos authentication. |
@@ -71,22 +56,22 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | remote_user           | string | no       | -              | Hadoop remote user name used when connecting to HDFS / Hive storage without Kerberos. |
 | read_partitions       | list   | no       | -              | Restrict the read to a subset of partitions. All entries must have the same directory depth. |
 | read_columns          | list   | no       | -              | Column projection list. Only the listed columns are read from the source. |
-| compress_codec        | string | no       | none           | Compression codec for text / CSV / JSON outputs. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec        | string | no       | none           | Compression codec for text files. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
 | common-options        |        | no       | -              | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 ### table_name [string]
 
 Target Hive table name eg: `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` (Hive has no schema) to match multiple tables from Hive metastore.
 
-For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `tables_configs`. `table_list` is still accepted for backward compatibility, but `tables_configs` is the current option.
+For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `table_list`. `tables_configs` is still accepted for backward compatibility, but it is deprecated and `table_list` is the current option.
 
 ### table_list [array]
 
-Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `tables_configs`.
+Multi-table configuration list. This is the recommended way to read multiple Hive tables; each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
 
 ### tables_configs [array]
 
-List of Hive table configurations for multi-table reading. Each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
+Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `table_list`.
 
 ### use_regex [boolean]
 
@@ -148,8 +133,6 @@ The read column list of the data source, user can use it to implement field proj
 The compress codec of files and the details that supported as the following shown:
 
 - txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
@@ -180,13 +163,12 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 ```
 
 ### Example 3: Multiple tables
-> Note: Hive is a structured data source and should use 'tables_configs'; the older 'table_list' key is deprecated and will be removed in a future release.
-> You can also set `use_regex = true` in each table config to match multiple tables.
+> Note: Hive is a structured data source and should use `table_list`; the older `tables_configs` key is deprecated.
 
 ```hocon
 
   Hive {
-    tables_configs = [
+    table_list = [
         {
           table_name = "default.seatunnel_orc_1"
           metastore_uri = "thrift://namenode001:9083"

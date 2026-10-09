@@ -170,12 +170,14 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | password                                  | String  | 否    | -                            |
 | query                                     | String  | 否    | -                            |
 | compatible_mode                           | String  | 否    | -                            |
-| dialect                                   | String  | 否    | -                            | 
+| dialect                                   | String  | 否    | -                            |
 | database                                  | String  | 否    | -                            |
+| schema                                    | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
 | tablePrefix                               | String  | 否    | -                            |
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
+| multi_table_sink_replica                  | Int     | 否    | 1                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | connect_timeout_ms                        | Int     | 否    | 86400000                     |
 | socket_timeout_ms                         | Int     | 否    | 86400000                     |
@@ -244,7 +246,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
 
-#### 示例可选
+#### 方言列表
 
 |           | 方言名称       |          |
 |-----------|------------|----------|
@@ -262,6 +264,14 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 ### database [string]
 
 自动生成 SQL 模式下的目标 database 或 catalog。`generate_sink_sql = true` 时必填，不能与 `query` 同时使用。
+
+### schema [string]
+
+对于支持 schema 参数的数据库（如 SQL Server、Oracle、PostgreSQL），在自动生成 SQL / 自动建表路径中优先使用指定的 schema。
+
+### multi_table_sink_replica [int]
+
+多表 sink writer 的副本数，仅在多表作业中生效。
 
 ### table [string]
 
@@ -797,6 +807,48 @@ sink {
   }
 }
 ```
+
+#### SqlServer CDC Source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`table` 中的 `${table_name}` 占位符会使用上游记录中的表元数据填充，因此每个源表（`full_types`、`full_types_2`）会分别写入各自的目标表（`sink_full_types`、`sink_full_types_2`）。配合 `generate_sink_sql = true` 和预先配置的 `primary_keys`，SeaTunnel 可以为每张上游表生成正确的 INSERT/UPSERT 语句。
 
 #### JDBC Source
 

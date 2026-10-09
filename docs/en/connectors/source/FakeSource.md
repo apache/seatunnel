@@ -63,7 +63,7 @@ FakeSource is a virtual source that generates rows from a user-defined schema. I
 | float.min               | float    | No       | 0                       | The min value of float data that connector generated                                                                                                                                  |
 | float.max               | float    | No       | 0x1.fffffeP+127         | The max value of float data that connector generated                                                                                                                                  |
 | float.template          | list     | No       | -                       | The template list of float type that connector generated, if user configured it, connector will randomly select an item from the template list                                        |
-| double.fake.mode        | string   | No       | range                   | The fake mode of generating float data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option      |
+| double.fake.mode        | string   | No       | range                   | The fake mode of generating double data, support `range` and `template`, default `range`，if use configured it to `template`, user should also configured `double.template` option      |
 | double.min              | double   | No       | 0                       | The min value of double data that connector generated                                                                                                                                 |
 | double.max              | double   | No       | 0x1.fffffffffffffP+1023 | The max value of double data that connector generated                                                                                                                                 |
 | double.template         | list     | No       | -                       | The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list                                       |
@@ -385,25 +385,6 @@ rows = [
     fields = [1, "A_1", 100]
   }
 ]
-```
-
-### Options `table-names` Case
-
-```hocon
-
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
 ```
 
 ### Options `defaultValue` Case

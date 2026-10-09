@@ -77,6 +77,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| database                         | string | yes      | -          | Doris 数据库名。未配置 `table_list` 时必须在 source 外层配置。                                     |
+| table                            | string | yes      | -          | Doris 表名。未配置 `table_list` 时必须在 source 外层配置。                                         |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 
 表清单配置:
