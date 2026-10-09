@@ -52,6 +52,7 @@ public class RetryUtils {
                     if (retryMaterial.shouldThrowException()) {
                         throw e;
                     }
+                    return null;
                 } else {
                     // Otherwise it is retriable and we should retry
                     String attemptMessage =
