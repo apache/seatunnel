@@ -181,6 +181,8 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
+| ducklake_bulk_write                       | Boolean | No       | false                        |
+| ducklake_bulk_write_ignore_inherited_keys  | Boolean | No       | false                        |
 | batch_interval_ms                         | Long    | No       | 0                            |
 | is_exactly_once                           | Boolean | No       | false                        |
 | generate_sink_sql                         | Boolean | No       | false                        |
@@ -314,6 +316,16 @@ The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requ
 ### batch_size [int]
 
 The maximum number of buffered rows per batch. The sink flushes when the buffer reaches `batch_size`, when a checkpoint prepares a commit, or when the writer closes. A larger value can improve throughput but uses more memory and increases the amount of work retried after a failure.
+
+### ducklake_bulk_write [boolean]
+
+Optional DuckDB/DuckLake insert-only batch mode. It stages each batch locally and inserts it into an existing DuckLake table with one SQL statement. The default is `false`. See [DuckDB Sink](DuckDB.md#ducklake-bulk-append) for configuration and delivery limits.
+
+### ducklake_bulk_write_ignore_inherited_keys [boolean]
+
+When `true`, ignore primary and unique keys inherited from upstream catalog metadata in the Sink schema copy for insert-only DuckLake bulk writes. The upstream schema remains unchanged. The default is `false`, and this option requires `ducklake_bulk_write = true`.
+
+Explicitly configured `primary_keys` remain unsupported. The target table must already exist without enforced key constraints. This option does not enable upsert, enforce uniqueness, or deduplicate replayed rows; UPDATE and DELETE rows are still rejected. Setting `enable_upsert = false` alone does not remove inherited keys. See [DuckDB Sink](DuckDB.md#ducklake-bulk-append) for the remaining configuration and delivery limits.
 
 ### batch_interval_ms [long]
 
