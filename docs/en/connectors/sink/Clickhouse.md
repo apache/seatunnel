@@ -170,6 +170,50 @@ sink {
 }
 ```
 
+## ClickhouseFile Sink
+
+Besides the `Clickhouse` sink plugin above, this connector also provides the `ClickhouseFile` sink plugin
+(factory identifier `ClickhouseFile`). Instead of writing rows over JDBC, it feeds the data to a local
+`clickhouse-local` program to generate ClickHouse part files, copies the generated files to the target
+ClickHouse server nodes (`scp` or `rsync`), and attaches them to the target table. This is usually much faster than row-by-row inserts for large batch writes.
+
+All options in [Sink Options](#sink-options) above also apply to `ClickhouseFile` (including `host`,
+`database`, `table`, `username`, `password`, `clickhouse.config`, `sharding_key` and `server_time_zone`).
+The plugin-specific options are:
+
+| Name                  | Type    | Required | Default                              | Description                                                                                                                                                                     |
+|-----------------------|---------|----------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| clickhouse_local_path | String  | Yes      | -                                    | Path of the `clickhouse-local` program used by the ClickhouseFile sink.                                                                                                          |
+| copy_method           | Enum    | No       | scp                                  | Method used to copy the generated part files to the ClickHouse server nodes. Supported values: `scp`, `rsync`.                                                                    |
+| compatible_mode       | Boolean | No       | false                                | In lower ClickHouse versions the `clickhouse-local` program does not support the `--path` parameter; enable this mode to emulate the `--path` behavior in another way.             |
+| node_free_password    | Boolean | No       | false                                | Whether password-free login is configured between the SeaTunnel nodes and the ClickHouse server nodes. File transfer uses `scp`/`rsync`, so SeaTunnel needs access to the ClickHouse server nodes. Set this to `true` when password-free login is configured; otherwise configure the node passwords in `node_pass`. |
+| node_pass             | Array   | No       | -                                    | Password of each ClickHouse server node, for example `[{node_address = "node1", password = "pwd"}]`.                                                                              |
+| key_path              | String  | No       | -                                    | Path of the `rsync`/`ssh` key file used by file transfer.                                                                                                                        |
+| file_fields_delimiter | String  | No       | `\t`                                 | ClickhouseFile temporarily stores data in CSV format. If a row contains this delimiter the generated file may break; avoid it with this option. The value must be exactly one character. |
+| file_temp_path        | String  | No       | /tmp/seatunnel/clickhouse-local/file | Local directory where ClickhouseFile stores temporary files.                                                                                                                     |
+
+### ClickhouseFile Task Example
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+sink {
+  ClickhouseFile {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
+    copy_method = "rsync"
+    file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
+  }
+}
+```
+
 ## Example Configurations and Cases
 
 ### How to Create a Clickhouse Data Synchronization Jobs
