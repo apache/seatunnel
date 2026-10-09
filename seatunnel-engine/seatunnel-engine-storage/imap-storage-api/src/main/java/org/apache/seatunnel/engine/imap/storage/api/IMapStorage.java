@@ -69,4 +69,17 @@ public interface IMapStorage {
     public Set<Object> loadAllKeys();
 
     public void destroy(boolean deleteAllFileFlag);
+
+    /**
+     * Whether durable APPEND writes are permanently blocked until process restart.
+     *
+     * <p>Default is {@code false}. File-backed WAL implementations may return {@code true} after
+     * fail-closing the writer so MapStore adapters can fail loudly instead of silently discarding
+     * write failures.
+     *
+     * @return true if further durable writes cannot succeed without restarting the process
+     */
+    default boolean isAppendPermanentlyBlocked() {
+        return false;
+    }
 }
