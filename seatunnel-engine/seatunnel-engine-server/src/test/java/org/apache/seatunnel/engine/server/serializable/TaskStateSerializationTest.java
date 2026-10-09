@@ -37,8 +37,14 @@ import java.util.Base64;
  * Verifies that task state messages exchanged between workers and the master keep the Java
  * serialization form they had before their serialVersionUID was declared.
  *
- * <p>The fixtures were written by the classes without a declared serialVersionUID, on JDK 8 and JDK
- * 11, which produced identical bytes.
+ * <p>To generate a fixture, run {@link #serialize(Object)} on the unmodified pre-UID class using
+ * JDK 8 or JDK 11; both produced identical bytes. The UID and ReadsPreviousWireForm tests are
+ * permanent guards for old-writer/new-reader compatibility; do not regenerate their fixtures when
+ * adding fields. The ExactBytesUnchangedByUidDeclaration tests only prove that declaring the UIDs
+ * did not change today's wire bytes. When a field is added, replace those exact-byte assertions
+ * with a new-writer/old-reader check instead of updating the old fixtures. This Java serialization
+ * proxy applies while these classes remain plain Serializable without a custom Hazelcast
+ * serializer.
  */
 class TaskStateSerializationTest {
 
@@ -106,7 +112,7 @@ class TaskStateSerializationTest {
     }
 
     @Test
-    void testTaskExecutionStateWritesPreviousWireForm() throws Exception {
+    void testTaskExecutionStateExactBytesUnchangedByUidDeclaration() throws Exception {
         Assertions.assertEquals(
                 TASK_EXECUTION_STATE_FAILED,
                 serialize(
@@ -132,7 +138,7 @@ class TaskStateSerializationTest {
     }
 
     @Test
-    void testTaskDeployStateWritesPreviousWireForm() throws Exception {
+    void testTaskDeployStateExactBytesUnchangedByUidDeclaration() throws Exception {
         Assertions.assertEquals(TASK_DEPLOY_STATE_SUCCESS, serialize(TaskDeployState.success()));
         Assertions.assertEquals(
                 TASK_DEPLOY_STATE_FAILED,
