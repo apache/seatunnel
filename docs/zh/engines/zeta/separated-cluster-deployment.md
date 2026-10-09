@@ -334,6 +334,46 @@ netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
+可以使用 S3 进行 IMap 持久化存储。
+
+S3 的配置属性遵循 Hadoop S3A 文件系统（Native S3）标准。具体来说，我们使用 fs.s3a.access.key 和 fs.s3a.secret.key 属性，以确保与现有基于 Hadoop 的生态系统兼容。
+
+如果您想使用 S3 兼容存储（例如 Minio），可以这样配置：
+
+```yaml
+map:
+   engine*:
+     map-store:
+       enabled: true
+       initial-mode: EAGER
+       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+       properties:
+         type: hdfs
+         namespace: /seatunnel/engine
+         clusterName: seatunnel
+         storage.type: s3
+         s3.bucket: s3a://your-bucket
+         fs.defaultFS: s3a://your-bucket
+         fs.s3a.endpoint: http://your-minio-endpoint:port
+         fs.s3a.path.style.access: true
+         fs.s3a.access.key: YOUR_ACCESS_KEY
+         fs.s3a.secret.key: YOUR_SECRET_KEY
+         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+```
+
+注意：使用 S3 时，确保 lib 目录下有以下几个 jar。
+
+以下两个 JAR 均来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目：
+- `seatunnel-shade-hadoop3-uber` — 包重定位后的 shaded Hadoop 客户端
+- `seatunnel-shade-hadoop-aws` — 包重定位后的 shaded Hadoop AWS 连接器
+
+版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+
+```
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
+```
+
 如果您使用 GCS，可以像这样配置：
 
 ```yaml
@@ -377,7 +417,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+当`dynamic-slot: true`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
 
 ### 4.8 Coordinator Service
 
@@ -394,9 +434,11 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 Example
 
 ```yaml
-coordinator-service:
-  core-thread-num: 30
-  max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.9 作业指标分区数量（此参数在 Worker 节点上无效）
@@ -411,8 +453,8 @@ coordinator-service:
 
 ```yaml
 seatunnel:
-engine:
-job-metrics-partition-count: 4
+  engine:
+    job-metrics-partition-count: 4
 ```
 
 上述配置会将指标分布到 4 个分区中，而不是使用单个 key。

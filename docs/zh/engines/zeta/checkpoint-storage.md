@@ -211,6 +211,29 @@ seatunnel:
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
+如果您想使用支持 S3 协议的 Minio 作为检查点存储，可以这样配置：
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 10000
+      timeout: 60000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          fs.s3a.access.key: xxxxxxxxx # MinIO 的 Access Key
+          fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # MinIO 的 Secret Key
+          fs.s3a.endpoint: http://127.0.0.1:9000 # Minio HTTP 服务访问地址
+          s3.bucket: s3a://test # test 为存储检查点文件的 bucket 名称
+          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+       # 重要：该 key 的用户需要有 bucket 的写权限，否则会返回 403 异常
+```
+
 #### HDFS
 
 如果您使用HDFS，您可以这样配置:
@@ -226,9 +249,11 @@ seatunnel:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
-          // 如果您使用kerberos，您可以这样配置:
+          # 如果您使用kerberos，您可以这样配置:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
+          # 如果您需要 hdfs-site 配置，您可以这样配置:
+          hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
 如果HDFS是HA模式，您可以这样配置:
