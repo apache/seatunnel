@@ -157,6 +157,105 @@ sink {
 }
 ```
 
+## 流式 Remote Write 与批量刷写
+
+本示例以流式模式从 Kafka 读取并写入 Prometheus remote write 接口。Sink 会先在
+缓冲区中累积最多 `batch_size` 行数据再发起 HTTP 写入；同时借助引擎级的
+`sink.flush.interval`（仅 Zeta 支持）每 10 秒强制刷写一次缓冲区，保证上游数据
+空闲时样本仍能按期发送。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 10000
+}
+
+source {
+  Kafka {
+    plugin_output = "metrics_topic"
+    bootstrap.servers = "kafka:9092"
+    topic = "metrics"
+    format = "json"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = "metrics_topic"
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    batch_size = 2048
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 10000
+  }
+}
+```
+
+## 多表 Remote Write
+
+当一个作业从多张上游表读取并写入同一个 Prometheus remote write 接口时，可以通过
+`multi_table_sink_replica` 控制每张表分配多少个 Writer 任务。默认值 `1` 适合表较
+小的场景；只有当某张表需要比其他表更高的并行度时才建议调大。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake_app_a"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_a_metric"}, 1.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+  FakeSource {
+    plugin_output = "fake_app_b"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_b_metric"}, 2.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = ["fake_app_a", "fake_app_b"]
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    multi_table_sink_replica = 2
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
