@@ -116,7 +116,7 @@ URI 中的认证、TLS 和读取偏好设置保持不变。仅预检查客户端
 
 ### 提示
 
-> 1. `match.query` 与旧版参数名 `matchQuery` 等价，二者不能同时设置。
+> 1. `match.query` 兼容旧版参数名 `matchQuery`，二者等价；若同时设置，以 `match.query` 为准。
 > 2. 使用 `partition.split-key` 时建议选择有索引的字段，能显著加快 split 边界扫描。
 > 3. 当 `flat.sync-string = true` 时，schema 仅用于声明单个接收文档的 `STRING` 字段。
 
