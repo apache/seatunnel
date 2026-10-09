@@ -28,7 +28,11 @@ import org.slf4j.LoggerFactory;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
@@ -50,6 +54,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -128,6 +133,10 @@ public class SerialVersionUIDCheckerTest {
     private static final Set<String> checkedClasses = new HashSet<>();
     private static final Map<String, ClassOrInterfaceDeclaration> classDeclarationMap =
             new HashMap<>();
+    private static final Path SOURCE_ROOT_FRAGMENT = Paths.get("src", "main", "java");
+    private static final String SOURCE_FQN = "org.apache.seatunnel.api.source.SeaTunnelSource";
+    private static final String SINK_FQN = "org.apache.seatunnel.api.sink.SeaTunnelSink";
+    private static final String SERIAL_VERSION_UID_FIELD = "serialVersionUID";
 
     static {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
@@ -140,7 +149,12 @@ public class SerialVersionUIDCheckerTest {
 
     private static void setupTypeSolver(CombinedTypeSolver typeSolver) {
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
-            paths.filter(path -> path.toString().contains("src/main/java"))
+            // Only real source roots can resolve symbols. Registering nested directories or
+            // individual files creates thousands of solvers that never match anything and
+            // slow every single symbol resolution down. Paths#get builds the fragment with
+            // the platform separator, so this also works on Windows.
+            paths.filter(Files::isDirectory)
+                    .filter(path -> path.endsWith(SOURCE_ROOT_FRAGMENT))
                     .forEach(
                             path -> {
                                 try {
@@ -342,6 +356,25 @@ public class SerialVersionUIDCheckerTest {
     }
 
     private boolean implementsSeaTunnelSourceOrSink(ClassOrInterfaceDeclaration classDeclaration) {
+        try {
+            // Resolve the full hierarchy instead of only the directly declared types: most
+            // connectors implement SeaTunnelSource/SeaTunnelSink through an intermediate base
+            // class such as IncrementalSource or HttpSource, which the direct check missed.
+            return classDeclaration.resolve().getAllAncestors().stream()
+                    .anyMatch(
+                            ancestor -> {
+                                String name = ancestor.getQualifiedName();
+                                return SOURCE_FQN.equals(name) || SINK_FQN.equals(name);
+                            });
+        } catch (Exception e) {
+            // Fall back to the direct-name check when the hierarchy cannot be resolved, for
+            // example when an ancestor comes from a dependency that is not a source root.
+            return matchesSeaTunnelSourceOrSinkDirectly(classDeclaration);
+        }
+    }
+
+    private boolean matchesSeaTunnelSourceOrSinkDirectly(
+            ClassOrInterfaceDeclaration classDeclaration) {
         return classDeclaration.getImplementedTypes().stream()
                 .anyMatch(
                         type -> {
@@ -353,23 +386,26 @@ public class SerialVersionUIDCheckerTest {
 
     private void checkImplementedTypes(
             ClassOrInterfaceDeclaration classDeclaration, List<String> missingSerialVersionUID) {
-        classDeclaration
-                .getImplementedTypes()
+        // The connector's state/config types can be bound on the implemented types
+        // (implements SeaTunnelSource<...>) or on the extended ones
+        // (extends IncrementalSource<...>), so both have to be inspected.
+        Stream.concat(
+                        classDeclaration.getImplementedTypes().stream(),
+                        classDeclaration.getExtendedTypes().stream())
                 .forEach(
-                        implementedType -> {
-                            implementedType
-                                    .getTypeArguments()
-                                    .ifPresent(
-                                            typeArgs -> {
-                                                for (Type typeArg : typeArgs) {
-                                                    if (typeArg.isClassOrInterfaceType()) {
-                                                        checkClassType(
-                                                                typeArg.asClassOrInterfaceType(),
-                                                                missingSerialVersionUID);
+                        type ->
+                                type.getTypeArguments()
+                                        .ifPresent(
+                                                typeArgs -> {
+                                                    for (Type typeArg : typeArgs) {
+                                                        if (typeArg.isClassOrInterfaceType()) {
+                                                            checkClassType(
+                                                                    typeArg
+                                                                            .asClassOrInterfaceType(),
+                                                                    missingSerialVersionUID);
+                                                        }
                                                     }
-                                                }
-                                            });
-                        });
+                                                }));
     }
 
     private void checkClassType(
@@ -412,15 +448,82 @@ public class SerialVersionUIDCheckerTest {
             ResolvedReferenceTypeDeclaration typeDeclaration = classDeclaration.resolve();
             String className = typeDeclaration.getQualifiedName();
             if (!checkedClasses.contains(className)) {
-                if (!hasSerialVersionUID(typeDeclaration)) {
-                    missingSerialVersionUID.add(className);
-                    LOG.warn("Class {} is missing serialVersionUID field", className);
+                String problem = checkSerialVersionUIDDeclaration(classDeclaration);
+                if (problem != null) {
+                    missingSerialVersionUID.add(className + " - " + problem);
+                    LOG.warn("Class {} has an invalid serialVersionUID: {}", className, problem);
                 }
                 checkedClasses.add(className);
             }
         } catch (Exception e) {
             LOG.warn(
                     "Could not check class declaration: {}", classDeclaration.getNameAsString(), e);
+        }
+    }
+
+    /**
+     * Validates the serialVersionUID field of the given declaration and returns a description of
+     * the problem, or null when the field is valid. The field must exist, be declared as {@code
+     * static final long}, and must not use the {@code -1L} sentinel value, matching what the
+     * failure message of this checker has always been asking for.
+     */
+    private String checkSerialVersionUIDDeclaration(ClassOrInterfaceDeclaration classDeclaration) {
+        Optional<FieldDeclaration> field =
+                classDeclaration.getMembers().stream()
+                        .filter(BodyDeclaration::isFieldDeclaration)
+                        .map(BodyDeclaration::asFieldDeclaration)
+                        .filter(
+                                f ->
+                                        f.getVariables().stream()
+                                                .anyMatch(
+                                                        v ->
+                                                                SERIAL_VERSION_UID_FIELD.equals(
+                                                                        v.getNameAsString())))
+                        .findFirst();
+        if (!field.isPresent()) {
+            return "missing serialVersionUID field";
+        }
+        FieldDeclaration fieldDeclaration = field.get();
+        if (!fieldDeclaration.isStatic()
+                || !fieldDeclaration.isFinal()
+                || fieldDeclaration.getVariables().size() != 1
+                || !fieldDeclaration.getVariables().get(0).getType().asString().equals("long")) {
+            return "serialVersionUID must be declared as `private static final long serialVersionUID`";
+        }
+        Long value =
+                longLiteralValue(
+                        fieldDeclaration.getVariables().get(0).getInitializer().orElse(null));
+        if (value != null && value == -1L) {
+            return "serialVersionUID must not be -1L, it must be a fixed value so that"
+                    + " serialized job graphs and states stay compatible across releases";
+        }
+        return null;
+    }
+
+    /**
+     * Returns the value of a plain long literal such as {@code 1L} or {@code -1L}, or null when the
+     * initializer is missing or is not a plain literal.
+     */
+    private Long longLiteralValue(Expression expression) {
+        if (expression == null) {
+            return null;
+        }
+        boolean negated = false;
+        Expression current = expression;
+        if (current.isUnaryExpr()
+                && current.asUnaryExpr().getOperator() == UnaryExpr.Operator.MINUS) {
+            negated = true;
+            current = current.asUnaryExpr().getExpression();
+        }
+        if (!current.isLiteralStringValueExpr()) {
+            return null;
+        }
+        String literal = current.asLiteralStringValueExpr().getValue().replaceFirst("[lL]$", "");
+        try {
+            long value = Long.parseLong(literal);
+            return negated ? -value : value;
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
@@ -464,14 +567,24 @@ public class SerialVersionUIDCheckerTest {
             return classDeclaration.isAbstract();
         }
 
-        return false;
+        // The map only holds declarations from the checked paths, so fall back to the AST of
+        // the resolved declaration for classes anywhere else in the sources. Treat anything
+        // we still cannot inspect (e.g. types resolved from reflection) as abstract: skipping
+        // them is safe, while assuming they are concrete could produce false positives.
+        return typeDeclaration
+                .toAst()
+                .map(
+                        node ->
+                                node instanceof ClassOrInterfaceDeclaration
+                                        && ((ClassOrInterfaceDeclaration) node).isAbstract())
+                .orElse(true);
     }
 
     private String generateErrorMessage(List<String> missingSerialVersionUID) {
         StringBuilder errorMessage = new StringBuilder();
         errorMessage.append("=================================================================\n");
         errorMessage.append(
-                "Test failed: The following classes are missing serialVersionUID fields\n");
+                "Test failed: The following classes have an invalid or missing serialVersionUID field\n");
         errorMessage.append("=================================================================\n");
         errorMessage
                 .append("A total of ")
