@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
@@ -40,6 +42,9 @@ public class CheckpointErrorRestoreEndTest
      * the related regression tests share the same 240-second upper bound.
      */
     public static final long RESTORE_TO_FAILED_TIMEOUT_SECONDS = 240L;
+
+    public static String STREAM_CONF_WITH_ERROR_AND_LONG_RESTORE_WAIT_PATH =
+            "stream_fake_to_inmemory_with_error_long_restore_wait.conf";
 
     @Test
     public void testCheckpointRestoreToFailEnd() {
@@ -63,6 +68,35 @@ public class CheckpointErrorRestoreEndTest
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+    }
+
+    /**
+     * A cancel that arrives while a failed pipeline waits for its restore ends the job {@code
+     * CANCELED}, as it did when the pipeline restarted first and was then cancelled. The pipeline
+     * fails its first checkpoint and then waits 30 s, so the cancel lands inside that wait.
+     */
+    @Test
+    public void testCancelDuringPipelineRestoreWaitEndsTheJobCanceled() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, STREAM_CONF_WITH_ERROR_AND_LONG_RESTORE_WAIT_PATH, false);
+
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        SubPlan pipeline = jobMaster.getPhysicalPlan().getPipelineList().get(0);
+        // reset for its first restore and not restarted yet
+        await().atMost(60, TimeUnit.SECONDS)
+                .until(
+                        () ->
+                                pipeline.getPipelineRestoreNum() == 1
+                                        && PipelineStatus.CREATED.equals(
+                                                pipeline.getPipelineState()));
+        server.getCoordinatorService().cancelJob(jobId);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
                                         server.getCoordinatorService().getJobStatus(jobId)));
     }
 }
