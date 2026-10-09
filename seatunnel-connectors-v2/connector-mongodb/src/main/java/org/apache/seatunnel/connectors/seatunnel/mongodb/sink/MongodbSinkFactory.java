@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
@@ -31,7 +32,14 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptio
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class MongodbSinkFactory implements TableSinkFactory {
+public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
+
+    /** Checks connectivity without creating a writer or executing save-mode logic. */
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) {
+        MongodbSinkDryRunValidator.validate(context.getOptions());
+    }
+
     @Override
     public String factoryIdentifier() {
         return MongodbSinkOptions.CONNECTOR_IDENTITY;
