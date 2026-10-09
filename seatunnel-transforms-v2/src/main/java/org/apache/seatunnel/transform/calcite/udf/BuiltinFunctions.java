@@ -27,6 +27,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.ServiceLoader;
 
 /** Discovers {@link CalciteUdf} implementations via {@link ServiceLoader} and registers them. */
@@ -51,7 +52,7 @@ public final class BuiltinFunctions {
                                         udf.getClass().getName());
                                 return;
                             }
-                            String name = rawName.toUpperCase();
+                            String name = rawName.toUpperCase(Locale.ROOT);
                             boolean opened = false;
                             try {
                                 Method evalMethod = findStaticEvalMethod(udf.getClass());

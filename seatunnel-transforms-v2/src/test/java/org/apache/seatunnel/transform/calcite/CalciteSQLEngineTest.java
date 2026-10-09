@@ -40,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 class CalciteSQLEngineTest {
@@ -4248,5 +4249,31 @@ class CalciteSQLEngineTest {
         Assertions.assertEquals("p0", output.getOptions().get("partition"));
         Assertions.assertEquals("42", output.getOptions().get("offset"));
         engine.close();
+    }
+
+    @Test
+    void testVectorReduceMethodIsLocaleIndependent() {
+        // VECTOR_REDUCE upper-cases the method before matching it, so a lower-case method must
+        // resolve. Under a Turkish default locale "random_projection" upper-cases to
+        // "RANDOM_PROJECTION" only when the conversion is locale independent; otherwise the i
+        // becomes a dotted capital I, no case matches and eval throws.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            // try-with-resources rather than a trailing close(), so a failed assertion below
+            // still releases the engine.
+            try (CalciteSQLEngine engine =
+                    createAndInit(
+                            "SELECT VECTOR_REDUCE(vec, 2, 'random_projection') AS reduced FROM t",
+                            "t",
+                            singleVectorRowType())) {
+                Object result =
+                        singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
+                Assertions.assertNotNull(result);
+                Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) result).length);
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }
