@@ -104,8 +104,6 @@ if [[ -n "${JAVA_MAJOR_VERSION}" && "${JAVA_MAJOR_VERSION}" -lt 11 ]]; then
     exit 1
 fi
 
-JAVA_OPTS="${JAVA_OPTS:-} -Dlog4j2.isThreadContextMapInheritable=true"
-
 for module_flag in \
   "--add-opens=java.base/java.lang=ALL-UNNAMED" \
   "--add-opens=java.base/java.net=ALL-UNNAMED" \
@@ -120,7 +118,7 @@ for module_flag in \
 done
 
 # Preserve user-supplied JVM options and pass application arguments unchanged.
-exec "${APPLICATION_JAVA}" "${JAVA_OPTS}" \
+exec "${APPLICATION_JAVA}" ${JAVA_OPTS} \
     -Dseatunnel.home="${APPLICATION_HOME}" \
     -cp "${CLASS_PATH}" \
     "${APP_MAIN}" "$@"

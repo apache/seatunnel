@@ -17,7 +17,7 @@
     <!-- MiniCluster-only settings. Temporary paths and live addresses are injected by the test. -->
     <property>
         <name>dfs.permissions.enabled</name>
-        <value>false</value>
+        <value>true</value>
     </property>
     <property>
         <name>yarn.nodemanager.resource.memory-mb</name>

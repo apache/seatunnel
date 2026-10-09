@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM eclipse-temurin:8-jdk
+FROM eclipse-temurin:11-jdk
 COPY seatunnel/ /opt/seatunnel/
 ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
