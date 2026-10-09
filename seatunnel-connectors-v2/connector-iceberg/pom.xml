@@ -110,6 +110,12 @@
             <artifactId>orc-core</artifactId>
             <version>1.7.5</version>
             <classifier>nohive</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.iceberg</groupId>

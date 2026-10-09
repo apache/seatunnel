@@ -92,7 +92,9 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
-    protected static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
+    // Must stay a full JDK image: ContainerUtil inspects the running server with jps/jstack/jmap
+    // for the post-job thread-leak checks, and those tools are absent from JRE-only images.
+    protected static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jdk";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String CONNECTOR_DIRECTORY = "/tmp/seatunnel/connectors";
     private static final String RUNTIME_LIBRARY_DIRECTORY = "/tmp/seatunnel/lib";
@@ -263,12 +265,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     @Override
     public void tearDown() throws Exception {
-        if (server != null) {
-            // delete the volume
-            server.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            server.close();
-        }
-        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+        stopContainersAndDeleteVolume(server);
     }
 
     @Override
@@ -712,7 +709,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 || s.startsWith("seatunnel-error-sink-")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
                 // it may outlive the job and cause the E2E thread-leak check to fail.
-                || s.startsWith("qtp");
+                || s.startsWith("qtp")
+                // java.lang.ref.Cleaner's worker thread (JDK 9+ replacement for the old
+                // sun.misc.Cleaner/finalizer based native resource cleanup). Some JDBC drivers
+                // call Cleaner.create() to manage native buffers, and the resulting thread runs
+                // for the life of the JVM by design, so it only shows up as a false leak on the
+                // first job that lazily triggers it. Now that the e2e engine container runs on a
+                // Java 11 JDK image instead of Java 8, this thread is a normal presence.
+                || s.startsWith("Cleaner-");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -784,14 +788,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         couchbaseE2eActive = false;
     }
 
-    /** Enables Reactor thread exemptions while the Azure Queue Storage E2E test is active. */
-    public static void enableAzureQueueReactorThreadExemption() {
-        azureQueueE2eActive = true;
+    /** Enables Reactor thread exemptions while an Azure SDK E2E test is active. */
+    public static void enableAzureSdkReactorThreadExemption() {
+        azureSdkReactorE2eCount.incrementAndGet();
     }
 
-    /** Disables Reactor thread exemptions after the Azure Queue Storage E2E test completes. */
-    public static void disableAzureQueueReactorThreadExemption() {
-        azureQueueE2eActive = false;
+    /** Disables Reactor thread exemptions after an Azure SDK E2E test completes. */
+    public static void disableAzureSdkReactorThreadExemption() {
+        azureSdkReactorE2eCount.updateAndGet(count -> Math.max(0, count - 1));
     }
 
     /** Enables GCS OpenCensus thread exemptions while the GCS file E2E test is active. */
@@ -815,8 +819,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
      */
     static volatile boolean couchbaseE2eActive = false;
 
-    /** {@code true} while the Azure Queue Storage E2E test is active. */
-    static volatile boolean azureQueueE2eActive = false;
+    /** Number of active Azure SDK E2E lifecycles. */
+    static final AtomicInteger azureSdkReactorE2eCount = new AtomicInteger();
 
     /** {@code true} while the GCS file E2E test is active. */
     static volatile boolean gcsE2eActive = false;
@@ -852,10 +856,10 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
             return true;
         }
-        // Azure Queue's shaded Reactor Netty threads are unique to this connector. The
-        // boundedElastic evictor name is shared by all Reactor users, so exempt it only while the
-        // Azure Queue E2E test is active.
-        if (isAzureQueueReactorThreadExempt(threadName)) {
+        // Azure Queue's shaded Reactor Netty threads are unique to that connector. Azure Core AMQP
+        // also owns a JVM-static receiver pump and initializes Reactor's global schedulers. Scope
+        // the shared thread names to Azure SDK E2E lifecycles so unrelated leaks remain visible.
+        if (isAzureSdkReactorThreadExempt(threadName)) {
             return true;
         }
         // The shaded GCS client's OpenCensus exporters are JVM-global daemon threads. Their names
@@ -901,9 +905,13 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
     }
 
-    static boolean isAzureQueueReactorThreadExempt(String threadName) {
+    static boolean isAzureSdkReactorThreadExempt(String threadName) {
         return threadName.startsWith("org.apache.seatunnel.shade.azure.queue.reactor-http-nio-")
-                || (threadName.startsWith("boundedElastic-evictor-") && azureQueueE2eActive);
+                || (azureSdkReactorE2eCount.get() > 0
+                        && (threadName.matches("receiverPump-\\d+")
+                                || threadName.matches("boundedElastic-\\d+")
+                                || threadName.matches("boundedElastic-evictor-\\d+")
+                                || threadName.matches("parallel-\\d+")));
     }
 
     static boolean isGcsOpenCensusThreadExempt(String threadName) {
