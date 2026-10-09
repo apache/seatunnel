@@ -484,16 +484,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                                 Assertions.assertEquals(1, seedRows.size());
                             });
-            String postSeedLsn = getCurrentWalLsn();
-            await().atMost(30000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            isLsnGreaterThanOrEqual(
-                                                    getReplicationSlotCommittedLsn(
-                                                            committedSlotName),
-                                                    postSeedLsn)));
-            container.cancelJob(String.valueOf(seedJobId));
+            // Use a completed checkpoint as the committed-offset seed. The global WAL also
+            // contains filtered sink writes and is not itself a source checkpoint boundary.
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(seedJobId)).getExitCode());
             seedJob.get(30, TimeUnit.SECONDS);
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -589,6 +583,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                         + " where id = 14"));
                             });
 
+            // Drain the earlier writes before saving. With a quiet WAL, the next transaction's
+            // BEGIN/INSERT can share the saved COMMIT LSN (the DBZ-6204 recovery boundary).
+            String quietBoundaryLsn = getCurrentWalLsn();
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isLsnGreaterThanOrEqual(
+                                                    getReplicationSlotCommittedLsn(
+                                                            committedSlotName),
+                                                    quietBoundaryLsn)));
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
@@ -601,6 +606,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertFalse(
                                             isReplicationSlotActive(committedSlotName)));
 
+            // Changes committed while stopped must be replayed even at the saved commit LSN.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
             committedOffsetJob =
                     CompletableFuture.runAsync(
                             () -> {
@@ -618,9 +625,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
             waitForReplicationSlotActive(committedSlotName);
-            // Insert only after the restored replication connection is active so this CDC record
-            // is not written before the restored slot can consume it.
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // Also verify that live changes continue after recovery.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 16);
             await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
@@ -633,6 +639,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                 + "."
                                                                 + SINK_TABLE_1
                                                                 + " where id = 15")
+                                                .size());
+                                Assertions.assertEquals(
+                                        1,
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id = 16")
                                                 .size());
                             });
         } finally {
