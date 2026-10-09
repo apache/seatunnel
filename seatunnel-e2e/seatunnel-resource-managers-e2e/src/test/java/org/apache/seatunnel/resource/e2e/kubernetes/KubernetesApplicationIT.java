@@ -834,20 +834,21 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     }
 
     private void killMasterContainer(V1Pod master) throws Exception {
-        Process process =
-                new Exec(apiClient)
-                        .exec(
-                                master,
-                                new String[] {"/bin/sh", "-c", "kill -9 1"},
-                                "seatunnel",
-                                false,
-                                false);
-        try {
-            assertTrue(process.waitFor(15, TimeUnit.SECONDS), "Master kill did not complete");
-            assertEquals(0, process.exitValue(), "kill -9 1 failed inside the master container");
-        } finally {
-            process.destroyForcibly();
-        }
+        String containerId = master.getStatus().getContainerStatuses().get(0).getContainerID();
+        String runtimeId = containerId.substring("containerd://".length());
+        Container.ExecResult result =
+                k3s.execInContainer(
+                        "ctr",
+                        "--address",
+                        "/run/k3s/containerd/containerd.sock",
+                        "--namespace",
+                        "k8s.io",
+                        "tasks",
+                        "kill",
+                        "--signal",
+                        "SIGKILL",
+                        runtimeId);
+        assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
     private static void assertRuntimeConfigMapMounted(V1Pod pod) {
