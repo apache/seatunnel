@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -44,11 +45,23 @@ public class CheckpointFinishedOperation extends TaskOperation {
 
     private boolean successful;
 
+    /**
+     * Type of the completed or aborted checkpoint.
+     *
+     * <p>Sink-side schema-change guards need this type after failover because the restored runtime
+     * may not have observed the original checkpoint barrier.
+     */
+    private CheckpointType checkpointType;
+
     public CheckpointFinishedOperation(
-            TaskLocation taskLocation, long checkpointId, boolean successful) {
+            TaskLocation taskLocation,
+            long checkpointId,
+            boolean successful,
+            CheckpointType checkpointType) {
         super(taskLocation);
         this.checkpointId = checkpointId;
         this.successful = successful;
+        this.checkpointType = checkpointType;
     }
 
     @Override
@@ -66,6 +79,16 @@ public class CheckpointFinishedOperation extends TaskOperation {
         super.writeInternal(out);
         out.writeLong(checkpointId);
         out.writeBoolean(successful);
+        if (checkpointType == null) {
+            // Every current construction path (CheckpointCoordinator#notifyCheckpointCompleted,
+            // and readInternal via CheckpointType#fromName, which never returns null) always
+            // supplies a real checkpoint type. Fail clearly here instead of an opaque NPE from
+            // checkpointType.getName() if a future call site ever passes null.
+            throw new IOException(
+                    "Cannot serialize CheckpointFinishedOperation without a checkpoint type, checkpointId="
+                            + checkpointId);
+        }
+        out.writeString(checkpointType.getName());
     }
 
     @Override
@@ -73,6 +96,7 @@ public class CheckpointFinishedOperation extends TaskOperation {
         super.readInternal(in);
         checkpointId = in.readLong();
         successful = in.readBoolean();
+        checkpointType = CheckpointType.fromName(in.readString());
     }
 
     @Override
@@ -90,9 +114,9 @@ public class CheckpointFinishedOperation extends TaskOperation {
                                 .setContextClassLoader(
                                         groupContext.getClassLoader(taskLocation.getTaskID()));
                         if (successful) {
-                            task.notifyCheckpointComplete(checkpointId);
+                            task.notifyCheckpointComplete(checkpointId, checkpointType);
                         } else {
-                            task.notifyCheckpointAborted(checkpointId);
+                            task.notifyCheckpointAborted(checkpointId, checkpointType);
                         }
                         Thread.currentThread().setContextClassLoader(classLoader);
                     } catch (Exception e) {
