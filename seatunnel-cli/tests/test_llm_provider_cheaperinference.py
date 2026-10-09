@@ -53,11 +53,54 @@ def _chunk(delta, finish_reason=None):
 
 
 class CheaperInferenceProviderTest(unittest.TestCase):
-    def test_default_model_and_base_url(self):
-        provider = CheaperInferenceProvider.__new__(CheaperInferenceProvider)
+    def test_init_passes_base_url_and_api_key_to_openai_client(self):
+        recorded = {}
+
+        def recorder(**kwargs):
+            recorded.update(kwargs)
+            return SimpleNamespace()
+
+        with mock.patch.dict("os.environ", {"CHEAPER_INFERENCE_API_KEY": "ci_live_test"}, clear=True), \
+                mock.patch("openai.OpenAI", side_effect=recorder):
+            provider = CheaperInferenceProvider()
+
         self.assertEqual(provider.provider_name, "cheaperinference")
-        self.assertEqual(CheaperInferenceProvider.DEFAULT_BASE_URL, "https://api.cheaperinference.com/v1")
-        self.assertEqual(CheaperInferenceProvider.DEFAULT_MODEL, "gpt-5.4-mini")
+        self.assertEqual(recorded.get("base_url"), "https://api.cheaperinference.com/v1")
+        self.assertEqual(recorded.get("api_key"), "ci_live_test")
+
+    def test_default_models_when_env_cleared(self):
+        with mock.patch.dict("os.environ", {"CHEAPER_INFERENCE_API_KEY": "ci_live_test"}, clear=True):
+            provider = CheaperInferenceProvider()
+        self.assertEqual(provider.model_id, "gpt-5.4-mini")
+        self.assertEqual(provider.fast_model_id, "gpt-5.4-mini")
+
+    def test_model_falls_back_to_openai_model(self):
+        with mock.patch.dict(
+            "os.environ",
+            {"CHEAPER_INFERENCE_API_KEY": "ci_live_test", "OPENAI_MODEL": "gpt-5.4"},
+            clear=True,
+        ):
+            provider = CheaperInferenceProvider()
+        self.assertEqual(provider.model_id, "gpt-5.4")
+        self.assertEqual(provider.fast_model_id, "gpt-5.4")
+
+    def test_auto_detect_provider(self):
+        from seatunnel_cli.llm_provider import _auto_detect_provider
+
+        no_aws = mock.Mock()
+        no_aws.return_value.get_credentials.return_value = None
+        cases = [
+            ({"CHEAPER_INFERENCE_API_KEY": "ci_live_test"}, "cheaperinference"),
+            ({}, None),
+            ({"CHEAPER_INFERENCE_API_KEY": "ci_live_test", "OPENAI_API_KEY": "sk-test"}, "cheaperinference"),
+            ({"CHEAPER_INFERENCE_API_KEY": "ci_live_test", "ORCAROUTER_API_KEY": "orc_test"}, "orcarouter"),
+            ({"CHEAPER_INFERENCE_API_KEY": "ci_live_test", "ANTHROPIC_API_KEY": "sk-ant-test"}, "anthropic"),
+        ]
+        for env, expected in cases:
+            with self.subTest(env=sorted(env)), \
+                    mock.patch.dict("os.environ", env, clear=True), \
+                    mock.patch("boto3.Session", no_aws):
+                self.assertEqual(_auto_detect_provider(), expected)
 
     def test_init_requires_api_key(self):
         with mock.patch.dict("os.environ", {}, clear=True):

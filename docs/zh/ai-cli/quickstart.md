@@ -106,7 +106,7 @@ reasoning_content 回放。
 
 [Cheaper Inference](https://cheaperinference.com) 是一个 OpenAI 兼容的 LLM 网关，在单个端点
 （`https://api.cheaperinference.com/v1`）之后暴露多家实验室的模型——GPT、Claude、Gemini、
-DeepSeek、GLM 等。每个模型的价格比其所属实验室的标价低 15–60%。
+DeepSeek、GLM 等。
 模型 ID 不带前缀，例如 `gpt-5.4-mini`、`gpt-5.4` 或 `claude-sonnet-5`。
 作为一等提供商配置：
 
@@ -125,6 +125,9 @@ seatunnel "Sync MySQL users table to S3 Parquet"
 
 该提供商使用 OpenAI Chat Completions 协议，因此支持 CLI 内部的工具调用循环、流式输出、
 多轮会话，以及兼容推理模型的 reasoning_content 回放。
+
+未设置 `CHEAPER_INFERENCE_MODEL` 时，回退到 `OPENAI_MODEL`。
+未设置 `AI_PROVIDER` 且同时设置了 `CHEAPER_INFERENCE_API_KEY` 和 `OPENAI_API_KEY` 时，自动检测选择 Cheaper Inference。
 
 ### bedrock-mantle：Bedrock 上的 OpenAI 系模型
 

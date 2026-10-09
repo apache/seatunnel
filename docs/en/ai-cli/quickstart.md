@@ -111,7 +111,6 @@ compatible reasoning models.
 [Cheaper Inference](https://cheaperinference.com) is an OpenAI-compatible LLM
 gateway that exposes models from several labs — including GPT, Claude, Gemini,
 DeepSeek and GLM — behind a single endpoint (`https://api.cheaperinference.com/v1`).
-Each model costs 15–60% less than the list price of its lab.
 Model IDs are bare, e.g. `gpt-5.4-mini`, `gpt-5.4` or `claude-sonnet-5`.
 Configure it as a first-class provider:
 
@@ -131,6 +130,10 @@ seatunnel "Sync MySQL users table to S3 Parquet"
 The provider speaks the OpenAI Chat Completions protocol, so it supports the
 CLI's internal tool-calling loop, streaming output, multi-turn sessions, and
 reasoning-content replay for compatible reasoning models.
+
+`CHEAPER_INFERENCE_MODEL` falls back to `OPENAI_MODEL` when unset.
+When `AI_PROVIDER` is unset and both `CHEAPER_INFERENCE_API_KEY` and
+`OPENAI_API_KEY` are set, auto-detect selects Cheaper Inference.
 
 ### bedrock-mantle: OpenAI-family models on Bedrock
 

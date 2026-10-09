@@ -175,7 +175,7 @@ export CHEAPER_INFERENCE_API_KEY=ci_live_...
 
 [Cheaper Inference](https://cheaperinference.com) 是一个 OpenAI 兼容的 LLM 网关，在单个端点
 （`https://api.cheaperinference.com/v1`）之后暴露多家实验室的模型——GPT、Claude、Gemini、
-DeepSeek、GLM 等。每个模型的价格比其所属实验室的标价低 15–60%。
+DeepSeek、GLM 等。
 模型 ID 不带前缀，例如 `gpt-5.4-mini`、`gpt-5.4` 或 `claude-sonnet-5`。
 Cheaper Inference 提供商使用 OpenAI Chat Completions 协议，因此与 `openai` 提供商一样支持
 reasoning_content 回放、流式输出和工具调用。
@@ -229,7 +229,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `OPENAI_BASE_URL` | 否 | -- | OpenAI 兼容 API 的自定义端点 |
 | `OPENAI_ECHO_REASONING_CONTENT` | 否 | `true` | 为 DeepSeek、GLM 思考模式等 OpenAI 兼容推理模型保留并回传 `reasoning_content` |
 | `ORCAROUTER_API_KEY` | OrcaRouter 必需 | -- | OrcaRouter API 密钥 |
-| `CHEAPER_INFERENCE_API_KEY` | Cheaper Inference 必需 | -- | Cheaper Inference API 密钥 |
+| `CHEAPER_INFERENCE_API_KEY` | Cheaper Inference 必需 | -- | Cheaper Inference API 密钥。未设置 `AI_PROVIDER` 时，自动检测优先于 `OPENAI_API_KEY` 选择它 |
 | `ANTHROPIC_MODEL` | 否 | 提供商默认值 | 覆盖主模型 ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | 否 | 提供商默认值 | 覆盖快速模型 ID |
 | `OPENAI_MODEL` | 否 | `gpt-4o` | OpenAI 提供商的主模型 |
@@ -237,7 +237,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `ORCAROUTER_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的主模型（provider/model 命名空间） |
 | `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
-| `CHEAPER_INFERENCE_MODEL` | 否 | `gpt-5.4-mini` | Cheaper Inference 提供商的主模型 |
+| `CHEAPER_INFERENCE_MODEL` | 否 | `gpt-5.4-mini` | Cheaper Inference 提供商的主模型。未设置时回退到 `OPENAI_MODEL` |
 | `CHEAPER_INFERENCE_SMALL_FAST_MODEL` | 否 | `gpt-5.4-mini` | Cheaper Inference 提供商的快速模型 |
 | `CHEAPER_INFERENCE_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |

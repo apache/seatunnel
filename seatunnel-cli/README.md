@@ -209,7 +209,6 @@ Requires: `pip install -e ".[openai]"` (the `openai` package).
 [Cheaper Inference](https://cheaperinference.com) is an OpenAI-compatible LLM
 gateway that exposes models from several labs — including GPT, Claude, Gemini,
 DeepSeek and GLM — behind a single endpoint (`https://api.cheaperinference.com/v1`).
-Each model costs 15–60% less than the list price of its lab.
 Model IDs are bare, e.g. `gpt-5.4-mini`, `gpt-5.4` or `claude-sonnet-5`.
 The Cheaper Inference provider speaks the OpenAI Chat Completions protocol, so it
 inherits the same reasoning-content replay, streaming and tool-calling support as
@@ -264,7 +263,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
 | `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
 | `ORCAROUTER_API_KEY` | OrcaRouter | -- | OrcaRouter API key |
-| `CHEAPER_INFERENCE_API_KEY` | Cheaper Inference | -- | Cheaper Inference API key |
+| `CHEAPER_INFERENCE_API_KEY` | Cheaper Inference | -- | Cheaper Inference API key. If `AI_PROVIDER` is unset, auto-detect prefers it over `OPENAI_API_KEY` |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
@@ -272,7 +271,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
-| `CHEAPER_INFERENCE_MODEL` | No | `gpt-5.4-mini` | Primary model for Cheaper Inference provider |
+| `CHEAPER_INFERENCE_MODEL` | No | `gpt-5.4-mini` | Primary model for Cheaper Inference provider. Falls back to `OPENAI_MODEL` |
 | `CHEAPER_INFERENCE_SMALL_FAST_MODEL` | No | `gpt-5.4-mini` | Fast model for Cheaper Inference provider |
 | `CHEAPER_INFERENCE_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
