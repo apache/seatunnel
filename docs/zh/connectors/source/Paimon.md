@@ -319,7 +319,7 @@ SeaTunnel Paimon 源连接器支持批处理快照读取与流式 changelog 消�
 
 ### 如何配置 Paimon 的存储路径与 Catalog？
 
-通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `paimon.catalog.type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
+通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `catalog_type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
 
 ### Paimon 源连接器是否支持列投影？
 

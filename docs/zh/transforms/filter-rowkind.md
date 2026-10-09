@@ -23,7 +23,7 @@ FilterRowKind 转换插件用于按 RowKind 过滤数据。
 
 要排除的行类型。
 
-您只能配置 `include_kinds` 和 `exclude_kinds` 中的一个。
+您必须且只能配置 `include_kinds` 和 `exclude_kinds` 中的一个，不能同时配置。
 
 ### common options [string]
 

@@ -38,7 +38,6 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | data_save_mode            | enum    | 否   | APPEND_DATA                  | 写入前如何处理已有数据，例如 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                |
 | custom_sql                | string  | 否   | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时执行的 SQL。                                              |
 | save_mode_create_template | string  | 否   | 见下文                       | 在 sink 自动建表时使用的 DDL 模板。                                                                  |
-| datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss          | 将 `LocalDateTime` 字段序列化为字符串时使用的格式。                                                  |
 | tunnel_endpoint           | string  | 否   | -                            | MaxCompute Tunnel 服务的自定义端点；未配置时根据区域自动推断。                                       |
 | tunnel_name               | string  | 否   | -                            | Tunnel Quota 名称；需同时将 `endpoint` 与 `tunnel_endpoint` 配置为 VPC 端点。                       |
 | connect_timeout_ms        | long    | 否   | 10000                        | ODPS REST 客户端（元数据/catalog 调用）的 HTTP 连接超时，单位毫秒。默认 10000（10 秒）。            |
@@ -151,26 +150,6 @@ CREATE TABLE IF NOT EXISTS `${table}`
 ### custom_sql [String]
 
 当 data_save_mode 选择 CUSTOM_PROCESSING 时，您应该填入 CUSTOM_SQL 参数。此参数通常填入可以执行的 SQL。SQL 将在同步任务之前执行。
-
-### datetime_format [String]
-
-用户定义的格式字符串，用于将 LocalDateTime 字段转换为字符串。
-
-当您想指定与 DateTimeUtils.Formatter 中的预定义值之一匹配的自定义日期时间格式时，请使用此选项（例如 yyyy-MM-dd HH:mm:ss、yyyyMMddHHmmss 等）。
-
-示例值：
-
-- `yyyy-MM-dd HH:mm:ss`
-- `yyyy-MM-dd HH:mm:ss.SSSSSS`
-- `yyyy.MM.dd HH:mm:ss`
-- `yyyy/MM/dd HH:mm:ss`
-- `yyyy/M/d HH:mm`
-- `yyyy-M-d HH:mm`
-- `yyyy/M/d HH:mm:ss`
-- `yyyy-M-d HH:mm:ss`
-- `yyyyMMddHHmmss`
-
-默认值：`yyyy-MM-dd HH:mm:ss`
 
 ### tunnel_endpoint [String]
 指定 MaxCompute Tunnel 服务的自定义端点 URL。

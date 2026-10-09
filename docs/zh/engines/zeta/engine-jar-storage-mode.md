@@ -38,7 +38,7 @@ COMMON_ PLUGIN_ JARS 指的是连接器所依赖的第三方 Jar 包， CONNECTO
 
 |                 参数                  |  默认值   |                                   描述                                    |
 |-------------------------------------|--------|-------------------------------------------------------------------------|
-| connector-jar-storage-enable        | false  | 是否启用上传连接器 Jar 包到引擎。默认启用状态为 false。                                       |
+| enable                              | false  | 是否启用上传连接器 Jar 包到引擎。默认启用状态为 false。                                       |
 | connector-jar-storage-mode          | SHARED | 引擎端 Jar 包存储模式选择。有两个可选模式，SHARED（共享）和 ISOLATED（隔离）。默认的 Jar 包存储模式是 SHARED。 |
 | connector-jar-storage-path          | " "    | 用户自定义的 Jar 包存储路径。                                                       |
 | connector-jar-cleanup-task-interval | 3600s  | 引擎端 Jar 包清理定时任务执行间隔。                                                    |
@@ -53,16 +53,18 @@ COMMON_ PLUGIN_ JARS 指的是连接器所依赖的第三方 Jar 包， CONNECTO
 示例：
 
 ```yaml
-jar-storage:
-   connector-jar-storage-enable: true
-   connector-jar-storage-mode: ISOLATED
-   connector-jar-storage-path: ""
-   connector-jar-cleanup-task-interval: 3600
-   connector-jar-expiry-time: 600
+seatunnel:
+  engine:
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: ISOLATED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600
 ```
 
 配置参数的详细解释：
-- connector-jar-storage-enable: 在执行作业前启用上传连接器 Jar 包的功能。
+- enable: 在执行作业前启用上传连接器 Jar 包的功能。
 - connector-jar-storage-mode: 连接器 Jar 包的存储模式，有两种存储模式可供选择：共享模式（SHARED）和隔离模式（ISOLATED）。
 - connector-jar-storage-path: 在 Zeta 引擎上用户自定义连接器 Jar 包的本地存储路径。
 - connector-jar-cleanup-task-interval: Zeta 引擎连接器 Jar 包定时清理任务的间隔时间，默认为 3600 秒。
@@ -78,16 +80,18 @@ jar-storage:
 示例:
 
 ```yaml
-jar-storage:
-   connector-jar-storage-enable: true
-   connector-jar-storage-mode: SHARED
-   connector-jar-storage-path: ""
-   connector-jar-cleanup-task-interval: 3600
-   connector-jar-expiry-time: 600
+seatunnel:
+  engine:
+    jar-storage:
+      enable: true
+      connector-jar-storage-mode: SHARED
+      connector-jar-storage-path: ""
+      connector-jar-cleanup-task-interval: 3600
+      connector-jar-expiry-time: 600
 ```
 
 配置参数的详细解释：
-- connector-jar-storage-enable: 在执行作业前启用上传连接器 Jar 包的功能。
+- enable: 在执行作业前启用上传连接器 Jar 包的功能。
 - connector-jar-storage-mode: 连接器 Jar 包的存储模式，有两种存储模式可供选择：共享模式（SHARED）和隔离模式（ISOLATED）。
 - connector-jar-storage-path: 在 Zeta 引擎上用户自定义连接器 Jar 包的本地存储路径。
 - connector-jar-cleanup-task-interval: Zeta 引擎连接器 Jar 包定时清理任务的间隔时间，默认为 3600 秒。
