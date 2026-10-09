@@ -51,6 +51,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,9 +114,14 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         PostgresSourceConfig postgresSourceConfig = (PostgresSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
+            // Scope discovery to the configured databases via an explicit predicate instead of
+            // Debezium's "database.include.list", which would filter out the catalog-less
+            // TableIds the PostgreSQL connector uses outside of discovery.
             List<TableId> tables =
                     TableDiscoveryUtils.listTables(
-                            jdbcConnection, postgresSourceConfig.getTableFilters());
+                            jdbcConnection,
+                            postgresSourceConfig.getTableFilters(),
+                            new HashSet<>(postgresSourceConfig.getDatabaseList())::contains);
             this.checkAllTablesEnabledCapture(jdbcConnection, tables);
             return tables;
         } catch (SQLException e) {
@@ -132,9 +138,13 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                     postgresConnection.readReplicaIdentityInfo(tableId);
             if (requireReplicaIdentityFull
                     && !ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+                // Name both remediations: this also fires on enumerator restore, where the job
+                // config is already baked into the persisted DAG and can only be changed by
+                // cancelling and resubmitting, so the message must be actionable on its own.
                 throw new SeaTunnelException(
                         String.format(
-                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
+                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL; "
+                                        + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                                 tableId, tableId));
             }
         }

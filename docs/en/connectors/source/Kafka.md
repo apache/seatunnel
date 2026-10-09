@@ -41,8 +41,9 @@ are read or written, no consumer offsets are accessed or committed, and missing 
 
 Successful validation proves metadata access, **not** permission to consume records, access a consumer
 group, or deserialize actual messages. A pattern with no currently visible matches is allowed, as it
-is at runtime; validation in that case checks topic listing only, not access to future topics. Kafka
-sinks remain unsupported by connectivity dry-run.
+is at runtime; validation in that case checks topic listing only, not access to future topics.
+Kafka sinks support a separate [metadata-only connectivity dry-run](../sink/Kafka.md#connectivity-dry-run),
+which does not verify Produce or transaction permissions.
 
 ## Supported DataSource Info
 

@@ -17,6 +17,7 @@ Used to write data to RabbitMQ queues.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -85,7 +86,7 @@ When `url` uses an `amqps://` URI, the broker certificate is verified against th
 
 ### queue_name [string]
 
-the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
+the queue to write the message to. The value must not be empty or whitespace-only. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
 
 ### format [string]
 
