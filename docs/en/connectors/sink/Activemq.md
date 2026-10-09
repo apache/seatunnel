@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 ## Description
 
-Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message. This is
-a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
+Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message.
+For consuming queues, see the separate [ActiveMQ source](../source/Activemq.md).
 
 ## Key features
 
@@ -135,4 +135,3 @@ No. The sink is best-effort with bounded reconnect behavior driven by the underl
 ## Changelog
 
 <ChangeLog />
-
