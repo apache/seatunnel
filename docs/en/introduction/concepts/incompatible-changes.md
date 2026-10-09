@@ -62,6 +62,14 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### DuckDB unsigned integer source mapping
+
+DuckDB JDBC sources now widen UTINYINT to SMALLINT, USMALLINT to INT, UINTEGER to BIGINT,
+and UBIGINT to DECIMAL(20,0), preserving values that previously wrapped into negative numbers.
+The inferred SeaTunnel schema and tables created from it therefore use wider types.
+Review downstream schemas and transforms that relied on the previous narrow types before upgrading.
+Use targets that can represent the complete unsigned range; signed source mappings are unchanged.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and

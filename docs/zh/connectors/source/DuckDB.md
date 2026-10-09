@@ -73,6 +73,8 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
+无符号整数使用更宽的类型保留完整范围：UTINYINT → SMALLINT、USMALLINT → INT、UINTEGER → BIGINT、UBIGINT → DECIMAL(20,0)。有符号整数的映射保持不变。
+
 > 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 
 ## 源选项

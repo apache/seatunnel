@@ -41,12 +41,14 @@ import org.junit.jupiter.api.TestInstance;
 import lombok.SneakyThrows;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +209,88 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @Test
+    public void testUnsignedIntegerRanges() throws Exception {
+        String definition = " (a UTINYINT, b USMALLINT, c UINTEGER, d UBIGINT)";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE unsigned_source" + definition);
+            statement.execute("CREATE TABLE unsigned_sink" + definition);
+            statement.execute(
+                    "INSERT INTO unsigned_source VALUES "
+                            + "(255,65535,4294967295,18446744073709551615),"
+                            + "(128,32768,2147483648,9223372036854775808),"
+                            + "(0,0,0,0),(NULL,NULL,NULL,NULL)");
+        }
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", jdbcUrl);
+        options.put("driver", "org.duckdb.DuckDBDriver");
+        options.put("table_path", "main.unsigned_source");
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(options), new JdbcSourceFactory());
+        Object[][] expected = {
+            {(short) 255, 65535, 4294967295L, new BigDecimal("18446744073709551615")},
+            {(short) 128, 32768, 2147483648L, new BigDecimal("9223372036854775808")},
+            {(short) 0, 0, 0L, BigDecimal.ZERO},
+            {null, null, null, null}
+        };
+        Assertions.assertEquals(expected.length, rows.size());
+        for (Object[] fields : expected) {
+            Assertions.assertTrue(
+                    rows.stream().anyMatch(row -> Arrays.deepEquals(fields, row.getFields())),
+                    "Missing unsigned row: " + Arrays.toString(fields));
+        }
+        DuckDBCatalog catalog =
+                new DuckDBCatalog(CATALOG_NAME, DuckDBURLParser.parse(jdbcUrl), SCHEMA_NAME);
+        catalog.open();
+        CatalogTable table;
+        try {
+            table = catalog.getTable(TablePath.of(DATABASE_NAME, SCHEMA_NAME, "unsigned_source"));
+        } finally {
+            catalog.close();
+        }
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", jdbcUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put("database", SCHEMA_NAME);
+        sinkOptions.put("table", "unsigned_sink");
+        sinkOptions.put("generate_sink_sql", true);
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                table, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        catalog.open();
+        try {
+            catalog.createTable(
+                    TablePath.of(DATABASE_NAME, SCHEMA_NAME, "unsigned_auto_sink"), table, false);
+        } finally {
+            catalog.close();
+        }
+        sinkOptions.put("table", "unsigned_auto_sink");
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                table, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        options.put("table_path", "main.unsigned_auto_sink");
+        List<SeaTunnelRow> automatic =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(options), new JdbcSourceFactory());
+        Assertions.assertEquals(expected.length, automatic.size());
+        for (Object[] fields : expected) {
+            Assertions.assertTrue(
+                    automatic.stream().anyMatch(row -> Arrays.deepEquals(fields, row.getFields())));
+        }
+        options.put("table_path", "main.unsigned_sink");
+        List<SeaTunnelRow> written =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(options), new JdbcSourceFactory());
+        Assertions.assertEquals(expected.length, written.size());
+        for (Object[] fields : expected) {
+            Assertions.assertTrue(
+                    written.stream().anyMatch(row -> Arrays.deepEquals(fields, row.getFields())));
+        }
     }
 
     @AfterAll

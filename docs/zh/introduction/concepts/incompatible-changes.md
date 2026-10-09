@@ -25,6 +25,14 @@
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
 
+### DuckDB 无符号整数 Source 类型映射
+
+DuckDB JDBC Source 现在将 UTINYINT 映射为 SMALLINT、USMALLINT 映射为 INT、UINTEGER 映射为 BIGINT，
+并将 UBIGINT 映射为 DECIMAL(20,0)，以保留此前溢出为负数的值。
+自动推断的 SeaTunnel schema 及据此创建的目标表因此会使用更宽的类型。
+升级前，请检查依赖原窄类型的下游 schema 和转换逻辑，确保目标类型能够容纳完整的无符号整数范围。
+有符号整数 Source 的映射保持不变。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
