@@ -1155,7 +1155,21 @@ public class CheckpointCoordinatorTest
                             false,
                             null);
             CheckpointCoordinator spy = Mockito.spy(coordinator);
-            Mockito.doReturn(false).when(spy).notifyCompleted(Mockito.any());
+            List<String> completionEvents = new ArrayList<>();
+            Mockito.doAnswer(
+                            invocation -> {
+                                completionEvents.add("notify");
+                                return true;
+                            })
+                    .when(spy)
+                    .notifyCompleted(Mockito.any());
+            Mockito.doAnswer(
+                            invocation -> {
+                                completionEvents.add("delete");
+                                return null;
+                            })
+                    .when(storage)
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
 
             for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
                 spy.completePendingCheckpoint(completedCheckpoint(checkpointId));
@@ -1182,6 +1196,13 @@ public class CheckpointCoordinatorTest
                     Arrays.asList("1", "2"),
                     pruned,
                     "oldest checkpoints must be pruned once the bound is exceeded");
+            int firstDelete = completionEvents.indexOf("delete");
+            Assertions.assertTrue(
+                    firstDelete >= 0, "retention must delete after the bound is exceeded");
+            Assertions.assertEquals(
+                    4,
+                    Collections.frequency(completionEvents.subList(0, firstDelete), "notify"),
+                    "checkpoint completion notification must happen before retention delete");
             Assertions.assertEquals(
                     Arrays.asList("3", "4", "5"), new ArrayList<>(completedCheckpointIds(spy)));
         } finally {
@@ -1230,7 +1251,7 @@ public class CheckpointCoordinatorTest
                             false,
                             null);
             CheckpointCoordinator spy = Mockito.spy(coordinator);
-            Mockito.doReturn(false).when(spy).notifyCompleted(Mockito.any());
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
 
             for (long checkpointId = 1; checkpointId <= 4; checkpointId++) {
                 long id = checkpointId;
