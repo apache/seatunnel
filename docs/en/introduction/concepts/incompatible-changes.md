@@ -45,6 +45,26 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### Job Event HTTP Reporting
+
+- **Behavior change: HTTP redirects are not followed**
+  - **Affected component**: Zeta job event HTTP reporting (`JobEventHttpReportHandler`).
+  - **Description**: Redirect responses are treated as unsuccessful deliveries instead of forwarding
+    the request to another endpoint. This prevents configured headers from being forwarded and
+    prevents redirects from changing the event POST into a GET.
+  - **Migration Guide**: Configure the final event-report URL directly, using an endpoint that
+    accepts the POST and returns a successful 2xx response. Configuration keys are unchanged.
+
+- **Behavior change: HTTPS event reporting requires TLS 1.2 or newer**
+  - **Affected component**: Zeta job event HTTP reporting (`JobEventHttpReportHandler`).
+  - **Description**: The upgraded HTTP client keeps its stronger default TLS policy, offering
+    TLS 1.2 and TLS 1.3 instead of the previous client's TLS 1.0/1.1 compatibility. Endpoints
+    that only support TLS 1.0 or TLS 1.1 can no longer receive HTTPS event reports. Plain HTTP
+    endpoints are unaffected by this TLS change.
+  - **Migration Guide**: Upgrade the HTTPS collector or gateway to support TLS 1.2 or TLS 1.3
+    with a protocol and cipher suite supported by the SeaTunnel JVM. Do not rely on legacy
+    TLS fallback; configuration keys are unchanged.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
