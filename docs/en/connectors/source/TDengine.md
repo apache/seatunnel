@@ -109,6 +109,8 @@ correctly.
 Source plugin common parameters, please refer to
 [Source Common Options](../common-options/source-common-options.md) for details.
 
+All required string options listed above must contain a nonblank value (not empty or whitespace-only). This validation does not check server connectivity or timestamp format.
+
 ## Output Schema
 
 The output table always starts with the reserved `subtable_name` column, which

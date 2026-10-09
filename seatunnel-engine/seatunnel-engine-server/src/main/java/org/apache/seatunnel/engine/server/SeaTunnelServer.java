@@ -100,7 +100,7 @@ public class SeaTunnelServer
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
     private volatile RealtimeMetricsService realtimeMetricsService;
-    private JettyService jettyService;
+    private volatile JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
@@ -404,6 +404,14 @@ public class SeaTunnelServer
 
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
+    }
+
+    /** Returns this member's bound HTTP port, or the configured port before Jetty is available. */
+    public int getHttpPort() {
+        JettyService service = jettyService;
+        return service == null
+                ? seaTunnelConfig.getEngineConfig().getHttpConfig().getPort()
+                : service.getHttpPort();
     }
 
     public NodeEngineImpl getNodeEngine() {
