@@ -1246,7 +1246,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             Collections.singletonList(
                                                     TableId.parse(SINK_TABLE_1))));
             Assertions.assertEquals(
-                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL;",
+                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL; "
+                            + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                     exception.getMessage());
         }
     }

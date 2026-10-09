@@ -78,11 +78,16 @@
         <seatunnel.shade.calcite.version>1.38.0</seatunnel.shade.calcite.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <scala.version>2.12.15</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <!-- Constrains javac to the API surface of java.version, not merely its bytecode level,
+             so compiling on a JDK newer than java.version cannot silently link against APIs the
+             target runtime does not have. Modules that must still output Java 8 bytecode override
+             this property (not source/target, which the compiler plugin below no longer reads). -->
+        <maven.compiler.release>${java.version}</maven.compiler.release>
 
         <system-rules.version>1.2.1</system-rules.version>
         <powermock.version>2.0.9</powermock.version>
@@ -167,6 +172,19 @@
         <hugegraph.client.version>1.7.0</hugegraph.client.version>
         <!-- Option args -->
         <surefire.jvm.args>-Dfile.encoding=UTF-8</surefire.jvm.args>
+        <!--
+            JDK 9+ dropped default reflective access to several JDK internals that Hazelcast (the
+            Zeta engine's runtime) and this project's own reflective Kerberos/classloader helpers
+            depend on; see the comments in config/jvm_options for the per-flag rationale. Test JVMs
+            forked by Surefire/Failsafe need the same flags the launcher scripts inject for a real
+            cluster. They live in their own property, separate from surefire.jvm.args, so a CLI
+            override such as -Dsurefire.jvm.args=-Xmx3g (used by the unit-test CI lane) cannot
+            silently drop them, and in a plain property rather than a JDK-activated profile because
+            activating any profile by <jdk> deactivates the activeByDefault "release" profile and
+            silently removes seatunnel-dist from the default reactor. Java 11 is the compile
+            baseline (maven.compiler.release), so the flags are always valid and need no JDK gate.
+        -->
+        <surefire.module.args>--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED</surefire.module.args>
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
@@ -769,8 +787,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
-                        <source>${maven.compiler.source}</source>
-                        <target>${maven.compiler.target}</target>
+                        <release>${maven.compiler.release}</release>
                         <forceJavacCompilerUse>true</forceJavacCompilerUse>
                     </configuration>
                 </plugin>
@@ -779,7 +796,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
-                        <argLine>${surefire.jvm.args}</argLine>
+                        <argLine>${surefire.jvm.args} ${surefire.module.args}</argLine>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
@@ -811,7 +828,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
-                        <argLine>${surefire.jvm.args}</argLine>
+                        <argLine>${surefire.jvm.args} ${surefire.module.args}</argLine>
                         <skip>${skipIT}</skip>
                     </configuration>
                     <executions>
