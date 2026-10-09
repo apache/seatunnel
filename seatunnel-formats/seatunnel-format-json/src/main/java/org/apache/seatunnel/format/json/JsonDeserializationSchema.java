@@ -29,6 +29,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -99,8 +101,24 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.rowType = checkNotNull(catalogTable.getSeaTunnelRowType());
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+
+        // Extract default values from the catalog table schema.
+        // Only physical columns have defaults; toPhysicalRowDataType() filters
+        // non-physical columns, so we apply the same filter here.
+        Object[] defaultValues = null;
+        List<Column> columns = catalogTable.getTableSchema().getColumns();
+        if (columns != null) {
+            defaultValues = new Object[columns.size()];
+            int physIdx = 0;
+            for (int i = 0; i < columns.size(); i++) {
+                if (columns.get(i).isPhysical()) {
+                    defaultValues[physIdx++] = columns.get(i).getDefaultValue();
+                }
+            }
+        }
+
         this.runtimeConverter =
-                new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
+                new JsonToRowConverters(failOnMissingField, ignoreParseErrors, defaultValues)
                         .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {
