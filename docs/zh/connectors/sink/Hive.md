@@ -24,10 +24,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 - [x] 文件格式
     - [x] 文本
-    - [x] CSV
     - [x] Parquet
     - [x] ORC
-    - [x] JSON
 - [x] 压缩编解码器
     - [x] LZO
 

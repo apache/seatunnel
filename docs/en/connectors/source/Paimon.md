@@ -313,7 +313,7 @@ The SeaTunnel Paimon source supports both batch snapshot queries and streaming c
 
 ### How do I configure storage and catalog backends for Paimon?
 
-Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `paimon.catalog.type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `catalog_type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
 
 ### Does Paimon source support column projection?
 
