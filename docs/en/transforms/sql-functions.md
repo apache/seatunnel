@@ -1107,6 +1107,26 @@ or
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
+### UNIX_TIMESTAMP
+
+```UNIX_TIMESTAMP() | UNIX_TIMESTAMP(string[, pattern]) | UNIX_TIMESTAMP(dateTime) -> BIGINT```
+
+Convert a datetime to the number of seconds since the UNIX epoch (1970-01-01 00:00:00 UTC). The inverse of `FROM_UNIXTIME`.
+
+- No argument: current epoch seconds.
+- String argument: parsed with the given `pattern` (default `yyyy-MM-dd HH:mm:ss`). For pattern characters see `java.time.format.DateTimeFormatter`.
+- `dateTime` argument: a TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE column.
+
+`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. Unparseable string input returns NULL rather than raising an error. Numeric input is not supported and returns NULL.
+
+Example:
+
+select UNIX_TIMESTAMP('2023-01-01 00:00:00') as ts
+
+select UNIX_TIMESTAMP('2023/01/01 00:00:00', 'yyyy/MM/dd HH:mm:ss') as ts
+
+select UNIX_TIMESTAMP(dt) as ts
+
 ### AT TIME ZONE
 
 ```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```
