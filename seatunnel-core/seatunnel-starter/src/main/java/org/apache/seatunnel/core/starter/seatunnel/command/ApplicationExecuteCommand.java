@@ -51,17 +51,23 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
             Map<String, String> options = resolveOptions();
             ClusterClientServiceLoader clientServiceLoader = new ClusterClientServiceLoader();
             String applicationId = applicationCommandArgs.getId();
-
-            if (applicationCommandArgs.getOperation() == ApplicationOperation.SUBMIT) {
+            ApplicationOperation operation = applicationCommandArgs.getOperation();
+            if (operation == ApplicationOperation.SUBMIT) {
                 applicationId = submit(options);
                 if (!applicationCommandArgs.isWait()) {
                     return;
                 }
-            } else {
+                printStatus(clientServiceLoader, options, applicationId);
+            } else if (operation == ApplicationOperation.CANCEL) {
                 System.out.println("Application ID: " + applicationId);
+                cancelApplication(clientServiceLoader, options, applicationId);
+            } else if (operation == ApplicationOperation.STATUS) {
+                System.out.println("Application ID: " + applicationId);
+                printStatus(clientServiceLoader, options, applicationId);
+            } else {
+                throw new CommandExecuteException(
+                        "Unsupported application operation: " + operation);
             }
-
-            executePlatformOperation(clientServiceLoader, options, applicationId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CommandExecuteException("Application command was interrupted", e);
@@ -70,23 +76,43 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         }
     }
 
-    private <ID> void executePlatformOperation(
+    private <ID> void cancelApplication(
             ClusterClientServiceLoader clientServiceLoader, Map<String, String> options, String id)
             throws Exception {
         ApplicationClusterDescriptorFactory<ID> factory =
                 clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget());
         ID applicationId = factory.parseApplicationId(id);
         try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
-            if (applicationCommandArgs.getOperation() == ApplicationOperation.CANCEL) {
-                descriptor.cancelApplication(applicationId);
-                System.out.println("Cancellation requested");
-                return;
-            }
-            if (printResult(descriptor, applicationId, applicationCommandArgs.isWait()) != 0) {
+            descriptor.cancelApplication(applicationId);
+            System.out.println("Cancellation requested");
+        }
+    }
+
+    private <ID> void printStatus(
+            ClusterClientServiceLoader clientServiceLoader, Map<String, String> options, String id)
+            throws Exception {
+        ApplicationClusterDescriptorFactory<ID> factory =
+                clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget());
+        ID applicationId = factory.parseApplicationId(id);
+        try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
+            ApplicationStatus status =
+                    getStatus(descriptor, applicationId, applicationCommandArgs.isWait());
+            System.out.println("Status: " + status);
+            if (status.isFailure()) {
                 throw new CommandExecuteException(
                         "Application finished with an unsuccessful status");
             }
         }
+    }
+
+    static <ID> ApplicationStatus getStatus(
+            ClusterDescriptor<ID> descriptor, ID applicationId, boolean wait) throws Exception {
+        ApplicationStatus status = descriptor.getApplicationStatus(applicationId);
+        while (wait && !status.isTerminal() && status != ApplicationStatus.UNKNOWN) {
+            Thread.sleep(500L);
+            status = descriptor.getApplicationStatus(applicationId);
+        }
+        return status;
     }
 
     private Map<String, String> resolveOptions() {
@@ -119,16 +145,5 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         System.out.println("Application ID: " + applicationId);
         System.out.println("Job ID: " + specification.getJobId());
         return applicationId;
-    }
-
-    static <ID> int printResult(ClusterDescriptor<ID> descriptor, ID applicationId, boolean wait)
-            throws Exception {
-        ApplicationStatus status = descriptor.getApplicationStatus(applicationId);
-        while (wait && !status.isTerminal() && status != ApplicationStatus.UNKNOWN) {
-            Thread.sleep(500L);
-            status = descriptor.getApplicationStatus(applicationId);
-        }
-        System.out.println("Status: " + status);
-        return status.isFailure() ? 1 : 0;
     }
 }

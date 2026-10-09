@@ -263,8 +263,12 @@ class ApplicationExecuteCommandTest {
     void reportsApplicationStateWithoutConnectingToMaster() throws Exception {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         when(descriptor.getApplicationStatus("app")).thenReturn(ApplicationStatus.UNKNOWN);
-        assertEquals(1, ApplicationExecuteCommand.printResult(descriptor, "app", false));
-        assertEquals(1, ApplicationExecuteCommand.printResult(descriptor, "app", true));
+        assertEquals(
+                ApplicationStatus.UNKNOWN,
+                ApplicationExecuteCommand.getStatus(descriptor, "app", false));
+        assertEquals(
+                ApplicationStatus.UNKNOWN,
+                ApplicationExecuteCommand.getStatus(descriptor, "app", true));
         verify(descriptor, never()).retrieve(any());
     }
 
@@ -273,7 +277,9 @@ class ApplicationExecuteCommandTest {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         when(descriptor.getApplicationStatus("app"))
                 .thenReturn(ApplicationStatus.RUNNING, ApplicationStatus.SUCCEEDED);
-        assertEquals(0, ApplicationExecuteCommand.printResult(descriptor, "app", true));
+        assertEquals(
+                ApplicationStatus.SUCCEEDED,
+                ApplicationExecuteCommand.getStatus(descriptor, "app", true));
         verify(descriptor, times(2)).getApplicationStatus("app");
         verify(descriptor, never()).retrieve(any());
     }
