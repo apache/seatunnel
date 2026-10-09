@@ -23,12 +23,14 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,7 @@ import com.hazelcast.map.IMap;
 import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
@@ -67,6 +70,90 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(
                 ExecutionState.FAILED,
                 planWithStateMaps.runningJobState.get(physicalVertex.getTaskGroupLocation()));
+    }
+
+    /**
+     * A task whose state process is stopped, as while its pipeline waits to be restored or before
+     * it is deployed, must still complete its future when it is force-stopped. Otherwise its
+     * pipeline never sees the task end and stays in its current state for good.
+     */
+    @Test
+    void testForceStopCompletesTheFutureOfATaskWhoseStateProcessIsStopped() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        PhysicalVertex physicalVertex =
+                planWithStateMaps
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+        Assertions.assertFalse(physicalVertex.isRunning);
+        Assertions.assertEquals(ExecutionState.CREATED, physicalVertex.getExecutionState());
+        PassiveCompletableFuture<TaskExecutionState> taskFuture = physicalVertex.initStateFuture();
+
+        physicalVertex.forceStop();
+
+        Assertions.assertEquals(
+                ExecutionState.CANCELED, taskFuture.get(10, TimeUnit.SECONDS).getExecutionState());
+        Assertions.assertEquals(
+                ExecutionState.CANCELED,
+                planWithStateMaps.runningJobState.get(physicalVertex.getTaskGroupLocation()));
+        Assertions.assertFalse(physicalVertex.isRunning);
+    }
+
+    /** The same as above for a task reset after a failure, as a pipeline restore does. */
+    @Test
+    void testForceStopCompletesTheFutureOfATaskResetForRestore() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        PhysicalVertex physicalVertex =
+                planWithStateMaps
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+        physicalVertex.updateStateByExecutionService(
+                new TaskExecutionState(
+                        physicalVertex.getTaskGroupLocation(), ExecutionState.FAILED, "failed"));
+        physicalVertex.reset();
+        Assertions.assertFalse(physicalVertex.isRunning);
+        Assertions.assertEquals(ExecutionState.CREATED, physicalVertex.getExecutionState());
+        PassiveCompletableFuture<TaskExecutionState> taskFuture = physicalVertex.initStateFuture();
+
+        physicalVertex.forceStop();
+
+        Assertions.assertEquals(
+                ExecutionState.CANCELED, taskFuture.get(10, TimeUnit.SECONDS).getExecutionState());
+        Assertions.assertFalse(physicalVertex.isRunning);
+    }
+
+    /**
+     * If the transition to {@code CANCELED} is skipped because the task state is no longer tracked,
+     * force-stopping must leave the state process stopped as it found it.
+     */
+    @Test
+    void testForceStopLeavesTheStateProcessStoppedWhenTheTransitionIsSkipped() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        PhysicalVertex physicalVertex =
+                planWithStateMaps
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+        PassiveCompletableFuture<TaskExecutionState> taskFuture = physicalVertex.initStateFuture();
+        planWithStateMaps.runningJobState.remove(physicalVertex.getTaskGroupLocation());
+
+        physicalVertex.forceStop();
+
+        Assertions.assertFalse(taskFuture.isDone());
+        Assertions.assertFalse(physicalVertex.isRunning);
     }
 
     @Test

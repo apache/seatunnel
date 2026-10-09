@@ -541,14 +541,35 @@ public class PhysicalVertex {
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
+    /**
+     * Moves this task to {@code CANCELED} without waiting for the worker to report a terminal
+     * state.
+     *
+     * <p>If the worker reports the task group as executing, a cancel is sent to it first; that call
+     * blocks and is retried while the task future is pending and the worker is still a member. The
+     * future is completed with {@code CANCELED} only if the task state is still tracked in the
+     * running job state map and is not already terminal.
+     *
+     * <p>A task that was reset for a pipeline restore, or that was never deployed, has its state
+     * process stopped. Moving it to {@code CANCELED} would then leave its future pending, and its
+     * pipeline would never see it end, so the state process is started first, as {@link SubPlan}
+     * does before cancelling its tasks. It is stopped again if the transition was skipped.
+     */
     public synchronized void forceStop() {
         ExecutionState executionState = getExecutionState();
         if (executionState == null || executionState.isEndState()) {
             return;
         }
+        boolean startedStateProcess = !isRunning;
+        if (startedStateProcess) {
+            startPhysicalVertex();
+        }
         noticeTaskExecutionServiceCancel();
         if (!taskFuture.isDone()) {
             updateTaskState(ExecutionState.CANCELED);
+        }
+        if (startedStateProcess && !taskFuture.isDone()) {
+            stopPhysicalVertex();
         }
     }
 
