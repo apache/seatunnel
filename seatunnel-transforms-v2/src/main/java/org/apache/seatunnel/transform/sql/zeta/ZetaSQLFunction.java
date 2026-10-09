@@ -200,6 +200,7 @@ public class ZetaSQLFunction {
     public static final String WEEK = "WEEK";
     public static final String YEAR = "YEAR";
     public static final String FROM_UNIXTIME = "FROM_UNIXTIME";
+    public static final String UNIX_TIMESTAMP = "UNIX_TIMESTAMP";
 
     // -------------------------lateralView functions----------------------------
     public static final String EXPLODE = "EXPLODE";
@@ -622,6 +623,8 @@ public class ZetaSQLFunction {
                 return DateTimeFunction.dayOfYear(args);
             case FROM_UNIXTIME:
                 return DateTimeFunction.fromUnixTime(args);
+            case UNIX_TIMESTAMP:
+                return DateTimeFunction.unixTimestamp(args);
             case EXTRACT:
                 return DateTimeFunction.extract(args);
             case FORMATDATETIME:

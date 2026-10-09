@@ -385,6 +385,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.OCTET_LENGTH:
             case ZetaSQLFunction.DATEDIFF:
             case ZetaSQLFunction.MURMUR64:
+            case ZetaSQLFunction.UNIX_TIMESTAMP:
                 return BasicType.LONG_TYPE;
             case ZetaSQLFunction.REGEXP_LIKE:
             case ZetaSQLFunction.IS_DATE:
