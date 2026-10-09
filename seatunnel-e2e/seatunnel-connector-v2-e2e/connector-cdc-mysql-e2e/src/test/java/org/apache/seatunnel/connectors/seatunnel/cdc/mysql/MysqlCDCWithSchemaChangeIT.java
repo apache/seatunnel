@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -133,6 +134,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     private static final String INCREMENTAL_READ_MARKER =
             "Start incremental read task for incremental split";
+
+    private static final String SNAPSHOT_READ_MARKER =
+            "Start snapshot read task for snapshot split";
+    private static final int SNAPSHOT_OVERLAP_ROW_COUNT = 20_000;
+    private static final int SNAPSHOT_OVERLAP_FIRST_ID = 10_000;
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -254,6 +260,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     public void testMysqlCdcWithSchemaEvolutionCaseExactlyOnce(TestContainer container) {
 
         shopDatabase.setTemplateName("shop").createAndInitialize();
+        insertSnapshotOverlapRows();
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -265,6 +272,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                     }
                 });
 
+        waitForSnapshotRead(container, MYSQL_DATABASE + "." + SOURCE_TABLE);
+        mutateSnapshotRowsDuringRead();
         assertSchemaEvolution(container, MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
@@ -649,6 +658,80 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                         });
     }
 
+    /**
+     * Waits until an exactly-once snapshot split is running before writing overlapping binlog
+     * events, so the snapshot reconciliation path has to apply the insert, update, and delete.
+     */
+    private void waitForSnapshotRead(TestContainer container, String capturedTable) {
+        await().atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            String serverLogs = container.getServerLogs();
+                            Assertions.assertTrue(
+                                    serverLogs.contains(SNAPSHOT_READ_MARKER)
+                                            && serverLogs.contains(capturedTable)
+                                            && serverLogs.contains("exactly-once: true"),
+                                    "Exactly-once snapshot read has not started for "
+                                            + capturedTable
+                                            + "\nCurrent logs:\n"
+                                            + serverLogs);
+                        });
+    }
+
+    private void insertSnapshotOverlapRows() {
+        String sql =
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " (id, name, description, weight) VALUES (?, ?, ?, ?)";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < SNAPSHOT_OVERLAP_ROW_COUNT; i++) {
+                statement.setInt(1, SNAPSHOT_OVERLAP_FIRST_ID + i * 2);
+                statement.setString(2, "snapshot-row-" + i);
+                statement.setString(3, "snapshot payload " + i);
+                statement.setFloat(4, i);
+                statement.addBatch();
+                if ((i + 1) % 500 == 0) {
+                    statement.executeBatch();
+                }
+            }
+            if (SNAPSHOT_OVERLAP_ROW_COUNT % 500 != 0) {
+                statement.executeBatch();
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to seed the CDC snapshot overlap rows", e);
+        }
+    }
+
+    private void mutateSnapshotRowsDuringRead() {
+        int lastSnapshotRowId = SNAPSHOT_OVERLAP_FIRST_ID + (SNAPSHOT_OVERLAP_ROW_COUNT - 1) * 2;
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " (id, name, description, weight) VALUES ("
+                        + (lastSnapshotRowId - 1)
+                        + ", 'inserted-during-snapshot', 'inserted payload', 2)");
+        executeSql(
+                "UPDATE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " SET name = 'updated-during-snapshot', description = 'updated payload', weight = 1 "
+                        + "WHERE id = "
+                        + lastSnapshotRowId);
+        executeSql(
+                "DELETE FROM "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " WHERE id = "
+                        + (lastSnapshotRowId - 2));
+    }
+
     /** Executes a fixed SQL template that prepares or mutates multiple databases in one step. */
     private void executeSqlTemplate(String templateName) {
         String ddlFile = String.format("ddl/%s.sql", templateName);
@@ -662,6 +745,15 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             }
         } catch (Exception e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private void executeSql(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to execute MySQL CDC test SQL: " + sql, e);
         }
     }
 

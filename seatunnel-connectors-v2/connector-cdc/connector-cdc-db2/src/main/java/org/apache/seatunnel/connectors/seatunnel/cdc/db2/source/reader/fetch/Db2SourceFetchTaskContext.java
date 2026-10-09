@@ -117,13 +117,7 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         this.taskContext = new Db2TaskContext(connectorConfig, databaseSchema);
 
-        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
-        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
-        // use the configuration queue size.
-        final int queueSize =
-                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
-                        : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
+        final int queueSize = getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
         this.queue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()

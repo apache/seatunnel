@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.base.ChangeEventQueue;
@@ -33,9 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -60,6 +57,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     private final ExecutorService executorService;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
+    private volatile SnapshotStateBuffer snapshotStateBuffer;
 
     // task to read snapshot for current split
     private FetchTask<SourceSplitBase> snapshotSplitReadTask;
@@ -154,51 +152,95 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         boolean reachChangeLogEnd = false;
         SourceRecord lowWatermark = null;
         SourceRecord highWatermark = null;
-        Map<Struct, SourceRecord> outputBuffer = new LinkedHashMap<>();
-        while (!reachChangeLogEnd) {
-            checkReadException();
-            List<DataChangeEvent> batch = queue.poll();
-            for (DataChangeEvent event : batch) {
-                SourceRecord record = event.getRecord();
-                if (lowWatermark == null) {
-                    lowWatermark = record;
-                    assertLowWatermark(lowWatermark);
-                    continue;
-                }
+        SnapshotStateBuffer outputBuffer;
+        try {
+            outputBuffer = SnapshotStateBuffer.create();
+            snapshotStateBuffer = outputBuffer;
+        } catch (java.io.IOException e) {
+            throw new SeaTunnelException("Unable to create the snapshot state buffer", e);
+        }
+        try {
+            while (!reachChangeLogEnd) {
+                checkReadException();
+                List<DataChangeEvent> batch = queue.poll();
+                for (DataChangeEvent event : batch) {
+                    SourceRecord record = event.getRecord();
+                    if (lowWatermark == null) {
+                        lowWatermark = record;
+                        assertLowWatermark(lowWatermark);
+                        continue;
+                    }
 
-                if (highWatermark == null && isHighWatermarkEvent(record)) {
-                    highWatermark = record;
-                    // begin to capture binlog events
-                    reachChangeLogStart = true;
-                    continue;
-                }
+                    if (highWatermark == null && isHighWatermarkEvent(record)) {
+                        highWatermark = record;
+                        // begin to capture binlog events
+                        reachChangeLogStart = true;
+                        continue;
+                    }
 
-                if (reachChangeLogStart && isEndWatermarkEvent(record)) {
-                    // capture to end watermark events, stop the loop
-                    reachChangeLogEnd = true;
-                    break;
-                }
+                    if (reachChangeLogStart && isEndWatermarkEvent(record)) {
+                        // capture to end watermark events, stop the loop
+                        reachChangeLogEnd = true;
+                        break;
+                    }
 
-                if (!reachChangeLogStart) {
-                    outputBuffer.put((Struct) record.key(), record);
-                } else {
-                    if (isChangeRecordInChunkRange(record)) {
+                    if (!reachChangeLogStart) {
+                        outputBuffer.put(record);
+                    } else if (isChangeRecordInChunkRange(record)) {
                         // rewrite overlapping snapshot records through the record key
                         taskContext.rewriteOutputBuffer(outputBuffer, record);
                     }
                 }
             }
+        } catch (InterruptedException | RuntimeException | Error e) {
+            outputBuffer.close();
+            snapshotStateBuffer = null;
+            throw e;
         }
         // snapshot split return its data once
         hasNextElement.set(false);
 
-        final List<SourceRecord> normalizedRecords = new ArrayList<>();
-        normalizedRecords.add(lowWatermark);
-        normalizedRecords.addAll(taskContext.formatMessageTimestamp(outputBuffer.values()));
-        normalizedRecords.add(highWatermark);
+        final SourceRecord emittedLowWatermark = lowWatermark;
+        final SourceRecord emittedHighWatermark = highWatermark;
+        final Iterator<SourceRecord> bufferedRecords;
+        try {
+            bufferedRecords = outputBuffer.iterator();
+        } catch (RuntimeException | Error e) {
+            outputBuffer.close();
+            snapshotStateBuffer = null;
+            throw e;
+        }
+        Iterator<SourceRecord> normalizedRecords =
+                new Iterator<SourceRecord>() {
+                    private boolean lowWatermarkEmitted;
+                    private boolean highWatermarkEmitted;
+
+                    @Override
+                    public boolean hasNext() {
+                        return !lowWatermarkEmitted
+                                || bufferedRecords.hasNext()
+                                || !highWatermarkEmitted;
+                    }
+
+                    @Override
+                    public SourceRecord next() {
+                        if (!lowWatermarkEmitted) {
+                            lowWatermarkEmitted = true;
+                            return emittedLowWatermark;
+                        }
+                        if (bufferedRecords.hasNext()) {
+                            return taskContext.formatMessageTimestamp(bufferedRecords.next());
+                        }
+                        if (!highWatermarkEmitted) {
+                            highWatermarkEmitted = true;
+                            return emittedHighWatermark;
+                        }
+                        throw new java.util.NoSuchElementException();
+                    }
+                };
 
         final List<SourceRecords> sourceRecordsSet = new ArrayList<>();
-        sourceRecordsSet.add(new SourceRecords(normalizedRecords));
+        sourceRecordsSet.add(new SourceRecords(normalizedRecords, outputBuffer));
         return sourceRecordsSet.iterator();
     }
 
@@ -230,6 +272,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                 } catch (Exception e) {
                     log.error("Close snapshot split read task error", e);
                 }
+            }
+            if (snapshotStateBuffer != null) {
+                snapshotStateBuffer.close();
+                snapshotStateBuffer = null;
             }
             // 2. close the fetcher thread
             if (executorService != null) {
