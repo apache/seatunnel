@@ -68,6 +68,7 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DM_VARCHAR2 = "VARCHAR2";
     public static final String DM_NCHAR = "NCHAR";
     public static final String DM_NVARCHAR = "NVARCHAR";
+    public static final String DM_NVARCHAR2 = "NVARCHAR2";
     public static final String DM_LONGVARCHAR = "LONGVARCHAR";
     public static final String DM_CLOB = "CLOB";
     public static final String DM_TEXT = "TEXT";
@@ -207,6 +208,11 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DM_NCHAR:
             case DM_NVARCHAR:
                 builder.sourceType(String.format("%s(%s)", dmType, typeDefine.getLength()));
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
+                break;
+            case DM_NVARCHAR2:
+                builder.sourceType(String.format("%s(%s)", DM_NVARCHAR2, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
