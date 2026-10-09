@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM eclipse-temurin:8-jre-jammy
+# A full JDK, not a JRE, to match the rest of this project's E2E engine images: ContainerUtil
+# execs jps/jstack/jmap into running containers for the post-job thread-leak check.
+FROM eclipse-temurin:11-jdk-jammy
 
 ARG SPARK_VERSION
 ARG HADOOP_PROFILE

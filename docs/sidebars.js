@@ -26,6 +26,7 @@ const sidebars = {
             "items": [
                 "introduction/about",
                 "introduction/how-it-works",
+                "introduction/rag-data-processing",
                 {
                     "type": "category",
                     "label": "Concepts",
@@ -386,7 +387,8 @@ const sidebars = {
                 "tools/overview",
                 "tools/seatunnel-skill",
                 "tools/seatunnel-mcp",
-                "tools/x2seatunnel"
+                "tools/x2seatunnel",
+                "tools/dolphinscheduler-integration"
             ]
         },
         {

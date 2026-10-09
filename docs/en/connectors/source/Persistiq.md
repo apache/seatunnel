@@ -30,7 +30,7 @@ Used to read data from Persistiq.
 | params                      | Map     | No       | -             |
 | body                        | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
-| content_json                | String  | No       | -             |
+| content_field               | String  | No       | -             |
 | poll_interval_millis        | int     | No       | -             |
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
@@ -134,7 +134,7 @@ connector will generate data as the following:
 
 The schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-### content_json [String]
+### content_field [String]
 
 This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
 

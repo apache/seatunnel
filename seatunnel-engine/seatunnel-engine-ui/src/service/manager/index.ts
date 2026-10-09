@@ -16,12 +16,19 @@
  */
 
 import { get, post } from '@/service/service'
-import type { Monitor, UpdateTagsRequest, UpdateTagsResponse } from './types'
+import type {
+  Monitor,
+  UpdateTagsRequest,
+  UpdateTagsResponse,
+  WorkerResourceSnapshot
+} from './types'
 
 export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
+export const getWorkerResources = () => get<WorkerResourceSnapshot>('/resource/workers')
 export const updateTags = (request: UpdateTagsRequest) =>
   post<UpdateTagsResponse>('/update-local-member-tags', request)
 export const managerService = {
   getMonitors,
+  getWorkerResources,
   updateTags
 }

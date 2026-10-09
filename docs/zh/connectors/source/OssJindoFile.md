@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读写任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
@@ -66,6 +66,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
 | endpoint                  | string  | 是  | -                           | OSS 文件系统的端点                                                                   |
 | read_columns              | list    | 否  | -                           | 数据源的读取列列表                                                                     |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                                                         |
 | row_delimiter             | string  | 否  | \n                          | 行分隔符                                                                          |
 | parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                                                              |

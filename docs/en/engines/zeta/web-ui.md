@@ -100,9 +100,65 @@ The "Finished Jobs" section displays jobs that have reached a terminal state, su
 
 The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
 
-The Workers page can also update tags for the local worker served by the current Web UI request. Remote workers are shown for inspection, but their tag update button is disabled; use the Web UI address of the target node when changing that node's tags.
+The table shows process CPU, heap used/max, physical memory, GC counts, threads,
+and slots. **Details** opens all system monitoring fields and the worker's
+resource-manager snapshot: available/total CPU and heap resources, heartbeat
+CPU/memory usage, tags, and running job count.
 
-![workers.png](../../../images/ui/workers.png)
+The worker table scrolls horizontally on narrow screens. The Details column
+scrolls with the data instead of covering it, and long slot descriptions wrap
+within their column. The existing sidebar collapse control remains available.
+
+- Fixed-slot workers show used/total and free slots. Dynamic-slot workers show
+  only used slots and an explicit dynamic label: tracked slots are not capacity.
+- Missing values are shown as `—`, not zero. Monitoring-only and resource-only
+  workers remain visible; an unavailable endpoint displays a warning and clears
+  its old values. An unavailable resource snapshot is not an empty cluster.
+- The page refreshes 30 seconds after the previous requests finish, with at most
+  one refresh in flight. **Refresh** requests an immediate update. Polling pauses
+  while the browser tab is hidden and refreshes when it becomes visible again.
+  An already-running refresh is allowed to finish before a new one starts.
+  Leaving the page stops polling. The table paginates locally; each Workers
+  refresh sends two HTTP requests from the browser. On the server, the monitoring
+  endpoint dispatches one RPC per cluster member concurrently, so its fan-out
+  is O(n) for n members, not constant-cost. Responses are collected against one
+  shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, 3 seconds
+  by default); members that miss it are reported with a `timeout` error marker.
+  The browser's 6-second timeout does not cancel server-side operations. This
+  UI change does not alter backend RPC or timeout behavior.
+- Monitoring and resource-manager values are separate samples. **Resource
+  response time** is when the master built the resource response, not when a
+  worker last sent a heartbeat. It cannot establish heartbeat freshness.
+
+This is a read-only view using the existing monitoring and
+[`/resource/workers`](./rest-api-v2.md) endpoints. Task-to-worker drill-down and
+historical metrics are not included. The Master page shows monitoring details
+only and does not request worker resource data.
+
+The screenshots below show the actual UI with deterministic Cypress REST fixtures,
+not a live cluster. The table includes a fixed-slot worker and a dynamic-slot worker;
+missing measurements remain unavailable rather than appearing as zero.
+
+![Workers table with fixture data](../../../images/ui/workers.png)
+
+![Worker details with fixture data](../../../images/ui/workers-details.png)
+
+On a narrow screen, collapse the sidebar and scroll the table horizontally to
+inspect the slot summary or reach Details.
+
+![Narrow Workers table with fixture data](../../../images/ui/workers-narrow.png)
+
+The Workers page can also update the tags of the local worker, meaning the member that served the
+current Web UI request. That row is marked **Local** in the Tags column; click **Select** to load its
+tags into the **Worker Tags** panel above the table, edit one `key=value` tag per line, and use
+**Update Tags** or **Clear Tags**, both behind a confirmation. The panel calls
+`/update-local-member-tags` with that member's UUID, so the request
+is rejected unless the Web UI is served by the member being updated. Remote workers are shown for
+inspection only; open the target node's own Web UI address to change its tags.
+
+**Limitation:** if the Web UI is reached through a load balancer or reverse proxy that fronts
+several masters, only the member that happens to serve the request is editable, and tag updates for
+every other member are rejected. Reach the target member directly when editing tags.
 
 ## Operations
 

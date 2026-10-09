@@ -4,6 +4,56 @@
 
 ## dev
 
+### 运行环境要求
+
+- **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
+  - **影响范围**：所有模块——整个发行包、Zeta 引擎、全部连接器，以及发布的 Docker 镜像
+  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jdk`——仍保留完整 JDK 而非 JRE，以便 `jps`/`jstack`/`jmap` 继续可用于诊断运行中的节点。
+  - **影响**：
+    - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
+    - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
+    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才正式支持 Java 11（SPARK-24417）。Spark 2.4 在 Java 11 上仍可启动，但会打印非法反射访问告警，并且会把较老的 commons-lang3 放进 classpath，部分连接器会因此初始化失败，因此强烈建议使用 Spark 3.x。
+    - 已按 Java 8 编译的第三方连接器仍可正常使用。Java 11 JVM 可以直接加载更低版本的 class 文件，所以只有 JVM 版本有要求，对您自己 jar 的字节码级别没有要求。
+  - **迁移指南**：
+    1. 将所有运行 SeaTunnel 代码的节点的 JVM 升级到 Java 11 或 Java 17：客户端、Zeta master 与 worker，以及作业提交到的 Flink 或 Spark 集群。
+    2. 如果提交到 Flink，请将集群切换到运行 Java 11 及以上的镜像或部署。
+    3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
+    4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
+    5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### SQL TINYINT 数组模式
+
+Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
+
+### DuckDB BIT 和 ENUM 自动建表
+
+- Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
+  正长度保持不变。自动生成的列将使用 MySQL `LONGTEXT` 或 PostgreSQL `text`，不再使用原来的有界字符串类型。
+- 已有目标表不会自动扩容。传输超出原有限制的值前，请检查列定义并手动扩容。
+- 使用 `create_index = true`（默认值）时，如果这些列属于主键，MySQL 自动建表会失败：`LONGTEXT` 无法作为
+  使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
+  并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
+  `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
+### Zeta SQL Transform：内置 AES_ENCRYPT / AES_DECRYPT
+
+- **行为变更：AES_ENCRYPT / AES_DECRYPT 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
+  - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
@@ -14,6 +64,15 @@
   - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
   - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
     `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
+### FakeSource (connector-fake)
+
+- 声明式选项约束现在在工厂校验阶段即强制生效，而不再静默放行、直到运行时才失败。受影响选项：`split.num`、
+  `vector.dimension` 和 `binary.vector.dimension` 必须 > 0；`row.num`、`split.read-interval`、`map.size`、
+  `array.size`、`bytes.length` 和 `string.length` 必须 >= 0；`tinyint.min/max`、`smallint.min/max`、
+  `int.min/max`、`bigint.min/max`、`float.min/max`、`double.min/max` 和 `vector.float.min/max`
+  必须满足 min <= max。注意 `row.num = 0`（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，
+  将在启动时快速抛出校验错误并失败。
 
 ### Zeta REST 分页参数校验
 
@@ -128,6 +187,18 @@
 
 
 ### 连接器变更
+
+- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
+  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
+  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
+  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
+  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
+
+- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
+  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
+  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
+  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
 
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
@@ -281,6 +352,29 @@
   `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
   （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
+### 格式变更
+
+- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
+  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
+  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+
 ### 引擎行为变更
+
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
 ### 依赖升级
