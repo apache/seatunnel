@@ -302,6 +302,8 @@ int_type_narrowing = false
 
 只有顶层同时配置 `query` 和 `partition_column` 时才会使用旧版 fixed splitter，再通过 `partition_num` 控制分片数。分区列必须包含在 query 结果中。配置上下界可以避免额外执行 `MIN`/`MAX` 查询，但错误的边界会漏读源数据，因此只有确认完整数据范围时才应设置。
 
+对 BIGINT、零标度 DECIMAL 等整数键使用固定分片时，各分片完整覆盖数值范围，不产生间隙或重叠。范围不能被 `partition_num` 整除时，剩余值仍会保留，各区间均位于上下界之内。
+
 `table_list` 中的条目即使配置了 `query` 或分区参数，仍然使用动态分片。`split.size` 不影响顶层 fixed partition 模式。
 
 ### Query 与主键注意事项
