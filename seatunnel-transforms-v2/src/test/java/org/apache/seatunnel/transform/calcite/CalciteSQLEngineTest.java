@@ -4260,15 +4260,18 @@ class CalciteSQLEngineTest {
         Locale original = Locale.getDefault();
         try {
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
-            CalciteSQLEngine engine =
+            // try-with-resources rather than a trailing close(), so a failed assertion below
+            // still releases the engine.
+            try (CalciteSQLEngine engine =
                     createAndInit(
                             "SELECT VECTOR_REDUCE(vec, 2, 'random_projection') AS reduced FROM t",
                             "t",
-                            singleVectorRowType());
-            Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
-            Assertions.assertNotNull(result);
-            Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) result).length);
-            engine.close();
+                            singleVectorRowType())) {
+                Object result =
+                        singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
+                Assertions.assertNotNull(result);
+                Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) result).length);
+            }
         } finally {
             Locale.setDefault(original);
         }
