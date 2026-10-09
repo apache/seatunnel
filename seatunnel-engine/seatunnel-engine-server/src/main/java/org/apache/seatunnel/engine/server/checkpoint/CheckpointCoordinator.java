@@ -1388,8 +1388,6 @@ public class CheckpointCoordinator {
             LOG.error("store checkpoint states failed.", e);
             sneakyThrow(e);
         }
-        // Retention is best-effort and must not fail a checkpoint that was already stored.
-        pruneExcessCompletedCheckpoints(completedCheckpoint);
         LOG.info(
                 "pending checkpoint notify finished, job id: {}, pipeline id: {}, checkpoint id: {}!",
                 completedCheckpoint.getJobId(),
@@ -1403,6 +1401,8 @@ public class CheckpointCoordinator {
         if (!notifyCompleted(completedCheckpoint)) {
             return;
         }
+        // Retention is best-effort and must not delay checkpoint completion notification.
+        pruneExcessCompletedCheckpoints(completedCheckpoint);
         PendingCheckpoint pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
         if (pendingCheckpoint != null) {
             pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
