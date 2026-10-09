@@ -44,9 +44,11 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.k3s.K3sContainer;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import io.kubernetes.client.Exec;
@@ -105,6 +107,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
     private static final String APPLICATION_SPECIFICATION_FILE = "application.properties";
     private static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
+    private static final String K3S_IMAGE = "rancher/k3s:v1.31.6-k3s1";
     private String namespace;
     private CoreV1Api core;
     private BatchV1Api batch;
@@ -126,8 +129,10 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         String image = options.get(KubernetesOptions.IMAGE.key());
         buildApplicationImage(image);
         k3s =
-                new K3sContainer(DockerImageName.parse("rancher/k3s:v1.31.6-k3s1"))
-                        .withStartupTimeout(Duration.ofMinutes(3));
+                new K3sContainer(DockerImageName.parse(K3S_IMAGE))
+                        .withStartupTimeout(Duration.ofMinutes(3))
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(K3S_IMAGE)));
         k3s.start();
         Files.createDirectories(kubeconfig.getParent());
         Files.write(kubeconfig, k3s.getKubeConfigYaml().getBytes(StandardCharsets.UTF_8));
@@ -646,7 +651,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         return new KubernetesApplicationClient(
                 platformMonitor,
                 new ApplicationClusterDeployer(new ClusterClientServiceLoader())
-                        .<String>run(
+                        .run(
                                 DeployType.KUBERNETES,
                                 SeatunnelApplicationConfig.load(
                                         getResourcesFile(
