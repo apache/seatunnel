@@ -41,6 +41,11 @@
             <artifactId>seatunnel-api</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-lineage</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

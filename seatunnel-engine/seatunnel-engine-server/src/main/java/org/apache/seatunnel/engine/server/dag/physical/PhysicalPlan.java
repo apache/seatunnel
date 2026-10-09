@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.ZetaLineageReporter;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -435,6 +436,11 @@ public class PhysicalPlan {
             }
         } catch (Exception e) {
             log.warn("Failed to report job {} state event", jobId, e);
+        }
+        try {
+            ZetaLineageReporter.reportJobState(jobMaster, jobStatus);
+        } catch (Throwable e) {
+            log.warn("Failed to report lineage for job {}", jobId, e);
         }
     }
 
