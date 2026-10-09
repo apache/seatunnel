@@ -110,9 +110,15 @@ public class CheckpointEnableIT extends TestSuiteBase {
                             }
                         });
 
-        // wait obtain job id
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        // wait obtain job id; poll for the log line instead of a fixed sleep, since the
+        // job may take longer to reach RUNNING under CI load
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
         Assertions.assertEquals(0, startFuture.get().getExitCode());
         // restore job
@@ -164,8 +170,13 @@ public class CheckpointEnableIT extends TestSuiteBase {
                     }
                 });
 
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // restore job
