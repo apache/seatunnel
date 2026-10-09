@@ -30,9 +30,12 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.TimeZone;
@@ -323,5 +326,125 @@ public class SQLDateTimeFunctionsTest {
                 runSql("select HOUR(t) as h, MINUTE(t) as m from dual", timeType, (Object) null);
         Assertions.assertNull(timeRow.getField(0));
         Assertions.assertNull(timeRow.getField(1));
+    }
+
+    @Test
+    public void testUnixTimestamp() {
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        try {
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+            // 1) no-arg: current epoch seconds (flake-tolerant window for CI)
+            SeaTunnelRow noArg =
+                    runSql(
+                            "select UNIX_TIMESTAMP() as ts from dual",
+                            new SeaTunnelRowType(
+                                    new String[] {"x"},
+                                    new SeaTunnelDataType[] {BasicType.STRING_TYPE}),
+                            "placeholder");
+            long now = Instant.now().getEpochSecond();
+            Object noArgTs = noArg.getField(0);
+            Assertions.assertNotNull(noArgTs);
+            Assertions.assertTrue(
+                    Math.abs((Long) noArgTs - now) < 60,
+                    "UNIX_TIMESTAMP() should be within 60s of now");
+
+            // 2) string with default pattern yyyy-MM-dd HH:mm:ss
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s) as ts from dual",
+                                    strType,
+                                    "2023-01-01 00:00:00")
+                            .getField(0));
+
+            // 3) string with custom pattern
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s, 'yyyy/MM/dd HH:mm:ss') as ts from dual",
+                                    strType,
+                                    "2023/01/01 00:00:00")
+                            .getField(0));
+
+            // 4) date-only pattern -> midnight of that day
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s, 'yyyy-MM-dd') as ts from dual",
+                                    strType,
+                                    "2023-01-01")
+                            .getField(0));
+
+            // 5) null input -> null
+            Assertions.assertNull(
+                    runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, new Object[] {null})
+                            .getField(0));
+
+            // 6) unparseable string -> null (does not raise on bad input)
+            Assertions.assertNull(
+                    runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, "not-a-date")
+                            .getField(0));
+
+            // 6b) explicit NULL pattern -> null (propagates, does not fall back to default)
+            Assertions.assertNull(
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s, null) as ts from dual",
+                                    strType,
+                                    "2023-01-01 00:00:00")
+                            .getField(0));
+
+            // 7) numeric input is not supported -> null
+            SeaTunnelRowType longType =
+                    new SeaTunnelRowType(
+                            new String[] {"n"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+            Assertions.assertNull(
+                    runSql("select UNIX_TIMESTAMP(n) as ts from dual", longType, 1672531200L)
+                            .getField(0));
+
+            // 8) typed LocalDateTime argument
+            SeaTunnelRowType dtType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(dt) as ts from dual",
+                                    dtType,
+                                    LocalDateTime.of(2023, 1, 1, 0, 0, 0))
+                            .getField(0));
+
+            // 9) typed OffsetDateTime argument (offset-aware, TZ-independent)
+            SeaTunnelRowType odtType =
+                    new SeaTunnelRowType(
+                            new String[] {"odt"},
+                            new SeaTunnelDataType[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(odt) as ts from dual",
+                                    odtType,
+                                    OffsetDateTime.of(2023, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC))
+                            .getField(0));
+
+            // 10) typed LocalDate argument (DATE column, resolved at midnight)
+            SeaTunnelRowType dateType =
+                    new SeaTunnelRowType(
+                            new String[] {"d"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(d) as ts from dual",
+                                    dateType,
+                                    LocalDate.of(2023, 1, 1))
+                            .getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
     }
 }
