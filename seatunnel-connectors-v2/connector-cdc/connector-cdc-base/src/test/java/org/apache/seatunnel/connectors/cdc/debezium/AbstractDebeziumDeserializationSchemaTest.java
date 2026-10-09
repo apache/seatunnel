@@ -24,6 +24,11 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.TableId;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +64,49 @@ class AbstractDebeziumDeserializationSchemaTest {
         schema.restoreCheckpointHistoryTableChanges(Collections.emptyMap());
 
         Assertions.assertArrayEquals(new byte[] {1}, schema.getHistoryTableChanges().get(tableId));
+    }
+
+    @Test
+    void serializationRoundTripDoesNotSerializeTableIds() throws Exception {
+        TestingDebeziumDeserializationSchema schema = new TestingDebeziumDeserializationSchema();
+        TableId tableId = new TableId("catalog", "database", "table");
+        schema.restoreCheckpointHistoryTableChanges(
+                Collections.singletonMap(tableId, new byte[] {1}));
+
+        TestingDebeziumDeserializationSchema restoredSchema = roundTrip(schema);
+
+        Assertions.assertArrayEquals(
+                new byte[] {1}, restoredSchema.getHistoryTableChanges().get(tableId));
+    }
+
+    private static TestingDebeziumDeserializationSchema roundTrip(
+            TestingDebeziumDeserializationSchema schema) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ObjectOutputStream objectOutput = new TableIdRejectingObjectOutputStream(output)) {
+            objectOutput.writeObject(schema);
+        }
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(output.toByteArray()))) {
+            return (TestingDebeziumDeserializationSchema) input.readObject();
+        }
+    }
+
+    /** Fails the test if Java serialization attempts to persist a Debezium TableId instance. */
+    private static class TableIdRejectingObjectOutputStream extends ObjectOutputStream {
+
+        private TableIdRejectingObjectOutputStream(ByteArrayOutputStream output)
+                throws IOException {
+            super(output);
+            enableReplaceObject(true);
+        }
+
+        @Override
+        protected Object replaceObject(Object object) throws IOException {
+            if (object instanceof TableId) {
+                throw new IOException("Debezium TableId must not be serialized directly");
+            }
+            return object;
+        }
     }
 
     private static class TestingDebeziumDeserializationSchema
