@@ -89,7 +89,8 @@ public class JdbcOutputFormatBuilder {
                                     jdbcSinkConfig.getSimpleSql(),
                                     tableSchema,
                                     databaseTableSchema,
-                                    dialect.getRowConverter());
+                                    dialect.getRowConverter(),
+                                    true);
         } else if (primaryKeys == null || primaryKeys.isEmpty()) {
             statementExecutorFactory =
                     () ->
@@ -141,8 +142,19 @@ public class JdbcOutputFormatBuilder {
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
             JdbcRowConverter rowConverter) {
+        return createSimpleBufferedExecutor(
+                sql, tableSchema, databaseTableSchema, rowConverter, false);
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
+            String sql,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            JdbcRowConverter rowConverter,
+            boolean customSql) {
         JdbcBatchStatementExecutor<SeaTunnelRow> simpleRowExecutor =
-                createSimpleExecutor(sql, tableSchema, databaseTableSchema, rowConverter);
+                createSimpleExecutor(
+                        sql, tableSchema, databaseTableSchema, rowConverter, customSql);
         return new BufferedBatchStatementExecutor(simpleRowExecutor, Function.identity());
     }
 
@@ -359,10 +371,22 @@ public class JdbcOutputFormatBuilder {
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
             JdbcRowConverter rowConverter) {
+        return createSimpleExecutor(sql, tableSchema, databaseTableSchema, rowConverter, false);
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleExecutor(
+            String sql,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            JdbcRowConverter rowConverter,
+            boolean customSql) {
         return new SimpleBatchStatementExecutor(
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
-                                connection, sql, tableSchema.getFieldNames()),
+                        customSql
+                                ? FieldNamedPreparedStatement.prepareStatementForCustomSql(
+                                        connection, sql, tableSchema.getFieldNames())
+                                : FieldNamedPreparedStatement.prepareStatement(
+                                        connection, sql, tableSchema.getFieldNames()),
                 tableSchema,
                 databaseTableSchema,
                 rowConverter);
