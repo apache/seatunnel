@@ -15,38 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
-
-import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+package org.apache.seatunnel.api.table.operation;
 
 /**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
+ * Destructive or identity-changing table operations that are not structural schema changes.
  *
- * @param <T> data type.
+ * <p>These types are distinct from {@link org.apache.seatunnel.api.table.schema.SchemaChangeType}:
+ * they do not alter column shape.
  */
-public interface Collector<T> {
+public enum TableOperationType {
+    /** Remove all rows while keeping the table object. */
+    TRUNCATE_TABLE("truncate.table");
 
-    void collect(T record);
+    private final String canonicalName;
 
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(TableOperationEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
-
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
+    TableOperationType(String canonicalName) {
+        this.canonicalName = canonicalName;
     }
 
-    default void resetEmptyThisPollNext() {}
+    public String canonicalName() {
+        return canonicalName;
+    }
 }

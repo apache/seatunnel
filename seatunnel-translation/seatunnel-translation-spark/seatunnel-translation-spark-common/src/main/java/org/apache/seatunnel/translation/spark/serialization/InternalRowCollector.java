@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
@@ -62,6 +63,12 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void collect(TableOperationEvent event) {
+        throw new UnsupportedOperationException(
+                "Table-operation events such as TRUNCATE TABLE are only supported on the Zeta engine.");
     }
 
     public long collectTotalCount() {
