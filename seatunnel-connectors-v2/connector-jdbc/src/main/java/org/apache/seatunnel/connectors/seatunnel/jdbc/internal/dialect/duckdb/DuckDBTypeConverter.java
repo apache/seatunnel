@@ -341,7 +341,8 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                     MAX_SCALE);
             scale = MAX_SCALE;
         }
-        builder.columnType(String.format("%s(%d,%d)", DUCKDB_DECIMAL, precision, scale));
+        builder.columnType(
+                String.format(Locale.ROOT, "%s(%d,%d)", DUCKDB_DECIMAL, precision, scale));
         builder.dataType(DUCKDB_DECIMAL);
         builder.precision(precision);
         builder.scale(scale);

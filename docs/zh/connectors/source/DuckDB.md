@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。
+通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。生成的哈希分区 SQL 与 JVM 默认 locale 无关。
 
 ## 支持 DuckDB 版本
 
@@ -70,6 +70,8 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+
+JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 无符号整数使用更宽的类型保留完整范围：UTINYINT → SMALLINT、USMALLINT → INT、UINTEGER → BIGINT、UBIGINT → DECIMAL(20,0)。有符号整数的映射保持不变。
 
