@@ -12,6 +12,10 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key now fails at startup with `Exactly once is enabled, but not found primary key or non-nullable unique key for table ...` instead of running and losing rows.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table.
 
+### SQL TINYINT array schema
+
+The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
