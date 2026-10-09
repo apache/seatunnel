@@ -72,7 +72,7 @@ import java.util.stream.Stream;
 public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
     private static final String ELASTICSEARCH_IMAGE = "elasticsearch:8.9.0";
-    private static final long INDEX_REFRESH_DELAY = 2000L;
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 60L;
     // Retry only the transient 503 returned while Elasticsearch initializes its security index.
     private static final int API_KEY_CREATION_MAX_ATTEMPTS = 15;
     private static final long API_KEY_CREATION_RETRY_DELAY_SECONDS = 2L;
@@ -368,7 +368,16 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 throw new RuntimeException("Failed to insert test data: " + response.getResponse());
             }
 
-            Thread.sleep(INDEX_REFRESH_DELAY);
+            // Poll until the bulked documents are visible, instead of a fixed
+            // sleep that fails when index refresh is slower than expected.
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .until(
+                            () ->
+                                    esRestClient.getIndexDocsCount(TEST_INDEX).get(0).getDocsCount()
+                                            > 0);
             log.info("Test data inserted successfully - {} documents", 3);
         } catch (Exception e) {
             log.error("Failed to insert test data", e);
@@ -602,15 +611,25 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient.getIndexDocsCount("auth_test_apikey_target").get(0).getDocsCount();
-            log.info("✓ API Key auth E2E test completed - {} documents processed", targetCount);
-            Assertions.assertTrue(
-                    targetCount > 0, "Should have processed documents with API key auth");
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> {
+                                long targetCount =
+                                        esRestClient
+                                                .getIndexDocsCount("auth_test_apikey_target")
+                                                .get(0)
+                                                .getDocsCount();
+                                log.info(
+                                        "✓ API Key auth E2E test completed - {} documents processed",
+                                        targetCount);
+                                Assertions.assertTrue(
+                                        targetCount > 0,
+                                        "Should have processed documents with API key auth");
+                            });
 
         } finally {
             // Clean up temporary file
@@ -649,20 +668,28 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient
-                            .getIndexDocsCount("auth_test_apikey_encoded_target")
-                            .get(0)
-                            .getDocsCount();
-            log.info(
-                    "✓ API Key Encoded auth E2E test completed - {} documents processed",
-                    targetCount);
-            Assertions.assertTrue(
-                    targetCount > 0, "Should have processed documents with encoded API key auth");
+            Awaitility.await()
+                    .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () -> {
+                                long targetCount =
+                                        esRestClient
+                                                .getIndexDocsCount(
+                                                        "auth_test_apikey_encoded_target")
+                                                .get(0)
+                                                .getDocsCount();
+                                log.info(
+                                        "✓ API Key Encoded auth E2E test completed"
+                                                + " - {} documents processed",
+                                        targetCount);
+                                Assertions.assertTrue(
+                                        targetCount > 0,
+                                        "Should have processed documents with encoded API key"
+                                                + " auth");
+                            });
 
         } finally {
             // Clean up temporary file
@@ -814,10 +841,14 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             log.warn("Some documents might already exist: {}", response.getResponse());
         }
 
-        // Wait for index refresh
-        Thread.sleep(2000);
-
-        long docCount = esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount();
-        log.info("Test data setup completed - {} documents in source index", docCount);
+        // Poll until the bulked documents are visible before the job reads the index
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(() -> esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount() > 0);
+        log.info(
+                "Test data setup completed - {} documents in source index",
+                esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount());
     }
 }
