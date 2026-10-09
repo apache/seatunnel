@@ -1277,17 +1277,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
-            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             ProgressState result = null;
+            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             try {
                 startedLatch.countDown();
+                // Resolve through the tracker-owned context: the location-keyed map may
+                // already point to a newer generation published after a restore.
+                ClassLoader classLoader =
+                        taskGroupExecutionTracker.getTaskClassLoader(t.getTaskID());
+                Thread.currentThread().setContextClassLoader(classLoader);
                 t.init();
                 do {
                     result = t.call();
@@ -1415,12 +1414,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 ProgressState call = null;
                 try {
-                    // run task
+                    // Resolve the loader from this tracker's generation. A TaskGroupLocation is
+                    // reused after restore, so the location-keyed executionContexts map may
+                    // already point to a newer generation when a queued task resumes.
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                                    .getClassLoaders()
-                                    .get(taskTracker.task.getTaskID()));
+                            taskGroupExecutionTracker.getTaskClassLoader(
+                                    taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -1639,6 +1638,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
+        }
+
+        ClassLoader getTaskClassLoader(long taskId) {
+            ConcurrentHashMap<Long, ClassLoader> classLoaders = context.getClassLoaders();
+            if (classLoaders == null) {
+                // The context was recycled (its loader map nulled) by a stale generation
+                // finishing late, which means this task can no longer run safely.
+                throw new IllegalStateException(
+                        String.format(
+                                "Classloaders for task group %s have already been recycled",
+                                taskGroup.getTaskGroupLocation()));
+            }
+            // A task without a registered per-task loader falls back to the system TCCL,
+            // which is the case for task groups deployed without connector jars.
+            return classLoaders.get(taskId);
         }
 
         /**
