@@ -506,6 +506,8 @@ source {
 
 上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
 
+可空唯一键列中的 NULL 值，以及 `table-names-config.primaryKeys` 中配置的可空列中的 NULL 值，在快照阶段和 binlog 阶段都会按 NULL 输出。NULL 无法标识一行数据，因此当需要按键应用 UPDATE/DELETE 事件时，请选择 NOT NULL 的列作为键。
+
 ### 从指定 Binlog 位置启动
 
 当需要从明确的 binlog 文件和位置开始读取时，可以使用 `startup.mode = "specific"`。

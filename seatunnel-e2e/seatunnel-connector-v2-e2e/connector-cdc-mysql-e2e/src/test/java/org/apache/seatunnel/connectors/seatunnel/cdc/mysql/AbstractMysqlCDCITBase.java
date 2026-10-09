@@ -363,6 +363,155 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK},
             disabledReason = "Currently SPARK do not support cdc")
+    public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
+        // Tables without a primary key whose unique key (single, and composite with one nullable
+        // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
+        // Controls: a table with a real primary key, and a table whose unique key is NOT NULL.
+        // uk_added_null gets its unique key in the binlog phase, parsed from the binlog DDL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+
+        // binlog phase
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testMysqlCdcNullInNullableUniqueKeyAfterRestore(TestContainer container)
+            throws Exception {
+        // The schema of uk_added_null changes in the binlog phase, so the restored job rebuilds it
+        // from the table history saved in the savepoint: NULL must still reach the sink as NULL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+        String conf = "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf";
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "SAVEPOINT_DONE", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get().getExitCode());
+
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+        insertNullableUniqueKeyRows(6, 7);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(4));
+
+        container.stopJob(jobId);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /** Inserts one row with NULL in the key column and one row with a value into each table. */
+    private void insertNullableUniqueKeyRows(int nullId, int codedId) {
+        for (String table : new String[] {"uk_added_null", "uk_null_single", "pk_null_control"}) {
+            executeSql(
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (%d, NULL, 'binlog-null'), (%d, %d, 'binlog-coded')",
+                            MYSQL_DATABASE, table, nullId, codedId, codedId));
+        }
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_null_composite VALUES (%d, 3, NULL, 'binlog-null'), (%d, 3, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, codedId, codedId));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_notnull_control VALUES (%d, %d, 'binlog-coded'), (%d, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, nullId, codedId, codedId));
+    }
+
+    private void assertNullableUniqueKeyTablesSynced(int expectedNullRows) {
+        String sinkDatabase = "mysql_cdc_null_sink";
+        String[][] tables = {
+            {"uk_null_single", "id, code, name", "code"},
+            {"uk_null_composite", "id, a, b, name", "b"},
+            {"pk_null_control", "id, code, name", "code"},
+            {"uk_notnull_control", "id, code, name", null},
+            {"uk_added_null", "id, code, name", "code"}
+        };
+        for (String[] table : tables) {
+            String rowQuery = "select " + table[1] + " from %s." + table[0] + " order by id";
+            Assertions.assertIterableEquals(
+                    query(String.format(rowQuery, MYSQL_DATABASE)),
+                    query(String.format(rowQuery, sinkDatabase)),
+                    table[0]);
+            if (table[2] != null) {
+                // NULL must stay SQL NULL in the sink, not become the type default 0
+                String nullCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " is null";
+                String zeroCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " = 0";
+                Assertions.assertEquals(
+                        expectedNullRows,
+                        ((Number) query(String.format(nullCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " NULL rows in sink");
+                Assertions.assertEquals(
+                        0,
+                        ((Number) query(String.format(zeroCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " rows with 0 in sink");
+            }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiTableE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
