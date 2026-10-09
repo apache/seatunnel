@@ -170,8 +170,7 @@ public class ArrayFunction {
     }
 
     static ArrayType createArrayType(SeaTunnelDataType<?> elementType) {
-        if (elementType == BasicType.BYTE_TYPE || elementType == BasicType.VOID_TYPE)
-            return ArrayType.STRING_ARRAY_TYPE;
+        if (elementType == BasicType.VOID_TYPE) return ArrayType.STRING_ARRAY_TYPE;
         return ArrayType.of(elementType);
     }
 
@@ -189,7 +188,8 @@ public class ArrayFunction {
     }
 
     private static boolean isNumericType(Class<?> type) {
-        return type == Short.class
+        return type == Byte.class
+                || type == Short.class
                 || type == Integer.class
                 || type == Long.class
                 || type == Float.class
