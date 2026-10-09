@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks;
 
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.source.StarRocksSourceFactory;
 
@@ -28,6 +29,12 @@ class StarRocksFactoryTest {
     @Test
     void optionRule() {
         Assertions.assertNotNull((new StarRocksSinkFactory()).optionRule());
-        Assertions.assertNotNull((new StarRocksSourceFactory()).optionRule());
+        StarRocksSourceFactory sourceFactory = new StarRocksSourceFactory();
+        Assertions.assertNotNull(sourceFactory.optionRule());
+        Assertions.assertTrue(
+                sourceFactory
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(StarRocksSourceOptions.BE_HOST_PORT_MAPPING));
     }
 }
