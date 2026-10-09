@@ -360,6 +360,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
+### CSV 与 Text 的 TIMESTAMP 解析
+
+CSV 和 Text 读取器现在支持同一 `TIMESTAMP` 列在连续行中使用不同的受支持小数秒精度。例如，`2024-01-01 00:00:00` 和 `2024-01-01 00:00:00.123` 可以出现在同一列。无需修改配置；Sink 选项 `timestamp_format` 不用于选择 Source 的解析格式。
+
+无法匹配支持的时间戳格式的值仍会被拒绝。CSV 现在以 `COMMON-33` 上报这类错误，并包含字段名和值，不再尝试构造原来的 `UNSUPPORTED_DATA_TYPE` 异常。如果应用代码检查这类异常或错误码，请相应调整。能够匹配格式但日历日期无效的值仍可能抛出自身的解析错误。
+
 ### 引擎行为变更
 
 - **行为变更：REST 日志内容接口默认最多返回 64 MB**

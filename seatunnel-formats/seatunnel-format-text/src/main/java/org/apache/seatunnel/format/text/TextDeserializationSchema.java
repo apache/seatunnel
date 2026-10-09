@@ -324,14 +324,12 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case TIMESTAMP:
                 DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
                 if (dateTimeFormatter == null) {
-                    dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+                    dateTimeFormatter = matchTimestampFormatter(field, fieldName);
                     fieldFormatterMap.put(fieldName, dateTimeFormatter);
                 }
-                if (dateTimeFormatter == null) {
-                    throw CommonError.formatDateTimeError(field, fieldName);
-                }
 
-                TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
+                TemporalAccessor parsedTimestamp =
+                        parseTimestampWithFormatterRefresh(field, fieldName, dateTimeFormatter);
                 LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
                 LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
                 return LocalDateTime.of(localDate, localTime);
@@ -341,10 +339,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 } catch (DateTimeParseException ignored) {
                     // Fallback: data written by old SeaTunnel (wall-clock, no offset).
                     // Parse as LocalDateTime and attach UTC — offset info is already lost.
-                    DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(field);
-                    if (fallbackFmt == null) {
-                        throw CommonError.formatDateTimeError(field, fieldName);
-                    }
+                    DateTimeFormatter fallbackFmt = matchTimestampFormatter(field, fieldName);
                     TemporalAccessor ta = fallbackFmt.parse(field);
                     return LocalDateTime.of(
                                     ta.query(TemporalQueries.localDate()),
@@ -369,5 +364,26 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 throw CommonError.unsupportedDataType(
                         "SeaTunnel", fieldType.getSqlType().toString(), fieldName);
         }
+    }
+
+    /** Refreshes the cached formatter when timestamp precision changes between rows. */
+    private TemporalAccessor parseTimestampWithFormatterRefresh(
+            String field, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(field);
+        } catch (DateTimeParseException parseException) {
+            DateTimeFormatter refreshedFormatter = matchTimestampFormatter(field, fieldName);
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(field);
+        }
+    }
+
+    /** Matches a supported formatter or reports an unsupported timestamp. */
+    private DateTimeFormatter matchTimestampFormatter(String field, String fieldName) {
+        DateTimeFormatter dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+        if (dateTimeFormatter == null) {
+            throw CommonError.formatDateTimeError(field, fieldName);
+        }
+        return dateTimeFormatter;
     }
 }

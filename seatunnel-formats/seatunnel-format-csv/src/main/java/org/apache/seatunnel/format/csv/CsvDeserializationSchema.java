@@ -365,20 +365,35 @@ public class CsvDeserializationSchema implements Serializable {
     }
 
     private LocalDateTime parseTimestamp(String field, String fieldName) {
-        DateTimeFormatter dateTimeFormatter =
-                fieldFormatterMap.computeIfAbsent(
-                        fieldName, f -> DateTimeUtils.matchDateTimeFormatter(field));
+        DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
         if (dateTimeFormatter == null) {
-            throw new SeaTunnelCsvFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format(
-                            "SeaTunnel can not parse this date format [%s] of field [%s]",
-                            field, fieldName));
+            dateTimeFormatter = matchTimestampFormatter(field, fieldName);
         }
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
+        TemporalAccessor parsedTimestamp =
+                parseTimestampWithFormatterRefresh(field, fieldName, dateTimeFormatter);
         return LocalDateTime.of(
                 parsedTimestamp.query(TemporalQueries.localDate()),
                 parsedTimestamp.query(TemporalQueries.localTime()));
+    }
+
+    /** Matches and caches a supported formatter for the current timestamp. */
+    private DateTimeFormatter matchTimestampFormatter(String field, String fieldName) {
+        DateTimeFormatter dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+        if (dateTimeFormatter == null) {
+            throw CommonError.formatDateTimeError(field, fieldName);
+        }
+        fieldFormatterMap.put(fieldName, dateTimeFormatter);
+        return dateTimeFormatter;
+    }
+
+    /** Refreshes the cached formatter when timestamp precision changes between rows. */
+    private TemporalAccessor parseTimestampWithFormatterRefresh(
+            String field, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(field);
+        } catch (DateTimeParseException ignored) {
+            return matchTimestampFormatter(field, fieldName).parse(field);
+        }
     }
 
     private OffsetDateTime parseTimestampTz(String field, String fieldName) {
