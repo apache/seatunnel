@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-# Test configuration with nested datasource provider config
 seatunnel:
   engine:
     history-job-expire-minutes: 1
@@ -34,20 +33,16 @@ seatunnel:
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
     http:
-      enable-http: true
-      port: 8080
+        enable-http: true
+        port: 8080
     telemetry:
       metric:
-        enabled: false
+         enabled: false
       logs:
-        scheduled-deletion-enable: false
+         scheduled-deletion-enable: false
     metadata:
       enabled: true
-      kind: test_kind
-      test_kind:
-        test_config1: http://127.0.0.1:8090
-        test_config2: test_metalake
-        test_config3: test
+      kind: dynamic
+      dynamic:
         sensitive_keys:
           - password
-          - token

@@ -48,9 +48,10 @@ public class YamlSeaTunnelDomConfigProcessorTest {
         assertEquals("test_kind", metadataConfig.getKind());
 
         // Verify nested provider properties are parsed correctly
-        assertEquals(3, metadataConfig.getProperties().size());
+        assertEquals(4, metadataConfig.getProperties().size());
         assertEquals("http://127.0.0.1:8090", metadataConfig.getProperties().get("test_config1"));
         assertEquals("test_metalake", metadataConfig.getProperties().get("test_config2"));
         assertEquals("test", metadataConfig.getProperties().get("test_config3"));
+        assertEquals("password,token", metadataConfig.getProperties().get("sensitive_keys"));
     }
 }

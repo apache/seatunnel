@@ -178,7 +178,13 @@ seatunnel:
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
+        sensitive_keys:
+          - password
+          - secret_key
 ```
+
+`sensitive_keys` is optional. It defines the datasource property field names that are masked in
+dynamic metadata datasource query responses. When it is not configured, SeaTunnel does not desensitize by default.
 
 ### Configuration Options
 
@@ -188,6 +194,197 @@ seatunnel:
 | `kind`               | String  | `gravitino` | The Metadata provider type to use                      |
 | `gravitino.uri`      | String  | -           | Gravitino server URI (required when kind=gravitino)    |
 | `gravitino.metalake` | String  | -           | Gravitino metalake name (required when kind=gravitino) |
+
+## Built-in Implementation: DynamicMetadataProvider
+
+`DynamicMetadataProvider` is a built-in Metadata SPI implementation for the Zeta engine. It stores datasource connection configurations in the SeaTunnel cluster by using Hazelcast distributed `IMap`, and exposes REST APIs for creating, reading, updating, and deleting datasource definitions at runtime.
+
+This provider is useful when you want to manage datasource connection information dynamically through an API instead of maintaining it in every job configuration file.
+
+### Supported Capabilities
+
+- Register datasource connection properties through REST API
+- Reference a registered datasource in source and sink connectors by `metadata_datasource_id`
+- Update datasource properties without modifying job configuration templates
+- Store datasource definitions in the Zeta cluster runtime state
+
+> **Note**: `DynamicMetadataProvider` currently supports datasource configuration lookup only. It does not support `metadata_table_id` table schema retrieval.
+
+### Enable DynamicMetadataProvider
+
+Configure `seatunnel.yaml` as follows:
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+    metadata:
+      enabled: true
+      kind: dynamic
+```
+
+The REST API uses the Zeta engine HTTP service, so `seatunnel.engine.http.enable-http` must be enabled.
+
+### Datasource REST API
+
+#### Create Datasource
+
+```bash
+curl -X POST http://localhost:8080/metadata/datasource \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "metadataDatasourceId": "mysql_source",
+    "connectorType": "Jdbc",
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "secret"
+    }
+  }'
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource created successfully"
+}
+```
+
+#### Get Datasource
+
+```bash
+curl http://localhost:8080/metadata/datasource/mysql_source
+```
+
+#### List Datasources
+
+```bash
+curl http://localhost:8080/metadata/datasources
+```
+
+#### Update Datasource
+
+```bash
+curl -X PUT http://localhost:8080/metadata/datasource/mysql_source \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "new-secret"
+    }
+  }'
+```
+
+#### Delete Datasource
+
+```bash
+curl -X DELETE http://localhost:8080/metadata/datasource/mysql_source
+```
+
+### Use Registered Datasource In A Job
+
+After registering the datasource, reference it with `metadata_datasource_id` in the connector configuration. The provider merges the registered `properties` into the connector configuration. Job-level options take precedence over values returned by the provider.
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    metadata_datasource_id = "mysql_source"
+    query = "select * from source"
+  }
+}
+
+sink {
+  Jdbc {
+    metadata_datasource_id = "mysql_source"
+    database = "seatunnel"
+    generate_sink_sql = true
+    table = "sink"
+  }
+}
+```
+
+### Request Fields
+
+| Field                  | Required | Description                                                                 |
+|------------------------|----------|-----------------------------------------------------------------------------|
+| `metadataDatasourceId` | Yes      | Unique datasource ID referenced by `metadata_datasource_id` in job configs   |
+| `connectorType`        | Yes      | Connector identifier, for example `Jdbc`; it must match the connector in job |
+| `properties`           | Yes      | Connector connection properties, such as `url`, `driver`, `username`, `password` |
+
+### Limitations
+
+- Only supported by the Zeta engine.
+- Datasource definitions are stored in the Zeta cluster runtime state.
+- Query responses mask sensitive fields such as passwords and tokens.
+- `connectorType` is validated against the connector identifier in the job. For example, a datasource created with `connectorType: "Jdbc"` can only be used by the `Jdbc` connector.
+- Table schema retrieval through `metadata_table_id` is not supported by `DynamicMetadataProvider`.
+
+### Persist Dynamic Datasources Across Cluster Restarts
+
+`DynamicMetadataProvider` stores datasource definitions in the Hazelcast IMap named `engine_metadataDatasource`. By default, Hazelcast IMap data is stored in memory. If all Zeta engine nodes are stopped, the registered datasource definitions will be lost unless IMap persistence is configured.
+
+To keep dynamic metadata datasource definitions after a full cluster restart, configure MapStore persistence for `engine_metadataDatasource` in `hazelcast.yaml`.
+
+Example using HDFS:
+
+```yaml
+hazelcast:
+  map:
+    engine_metadataDatasource:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        write-delay-seconds: 0
+        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+        properties:
+          type: hdfs
+          namespace: /tmp/seatunnel/imap
+          clusterName: seatunnel-cluster
+          storage.type: hdfs
+          fs.defaultFS: hdfs://localhost:9000
+```
+
+Example using a local file path for a single-node cluster or a shared mounted directory:
+
+```yaml
+hazelcast:
+  map:
+    engine_metadataDatasource:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        write-delay-seconds: 0
+        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+        properties:
+          type: hdfs
+          namespace: /tmp/seatunnel/imap
+          clusterName: seatunnel-cluster
+          storage.type: hdfs
+          fs.defaultFS: file:///
+```
+
+Configuration notes:
+
+- `engine_metadataDatasource` is the fixed IMap name used by `DynamicMetadataProvider`.
+- `initial-mode: EAGER` loads persisted datasource definitions when the cluster starts.
+- `write-delay-seconds: 0` writes changes synchronously, reducing the chance of losing the latest REST API changes before shutdown.
+- In a multi-node cluster, use shared external storage such as HDFS, OSS, S3, or a shared mounted filesystem. A node-local path is only suitable for a single-node deployment.
+- Use the same `namespace` and `clusterName` after restart. Changing either value points SeaTunnel to a different persistence location.
+
+For more IMap persistence options, see [IMap Persistence Configuration](../../engines/zeta/hybrid-cluster-deployment.md#53-imap-persistence-configuration).
 
 ## Default Implementation: Gravitino
 
