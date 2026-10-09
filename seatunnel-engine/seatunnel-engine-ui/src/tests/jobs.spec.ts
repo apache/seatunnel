@@ -19,6 +19,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 // import { createTestingPinia } from '@pinia/testing'
 import { NPopconfirm } from 'naive-ui'
+import { AxiosError } from 'axios'
 import runningJobs from '@/views/jobs/running-jobs'
 import jobOperations from '@/views/jobs/job-operations'
 import { createApp } from 'vue'
@@ -188,6 +189,43 @@ describe('jobs', () => {
     wrapper.unmount()
   })
 
+  test('Job Operations shows the engine failure message when a restore is refused', async () => {
+    routeState.query = {
+      restoreMode: 'CHECKPOINT',
+      restoreSourceJobId: '42'
+    }
+    const refusal = new AxiosError('Request failed with status code 400', 'ERR_BAD_REQUEST')
+    refusal.response = {
+      status: 400,
+      statusText: 'Bad Request',
+      headers: {},
+      config: {} as never,
+      data: {
+        status: 'fail',
+        message:
+          'restoreSourceJobId=42 is still RUNNING; stop or cancel the source job before restoring from its checkpoint state'
+      }
+    }
+    vi.spyOn(JobsService, 'submitJob').mockRejectedValue(refusal)
+    const wrapper = mount(jobOperations, {
+      global: {
+        plugins: [i18n]
+      }
+    })
+    await flushPromises()
+    await wrapper.find('textarea').setValue('env { job.mode = "STREAMING" }')
+    const submitButton = wrapper.findAll('button').find((button) => button.text() === 'Submit')
+    await submitButton?.trigger('click')
+    const onPositiveClick = wrapper.findAllComponents(NPopconfirm)[0].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to submit job.')
+    expect(wrapper.text()).toContain('restoreSourceJobId=42 is still RUNNING')
+    expect(wrapper.text()).not.toContain('The submit result is unknown')
+    wrapper.unmount()
+  })
   test('Finished Jobs service requests all terminal jobs by default', () => {
     const getMock = vi.mocked(get)
     getMock.mockClear()

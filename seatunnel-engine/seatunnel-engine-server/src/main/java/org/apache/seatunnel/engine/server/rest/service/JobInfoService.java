@@ -527,7 +527,9 @@ public class JobInfoService extends BaseService {
      * Validates the explicit restore parameters before parsing the submitted job configuration.
      *
      * <p>A blank source ID is equivalent to an omitted source ID. Rejecting it here prevents the
-     * restore path from issuing a lookup for a null source after configuration parsing begins.
+     * restore path from issuing a lookup for a null source after configuration parsing begins. The
+     * source job must also have reached an end state: see {@link
+     * #rejectRestoreFromActiveSourceJob(RestoreMode, long, JobStatus)}.
      *
      * @param requestParams REST query parameters.
      */
@@ -537,14 +539,69 @@ public class JobInfoService extends BaseService {
                 restoreModeValue == null || restoreModeValue.trim().isEmpty()
                         ? RestoreMode.NONE
                         : RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
-        if (restoreMode.isRestore()
-                && (requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null
-                        || requestParams
-                                .get(RestConstant.RESTORE_SOURCE_JOB_ID)
-                                .trim()
-                                .isEmpty())) {
+        if (!restoreMode.isRestore()) {
+            return;
+        }
+        String restoreSourceJobIdValue = requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID);
+        if (restoreSourceJobIdValue == null || restoreSourceJobIdValue.trim().isEmpty()) {
             throw new IllegalArgumentException(
                     "restoreSourceJobId is required when restoreMode=" + restoreMode);
         }
+        long restoreSourceJobId;
+        try {
+            // No trimming: the submit path parses the raw value as well, so a padded ID must fail
+            // here with a clear message rather than later with a bare NumberFormatException.
+            restoreSourceJobId = Long.parseLong(restoreSourceJobIdValue);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId must be a numeric job id, got: " + restoreSourceJobIdValue,
+                    e);
+        }
+        rejectRestoreFromActiveSourceJob(
+                restoreMode, restoreSourceJobId, getRestoreSourceJobStatus(restoreSourceJobId));
+    }
+
+    /**
+     * Rejects a restore whose source job has not reached an end state.
+     *
+     * <p>The Web UI exposes "Restore Latest State" on the Checkpoints tab of any job, including one
+     * that is still RUNNING. Restoring from a live job would start a second job from a checkpoint
+     * that the source keeps advancing past, so the operator must stop, savepoint or cancel the
+     * source first. A source job unknown to the cluster is reported as {@link JobStatus#UNKNOWABLE}
+     * and is deliberately not rejected here: the checkpoint lookup that follows returns the
+     * dedicated "No checkpoint found" error for it.
+     *
+     * @param restoreMode requested restore mode, used only for the error message.
+     * @param restoreSourceJobId source job whose state is restored.
+     * @param sourceJobStatus current status of the source job, or {@code null} when unknown.
+     */
+    static void rejectRestoreFromActiveSourceJob(
+            RestoreMode restoreMode, long restoreSourceJobId, JobStatus sourceJobStatus) {
+        if (sourceJobStatus == null || sourceJobStatus.isEndState()) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                String.format(
+                        "restoreSourceJobId=%d is still %s; stop or cancel the source job before restoring from its %s state",
+                        restoreSourceJobId,
+                        sourceJobStatus,
+                        restoreMode.name().toLowerCase(Locale.ROOT)));
+    }
+
+    /**
+     * Resolves the source job status on the master, either locally or through {@link
+     * GetJobStatusOperation} when this REST node is not the master.
+     */
+    private JobStatus getRestoreSourceJobStatus(long restoreSourceJobId) {
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+        if (seaTunnelServer != null) {
+            return seaTunnelServer.getCoordinatorService().getJobStatus(restoreSourceJobId);
+        }
+        Integer statusOrdinal =
+                (Integer)
+                        NodeEngineUtil.sendOperationToMasterNode(
+                                        nodeEngine, new GetJobStatusOperation(restoreSourceJobId))
+                                .join();
+        return statusOrdinal == null ? null : JobStatus.values()[statusOrdinal];
     }
 }

@@ -72,7 +72,7 @@ The Job Detail page contains five main tabs:
 - **Overview**: shows the job DAG, source and sink throughput metrics, flush-signal metrics, and realtime vertex or edge metrics when observability is enabled.
 - **Exception**: shows the job error message when the job has failed or reported an exception.
 - **Configuration**: shows the runtime job configuration exposed by the engine.
-- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state, then opens the submit panel with the source job ID and restore mode prefilled.
+- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state, then opens the submit panel with the source job ID and restore mode prefilled. The tab does not check the job status: the engine refuses the restore while the source job is still active, and reports `No checkpoint found` when its state has already been cleaned up. Both messages are shown in the submit panel, so stop, savepoint or cancel the source job before restoring from it.
 - **Log**: shows job log files returned by the engine log API.
 
 #### Realtime Observability

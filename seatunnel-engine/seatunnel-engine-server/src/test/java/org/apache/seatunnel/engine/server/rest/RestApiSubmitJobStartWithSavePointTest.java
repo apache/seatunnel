@@ -244,6 +244,22 @@ public class RestApiSubmitJobStartWithSavePointTest {
     }
 
     @Test
+    public void testSubmitCheckpointRestoreWithNonNumericSourceJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&restoreMode=checkpoint&restoreSourceJobId=not-a-job&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(
+                response.body.contains("restoreSourceJobId must be a numeric job id"),
+                () -> "responseBody=" + response.body);
+    }
+
+    @Test
     public void testSubmitSavepointRestoreWithoutSourceJobIdReturns400() throws Exception {
         String requestUrl =
                 "http://localhost:"

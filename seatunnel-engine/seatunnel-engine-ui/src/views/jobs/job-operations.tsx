@@ -34,7 +34,7 @@ import type { SelectOption, UploadFileInfo } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { JobsService } from '@/service/job'
-import { isRequestOutcomeUnknown } from '@/service/service'
+import { isRequestOutcomeUnknown, requestFailureMessage } from '@/service/service'
 import type { ConfigFormat, RestoreMode, SubmitJobResponse } from '@/service/job/types'
 
 type FeedbackType = 'success' | 'warning' | 'error'
@@ -94,6 +94,16 @@ export default defineComponent({
       return t('jobs.operations.submitSuccess', { job: jobLabel })
     }
 
+    const submitFailureMessage = (error: unknown) => {
+      if (isRequestOutcomeUnknown(error)) {
+        return t('jobs.operations.submitOutcomeUnknown')
+      }
+      const serverMessage = requestFailureMessage(error)
+      return serverMessage
+        ? `${t('jobs.operations.submitFailed')} ${serverMessage}`
+        : t('jobs.operations.submitFailed')
+    }
+
     const submitText = async () => {
       if (submittingText.value) {
         return
@@ -119,12 +129,7 @@ export default defineComponent({
         })
         setFeedback('success', formatSubmitSuccess(response))
       } catch (error) {
-        setFeedback(
-          'error',
-          isRequestOutcomeUnknown(error)
-            ? t('jobs.operations.submitOutcomeUnknown')
-            : t('jobs.operations.submitFailed')
-        )
+        setFeedback('error', submitFailureMessage(error))
       } finally {
         submittingText.value = false
       }
@@ -155,12 +160,7 @@ export default defineComponent({
         })
         setFeedback('success', formatSubmitSuccess(response))
       } catch (error) {
-        setFeedback(
-          'error',
-          isRequestOutcomeUnknown(error)
-            ? t('jobs.operations.submitOutcomeUnknown')
-            : t('jobs.operations.submitFailed')
-        )
+        setFeedback('error', submitFailureMessage(error))
       } finally {
         submittingFile.value = false
       }

@@ -72,7 +72,7 @@ Jobs 页面提供 “Submit Job” 面板，可以直接在 Web UI 中提交新�
 - **Overview**：展示作业 DAG、source 和 sink 吞吐指标、flush signal 指标，以及开启可观测性后的 vertex 或 edge 实时指标。
 - **Exception**：当作业失败或上报异常时，展示异常文本。
 - **Configuration**：展示引擎暴露的运行时作业配置。
-- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作；操作会打开提交面板并自动带入来源作业 ID 和恢复模式。
+- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作；操作会打开提交面板并自动带入来源作业 ID 和恢复模式。该页签不会检查作业状态：来源作业仍在运行时引擎会拒绝恢复，其状态已被清理时会返回 `No checkpoint found`，两类错误信息都会显示在提交面板中，因此请先停止、savepoint 或取消来源作业再进行恢复。
 - **Log**：展示引擎日志 API 返回的作业日志文件。
 
 #### 实时可观测性（Realtime Observability）
