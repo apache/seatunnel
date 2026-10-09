@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +89,51 @@ public class OceanBaseIncrementalSourceFactoryTest {
     public void testOptionRuleRejectsOracleCompatibleMode() {
         Map<String, Object> options = requiredOptions();
         options.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), "oracle");
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                .validate(new OceanBaseIncrementalSourceFactory().optionRule()));
+    }
+
+    /** Verify the inherited specific-offset guards also accept file+pos-only anchors. */
+    @Test
+    public void testOptionRuleAcceptsInheritedFileAndPosOnlySpecificOffsets() {
+        OceanBaseIncrementalSourceFactory factory = new OceanBaseIncrementalSourceFactory();
+        Map<String, Object> options = requiredOptions();
+        options.put("startup.mode", "SPECIFIC");
+        options.put("startup.specific-offset.file", "ob-bin.000004");
+        options.put("startup.specific-offset.pos", 8937L);
+
+        ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(factory.optionRule());
+    }
+
+    /** Verify the inherited guards reject specific offsets when startup.mode points elsewhere. */
+    @Test
+    public void testOptionRuleRejectsInheritedExplicitWrongModeSpecificOffsets() {
+        Map<String, Object> options = requiredOptions();
+        options.put("startup.mode", "EARLIEST");
+        options.put("startup.specific-offset.file", "ob-bin.000004");
+
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                        .validate(
+                                                new OceanBaseIncrementalSourceFactory()
+                                                        .optionRule()));
+        Assertions.assertTrue(
+                error.getMessage().contains("startup.specific-offset.file"),
+                () -> "wrong-mode guard must run for OceanBase: " + error.getMessage());
+    }
+
+    /** Verify the inherited guards reject specific offsets when startup.mode is omitted. */
+    @Test
+    public void testOptionRuleRejectsInheritedOmittedModeSpecificOffsets() {
+        Map<String, Object> options = requiredOptions();
+        options.put("startup.specific-offset.file", "ob-bin.000004");
 
         Assertions.assertThrows(
                 OptionValidationException.class,
