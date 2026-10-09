@@ -352,6 +352,17 @@ select SPLIT(test,';') as arrays
 MURMUR64('hello world')
 MURMUR64(NAME)
 
+### MD5
+
+```MD5(string|binary) -> STRING```
+
+计算输入字符串或二进制值的 MD5 哈希值，返回 32 字符的小写十六进制字符串，与 Hive 的 `md5` 函数兼容。如果输入参数为 null，则返回 null。
+
+示例:
+
+MD5('hello world')
+MD5(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -467,6 +478,16 @@ ASIN(D)
 示例:
 
 ATAN(D)
+
+### ATAN2
+
+```ATAN2(numeric, numeric) -> DOUBLE```
+
+计算两个参数商的反正切值。另请参阅 Java Math.atan2。
+
+示例:
+
+ATAN2(Y, X)
 
 ### COS
 
@@ -1105,6 +1126,50 @@ local_date_time AT TIME ZONE '+09:00'
 
 offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
+## 加密函数
+
+### AES_ENCRYPT
+
+```AES_ENCRYPT(value, key[, iv]) -> STRING```
+
+使用 AES/CBC/PKCS5Padding 加密 `value`，返回 Base64 编码的密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：待加密的明文。任何非空标量值都会被转换为字符串；数组与 Map 输入会被拒绝。
+- `key`：密钥。如果以 `base64:` 开头，则剩余部分按 Base64 解码为原始 AES 密钥，长度必须为 16、24 或 32 字节（对应 AES-128/192/256）；只有 `base64:` 形式才与 `FieldEncryptTransform` 使用的 `AesCbcEncryptor` 线兼容。其他值按口令处理：对其 UTF-8 字节做一次 SHA-256，取前 16 字节作为 AES-128 密钥，因此支持任意长度的口令。口令模式是无盐的快速 KDF，安全性较低；生产环境请使用随机的 `base64:` 密钥并作为机密保管。`base64:` 密钥与口令不可互换。
+- `iv`：可选的初始化向量。提供时，其 UTF-8 字节作为 IV 使用，必须恰好为 16 字节；返回的密文仅包含加密后的字节，调用方需自行保存 IV。省略时，每次调用生成 16 字节随机 IV 并拼接到密文头部，`AES_DECRYPT` 无需显式 IV 即可恢复。显式传入 `NULL` 的 IV 会被拒绝（请改为省略该参数）。
+
+示例:
+
+AES_ENCRYPT(name, 'mySecretPass')
+
+AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+
+AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+SELECT AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass') AS name_enc FROM dual
+
+注意:
+- CBC 是无认证模式：密钥错误或密文损坏时，约 1/256 的概率会解出垃圾串而非报错，切勿依赖解密报错来判断密钥是否正确。
+- 省略 `iv` 时密文是非确定性的（每次调用都会生成新的随机 IV）。如需确定性密文，请显式提供 `iv`。
+
+### AES_DECRYPT
+
+```AES_DECRYPT(value, key[, iv]) -> STRING```
+
+解密 Base64 编码的 AES/CBC/PKCS5Padding 密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：由 `AES_ENCRYPT` 生成的 Base64 密文。
+- `key`：密钥，约定与 `AES_ENCRYPT` 相同，必须与加密时使用的密钥一致。
+- `iv`：可选的初始化向量。省略时，取解码后前 16 字节作为 IV（即 `AES_ENCRYPT` 未提供 IV 时生成的格式）。提供时，其 UTF-8 字节作为 IV（必须为 16 字节），整个解码负载视为密文。显式传入 `NULL` 的 IV 会被拒绝。
+
+示例:
+
+AES_DECRYPT(cipher, 'mySecretPass')
+
+AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+
+AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
 ## System Functions
 
 ### CAST
@@ -1113,7 +1178,7 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 将一个值转换为另一个数据类型。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1133,7 +1198,7 @@ CAST(FLAG AS BOOLEAN)
 
 该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
 
-支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP | DATETIME，TIMESTAMP_TZ，DATE，TIME，BYTES | BINARY，BOOLEAN
 
 示例:
 
@@ -1264,6 +1329,17 @@ select ARRAY(column1,column2,column3) as arrays
 
 注意：目前仅支持string、double、long、int几种类型
 
+### MAP
+
+```MAP<V> map(key1, value1, key2, value2, ...) -> MAP<K, V>```
+
+由交替出现的键值参数创建一个 Map。参数个数必须为偶数且键不能为 NULL。键在运行时会被转换为字符串，但结果声明的键类型跟随键表达式的类型，因此建议使用字符串键表达式；值类型跟随值表达式。
+
+示例:
+
+select MAP('a', 1, 'b', 2) as maps
+select MAP('k1', column1, 'k2', column2) as maps
+
 ### LATERAL VIEW
 #### EXPLODE
 ```EXPLODE(array of T) -> rows(value: T)```  
@@ -1289,6 +1365,8 @@ SELECT * FROM dual
 ```
 
 ## 向量函数
+
+向量函数不会消耗或修改输入向量缓冲区。同一个向量字段可以用于多个表达式，也可以同时作为距离函数的两个参数，并且仍可供下游转换和接收器读取。
 
 ### VECTOR_DIMS
 

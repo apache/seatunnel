@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | secret_key                 | string  | 是   | -                           |
 | endpoint                   | string  | 是   | -                           |
 | read_columns               | list    | 否   | -                           |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否   | text 为 \001，csv 为 ,      |
 | row_delimiter              | string  | 否   | \n                          |
 | parse_partition_from_path  | boolean | 否   | true                        |
@@ -89,6 +90,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | escape_char                | string  | 否   | -                           |
 | recursive_file_scan        | boolean | 否   | true                        |
 | sort_files_by_modification_time | boolean | 否   | false                       |
+| common-options             |         | 否   | -                           |
 
 ## 示例
 
