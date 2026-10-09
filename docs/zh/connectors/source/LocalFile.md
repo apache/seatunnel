@@ -94,7 +94,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | retention_max_age          | string  | 否    | -                   |
 | retention_check_interval   | string  | 否    | 1H                  |
 | common-options             |         | 否    | -                   |
-| tables_configs             | list    | 否    | 用于定义多表任务            |
+| tables_configs             | list    | 否    | -                   |
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
@@ -640,6 +640,10 @@ compare_mode = "len_mtime"
 启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
+
+### metalake_type [string]
+
+Metalake 服务类型，目前支持 `gravitino`。
 
 ### 通用选项
 

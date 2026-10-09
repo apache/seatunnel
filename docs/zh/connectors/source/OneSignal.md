@@ -29,7 +29,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 | headers                     | Map     | 否  | -     | 额外的 HTTP 请求头。除非需要覆盖由 `password` 生成的头，否则不要在这里配置 `Authorization`。                                  |
 | params                      | Map     | 否  | -     | HTTP 查询参数，例如 `limit`、`offset` 等 OneSignal API 参数。                                                  |
 | body                        | String  | 否  | -     | HTTP 请求体，对支持 JSON 负载的接口有用。                                                                      |
-| format                      | String  | 否  | json  | 响应格式，`json` 时需要配合 `schema`；`text` 时返回原始响应。                                                       |
+| format                      | String  | 否  | text  | 响应格式，`json` 时需要配合 `schema`；`text` 时返回原始响应。                                                       |
 | schema                      | Config  | 否  | -     | 输出数据结构，`format = "json"` 时必填。详见 [Schema 特性](../../introduction/concepts/schema-feature.md)。                 |
 | schema.fields               | Config  | 否  | -     | 字段名与 SeaTunnel 数据类型，用于解析 JSON 响应。                                                                |
 | json_field                  | Config  | 否  | -     | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                                |
