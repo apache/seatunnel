@@ -57,7 +57,6 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     private final SeaTunnelDataType<?>[] seaTunnelDataTypes;
     private int offsetInRowBatch = 0;
-    private int rowCountInOneBatch = 0;
     private int readRowCount = 0;
     private List<FieldVector> fieldVectors;
     private VectorSchemaRoot root;
@@ -104,12 +103,12 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
                     continue;
                 }
                 log.info("one batch in arrow row count size '{}'", root.getRowCount());
-                this.rowCountInOneBatch = root.getRowCount();
-                for (int i = 0; i < rowCountInOneBatch; i++) {
+                int batchRowCount = root.getRowCount();
+                for (int i = 0; i < batchRowCount; i++) {
                     seatunnelRowBatch.add(new SeaTunnelRow(this.seaTunnelDataTypes.length));
                 }
-                convertSeatunnelRow();
-                this.readRowCount += root.getRowCount();
+                convertSeatunnelRow(batchRowCount, readRowCount);
+                this.readRowCount += batchRowCount;
             }
             return this;
         } catch (IOException e) {
@@ -130,22 +129,35 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         return seatunnelRowBatch.get(offsetInRowBatch++);
     }
 
-    private void convertSeatunnelRow() {
+    /**
+     * Fills the rows of the batch currently loaded into {@link #root}.
+     *
+     * <p>Two index spaces meet here. The field vectors hold only the loaded batch, so they are
+     * indexed from 0 and carry {@code batchRowCount} values. {@link #seatunnelRowBatch} is
+     * cumulative across every batch read so far, so the row for vector index {@code i} sits at
+     * {@code rowOffset + i}.
+     *
+     * <p>Called once per loaded batch, after that batch's rows have been appended to {@link
+     * #seatunnelRowBatch} and before {@link #readRowCount} advances past them.
+     *
+     * @param batchRowCount row count of the loaded batch, from {@code root.getRowCount()}
+     * @param rowOffset index in {@link #seatunnelRowBatch} at which the loaded batch begins
+     */
+    private void convertSeatunnelRow(int batchRowCount, int rowOffset) {
         for (FieldVector fieldVector : fieldVectors) {
             String name = fieldVector.getField().getName();
             Integer fieldIndex = fieldIndexMap.get(name);
             Types.MinorType minorType = fieldVector.getMinorType();
-            for (int i = 0; i < seatunnelRowBatch.size(); i++) {
+            for (int i = 0; i < batchRowCount; i++) {
                 // arrow field not in the Seatunnel Schema field, skip it
                 if (fieldIndex != null) {
                     SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[fieldIndex];
                     Object fieldValue =
-                            convertArrowData(
-                                    readRowCount + i, minorType, fieldVector, seaTunnelDataType);
+                            convertArrowData(i, minorType, fieldVector, seaTunnelDataType);
                     fieldValue =
                             convertSeatunnelRowValue(
                                     seaTunnelDataType.getSqlType(), minorType, fieldValue);
-                    seatunnelRowBatch.get(readRowCount + i).setField(fieldIndex, fieldValue);
+                    seatunnelRowBatch.get(rowOffset + i).setField(fieldIndex, fieldValue);
                 }
             }
         }
