@@ -39,4 +39,6 @@ version: 3.0.1
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: 3.0.1
+# It doubles as the default image tag (templates/_helpers.tpl), so it must reference a published
+# apache/seatunnel image, not an in-development version: helm-chart-check pulls it directly.
+appVersion: 3.0.0
