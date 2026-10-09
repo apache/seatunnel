@@ -705,4 +705,4 @@ Choose parallelism from the smallest practical bound among:
 
 - [Google Borg Paper](https://research.google/pubs/pub43438/) - Task scheduling inspiration
 - [Apache Flink JobGraph](https://nightlies.apache.org/flink/flink-docs-stable/docs/internals/job_scheduling/)
-- [Spark DAG Scheduler](https://spark.apache.org/docs/latest/job-scheduling.html)
+- [Spark DAG Scheduler](https://archive.apache.org/dist/spark/docs/3.5.6/job-scheduling.html)

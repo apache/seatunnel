@@ -20,17 +20,57 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Data
-@AllArgsConstructor
 public class JdbcSourceState implements Serializable {
     private static final long serialVersionUID = -6441009212721284346L;
+    /** Tables that have not yet been split into JDBC chunks. */
     private List<TablePath> pendingTables;
+    /** Unassigned splits that still need to be handed back to source readers. */
     private Map<Integer, List<JdbcSourceSplit>> pendingSplits;
+    /**
+     * Remaining unfinished splits per table, including in-flight reader-owned splits that are no
+     * longer present in {@code pendingSplits}.
+     */
+    private Map<TablePath, Integer> unfinishedSplitsPerTable;
+    /**
+     * Readers that have participated in each table and must receive the final close-table event.
+     */
+    private Map<TablePath, Set<Integer>> readersPerTable;
+
+    public JdbcSourceState(
+            List<TablePath> pendingTables, Map<Integer, List<JdbcSourceSplit>> pendingSplits) {
+        this(pendingTables, pendingSplits, null, null);
+    }
+
+    public JdbcSourceState(
+            List<TablePath> pendingTables,
+            Map<Integer, List<JdbcSourceSplit>> pendingSplits,
+            Map<TablePath, Integer> unfinishedSplitsPerTable,
+            Map<TablePath, Set<Integer>> readersPerTable) {
+        this.pendingTables = pendingTables;
+        this.pendingSplits = pendingSplits;
+        this.unfinishedSplitsPerTable = unfinishedSplitsPerTable;
+        this.readersPerTable = readersPerTable;
+    }
+
+    public Map<TablePath, Set<Integer>> getReadersPerTableOrEmpty() {
+        return readersPerTable == null ? new HashMap<>() : readersPerTable;
+    }
+
+    public Map<TablePath, Integer> getUnfinishedSplitsPerTableOrEmpty() {
+        return unfinishedSplitsPerTable == null ? new HashMap<>() : unfinishedSplitsPerTable;
+    }
+
+    /** Returns true when the checkpoint was written before close-table tracking fields existed. */
+    public boolean isLegacyTableState() {
+        return unfinishedSplitsPerTable == null && readersPerTable == null;
+    }
 }

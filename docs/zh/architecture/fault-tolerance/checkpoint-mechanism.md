@@ -491,4 +491,4 @@ seatunnel:
 ### 进一步阅读
 
 - [Apache Flink 检查点](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/fault-tolerance/checkpointing/)
-- [Spark 结构化流检查点](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#recovering-from-failures-with-checkpointing)
+- [Spark 结构化流检查点](https://archive.apache.org/dist/spark/docs/3.5.6/structured-streaming-programming-guide.html#recovering-from-failures-with-checkpointing)

@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.transform;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.source.SeaTunnelJobAware;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -50,6 +51,10 @@ public interface SeaTunnelTransform<T>
 
     default SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent schemaChangeEvent) {
         return schemaChangeEvent;
+    }
+
+    default CloseTableEvent mapCloseTableEvent(CloseTableEvent closeTableEvent) {
+        return closeTableEvent;
     }
 
     /**

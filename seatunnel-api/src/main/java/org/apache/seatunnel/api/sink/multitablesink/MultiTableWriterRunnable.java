@@ -414,6 +414,14 @@ public class MultiTableWriterRunnable implements Runnable {
         default boolean isCountedRowRequest() {
             return false;
         }
+
+        /**
+         * Table id of a queued row request, or {@code null} for non-row requests. Used by the
+         * close-table drain to detect rows still queued for a table.
+         */
+        default String rowTableId() {
+            return null;
+        }
     }
 
     private static class RowWriteRequest implements QueueElement {
@@ -439,6 +447,11 @@ public class MultiTableWriterRunnable implements Runnable {
         @Override
         public boolean isCountedRowRequest() {
             return counted;
+        }
+
+        @Override
+        public String rowTableId() {
+            return row.getTableId();
         }
 
         @Override

@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderO
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
@@ -109,6 +110,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int CLEAN_LOG_OPERATION = 27;
 
     public static final int REPORT_METRICS_OPERATION = 28;
+
+    public static final int SOURCE_ENUMERATOR_EVENT_OPERATOR = 29;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -186,6 +189,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanLogOperation();
                 case REPORT_METRICS_OPERATION:
                     return new ReportMetricsOperation();
+                case SOURCE_ENUMERATOR_EVENT_OPERATOR:
+                    return new SourceEnumeratorEventOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
