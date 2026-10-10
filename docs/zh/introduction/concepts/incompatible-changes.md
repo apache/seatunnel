@@ -379,3 +379,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
 ### 依赖升级
+
+### JSON 格式
+
+- **破坏性变更：`schema.columns[].defaultValue` 现在会应用到缺失或显式为 `null` 的 JSON 字段**
+  - **受影响组件**：`seatunnel-format-json`——所有直接或通过格式包装器从 `CatalogTable` 创建 `JsonDeserializationSchema` 的连接器。仅从 `SeaTunnelRowType` 构造反序列化器的路径不受影响，包括 File 连接器的 merge-partition 模式；该模式的分区列在读取时从文件路径解析，无法通过 catalog table 表达。
+  - **描述**：此前 JSON 反序列化器会忽略 `schema.columns[].defaultValue`：JSON 消息中缺失或显式为 `null` 的字段都会被解析为 `null`。现在，当列配置了 `defaultValue` 时，该默认值会在字段缺失和显式为 `null` 两种情况下被应用（并归一化为列类型）。字段存在且有真实值时会保留该值；未配置默认值的列保持原有的 `null` 行为。
+  - **影响**：source schema 已声明 `defaultValue` 的任务——包括仅为了让 sink 的 save-mode DDL 生成正确的列默认值而设置该配置的任务——升级后对于缺失或显式为 `null` 的 JSON 字段将输出默认值而非 `null`。如果需要保留 `null`（例如"值尚未确定"的语义），请从 source schema 中移除 `defaultValue`，或将其移到 sink 侧 schema。`failOnMissingField` 仍只对真正缺失的字段抛出异常；显式为 `null` 且配置了默认值的字段会应用默认值。(#11632)
+

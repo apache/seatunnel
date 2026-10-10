@@ -461,3 +461,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     read of a multi-gigabyte log has to fit in the node's heap.
 
 ### Dependency Upgrades
+
+### JSON Format
+
+- **Breaking Change: `schema.columns[].defaultValue` is now applied to missing or explicitly-`null` JSON fields**
+  - **Affected component**: `seatunnel-format-json` — any connector that creates `JsonDeserializationSchema` from a `CatalogTable`, directly or through a format wrapper. Paths that construct the deserializer from only a `SeaTunnelRowType` are unaffected, including the File connector's merge-partition mode, where partition columns are resolved from the file path at read time and cannot be expressed through the catalog table.
+  - **Description**: Previously the JSON deserializer ignored `schema.columns[].defaultValue`: a field missing from the JSON message or carrying an explicit `null` was decoded as `null`. Now, when a column has a configured `defaultValue`, that value is applied (and normalized to the column type) both when the field is absent and when it is explicitly `null`. A field present with a real value keeps that value; a column without a configured default keeps the previous `null` behavior.
+  - **Impact**: Jobs whose source schema already declares `defaultValue` on a column — including jobs that set it only so a sink's save-mode DDL generates the right column default — will now start emitting the default instead of `null` for missing or explicitly-`null` JSON fields. If `null` must be preserved (e.g. "value not yet known"), remove `defaultValue` from the source schema, or move it to the sink-side schema. `failOnMissingField` still throws only for genuinely missing fields; an explicit `null` with a configured default applies the default. (#11632)
+

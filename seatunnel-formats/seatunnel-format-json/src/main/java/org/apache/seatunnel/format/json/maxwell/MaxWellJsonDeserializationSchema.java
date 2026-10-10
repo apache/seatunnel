@@ -90,7 +90,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, seaTunnelRowType);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.database = database;
         this.table = table;
         this.fieldNames = seaTunnelRowType.getFieldNames();
