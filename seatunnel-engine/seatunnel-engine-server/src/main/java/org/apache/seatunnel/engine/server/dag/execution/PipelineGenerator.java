@@ -24,10 +24,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -55,19 +53,10 @@ public class PipelineGenerator {
     private final Collection<ExecutionVertex> vertices;
 
     private final List<ExecutionEdge> edges;
-    private final Map<ExecutionVertex, Set<Long>> logicalIdsByExecutionVertex;
 
     public PipelineGenerator(Collection<ExecutionVertex> vertices, List<ExecutionEdge> edges) {
-        this(vertices, edges, new IdentityHashMap<>());
-    }
-
-    PipelineGenerator(
-            Collection<ExecutionVertex> vertices,
-            List<ExecutionEdge> edges,
-            Map<ExecutionVertex, Set<Long>> logicalIdsByExecutionVertex) {
         this.vertices = vertices;
         this.edges = edges;
-        this.logicalIdsByExecutionVertex = logicalIdsByExecutionVertex;
     }
 
     public List<Pipeline> generatePipelines() {
@@ -190,16 +179,8 @@ public class PipelineGenerator {
     private ExecutionVertex recreateVertex(ExecutionVertex vertex, int parallelism) {
         long id = idGenerator.getNextId();
         Action action = vertex.getAction();
-        ExecutionVertex recreated =
-                new ExecutionVertex(
-                        id,
-                        ExecutionPlanGenerator.recreateAction(action, id, parallelism),
-                        parallelism);
-        Set<Long> logicalIds = logicalIdsByExecutionVertex.get(vertex);
-        if (logicalIds != null) {
-            logicalIdsByExecutionVertex.put(recreated, logicalIds);
-        }
-        return recreated;
+        return new ExecutionVertex(
+                id, ExecutionPlanGenerator.recreateAction(action, id, parallelism), parallelism);
     }
 
     private void fillVerticesMap(List<ExecutionEdge> edges) {
