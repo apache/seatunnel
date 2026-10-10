@@ -83,6 +83,59 @@ class PostgresRelationSchemaChangeResolverTest {
     }
 
     @Test
+    void shouldResolveAddedEnumColumnAsString() {
+        SourceRecord record =
+                createRecord(intColumn("id", 1), varcharColumn("name", 2, 64), enumColumn("m", 3));
+
+        SchemaChangeEvent event =
+                resolver.resolve(record, Collections.singletonList(createCatalogTable()));
+
+        AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+        Assertions.assertEquals(1, columnsEvent.getEvents().size());
+        AlterTableAddColumnEvent enumEvent =
+                (AlterTableAddColumnEvent) columnsEvent.getEvents().get(0);
+        Assertions.assertEquals("m", enumEvent.getColumn().getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, enumEvent.getColumn().getDataType());
+        Assertions.assertEquals("mood", enumEvent.getColumn().getSourceType());
+    }
+
+    @Test
+    void shouldMatchBaselineWithEnumColumn() {
+        CatalogTable baseline =
+                CatalogTable.of(
+                        TABLE_IDENTIFIER,
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .nullable(false)
+                                                .sourceType("int4")
+                                                .build())
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("m")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .nullable(true)
+                                                .sourceType("inv.mood")
+                                                .build())
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null,
+                        null);
+        Table relation =
+                Table.editor()
+                        .tableId(new TableId(null, SCHEMA_NAME, TABLE_NAME))
+                        .setPrimaryKeyNames(Collections.singletonList("id"))
+                        .setColumns(Arrays.asList(intColumn("id", 1), enumColumn("m", 2)))
+                        .create();
+
+        Assertions.assertTrue(
+                PostgresRelationSchemaChangeResolver.hasSameCatalogSchema(baseline, relation));
+    }
+
+    @Test
     void shouldIgnoreUnchangedRelationRecord() {
         SourceRecord record = createRecord(intColumn("id", 1), varcharColumn("name", 2, 64));
 
@@ -210,6 +263,18 @@ class PostgresRelationSchemaChangeResolverTest {
                 .type("bool", "bool")
                 .position(position)
                 .optional(false)
+                .create();
+    }
+
+    // Debezium reports enum columns with the enum type name and Types.VARCHAR.
+    private Column enumColumn(String name, int position) {
+        return Column.editor()
+                .name(name)
+                .jdbcType(Types.VARCHAR)
+                .nativeType(16384)
+                .type("mood", "mood")
+                .position(position)
+                .optional(true)
                 .create();
     }
 
