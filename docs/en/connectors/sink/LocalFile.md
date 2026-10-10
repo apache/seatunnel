@@ -211,13 +211,13 @@ Writer the sheet of the workbook
 
 ### csv_string_quote_mode [string]
 
-Quoting uses the configured `field_delimiter`: if a string field contains the delimiter, quotes, or line breaks, the value is quoted under `MINIMAL`, and embedded quotes are escaped.
-
 When File Format is CSV,The string quote mode of CSV.
 
 - ALL: All String fields will be quoted.
 - MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
 - NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
+
+Quoting uses the configured `field_delimiter`: if a string field contains the delimiter, quotes, or line breaks, the value is quoted under `MINIMAL`, and embedded quotes are escaped.
 
 ### xml_root_tag [string]
 

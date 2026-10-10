@@ -333,6 +333,11 @@
 
 ### 格式变更
 
+- **行为变更：CSV 的 `MINIMAL` 引号规则使用配置的字段分隔符**
+  - **影响范围**：`seatunnel-format-csv`，用于 LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile 和 SftpFile 的 CSV Sink。
+  - **变更说明**：以前字符串引号规则始终使用逗号，即使 `field_delimiter` 配置了其他分隔符。当 `field_delimiter = "|"` 时，`a|b` 以前不加引号，读回时可能被拆成两个字段，现在输出为 `"a|b"`。像 `a,b` 这样仅包含逗号、没有其他需要引号的字符的值，现在可以不加引号。字段中的引号和换行仍会被转义或加上引号。
+  - **迁移建议**：SeaTunnel 写出后再由 SeaTunnel 读回的 CSV 无需修改配置。依赖精确引号表现形式的下游消费方应核对输出；如需统一为每个字符串字段加上引号，可设置 `csv_string_quote_mode = ALL`。(#12672)
+
 - **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。

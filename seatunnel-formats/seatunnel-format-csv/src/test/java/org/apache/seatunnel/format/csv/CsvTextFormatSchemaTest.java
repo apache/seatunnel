@@ -27,7 +27,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
+import org.apache.seatunnel.format.csv.exception.SeaTunnelCsvFormatException;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +46,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -436,5 +442,207 @@ public class CsvTextFormatSchemaTest {
         Assertions.assertEquals(
                 java.time.LocalDateTime.of(2024, 1, 1, 3, 0, 0).toInstant(ZoneOffset.UTC),
                 result.toInstant());
+    }
+
+    @Test
+    void testInvalidFieldDelimiterFailsFastOnBuild() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        String[] invalidDelimiters = {null, "", "\"", "\r", "\n"};
+        for (CsvStringQuoteMode quoteMode :
+                new CsvStringQuoteMode[] {CsvStringQuoteMode.MINIMAL, CsvStringQuoteMode.ALL}) {
+            for (String delimiter : invalidDelimiters) {
+                SeaTunnelCsvFormatException exception =
+                        Assertions.assertThrows(
+                                SeaTunnelCsvFormatException.class,
+                                () ->
+                                        CsvSerializationSchema.builder()
+                                                .seaTunnelRowType(rowType)
+                                                .delimiter(delimiter)
+                                                .quoteMode(quoteMode)
+                                                .build(),
+                                "Building with delimiter ["
+                                        + delimiter
+                                        + "] and quote mode ["
+                                        + quoteMode
+                                        + "] must fail fast");
+                Assertions.assertTrue(
+                        exception.getMessage().contains("field_delimiter"),
+                        "Exception must name the field_delimiter option but was: "
+                                + exception.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void testStringFreeNoneQuotesConstructsAndSerializes() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"int_field", "long_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.LONG_TYPE});
+        CsvSerializationSchema schema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.NONE)
+                        .build();
+
+        assertEquals(
+                "42,123456789012345",
+                new String(
+                        schema.serialize(new SeaTunnelRow(new Object[] {42, 123456789012345L}))));
+    }
+
+    @Test
+    void testNoneQuotesStringFieldRetainsRawIllegalArgumentException() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        CsvSerializationSchema schema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.NONE)
+                        .build();
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> schema.serialize(new SeaTunnelRow(new Object[] {"mess,age"})));
+        Assertions.assertEquals(IllegalArgumentException.class, exception.getClass());
+    }
+
+    @Test
+    void testMultiCharDelimiterQuotingAndFullDelimiterRoundTrip() throws IOException {
+        String delimiter = "||";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field", "int_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+        CsvSerializationSchema schema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(delimiter)
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
+                        .build();
+
+        // A value containing only the first character of a multi-character delimiter is
+        // over-quoted (a superset of the values containing the full delimiter), never under-quoted.
+        assertEquals(
+                "\"a|b\"||42",
+                new String(schema.serialize(new SeaTunnelRow(new Object[] {"a|b", 42}))));
+
+        // A value containing the literal full delimiter survives a round trip through the CSV
+        // reader used for files, which parses with the full delimiter string.
+        String value = "a||b";
+        byte[] serialized = schema.serialize(new SeaTunnelRow(new Object[] {value, 42}));
+        List<String> fields = parseCsvWithFullDelimiter(new String(serialized), delimiter);
+        assertEquals(value, fields.get(0));
+        assertEquals("42", fields.get(1));
+    }
+
+    @Test
+    void testMinimalQuotingFollowsConfiguredDelimiterExactOutput() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        CsvSerializationSchema pipeMinimal =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("|")
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
+                        .build();
+        // A value that only contains a comma needs no quoting under a pipe delimiter.
+        assertEquals(
+                "a,b", new String(pipeMinimal.serialize(new SeaTunnelRow(new Object[] {"a,b"}))));
+        // A value that contains the configured delimiter is quoted.
+        assertEquals(
+                "\"a|b\"",
+                new String(pipeMinimal.serialize(new SeaTunnelRow(new Object[] {"a|b"}))));
+
+        CsvSerializationSchema commaMinimal =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.MINIMAL)
+                        .build();
+        // Under the comma delimiter the historical comma quoting is unchanged.
+        assertEquals(
+                "\"a,b\"",
+                new String(commaMinimal.serialize(new SeaTunnelRow(new Object[] {"a,b"}))));
+
+        CsvSerializationSchema pipeAll =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("|")
+                        .quoteMode(CsvStringQuoteMode.ALL)
+                        .build();
+        // ALL keeps every string field quoted, including the bare-under-MINIMAL comma value.
+        assertEquals(
+                "\"a,b\"", new String(pipeAll.serialize(new SeaTunnelRow(new Object[] {"a,b"}))));
+        assertEquals(
+                "\"a|b\"", new String(pipeAll.serialize(new SeaTunnelRow(new Object[] {"a|b"}))));
+    }
+
+    @Test
+    void testRepeatedSerializeProducesStableOutput() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field", "int_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+        CsvSerializationSchema schema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .quoteMode(CsvStringQuoteMode.ALL)
+                        .build();
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"a,b", 42});
+
+        assertEquals(
+                new String(schema.serialize(row)),
+                new String(schema.serialize(row)),
+                "Repeated serialization must be stable");
+    }
+
+    @Test
+    void testSeparatorArrayAndBuilderMutationDoNotAffectBuiltSchema() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"string_field", "int_field"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+        String[] callerSeparators = {","};
+        CsvSerializationSchema.Builder builder =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .separators(callerSeparators);
+        CsvSerializationSchema schema = builder.build();
+
+        // Mutating the caller's array and the builder after build() must not affect the schema.
+        callerSeparators[0] = "|";
+        builder.delimiter("\t");
+
+        assertEquals(
+                "value,42",
+                new String(schema.serialize(new SeaTunnelRow(new Object[] {"value", 42}))));
+    }
+
+    private static List<String> parseCsvWithFullDelimiter(String line, String delimiter)
+            throws IOException {
+        try (CSVParser parser =
+                CSVParser.parse(
+                        line, CSVFormat.DEFAULT.builder().setDelimiter(delimiter).build())) {
+            List<String> fields = new ArrayList<>();
+            for (CSVRecord record : parser) {
+                for (String field : record) {
+                    fields.add(field);
+                }
+            }
+            return fields;
+        }
     }
 }

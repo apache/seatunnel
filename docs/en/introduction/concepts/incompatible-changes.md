@@ -411,6 +411,11 @@ You need to check this document before you upgrade to related version.
 
 ### Format Changes
 
+- **Behavior change: CSV `MINIMAL` quoting follows the configured field delimiter**
+  - **Affected component**: `seatunnel-format-csv`, used by LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, and SftpFile CSV sinks.
+  - **Description**: Previously, string quoting always used a comma, even when `field_delimiter` was different. With `field_delimiter = "|"`, `a|b` was emitted without quotes and could be read as two fields; it is now emitted as `"a|b"`. A value such as `a,b` can now remain unquoted when it contains no other characters requiring quoting. Embedded quotes and line breaks continue to be escaped or quoted.
+  - **Migration**: SeaTunnel-to-SeaTunnel CSV round trips need no configuration change. Review consumers that depend on the exact quoted representation; set `csv_string_quote_mode = ALL` to quote every string field consistently. (#12672)
+
 - **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
   - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
