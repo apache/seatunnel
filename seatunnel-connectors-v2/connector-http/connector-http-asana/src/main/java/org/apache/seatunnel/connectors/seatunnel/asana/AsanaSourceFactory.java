@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 
 import com.google.auto.service.AutoService;
 
@@ -47,7 +47,9 @@ public class AsanaSourceFactory extends HttpSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(AsanaSourceOptions.API_KEY, AsanaSourceOptions.PROJECT_GID)
-                .optional(AsanaSourceOptions.MODIFIED_SINCE, AsanaSourceOptions.BASE_URL,
+                .optional(
+                        AsanaSourceOptions.MODIFIED_SINCE,
+                        AsanaSourceOptions.BASE_URL,
                         AsanaSourceOptions.RETRY,
                         AsanaSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         AsanaSourceOptions.RETRY_BACKOFF_MAX_MS)

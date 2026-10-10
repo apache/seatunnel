@@ -22,20 +22,23 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 public class AsanaSourceOptions extends HttpCommonOptions {
-    public static final Option<String> API_KEY = Options.key("api_key")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Asana Personal Access Token (PAT)");
+    public static final Option<String> API_KEY =
+            Options.key("api_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Asana Personal Access Token (PAT)");
 
-    public static final Option<String> PROJECT_GID = Options.key("project_gid")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Asana Project GID to scope the tasks endpoint");
+    public static final Option<String> PROJECT_GID =
+            Options.key("project_gid")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Asana Project GID to scope the tasks endpoint");
 
-    public static final Option<String> MODIFIED_SINCE = Options.key("modified_since")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Optional ISO timestamp to filter modified tasks");
+    public static final Option<String> MODIFIED_SINCE =
+            Options.key("modified_since")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Optional ISO timestamp to filter modified tasks");
 
     public static final Option<String> BASE_URL =
             Options.key("base_url")

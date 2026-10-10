@@ -28,15 +28,23 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class AsanaSourceReader extends HttpSourceReader {
 
     public AsanaSourceReader(
-            HttpParameter httpParameter, SingleSplitReaderContext readerContext,
+            HttpParameter httpParameter,
+            SingleSplitReaderContext readerContext,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            JsonField jsonField, String contentField, PageInfo pageInfo) {
-        super(httpParameter, readerContext, deserializationSchema, jsonField, contentField, pageInfo);
+            JsonField jsonField,
+            String contentField,
+            PageInfo pageInfo) {
+        super(
+                httpParameter,
+                readerContext,
+                deserializationSchema,
+                jsonField,
+                contentField,
+                pageInfo);
     }
 
     @Override
@@ -53,8 +61,12 @@ public class AsanaSourceReader extends HttpSourceReader {
                 return response;
             }
             attempt++;
-            log.warn("Asana returned HTTP {}; retry {}/{} in {} ms",
-                    code, attempt, maxRetries, waitMillis);
+            log.warn(
+                    "Asana returned HTTP {}; retry {}/{} in {} ms",
+                    code,
+                    attempt,
+                    maxRetries,
+                    waitMillis);
             Thread.sleep(waitMillis);
             waitMillis = Math.min(waitMillis * 2, maxWaitMillis);
         }

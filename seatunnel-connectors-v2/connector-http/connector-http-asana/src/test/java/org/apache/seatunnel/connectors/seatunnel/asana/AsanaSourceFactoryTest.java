@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.asana;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
-
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +46,8 @@ public class AsanaSourceFactoryTest {
         parameter.buildWithConfig(config, config.get(AsanaSourceOptions.API_KEY));
 
         Assertions.assertNotNull(parameter.getHeaders());
-        Assertions.assertEquals("Bearer test-asana-token-123", parameter.getHeaders().get("Authorization"));
+        Assertions.assertEquals(
+                "Bearer test-asana-token-123", parameter.getHeaders().get("Authorization"));
         Assertions.assertEquals(HttpRequestMethod.GET, parameter.getMethod());
         Assertions.assertEquals("1234567890", parameter.getParams().get("project"));
         Assertions.assertNotNull(parameter.getParams().get("opt_fields"));
@@ -61,8 +62,9 @@ public class AsanaSourceFactoryTest {
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         AsanaSourceParameter parameter = new AsanaSourceParameter();
-        parameter.buildWithConfig(config);
+        parameter.buildWithConfig(config, config.get(AsanaSourceOptions.API_KEY));
 
-        Assertions.assertEquals("2026-01-01T00:00:00.000Z", parameter.getParams().get("modified_since"));
+        Assertions.assertEquals(
+                "2026-01-01T00:00:00.000Z", parameter.getParams().get("modified_since"));
     }
 }

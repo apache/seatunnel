@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.asana;
 
-import okhttp3.mockwebserver.RecordedRequest;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -70,12 +71,36 @@ public class AsanaSourceReaderTest {
     }
 
     @Test
-    public void testNoRetryOn401() throws Exception {   // enqueue one 401, retry=3
-        // assert code 401 and server.getRequestCount() == 1
+    public void testNoRetryOn401() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setResponseCode(401).setBody("{\"errors\":[]}"));
+            server.start();
+            AsanaSourceReader reader = newReader(server, 3);
+            reader.open();
+            try {
+                Assertions.assertEquals(401, reader.executeRequest().getCode());
+                Assertions.assertEquals(1, server.getRequestCount());
+            } finally {
+                reader.close();
+            }
+        }
     }
 
     @Test
-    public void testGivesUpAfterRetries() throws Exception {   // enqueue 4 x 500, retry=3
-        // assert code 500 and server.getRequestCount() == 4
+    public void testGivesUpAfterRetries() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            for (int i = 0; i < 4; i++) {
+                server.enqueue(new MockResponse().setResponseCode(500));
+            }
+            server.start();
+            AsanaSourceReader reader = newReader(server, 3);
+            reader.open();
+            try {
+                Assertions.assertEquals(500, reader.executeRequest().getCode());
+                Assertions.assertEquals(4, server.getRequestCount());
+            } finally {
+                reader.close();
+            }
+        }
     }
 }

@@ -20,13 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.asana.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MAX_MS;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
 
 import java.util.HashMap;
 
-public class AsanaSourceParameter extends HttpParameter {
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MAX_MS;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
 
+public class AsanaSourceParameter extends HttpParameter {
 
     /**
      * Overrides buildWithConfig to accept an explicit apiKey parameter. Asana's REST API requires
@@ -35,20 +35,24 @@ public class AsanaSourceParameter extends HttpParameter {
      */
     public void buildWithConfig(ReadonlyConfig config, String apiKey) {
         super.buildWithConfig(config);
-        setUrl(config.get(AsanaSourceOptions.BASE_URL) + "/tasks");
+        String base = config.get(AsanaSourceOptions.BASE_URL);
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        setUrl(base + "/tasks");
         setMethod(HttpRequestMethod.GET);
         if (headers == null) headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + apiKey);
         params = new HashMap<>();
         params.put("project", config.get(AsanaSourceOptions.PROJECT_GID));
         params.put("limit", "100");
-        params.put("opt_fields", "name,completed,completed_at,created_at,modified_at,due_on,"
-                + "assignee.gid,assignee.name,permalink_url");
+        params.put(
+                "opt_fields",
+                "name,completed,completed_at,created_at,modified_at,due_on,"
+                        + "assignee.gid,assignee.name,permalink_url");
         config.getOptional(AsanaSourceOptions.MODIFIED_SINCE)
                 .ifPresent(v -> params.put("modified_since", v));
         setKeepPageParamAsHttpParam(true);
         setJsonFiledMissedReturnNull(true);
-        if (retry < 1) {
+        if (!config.getOptional(AsanaSourceOptions.RETRY).isPresent()) {
             setRetry(3);
             setRetryBackoffMultiplierMillis(DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS);
             setRetryBackoffMaxMillis(DEFAULT_RETRY_BACKOFF_MAX_MS);

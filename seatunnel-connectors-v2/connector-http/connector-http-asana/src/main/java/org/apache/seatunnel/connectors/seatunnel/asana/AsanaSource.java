@@ -22,7 +22,10 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.*;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpPaginationType;
@@ -31,10 +34,9 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
-import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -46,7 +48,8 @@ public class AsanaSource extends HttpSource {
 
     public AsanaSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        asanaSourceParameter.buildWithConfig(pluginConfig, pluginConfig.get(AsanaSourceOptions.API_KEY));
+        asanaSourceParameter.buildWithConfig(
+                pluginConfig, pluginConfig.get(AsanaSourceOptions.API_KEY));
 
         TableSchema.Builder schema = TableSchema.builder();
         Map<String, String> fields = new LinkedHashMap<>();
@@ -62,10 +65,19 @@ public class AsanaSource extends HttpSource {
         fields.put("assignee_name", "$.data[*].assignee.name");
         fields.put("permalink_url", "$.data[*].permalink_url");
 
-        fields.keySet().forEach(c ->
-                schema.column(PhysicalColumn.of(c, BasicType.STRING_TYPE, 0, true, null, null)));
-        this.catalogTable = CatalogTable.of(TableIdentifier.of("Asana", TablePath.DEFAULT),
-                schema.build(), Collections.emptyMap(), Collections.emptyList(), null);
+        fields.keySet()
+                .forEach(
+                        c ->
+                                schema.column(
+                                        PhysicalColumn.of(
+                                                c, BasicType.STRING_TYPE, 0, true, null, null)));
+        this.catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("Asana", TablePath.DEFAULT),
+                        schema.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
         this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
         this.jsonField = JsonField.builder().fields(fields).build();
 
@@ -78,14 +90,18 @@ public class AsanaSource extends HttpSource {
         info.setTotalPageSize(HttpSourceOptions.TOTAL_PAGE_SIZE.defaultValue());
         info.setUsePlaceholderReplacement(false);
         this.pageInfo = info;
-
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
         return new AsanaSourceReader(
-                this.asanaSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField, pageInfo);
+                this.asanaSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField,
+                pageInfo);
     }
 
     @Override
@@ -93,12 +109,13 @@ public class AsanaSource extends HttpSource {
         return "Asana";
     }
 
-    @Override public Boundedness getBoundedness() {
+    @Override
+    public Boundedness getBoundedness() {
         if (JobMode.STREAMING.equals(jobContext.getJobMode())) {
-            throw new HttpConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+            throw new HttpConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Asana source only supports batch mode.");
         }
         return Boundedness.BOUNDED;
     }
-
 }
