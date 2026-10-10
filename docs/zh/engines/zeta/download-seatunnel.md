@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 在开始下载SeaTunnel之前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
 
-* 安装[Java](https://www.java.com/en/download/) (Java 8 或 11， 其他高于Java 8的版本理论上也可以工作) 以及设置 `JAVA_HOME`。
+* 安装[Java](https://www.java.com/en/download/) (Java 11 或 Java 17) 以及设置 `JAVA_HOME`。
 
 ## 步骤 2: 下载 SeaTunnel
 

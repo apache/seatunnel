@@ -397,6 +397,13 @@ with error `POSTGRES-04`; `snapshot-only` jobs do not use the slot and are not a
 Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
 again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
 
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
+
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.

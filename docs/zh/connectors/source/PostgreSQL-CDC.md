@@ -384,6 +384,12 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 因此需要从复制槽读取变更的任务会以错误 `POSTGRES-04` 失败；`snapshot-only` 任务不使用复制槽，不受影响。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
 删除该复制槽，并在不从 checkpoint 或 savepoint 恢复的情况下重新启动任务；如需重新做快照，请使用 `startup.mode = initial`。
 
+### 从保存点恢复时如何处理事务边界？
+
+恢复时会区分保存的事务提交记录与已处理的数据行，因为事务提交和下一事务的第一条数据行
+可能具有相同的 LSN。任务停止期间提交的数据仍可被重放。不包含操作类型的旧保存点仍可读取；
+为避免丢失数据，恢复时可能重放无法明确区分的边界记录。
+
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
