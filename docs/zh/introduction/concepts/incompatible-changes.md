@@ -361,6 +361,21 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 引擎行为变更
 
+- **行为变更：来源作业仍在运行时，带 `restoreMode` 的提交会被拒绝**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 `POST /submit-job`、`POST /submit-job/upload` 和
+    `POST /submit-jobs`，当请求携带 `restoreMode=CHECKPOINT|SAVEPOINT` 与 `restoreSourceJobId` 时。
+  - **说明**：显式恢复契约此前接受任意 `restoreSourceJobId`，包括仍处于 `RUNNING`、`DOING_SAVEPOINT`、
+    `CANCELING` 等未结束状态的作业，新作业会基于一个来源作业仍在不断推进的 checkpoint 启动。现在提交路径会在
+    master 上解析来源作业状态，只要来源作业尚未进入结束状态（`FINISHED`、`FAILED`、`CANCELED` 或
+    `SAVEPOINT_DONE`），就返回 HTTP `400`，报错信息为 `restoreSourceJobId=<id> is still <STATUS>; stop or cancel
+    the source job before restoring from its checkpoint state`。非数字的 `restoreSourceJobId` 现在也会以清晰的
+    `400` 信息被拒绝。集群未知的作业 ID 不会被该保护拒绝，仍然返回原有的 `No checkpoint found ...` 错误。旧的
+    `isStartWithSavePoint=true` 加 `jobId` 路径保持不变。
+  - **影响**：针对仍在运行的作业提交恢复请求的脚本或客户端，现在会收到 `400` 而不是一个新作业。从已完成、
+    失败、已取消或 savepoint 停止的作业恢复的行为与之前一致。
+  - **迁移指南**：先停止来源作业，例如通过 `POST /stop-job`（savepoint 恢复使用 `isStopWithSavePoint: true`，
+    checkpoint 恢复使用普通停止），等待其状态进入结束状态后再提交恢复请求。(#11613)
+
 - **行为变更：REST 日志内容接口默认最多返回 64 MB**
   - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
     以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。

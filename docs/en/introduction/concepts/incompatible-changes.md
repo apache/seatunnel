@@ -439,6 +439,24 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
 
 ### Engine Behavior Changes
 
+- **Behavior change: `restoreMode` submissions are refused while the source job is still active**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 `POST /submit-job`, `POST /submit-job/upload` and
+    `POST /submit-jobs` when the request carries `restoreMode=CHECKPOINT|SAVEPOINT` with `restoreSourceJobId`.
+  - **Description**: The explicit restore contract used to accept any `restoreSourceJobId`, including a job that
+    was still `RUNNING`, `DOING_SAVEPOINT`, `CANCELING` or otherwise not finished, and the new job would restore
+    from a checkpoint that the source kept advancing past. The submit path now resolves the source job status on
+    the master and returns HTTP `400` with `restoreSourceJobId=<id> is still <STATUS>; stop or cancel the source
+    job before restoring from its checkpoint state` unless the source job has reached an end state (`FINISHED`,
+    `FAILED`, `CANCELED` or `SAVEPOINT_DONE`). A non-numeric `restoreSourceJobId` is now also a `400` with a clear
+    message. A job id unknown to the cluster is not rejected by the guard and still fails with the existing
+    `No checkpoint found ...` error. The legacy `isStartWithSavePoint=true` with `jobId` path is unchanged.
+  - **Impact**: Scripts or clients that submitted a restore against a job that was still running now receive
+    `400` instead of a new job. Restores from finished, failed, cancelled or savepoint-stopped jobs behave as
+    before.
+  - **Migration Guide**: Stop the source job first, for example `POST /stop-job` with
+    `isStopWithSavePoint: true` for a savepoint restore or a plain stop for a checkpoint restore, wait for its
+    status to reach an end state, and then submit the restore. (#11613)
+
 - **Behavior change: the REST log-content endpoints return at most 64 MB by default**
   - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
     `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
