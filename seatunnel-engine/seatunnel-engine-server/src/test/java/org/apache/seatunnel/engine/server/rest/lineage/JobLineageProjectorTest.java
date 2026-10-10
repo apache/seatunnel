@@ -155,17 +155,27 @@ class JobLineageProjectorTest {
         JsonNode root = MAPPER.readTree(projectToString(physicalInfo));
 
         Assertions.assertEquals(Long.toString(jobId), root.get("jobId").asText());
-        Assertions.assertTrue(root.get("nodes").size() >= 3);
-        Assertions.assertTrue(root.get("edges").size() >= 2);
-        boolean hasTransform = false;
-        for (JsonNode node : root.get("nodes")) {
-            if ("TRANSFORM".equals(node.get("kind").asText())) {
-                hasTransform = true;
-                Assertions.assertEquals("NOT_APPLICABLE", node.get("datasetMetadata").asText());
-                Assertions.assertEquals(0, node.get("tablePaths").size());
-            }
-        }
-        Assertions.assertTrue(hasTransform);
+        Assertions.assertEquals(3, root.get("nodes").size(), root.toString());
+        Assertions.assertEquals(2, root.get("edges").size(), root.toString());
+        JsonNode source = root.get("nodes").get(0);
+        JsonNode transform = root.get("nodes").get(1);
+        JsonNode sink = root.get("nodes").get(2);
+        Assertions.assertEquals("SOURCE", source.get("kind").asText());
+        Assertions.assertEquals("TRANSFORM", transform.get("kind").asText());
+        Assertions.assertTrue(
+                transform
+                        .get("name")
+                        .asText()
+                        .contains("Transform[0]-FilterRowKind->Transform[1]-FilterRowKind"));
+        Assertions.assertEquals("NOT_APPLICABLE", transform.get("datasetMetadata").asText());
+        Assertions.assertEquals(0, transform.get("tablePaths").size());
+        Assertions.assertEquals("SINK", sink.get("kind").asText());
+        Assertions.assertEquals(
+                Arrays.asList(
+                        "1:" + source.get("id").asText() + ">" + transform.get("id").asText(),
+                        "1:" + transform.get("id").asText() + ">" + sink.get("id").asText()),
+                Arrays.asList(
+                        edgeKey(root.get("edges").get(0)), edgeKey(root.get("edges").get(1))));
         Assertions.assertEquals(0, root.get("warnings").size());
         Assertions.assertEquals(
                 root.toString(),
