@@ -371,6 +371,8 @@ public class CheckpointCoordinatorFailoverIT {
                             observedPipelineId.get(), ckIdBefore.get(), ckIdAfter.get()));
 
             clientJobProxy.cancelJob();
+            // Recovery must also resolve cancellation through the job completion future.
+            Assertions.assertEquals(JobStatus.CANCELED, clientJobProxy.waitForJobComplete());
         } finally {
             if (engineClient != null) {
                 engineClient.close();
