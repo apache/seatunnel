@@ -404,7 +404,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
-        taskGroupExecutionTracker.blockingFutures =
+        List<Future<?>> blockingFutures =
                 tasks.stream()
                         .map(
                                 t ->
@@ -425,7 +425,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         // on cancellation there is a race where the executor might not have started
         // the worker yet. This would result in taskletDone() never being called for
         // a worker.
-        uncheckRun(startedLatch::await);
+        try {
+            uncheckRun(startedLatch::await);
+        } finally {
+            // Early failure cleanup must not cancel a worker before run() releases startedLatch.
+            // Publish the futures after startup, then honor any failure or cancellation received
+            // while waiting so already-running tasks are still interrupted.
+            taskGroupExecutionTracker.blockingFutures = blockingFutures;
+            if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                taskGroupExecutionTracker.cancelAllTask();
+            }
+        }
     }
 
     /**
