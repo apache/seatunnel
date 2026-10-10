@@ -207,12 +207,10 @@ public class JsonToRowConverters implements Serializable {
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        // Return a fresh copy: jsonNode.binaryValue() returns the
-                        // internal array reference for a BinaryNode, so converting a
-                        // cached default node would otherwise share one byte[] across
-                        // every row that takes the default.
+                        // BinaryNode exposes its internal array, so cached binary defaults
+                        // need a copy per row. TextNode already decodes a fresh array.
                         byte[] bytes = convertToBytes(jsonNode);
-                        return bytes == null ? null : bytes.clone();
+                        return jsonNode.isBinary() && bytes != null ? bytes.clone() : bytes;
                     }
                 };
             case DECIMAL:

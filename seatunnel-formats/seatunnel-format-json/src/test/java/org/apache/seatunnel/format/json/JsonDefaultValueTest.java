@@ -586,6 +586,19 @@ public class JsonDefaultValueTest {
         Assertions.assertNotSame(blob1, blob2); // distinct instances per row
         Assertions.assertArrayEquals(new byte[] {1, 2}, blob1);
         Assertions.assertArrayEquals(new byte[] {1, 2}, blob2);
+
+        // Mutating one row must not change another row or the cached binary default.
+        blob1[0] = 9;
+        Assertions.assertArrayEquals(new byte[] {1, 2}, blob2);
+        SeaTunnelRow row3 = deserializationSchema.deserialize("{\"blob\":null}".getBytes());
+        byte[] blob3 = (byte[]) row3.getField(2);
+        Assertions.assertNotSame(blob2, blob3);
+        Assertions.assertArrayEquals(new byte[] {1, 2}, blob3);
+
+        // A normal base64 text payload is decoded instead of using the binary default.
+        SeaTunnelRow rowWithValue =
+                deserializationSchema.deserialize("{\"blob\":\"AwQ=\"}".getBytes());
+        Assertions.assertArrayEquals(new byte[] {3, 4}, (byte[]) rowWithValue.getField(2));
     }
 
     @Test
