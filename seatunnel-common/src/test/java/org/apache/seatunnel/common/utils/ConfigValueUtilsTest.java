@@ -124,15 +124,13 @@ public class ConfigValueUtilsTest {
     }
 
     @Test
-    void testParseValueAsStringWithJsonFormatLike() {
-        // right json format should end with '}'
+    void testParseValueThrowsForBalancedNonJson() {
         String value = "{k1,k2,[k3,k4]}";
         Assertions.assertThrows(ConfigException.class, () -> ConfigValueUtils.parseValue(value));
     }
 
     @Test
     void testParseValueAsStringWithJsonStringFormatLike() {
-        // right json format should end with '}'
         String value = "\"{k1,k2,[k3,k4]}\"";
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertEquals(result, "{k1,k2,[k3,k4]}");
