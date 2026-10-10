@@ -110,10 +110,14 @@ public final class PostgresPublishedColumns {
             }
             return result;
         } catch (Exception e) {
-            log.warn(
-                    "Failed to read the columns published by '{}', keeping all table columns",
+            log.error(
+                    "Failed to read columns published by '{}'; keeping all table columns. "
+                            + "Unpublished columns may be written as NULL during streaming or cause a "
+                            + "schema-change failure. Check publication access and JDBC connectivity. "
+                            + "Failure type: {}, SQL state: {}",
                     publication,
-                    e);
+                    e.getClass().getSimpleName(),
+                    e instanceof SQLException ? ((SQLException) e).getSQLState() : null);
             return tables;
         }
     }

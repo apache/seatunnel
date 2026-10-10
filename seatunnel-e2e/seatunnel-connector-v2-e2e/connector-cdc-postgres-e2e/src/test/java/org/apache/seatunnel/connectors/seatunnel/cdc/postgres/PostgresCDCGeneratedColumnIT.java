@@ -55,9 +55,12 @@ import static org.awaitility.Awaitility.given;
 public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestResource {
 
     private static final String POSTGRES_HOST = "postgres_generated_column_e2e";
+    private static final String COLUMN_LIST_HOST = "postgres_column_list_e2e";
     private static final String DATABASE = "generated_cdc";
     private static final String SOURCE_TABLE = "public.orders";
     private static final String SINK_TABLE = "public.sink_orders";
+    private static final String COLUMN_LIST_SOURCE_TABLE = "public.column_orders";
+    private static final String COLUMN_LIST_SINK_TABLE = "public.sink_column_orders";
     private static final String POSTGRES_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Postgres-CDC/lib";
 
     // generated columns need PostgreSQL 12+
@@ -65,6 +68,16 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
                     .withNetwork(NETWORK)
                     .withNetworkAliases(POSTGRES_HOST)
+                    .withUsername("postgres")
+                    .withPassword("postgres")
+                    .withDatabaseName(DATABASE)
+                    .withLogConsumer(new Slf4jLogConsumer(log))
+                    .withCommand("postgres", "-c", "wal_level=logical", "-c", "fsync=off");
+
+    private static final PostgreSQLContainer<?> COLUMN_LIST_CONTAINER =
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+                    .withNetwork(NETWORK)
+                    .withNetworkAliases(COLUMN_LIST_HOST)
                     .withUsername("postgres")
                     .withPassword("postgres")
                     .withDatabaseName(DATABASE)
@@ -80,7 +93,7 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
     @BeforeAll
     @Override
     public void startUp() {
-        Startables.deepStart(Stream.of(POSTGRES_CONTAINER)).join();
+        Startables.deepStart(Stream.of(POSTGRES_CONTAINER, COLUMN_LIST_CONTAINER)).join();
         executeSql(
                 "CREATE TABLE "
                         + SOURCE_TABLE
@@ -88,12 +101,28 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
                         + " total NUMERIC(10, 2) GENERATED ALWAYS AS (price * 2) STORED)");
         executeSql("ALTER TABLE " + SOURCE_TABLE + " REPLICA IDENTITY FULL");
         executeSql("INSERT INTO " + SOURCE_TABLE + " (id, price) VALUES (1, 1.00), (2, 2.00)");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE TABLE "
+                        + COLUMN_LIST_SOURCE_TABLE
+                        + " (id INT PRIMARY KEY, price NUMERIC(10, 2), note TEXT)");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "INSERT INTO "
+                        + COLUMN_LIST_SOURCE_TABLE
+                        + " (id, price, note) VALUES (1, 1.00, 'first'), (2, 2.00, 'second')");
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "CREATE PUBLICATION seatunnel_column_list FOR TABLE "
+                        + COLUMN_LIST_SOURCE_TABLE
+                        + " (id, price)");
     }
 
     @AfterAll
     @Override
     public void tearDown() {
         POSTGRES_CONTAINER.close();
+        COLUMN_LIST_CONTAINER.close();
     }
 
     @TestTemplate
@@ -141,15 +170,77 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
                         .isEmpty());
     }
 
-    private Connection getJdbcConnection() throws SQLException {
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently only Zeta supports Postgres-CDC schema evolution")
+    public void testPublicationColumnListExcludesUnpublishedColumn(TestContainer container) {
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/postgrescdc_to_postgres_with_column_list.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                COLUMN_LIST_CONTAINER,
+                                                "SELECT id, price FROM "
+                                                        + COLUMN_LIST_SOURCE_TABLE),
+                                        query(
+                                                COLUMN_LIST_CONTAINER,
+                                                "SELECT id, price FROM "
+                                                        + COLUMN_LIST_SINK_TABLE)));
+
+        executeSql(
+                COLUMN_LIST_CONTAINER,
+                "INSERT INTO "
+                        + COLUMN_LIST_SOURCE_TABLE
+                        + " (id, price, note) VALUES (3, 3.00, 'third')");
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                COLUMN_LIST_CONTAINER,
+                                                "SELECT id, price FROM "
+                                                        + COLUMN_LIST_SOURCE_TABLE),
+                                        query(
+                                                COLUMN_LIST_CONTAINER,
+                                                "SELECT id, price FROM "
+                                                        + COLUMN_LIST_SINK_TABLE)));
+        Assertions.assertTrue(
+                query(
+                                COLUMN_LIST_CONTAINER,
+                                "SELECT column_name FROM information_schema.columns"
+                                        + " WHERE table_name = 'sink_column_orders'"
+                                        + " AND column_name = 'note'")
+                        .isEmpty());
+    }
+
+    private Connection getJdbcConnection(PostgreSQLContainer<?> postgres) throws SQLException {
         return DriverManager.getConnection(
-                POSTGRES_CONTAINER.getJdbcUrl(),
-                POSTGRES_CONTAINER.getUsername(),
-                POSTGRES_CONTAINER.getPassword());
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
     }
 
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection();
+        executeSql(POSTGRES_CONTAINER, sql);
+    }
+
+    private void executeSql(PostgreSQLContainer<?> postgres, String sql) {
+        try (Connection connection = getJdbcConnection(postgres);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (SQLException e) {
@@ -158,7 +249,11 @@ public class PostgresCDCGeneratedColumnIT extends TestSuiteBase implements TestR
     }
 
     private List<List<Object>> query(String sql) {
-        try (Connection connection = getJdbcConnection();
+        return query(POSTGRES_CONTAINER, sql);
+    }
+
+    private List<List<Object>> query(PostgreSQLContainer<?> postgres, String sql) {
+        try (Connection connection = getJdbcConnection(postgres);
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql + " ORDER BY 1")) {
             List<List<Object>> result = new ArrayList<>();
