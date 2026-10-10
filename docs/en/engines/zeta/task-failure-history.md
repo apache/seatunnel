@@ -8,6 +8,7 @@ Changes since `e944f1e3`:
 - What each dropped operation leaves behind is now a table (R3), and the ordering statements now cover only operations accepted into the queue.
 - Each history map now has one row naming its writers, fence, expiry, cleanup owner and persistence (R4).
 - The REST resolution order is now a decision table that handles an absent job state (R5).
+- The existing security, redaction, worker-attribution and REST input rules are collected in R6 and R7 without changing their contract.
 - Entry creation and adoption are ordered before any capture for the same job, including master-recovery captures during `JobMaster.init` (Ownership section and R4).
 - The wire-compatibility fixtures are delivered as a first implementation slice, before any field is added (Compatibility).
 
@@ -562,6 +563,25 @@ Checks run top to bottom. The job state is tested for absence before `isEndState
 | Absent | Any | Any | Absent, and no finished job state | `404` |
 
 A leftover running entry never makes an unknown or expired job appear known.
+
+### R6. Security and persisted text
+
+| Boundary | Enforcement point / writer | Rule and limit |
+|---|---|---|
+| REST authentication and authorization | Existing `BasicAuthFilter` on the `JobInfoServlet` mappings; the handler uses direct `REQUEST` dispatch | No endpoint-specific authentication or per-job/per-tenant authorization. `enable-basic-auth: false` by default leaves the HTTP endpoint on port 8080 readable by anyone who can reach it. The enabled filter uses one shared credential without roles; narrower access belongs at the gateway or network boundary |
+| Other access paths | Existing `/job-info/{jobId}` `errorMsg`, node-log endpoints and Hazelcast member port | Redaction is defence in depth, not an access boundary. These paths can expose the same failures unredacted; the Hazelcast member port must remain on a trusted network. Enabling the built-in Hazelcast REST API also exposes map values outside `BasicAuthFilter` |
+| Running and finished history text | The consumer redacts the whole captured text before each write to `engine_runningJobFailureHistory` or `engine_finishedJobFailureHistory` | Covers worker-reported, deployment, node-loss, master-recovery, pipeline and terminal-snapshot paths. Apply the patterns and non-goals in Security and Input Validation, and the size and post-redaction byte-length rules in Text Processing. Stored messages are at most 4 KiB and stack traces at most 64 KiB; finished snapshots re-truncate stack traces to 16 KiB. The master redacts worker text independently; existing `errorMsg` behavior is unchanged |
+| Worker attribution | Capture and both history-map writers; REST response writer | Do not copy worker `host:port` from execution metadata into running or finished failure-history attribution fields, and do not expose such fields in REST. Sanitized exception text may still mention an address; existing execution metadata and `/pending-jobs` are unchanged |
+
+### R7. REST route and input validation
+
+| Input / boundary | Enforcement point | Result |
+|---|---|---|
+| Raw request URI | `JobInfoServlet` compares `getRequestURI()` with the literal `getContextPath() + getServletPath()` prefix, then matches the remainder against `^/([0-9]{1,19})/failures$` | Only the exact, case-sensitive `/job-info/{jobId}/failures` route is served. `%`, `;`, `\`, empty or dot segments, trailing slashes, alias `/running-job/{jobId}/failures` and extra segments receive controlled `404`; legacy single-ID routes retain their existing behavior, including malformed-ID `400` |
+| Matched job ID | Handler parses the ASCII digit capture as a positive signed 64-bit value | Zero or overflow receives `400` |
+| `limit` on a matched path | Handler accepts one positive ASCII-decimal value matching `^[0-9]{1,10}$` | Absent: default 100. Values above 100: cap at 100. Empty, repeated, zero, negative, signed, non-numeric or Unicode-digit values receive `400`; unknown query parameters are ignored. `limit` applies to `failures`, not `attempts` |
+| HTTP method | Failures-route handler | `GET` only; other methods receive handler-written `405` |
+| Non-200 response | Failures-route handler | Fixed JSON body from `setStatus`, never `sendError`, request input or exception text. Map-read `RuntimeException` receives fixed `503`; responses set JSON UTF-8 content type and `X-Content-Type-Options: nosniff` |
 
 ## Acceptance Criteria
 

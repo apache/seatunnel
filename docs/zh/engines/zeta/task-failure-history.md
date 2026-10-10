@@ -8,6 +8,7 @@
 - 每种被丢弃操作留下的结果改为表格（R3），顺序表述只覆盖已被队列接受的操作；
 - 每个历史 map 以一行列出其写入方、隔离条件、过期、清理负责方和持久化（R4）；
 - REST 解析顺序改为处理作业状态缺失情况的决策表（R5）；
+- 现有安全、脱敏、worker 归因和 REST 输入规则汇总到 R6 和 R7，契约不变；
 - 同一作业的条目创建和接管先于任何捕获，包括 `JobMaster.init` 期间的 master 恢复捕获（“所有权”一节和 R4）；
 - 序列化兼容 fixture 作为第一个实现切片交付，早于任何字段的增加（“兼容性”）。
 
@@ -530,6 +531,25 @@ UI 仅以纯文本渲染 `message`、`stackTrace`、`taskName` 和 `exceptionTyp
 | 不存在 | 任意 | 任意 | 不存在，且没有已完成作业状态 | `404` |
 
 残留的运行中条目绝不会让未知或已过期的作业被误判为已知。
+
+### R6. 安全与持久化文本
+
+| 边界 | 执行位置 / 写入方 | 规则和上限 |
+|---|---|---|
+| REST 认证和授权 | `JobInfoServlet` 映射上现有的 `BasicAuthFilter`；处理器直接处理 `REQUEST` 分派 | 不新增端点专用认证或按作业、租户授权。`enable-basic-auth: false` 是默认值，此时能访问 8080 HTTP 端口的任何人都能读取该端点。启用过滤器后仍只有一个不区分角色的共享凭据；更细的访问控制必须在网关或网络边界执行 |
+| 其他访问路径 | 现有 `/job-info/{jobId}` 的 `errorMsg`、节点日志端点和 Hazelcast 成员端口 | 脱敏是纵深防御而非访问边界。这些路径仍可能暴露未脱敏的同一失败信息；Hazelcast 成员端口必须留在可信网络。启用 Hazelcast 内置 REST API 也会在 `BasicAuthFilter` 之外暴露 map 值 |
+| 运行中及已完成历史文本 | 消费线程在每次写入 `engine_runningJobFailureHistory` 或 `engine_finishedJobFailureHistory` 前对完整捕获文本脱敏 | 覆盖 worker 上报、部署、节点丢失、master 恢复、pipeline 和终态快照路径。应用“安全与输入校验”中的模式和非目标，以及“文本处理”中的大小上限和脱敏后字节长度规则。存储的消息最多 4 KiB、堆栈最多 64 KiB；已完成快照将堆栈再次截断到 16 KiB。master 独立对 worker 文本脱敏；现有 `errorMsg` 行为不变 |
+| Worker 归因 | 捕获代码、两个历史 map 的写入方及 REST 响应写入方 | 不将执行元数据中的 worker `host:port` 复制为运行中或已完成失败历史的归因字段，也不在 REST 中暴露此类字段。已脱敏的异常文本仍可能提及地址；现有执行元数据和 `/pending-jobs` 不变 |
+
+### R7. REST 路由与输入校验
+
+| 输入 / 边界 | 执行位置 | 结果 |
+|---|---|---|
+| 原始请求 URI | `JobInfoServlet` 将 `getRequestURI()` 与字面前缀 `getContextPath() + getServletPath()` 比较，然后要求剩余部分匹配 `^/([0-9]{1,19})/failures$` | 只处理精确匹配、区分大小写的 `/job-info/{jobId}/failures` 路由。包含 `%`、`;`、`\`、空路径段或点路径段、末尾斜杠，以及别名 `/running-job/{jobId}/failures` 和额外路径段，均返回受控的 `404`；旧的单 ID 路由保留现有行为，包括非法 ID 的 `400` |
+| 匹配的 job ID | 处理器将捕获的 ASCII 数字解析为正的有符号 64 位值 | 零或溢出返回 `400` |
+| 匹配路径上的 `limit` | 处理器只接受一个匹配 `^[0-9]{1,10}$` 的正 ASCII 十进制值 | 缺失时默认 100；大于 100 时上限为 100。空值、重复、零、负数、带符号、非数字或 Unicode 数字返回 `400`；忽略未知查询参数。`limit` 只限制 `failures`，不限制 `attempts` |
+| HTTP 方法 | failures 路由处理器 | 只处理 `GET`；其他方法由处理器写出 `405` |
+| 非 200 响应 | failures 路由处理器 | 使用 `setStatus` 写固定 JSON 响应体，不使用 `sendError`、请求输入或异常文本。map 读取时的 `RuntimeException` 返回固定 `503`；响应设置 JSON UTF-8 类型和 `X-Content-Type-Options: nosniff` |
 
 ## 验收标准
 
