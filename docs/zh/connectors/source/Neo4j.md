@@ -43,6 +43,18 @@ Neo4j 源连接器通过执行 Cypher 查询从 Neo4j 读取数据，并把查�
 | Map           | MAP                |
 | Null          | NULL               |
 
+## 连接预检查
+
+使用自己的作业配置执行 `bin/seatunnel.sh --config <your-job.conf> --dry-run connect`。
+
+Source 复用现有驱动的连接和认证配置，并返回与正常 Source 相同的单表或 `tables_configs` 配置 schema。
+
+- 临时驱动调用 `verifyConnectivityAsync()`，不创建 session，不执行用户 Cypher，不读取图数据，也不写入数据。
+- 成功表示驱动连接及握手时执行的认证成功，**不代表**配置的数据库存在、拥有数据库或查询权限、Cypher 语法正确、结果字段/类型正确，或 schema 与存储数据匹配。无效查询或不存在的 `database` 仍可能通过此连接检查。
+- 驱动连接和验证等待各自最多 15 秒，保留更小的正数 `max_connection_timeout`；零值在预检查中也受到限制。失败后仍会发起驱动关闭，最多等待 5 秒。DNS 解析由 JVM 解析器控制。
+- 重试和超时限制仅作用于临时驱动。正常 Source 配置、执行及 Sink 行为保持不变。
+- 校验错误不包含原始 URI、驱动原始错误或含凭据的异常原因。Sink 连通性仍不支持。
+
 ## 源选项
 
 | 名称                         | 类型     | 是否必填 | 默认值 | 描述                                                                                                  |
