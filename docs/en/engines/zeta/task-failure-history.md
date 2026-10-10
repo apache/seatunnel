@@ -455,7 +455,7 @@ It renders `message`, `stackTrace`, `taskName` and `exceptionType` as text only.
 
 ## Compatibility
 
-For valid existing job-detail requests the feature is purely additive. Invalid multi-segment paths change from numeric-parse `400` to `404`, as specified above.
+For valid existing job-detail requests the feature is purely additive. Invalid multi-segment paths that reach the failures handler change from numeric-parse `400` to its `404`; Jetty may reject or normalize other requests before dispatch, as specified above.
 
 - Existing jobs need no configuration changes.
 - Existing REST fields and the final `errorMsg` remain available.
