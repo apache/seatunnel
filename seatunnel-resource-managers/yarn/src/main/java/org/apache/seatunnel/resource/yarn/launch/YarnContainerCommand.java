@@ -62,6 +62,7 @@ final class YarnContainerCommand {
         List<String> command = new ArrayList<>();
         command.add(javaExecutable());
         command.add("-Xmx" + heapMb(memoryMb) + "m");
+        command.add("-XX:+ExitOnOutOfMemoryError");
         command.add("-Dseatunnel.home=\"" + workingDirectory + "\"/" + quote(home));
         command.add("-Dhazelcast.logging.type=log4j2");
         command.add(

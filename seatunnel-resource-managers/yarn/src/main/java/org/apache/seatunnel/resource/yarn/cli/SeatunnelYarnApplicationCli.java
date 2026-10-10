@@ -268,8 +268,11 @@ public final class SeatunnelYarnApplicationCli {
         } finally {
             removeShutdownHook(shutdown);
             closeDriverIfNeeded(server, driver);
-            master.shutdown();
-            stopped.countDown();
+            try {
+                master.shutdown();
+            } finally {
+                stopped.countDown();
+            }
         }
     }
 

@@ -298,11 +298,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void deleteWorkers(String id) throws ApiException {
-        deletePods(
-                KubernetesResourceFactory.selector(id)
-                        + ","
-                        + KubernetesResourceFactory.ROLE_LABEL
-                        + "=worker");
+        deletePods(KubernetesResourceFactory.selector(id, KubernetesConstants.WORKER_ROLE));
     }
 
     private void deletePods(String selector) throws ApiException {

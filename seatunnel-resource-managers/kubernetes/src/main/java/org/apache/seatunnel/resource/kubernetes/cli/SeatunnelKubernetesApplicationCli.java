@@ -222,7 +222,9 @@ public final class SeatunnelKubernetesApplicationCli {
                 () -> {
                     owner.interrupt();
                     try {
-                        stopped.await(155, TimeUnit.SECONDS);
+                        stopped.await(
+                                KubernetesConstants.TERMINATION_GRACE_PERIOD_SECONDS,
+                                TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }

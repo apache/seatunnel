@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-
-import org.apache.arrow.util.VisibleForTesting;
 
 import com.google.auto.service.AutoService;
 
