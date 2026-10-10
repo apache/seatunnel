@@ -352,6 +352,17 @@ select SPLIT(test,';') as arrays
 MURMUR64('hello world')
 MURMUR64(NAME)
 
+### MD5
+
+```MD5(string|binary) -> STRING```
+
+计算输入字符串或二进制值的 MD5 哈希值，返回 32 字符的小写十六进制字符串，与 Hive 的 `md5` 函数兼容。如果输入参数为 null，则返回 null。
+
+示例:
+
+MD5('hello world')
+MD5(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -1158,6 +1169,43 @@ AES_DECRYPT(cipher, 'mySecretPass')
 AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
 
 AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
+## JSON 函数
+
+### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+从 JSON 字符串中提取值，并以字符串形式返回。在 Zeta 与 Calcite 两种 SQL 引擎中均可用。
+
+支持的 path 语法：
+
+- `$` — 根文档
+- `.field` — 对象字段访问
+- `[n]` — 数组下标（非负整数）
+- `['field']` / `["field"]` — 括号字段访问（用于包含 `.` 或 `[` 的键）
+
+不支持通配符（`[*]`、`.*`）、递归下降（`..`）和过滤表达式（`[?(...)]`）。
+
+返回语义：
+
+- 任一输入为 null（`json` 或 `path`）→ `null`
+- 非法 JSON → `null`
+- path 未命中 / 数组下标越界 → `null`
+- JSON 的 `null` 值 → `null`
+- 字符串值 → 去掉外层引号后的字符串内容
+- 数字或布尔值 → 转为文本后的值
+- 对象或数组 → 该节点的原始（紧凑）JSON 文本
+
+示例：
+
+GET_JSON_OBJECT('{"a":"hello","b":[10,20]}', '$.a')
+
+GET_JSON_OBJECT('{"a":{"b":1}}', '$.a')
+
+GET_JSON_OBJECT('{"b":[10,20]}', '$.b[1]')
+
+SELECT CASE WHEN GET_JSON_OBJECT(name, '$.key1') = 'value1' THEN 'A' ELSE 'B' END AS r FROM dual
 
 ## System Functions
 

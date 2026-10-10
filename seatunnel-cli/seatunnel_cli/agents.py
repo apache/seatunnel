@@ -664,28 +664,13 @@ def dry_run_config(config_str: str) -> dict:
                 pass
 
     # ── Phase 3: REST API validation ──
-    from .connectors import _check_engine, _ENGINE_API_BASE
+    from .connectors import _check_engine
     if _check_engine():
-        try:
-            import urllib.request
-            # Use submit-job endpoint with a dry-run approach:
-            # We validate by checking if config parses on server side
-            # without actually starting the job
-            url = f"{_ENGINE_API_BASE}/submit-job"
-            headers = {"Content-Type": "application/json"}
-            # Submit with an invalid job name pattern to trigger validation
-            # without actual execution — this is a best-effort approach
-            # since SeaTunnel doesn't have a dedicated validate endpoint
-            data = json.dumps({
-                "env": {"job.mode": "BATCH"},
-                "params": {"config": config_str, "format": "hocon"},
-            }).encode("utf-8")
-
-            # For now, just verify the config format is accepted by the API
-            # A full submit-and-cancel approach would be too risky
-            result["phase3_api"] = "SKIPPED (no dedicated validate endpoint)"
-        except Exception as e:
-            result["phase3_api"] = f"ERROR: {e}"
+        # The engine has no validate-only endpoint, and submitting a real job to
+        # validate it is not an option, so there is nothing to call here. This
+        # used to build a request URL, headers and body and then discard them
+        # without ever sending anything; only the status below had any effect.
+        result["phase3_api"] = "SKIPPED (no dedicated validate endpoint)"
 
     # ── Summary ──
     phases_passed = ["Local: " + local_result]
