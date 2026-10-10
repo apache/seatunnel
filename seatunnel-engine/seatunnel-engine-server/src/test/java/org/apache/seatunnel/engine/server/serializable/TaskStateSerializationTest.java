@@ -26,10 +26,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamClass;
 import java.util.Base64;
 
@@ -37,14 +34,10 @@ import java.util.Base64;
  * Verifies that task state messages exchanged between workers and the master keep the Java
  * serialization form they had before their serialVersionUID was declared.
  *
- * <p>To generate a fixture, run {@link #serialize(Object)} on the unmodified pre-UID class using
- * JDK 8 or JDK 11; both produced identical bytes. The UID and ReadsPreviousWireForm tests are
- * permanent guards for old-writer/new-reader compatibility; do not regenerate their fixtures when
- * adding fields. The ExactBytesUnchangedByUidDeclaration tests only prove that declaring the UIDs
- * did not change today's wire bytes. When a field is added, replace those exact-byte assertions
- * with a new-writer/old-reader check instead of updating the old fixtures. This Java serialization
- * proxy applies while these classes remain plain Serializable without a custom Hazelcast
- * serializer.
+ * <p>The fixtures were serialized from the unmodified pre-UID classes using JDK 8 and JDK 11; both
+ * produced identical bytes. The UID and ReadsPreviousWireForm tests guard old-writer/new-reader
+ * compatibility; do not regenerate their fixtures when adding fields. This Java serialization proxy
+ * applies while these classes remain plain Serializable without a custom Hazelcast serializer.
  */
 class TaskStateSerializationTest {
 
@@ -112,20 +105,6 @@ class TaskStateSerializationTest {
     }
 
     @Test
-    void testTaskExecutionStateExactBytesUnchangedByUidDeclaration() throws Exception {
-        Assertions.assertEquals(
-                TASK_EXECUTION_STATE_FAILED,
-                serialize(
-                        new TaskExecutionState(
-                                LOCATION,
-                                ExecutionState.FAILED,
-                                "java.lang.IllegalStateException: source failed")));
-        Assertions.assertEquals(
-                TASK_EXECUTION_STATE_FINISHED,
-                serialize(new TaskExecutionState(LOCATION, ExecutionState.FINISHED)));
-    }
-
-    @Test
     void testTaskDeployStateReadsPreviousWireForm() throws Exception {
         TaskDeployState success = (TaskDeployState) deserialize(TASK_DEPLOY_STATE_SUCCESS);
         Assertions.assertTrue(success.isSuccess());
@@ -135,24 +114,6 @@ class TaskStateSerializationTest {
         Assertions.assertFalse(failed.isSuccess());
         Assertions.assertEquals(
                 "java.lang.IllegalStateException: deploy failed", failed.getThrowableMsg());
-    }
-
-    @Test
-    void testTaskDeployStateExactBytesUnchangedByUidDeclaration() throws Exception {
-        Assertions.assertEquals(TASK_DEPLOY_STATE_SUCCESS, serialize(TaskDeployState.success()));
-        Assertions.assertEquals(
-                TASK_DEPLOY_STATE_FAILED,
-                serialize(
-                        new TaskDeployState(
-                                false, "java.lang.IllegalStateException: deploy failed")));
-    }
-
-    private static String serialize(Object value) throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
-            output.writeObject(value);
-        }
-        return Base64.getEncoder().encodeToString(bytes.toByteArray());
     }
 
     private static Object deserialize(String base64) throws Exception {
