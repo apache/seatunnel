@@ -35,6 +35,17 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### SQL 和 Calcite 向量运算
+
+- **行为修正**：`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、
+  `L2_DISTANCE` 和 `VECTOR_NORMALIZE` 在中间乘法或减法之前将 float 元素提升为 double。
+  有限输入不再仅因中间 float 运算溢出或下溢而得到错误的无穷大、NaN 或零，
+  结果的低位数字也可能发生变化。
+- **迁移建议**：重放数据前，请检查阈值以及此前计算的向量指标或归一化向量。
+  配置项、类型、模式和状态格式均不变。空输入和实际零向量的处理方式不变。
+  未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
+  归一化输出元素仍为 float，随机投影运算不受影响。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
