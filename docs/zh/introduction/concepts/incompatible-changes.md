@@ -25,6 +25,16 @@
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
 
+### DuckDB 时间戳 Source 值
+
+DuckDB 的 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` Source 值现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。四种时间戳类型均上报其原生小数秒精度（`TIMESTAMP` 6、`TIMESTAMP_S` 0、`TIMESTAMP_MS` 3、`TIMESTAMP_NS` 9）。MySQL 自动建表会使用该精度，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。
+
+标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
+
+历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，类型化读取也不能保证这些边界值无损。在测试使用的驱动中，`getString` 返回的是 `java.sql.Timestamp` 渲染的文本，因此读取文本再解析也无法恢复原始值。
+
+如果在 Source 查询中将时间戳投影为字符串，并在下游保持 `STRING` 类型，请先验证该转换在所用 DuckDB 版本上的结果。测试使用的引擎 v1.3.1 对 `TIMESTAMP_NS` 执行 `CAST(... AS VARCHAR)` 时，可能将小数部分的前导零输出为 NUL 字节；例如 `2024-06-15 12:34:56.000000001` 会在 `001` 前输出 6 个 NUL 字节。不能假定该转换无损。
+
 ### DuckDB BIT 和 ENUM 自动建表
 
 - Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。

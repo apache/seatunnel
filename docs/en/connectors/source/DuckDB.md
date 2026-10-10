@@ -50,6 +50,14 @@ and reading multiple tables in one job through `table_list`. The generated hash 
 
 ## Data Type Mapping
 
+`TIMESTAMP`, `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` map to SeaTunnel `TIMESTAMP` and keep their native fractional-second precision (6, 0, 3 and 9 digits). When SeaTunnel generates the target DDL, MySQL keeps at most 6 fractional digits, so a `TIMESTAMP_NS` source column becomes `DATETIME(6)` and cannot retain all 9 source digits. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-timestamp-source-values) for the upgrade guidance.
+
+Standard `TIMESTAMP` values are read as `LocalDateTime`, avoiding JVM time-zone and Gregorian-cutover normalization. With SeaTunnel's tested DuckDB JDBC version (1.3.1.0), the three aliases reconcile UTC-calendar and plain timestamp reads across DST boundaries, preferring the UTC value only when it falls in a spring-forward gap in the JVM default zone. Earlier alias values before 1970-01-01 retain the previous timestamp-getter behavior. This applies to `table_path`, `table_list` and `query` reads. Errors reading a standard `TIMESTAMP` are reported instead of silently switching to a lossy fallback.
+
+Historical alias dates, pre-1970 fractional-second values and `infinity` remain subject to driver limitations. The typed path does not make these edge cases lossless. In the tested driver, `getString` renders a `java.sql.Timestamp`, so reading text and parsing it does not recover the original value.
+
+If you project a timestamp as a string in the source query and keep it a `STRING` downstream, validate that conversion on your DuckDB version first. With the tested engine v1.3.1, `CAST(TIMESTAMP_NS AS VARCHAR)` can emit NUL bytes in place of leading fractional zeros; for example, `2024-06-15 12:34:56.000000001` produces six NUL bytes before `001`. Do not assume this cast is lossless. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-timestamp-source-values).
+
 DuckDB scalar `BIT` and `ENUM` values map to `STRING`. When the catalog reports no length, SeaTunnel leaves the length unspecified; it no longer assumes a one-character BIT or a 255-character ENUM. This also applies to named ENUM types created with `CREATE TYPE`. For example, MySQL automatic DDL uses `LONGTEXT` for these columns. Existing destination tables are not resized automatically. List declarations such as `ENUM(...)[]` retain their existing fallback mapping.
 
 MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a `BIT` or `ENUM` column is part of the primary key, pre-create a compatible target table with an explicitly bounded key type that fits the source data and MySQL index limits, and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-bit-and-enum-automatic-ddl).
@@ -71,7 +79,7 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 | BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.

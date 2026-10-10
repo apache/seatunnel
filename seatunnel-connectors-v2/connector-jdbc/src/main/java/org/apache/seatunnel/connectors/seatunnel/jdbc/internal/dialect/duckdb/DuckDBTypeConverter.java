@@ -72,6 +72,9 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DUCKDB_DATE = "DATE";
     public static final String DUCKDB_TIME = "TIME";
     public static final String DUCKDB_TIMESTAMP = "TIMESTAMP";
+    public static final String DUCKDB_TIMESTAMP_S = "TIMESTAMP_S";
+    public static final String DUCKDB_TIMESTAMP_MS = "TIMESTAMP_MS";
+    public static final String DUCKDB_TIMESTAMP_NS = "TIMESTAMP_NS";
     public static final String DUCKDB_TIMESTAMP_WITH_TZ = "TIMESTAMP WITH TIME ZONE";
 
     // Other
@@ -84,6 +87,13 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_PRECISION = 18;
     public static final int MAX_SCALE = 38;
     public static final int DEFAULT_SCALE = 3;
+
+    // Native fractional-second precision of DuckDB's timestamp types. Without these values every
+    // downstream DDL generator (for example MySQL DATETIME) silently drops the fractional seconds.
+    public static final int TIMESTAMP_SCALE = 6;
+    public static final int TIMESTAMP_S_SCALE = 0;
+    public static final int TIMESTAMP_MS_SCALE = 3;
+    public static final int TIMESTAMP_NS_SCALE = 9;
 
     public static final DuckDBTypeConverter INSTANCE = new DuckDBTypeConverter();
 
@@ -168,6 +178,19 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_S:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_S_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_MS:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_MS_SCALE);
+                break;
+            case DUCKDB_TIMESTAMP_NS:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(TIMESTAMP_NS_SCALE);
                 break;
             case DUCKDB_TIMESTAMP_WITH_TZ:
                 builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);

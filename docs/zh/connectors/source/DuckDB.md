@@ -47,6 +47,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
+`TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`，并保留其原生小数秒精度（6、0、3、9 位）。SeaTunnel 自动生成 MySQL 建表语句时，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级指导见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-时间戳-source-值)。
+
+标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
+
+历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，类型化读取也不能保证这些边界值无损。在测试使用的驱动中，`getString` 返回的是 `java.sql.Timestamp` 渲染的文本，因此读取文本再解析也无法恢复原始值。
+
+如果在 Source 查询中将时间戳投影为字符串，并在下游保持 `STRING` 类型，请先验证该转换在所用 DuckDB 版本上的结果。测试使用的引擎 v1.3.1 对 `TIMESTAMP_NS` 执行 `CAST(... AS VARCHAR)` 时，可能将小数部分的前导零输出为 NUL 字节；例如 `2024-06-15 12:34:56.000000001` 会在 `001` 前输出 6 个 NUL 字节。不能假定该转换无损。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-时间戳-source-值)。
+
 DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
 
 MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。如果 `BIT` 或 `ENUM` 列属于主键，请提前创建兼容的目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-bit-和-enum-自动建表)。
@@ -68,7 +76,7 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
+| TIMESTAMP<br/>TIMESTAMP_S<br/>TIMESTAMP_MS<br/>TIMESTAMP_NS<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。

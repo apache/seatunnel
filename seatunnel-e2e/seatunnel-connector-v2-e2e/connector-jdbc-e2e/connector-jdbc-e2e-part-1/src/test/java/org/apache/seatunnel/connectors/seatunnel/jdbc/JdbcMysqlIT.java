@@ -40,6 +40,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
@@ -887,5 +888,99 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 }
             }
         }
+    }
+
+    @Test
+    public void testDuckDbTimestampPrecisionAutoDdl() throws Exception {
+        String tableName = "duckdb_timestamp_precision";
+        DuckDBTypeConverter converter = new DuckDBTypeConverter();
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", MYSQL_DATABASE, "source"),
+                        TableSchema.builder()
+                                .column(duckdbTimestampColumn(converter, "c_ts", "TIMESTAMP"))
+                                .column(duckdbTimestampColumn(converter, "c_ts_s", "TIMESTAMP_S"))
+                                .column(duckdbTimestampColumn(converter, "c_ts_ms", "TIMESTAMP_MS"))
+                                .column(duckdbTimestampColumn(converter, "c_ts_ns", "TIMESTAMP_NS"))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "");
+        // Cross-dialect DDL: the DuckDB source precision must survive into MySQL. DuckDB stores 6
+        // (TIMESTAMP), 0 (TIMESTAMP_S), 3 (TIMESTAMP_MS) and 9 (TIMESTAMP_NS) fractional digits;
+        // MySQL DATETIME tops out at 6, so TIMESTAMP_NS is clamped instead of failing or being
+        // silently reduced to whole seconds.
+        String actualDDL =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of(MYSQL_DATABASE, tableName),
+                                table,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build(DatabaseIdentifier.DUCKDB);
+        Assertions.assertTrue(actualDDL.contains("`c_ts` DATETIME(6) NOT NULL"), actualDDL);
+        Assertions.assertTrue(actualDDL.contains("`c_ts_s` DATETIME NOT NULL"), actualDDL);
+        Assertions.assertTrue(actualDDL.contains("`c_ts_ms` DATETIME(3) NOT NULL"), actualDDL);
+        Assertions.assertTrue(actualDDL.contains("`c_ts_ns` DATETIME(6) NOT NULL"), actualDDL);
+        // A catalog literally named "MySQL" makes the builder reuse the source type text; with the
+        // scale in place the timestamp branch wins, so no invalid DuckDB alias type is emitted.
+        String sourceCatalogNamedDdl =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of(MYSQL_DATABASE, tableName),
+                                table,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build(DatabaseIdentifier.MYSQL);
+        Assertions.assertTrue(
+                sourceCatalogNamedDdl.contains("`c_ts_s` DATETIME NOT NULL"),
+                sourceCatalogNamedDdl);
+        Assertions.assertTrue(
+                sourceCatalogNamedDdl.contains("`c_ts_ns` DATETIME(6) NOT NULL"),
+                sourceCatalogNamedDdl);
+        boolean created = false;
+        try (Connection connection =
+                DriverManager.getConnection(getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(actualDDL);
+                created = true;
+            }
+            try (Statement insert = connection.createStatement()) {
+                insert.execute(
+                        "INSERT INTO "
+                                + tableName
+                                + " VALUES ('2024-03-10 02:30:00.123456', '2024-03-10 02:30:00',"
+                                + " '2024-03-10 02:30:00.123', '2024-03-10 02:30:00.123456000')");
+            }
+            try (PreparedStatement select =
+                            connection.prepareStatement(
+                                    "SELECT c_ts, c_ts_s, c_ts_ms, c_ts_ns FROM " + tableName);
+                    ResultSet rs = select.executeQuery()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("2024-03-10 02:30:00.123456", rs.getString(1));
+                Assertions.assertEquals("2024-03-10 02:30:00", rs.getString(2));
+                Assertions.assertEquals("2024-03-10 02:30:00.123", rs.getString(3));
+                Assertions.assertEquals("2024-03-10 02:30:00.123456", rs.getString(4));
+                Assertions.assertFalse(rs.next());
+            }
+        } finally {
+            if (created) {
+                try (Connection dropConnection =
+                                DriverManager.getConnection(
+                                        getUrl(), MYSQL_USERNAME, MYSQL_PASSWORD);
+                        Statement dropStatement = dropConnection.createStatement()) {
+                    dropStatement.execute("DROP TABLE IF EXISTS " + tableName);
+                }
+            }
+        }
+    }
+
+    private static Column duckdbTimestampColumn(
+            DuckDBTypeConverter converter, String name, String duckdbType) {
+        return converter.convert(
+                BasicTypeDefine.builder()
+                        .name(name)
+                        .columnType(duckdbType)
+                        .dataType(duckdbType)
+                        .nullable(false)
+                        .build());
     }
 }
