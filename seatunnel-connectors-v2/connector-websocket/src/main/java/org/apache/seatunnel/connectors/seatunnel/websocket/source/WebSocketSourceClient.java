@@ -237,11 +237,15 @@ public class WebSocketSourceClient {
         }
     }
 
-    private class SourceWebSocketListener extends WebSocketListener {
+    // package-private so tests can drive the callbacks against stub sockets without a live server
+    class SourceWebSocketListener extends WebSocketListener {
 
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
             reconnectTimes.set(0);
+            // a re-established connection invalidates any failure recorded for the dead one,
+            // otherwise rethrowFatalIfNeeded() would kill the recovered task with a stale error
+            fatalError = null;
             connectedTimestamp = System.currentTimeMillis();
             log.info("Websocket connection to [{}] is established", config.getMaskedUrl());
             List<String> openMessages = config.getOpenMessages();
