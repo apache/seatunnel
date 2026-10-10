@@ -343,14 +343,14 @@ GET /job-info/{jobId}/failures?limit=100
 
 - 处理器读取 `getRequestURI()`，要求前缀 `getContextPath() + getServletPath()` 按字面匹配；
 - 其余部分必须完全匹配 `^/([0-9]{1,19})/failures$`：只允许 ASCII 数字，`failures` 区分大小写；
-- 包含 `%`、`;`、`\`、空路径段、`.` 或 `..` 路径段，或以斜杠结尾的 URI 返回 `404`；
+- 对到达该处理器的 URI，包含 `%`、`;`、`\`、空路径段、`.` 或 `..` 路径段，或以斜杠结尾时不符合语法，由处理器返回 `404`。Jetty 可能在分派前拒绝或规范化部分此类请求，需通过端到端测试确认实际响应；
 - job ID 必须能解析为正的有符号 64 位值，否则返回 `400`；
 - 只有匹配成功的路径才读取 `limit`：必须匹配 `^[0-9]{1,10}$` 且为正数；空的或重复的 `limit` 返回 `400`，未知查询参数被忽略；
 - 该路由只处理 `GET`，其他方法由处理器自身返回 `405`。
 
-单 ID 路由 `/job-info/{jobId}` 和 `/running-job/{jobId}` 保持现有行为，包括非法 ID 的现有 `400` 响应。这些映射下的其他路径形状，包括 `/running-job/{jobId}/failures` 和 `/failures` 后的额外路径段，都返回 `404`。禁止前缀或子字符串匹配。这明确将非法多段路径从当前数字解析的 `400` 改为 `404`。
+单 ID 路由 `/job-info/{jobId}` 和 `/running-job/{jobId}` 保持现有行为，包括非法 ID 的现有 `400` 响应。到达 failures 处理器的其他路径形状，包括 `/running-job/{jobId}/failures` 和 `/failures` 后的额外路径段，返回 `404`；禁止前缀或子字符串匹配。Jetty 可能在处理器之前拒绝或规范化请求。
 
-failures 路由自行写出所有非 200 响应：
+对到达 failures 处理器的请求，由处理器自行写出非 200 响应：
 
 - 使用 `setStatus` 和固定的 JSON 响应体，例如 `{"status":"fail","message":"Not found"}`；
 - 从不调用 `sendError`，因为 Jetty 默认错误页会回显 URI，并可能包含堆栈；
@@ -365,7 +365,7 @@ failures 路由自行写出所有非 200 响应：
 **认证。** 该端点位于现有 `JobInfoServlet` 映射下，因此继承引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。
 
 - REST 认证默认关闭（`enable-basic-auth: false`），而 HTTP 默认在 8080 端口开启；默认情况下，能访问该端口的任何人都可以读取失败历史；
-- 现有边界是一个没有角色的共享凭据，不提供按作业或租户的授权；用户名和密码的默认值均为 `admin`，启用认证时必须更换；需要更细粒度访问控制的部署必须在网关或网络边界实施；
+- 现有边界是一个没有角色的共享凭据，不提供按作业或租户的授权；用户名和密码的默认值均为 `admin`，启用认证时必须更换，并使用 HTTPS 或可信的 TLS 网关，不能通过默认 HTTP 端点传送凭据；需要更细粒度访问控制的部署必须在网关或网络边界实施；
 - 该路由直接处理请求，不使用 async 或 forward 分发，因为过滤器只注册在 `REQUEST` 分发上。
 
 **其他访问路径。** 脱敏是纵深防御，而不是访问边界。同样的失败信息仍可通过以下途径以未脱敏形式获得：
@@ -441,10 +441,7 @@ UI 仅以纯文本渲染 `message`、`stackTrace`、`taskName` 和 `exceptionTyp
 根据 Java 序列化的兼容变更规则，新的读取方将缺失字段设为 `null`，旧的读取方忽略未知字段，因此新旧 worker 与 master 可以互通；旧 worker 的上报只是没有 `executionId`。第一个实现切片在增加任何字段之前固定这两个值，并在 `org.apache.seatunnel.engine.server.serializable` 测试包中增加 `TaskStateSerializationTest`：
 
 - fixture 是固定的 `TaskExecutionState` 和 `TaskDeployState` 值的 Java 序列化字节，由当前 `dev` 上未修改的类写出；JDK 8 和 JDK 11 写出的字节完全相同；
-- 测试断言：
-  - fixture 能被固定 UID 后的类逐字段反序列化；
-  - 固定 UID 后的类写出与 fixture 完全相同的字节；
-  - 每个声明的 UID 等于此前生成的值。
+- 测试断言 fixture 能被固定 UID 后的类逐字段反序列化，且每个声明的 UID 等于此前生成的值。增加字段后，不要求当前写入方的字节仍与旧 fixture 完全相同。
 
 增加可选字段的切片保留这些 fixture，并增加以下测试：新类读取旧字节时新字段为 `null`；新类写出的字节能被隔离类加载器中的未修改类定义读取。
 
@@ -536,7 +533,7 @@ UI 仅以纯文本渲染 `message`、`stackTrace`、`taskName` 和 `exceptionTyp
 
 | 边界 | 执行位置 / 写入方 | 规则和上限 |
 |---|---|---|
-| REST 认证和授权 | `JobInfoServlet` 映射上现有的 `BasicAuthFilter`；处理器直接处理 `REQUEST` 分派 | 不新增端点专用认证或按作业、租户授权。`enable-basic-auth: false` 是默认值，此时能访问 8080 HTTP 端口的任何人都能读取该端点。启用过滤器后仍只有一个不区分角色的共享凭据，用户名和密码默认均为 `admin`，必须更换；更细的访问控制必须在网关或网络边界执行 |
+| REST 认证和授权 | `JobInfoServlet` 映射上现有的 `BasicAuthFilter`；处理器直接处理 `REQUEST` 分派 | 不新增端点专用认证或按作业、租户授权。`enable-basic-auth: false` 是默认值，此时能访问 8080 HTTP 端口的任何人都能读取该端点。启用过滤器后仍只有一个不区分角色的共享凭据，用户名和密码默认均为 `admin`，必须更换，并使用 HTTPS 或可信的 TLS 网关，不能通过 HTTP 暴露凭据；更细的访问控制必须在网关或网络边界执行 |
 | 其他访问路径 | 现有 `/job-info/{jobId}` 的 `errorMsg`、节点日志端点和 Hazelcast 成员端口 | 脱敏是纵深防御而非访问边界。这些路径仍可能暴露未脱敏的同一失败信息；Hazelcast 成员端口必须留在可信网络。启用 Hazelcast 内置 REST API 也会在 `BasicAuthFilter` 之外暴露 map 值 |
 | 运行中及已完成历史文本 | 消费线程在每次写入 `engine_runningJobFailureHistory` 或 `engine_finishedJobFailureHistory` 前对完整捕获文本脱敏 | 覆盖 worker 上报、部署、节点丢失、master 恢复、pipeline 和终态快照路径。应用“安全与输入校验”中的模式和非目标，以及“文本处理”中的大小上限和脱敏后字节长度规则。存储的消息最多 4 KiB、堆栈最多 64 KiB；已完成快照将堆栈再次截断到 16 KiB。master 独立对 worker 文本脱敏；现有 `errorMsg` 行为不变 |
 | Worker 归因 | 捕获代码、两个历史 map 的写入方及 REST 响应写入方 | 不将执行元数据中的 worker `host:port` 复制为运行中或已完成失败历史的归因字段，也不在 REST 中暴露此类字段。已脱敏的异常文本仍可能提及地址；现有执行元数据和 `/pending-jobs` 不变 |
@@ -567,7 +564,7 @@ UI 仅以纯文本渲染 `message`、`stackTrace`、`taskName` 和 `exceptionTyp
 12. `resetPipelineState()` 写入严格大于上一个值的 `CREATED` 时间戳，包括时钟回拨和写入重试的情况；内存中的 key 等于未抛出异常而返回的那次写入执行所写的值；`rest-api-v2` 文档相应说明该字段。
 13. `attemptStartedAt` 始终等于在重置或部署时复制的 attempt key，在之后的恢复发生后绝不从 `runningJobStateTimestampsIMap` 读取。
 14. 超过 100 条记录或保留文本超过 1 MiB 时，从最旧的记录开始淘汰，直到两个上限都满足；每个 attempt 的第一条记录最后淘汰。
-15. 捕获端保留前 256 KiB 的上限先于消费线程脱敏；脱敏先于所有持久化文本的截断。测试覆盖两个边界处可识别的秘密及部分值，但不声称尽力而为的模式可以去除所有可能的秘密片段。超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并在运行中和已完成历史中提供截断标记以及脱敏后、截断前的字节长度。
+15. 捕获端保留前 256 KiB 的上限先于消费线程脱敏；脱敏先于所有持久化文本的截断。对于值在捕获上限之前开始的可识别敏感键值模式，测试验证保留下来的值片段被遮蔽或舍弃；无法识别或无键的片段仍是已说明的尽力而为限制。测试还覆盖持久化文本截断边界处的秘密。超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并在运行中和已完成历史中提供截断标记以及脱敏后、截断前的字节长度。
 16. 已完成快照记录其所有者，每条堆栈最多保留 16 KiB，文本总量最多 256 KiB，并保留标记和长度；其过期时间不晚于终态时间之后 `history-job-expire-minutes`。
 17. 同一 pipeline attempt 中超过 20 个失败时，最多提交 20 次记录操作，其余数量通过 `attempts[].suppressedCount` 报告；重试的操作不会重复计数。
 18. 队列已满，以及失败、重试和延迟的历史操作，不会阻塞捕获线程，不会重新进入失败或恢复处理，也不会改变失败、恢复或终态结果；捕获不执行正则处理，队列保持在数量、字节和单作业上限之内。

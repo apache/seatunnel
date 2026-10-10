@@ -374,14 +374,14 @@ The endpoint resolves the job with the decision table R5 in Normative Rules. A t
 
 - The handler takes `getRequestURI()` and requires the prefix `getContextPath() + getServletPath()` to match literally.
 - The rest of the URI must exactly match `^/([0-9]{1,19})/failures$`: ASCII digits only, and a case-sensitive `failures`.
-- A URI containing `%`, `;`, `\`, an empty segment or a `.` or `..` segment, or ending in a slash, receives `404`.
+- For a URI that reaches this handler, a `%`, `;`, `\`, empty segment, `.` or `..` segment, or trailing slash fails the grammar and receives the handler's `404`. Jetty may reject or normalize some such requests before dispatch; verify the observed response end to end.
 - The job ID must parse as a positive signed 64-bit value; otherwise the response is `400`.
 - Only a matched path reads `limit`. It must match `^[0-9]{1,10}$` and be positive. An empty or repeated `limit` receives `400`, and unknown query parameters are ignored.
 - The route serves `GET` only. Other methods receive `405` from the handler itself.
 
-The single-ID routes `/job-info/{jobId}` and `/running-job/{jobId}` keep their existing behavior, including their existing `400` response for malformed IDs. Every other path shape under these mappings returns `404`, including `/running-job/{jobId}/failures` and extra segments after `/failures`. Prefix or substring matching is not allowed. This explicitly changes invalid multi-segment paths from today's numeric-parse `400` to `404`.
+The single-ID routes `/job-info/{jobId}` and `/running-job/{jobId}` keep their existing behavior, including their existing `400` response for malformed IDs. Other path shapes that reach the failures handler return `404`, including `/running-job/{jobId}/failures` and extra segments after `/failures`. Prefix or substring matching is not allowed. Jetty may reject or normalize requests before this handler sees them.
 
-The failures route writes every non-200 response itself:
+For requests that reach the failures handler, it writes its own non-200 responses:
 
 - It uses `setStatus` and a fixed JSON body such as `{"status":"fail","message":"Not found"}`.
 - It never calls `sendError`. Jetty's default error page echoes the URI and can include stack traces.
@@ -395,7 +395,7 @@ The current `/job-info/{jobId}` behavior and its `errorMsg` field remain unchang
 
 **Authentication.** The endpoint sits under the existing `JobInfoServlet` mappings, so it inherits the `BasicAuthFilter` boundary of the engine REST API. It adds no endpoint-specific authentication.
 - REST authentication is disabled by default (`enable-basic-auth: false`) while HTTP is enabled on port 8080. By default, anyone who can reach the port can read failure history.
-- The existing boundary is a single shared credential with no roles, and provides no per-job or per-tenant authorization. Its configured username and password both default to `admin`; operators enabling it must replace those defaults. Deployments that need narrower access must enforce it at their gateway or network boundary.
+- The existing boundary is a single shared credential with no roles, and provides no per-job or per-tenant authorization. Its configured username and password both default to `admin`; operators enabling it must replace those defaults and use HTTPS or a trusted TLS gateway rather than send credentials over the shipped HTTP endpoint. Deployments that need narrower access must enforce it at their gateway or network boundary.
 - The route handles requests directly, without async or forward dispatch, because the filters are registered for `REQUEST` dispatch only.
 
 **Other access paths.** Redaction is defence in depth, not an access boundary. The same failures remain available unredacted through:
@@ -474,10 +474,7 @@ Both values were computed with `serialver` on JDK 8 and JDK 11. The implementati
 Under Java serialization's compatible-change rules, a new reader leaves absent fields `null` and an old reader ignores unknown fields. Old and new workers and masters therefore interoperate; a report from an old worker simply has no `executionId`. The first implementation slice pins both values and adds `TaskStateSerializationTest` in the `org.apache.seatunnel.engine.server.serializable` test package, before any field is added:
 
 - The fixtures are the Java serialization bytes of fixed `TaskExecutionState` and `TaskDeployState` values, written by the unmodified classes on current `dev`. JDK 8 and JDK 11 produced identical bytes.
-- The tests assert:
-  - the fixtures deserialize with the pinned classes, field by field;
-  - the pinned classes write exactly the fixture bytes;
-  - each declared UID equals the previously generated value.
+- The tests assert that the fixtures deserialize with the pinned classes field by field, and that each declared UID equals the previously generated value. They do not require current writer bytes to remain identical after fields are added.
 
 The slice that adds the optional fields keeps these fixtures. It adds tests that the new class reads the old bytes with the new fields `null`, and that bytes written by the new class are read by the unmodified class definition in an isolated class loader.
 
@@ -568,7 +565,7 @@ A leftover running entry never makes an unknown or expired job appear known.
 
 | Boundary | Enforcement point / writer | Rule and limit |
 |---|---|---|
-| REST authentication and authorization | Existing `BasicAuthFilter` on the `JobInfoServlet` mappings; the handler uses direct `REQUEST` dispatch | No endpoint-specific authentication or per-job/per-tenant authorization. `enable-basic-auth: false` by default leaves the HTTP endpoint on port 8080 readable by anyone who can reach it. The enabled filter uses one shared credential without roles, with both username and password defaulting to `admin`; operators must replace them. Narrower access belongs at the gateway or network boundary |
+| REST authentication and authorization | Existing `BasicAuthFilter` on the `JobInfoServlet` mappings; the handler uses direct `REQUEST` dispatch | No endpoint-specific authentication or per-job/per-tenant authorization. `enable-basic-auth: false` by default leaves the HTTP endpoint on port 8080 readable by anyone who can reach it. The enabled filter uses one shared credential without roles, with both username and password defaulting to `admin`; operators must replace them and use HTTPS or a trusted TLS gateway, not expose credentials over HTTP. Narrower access belongs at the gateway or network boundary |
 | Other access paths | Existing `/job-info/{jobId}` `errorMsg`, node-log endpoints and Hazelcast member port | Redaction is defence in depth, not an access boundary. These paths can expose the same failures unredacted; the Hazelcast member port must remain on a trusted network. Enabling the built-in Hazelcast REST API also exposes map values outside `BasicAuthFilter` |
 | Running and finished history text | The consumer redacts the whole captured text before each write to `engine_runningJobFailureHistory` or `engine_finishedJobFailureHistory` | Covers worker-reported, deployment, node-loss, master-recovery, pipeline and terminal-snapshot paths. Apply the patterns and non-goals in Security and Input Validation, and the size and post-redaction byte-length rules in Text Processing. Stored messages are at most 4 KiB and stack traces at most 64 KiB; finished snapshots re-truncate stack traces to 16 KiB. The master redacts worker text independently; existing `errorMsg` behavior is unchanged |
 | Worker attribution | Capture and both history-map writers; REST response writer | Do not copy worker `host:port` from execution metadata into running or finished failure-history attribution fields, and do not expose such fields in REST. Sanitized exception text may still mention an address; existing execution metadata and `/pending-jobs` are unchanged |
@@ -599,7 +596,7 @@ A leftover running entry never makes an unknown or expired job appear known.
 12. `resetPipelineState()` writes a `CREATED` timestamp strictly greater than the previous one, including when the clock steps backward and when the write is retried. The in-memory key equals the value written by the execution of the write that returned without an exception. The `rest-api-v2` documentation describes the field accordingly.
 13. `attemptStartedAt` always equals the attempt key copied at reset or deploy time. It is never read from `runningJobStateTimestampsIMap` after a later restore.
 14. More than 100 records, or more than 1 MiB of retained text, evicts records oldest first until both limits hold. The first record of each attempt is evicted last.
-15. The capture-side 256 KiB prefix cap precedes consumer redaction; redaction precedes every persisted-text truncation. Tests cover recognized secrets at both boundaries, including partial values, without claiming the best-effort patterns remove every possible secret fragment. Messages over 4 KiB and stack traces over 64 KiB are truncated at valid UTF-8 boundaries, and they expose the truncation flag and the post-redaction, pre-truncation byte length in running and finished history.
+15. The capture-side 256 KiB prefix cap precedes consumer redaction; redaction precedes every persisted-text truncation. For a recognized sensitive key-value pattern whose value begins before the capture cutoff, tests verify that the retained value fragment is masked or omitted; unrecognized and unkeyed fragments remain a documented best-effort limitation. Tests also cover secrets at the persisted-text boundary. Messages over 4 KiB and stack traces over 64 KiB are truncated at valid UTF-8 boundaries, and they expose the truncation flag and the post-redaction, pre-truncation byte length in running and finished history.
 16. The finished snapshot records its owner and caps each stack trace at 16 KiB and the total text at 256 KiB, keeping flags and lengths. It expires no later than `history-job-expire-minutes` after the terminal time.
 17. More than 20 failures in one pipeline attempt submit at most 20 record operations and report the remainder in `attempts[].suppressedCount`. A retried operation does not count twice.
 18. A full queue, and failed, retried and delayed history operations, do not block the capturing thread, do not re-enter failure or restore processing, and do not change the failure, restore or terminal outcome. Capture does no regex work, and the queue stays within its count, byte and per-job bounds.
