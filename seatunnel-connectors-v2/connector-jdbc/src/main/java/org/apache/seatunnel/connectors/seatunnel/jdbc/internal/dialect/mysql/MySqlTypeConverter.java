@@ -254,7 +254,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case MYSQL_SET_UNSIGNED:
                 if (MYSQL_SET_UNSIGNED.equals(mysqlDataType)) {
                     log.warn(
-                            "{} is not a real MySQL type, converted column as {}.",
+                            "Column {} with type {} was reported as {}; not a real MySQL type, converting as {}.",
+                            typeDefine.getName(),
+                            typeDefine.getColumnType(),
                             MYSQL_SET_UNSIGNED,
                             MYSQL_SET);
                 }

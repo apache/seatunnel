@@ -1140,12 +1140,16 @@ public class MySqlTypeConverterTest {
 
     @Test
     public void testConvertSetUnsigned() {
+        // MySqlCatalog.buildColumn never passes the synthetic name itself: it reports dataType
+        // "SET" with unsigned=true, and convert() appends the " UNSIGNED" suffix. Drive that
+        // production shape so the concatenation that produced #10451 is what this test covers.
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
                         .columnType(
                                 "SET('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED')")
-                        .dataType("SET UNSIGNED")
+                        .dataType("SET")
+                        .unsigned(true)
                         .length(100L)
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
@@ -1155,6 +1159,20 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         // Test with default length
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("SET('a','b')")
+                        .dataType("SET")
+                        .unsigned(true)
+                        .length(0L)
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(100, column.getColumnLength());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+
+        // A caller that hands in the synthetic key directly still converts, which is what keeps
+        // this arm defensive rather than dead code.
         typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
