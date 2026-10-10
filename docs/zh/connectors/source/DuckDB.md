@@ -73,7 +73,7 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
-使用 `table_path` 推断表结构时，目录会保留 DECIMAL 和 NUMERIC 列声明的精度与小数位数；按推断结构创建表时，`DECIMAL(10,2)` 仍为 `DECIMAL(10,2)`。
+使用 `table_path` 推断表结构时，目录会保留 DECIMAL 和 NUMERIC 列声明的精度与小数位数；按推断结构创建表时，`DECIMAL(10,2)` 仍为 `DECIMAL(10,2)`。未显式声明精度和小数位数的普通 `DECIMAL` 或 `NUMERIC` 会报告为 `DECIMAL(18,3)`，这也是 DuckDB 对该声明的默认值。
 
 > 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 

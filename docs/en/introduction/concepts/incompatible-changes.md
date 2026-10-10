@@ -40,6 +40,10 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   `RECREATE_SCHEMA` for a manually defined target. An arbitrary key-prefix length can reject distinct
   source keys that share that prefix, so it is not a semantics-preserving substitute.
 
+### DuckDB DECIMAL / NUMERIC precision from `table_path` schema discovery
+
+When inferring a schema from `table_path`, DECIMAL and NUMERIC columns now retain the precision and scale reported by DuckDB. For example, `DECIMAL(10,2)` is inferred as `DECIMAL(10,2)` instead of `DECIMAL(38,2)`; plain DECIMAL or NUMERIC is inferred as DuckDB's default `DECIMAL(18,3)`. Existing `DECIMAL(38,s)` target columns can still hold the source values. Before upgrading, check schema validation and evolution against the newly inferred precision; existing target tables are not changed by this discovery fix.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**

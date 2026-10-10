@@ -185,7 +185,9 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         if (isDuckDBDecimal(typeName)) {
             typeName = DuckDBTypeConverter.DUCKDB_DECIMAL;
             if (columnLength <= 0) {
-                // DuckDB maximum supported precision
+                // Defensive fallback for when the driver reports no numeric_precision.
+                // 38 is DuckDB's maximum supported precision, not the default it applies to a
+                // plain DECIMAL (DuckDB stores that as DECIMAL(18,3)).
                 columnLength = 38;
             }
             if (columnScale < 0) {
