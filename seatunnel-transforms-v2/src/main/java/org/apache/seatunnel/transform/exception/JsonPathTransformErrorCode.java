@@ -33,6 +33,8 @@ public enum JsonPathTransformErrorCode implements SeaTunnelErrorCode {
             "JSONPATH_ERROR_CODE-06", "JsonPathTransform dest_type must not empty"),
     SRC_FIELD_NOT_FOUND(
             "JSONPATH_ERROR_CODE-02", "JsonPathTransform src_field not found in source"),
+    JSON_PATH_CONVERSION_ERROR(
+            "JSONPATH_ERROR_CODE-07", "JsonPathTransform field conversion failed"),
     ;
     private final String code;
     private final String description;

@@ -62,6 +62,29 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### JsonPath Transform
+
+- Recognized destination-type conversion failures now honor the existing column
+  and row error policies. Column `SKIP` yields a null field; column `SKIP_ROW` or
+  row `SKIP` (without a column override) drops the row. Explicit column `FAIL`
+  still takes precedence; the default remains `FAIL`.
+- Under `FAIL`, recognized conversion errors now surface as
+  `ErrorDataTransformException` with `JSONPATH_ERROR_CODE-07`, rather than the raw
+  converter exception or its `COMMON-*` code. Source records, extracted values
+  and raw causes are intentionally omitted from these diagnostics and skip logs.
+  Update alerts/runbooks keyed on the old exception text or code. Unsupported
+  conversions and unexpected failures retain their existing behavior; this does
+  not add `ROUTE_TO_TABLE` support or change checkpoint formats.
+- Path-reading error policies are unchanged. `ErrorDataTransformException` now
+  attaches a sanitized `JsonPathException` cause, rather than the original
+  exception, because its message or stack trace may contain source data or a
+  private path literal. Previously there was no cause. Diagnostics retain only
+  safe field identifiers and the original exception type; they omit source JSON,
+  configured paths and raw exception text. The cause chain remains available,
+  but the original cause subtype and stack detail are intentionally lost. Update
+  stack-trace parsers and alerts that assumed no nested cause or relied on the
+  previous message text.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
