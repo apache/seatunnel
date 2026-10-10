@@ -76,6 +76,44 @@ const sidebars = {
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/architecture",
+                        {
+                            "type": "category",
+                            "label": "YARN",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/yarn/overview"
+                            },
+                            "items": [
+                                "getting-started/application/yarn/architecture",
+                                "getting-started/application/yarn/quick-start",
+                                "getting-started/application/yarn/configuration",
+                                "getting-started/application/yarn/checkpoint-recovery",
+                                "getting-started/application/yarn/faq"
+                            ]
+                        },
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
+                    ]
                 }
             ]
         },

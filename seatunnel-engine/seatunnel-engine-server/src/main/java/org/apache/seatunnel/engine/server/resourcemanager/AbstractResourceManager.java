@@ -59,7 +59,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter public final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
-    private final NodeEngine nodeEngine;
+    protected final NodeEngine nodeEngine;
 
     private final ExecutionMode mode;
 
@@ -98,12 +98,23 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void init() {
-        log.info("Init ResourceManager");
-        initWorker();
+        if (!isRunning) {
+            throw new IllegalStateException("Resource manager has already been closed");
+        }
+        syncExistingWorkerProfiles();
     }
 
-    private void initWorker() {
-        log.info("initWorker... ");
+    /**
+     * Synchronizes profiles from Engine workers that are already cluster members when this resource
+     * manager starts.
+     *
+     * <p>This method does not request or create worker processes. Kubernetes and YARN resource
+     * managers launch those processes through their platform drivers. Newly joined workers register
+     * later through the normal worker heartbeat path; this startup synchronization only prevents an
+     * existing member from being absent from the master-side registry until its next heartbeat.
+     */
+    protected void syncExistingWorkerProfiles() {
+        log.info("Synchronizing existing worker profiles");
         List<Address> aliveNode =
                 nodeEngine.getClusterService().getMembers().stream()
                         .map(Member::getAddress)
@@ -203,9 +214,20 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public void close() {
+    public final synchronized void close() {
+        if (!isRunning) {
+            return;
+        }
         isRunning = false;
+        try {
+            closeResourceManager();
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not close resource manager", e);
+        }
     }
+
+    /** Adds deployment-specific cleanup to the common idempotent close lifecycle. */
+    protected void closeResourceManager() throws Exception {}
 
     protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         return new CompletableFuture<>(

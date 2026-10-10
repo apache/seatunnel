@@ -22,6 +22,15 @@ You need to check this document before you upgrade to related version.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
     5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
 
+### Application Mode internal API changes
+
+- `ResourceManagerFactory` is now a single concrete class. Its no-argument constructor selects the
+  standalone manager, while the four-argument constructor creates an `ApplicationResourceManager`
+  for YARN or Kubernetes. Platform-specific resource-manager subclasses and factory SPI are removed.
+- `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
+  executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
+  terminal outcome through `finish(...)` and release their platform clients in `close()`.
+
 ### SQL TINYINT array schema
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.

@@ -27,6 +27,13 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 
 如需更完整的引擎比较，请查看 [执行引擎概览](../engines/overview.md)。
 
+## 如何选择 Zeta 部署模式
+
+- **常驻集群**：部署并维护共享的 Zeta 集群，再向集群提交作业。参见 [Zeta 安装部署](../engines/zeta/deployment.md)。
+- **Application Mode（实验性）**：在 YARN 或 Kubernetes 上为一个作业启动独立的 Master 和固定数量的 Worker，应用结束后释放计算资源。参见 [Application Mode 总览](./application/overview.md)。
+
+如果已有对应资源平台，可以直接阅读 [YARN 快速开始](./application/yarn/quick-start.md)或 [Kubernetes 快速开始](./application/kubernetes/quick-start.md)。Application Mode 是 Zeta 的一种部署模式，不是另一种执行引擎。
+
 ## 最短首跑路径
 
 如果你的目标是尽快确认 SeaTunnel 可以在本地跑起来，建议按下面顺序进行：
@@ -80,5 +87,6 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 - [作业配置指南](./job-configuration-guide.md)
 - [场景教程](./recipes/overview.md)
 - [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
+- [YARN 与 Kubernetes Application Mode](./application/overview.md)
 - [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

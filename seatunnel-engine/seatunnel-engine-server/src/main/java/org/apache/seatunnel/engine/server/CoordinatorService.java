@@ -97,6 +97,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -138,7 +139,7 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
-    private JobHistoryService jobHistoryService;
+    @Getter private JobHistoryService jobHistoryService;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -233,9 +234,11 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
+    private final ResourceManagerFactory resourceManagerFactory;
+
     private ConnectorPackageService connectorPackageService;
 
-    private EventProcessor eventProcessor;
+    @Getter private EventProcessor eventProcessor;
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
@@ -250,9 +253,24 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig) {
+        this(
+                nodeEngine,
+                seaTunnelServer,
+                engineContext,
+                engineConfig,
+                new ResourceManagerFactory());
+    }
+
+    public CoordinatorService(
+            @NonNull NodeEngineImpl nodeEngine,
+            @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
+            EngineConfig engineConfig,
+            ResourceManagerFactory resourceManagerFactory) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
+        this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
 
@@ -592,20 +610,12 @@ public class CoordinatorService {
         return new JobEventProcessor(handlers);
     }
 
-    public JobHistoryService getJobHistoryService() {
-        return jobHistoryService;
-    }
-
     public JobMaster getJobMaster(Long jobId) {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
             return pendingJobInfo.getJobMaster();
         }
         return runningJobMasterMap.get(jobId);
-    }
-
-    public EventProcessor getEventProcessor() {
-        return eventProcessor;
     }
 
     private void initCoordinatorService() {
@@ -1358,8 +1368,7 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            new ResourceManagerFactory(nodeEngine, engineConfig)
-                                    .getResourceManager();
+                            resourceManagerFactory.createResourceManager(nodeEngine, engineConfig);
                     manager.init();
                     resourceManager = manager;
                 }
