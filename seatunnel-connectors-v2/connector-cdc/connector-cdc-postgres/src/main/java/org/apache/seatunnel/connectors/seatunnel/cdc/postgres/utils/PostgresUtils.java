@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
@@ -41,16 +43,20 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** The utils for SqlServer data source. */
 @Slf4j
@@ -319,6 +325,64 @@ public class PostgresUtils {
                 SourceInfo.TIMESTAMP_USEC_KEY,
                 String.valueOf(Conversions.toEpochMicros(Instant.MIN)));
         return LsnOffset.of(offsetMap);
+    }
+
+    /**
+     * Returns why PostgreSQL invalidated the replication slot, or empty if the slot is usable or
+     * does not exist in the current database. Streaming from an invalidated slot can never succeed.
+     */
+    public static Optional<String> getReplicationSlotInvalidationReason(
+            Connection connection, String slotName) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "SELECT * FROM pg_replication_slots WHERE slot_name = ? AND database = current_database()")) {
+            statement.setString(1, slotName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return readSlotInvalidationReason(resultSet);
+            }
+        }
+    }
+
+    public static SeaTunnelRuntimeException replicationSlotInvalidated(
+            String slotName, String reason) {
+        return new SeaTunnelRuntimeException(
+                PostgresConnectorErrorCode.REPLICATION_SLOT_INVALIDATED,
+                String.format(
+                        "PostgreSQL replication slot '%s' has been invalidated by the server (reason: %s), "
+                                + "so the changes after its last confirmed position are no longer available. "
+                                + "Drop the slot with SELECT pg_drop_replication_slot('%s') and restart the job "
+                                + "without restoring from a checkpoint or savepoint; "
+                                + "use startup.mode = initial to take a new snapshot.",
+                        slotName, reason, slotName));
+    }
+
+    /**
+     * Reads the invalidation reason of the slot row, if any. The columns depend on the server
+     * version: wal_status exists since PostgreSQL 13, conflicting since 16 and invalidation_reason
+     * since 17. Missing columns are skipped, so older servers never report an invalidated slot.
+     */
+    static Optional<String> readSlotInvalidationReason(ResultSet resultSet) throws SQLException {
+        if (!resultSet.next()) {
+            return Optional.empty();
+        }
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        Set<String> columns = new HashSet<>();
+        for (int i = 1; i <= metaData.getColumnCount(); i++) {
+            columns.add(metaData.getColumnName(i).toLowerCase(Locale.ROOT));
+        }
+        if (columns.contains("invalidation_reason")) {
+            String invalidationReason = resultSet.getString("invalidation_reason");
+            if (invalidationReason != null) {
+                return Optional.of(invalidationReason);
+            }
+        }
+        if (columns.contains("conflicting") && resultSet.getBoolean("conflicting")) {
+            return Optional.of("conflict with recovery");
+        }
+        if (columns.contains("wal_status") && "lost".equals(resultSet.getString("wal_status"))) {
+            return Optional.of("required WAL was removed, wal_status is lost");
+        }
+        return Optional.empty();
     }
 
     /** Get split scan query for the given table. */
