@@ -62,7 +62,18 @@ public final class SeatunnelYarnApplicationCli {
             Thread cleanup = stagingCleanupHook(configuration, staging);
             Runtime.getRuntime().addShutdownHook(cleanup);
             try {
-                runApplication(configuration, staging);
+                String id = applicationId();
+                YarnApplicationConfiguration applicationConfiguration =
+                        readApplicationConfiguration();
+                ApplicationSpecification specification =
+                        applicationConfiguration.getSpecification();
+                SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
+                ResourceManagerDriver<?> driver =
+                        createDriver(
+                                configuration, staging, applicationConfiguration, clusterName(id));
+                HazelcastInstanceImpl master =
+                        startMaster(engineConfiguration, specification, id, driver);
+                runJob(specification, master, driver);
             } finally {
                 cleanupStaging(configuration, staging);
                 removeShutdownHook(cleanup);
@@ -72,23 +83,6 @@ public final class SeatunnelYarnApplicationCli {
             exitCode = 1;
         }
         System.exit(exitCode);
-    }
-
-    /**
-     * Loads localized settings, starts the master and runs the application.
-     *
-     * @param configuration localized Hadoop configuration
-     * @param staging application-owned remote staging directory
-     */
-    private static void runApplication(Configuration configuration, Path staging) throws Exception {
-        String id = applicationId();
-        YarnApplicationConfiguration applicationConfiguration = readApplicationConfiguration();
-        ApplicationSpecification specification = applicationConfiguration.getSpecification();
-        SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
-        ResourceManagerDriver<?> driver =
-                createDriver(configuration, staging, applicationConfiguration, clusterName(id));
-        HazelcastInstanceImpl master = startMaster(engineConfiguration, specification, id, driver);
-        runJob(specification, master, driver);
     }
 
     /**
