@@ -627,7 +627,8 @@ jobs:
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
-        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
+        # Run only the packaged Spark launcher IT while its reactor dependencies are available.
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=false -D"it.test=TestSpark35StarterJarContentIT" -D"it.failIfNoSpecifiedTests=false" -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
           # Keep in sync with the non-Windows step above; see its comment for why the module
