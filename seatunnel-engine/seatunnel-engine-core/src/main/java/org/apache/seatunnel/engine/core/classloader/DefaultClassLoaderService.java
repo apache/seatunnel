@@ -43,11 +43,21 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, ClassLoader>> classLoaderCache;
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
+    private final ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner;
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
 
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
+        this(cacheMode, nodeEngine, new ReleasedClassLoaderReferenceCleaner());
+    }
+
+    @VisibleForTesting
+    DefaultClassLoaderService(
+            boolean cacheMode,
+            NodeEngine nodeEngine,
+            ReleasedClassLoaderReferenceCleaner releasedClassLoaderReferenceCleaner) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;
+        this.releasedClassLoaderReferenceCleaner = releasedClassLoaderReferenceCleaner;
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
         log.info("start classloader service" + (cacheMode ? " with cache mode" : ""));
@@ -124,6 +134,10 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             log.info("Release classloader for job {} with jars {}", jobId, jars);
             classLoaderReferenceCount.get(jobId).remove(key);
             recycleClassLoaderFromThread(classLoader);
+            // The loader is no longer used by any job, drop the references that libraries such as
+            // MongoDB and Hadoop keep in statics and background threads, otherwise the loader and
+            // its Metaspace are never collected. Cache mode never reaches this point.
+            releasedClassLoaderReferenceCleaner.clean(classLoader);
         }
         if (classLoaderMap.isEmpty()) {
             classLoaderCache.remove(jobId);
