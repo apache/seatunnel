@@ -45,7 +45,7 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < fieldFormatters.length; i++) {
             String value = fieldFormatters[i].format(row);
-            if (keyEncoding == KeyEncoding.LENGTH_PREFIXED) {
+            if (keyEncoding == KeyEncoding.LENGTH_PREFIXED && fieldFormatters.length > 1) {
                 builder.append(value.length()).append(':');
             } else if (i > 0) {
                 builder.append(keyDelimiter);

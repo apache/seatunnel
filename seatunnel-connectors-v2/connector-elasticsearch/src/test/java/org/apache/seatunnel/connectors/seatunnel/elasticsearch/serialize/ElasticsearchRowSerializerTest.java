@@ -295,7 +295,7 @@ public class ElasticsearchRowSerializerTest {
     }
 
     @Test
-    public void testSerializeSingleKeyWithLengthPrefixedEncoding() {
+    public void testSerializeSingleKeyRemainsUnchangedWithLengthPrefixedEncoding() {
         String index = "st_index";
         Map<String, Object> confMap = new HashMap<>();
         confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
@@ -313,6 +313,6 @@ public class ElasticsearchRowSerializerTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {"0001"});
         row.setRowKind(RowKind.UPDATE_AFTER);
 
-        Assertions.assertTrue(serializer.serializeRow(row).contains("\"_id\":\"4:0001\""));
+        Assertions.assertTrue(serializer.serializeRow(row).contains("\"_id\":\"0001\""));
     }
 }

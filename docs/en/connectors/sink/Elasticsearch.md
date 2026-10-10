@@ -81,9 +81,9 @@ Delimiter for composite keys in `LEGACY` encoding ("_" by default), e.g., "$" wo
 
 ### key_encoding [string]
 
-Controls how `primary_keys` are converted to the document `_id`. The default `LEGACY` preserves the existing delimiter-joined format. Set `LENGTH_PREFIXED` to encode each formatted value as its character length, a colon, and the value, so boundaries remain unambiguous even when values contain the delimiter. For example, `("1_1", "2")` becomes `3:1_11:2`, while `("1", "1_2")` becomes `1:13:1_2`.
+Controls how `primary_keys` are converted to the document `_id`. The default `LEGACY` preserves the existing delimiter-joined format. For composite keys, set `LENGTH_PREFIXED` to encode each formatted value as its character length, a colon, and the value, so boundaries remain unambiguous even when values contain the delimiter. For example, `("1_1", "2")` becomes `3:1_11:2`, while `("1", "1_2")` becomes `1:13:1_2`. When exactly one primary key is configured, its document ID remains unchanged.
 
-Changing this option from `LEGACY` to `LENGTH_PREFIXED` changes document IDs. To use it with an existing index, reindex or migrate existing documents before switching; otherwise, subsequent writes can create a second set of documents alongside the old IDs. The default remains `LEGACY` for compatibility.
+Changing this option from `LEGACY` to `LENGTH_PREFIXED` changes document IDs for composite keys. To use it with an existing index, reindex or migrate existing documents before switching; otherwise, subsequent writes can create a second set of documents alongside the old IDs. Single-key IDs remain unchanged, and the default remains `LEGACY` for compatibility.
 
 ### multi_table_sink_replica [int]
 
