@@ -726,6 +726,27 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testCompositeKeyEncodingAvoidsDocumentIdCollisions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fake_to_elasticsearch_composite_key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        esRestClient
+                                                .getIndexDocsCount("st_composite_key_encoding")
+                                                .get(0)
+                                                .getDocsCount()));
+    }
+
+    @TestTemplate
     public void testFakeSourceToElasticsearchWithUpperCaseIndex(TestContainer container) {
         CompletableFuture.supplyAsync(
                 () -> {

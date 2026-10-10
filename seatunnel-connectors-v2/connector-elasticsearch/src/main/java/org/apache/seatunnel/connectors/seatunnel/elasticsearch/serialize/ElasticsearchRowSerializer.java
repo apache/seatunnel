@@ -79,7 +79,10 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         this.seaTunnelRowType = seaTunnelRowType;
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
-                        seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
+                        seaTunnelRowType,
+                        indexInfo.getPrimaryKeys(),
+                        indexInfo.getKeyDelimiter(),
+                        indexInfo.getKeyEncoding());
         this.vectorizationFields = vectorizationFields;
         this.vectorDimension = vectorDimension;
     }
