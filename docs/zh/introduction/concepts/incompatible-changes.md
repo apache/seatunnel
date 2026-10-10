@@ -35,6 +35,10 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### DuckDB `table_path` 推断的 DECIMAL / NUMERIC 精度
+
+通过 `table_path` 推断表结构时，DECIMAL 和 NUMERIC 列现在会保留 DuckDB 报告的精度与小数位数。例如，`DECIMAL(10,2)` 会推断为 `DECIMAL(10,2)`，而不是 `DECIMAL(38,2)`；未指定精度的 DECIMAL 或 NUMERIC 会推断为 DuckDB 默认的 `DECIMAL(18,3)`。已有 `DECIMAL(38,s)` 目标列仍能容纳源数据。升级前请检查新推断的精度是否影响目标表的结构校验或结构演进；本次结构发现修复不会修改已有目标表。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

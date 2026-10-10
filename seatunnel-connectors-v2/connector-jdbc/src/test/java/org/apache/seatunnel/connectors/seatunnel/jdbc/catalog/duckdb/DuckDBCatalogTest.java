@@ -151,11 +151,29 @@ public class DuckDBCatalogTest {
                                 .filter(column -> "c_decimal".equals(column.getName()))
                                 .findFirst()
                                 .get();
-        Assertions.assertEquals(38L, decimalColumn.getColumnLength());
+        Assertions.assertEquals(10L, decimalColumn.getColumnLength());
+        Assertions.assertEquals(new DecimalType(10, 2), decimalColumn.getDataType());
         Assertions.assertEquals(2, decimalColumn.getScale());
+        Assertions.assertEquals("DECIMAL(10,2)", decimalColumn.getSourceType());
+        assertDecimalColumn(catalogTable, "c_decimal_bare", 18L, 18, 3, "DECIMAL(18,3)");
+        assertDecimalColumn(catalogTable, "c_decimal_38_10", 38L, 38, 10, "DECIMAL(38,10)");
+        assertDecimalColumn(catalogTable, "c_numeric_12_4", 12L, 12, 4, "DECIMAL(12,4)");
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
         catalog.createTable(copyPath, catalogTable, true);
         Assertions.assertTrue(catalog.tableExists(copyPath));
+        CatalogTable copiedTable = catalog.getTable(copyPath);
+        PhysicalColumn copiedDecimalColumn =
+                (PhysicalColumn)
+                        copiedTable.getTableSchema().getColumns().stream()
+                                .filter(column -> "c_decimal".equals(column.getName()))
+                                .findFirst()
+                                .get();
+        Assertions.assertEquals(10L, copiedDecimalColumn.getColumnLength());
+        Assertions.assertEquals(new DecimalType(10, 2), copiedDecimalColumn.getDataType());
+        Assertions.assertEquals("DECIMAL(10,2)", copiedDecimalColumn.getSourceType());
+        assertDecimalColumn(copiedTable, "c_decimal_bare", 18L, 18, 3, "DECIMAL(18,3)");
+        assertDecimalColumn(copiedTable, "c_decimal_38_10", 38L, 38, 10, "DECIMAL(38,10)");
+        assertDecimalColumn(copiedTable, "c_numeric_12_4", 12L, 12, 4, "DECIMAL(12,4)");
     }
 
     @Test
@@ -262,6 +280,9 @@ public class DuckDBCatalogTest {
                         + "    c_float FLOAT,\n"
                         + "    c_double DOUBLE,\n"
                         + "    c_decimal DECIMAL(10,2),\n"
+                        + "    c_decimal_bare DECIMAL,\n"
+                        + "    c_decimal_38_10 DECIMAL(38,10),\n"
+                        + "    c_numeric_12_4 NUMERIC(12,4),\n"
                         + "    c_varchar VARCHAR(30) DEFAULT 'duck',\n"
                         + "    c_date DATE,\n"
                         + "    c_time TIME,\n"
@@ -277,6 +298,7 @@ public class DuckDBCatalogTest {
                     String.format(
                             "INSERT INTO %s VALUES "
                                     + "(1, true, 1, 2, 3, 4, 1.1, 2.2, 12345.67,"
+                                    + " 1.234, 12345678.0123456789, 1234.5678,"
                                     + " 'duck', DATE '2024-01-01', TIME '12:00:00',"
                                     + " TIMESTAMP '2024-01-01 12:00:00')",
                             quoteTable(TABLE_NAME)));
@@ -295,6 +317,25 @@ public class DuckDBCatalogTest {
 
     private TablePath getMainTablePath(String tableName) {
         return TablePath.of(DATABASE_NAME, SCHEMA_NAME, tableName);
+    }
+
+    private void assertDecimalColumn(
+            CatalogTable table,
+            String columnName,
+            long columnLength,
+            int precision,
+            int scale,
+            String sourceType) {
+        PhysicalColumn column =
+                (PhysicalColumn)
+                        table.getTableSchema().getColumns().stream()
+                                .filter(c -> columnName.equals(c.getName()))
+                                .findFirst()
+                                .get();
+        Assertions.assertEquals(columnLength, column.getColumnLength());
+        Assertions.assertEquals(new DecimalType(precision, scale), column.getDataType());
+        Assertions.assertEquals(scale, column.getScale());
+        Assertions.assertEquals(sourceType, column.getSourceType());
     }
 
     private String quoteTable(TablePath tablePath) {
