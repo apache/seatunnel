@@ -245,12 +245,12 @@ Every dropped or failed history operation is logged at WARN, rate-limited per jo
 
 Text is processed in this fixed order:
 
-1. The capturing side takes at most the first 256 KiB of each field. This cap removes only a suffix, so it can drop a secret's value but never expose a value without its key. Workers apply the same cap to the new structured fields before sending them.
+1. The capturing side takes at most the first 256 KiB of each field. This bounds capture work but is not a privacy boundary: a partial secret can remain at the cutoff. Workers apply the same cap to the new structured fields before sending them.
 2. The consumer redacts the whole capped text as one string, including multi-line patterns.
 3. The consumer records `*OriginalBytes` from the redacted text.
 4. The consumer truncates the redacted text at UTF-8 boundaries to the limits above, and at line boundaries for stack traces. It marks the omitted range explicitly.
 
-Nothing truncates, windows or slices text before step 2. Later re-truncation, such as the finished-snapshot cap, works on already redacted text. The master redacts all structured text received from workers and never relies on a worker having done so. Redaction is idempotent.
+Apart from the capture-side 256 KiB prefix cap in step 1, nothing truncates, windows or slices text before redaction. Later re-truncation, such as the finished-snapshot cap, works on already redacted text. The master redacts all structured text received from workers and never relies on a worker having done so. Redaction is idempotent and best effort; it cannot guarantee removal of every fragment cut by the capture cap.
 
 ## Storage and Retention
 
@@ -395,7 +395,7 @@ The current `/job-info/{jobId}` behavior and its `errorMsg` field remain unchang
 
 **Authentication.** The endpoint sits under the existing `JobInfoServlet` mappings, so it inherits the `BasicAuthFilter` boundary of the engine REST API. It adds no endpoint-specific authentication.
 - REST authentication is disabled by default (`enable-basic-auth: false`) while HTTP is enabled on port 8080. By default, anyone who can reach the port can read failure history.
-- The existing boundary is a single shared credential with no roles, and provides no per-job or per-tenant authorization. Deployments that need narrower access must enforce it at their gateway or network boundary.
+- The existing boundary is a single shared credential with no roles, and provides no per-job or per-tenant authorization. Its configured username and password both default to `admin`; operators enabling it must replace those defaults. Deployments that need narrower access must enforce it at their gateway or network boundary.
 - The route handles requests directly, without async or forward dispatch, because the filters are registered for `REQUEST` dispatch only.
 
 **Other access paths.** Redaction is defence in depth, not an access boundary. The same failures remain available unredacted through:
@@ -568,7 +568,7 @@ A leftover running entry never makes an unknown or expired job appear known.
 
 | Boundary | Enforcement point / writer | Rule and limit |
 |---|---|---|
-| REST authentication and authorization | Existing `BasicAuthFilter` on the `JobInfoServlet` mappings; the handler uses direct `REQUEST` dispatch | No endpoint-specific authentication or per-job/per-tenant authorization. `enable-basic-auth: false` by default leaves the HTTP endpoint on port 8080 readable by anyone who can reach it. The enabled filter uses one shared credential without roles; narrower access belongs at the gateway or network boundary |
+| REST authentication and authorization | Existing `BasicAuthFilter` on the `JobInfoServlet` mappings; the handler uses direct `REQUEST` dispatch | No endpoint-specific authentication or per-job/per-tenant authorization. `enable-basic-auth: false` by default leaves the HTTP endpoint on port 8080 readable by anyone who can reach it. The enabled filter uses one shared credential without roles, with both username and password defaulting to `admin`; operators must replace them. Narrower access belongs at the gateway or network boundary |
 | Other access paths | Existing `/job-info/{jobId}` `errorMsg`, node-log endpoints and Hazelcast member port | Redaction is defence in depth, not an access boundary. These paths can expose the same failures unredacted; the Hazelcast member port must remain on a trusted network. Enabling the built-in Hazelcast REST API also exposes map values outside `BasicAuthFilter` |
 | Running and finished history text | The consumer redacts the whole captured text before each write to `engine_runningJobFailureHistory` or `engine_finishedJobFailureHistory` | Covers worker-reported, deployment, node-loss, master-recovery, pipeline and terminal-snapshot paths. Apply the patterns and non-goals in Security and Input Validation, and the size and post-redaction byte-length rules in Text Processing. Stored messages are at most 4 KiB and stack traces at most 64 KiB; finished snapshots re-truncate stack traces to 16 KiB. The master redacts worker text independently; existing `errorMsg` behavior is unchanged |
 | Worker attribution | Capture and both history-map writers; REST response writer | Do not copy worker `host:port` from execution metadata into running or finished failure-history attribution fields, and do not expose such fields in REST. Sanitized exception text may still mention an address; existing execution metadata and `/pending-jobs` are unchanged |
@@ -577,11 +577,11 @@ A leftover running entry never makes an unknown or expired job appear known.
 
 | Input / boundary | Enforcement point | Result |
 |---|---|---|
-| Raw request URI | `JobInfoServlet` compares `getRequestURI()` with the literal `getContextPath() + getServletPath()` prefix, then matches the remainder against `^/([0-9]{1,19})/failures$` | Only the exact, case-sensitive `/job-info/{jobId}/failures` route is served. `%`, `;`, `\`, empty or dot segments, trailing slashes, alias `/running-job/{jobId}/failures` and extra segments receive controlled `404`; legacy single-ID routes retain their existing behavior, including malformed-ID `400` |
+| Raw request URI | For requests reaching `JobInfoServlet`, compare `getRequestURI()` with the literal `getContextPath() + getServletPath()` prefix, then match the remainder against `^/([0-9]{1,19})/failures$` | Only the exact, case-sensitive `/job-info/{jobId}/failures` route is served. The handler returns controlled `404` for nonmatching paths it receives; Jetty or filters may reject or normalize other requests first. Test `%`, `;`, `\`, empty or dot segments, trailing slashes, alias `/running-job/{jobId}/failures` and extra segments end to end. Legacy single-ID routes retain their existing behavior, including malformed-ID `400` |
 | Matched job ID | Handler parses the ASCII digit capture as a positive signed 64-bit value | Zero or overflow receives `400` |
 | `limit` on a matched path | Handler accepts one positive ASCII-decimal value matching `^[0-9]{1,10}$` | Absent: default 100. Values above 100: cap at 100. Empty, repeated, zero, negative, signed, non-numeric or Unicode-digit values receive `400`; unknown query parameters are ignored. `limit` applies to `failures`, not `attempts` |
 | HTTP method | Failures-route handler | `GET` only; other methods receive handler-written `405` |
-| Non-200 response | Failures-route handler | Fixed JSON body from `setStatus`, never `sendError`, request input or exception text. Map-read `RuntimeException` receives fixed `503`; responses set JSON UTF-8 content type and `X-Content-Type-Options: nosniff` |
+| Non-200 response from the failures-route handler | Failures-route handler | Fixed JSON body from `setStatus`, never `sendError`, request input or exception text. Map-read `RuntimeException` receives fixed `503`; responses set JSON UTF-8 content type and `X-Content-Type-Options: nosniff`. Pre-handler `BasicAuthFilter` rejects unauthenticated requests with its existing `401` response |
 
 ## Acceptance Criteria
 
@@ -599,7 +599,7 @@ A leftover running entry never makes an unknown or expired job appear known.
 12. `resetPipelineState()` writes a `CREATED` timestamp strictly greater than the previous one, including when the clock steps backward and when the write is retried. The in-memory key equals the value written by the execution of the write that returned without an exception. The `rest-api-v2` documentation describes the field accordingly.
 13. `attemptStartedAt` always equals the attempt key copied at reset or deploy time. It is never read from `runningJobStateTimestampsIMap` after a later restore.
 14. More than 100 records, or more than 1 MiB of retained text, evicts records oldest first until both limits hold. The first record of each attempt is evicted last.
-15. Redaction precedes any truncation, including the worker-side cap. A secret split across a truncation boundary is not stored. Messages over 4 KiB and stack traces over 64 KiB are truncated at valid UTF-8 boundaries, and they expose the truncation flag and the post-redaction, pre-truncation byte length in running and finished history.
+15. The capture-side 256 KiB prefix cap precedes consumer redaction; redaction precedes every persisted-text truncation. Tests cover recognized secrets at both boundaries, including partial values, without claiming the best-effort patterns remove every possible secret fragment. Messages over 4 KiB and stack traces over 64 KiB are truncated at valid UTF-8 boundaries, and they expose the truncation flag and the post-redaction, pre-truncation byte length in running and finished history.
 16. The finished snapshot records its owner and caps each stack trace at 16 KiB and the total text at 256 KiB, keeping flags and lengths. It expires no later than `history-job-expire-minutes` after the terminal time.
 17. More than 20 failures in one pipeline attempt submit at most 20 record operations and report the remainder in `attempts[].suppressedCount`. A retried operation does not count twice.
 18. A full queue, and failed, retried and delayed history operations, do not block the capturing thread, do not re-enter failure or restore processing, and do not change the failure, restore or terminal outcome. Capture does no regex work, and the queue stays within its count, byte and per-job bounds.
@@ -615,12 +615,12 @@ A leftover running entry never makes an unknown or expired job appear known.
     - a running savepoint start that reuses the job ID never returns the previous incarnation's history, and a finished one returns it only in the two cases stated in Terminal handling;
     - a known job with no records, including after a failed or evicted snapshot, returns an empty list;
     - an unknown or expired job returns `404` even when a leftover entry exists.
-26. Only a raw URI matching the specified grammar serves failure history. Legacy single-ID routes keep their behavior, including malformed-ID `400` responses. Alias failure-history requests, extra segments, trailing slashes, `%`-encoded characters, `;` parameters, dot segments and empty segments receive the controlled `404`.
-27. Every non-200 response of the route has a fixed JSON body, set by the handler, that contains no request input and no stack trace. This is tested with a unique marker in the URI and a map read failure whose message carries a marker. No response comes from `sendError` or Jetty's error page.
+26. Only a raw URI matching the specified grammar serves failure history. Legacy single-ID routes keep their behavior, including malformed-ID `400` responses. For alias requests, extra segments, trailing slashes, `%`-encoded characters, `;` parameters, dot segments and empty segments, integration tests verify whether Jetty rejects them before dispatch or the handler returns its controlled `404`.
+27. Every non-200 response written by the failures-route handler has a fixed JSON body containing no request input or stack trace. This is tested with a unique marker in the URI and a map read failure whose message carries a marker. The handler does not call `sendError`; pre-handler authentication and Jetty rejections retain their existing responses.
 28. On the new route, absent, empty, repeated, zero, negative, non-numeric, Unicode-digit, signed and overflowing limits, and overflowing job IDs, return the specified responses.
 29. The endpoint uses the same configured REST authentication boundary as existing job-detail endpoints. No history record or response contains a worker-address attribution field.
 30. Every redaction item listed in Security has a positive and a near-miss test. The tests include secrets across a truncation boundary, PEM blocks, escaped quotes and JAAS text with and without its prefix. Each pattern finishes within a fixed budget on adversarial 1 MiB input, and redaction is idempotent.
-31. The `TaskExecutionState` and `TaskDeployState` UID guards and byte fixtures pass: the first slice asserts identical bytes, and the slice that adds fields adds both old/new directions. Existing `errorMsg` clients are unaffected.
+31. The `TaskExecutionState` and `TaskDeployState` pinned-UID and old-wire read fixtures pass in the first slice. The slice that adds fields verifies new-writer/old-reader behavior without requiring new bytes to equal the old fixtures. Existing `errorMsg` clients are unaffected.
 32. Existing `job.retry.times`, restore eligibility and restore scheduling never read or wait on failure-history state, including after active-master failover.
 33. English and Chinese documentation describe the same contract.
 34. Each row of R2 has a test, including an unknown `executionId` with and without a placeholder, and a duplicate that consumes no sequence number.
