@@ -30,7 +30,7 @@ import java.util.Map;
  *
  * <p>With {@code classloader-cache-mode=false} every job gets its own {@code
  * SeaTunnelChildFirstClassLoader} per jar set, and the engine forgets it once the reference count
- * reaches zero. A forgotten loader is only collectable when nothing else points to it, but two
+ * reaches zero. A forgotten loader is only collectable when nothing else points to it, but three
  * library-level roots were observed (apache/seatunnel#12456) to keep it, and the Metaspace it
  * defines, alive for the whole life of the worker:
  *
@@ -44,6 +44,11 @@ import java.util.Map;
  *       thread context class loader at construction time, which is the job loader. Hadoop classes
  *       are always loaded parent-first (see {@code SeaTunnelChildFirstClassLoader}), so the
  *       registry lives in the application class loader and outlives every job.
+ *   <li>Hadoop: {@code CodecPool} keeps idle compressors and lease counters in static maps keyed by
+ *       the codec's {@code Class}. When the codec classes are bundled in a connector jar (for
+ *       example the shaded Parquet {@code SnappyCompressor} of the Hive connector), every job
+ *       loader defines a new key class, so each finished job leaves one more entry, and one more
+ *       pinned loader, behind. This is the only one of the three roots that grows per job.
  * </ul>
  *
  * <p>Only references that are provably owned by the released loader are touched. Process-wide
@@ -65,18 +70,32 @@ final class ReleasedClassLoaderReferenceCleaner {
     static final String HADOOP_WRITABLE_COMPARATOR_CLASS =
             "org.apache.hadoop.io.WritableComparator";
 
+    static final String HADOOP_CODEC_POOL_CLASS = "org.apache.hadoop.io.compress.CodecPool";
+
+    /**
+     * Static fields of {@code CodecPool} that are keyed by the codec class: the idle compressor and
+     * decompressor pools (plain maps guarded by their own monitor) and the lease counters (Guava
+     * caches). The layout is identical in the Hadoop 3.1.4 and 3.3.6 uber jars shipped by
+     * SeaTunnel.
+     */
+    private static final String[] CODEC_POOL_FIELDS = {
+        "compressorPool", "decompressorPool", "compressorCounts", "decompressorCounts"
+    };
+
     private final String mongoBufferPoolClass;
     private final String writableComparatorClass;
+    private final String codecPoolClass;
 
     ReleasedClassLoaderReferenceCleaner() {
-        this(MONGO_BUFFER_POOL_CLASS, HADOOP_WRITABLE_COMPARATOR_CLASS);
+        this(MONGO_BUFFER_POOL_CLASS, HADOOP_WRITABLE_COMPARATOR_CLASS, HADOOP_CODEC_POOL_CLASS);
     }
 
     /** Allows tests to point the cleaner at fixture classes instead of the real libraries. */
     ReleasedClassLoaderReferenceCleaner(
-            String mongoBufferPoolClass, String writableComparatorClass) {
+            String mongoBufferPoolClass, String writableComparatorClass, String codecPoolClass) {
         this.mongoBufferPoolClass = mongoBufferPoolClass;
         this.writableComparatorClass = writableComparatorClass;
+        this.codecPoolClass = codecPoolClass;
     }
 
     /**
@@ -92,6 +111,7 @@ final class ReleasedClassLoaderReferenceCleaner {
         }
         stopMongoBufferPoolPruner(released);
         detachHadoopWritableComparators(released);
+        removeHadoopCodecPoolEntries(released);
     }
 
     private void stopMongoBufferPoolPruner(ClassLoader released) {
@@ -178,6 +198,86 @@ final class ReleasedClassLoaderReferenceCleaner {
                     "Failed to clean Hadoop WritableComparator registry for released classloader",
                     e);
         }
+    }
+
+    private void removeHadoopCodecPoolEntries(ClassLoader released) {
+        Class<?> poolType = findVisibleClass(released, codecPoolClass);
+        // Statics of a class defined by the released loader are collected together with it.
+        if (poolType == null || poolType.getClassLoader() == released) {
+            return;
+        }
+        int removed = 0;
+        for (String fieldName : CODEC_POOL_FIELDS) {
+            // Each registry is handled on its own, so a field that is missing in another Hadoop
+            // layout does not stop the others from being cleaned.
+            try {
+                removed += removeEntriesKeyedByClassOf(poolType, fieldName, released);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                log.warn(
+                        "Failed to clean Hadoop CodecPool.{} for released classloader",
+                        fieldName,
+                        e);
+            }
+        }
+        if (removed > 0) {
+            log.info(
+                    "Removed {} Hadoop CodecPool entrie(s) keyed by codec classes of released classloader {}",
+                    removed,
+                    released);
+        }
+    }
+
+    /**
+     * Removes the entries of a static {@code Class}-keyed registry whose key class is defined by
+     * the released loader. Such an entry can never be looked up by another job, because a different
+     * loader defines a different {@code Class} object, so removing it only drops idle state of the
+     * released job. The idle compressor instances in the removed values are not ended explicitly,
+     * their native resources are released by their own finalizers or direct buffer cleaners.
+     */
+    private static int removeEntriesKeyedByClassOf(
+            Class<?> ownerType, String fieldName, ClassLoader released)
+            throws ReflectiveOperationException {
+        Field field = ownerType.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        Object registry = field.get(null);
+        if (registry == null) {
+            return 0;
+        }
+        int removed = 0;
+        // CodecPool.borrow and payback synchronize on the idle pool map itself, use the same
+        // monitor so a concurrent job never observes a half-removed entry.
+        synchronized (registry) {
+            Map<?, ?> map = asMap(registry);
+            if (map == null) {
+                log.warn(
+                        "Skip Hadoop CodecPool.{} cleanup, unexpected registry type {}",
+                        fieldName,
+                        registry.getClass().getName());
+                return 0;
+            }
+            Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
+            while (entries.hasNext()) {
+                if (isDefinedBy(entries.next().getKey(), released)) {
+                    entries.remove();
+                    removed++;
+                }
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Returns a mutable map view of a registry: the map itself, or the {@code asMap()} view of a
+     * Guava cache. The cache implementation class is not public, hence {@code setAccessible}.
+     */
+    private static Map<?, ?> asMap(Object registry) throws ReflectiveOperationException {
+        if (registry instanceof Map) {
+            return (Map<?, ?>) registry;
+        }
+        Method asMap = registry.getClass().getMethod("asMap");
+        asMap.setAccessible(true);
+        Object view = asMap.invoke(registry);
+        return view instanceof Map ? (Map<?, ?>) view : null;
     }
 
     /**

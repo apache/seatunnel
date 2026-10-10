@@ -25,7 +25,13 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -40,13 +46,15 @@ public class ReleasedClassLoaderReferenceCleanerTest {
 
     private static final String POOL = FixtureBufferPool.class.getName();
     private static final String COMPARATOR = FixtureWritableComparator.class.getName();
+    private static final String CODEC_POOL = FixtureCodecPool.class.getName();
 
     private final ReleasedClassLoaderReferenceCleaner cleaner =
-            new ReleasedClassLoaderReferenceCleaner(POOL, COMPARATOR);
+            new ReleasedClassLoaderReferenceCleaner(POOL, COMPARATOR, CODEC_POOL);
 
     @AfterEach
-    void clearComparatorRegistry() {
+    void clearFixtureRegistries() {
         FixtureWritableComparator.clear();
+        FixtureCodecPool.clear();
     }
 
     /**
@@ -122,6 +130,45 @@ public class ReleasedClassLoaderReferenceCleanerTest {
 
         Assertions.assertFalse(FixtureWritableComparator.isRegistered(ownedKey));
         Assertions.assertTrue(FixtureWritableComparator.isRegistered(String.class));
+    }
+
+    /**
+     * Guards the CodecPool root, the one that grows per job: idle pools and lease counters keyed by
+     * a codec class of the released loader must be dropped from all four registries, while the
+     * entries of an ancestor-defined codec and of a loader that is still running stay.
+     */
+    @Test
+    void removesCodecPoolEntriesKeyedByClassOfReleasedLoaderOnly() throws Exception {
+        SeaTunnelChildFirstClassLoader released = newLoaderOwning("java.", COMPARATOR, CODEC_POOL);
+        SeaTunnelChildFirstClassLoader running = newLoaderOwning("java.", COMPARATOR, CODEC_POOL);
+        Class<?> releasedCodec = Class.forName(FixtureKey.class.getName(), false, released);
+        Class<?> runningCodec = Class.forName(FixtureKey.class.getName(), false, running);
+        Assertions.assertNotSame(releasedCodec, runningCodec);
+        FixtureCodecPool.lease(releasedCodec);
+        FixtureCodecPool.lease(runningCodec);
+        FixtureCodecPool.lease(String.class);
+
+        cleaner.clean(released);
+
+        Assertions.assertFalse(FixtureCodecPool.isTrackedInAny(releasedCodec));
+        Assertions.assertTrue(FixtureCodecPool.isTrackedInAll(runningCodec));
+        Assertions.assertTrue(FixtureCodecPool.isTrackedInAll(String.class));
+    }
+
+    /**
+     * Guards the sharing contract of a CodecPool defined by an ancestor loader: it is cleaned by
+     * key ownership only and is never replaced or cleared, so another job keeps its idle pool.
+     */
+    @Test
+    void keepsCodecPoolEntriesWhenNoKeyBelongsToReleasedLoader() {
+        ClassLoader released = new SeaTunnelChildFirstClassLoader(Collections.emptyList());
+        FixtureCodecPool.lease(String.class);
+        FixtureCodecPool.lease(Integer.class);
+
+        cleaner.clean(released);
+
+        Assertions.assertTrue(FixtureCodecPool.isTrackedInAll(String.class));
+        Assertions.assertTrue(FixtureCodecPool.isTrackedInAll(Integer.class));
     }
 
     /**
@@ -236,6 +283,58 @@ public class ReleasedClassLoaderReferenceCleanerTest {
 
         public ClassLoader getClassLoader() {
             return classLoader;
+        }
+    }
+
+    /**
+     * Mirrors org.apache.hadoop.io.compress.CodecPool: idle pools in plain maps and lease counters
+     * in a cache whose implementation class is not public, all keyed by the codec class.
+     */
+    public static class FixtureCodecPool {
+        private static final Map<Class<?>, Set<Object>> compressorPool = new HashMap<>();
+        private static final Map<Class<?>, Set<Object>> decompressorPool = new HashMap<>();
+        private static final FixtureCache compressorCounts = new FixtureCache();
+        private static final FixtureCache decompressorCounts = new FixtureCache();
+
+        static void lease(Class<?> codecType) {
+            synchronized (compressorPool) {
+                compressorPool.put(codecType, new HashSet<>());
+            }
+            synchronized (decompressorPool) {
+                decompressorPool.put(codecType, new HashSet<>());
+            }
+            compressorCounts.counts.put(codecType, new AtomicInteger());
+            decompressorCounts.counts.put(codecType, new AtomicInteger());
+        }
+
+        static boolean isTrackedInAll(Class<?> codecType) {
+            return compressorPool.containsKey(codecType)
+                    && decompressorPool.containsKey(codecType)
+                    && compressorCounts.counts.containsKey(codecType)
+                    && decompressorCounts.counts.containsKey(codecType);
+        }
+
+        static boolean isTrackedInAny(Class<?> codecType) {
+            return compressorPool.containsKey(codecType)
+                    || decompressorPool.containsKey(codecType)
+                    || compressorCounts.counts.containsKey(codecType)
+                    || decompressorCounts.counts.containsKey(codecType);
+        }
+
+        static void clear() {
+            compressorPool.clear();
+            decompressorPool.clear();
+            compressorCounts.counts.clear();
+            decompressorCounts.counts.clear();
+        }
+    }
+
+    /** Mirrors the shaded Guava LoadingCache, which is only reachable through asMap(). */
+    static final class FixtureCache {
+        private final ConcurrentMap<Class<?>, AtomicInteger> counts = new ConcurrentHashMap<>();
+
+        public ConcurrentMap<Class<?>, AtomicInteger> asMap() {
+            return counts;
         }
     }
 
