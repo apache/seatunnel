@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | secret_key                 | string  | 是  | -                           |
 | region                     | string  | 是  | -                           |
 | read_columns               | list    | 否  | -                           | 读取列列表，用于实现字段投影。 |
+| read_partitions            | list    | 否  | -                           | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | delimiter/field_delimiter  | string  | 否  | \001 for text and , for csv | **delimiter** 在 2.3.5 版本后弃用，请改用 **field_delimiter**。文本文件的字段分隔符。 |
 | row_delimiter              | string  | 否  | \n                          | 文本文件的行分隔符，默认 `\n`。 |
 | parse_partition_from_path  | boolean | 否  | true                        | 是否从文件路径解析分区键和值。 |

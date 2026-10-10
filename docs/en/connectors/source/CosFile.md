@@ -62,6 +62,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           | Column projection list for field mapping. |
+| read_partitions            | list    | no       | -                           | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv | **delimiter** is deprecated after 2.3.5, use **field_delimiter** instead. Field delimiter for text files. |
 | row_delimiter              | string  | no       | \n                          | Row delimiter for text files, default `\n`. |
 | parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
