@@ -717,4 +717,119 @@ public class DuckDBSourceAndSinkTest {
             TimeZone.setDefault(original);
         }
     }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testTimestampAliasAroundFallbackAcrossTimeZones() throws Exception {
+        // Regression: reading DuckDB TIMESTAMP columns must not reinterpret the stored wall clock.
+        // Each zone stores a base wall clock plus that same value shifted by its DST offset, so a
+        // read that adds or drops one shift is visible: one hour for America/Los_Angeles
+        // (fallback 2024-11-03 02:00 -> 01:00) and Europe/Paris (2024-10-27 03:00 -> 02:00),
+        // thirty minutes for Australia/Lord_Howe (2024-04-07 02:00 -> 01:30).
+        String table = "ts_alias_around_fallback";
+        String tablePath = SCHEMA_NAME + "." + table;
+        // Fixed DuckDB literals, independent of the read path under test.
+        String[] wallClocks = {
+            "2024-11-03 08:30:00", // America/Los_Angeles: base
+            "2024-11-03 07:30:00", // America/Los_Angeles: one hour before the base
+            "2024-11-03 09:30:00", // America/Los_Angeles: one hour after the base
+            "2024-10-27 00:30:00", // Europe/Paris: base
+            "2024-10-26 23:30:00", // Europe/Paris: one hour before the base
+            "2024-10-27 01:30:00", // Europe/Paris: one hour after the base
+            "2024-04-06 14:30:00", // Australia/Lord_Howe: base
+            "2024-04-06 14:00:00", // Australia/Lord_Howe: thirty minutes before the base
+            "2024-04-06 15:00:00" // Australia/Lord_Howe: thirty minutes after the base
+        };
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE \"%s\".\"%s\" (id INTEGER, c_ts TIMESTAMP, "
+                                    + "c_ts_s TIMESTAMP_S, c_ts_ms TIMESTAMP_MS, "
+                                    + "c_ts_ns TIMESTAMP_NS)",
+                            SCHEMA_NAME, table));
+            StringBuilder insert =
+                    new StringBuilder(
+                            String.format("INSERT INTO \"%s\".\"%s\" VALUES ", SCHEMA_NAME, table));
+            for (int i = 0; i < wallClocks.length; i++) {
+                if (i > 0) {
+                    insert.append(", ");
+                }
+                insert.append('(')
+                        .append(i + 1)
+                        .append(", TIMESTAMP '")
+                        .append(wallClocks[i])
+                        .append(".123456', TIMESTAMP_S '")
+                        .append(wallClocks[i])
+                        .append("', TIMESTAMP_MS '")
+                        .append(wallClocks[i])
+                        .append(".123', TIMESTAMP_NS '")
+                        .append(wallClocks[i])
+                        .append(".123456789')");
+            }
+            insert.append(", (").append(wallClocks.length + 1).append(", NULL, NULL, NULL, NULL)");
+            statement.execute(insert.toString());
+        }
+        // Expected values are parsed back from the stored literals above, independently of the
+        // read path under test: the plain TIMESTAMP control keeps its .123456 microseconds and the
+        // typed columns keep their 0 / .123 / .123456789 fractions.
+        LocalDateTime[][] expected = new LocalDateTime[wallClocks.length + 1][];
+        for (int i = 0; i < wallClocks.length; i++) {
+            LocalDateTime wallClock = LocalDateTime.parse(wallClocks[i].replace(' ', 'T'));
+            expected[i] =
+                    new LocalDateTime[] {
+                        wallClock.withNano(123_456_000),
+                        wallClock,
+                        wallClock.withNano(123_000_000),
+                        wallClock.withNano(123_456_789)
+                    };
+        }
+        expected[wallClocks.length] = new LocalDateTime[] {null, null, null, null};
+        String query =
+                "SELECT id, c_ts, c_ts_s, c_ts_ms, c_ts_ns FROM main." + table + " ORDER BY id";
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (String zone :
+                    new String[] {
+                        "UTC", "America/Los_Angeles", "Europe/Paris", "Australia/Lord_Howe"
+                    }) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                for (boolean useQuery : new boolean[] {false, true}) {
+                    String mode = useQuery ? "query" : "table_path";
+                    Map<String, Object> sourceOptions = new HashMap<>();
+                    sourceOptions.put("url", jdbcUrl);
+                    sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+                    sourceOptions.put(
+                            useQuery ? "query" : "table_path", useQuery ? query : tablePath);
+                    List<SeaTunnelRow> rows =
+                            SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                                    ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+                    Assertions.assertEquals(expected.length, rows.size(), zone + ", " + mode);
+                    // `table_path` reads do not guarantee row order, so index the rows by their
+                    // `id` column and assert the count and uniqueness of the ids.
+                    Map<Integer, SeaTunnelRow> rowsById = new HashMap<>();
+                    for (SeaTunnelRow row : rows) {
+                        Integer id = (Integer) row.getField(0);
+                        Assertions.assertNotNull(id, zone + ", " + mode);
+                        Assertions.assertNull(
+                                rowsById.put(id, row), zone + ", " + mode + ", duplicate id " + id);
+                    }
+                    Assertions.assertEquals(expected.length, rowsById.size(), zone + ", " + mode);
+                    for (int id = 1; id <= expected.length; id++) {
+                        SeaTunnelRow row = rowsById.get(id);
+                        String message = zone + ", " + mode + ", id " + id;
+                        Assertions.assertNotNull(row, message);
+                        for (int column = 0; column < expected[id - 1].length; column++) {
+                            Assertions.assertEquals(
+                                    expected[id - 1][column],
+                                    row.getField(column + 1),
+                                    message + ", column " + column);
+                        }
+                    }
+                }
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
 }

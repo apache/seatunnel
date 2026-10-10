@@ -49,7 +49,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 `TIMESTAMP`、`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` 映射为 SeaTunnel `TIMESTAMP`，并保留其原生小数秒精度（6、0、3、9 位）。SeaTunnel 自动生成 MySQL 建表语句时，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级指导见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-时间戳-source-值)。
 
-标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名在 1970-01-01 及之后使用 UTC Calendar 读取，更早的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
+标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
 
 历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，类型化读取也不能保证这些边界值无损。在测试使用的驱动中，`getString` 返回的是 `java.sql.Timestamp` 渲染的文本，因此读取文本再解析也无法恢复原始值。
 
