@@ -22,6 +22,9 @@ name: Update build status workflow
 on:
   schedule:
   - cron: "*/15 * * * *"
+  # Lets a committer sync PR Build checks immediately instead of waiting for the
+  # next scheduled tick, e.g. after a contributor retriggers a lost fork build.
+  workflow_dispatch:
 
 # Overlapping ticks must not both create a Build check run for the same re-run.
 concurrency:
