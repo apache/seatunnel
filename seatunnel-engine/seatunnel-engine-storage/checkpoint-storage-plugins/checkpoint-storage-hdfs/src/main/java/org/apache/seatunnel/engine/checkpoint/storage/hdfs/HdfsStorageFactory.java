@@ -34,7 +34,7 @@ import java.util.Map;
  * following configuration in the configuration file:
  *
  * <pre>
- *      storage.type = hdfs # hdfs, local(default),s3, oss
+ *      storage.type = hdfs # hdfs, local(default), s3, oss, cos, gcs
  *  </pre>
  *
  * then you need to configure the following parameters by the storage.type: hdfs {@link
@@ -58,6 +58,14 @@ import java.util.Map;
  *      fs.oss.accessKeySecret = "your script key"
  *      fs.oss.endpoint = "such as: oss-cn-hangzhou.aliyuncs.com"
  *      oss.bucket= "oss://your bucket"
+ *  </pre>
+ *
+ * gcs {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.GcsConfiguration} eg: gcs
+ *
+ * <pre>
+ *      storage.type = "gcs"
+ *      gcs.bucket = "gs://your bucket"
+ *      fs.gs.auth.service.account.json.keyfile = "/path/to/key.json" # optional, ADC if absent
  *  </pre>
  */
 @AutoService(CheckpointStorageFactory.class)
