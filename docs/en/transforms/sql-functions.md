@@ -1185,6 +1185,43 @@ AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
 
 AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
 
+## JSON Functions
+
+### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Available in both the Zeta and Calcite SQL transforms.
+
+Supported path syntax:
+
+- `$` — the root document
+- `.field` — object field access
+- `[n]` — array index (non-negative integer)
+- `['field']` / `["field"]` — bracket field access (for keys containing `.` or `[`)
+
+Wildcards (`[*]`, `.*`), recursive descent (`..`) and filter expressions (`[?(...)]`) are not supported.
+
+Return semantics:
+
+- Any null input (`json` or `path`) → `null`
+- Invalid JSON → `null`
+- Path does not match / array index out of bounds → `null`
+- A JSON `null` value → `null`
+- A string value → the unquoted string content
+- A number or boolean → the value rendered as text
+- An object or array → the raw (compact) JSON text of that node
+
+Example:
+
+GET_JSON_OBJECT('{"a":"hello","b":[10,20]}', '$.a')
+
+GET_JSON_OBJECT('{"a":{"b":1}}', '$.a')
+
+GET_JSON_OBJECT('{"b":[10,20]}', '$.b[1]')
+
+SELECT CASE WHEN GET_JSON_OBJECT(name, '$.key1') = 'value1' THEN 'A' ELSE 'B' END AS r FROM dual
+
 ## System Functions
 
 ### CAST
