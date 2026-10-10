@@ -1,0 +1,51 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: PR risk label
+
+on:
+  # Runs from the base branch with a write token and NEVER checks out PR code: the script only reads
+  # the PR through the GitHub API. `edited` covers title, body and base-branch changes.
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+
+# Labels and comments are issue-level writes. The workflow cannot approve, request changes or merge.
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+# Only the latest head matters: a newer run replaces the label and the comment of an older one.
+concurrency:
+  group: pr-risk-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    if: github.repository == 'apache/seatunnel'
+    name: Compute risk label
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The default checkout of pull_request_target is the base branch, which is what we want: its poms
+      # tell the script which artifacts and versions are already in use.
+      - uses: actions/checkout@v4
+      - name: Compute the risk level, post the comment and set the label
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_RISK_DEFAULT_BASE: ${{ vars.PR_RISK_DEFAULT_BASE }}
+        run: python3 -I tools/pr_risk_label.py evaluate --pr ${{ github.event.pull_request.number }} --apply
