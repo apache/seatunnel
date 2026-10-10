@@ -25,7 +25,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 
 import org.awaitility.Awaitility;
-import org.awaitility.core.ThrowingRunnable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,26 +92,25 @@ public class WorkerTagClusterTest {
 
     public void testTagFilter(Map<String, String> tagFilter, int expectedWorkerCount)
             throws Exception {
-        // waiting all node added to cluster
+        // waiting all node added to cluster; poll without the in-poll sleep so each
+        // attempt checks the condition immediately, and give cluster formation and
+        // worker registration enough headroom under CI load
         Awaitility.await()
-                .atMost(10000, TimeUnit.MILLISECONDS)
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
-                        new ThrowingRunnable() {
-                            @Override
-                            public void run() throws Throwable {
-                                Thread.sleep(2000);
-                                // check master and worker node
-                                Assertions.assertEquals(
-                                        2, masterNode1.getCluster().getMembers().size());
-                                NodeEngineImpl nodeEngine = masterNode1.node.nodeEngine;
-                                SeaTunnelServer server =
-                                        nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                                ResourceManager resourceManager =
-                                        server.getCoordinatorService().getResourceManager();
-                                // if tag matched, then worker count is 1  else 0
-                                int workerCount = resourceManager.workerCount(tagFilter);
-                                Assertions.assertEquals(expectedWorkerCount, workerCount);
-                            }
+                        () -> {
+                            // check master and worker node
+                            Assertions.assertEquals(
+                                    2, masterNode1.getCluster().getMembers().size());
+                            NodeEngineImpl nodeEngine = masterNode1.node.nodeEngine;
+                            SeaTunnelServer server =
+                                    nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+                            ResourceManager resourceManager =
+                                    server.getCoordinatorService().getResourceManager();
+                            // if tag matched, then worker count is 1  else 0
+                            int workerCount = resourceManager.workerCount(tagFilter);
+                            Assertions.assertEquals(expectedWorkerCount, workerCount);
                         });
     }
 

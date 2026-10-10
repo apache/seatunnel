@@ -836,4 +836,31 @@ public class StringFunction {
         }
         return Hashing.murmur3_128().hashString(arg, StandardCharsets.UTF_8).asLong();
     }
+
+    /**
+     * Computes the MD5 digest of the input and returns it as a 32-character lowercase hexadecimal
+     * string, matching Hive's {@code md5(string|binary)}.
+     *
+     * <p>String inputs are hashed as UTF-8 bytes; binary (byte[]) inputs are hashed as raw bytes.
+     * Non-string, non-binary values are converted via {@code toString()} and hashed as UTF-8,
+     * mirroring Hive's implicit cast to string.
+     *
+     * @param args list containing a single string, binary, or implicitly castable value
+     * @return 32-char lowercase hex MD5 digest, or null if the input is null
+     */
+    @SuppressWarnings(
+            "deprecation") // Guava deprecates MD5 (broken for security); Hive parity requires it
+    public static String md5(List<Object> args) {
+        if (args.size() != 1) {
+            throw new IllegalArgumentException("MD5 expects exactly 1 argument");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        if (arg instanceof byte[]) {
+            return Hashing.md5().hashBytes((byte[]) arg).toString();
+        }
+        return Hashing.md5().hashString(arg.toString(), StandardCharsets.UTF_8).toString();
+    }
 }

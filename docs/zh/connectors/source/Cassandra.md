@@ -78,6 +78,8 @@ Cassandra source 支持两种读取方式：
 
 ### host [string]
 
+所有配置的主机都会作为初始连接地址传递给驱动。当某个主机不可用时，驱动可以尝试其他配置的主机。这不会改变一致性级别，也不保证在没有可达节点时连接成功。
+
 `Cassandra` 的集群地址, 格式为 `host:port` , 允许指定多个 `hosts` . 例如
 `"cassandra1:9042,cassandra2:9042"`.
 

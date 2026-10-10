@@ -61,6 +61,81 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 :::
 
+### url [string]
+
+MQTT broker 连接 URL。必须包含协议、主机和端口。
+
+示例：`tcp://broker.example.com:1883`
+
+### topic [string]
+
+要订阅消息的 MQTT topic。
+
+示例：`iot/sensors/temperature`
+
+### schema [config]
+
+上游数据的 schema 字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+### username [string]
+
+MQTT broker 认证用户名。匿名访问时可不填。
+
+### password [string]
+
+MQTT broker 认证密码。匿名访问时可不填。
+
+### qos [int]
+
+订阅 topic 时使用的 MQTT QoS 等级。
+
+该设置只控制 MQTT broker 和 MQTT client 之间的交付，不在 SeaTunnel 中提供端到端交付保证。
+
+支持的取值：
+
+- `0` — MQTT QoS 0
+- `1` — MQTT QoS 1
+
+### format [string]
+
+输入消息的反序列化格式。支持的取值：
+
+- `json` — 将每条消息反序列化为 JSON 对象（默认）
+- `text` — 将每条消息按分隔符切分为纯文本（分隔符由 `field_delimiter` 控制）
+
+### client_id [string]
+
+MQTT client id。当 `clean_session=true` 且未配置该选项时，连接器会生成随机 client id。
+
+当 `clean_session=false` 时必须配置该选项，因为持久 MQTT 会话需要稳定的 client id。
+
+### clean_session [boolean]
+
+是否使用 clean MQTT session。默认为 `true`。
+
+- `true` — broker 丢弃之前的会话状态。适用于无状态场景。
+- `false` — broker 可以保留会话状态和订阅。需要稳定的 `client_id`。
+
+### connection_timeout [int]
+
+MQTT 连接建立超时时间，单位为秒。
+
+### keep_alive_interval [int]
+
+MQTT keep alive 间隔，单位为秒。
+
+### reconnect_timeout [int]
+
+等待 MQTT 自动重连的最长时间，单位为秒。如果 MQTT 客户端断开连接的时间超过该超时时间，`pollNext()` 会让源任务失败，而不是无限期静默等待。
+
+### max_queue_size [int]
+
+反序列化之前在内存中缓存的 MQTT 消息最大数量。
+
+### common options
+
+源插件通用参数，详情请参考 [源通用选项](../common-options/source-common-options.md)。
+
 ## 示例
 
 ### JSON 源
