@@ -45,7 +45,7 @@ For consuming queues, see the separate [ActiveMQ source](../source/Activemq.md).
 | delivery_mode                           | int     | no       | 2             | JMS delivery mode: `1` for NON_PERSISTENT or `2` for PERSISTENT. Defaults to `2` (PERSISTENT). |
 | priority                                | int     | no       | 4             | JMS message priority from 0 (lowest) to 9 (highest). Defaults to `4`. |
 | producer_window_size                    | int     | no       | 0             | Flow control window size in bytes for async sends. A value of `0` means no flow control. Defaults to `0`. |
-| time_to_live                            | int     | no       | 0             | Message time-to-live in milliseconds. A value of `0` means never expires. Defaults to `0`. |
+| time_to_live                            | long    | no       | 0             | Message time-to-live in milliseconds. A value of `0` means never expires. Defaults to `0`. |
 | use_async_send                          | boolean | no       | false         | When true, sends return without waiting for broker confirmation. Defaults to `false`. |
 
 ## Notes
@@ -55,6 +55,7 @@ For consuming queues, see the separate [ActiveMQ source](../source/Activemq.md).
 - The connector writes each SeaTunnel row as one JSON text message to `queue_name`. There is no separate `format` option for this sink.
 - Configure the broker address with `uri`. `host` and `port` are not ActiveMQ sink options.
 - Use any SeaTunnel source before this sink. The ActiveMQ connector only controls how the final rows are sent to the queue.
+- When `use_async_send = true` or `delivery_mode = 1` (NON_PERSISTENT), the ActiveMQ client sends without waiting for broker confirmation and this sink does not register an `ExceptionListener`, so a failed send may not be surfaced to the job. Use these options only when acceptable message loss is tolerable.
 
 ## Example
 

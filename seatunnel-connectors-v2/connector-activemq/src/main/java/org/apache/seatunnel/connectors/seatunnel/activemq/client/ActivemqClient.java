@@ -75,9 +75,20 @@ public class ActivemqClient {
             this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             Destination destination = session.createQueue(config.get(QUEUE_NAME));
             this.producer = session.createProducer(destination);
-            this.producer.setDeliveryMode(config.get(DELIVERY_MODE));
+            int deliveryMode = config.get(DELIVERY_MODE);
+            if (deliveryMode != 1 && deliveryMode != 2) {
+                throw new IllegalArgumentException(
+                        "delivery_mode must be 1 (NON_PERSISTENT) or 2 (PERSISTENT), got: "
+                                + deliveryMode);
+            }
+            int priority = config.get(PRIORITY);
+            if (priority < 0 || priority > 9) {
+                throw new IllegalArgumentException(
+                        "priority must be between 0 and 9, got: " + priority);
+            }
+            this.producer.setDeliveryMode(deliveryMode);
             this.producer.setTimeToLive(config.get(TIME_TO_LIVE));
-            this.producer.setPriority(config.get(PRIORITY));
+            this.producer.setPriority(priority);
             log.info("connection created");
 
         } catch (Exception e) {
@@ -85,8 +96,8 @@ public class ActivemqClient {
             // Best-effort cleanup of partially-created resources to avoid leaks
             try {
                 close();
-            } catch (Exception ignored) {
-                // best-effort cleanup during construction failure
+            } catch (Exception closeError) {
+                e.addSuppressed(closeError);
             }
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
@@ -136,29 +147,15 @@ public class ActivemqClient {
             factory.setNestedMapAndListEnabled(config.get(NESTED_MAP_AND_LIST_ENABLED));
         }
 
-        if (config.get(MAX_THREAD_POOL_SIZE) != null) {
-            factory.setMaxThreadPoolSize(config.get(MAX_THREAD_POOL_SIZE));
-        }
-
-        if (config.get(SEND_TIMEOUT) != null) {
-            factory.setSendTimeout(config.get(SEND_TIMEOUT));
-        }
-
-        if (config.get(USE_COMPRESSION) != null) {
-            factory.setUseCompression(config.get(USE_COMPRESSION));
-        }
-
-        if (config.get(CONNECT_RESPONSE_TIMEOUT) != null) {
-            factory.setConnectResponseTimeout(config.get(CONNECT_RESPONSE_TIMEOUT));
-        }
-
-        if (config.get(PRODUCER_WINDOW_SIZE) != null) {
-            factory.setProducerWindowSize(config.get(PRODUCER_WINDOW_SIZE));
-        }
-
-        if (config.get(USE_ASYNC_SEND) != null) {
-            factory.setUseAsyncSend(config.get(USE_ASYNC_SEND));
-        }
+        // Options declared with .defaultValue() use getOptional() so the setter is only called
+        // when the user explicitly set the option. Otherwise the ActiveMQConnectionFactory would
+        // always apply the SeaTunnel default, silently overwriting jms.* parameters from the URI.
+        config.getOptional(MAX_THREAD_POOL_SIZE).ifPresent(factory::setMaxThreadPoolSize);
+        config.getOptional(SEND_TIMEOUT).ifPresent(factory::setSendTimeout);
+        config.getOptional(USE_COMPRESSION).ifPresent(factory::setUseCompression);
+        config.getOptional(CONNECT_RESPONSE_TIMEOUT).ifPresent(factory::setConnectResponseTimeout);
+        config.getOptional(PRODUCER_WINDOW_SIZE).ifPresent(factory::setProducerWindowSize);
+        config.getOptional(USE_ASYNC_SEND).ifPresent(factory::setUseAsyncSend);
         return factory;
     }
 
@@ -171,9 +168,7 @@ public class ActivemqClient {
         } catch (JMSException e) {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.SEND_MESSAGE_FAILED,
-                    String.format(
-                            "Cannot send AMQ message %s at %s",
-                            config.get(QUEUE_NAME), config.get(URI)),
+                    String.format("Cannot send AMQ message to queue %s", config.get(QUEUE_NAME)),
                     e);
         }
     }

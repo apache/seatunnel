@@ -39,8 +39,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -53,6 +56,8 @@ class ActivemqClientTest {
 
     private static final String TEST_URI = "tcp://localhost:61616";
     private static final String TEST_QUEUE = "test-queue";
+    private static final String TEST_URI_WITH_CREDENTIALS =
+            "tcp://admin:secretPass@localhost:61616";
 
     private static Map<String, Object> baseConfig() {
         Map<String, Object> config = new HashMap<>();
@@ -132,16 +137,20 @@ class ActivemqClientTest {
     }
 
     /**
-     * L4 + exception chain: write() wraps JMSException with the URI (not CLIENT_ID) in the error
-     * message, and preserves the original exception as the cause.
+     * L4 + exception chain: write() wraps JMSException with the queue name (not the broker URI,
+     * which may contain credentials) in the error message, and preserves the original exception as
+     * the cause.
      */
     @Test
-    void writeWrapsJmsExceptionWithUriInMessage() throws Exception {
+    void writeWrapsJmsExceptionWithQueueInMessage() throws Exception {
         Connection mockConnection = mock(Connection.class);
         Session mockSession = mock(Session.class);
         Queue mockQueue = mock(Queue.class);
         MessageProducer mockProducer = mock(MessageProducer.class);
         JMSException sendError = new JMSException("send failed");
+
+        Map<String, Object> config = baseConfig();
+        config.put(ActivemqSinkOptions.URI.key(), TEST_URI_WITH_CREDENTIALS);
 
         try (MockedConstruction<ActiveMQConnectionFactory> ignored =
                 mockConstruction(
@@ -154,15 +163,18 @@ class ActivemqClientTest {
             when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
             when(mockSession.createTextMessage("hello")).thenThrow(sendError);
 
-            ActivemqClient client = new ActivemqClient(ReadonlyConfig.fromMap(baseConfig()));
+            ActivemqClient client = new ActivemqClient(ReadonlyConfig.fromMap(config));
 
             ActivemqConnectorException ex =
                     assertThrows(
                             ActivemqConnectorException.class,
                             () -> client.write("hello".getBytes(StandardCharsets.UTF_8)));
 
-            // L4: error message contains URI, not client_id
-            assertTrue(ex.getMessage().contains(TEST_URI));
+            // Issue 2: error message contains queue name, not the broker URI
+            assertTrue(ex.getMessage().contains(TEST_QUEUE));
+            // Issue 2: credentials from the URI must not appear in the message
+            assertFalse(ex.getMessage().contains("secretPass"));
+            assertFalse(ex.getMessage().contains(TEST_URI_WITH_CREDENTIALS));
             // Exception chain preserved (3-arg constructor)
             assertEquals(sendError, ex.getCause());
         }
@@ -272,11 +284,12 @@ class ActivemqClientTest {
     }
 
     /**
-     * Verifies that default values (matching the ActiveMQ client defaults) are applied to the
-     * connection factory and the producer when the corresponding options are not explicitly set.
+     * When factory-level options are not explicitly set, their setters must NOT be called so that
+     * {@code jms.*} parameters embedded in the broker URI are preserved. Producer-level options
+     * (delivery_mode, time_to_live, priority) always apply their JMS defaults.
      */
     @Test
-    void appliesDefaultsWhenOptionsNotSet() throws Exception {
+    void doesNotCallFactorySettersWhenOptionsNotSet() throws Exception {
         Connection mockConnection = mock(Connection.class);
         Session mockSession = mock(Session.class);
         Queue mockQueue = mock(Queue.class);
@@ -295,17 +308,54 @@ class ActivemqClientTest {
             new ActivemqClient(ReadonlyConfig.fromMap(baseConfig()));
 
             ActiveMQConnectionFactory factory = ignored.constructed().get(0);
-            // ConnectionFactory defaults
-            verify(factory).setMaxThreadPoolSize(1000);
-            verify(factory).setSendTimeout(0);
-            verify(factory).setUseCompression(false);
-            verify(factory).setConnectResponseTimeout(0);
-            verify(factory).setProducerWindowSize(0);
-            verify(factory).setUseAsyncSend(false);
-            // Producer defaults
+            // Issue 1: factory setters must NOT be called when options use defaults
+            verify(factory, times(0)).setMaxThreadPoolSize(anyInt());
+            verify(factory, times(0)).setSendTimeout(anyInt());
+            verify(factory, times(0)).setUseCompression(anyBoolean());
+            verify(factory, times(0)).setConnectResponseTimeout(anyInt());
+            verify(factory, times(0)).setProducerWindowSize(anyInt());
+            verify(factory, times(0)).setUseAsyncSend(anyBoolean());
+            // Producer defaults are always applied (they default to JMS defaults)
             verify(mockProducer).setDeliveryMode(2);
             verify(mockProducer).setTimeToLive(0L);
             verify(mockProducer).setPriority(4);
+        }
+    }
+
+    /**
+     * When the broker URI contains {@code jms.*} query parameters and the user does not set the
+     * corresponding SeaTunnel options, the URI parameters must be preserved on the
+     * ActiveMQConnectionFactory. This test uses a real (non-mocked) factory to verify the
+     * end-to-end behavior.
+     */
+    @Test
+    void preservesUriJmsParamsWhenOptionsNotSet() throws Exception {
+        String uriWithJmsParams =
+                "tcp://localhost:61616?jms.useAsyncSend=true&jms.producerWindowSize=1048576";
+        Connection mockConnection = mock(Connection.class);
+        Session mockSession = mock(Session.class);
+        Queue mockQueue = mock(Queue.class);
+        MessageProducer mockProducer = mock(MessageProducer.class);
+
+        Map<String, Object> config = baseConfig();
+        config.put(ActivemqSinkOptions.URI.key(), uriWithJmsParams);
+
+        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
+                mockConstruction(
+                        ActiveMQConnectionFactory.class,
+                        (factory, ctx) ->
+                                when(factory.createConnection()).thenReturn(mockConnection))) {
+            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
+                    .thenReturn(mockSession);
+            when(mockSession.createQueue(TEST_QUEUE)).thenReturn(mockQueue);
+            when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
+
+            new ActivemqClient(ReadonlyConfig.fromMap(config));
+
+            ActiveMQConnectionFactory factory = ignored.constructed().get(0);
+            // Issue 1: URI jms.* params must not be overwritten by SeaTunnel defaults
+            verify(factory, times(0)).setUseAsyncSend(false);
+            verify(factory, times(0)).setProducerWindowSize(0);
         }
     }
 
@@ -328,7 +378,7 @@ class ActivemqClientTest {
         config.put(ActivemqSinkOptions.PRODUCER_WINDOW_SIZE.key(), 1048576);
         config.put(ActivemqSinkOptions.USE_ASYNC_SEND.key(), true);
         config.put(ActivemqSinkOptions.DELIVERY_MODE.key(), 1);
-        config.put(ActivemqSinkOptions.TIME_TO_LIVE.key(), 60000);
+        config.put(ActivemqSinkOptions.TIME_TO_LIVE.key(), 60000L);
         config.put(ActivemqSinkOptions.PRIORITY.key(), 9);
 
         try (MockedConstruction<ActiveMQConnectionFactory> ignored =
@@ -386,6 +436,107 @@ class ActivemqClientTest {
             assertEquals(constructionError, ex.getCause());
             // P1: connection was cleaned up despite construction failure
             verify(mockConnection).close();
+        }
+    }
+
+    /**
+     * Issue 5: When the constructor fails and best-effort close() also throws, the close error is
+     * attached as a suppressed exception on the original cause instead of being swallowed.
+     */
+    @Test
+    void constructorFailurePreservesCloseErrorAsSuppressed() throws Exception {
+        Connection mockConnection = mock(Connection.class);
+        JMSException constructionError = new JMSException("createSession failed");
+        JMSException closeError = new JMSException("connection close failed");
+
+        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
+                mockConstruction(
+                        ActiveMQConnectionFactory.class,
+                        (factory, ctx) ->
+                                when(factory.createConnection()).thenReturn(mockConnection))) {
+            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
+                    .thenThrow(constructionError);
+            doThrow(closeError).when(mockConnection).close();
+
+            ActivemqConnectorException ex =
+                    assertThrows(
+                            ActivemqConnectorException.class,
+                            () -> new ActivemqClient(ReadonlyConfig.fromMap(baseConfig())));
+
+            // Original construction error is preserved as the cause
+            assertEquals(constructionError, ex.getCause());
+            // Issue 5: close() wraps JMSException in ActivemqConnectorException, which is then
+            // attached as a suppressed exception instead of being swallowed
+            assertEquals(1, ex.getCause().getSuppressed().length);
+            assertTrue(ex.getCause().getSuppressed()[0] instanceof ActivemqConnectorException);
+        }
+    }
+
+    /**
+     * Issue 3: delivery_mode must be 1 (NON_PERSISTENT) or 2 (PERSISTENT). An invalid value should
+     * fail fast with a clear message instead of surfacing as a generic construction error.
+     */
+    @Test
+    void constructorRejectsInvalidDeliveryMode() throws Exception {
+        Connection mockConnection = mock(Connection.class);
+        Session mockSession = mock(Session.class);
+        Queue mockQueue = mock(Queue.class);
+        MessageProducer mockProducer = mock(MessageProducer.class);
+
+        Map<String, Object> config = baseConfig();
+        config.put(ActivemqSinkOptions.DELIVERY_MODE.key(), 5);
+
+        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
+                mockConstruction(
+                        ActiveMQConnectionFactory.class,
+                        (factory, ctx) ->
+                                when(factory.createConnection()).thenReturn(mockConnection))) {
+            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
+                    .thenReturn(mockSession);
+            when(mockSession.createQueue(TEST_QUEUE)).thenReturn(mockQueue);
+            when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
+
+            ActivemqConnectorException ex =
+                    assertThrows(
+                            ActivemqConnectorException.class,
+                            () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
+
+            assertTrue(ex.getCause() instanceof IllegalArgumentException);
+            assertTrue(ex.getCause().getMessage().contains("delivery_mode"));
+        }
+    }
+
+    /**
+     * Issue 3: priority must be between 0 and 9. An out-of-range value should fail fast with a
+     * clear message.
+     */
+    @Test
+    void constructorRejectsInvalidPriority() throws Exception {
+        Connection mockConnection = mock(Connection.class);
+        Session mockSession = mock(Session.class);
+        Queue mockQueue = mock(Queue.class);
+        MessageProducer mockProducer = mock(MessageProducer.class);
+
+        Map<String, Object> config = baseConfig();
+        config.put(ActivemqSinkOptions.PRIORITY.key(), 15);
+
+        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
+                mockConstruction(
+                        ActiveMQConnectionFactory.class,
+                        (factory, ctx) ->
+                                when(factory.createConnection()).thenReturn(mockConnection))) {
+            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
+                    .thenReturn(mockSession);
+            when(mockSession.createQueue(TEST_QUEUE)).thenReturn(mockQueue);
+            when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
+
+            ActivemqConnectorException ex =
+                    assertThrows(
+                            ActivemqConnectorException.class,
+                            () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
+
+            assertTrue(ex.getCause() instanceof IllegalArgumentException);
+            assertTrue(ex.getCause().getMessage().contains("priority"));
         }
     }
 }

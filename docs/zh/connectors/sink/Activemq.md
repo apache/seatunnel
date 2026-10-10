@@ -45,7 +45,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 | delivery_mode                          | int     | 否    | 2     | JMS 投递模式：`1` 为非持久化，`2` 为持久化。默认值为 `2`（持久化）。                                              |
 | priority                               | int     | 否    | 4     | JMS 消息优先级，0（最低）到 9（最高）。默认值为 `4`。                                                            |
 | producer_window_size                   | int     | 否    | 0     | 异步发送时的流控窗口大小，单位字节。值为 `0` 表示不限流。默认值为 `0`。                                          |
-| time_to_live                           | int     | 否    | 0     | 消息存活时间，单位毫秒。值为 `0` 表示永不过期。默认值为 `0`。                                                    |
+| time_to_live                           | long    | 否    | 0     | 消息存活时间，单位毫秒。值为 `0` 表示永不过期。默认值为 `0`。                                                    |
 | use_async_send                         | boolean | 否    | false | 为 true 时发送不等 Broker 确认直接返回，提升吞吐量。默认值为 `false`。                                           |
 
 ## 注意事项
@@ -55,6 +55,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 - 连接器会把每一行 SeaTunnel 数据作为一条 JSON 文本消息写入 `queue_name`，当前没有单独的 `format` 配置。
 - Broker 地址请使用 `uri` 配置，`host` 和 `port` 不是 ActiveMQ Sink 的配置项。
 - 该 Sink 前面可以接任意 SeaTunnel Source。ActiveMQ 连接器只负责把最终的数据行发送到队列。
+- 当 `use_async_send = true` 或 `delivery_mode = 1`（非持久化）时，ActiveMQ 客户端发送消息后不等 Broker 确认即返回，且本连接器未注册 `ExceptionListener`，因此发送失败可能不会通知到作业。仅在可接受消息丢失的场景下使用这些选项。
 
 ## 示例
 

@@ -182,10 +182,10 @@ public class ActivemqSinkOptions implements Serializable {
                                     + "no flow control. Used together with use_async_send to prevent "
                                     + "unbounded memory growth. Defaults to 0.");
 
-    public static final Option<Integer> TIME_TO_LIVE =
+    public static final Option<Long> TIME_TO_LIVE =
             Options.key("time_to_live")
-                    .intType()
-                    .defaultValue(0)
+                    .longType()
+                    .defaultValue(0L)
                     .withDescription(
                             "Message time-to-live in milliseconds. A value of 0 means the message "
                                     + "never expires. The broker discards messages after the TTL "
