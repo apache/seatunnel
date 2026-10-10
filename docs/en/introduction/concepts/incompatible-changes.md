@@ -54,13 +54,15 @@ You need to check this document before you upgrade to related version.
   Update alerts/runbooks keyed on the old exception text or code. Unsupported
   conversions and unexpected failures retain their existing behavior; this does
   not add `ROUTE_TO_TABLE` support or change checkpoint formats.
-- Path-reading error policies are unchanged, but `ErrorDataTransformException`
-  now attaches the path-reading exception as its cause; previously it had no cause.
-  Its top-level diagnostics include bounded previews (up to 256 characters each)
-  of source data, config and error text. The original cause may still contain
-  full source data in stack traces and is outside the conversion-error privacy
-  boundary. Update stack-trace parsers and alerts that assumed no nested cause
-  to account for the additional `Caused by` section.
+- Path-reading error policies are unchanged. `ErrorDataTransformException` now
+  attaches a sanitized `JsonPathException` cause, rather than the original
+  exception, because its message or stack trace may contain source data or a
+  private path literal. Previously there was no cause. Diagnostics retain only
+  safe field identifiers and the original exception type; they omit source JSON,
+  configured paths and raw exception text. The cause chain remains available,
+  but the original cause subtype and stack detail are intentionally lost. Update
+  stack-trace parsers and alerts that assumed no nested cause or relied on the
+  previous message text.
 
 ### Redis Authentication
 

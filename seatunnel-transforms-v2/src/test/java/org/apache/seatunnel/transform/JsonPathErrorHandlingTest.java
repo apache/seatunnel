@@ -34,6 +34,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
 import org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode;
@@ -56,6 +57,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.jayway.jsonpath.JsonPathException;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -154,24 +157,24 @@ class JsonPathErrorHandlingTest {
                         () ->
                                 createTransform("int", null, null)
                                         .map(new SeaTunnelRow(new Object[] {"{}"})));
-        Assertions.assertTrue(failure.getMessage().contains("value: {}"));
+        Assertions.assertTrue(failure.getMessage().contains("src_field=content"));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=amount"));
+        Assertions.assertFalse(failure.getMessage().contains("{}"));
     }
 
     @Test
-    void testPathFailureMessageIsBoundedAndCauseIsAttached() {
-        String json = largePrivateJson();
-        for (String source : Arrays.asList(json, json.substring(0, json.length() - 1))) {
+    void testPathFailureDiagnosticsOmitShortAndLongPayloads() {
+        String longJson = largePrivateJson();
+        String shortJson = "{\"private\":\"" + PRIVATE_RECORD + "\"}";
+        for (String source :
+                Arrays.asList(shortJson, longJson, longJson.substring(0, longJson.length() - 1))) {
             JsonPathTransform transform = createTransform("int", null, null);
             ErrorDataTransformException failure =
                     Assertions.assertThrows(
                             ErrorDataTransformException.class,
                             () -> transform.map(new SeaTunnelRow(new Object[] {source})));
 
-            Assertions.assertTrue(failure.getMessage().contains("srcField=content"));
-            Assertions.assertTrue(failure.getMessage().contains("value: {\"private\":\""));
-            Assertions.assertFalse(failure.getMessage().contains(source));
-            Assertions.assertTrue(failure.getMessage().length() < 1000);
-            Assertions.assertInstanceOf(JsonPathException.class, failure.getCause());
+            assertSafePathFailure(failure, source);
             Assertions.assertNull(
                     createTransform("int", ErrorHandleWay.SKIP, null)
                             .map(new SeaTunnelRow(new Object[] {source}))
@@ -179,12 +182,76 @@ class JsonPathErrorHandlingTest {
         }
     }
 
+    @Test
+    void testPrivatePathLiteralIsAbsentFromFailureAndCause() {
+        for (String path :
+                Arrays.asList("$['" + PRIVATE_VALUE + "']", "$['" + largePrivateValue() + "']")) {
+            ErrorDataTransformException failure =
+                    Assertions.assertThrows(
+                            ErrorDataTransformException.class,
+                            () ->
+                                    createTransform("int", null, null, path)
+                                            .map(new SeaTunnelRow(new Object[] {"{}"})));
+            assertSafePathFailure(failure, "{}");
+        }
+    }
+
+    @Test
+    void testInvalidPrivatePathIsSanitizedAndNotSkipped() {
+        String path = "$['" + PRIVATE_VALUE;
+        JsonPathTransform transform =
+                createTransform("int", ErrorHandleWay.SKIP, ErrorHandleWay.SKIP, path);
+        JsonPathException failure =
+                Assertions.assertThrows(
+                        JsonPathException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {"{}"})));
+        String trace = renderedTrace(failure);
+        Assertions.assertFalse(trace.contains(PRIVATE_VALUE));
+        Assertions.assertTrue(trace.contains("src_field=content"));
+        Assertions.assertNull(failure.getCause());
+    }
+
+    @Test
+    void testUnsafeFieldIdentifierIsRedacted() {
+        JsonPathTransform transform =
+                createTransform("int", null, null, "$.amount", "private/" + PRIVATE_VALUE);
+        ErrorDataTransformException failure =
+                Assertions.assertThrows(
+                        ErrorDataTransformException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {"{}"})));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=<redacted>"));
+        Assertions.assertFalse(renderedTrace(failure).contains(PRIVATE_VALUE));
+    }
+
+    private static void assertSafePathFailure(ErrorDataTransformException failure, String source) {
+        Assertions.assertTrue(failure.getMessage().contains("src_field=content"));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=amount"));
+        Assertions.assertTrue(failure.getMessage().contains("cause_type="));
+        Assertions.assertEquals(JsonPathException.class, failure.getCause().getClass());
+        Assertions.assertNull(failure.getCause().getCause());
+        Assertions.assertEquals(0, failure.getCause().getSuppressed().length);
+        String trace = renderedTrace(failure);
+        Assertions.assertFalse(trace.contains(source));
+        Assertions.assertFalse(trace.contains(PRIVATE_VALUE));
+        Assertions.assertFalse(trace.contains(PRIVATE_RECORD));
+    }
+
+    private static String renderedTrace(Throwable failure) {
+        StringWriter writer = new StringWriter();
+        failure.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
+    }
+
     private static String largePrivateJson() {
+        return "{\"private\":\"" + largePrivateValue() + "\"}";
+    }
+
+    private static String largePrivateValue() {
         StringBuilder longValueBuilder = new StringBuilder();
         for (int i = 0; i < 40; i++) {
             longValueBuilder.append(PRIVATE_RECORD);
         }
-        return "{\"private\":\"" + longValueBuilder + "\"}";
+        return longValueBuilder.toString();
     }
 
     @ParameterizedTest
@@ -299,21 +366,70 @@ class JsonPathErrorHandlingTest {
                     events.get(0).getMessage().getFormattedMessage().contains(PRIVATE_VALUE));
             Assertions.assertNull(events.get(0).getThrown());
 
-            String json = largePrivateJson();
-            JsonPathTransform pathTransform = createTransform("int", ErrorHandleWay.SKIP, null);
+            for (String json :
+                    Arrays.asList("{\"private\":\"" + PRIVATE_RECORD + "\"}", largePrivateJson())) {
+                JsonPathTransform pathTransform = createTransform("int", ErrorHandleWay.SKIP, null);
+                Assertions.assertNull(
+                        pathTransform.map(new SeaTunnelRow(new Object[] {json})).getField(1));
+            }
+            JsonPathTransform privatePath =
+                    createTransform("int", ErrorHandleWay.SKIP, null, "$['" + PRIVATE_VALUE + "']");
             Assertions.assertNull(
-                    pathTransform.map(new SeaTunnelRow(new Object[] {json})).getField(1));
-            Assertions.assertEquals(3, events.size());
+                    privatePath.map(new SeaTunnelRow(new Object[] {"{}"})).getField(1));
+            Assertions.assertEquals(7, events.size());
             for (int i = 1; i < events.size(); i++) {
-                Assertions.assertFalse(
-                        events.get(i).getMessage().getFormattedMessage().contains(json));
-                Assertions.assertTrue(
-                        events.get(i).getMessage().getFormattedMessage().length() < 1000);
+                String message = events.get(i).getMessage().getFormattedMessage();
+                Assertions.assertFalse(message.contains(PRIVATE_RECORD));
+                Assertions.assertFalse(message.contains(PRIVATE_VALUE));
+                Assertions.assertFalse(message.contains("{}"));
+                Assertions.assertTrue(message.contains("src_field=content"));
                 Assertions.assertNull(events.get(i).getThrown());
             }
         } finally {
             logger.removeAppender(appender);
             logger.setLevel(oldLevel);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void testSkippedRowDebugTraceOmitsPayloadAndPath() {
+        Logger logger = (Logger) LogManager.getLogger(AbstractSeaTunnelTransform.class);
+        Level oldLevel = logger.getLevel();
+        boolean oldAdditive = logger.isAdditive();
+        List<LogEvent> events = new ArrayList<>();
+        AbstractAppender appender =
+                new AbstractAppender(
+                        "jsonpath-row-skip-test", null, null, true, Property.EMPTY_ARRAY) {
+                    @Override
+                    public void append(LogEvent event) {
+                        events.add(event.toImmutable());
+                    }
+                };
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.DEBUG);
+        logger.setAdditive(false);
+        try {
+            for (String source :
+                    Arrays.asList("{\"private\":\"" + PRIVATE_RECORD + "\"}", largePrivateJson())) {
+                JsonPathTransform transform =
+                        createTransform(
+                                "int", null, ErrorHandleWay.SKIP, "$['" + PRIVATE_VALUE + "']");
+                Assertions.assertNull(transform.map(new SeaTunnelRow(new Object[] {source})));
+            }
+            Assertions.assertEquals(2, events.size());
+            for (LogEvent event : events) {
+                Assertions.assertNotNull(event.getThrown());
+                String trace = renderedTrace(event.getThrown());
+                Assertions.assertFalse(trace.contains(PRIVATE_RECORD));
+                Assertions.assertFalse(trace.contains(PRIVATE_VALUE));
+                Assertions.assertTrue(trace.contains("src_field=content"));
+            }
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(oldLevel);
+            logger.setAdditive(oldAdditive);
             appender.stop();
         }
     }
@@ -507,10 +623,19 @@ class JsonPathErrorHandlingTest {
 
     private static JsonPathTransform createTransform(
             String type, ErrorHandleWay columnPolicy, ErrorHandleWay rowPolicy, String path) {
+        return createTransform(type, columnPolicy, rowPolicy, path, "amount");
+    }
+
+    private static JsonPathTransform createTransform(
+            String type,
+            ErrorHandleWay columnPolicy,
+            ErrorHandleWay rowPolicy,
+            String path,
+            String destField) {
         Map<String, Object> column = new HashMap<>();
         column.put("src_field", "content");
         column.put("path", path);
-        column.put("dest_field", "amount");
+        column.put("dest_field", destField);
         column.put("dest_type", "row".equals(type) ? "string" : type);
         if (columnPolicy != null) {
             column.put("column_error_handle_way", columnPolicy.name());

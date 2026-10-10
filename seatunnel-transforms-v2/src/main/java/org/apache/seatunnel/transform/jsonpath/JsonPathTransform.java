@@ -18,7 +18,6 @@ package org.apache.seatunnel.transform.jsonpath;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -48,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_CONVERSION_ERROR;
@@ -56,7 +56,8 @@ import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCod
 public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "JsonPath";
-    private static final int MAX_PATH_DIAGNOSTIC_LENGTH = 256;
+    private static final Pattern SAFE_FIELD_IDENTIFIER =
+            Pattern.compile("[A-Za-z_][A-Za-z0-9_]{0,63}");
     private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
     private final JsonPathTransformConfig config;
     private final SeaTunnelRowType seaTunnelRowType;
@@ -142,7 +143,12 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         if (value == null) {
             return null;
         }
-        JSON_PATH_CACHE.computeIfAbsent(columnConfig.getPath(), JsonPath::compile);
+        try {
+            JSON_PATH_CACHE.computeIfAbsent(columnConfig.getPath(), JsonPath::compile);
+        } catch (JsonPathException e) {
+            // Invalid configuration is task-failing, regardless of the data error policy.
+            throw new JsonPathException(pathFailureMessage(columnConfig, e));
+        }
         String jsonString = "";
         JsonNode jsonNode;
         try {
@@ -170,7 +176,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
             jsonNode = JsonUtils.toJsonNode(result);
         } catch (JsonPathException e) {
-            return handleError(columnConfig, jsonString, JSON_PATH_COMPILE_ERROR, e);
+            return handleError(columnConfig, JSON_PATH_COMPILE_ERROR, e);
         }
         try {
             return converter.convert(jsonNode, columnConfig.getDestField());
@@ -241,9 +247,15 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
     private static String conversionFailureMessage(ColumnConfig columnConfig) {
         return String.format(
                 "JsonPath data conversion failure, src_field=%s, dest_field=%s, dest_type=%s",
-                StringUtils.abbreviate(columnConfig.getSrcField(), 128),
-                StringUtils.abbreviate(columnConfig.getDestField(), 128),
+                safeFieldIdentifier(columnConfig.getSrcField()),
+                safeFieldIdentifier(columnConfig.getDestField()),
                 columnConfig.getDestType().getSqlType());
+    }
+
+    private static String safeFieldIdentifier(String field) {
+        return field != null && SAFE_FIELD_IDENTIFIER.matcher(field).matches()
+                ? field
+                : "<redacted>";
     }
 
     /**
@@ -251,15 +263,12 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
      * the row-level handler in AbstractSeaTunnelTransform.
      */
     private Object handleError(
-            ColumnConfig columnConfig,
-            String jsonString,
-            SeaTunnelErrorCode errorCode,
-            RuntimeException cause) {
+            ColumnConfig columnConfig, SeaTunnelErrorCode errorCode, RuntimeException cause) {
         if (columnConfig.errorHandleWay() != null && columnConfig.errorHandleWay().allowSkip()) {
             if (log.isDebugEnabled()) {
                 log.debug(
                         "JsonPath transform error, ignore error, {}",
-                        pathFailureMessage(columnConfig, jsonString, cause));
+                        pathFailureMessage(columnConfig, cause));
             }
             return null;
         }
@@ -267,18 +276,18 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                 new ErrorDataTransformException(
                         columnConfig.errorHandleWay(),
                         errorCode,
-                        pathFailureMessage(columnConfig, jsonString, cause));
-        error.initCause(cause);
+                        pathFailureMessage(columnConfig, cause));
+        // The original JsonPathException may contain the source or configured path in its message.
+        error.initCause(new JsonPathException("Original path-reading details omitted"));
         throw error;
     }
 
-    private static String pathFailureMessage(
-            ColumnConfig columnConfig, String jsonString, RuntimeException cause) {
+    private static String pathFailureMessage(ColumnConfig columnConfig, RuntimeException cause) {
         return String.format(
-                "JsonPath transform error, config: %s, value: %s, error: %s",
-                StringUtils.abbreviate(columnConfig.toString(), MAX_PATH_DIAGNOSTIC_LENGTH),
-                StringUtils.abbreviate(jsonString, MAX_PATH_DIAGNOSTIC_LENGTH),
-                StringUtils.abbreviate(cause.getMessage(), MAX_PATH_DIAGNOSTIC_LENGTH));
+                "JsonPath path-reading failure, src_field=%s, dest_field=%s, cause_type=%s",
+                safeFieldIdentifier(columnConfig.getSrcField()),
+                safeFieldIdentifier(columnConfig.getDestField()),
+                cause.getClass().getSimpleName());
     }
 
     @Override

@@ -263,18 +263,22 @@ transform and propagates the failure when selected for the failing value.
 
 Unsupported conversions, unexpected programming/configuration failures and fatal
 JVM errors fail the task instead of being skipped. Recognized conversion failures
-use `JSONPATH_ERROR_CODE-07` with source/destination field names, destination SQL
+use `JSONPATH_ERROR_CODE-07` with safe source/destination field identifiers, destination SQL
 type and the generic `data conversion failure` category, not a typed cause category.
 Invalid `float_vector` shapes and non-numeric vector elements currently use the
 shared converter's unsupported-type error and are not skippable by these policies.
 Conversion diagnostics and skip logs omit source
 records, extracted values, path expressions and original exceptions, which can
 contain private data, including literals in configured paths. Path-reading
-diagnostics retain bounded previews of source data, config and error text (up to
-256 characters each). The original path-reading exception is attached as the
-cause of `ErrorDataTransformException`; full source data may still appear in its
-stack trace. These diagnostics are outside the conversion-diagnostic privacy
-boundary. Unexpected failures still propagate.
+diagnostics and skip logs include only safe source/destination field identifiers
+and the exception type; field identifiers outside `[A-Za-z_][A-Za-z0-9_]{0,63}`
+are shown as `<redacted>`. They omit the source JSON, configured path and raw
+exception message. For `FAIL`, `ErrorDataTransformException` retains a sanitized
+`JsonPathException` cause, not the original exception: preserving its message or
+stack trace could re-expose input data or a private path literal. This keeps the
+cause chain present but sacrifices the original cause subtype and stack detail.
+Invalid configured paths also fail the task with a sanitized exception, even
+under `SKIP`. Unexpected failures still propagate.
 
 ### Skip an invalid converted value
 
