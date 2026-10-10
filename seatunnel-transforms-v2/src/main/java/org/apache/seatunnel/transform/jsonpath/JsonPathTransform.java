@@ -56,6 +56,7 @@ import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCod
 public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     public static final String PLUGIN_NAME = "JsonPath";
+    private static final int MAX_PATH_DIAGNOSTIC_LENGTH = 256;
     private static final Map<String, JsonPath> JSON_PATH_CACHE = new ConcurrentHashMap<>();
     private final JsonPathTransformConfig config;
     private final SeaTunnelRowType seaTunnelRowType;
@@ -255,22 +256,29 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             SeaTunnelErrorCode errorCode,
             RuntimeException cause) {
         if (columnConfig.errorHandleWay() != null && columnConfig.errorHandleWay().allowSkip()) {
-            log.debug(
-                    "JsonPath transform error, ignore error, config: {}, value: {}",
-                    columnConfig,
-                    jsonString,
-                    cause);
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "JsonPath transform error, ignore error, {}",
+                        pathFailureMessage(columnConfig, jsonString, cause));
+            }
             return null;
         }
         ErrorDataTransformException error =
                 new ErrorDataTransformException(
                         columnConfig.errorHandleWay(),
                         errorCode,
-                        String.format(
-                                "JsonPath transform error, config: %s, value: %s, error: %s",
-                                columnConfig, jsonString, cause.getMessage()));
+                        pathFailureMessage(columnConfig, jsonString, cause));
         error.initCause(cause);
         throw error;
+    }
+
+    private static String pathFailureMessage(
+            ColumnConfig columnConfig, String jsonString, RuntimeException cause) {
+        return String.format(
+                "JsonPath transform error, config: %s, value: %s, error: %s",
+                StringUtils.abbreviate(columnConfig.toString(), MAX_PATH_DIAGNOSTIC_LENGTH),
+                StringUtils.abbreviate(jsonString, MAX_PATH_DIAGNOSTIC_LENGTH),
+                StringUtils.abbreviate(cause.getMessage(), MAX_PATH_DIAGNOSTIC_LENGTH));
     }
 
     @Override

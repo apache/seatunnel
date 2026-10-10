@@ -269,10 +269,12 @@ Invalid `float_vector` shapes and non-numeric vector elements currently use the
 shared converter's unsupported-type error and are not skippable by these policies.
 Conversion diagnostics and skip logs omit source
 records, extracted values, path expressions and original exceptions, which can
-contain private data, including literals in configured paths. Legacy path-reading
-diagnostics still include source data; this change newly attaches the path-reading
-exception as the cause of `ErrorDataTransformException`. They are outside this
-conversion-diagnostic privacy boundary. Unexpected failures still propagate.
+contain private data, including literals in configured paths. Path-reading
+diagnostics retain bounded previews of source data, config and error text (up to
+256 characters each). The original path-reading exception is attached as the
+cause of `ErrorDataTransformException`; full source data may still appear in its
+stack trace. These diagnostics are outside the conversion-diagnostic privacy
+boundary. Unexpected failures still propagate.
 
 ### Skip an invalid converted value
 
