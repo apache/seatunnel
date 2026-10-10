@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 Write data to a DuckDB database file through JDBC. Supports batch and streaming modes and concurrent
 writing. The DuckDB JDBC driver used by this connector does not provide an XA datasource, so the JDBC sink's
 XA-based exactly-once option is unavailable for DuckDB. DuckDB runs in-process, so the connector
-works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database.
+works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database. The generated DECIMAL DDL is independent of the default locale.
 
 ## Using Dependency
 
@@ -62,6 +62,8 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | TIME                                                                | TIME             |
 | TIMESTAMP                                                           | TIMESTAMP        |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
 ## Sink Options
 
