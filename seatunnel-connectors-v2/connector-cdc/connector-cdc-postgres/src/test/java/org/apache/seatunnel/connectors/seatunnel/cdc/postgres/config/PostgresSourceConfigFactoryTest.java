@@ -37,7 +37,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
 import java.util.Locale;
-
 import java.util.Properties;
 
 /** Tests the PG-base-backed PostgreSQL source config factory behavior that must stay compatible. */
