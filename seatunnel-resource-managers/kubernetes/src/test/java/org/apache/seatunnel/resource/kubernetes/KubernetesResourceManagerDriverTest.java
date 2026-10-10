@@ -55,6 +55,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -331,6 +332,49 @@ class KubernetesResourceManagerDriverTest {
         closing.get(3, TimeUnit.SECONDS);
         assertTrue(created.get());
         assertTrue(deleted.get());
+    }
+
+    @Test
+    @Timeout(10)
+    void concurrentWorkerRequestsAreDrainedAndCleanedOnClose() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
+        when(api.getJob("app")).thenReturn(job());
+        CountDownLatch createStarted = new CountDownLatch(2);
+        CountDownLatch releaseCreates = new CountDownLatch(1);
+        AtomicInteger created = new AtomicInteger();
+        doAnswer(
+                        invocation -> {
+                            createStarted.countDown();
+                            releaseCreates.await(5, TimeUnit.SECONDS);
+                            created.incrementAndGet();
+                            return null;
+                        })
+                .when(api)
+                .createPod(any());
+        ExecutorService io = Executors.newFixedThreadPool(2);
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
+                        "app",
+                        "isolated-app")) {
+            driver.initialize(events, mainThreadExecutor, io, () -> "10.0.0.1:5801");
+            CompletableFuture<KubernetesWorkerNode> first =
+                    driver.requestWorker(specification().getWorkerSpecification());
+            CompletableFuture<KubernetesWorkerNode> second =
+                    driver.requestWorker(specification().getWorkerSpecification());
+            assertTrue(createStarted.await(5, TimeUnit.SECONDS));
+            releaseCreates.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+            assertEquals(2, created.get());
+        } finally {
+            io.shutdownNow();
+        }
+        verify(api).deleteWorkers("app");
+        verify(api).close();
     }
 
     private static ApplicationSpecification specification() {

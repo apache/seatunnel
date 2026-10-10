@@ -55,6 +55,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,7 +138,7 @@ class YarnResourceManagerDriverTest {
                         localConfiguration(),
                         new Path(temporary.toURI()),
                         new YarnResourceManagerDriver.YarnDriverSettings(
-                                "application-test", null, "test-user", "master-home"),
+                                "application-test", null, "test-user", temporary.toString()),
                         resourceManager,
                         nodeManager)) {
             driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
@@ -225,6 +226,44 @@ class YarnResourceManagerDriverTest {
         driver.close();
         verify(nodeManager, never()).stop();
         verify(resourceManager).stop();
+    }
+
+    @Test
+    void heartbeatSchedulingDoesNotOverlapAllocations() throws Exception {
+        AMRMClient<AMRMClient.ContainerRequest> resourceManager = mock(AMRMClient.class);
+        NMClient nodeManager = mock(NMClient.class);
+        ResourceEventHandler<YarnWorkerNode> events = mock(ResourceEventHandler.class);
+        CountDownLatch allocating = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicInteger calls = new AtomicInteger();
+        AtomicInteger inFlight = new AtomicInteger();
+        when(resourceManager.allocate(anyFloat()))
+                .thenAnswer(
+                        invocation -> {
+                            calls.incrementAndGet();
+                            assertEquals(1, inFlight.incrementAndGet());
+                            allocating.countDown();
+                            release.await(5, TimeUnit.SECONDS);
+                            inFlight.decrementAndGet();
+                            return Records.newRecord(AllocateResponse.class);
+                        });
+        YarnResourceManagerDriver driver =
+                new YarnResourceManagerDriver(
+                        localConfiguration(),
+                        new Path(temporary.toURI()),
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", "master-home"),
+                        resourceManager,
+                        nodeManager);
+        driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
+        driver.scheduleHeartbeat();
+        driver.scheduleHeartbeat();
+        assertTrue(allocating.await(5, TimeUnit.SECONDS));
+        driver.scheduleHeartbeat();
+        release.countDown();
+        driver.close();
+        assertEquals(1, calls.get());
+        verify(resourceManager, times(1)).allocate(anyFloat());
     }
 
     @Test

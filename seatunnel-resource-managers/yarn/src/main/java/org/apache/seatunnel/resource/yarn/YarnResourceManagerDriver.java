@@ -195,7 +195,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     /** Keeps at most one blocking heartbeat in flight without blocking resource callbacks. */
-    private void scheduleHeartbeat() {
+    void scheduleHeartbeat() {
         if (active.get() && heartbeatExecution.isDone()) {
             try {
                 heartbeatExecution = CompletableFuture.runAsync(this::heartbeat, ioExecutor);
