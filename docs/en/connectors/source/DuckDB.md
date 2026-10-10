@@ -9,7 +9,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
 talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
 remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
-and reading multiple tables in one job through `table_list`.
+and reading multiple tables in one job through `table_list`. The generated hash partition SQL is independent of the JVM default locale.
 
 ## Support DuckDB Version
 
@@ -50,6 +50,10 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
+DuckDB scalar `BIT` and `ENUM` values map to `STRING`. When the catalog reports no length, SeaTunnel leaves the length unspecified; it no longer assumes a one-character BIT or a 255-character ENUM. This also applies to named ENUM types created with `CREATE TYPE`. For example, MySQL automatic DDL uses `LONGTEXT` for these columns. Existing destination tables are not resized automatically. List declarations such as `ENUM(...)[]` retain their existing fallback mapping.
+
+MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a `BIT` or `ENUM` column is part of the primary key, pre-create a compatible target table with an explicitly bounded key type that fits the source data and MySQL index limits, and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-bit-and-enum-automatic-ddl).
+
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
@@ -64,10 +68,15 @@ and reading multiple tables in one job through `table_list`.
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
 | DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)      |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
+| BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
+
+> Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
 ## Source Options
 
@@ -80,9 +89,9 @@ and reading multiple tables in one job through `table_list`.
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                     |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                  |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type primary key, and only can config one column.                                                                                                                                                 |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                    |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                      |
+| partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |
+| partition_upper_bound        | String     | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                    |
+| partition_num                | Int        | No       | 10              | The number of partition count, only support positive integer. default value is 10                                                                                                                                                                                   |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure<br/> the row fetch size used in the query to improve performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters, when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in DuckDB, properties take precedence over the URL.                    |
 | table_path                   | String     | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>duckdb: "main.table1" <br/>                                                                                                                              |
@@ -115,11 +124,11 @@ How many rows in one split, captured tables are split into multiple splits when 
 
 The column name for split data.
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
@@ -127,7 +136,7 @@ The partition_column min value for scan, if not set SeaTunnel will query databas
 
 > Not recommended for use, The correct approach is to control the number of split through `split.size`
 
-How many splits do we need to split into, only support positive integer. default value is job parallelism.
+How many splits do we need to split into, only support positive integer. default value is 10.
 
 ## Tips
 

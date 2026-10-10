@@ -79,6 +79,8 @@ TDengine 服务端时区，用于时间戳转换，默认值为 `UTC`。如果�
 Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。
 多表写入时，可以配合通用参数中的 `multi_table_sink_replica` 使用。
 
+上述必填字符串选项均不能为空字符串或仅包含空白字符。此项校验不检查服务器连接或时间戳格式。
+
 ## 输入数据格式
 
 连接器要求每行输入数据符合超级表写入结构：
