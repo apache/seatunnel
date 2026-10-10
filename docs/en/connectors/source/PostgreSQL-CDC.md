@@ -378,6 +378,12 @@ PostgreSQL logical replication slots must be created and consumed on the primary
 
 By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
 
+### How are generated columns handled?
+
+With `pgoutput`, only the columns that the publication publishes are captured. Generated columns are not published before PostgreSQL 18, virtual generated columns are never published, and a publication column list can leave out any column. Such columns are excluded from the table schema, so they are neither read in the snapshot nor created in an auto-created sink table. On PostgreSQL 18, stored generated columns are captured when the publication is created with `publish_generated_columns = stored`.
+
+If SeaTunnel cannot read the publication metadata at job startup, it logs an error with the failure type and keeps all columns in the schema. In that fallback, unpublished columns may be written as NULL during streaming, or a schema-change error may stop the job. Check publication access and JDBC connectivity before relying on the captured data.
+
 ### How are replication slots managed?
 
 SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.

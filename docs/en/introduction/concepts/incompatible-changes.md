@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### PostgreSQL CDC pgoutput Schema
+
+- **Behavior change**: For streaming jobs using `decoding.plugin.name = "pgoutput"`, columns not published by the PostgreSQL publication are excluded from the source schema. This includes generated columns before PostgreSQL 18, virtual generated columns, and columns omitted by a publication column list. Snapshot-only jobs and other decoding plugins are unchanged.
+- **Impact**: On the next job start or restore, snapshots and auto-created sink tables no longer include those columns. Existing sinks and downstream consumers that expect them may need schema or mapping changes; previously, streamed updates could write NULL into those columns or fail on a schema mismatch.
+- **Migration Guide**: Check the publication and downstream schema before upgrading. On PostgreSQL 18, a publication with `publish_generated_columns = stored` can retain stored generated columns; virtual generated columns remain unpublished. For a column-list publication, include every required column in its list. Otherwise, update the sink schema and downstream mappings to omit unpublished columns.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
