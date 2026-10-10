@@ -35,6 +35,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.ApiException;
 
@@ -46,6 +49,8 @@ import java.util.concurrent.TimeoutException;
 
 /** Deploys a suspended owner Job, localizes configuration, then starts its control plane. */
 final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(KubernetesApplicationClusterDescriptor.class);
 
     private final KubernetesClient api;
     private final ReadonlyConfig options;
@@ -71,6 +76,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
         String id = submitApplication(specification);
+        LOG.info("Submitted Kubernetes application {}, waiting for its master", id);
         try {
             awaitDeployment(id, specification.getStartupTimeoutMillis());
             return id;
@@ -116,12 +122,17 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             throws Exception {
         KubernetesJob job = null;
         try {
+            LOG.debug("Creating owner Job {}", id);
             job = api.createJob(KubernetesResourceFactory.job(id, mainClass, parameters));
+            LOG.debug("Creating Secret for job {}", id);
             api.createSecret(KubernetesResourceFactory.secret(job, parameters));
+            LOG.debug("Creating Service for job {}", id);
             api.createService(KubernetesResourceFactory.service(job, parameters));
+            LOG.debug("Starting Job {}", id);
             api.startJob(id);
             return id;
         } catch (Exception failure) {
+            LOG.warn("Kubernetes application {} deployment failed", id, failure);
             if (job == null
                     || job.isFailed()
                     || !(failure instanceof ApiException)

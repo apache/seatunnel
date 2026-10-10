@@ -24,11 +24,16 @@ import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Observes YARN application startup without mixing polling policy into submission code. */
 public final class YarnApplicationStatusMonitor {
+    private static final Logger LOG = LoggerFactory.getLogger(YarnApplicationStatusMonitor.class);
+
     private static final long STATUS_POLL_INTERVAL_MILLIS = 500;
 
     private final YarnClient client;
@@ -47,9 +52,14 @@ public final class YarnApplicationStatusMonitor {
     public ApplicationReport awaitRunning(ApplicationId applicationId, long timeoutMillis)
             throws Exception {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        YarnApplicationState previous = null;
         while (true) {
             ApplicationReport report = client.getApplicationReport(applicationId);
             YarnApplicationState state = report.getYarnApplicationState();
+            if (state != previous) {
+                LOG.debug("YARN application {} state: {}", applicationId, state);
+                previous = state;
+            }
             ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
             if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
                 return report;

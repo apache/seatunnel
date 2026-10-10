@@ -124,6 +124,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             client.submitApplication(submission);
             new YarnApplicationStatusMonitor(client)
                     .awaitRunning(yarnId, specification.getStartupTimeoutMillis());
+            LOG.info("YARN application {} master is running", yarnId);
             return yarnId;
         } catch (Exception failure) {
             cleanupFailedSubmission(client, yarnId, staging, submitted, failure);
@@ -193,6 +194,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             ApplicationSubmissionContext submission,
             ApplicationSpecification specification)
             throws Exception {
+        LOG.debug("Staging application resources for {}", submission.getApplicationId());
         try (YarnApplicationFileUploader uploader =
                 new YarnApplicationFileUploader(
                         configuration,
@@ -201,6 +203,7 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                         allowLocalStaging)) {
             YarnLocalResourceDescriptor resources = uploader.upload();
             Path staging = uploader.getApplicationDir();
+            LOG.debug("Staged application resources at {}", staging);
             submission.setAMContainerSpec(
                     YarnContainerLaunchContextFactory.master(
                             staging,

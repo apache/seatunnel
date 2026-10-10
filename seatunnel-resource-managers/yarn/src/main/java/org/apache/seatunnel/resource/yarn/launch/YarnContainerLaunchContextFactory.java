@@ -25,12 +25,18 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 /** Creates master and worker launch contexts from shared localization and command factories. */
 public final class YarnContainerLaunchContextFactory {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(YarnContainerLaunchContextFactory.class);
+
     private YarnContainerLaunchContextFactory() {}
 
     /**
@@ -98,6 +104,7 @@ public final class YarnContainerLaunchContextFactory {
             String mainClass,
             List<String> arguments,
             String submittingUser) {
+        LOG.debug("Building YARN container launch context for {}", mainClass);
         return ContainerLaunchContext.newInstance(
                 localized.getResources(),
                 YarnContainerCommand.environment(staging, localized.getHome(), submittingUser),

@@ -28,6 +28,9 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +42,8 @@ import java.util.Map;
 
 /** Owns application staging, file uploads and registration of YARN local resources. */
 public final class YarnApplicationFileUploader implements Closeable {
+    private static final Logger LOG = LoggerFactory.getLogger(YarnApplicationFileUploader.class);
+
     private static final FsPermission STAGING_PERMISSION = new FsPermission((short) 0700);
 
     private final Configuration configuration;
@@ -98,6 +103,7 @@ public final class YarnApplicationFileUploader implements Closeable {
     public YarnLocalResourceDescriptor upload() throws Exception {
         boolean created = false;
         try {
+            LOG.debug("Uploading application resources to {}", applicationDir);
             if (fileSystem.exists(applicationDir)) {
                 throw new IllegalStateException(
                         "Application staging directory already exists: " + applicationDir);
@@ -177,7 +183,11 @@ public final class YarnApplicationFileUploader implements Closeable {
             YarnApplicationConfiguration deployment,
             Configuration hadoopConfiguration)
             throws Exception {
+        LOG.debug("Uploading distribution archive to {}", staging);
         distribution.stage(fileSystem, staging, archive);
+        LOG.debug(
+                "Writing application specification to {}",
+                new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME));
         try (Writer specificationWriter =
                 new OutputStreamWriter(
                         fileSystem.create(
@@ -186,6 +196,9 @@ public final class YarnApplicationFileUploader implements Closeable {
                         StandardCharsets.UTF_8)) {
             deployment.write(specificationWriter);
         }
+        LOG.debug(
+                "Writing Hadoop configuration to {}",
+                new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME));
         try (FSDataOutputStream output =
                 fileSystem.create(
                         new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME), false)) {

@@ -26,8 +26,13 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Closing a client leaves a detached application running; cancel explicitly stops it. */
 public final class YarnApplicationClient implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(YarnApplicationClient.class);
+
     private final YarnClient client;
     private final Configuration configuration;
     private final ApplicationId yarnId;
@@ -49,6 +54,7 @@ public final class YarnApplicationClient implements AutoCloseable {
     public ApplicationStatus getStatus() throws Exception {
         ApplicationReport report = client.getApplicationReport(yarnId);
         ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
+        LOG.debug("YARN application {} status: {}", yarnId, status);
         if (status.isTerminal()) {
             YarnStagingDirectory.cleanup(configuration, staging);
         }
@@ -57,6 +63,7 @@ public final class YarnApplicationClient implements AutoCloseable {
 
     /** Kills the remote application and removes only its staged submission artifacts. */
     public void cancel() throws Exception {
+        LOG.info("Canceling YARN application {}", yarnId);
         client.killApplication(yarnId);
         YarnStagingDirectory.cleanup(configuration, staging);
     }

@@ -24,12 +24,17 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesRes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.kubernetes.client.openapi.ApiException;
 
 import java.util.List;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
 public final class KubernetesApplicationClient implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationClient.class);
+
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
@@ -55,6 +60,10 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         try {
             KubernetesJob job = api.getJob(applicationId);
             if (job.isFailed()) {
+                LOG.warn(
+                        "Kubernetes application {} failed: {}",
+                        applicationId,
+                        job.getFailureReason());
                 return ApplicationStatus.FAILED;
             }
             if (job.isComplete()) {
@@ -78,6 +87,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             if (e.getCode() != 404) {
                 throw e;
             }
+            LOG.debug("Kubernetes application {} no longer exists", applicationId);
             return ApplicationStatus.UNKNOWN;
         }
     }
@@ -88,6 +98,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
      * @throws Exception if any resource could not be deleted
      */
     public void cancel() throws Exception {
+        LOG.info("Canceling Kubernetes application {}", applicationId);
         api.deleteApplication(applicationId);
         canceled = true;
     }
