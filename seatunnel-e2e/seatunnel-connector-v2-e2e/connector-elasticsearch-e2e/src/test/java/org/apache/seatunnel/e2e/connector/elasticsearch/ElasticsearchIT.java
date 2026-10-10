@@ -490,9 +490,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_with_pit_slice.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithSchema("st_index_pit_slice");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_pit_slice")));
     }
 
     @TestTemplate
@@ -502,9 +509,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob(
                         "/elasticsearch/elasticsearch_source_with_pit_slice_queued.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithSchema("st_index_pit_slice_queued");
         // slice_max(4) > parallelism(2) forces queued splits on each reader
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_pit_slice_queued")));
     }
 
     @TestTemplate
@@ -513,9 +527,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_with_scroll_slice.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithSchema("st_index_scroll_slice");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
-        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        mapTestDatasetForDSL(),
+                                        readSinkDataWithSchema("st_index_scroll_slice")));
     }
 
     @TestTemplate
