@@ -234,72 +234,87 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         }
         try {
             AllocateResponse response = resourceManager.allocate(APPLICATION_PROGRESS);
-            // Completed containers first: unexpected non-success exits fail the application.
-            for (ContainerStatus status : response.getCompletedContainersStatuses()) {
-                String id = status.getContainerId().toString();
-                YarnWorkerNode terminatedWorker;
-                terminatedWorker = active.get() ? workers.remove(id) : null;
-                if (terminatedWorker != null
-                        && status.getExitStatus() != ContainerExitStatus.SUCCESS) {
-                    mainThreadExecutor.execute(
-                            () ->
-                                    resourceEventHandler.onWorkerTerminated(
-                                            terminatedWorker,
-                                            "YARN container exited with status "
-                                                    + status.getExitStatus()
-                                                    + ": "
-                                                    + status.getDiagnostics()));
-                }
-            }
-            // Allocated containers are paired with the oldest pending worker request.
-            for (Container container : response.getAllocatedContainers()) {
-                YarnWorkerNode workerNode =
-                        new YarnWorkerNode(container, new ResourceID(container.getId().toString()));
-                PendingWorker worker;
-                worker = active.get() ? pending.poll() : null;
-                if (worker != null) {
-                    workers.put(workerNode.getWorkerId(), workerNode);
-                }
-                if (worker == null) {
-                    resourceManager.releaseAssignedContainer(workerNode.getContainerId());
-                    continue;
-                }
-                resourceManager.removeContainerRequest(worker.request);
-                try {
-                    nodeManager.startContainer(
-                            workerNode.getContainer(),
-                            YarnContainerLaunchContextFactory.worker(
-                                    configuration,
-                                    staging,
-                                    clusterName,
-                                    masterAddress.get(),
-                                    worker.specification,
-                                    hadoopUserName,
-                                    masterDistributionHome));
-                    if (active.get()
-                            && workers.containsKey(workerNode.getWorkerId())
-                            && worker.result.complete(workerNode)) {
-                        continue;
-                    }
-                    // A launch can finish after shutdown removed its allocation record.
-                    workers.remove(workerNode.getWorkerId());
-                    try {
-                        nodeManager.stopContainer(
-                                workerNode.getContainerId(), workerNode.getNodeId());
-                    } finally {
-                        resourceManager.releaseAssignedContainer(workerNode.getContainerId());
-                    }
-                    worker.result.completeExceptionally(
-                            new IOException("YARN application stopped during worker launch"));
-                } catch (Exception failure) {
-                    workers.remove(workerNode.getWorkerId());
-                    resourceManager.releaseAssignedContainer(workerNode.getContainerId());
-                    worker.result.completeExceptionally(failure);
-                    throw failure;
-                }
-            }
+            handleCompletedContainers(response.getCompletedContainersStatuses());
+            handleAllocatedContainers(response.getAllocatedContainers());
         } catch (Exception failure) {
             reportError(failure);
+        }
+    }
+
+    /**
+     * Removes completed containers and reports non-success exits as worker terminations.
+     *
+     * @param statuses container completion events returned by one RM allocate call
+     */
+    private void handleCompletedContainers(List<ContainerStatus> statuses) {
+        // Completed containers first: unexpected non-success exits fail the application.
+        for (ContainerStatus status : statuses) {
+            String id = status.getContainerId().toString();
+            YarnWorkerNode terminatedWorker = active.get() ? workers.remove(id) : null;
+            if (terminatedWorker != null && status.getExitStatus() != ContainerExitStatus.SUCCESS) {
+                mainThreadExecutor.execute(
+                        () ->
+                                resourceEventHandler.onWorkerTerminated(
+                                        terminatedWorker,
+                                        "YARN container exited with status "
+                                                + status.getExitStatus()
+                                                + ": "
+                                                + status.getDiagnostics()));
+            }
+        }
+    }
+
+    /**
+     * Launches allocated containers for the oldest pending requests and rolls back late races.
+     *
+     * @param containers containers allocated by one RM allocate call
+     * @throws Exception if a worker launch fails
+     */
+    private void handleAllocatedContainers(List<Container> containers) throws Exception {
+        // Allocated containers are paired with the oldest pending worker request.
+        for (Container container : containers) {
+            YarnWorkerNode workerNode =
+                    new YarnWorkerNode(container, new ResourceID(container.getId().toString()));
+            PendingWorker worker = active.get() ? pending.poll() : null;
+            if (worker != null) {
+                workers.put(workerNode.getWorkerId(), workerNode);
+            }
+            if (worker == null) {
+                resourceManager.releaseAssignedContainer(workerNode.getContainerId());
+                continue;
+            }
+            resourceManager.removeContainerRequest(worker.request);
+            try {
+                nodeManager.startContainer(
+                        workerNode.getContainer(),
+                        YarnContainerLaunchContextFactory.worker(
+                                configuration,
+                                staging,
+                                clusterName,
+                                masterAddress.get(),
+                                worker.specification,
+                                hadoopUserName,
+                                masterDistributionHome));
+                if (active.get()
+                        && workers.containsKey(workerNode.getWorkerId())
+                        && worker.result.complete(workerNode)) {
+                    continue;
+                }
+                // A launch can finish after shutdown removed its allocation record.
+                workers.remove(workerNode.getWorkerId());
+                try {
+                    nodeManager.stopContainer(workerNode.getContainerId(), workerNode.getNodeId());
+                } finally {
+                    resourceManager.releaseAssignedContainer(workerNode.getContainerId());
+                }
+                worker.result.completeExceptionally(
+                        new IOException("YARN application stopped during worker launch"));
+            } catch (Exception failure) {
+                workers.remove(workerNode.getWorkerId());
+                resourceManager.releaseAssignedContainer(workerNode.getContainerId());
+                worker.result.completeExceptionally(failure);
+                throw failure;
+            }
         }
     }
 

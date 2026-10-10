@@ -99,9 +99,23 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         }
         String id = KubernetesResourceFactory.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
+        return createApplicationResources(id, mainClass, parameters);
+    }
+
+    /**
+     * Creates the Job, Secret, Service and starts the Job, rolling back on failure.
+     *
+     * @param id generated Kubernetes Job name
+     * @param mainClass master entrypoint class
+     * @param parameters resolved Kubernetes deployment parameters
+     * @return the Kubernetes Job name
+     * @throws Exception if resource creation or startup fails
+     */
+    private String createApplicationResources(
+            String id, String mainClass, KubernetesApplicationParameters parameters)
+            throws Exception {
         KubernetesJob job = null;
         try {
-
             job = api.createJob(KubernetesResourceFactory.job(id, mainClass, parameters));
             api.createSecret(KubernetesResourceFactory.secret(job, parameters));
             api.createService(KubernetesResourceFactory.service(job, parameters));

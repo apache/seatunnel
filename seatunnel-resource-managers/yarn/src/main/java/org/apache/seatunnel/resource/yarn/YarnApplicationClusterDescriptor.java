@@ -116,45 +116,9 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             ApplicationSubmissionContext submission = application.getApplicationSubmissionContext();
             yarnId = submission.getApplicationId();
             LOG.info("Submitting YARN application {}", yarnId);
-            int masterMemory = specification.getMasterMemoryMb();
-            int masterCores = specification.getMasterCpuCores();
-            Resource maximum =
-                    application.getNewApplicationResponse().getMaximumResourceCapability();
-            if (masterMemory > maximum.getMemorySize()
-                    || masterCores > maximum.getVirtualCores()
-                    || specification.getWorkerSpecification().getMemoryMb()
-                            > maximum.getMemorySize()
-                    || specification.getWorkerSpecification().getCpuCores()
-                            > maximum.getVirtualCores()) {
-                throw new IllegalArgumentException(
-                        "Requested master/worker resources exceed YARN maximum container capability");
-            }
-            submission.setApplicationName(specification.getName());
-            submission.setApplicationType(APPLICATION_TYPE);
-            submission.setQueue(deployment.getQueue());
-            if (deployment.getPriority() >= 0) {
-                submission.setPriority(Priority.newInstance(deployment.getPriority()));
-            }
-            if (!deployment.getTags().isEmpty()) {
-                submission.setApplicationTags(deployment.getTags());
-            }
-            if (deployment.getMasterNodeLabel() != null) {
-                submission.setNodeLabelExpression(deployment.getMasterNodeLabel());
-            }
-            submission.setMaxAppAttempts(1);
-            submission.setResource(Resource.newInstance(masterMemory, masterCores));
-            try (YarnApplicationFileUploader uploader =
-                    new YarnApplicationFileUploader(
-                            configuration,
-                            deployment,
-                            submission.getApplicationId(),
-                            allowLocalStaging)) {
-                YarnLocalResourceDescriptor resources = uploader.upload();
-                staging = uploader.getApplicationDir();
-                submission.setAMContainerSpec(
-                        YarnContainerLaunchContextFactory.master(
-                                staging, masterMemory, resources, deployment.getHadoopUserName()));
-            }
+            validateResourceCapabilities(application, specification);
+            configureSubmission(submission, deployment, specification);
+            staging = stageResources(deployment, submission, specification);
             // A lost submit response can still mean the RM accepted the application.
             submitted = true;
             client.submitApplication(submission);
@@ -162,30 +126,128 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
                     .awaitRunning(yarnId, specification.getStartupTimeoutMillis());
             return yarnId;
         } catch (Exception failure) {
-            if (submitted) {
-                try {
-                    client.killApplication(yarnId);
-                } catch (Exception cleanup) {
-                    failure.addSuppressed(cleanup);
-                }
-            }
-            if (staging != null) {
-                try {
-                    YarnStagingDirectory.cleanup(
-                            YarnConfigurationUtils.withBoundedRpc(configuration), staging);
-                } catch (Exception cleanup) {
-                    failure.addSuppressed(cleanup);
-                }
-            }
+            cleanupFailedSubmission(client, yarnId, staging, submitted, failure);
+            throw failure;
+        }
+    }
+
+    /**
+     * Rejects submissions whose master or worker resources exceed the YARN cluster maximum.
+     *
+     * @param application YARN application response carrying the cluster capability
+     * @param specification resolved application resource requirements
+     */
+    private void validateResourceCapabilities(
+            YarnClientApplication application, ApplicationSpecification specification) {
+        Resource maximum = application.getNewApplicationResponse().getMaximumResourceCapability();
+        if (specification.getMasterMemoryMb() > maximum.getMemorySize()
+                || specification.getMasterCpuCores() > maximum.getVirtualCores()
+                || specification.getWorkerSpecification().getMemoryMb() > maximum.getMemorySize()
+                || specification.getWorkerSpecification().getCpuCores()
+                        > maximum.getVirtualCores()) {
+            throw new IllegalArgumentException(
+                    "Requested master/worker resources exceed YARN maximum container capability");
+        }
+    }
+
+    /**
+     * Populates the common YARN submission fields from the resolved application settings.
+     *
+     * @param submission YARN application submission context being prepared
+     * @param deployment resolved YARN deployment options
+     * @param specification resolved application fields
+     */
+    private void configureSubmission(
+            ApplicationSubmissionContext submission,
+            YarnApplicationConfiguration deployment,
+            ApplicationSpecification specification) {
+        submission.setApplicationName(specification.getName());
+        submission.setApplicationType(APPLICATION_TYPE);
+        submission.setQueue(deployment.getQueue());
+        if (deployment.getPriority() >= 0) {
+            submission.setPriority(Priority.newInstance(deployment.getPriority()));
+        }
+        if (!deployment.getTags().isEmpty()) {
+            submission.setApplicationTags(deployment.getTags());
+        }
+        if (deployment.getMasterNodeLabel() != null) {
+            submission.setNodeLabelExpression(deployment.getMasterNodeLabel());
+        }
+        submission.setMaxAppAttempts(1);
+        submission.setResource(
+                Resource.newInstance(
+                        specification.getMasterMemoryMb(), specification.getMasterCpuCores()));
+    }
+
+    /**
+     * Uploads localized resources and attaches the generated ApplicationMaster launch context.
+     *
+     * @param deployment resolved YARN deployment options
+     * @param submission YARN application submission context being prepared
+     * @param specification resolved application fields
+     * @return the application-owned staging directory retained for cleanup
+     * @throws Exception if localization or upload fails
+     */
+    private Path stageResources(
+            YarnApplicationConfiguration deployment,
+            ApplicationSubmissionContext submission,
+            ApplicationSpecification specification)
+            throws Exception {
+        try (YarnApplicationFileUploader uploader =
+                new YarnApplicationFileUploader(
+                        configuration,
+                        deployment,
+                        submission.getApplicationId(),
+                        allowLocalStaging)) {
+            YarnLocalResourceDescriptor resources = uploader.upload();
+            Path staging = uploader.getApplicationDir();
+            submission.setAMContainerSpec(
+                    YarnContainerLaunchContextFactory.master(
+                            staging,
+                            specification.getMasterMemoryMb(),
+                            resources,
+                            deployment.getHadoopUserName()));
+            return staging;
+        }
+    }
+
+    /**
+     * Kills a possibly accepted application and removes only resources created by this attempt.
+     *
+     * @param client YARN client used to kill the application
+     * @param yarnId application identifier, or {@code null} before it was assigned
+     * @param staging staging directory, or {@code null} before upload completed
+     * @param submitted whether submitApplication has been called and may have been accepted
+     * @param failure original submission failure receiving suppressed cleanup failures
+     */
+    private void cleanupFailedSubmission(
+            YarnClient client,
+            ApplicationId yarnId,
+            Path staging,
+            boolean submitted,
+            Exception failure) {
+        if (submitted) {
             try {
-                close();
-            } catch (RuntimeException cleanup) {
+                client.killApplication(yarnId);
+            } catch (Exception cleanup) {
                 failure.addSuppressed(cleanup);
             }
-            if (failure instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+        }
+        if (staging != null) {
+            try {
+                YarnStagingDirectory.cleanup(
+                        YarnConfigurationUtils.withBoundedRpc(configuration), staging);
+            } catch (Exception cleanup) {
+                failure.addSuppressed(cleanup);
             }
-            throw failure;
+        }
+        try {
+            close();
+        } catch (RuntimeException cleanup) {
+            failure.addSuppressed(cleanup);
+        }
+        if (failure instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
         }
     }
 

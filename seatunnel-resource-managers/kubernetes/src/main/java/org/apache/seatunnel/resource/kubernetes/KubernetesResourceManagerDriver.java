@@ -31,6 +31,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -249,17 +250,9 @@ public final class KubernetesResourceManagerDriver
     }
 
     private void checkWorkers(List<KubernetesPod> pods) {
-        Set<String> observed;
         Set<String> missingNow = new HashSet<>();
-        // Snapshot the workers that are expected to exist, excluding in-flight and releasing ones.
-        if (!running.get()) {
-            return;
-        }
-        observed = new HashSet<>(workers.keySet());
-        observed.removeAll(pending.keySet());
-        observed.removeAll(releasing);
+        Set<String> observed = observedWorkers();
         if (observed.isEmpty()) {
-            missingWorkers.clear();
             return;
         }
         Map<String, KubernetesPod> current = new HashMap<>();
@@ -305,11 +298,38 @@ public final class KubernetesResourceManagerDriver
         }
         // Publish outside the lock so a slow event handler cannot block worker observation.
         if (terminatedWorker != null) {
-            KubernetesWorkerNode worker = terminatedWorker;
-            String reason = diagnostics;
-            mainThreadExecutor.execute(
-                    () -> resourceEventHandler.onWorkerTerminated(worker, reason));
+            publishWorkerTermination(terminatedWorker, diagnostics);
         }
+    }
+
+    /**
+     * Snapshots the workers that should be present, excluding in-flight and releasing ones.
+     *
+     * @return worker names to observe, or an empty set when no worker needs checking
+     */
+    private Set<String> observedWorkers() {
+        // Snapshot the workers that are expected to exist, excluding in-flight and releasing ones.
+        if (!running.get()) {
+            return Collections.emptySet();
+        }
+        Set<String> observed = new HashSet<>(workers.keySet());
+        observed.removeAll(pending.keySet());
+        observed.removeAll(releasing);
+        if (observed.isEmpty()) {
+            missingWorkers.clear();
+        }
+        return observed;
+    }
+
+    /**
+     * Publishes a worker termination event on the main-thread executor outside the driver lock.
+     *
+     * @param worker worker that unexpectedly disappeared or terminated
+     * @param diagnostics platform-provided termination reason
+     */
+    private void publishWorkerTermination(KubernetesWorkerNode worker, String diagnostics) {
+        mainThreadExecutor.execute(
+                () -> resourceEventHandler.onWorkerTerminated(worker, diagnostics));
     }
 
     private void onWatchFailure(Exception failure) {
