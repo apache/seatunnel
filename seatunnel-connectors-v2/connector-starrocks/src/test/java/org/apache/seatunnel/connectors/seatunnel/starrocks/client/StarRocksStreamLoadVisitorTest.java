@@ -23,7 +23,9 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +34,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -123,22 +126,82 @@ public class StarRocksStreamLoadVisitorTest {
     }
 
     /**
-     * Verifies that a successful load awaiting publication is not submitted a second time.
+     * Verifies that Publish Timeout is resolved through the label state instead of being trusted as
+     * success.
      *
-     * <p>StarRocks documents Publish Timeout as loaded successfully and requiring no retry.
+     * <p>StarRocks documents Publish Timeout as "loaded, publish pending", but a cluster that was
+     * just restarted can still abort the pending transaction. Releasing the batch without
+     * confirming the label state silently loses it, so the visitor must poll get_load_state and
+     * only a VISIBLE/COMMITTED label confirms the load.
      */
     @Test
-    void returnsSuccessForPublishTimeout() throws Exception {
+    void resolvesPublishTimeoutByConfirmingLabelState() throws Exception {
         SinkConfig sinkConfig = createSinkConfig();
         HttpHelper httpHelper = mock(HttpHelper.class);
         when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
         when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
                 .thenReturn(createLoadResult("Publish Timeout"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "VISIBLE");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
         StarRocksStreamLoadVisitor visitor =
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
 
         assertTrue(visitor.doStreamLoad(createFlushTuple()));
-        verify(httpHelper, never()).doHttpGet(anyString(), any(), anyInt());
+        verify(httpHelper).doHttpGet(anyString(), any(), anyInt());
+    }
+
+    /**
+     * Verifies that a Publish Timeout label reported ABORTED authorizes a replacement label.
+     *
+     * <p>An aborted transaction means the batch never became durable, so the manager must resend it
+     * under a new label instead of dropping it.
+     */
+    @Test
+    void recreatesLabelWhenPublishTimeoutLabelIsAborted() throws Exception {
+        SinkConfig sinkConfig = createSinkConfig();
+        HttpHelper httpHelper = mock(HttpHelper.class);
+        when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
+        when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
+                .thenReturn(createLoadResult("Publish Timeout"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "ABORTED");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
+        StarRocksStreamLoadVisitor visitor =
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
+
+        StarRocksConnectorException exception =
+                assertThrows(
+                        StarRocksConnectorException.class,
+                        () -> visitor.doStreamLoad(createFlushTuple()));
+        assertTrue(exception.needReCreateLabel());
+    }
+
+    /**
+     * Verifies that a Publish Timeout label stuck in PREPARE fails closed after the bounded wait.
+     *
+     * <p>An unresolved outcome must never release the batch: the thrown error lets the manager keep
+     * the buffered rows so the job can replay them from its checkpoint.
+     */
+    @Test
+    void failsWhenPublishTimeoutLabelNeverResolves() throws Exception {
+        SinkConfig sinkConfig = createSinkConfig();
+        HttpHelper httpHelper = mock(HttpHelper.class);
+        when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
+        when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
+                .thenReturn(createLoadResult("Publish Timeout"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "PREPARE");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
+        StarRocksStreamLoadVisitor visitor =
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 500);
+
+        StarRocksConnectorException exception =
+                assertThrows(
+                        StarRocksConnectorException.class,
+                        () -> visitor.doStreamLoad(createFlushTuple()));
+        assertFalse(exception.needReCreateLabel());
+        verify(httpHelper, atLeastOnce()).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
@@ -257,7 +320,11 @@ public class StarRocksStreamLoadVisitorTest {
     }
 
     /**
-     * Verifies that an unknown label state fails closed without authorizing a replacement label.
+     * Verifies that an UNKNOWN label state is polled until the deadline before failing closed.
+     *
+     * <p>A front-end recovering from a restart can report UNKNOWN for a committed label, so an
+     * immediate failure would cause needless replay; the state must be retried inside the bounded
+     * wait and still never authorize a replacement label.
      */
     @Test
     void failsWhenExistingLabelStateIsUnknown() throws Exception {
@@ -270,30 +337,38 @@ public class StarRocksStreamLoadVisitorTest {
         labelState.put("state", "UNKNOWN");
         when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
         StarRocksStreamLoadVisitor visitor =
-                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 500);
 
         StarRocksConnectorException exception =
                 assertThrows(
                         StarRocksConnectorException.class,
                         () -> visitor.doStreamLoad(createFlushTuple()));
         assertFalse(exception.needReCreateLabel());
+        verify(httpHelper, atLeastOnce()).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
-     * Verifies that an unrecognized response status cannot be converted into a successful flush.
+     * Verifies that an unrecognized response status is resolved through the label state.
+     *
+     * <p>Any 200 response with a Status field means StarRocks accepted the request, so its
+     * transaction exists and can be confirmed; trusting an unknown status string would either drop
+     * or duplicate the batch.
      */
     @Test
-    void failsForUnexpectedStreamLoadStatus() throws Exception {
+    void resolvesUnexpectedStreamLoadStatusThroughLabelState() throws Exception {
         SinkConfig sinkConfig = createSinkConfig();
         HttpHelper httpHelper = mock(HttpHelper.class);
         when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
         when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
                 .thenReturn(createLoadResult("Mystery"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "VISIBLE");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
         StarRocksStreamLoadVisitor visitor =
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
 
-        assertThrows(
-                StarRocksConnectorException.class, () -> visitor.doStreamLoad(createFlushTuple()));
+        assertTrue(visitor.doStreamLoad(createFlushTuple()));
+        verify(httpHelper, atLeastOnce()).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
@@ -379,11 +454,66 @@ public class StarRocksStreamLoadVisitorTest {
         preparing.put("state", "PREPARE");
         when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(preparing);
         StarRocksStreamLoadVisitor visitor =
-                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 10);
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 500);
 
         assertThrows(
                 StarRocksConnectorException.class, () -> visitor.doStreamLoad(createFlushTuple()));
         verify(httpHelper, atLeastOnce()).doHttpGet(anyString(), any(), anyInt());
+    }
+
+    /**
+     * Verifies that the {@code label_state_timeout_ms} sink configuration drives the polling
+     * deadline when the visitor is built through the production constructor.
+     *
+     * <p>The bounded assertion keeps the test fast even if a regression falls back to the built-in
+     * default deadline.
+     */
+    @Test
+    void usesConfiguredLabelStateTimeoutFromSinkConfig() throws Exception {
+        SinkConfig sinkConfig = createSinkConfig();
+        when(sinkConfig.getLabelStateTimeoutMs()).thenReturn(300L);
+        HttpHelper httpHelper = mock(HttpHelper.class);
+        when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
+        when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
+                .thenReturn(createLoadResult("Publish Timeout"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "PREPARE");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt())).thenReturn(labelState);
+        StarRocksStreamLoadVisitor visitor =
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
+
+        StarRocksConnectorException exception =
+                assertTimeoutPreemptively(
+                        Duration.ofSeconds(10),
+                        () ->
+                                assertThrows(
+                                        StarRocksConnectorException.class,
+                                        () -> visitor.doStreamLoad(createFlushTuple())));
+        assertFalse(exception.needReCreateLabel());
+        verify(httpHelper, atLeastOnce()).doHttpGet(anyString(), any(), anyInt());
+    }
+
+    /**
+     * Verifies that a transient failure while reading the label state is retried inside the bounded
+     * wait instead of failing the flush immediately.
+     */
+    @Test
+    void retriesLabelStateCheckWhenHttpGetFails() throws Exception {
+        SinkConfig sinkConfig = createSinkConfig();
+        HttpHelper httpHelper = mock(HttpHelper.class);
+        when(httpHelper.tryHttpConnection("http://localhost:8030")).thenReturn(true);
+        when(httpHelper.doHttpPut(anyString(), any(byte[].class), any()))
+                .thenReturn(createLoadResult("Publish Timeout"));
+        Map<String, Object> labelState = new HashMap<>();
+        labelState.put("state", "VISIBLE");
+        when(httpHelper.doHttpGet(anyString(), any(), anyInt()))
+                .thenThrow(new IOException("connection reset"))
+                .thenReturn(labelState);
+        StarRocksStreamLoadVisitor visitor =
+                new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 2000);
+
+        assertTrue(visitor.doStreamLoad(createFlushTuple()));
+        verify(httpHelper, org.mockito.Mockito.times(2)).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**

@@ -150,6 +150,16 @@ public class StarRocksSinkOptions extends StarRocksBaseOptions {
                     .defaultValue(3 * 60 * 1000)
                     .withDescription("Set http socket timeout, default is 3 minutes.");
 
+    public static final Option<Long> LABEL_STATE_TIMEOUT_MS =
+            Options.key("label_state_timeout_ms")
+                    .longType()
+                    .defaultValue(3 * 60 * 1000L)
+                    .withDescription(
+                            "Total time the sink polls get_load_state to resolve a non-final stream "
+                                    + "load outcome (Publish Timeout, Label Already Exists, reused-label "
+                                    + "failure) to VISIBLE/COMMITTED/ABORTED before failing the flush "
+                                    + "and letting the job replay from its checkpoint, default is 3 minutes.");
+
     public static final Option<String> CUSTOM_SQL =
             Options.key("custom_sql")
                     .stringType()
