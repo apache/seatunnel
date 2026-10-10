@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -43,6 +44,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -82,6 +84,28 @@ public class JobExecutionIT {
     public void testExecuteJob() throws Exception {
         runJobFileWithAssertEndStatus(
                 "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
+    }
+
+    @Test
+    public void testRejectsExplicitTransformSelfCycleBeforeSubmission() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
+            ClientJobExecutionEnvironment environment =
+                    engineClient.createExecutionContext(
+                            TestUtils.getResource("batch_transform_self_cycle.conf"),
+                            new JobConfig(),
+                            SEATUNNEL_CONFIG);
+            JobDefineCheckException exception =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(30),
+                            () ->
+                                    Assertions.assertThrows(
+                                            JobDefineCheckException.class,
+                                            environment::getLogicalDag));
+            Assertions.assertTrue(exception.getMessage().contains("self -> self"));
+        }
     }
 
     private static void runJobFileWithAssertEndStatus(
