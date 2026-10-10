@@ -17,6 +17,7 @@
 """Regression tests for connector E2E module sharding."""
 
 import io
+import json
 import re
 import unittest
 from collections import Counter
@@ -27,7 +28,11 @@ from update_modules_check import (
     ALL_CONNECTORS_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
+    STANDALONE_MODULE_PATHS,
+    build_standalone_modules,
     build_sub_it_modules,
+    build_sub_update_it_modules,
+    build_sub_update_it_shards,
     get_sub_it_modules,
     get_sub_update_it_modules,
     modules_to_json,
@@ -260,6 +265,85 @@ class ConnectorItShardingTest(unittest.TestCase):
                     workflow,
                 )
 
+    def test_updated_shards_list_only_shards_with_modules(self) -> None:
+        # A single changed connector used to start all 8 shard jobs on 2 JDKs.
+        self.assertEqual(
+            ["part-1"],
+            build_sub_update_it_shards(
+                modules_to_json(":connector-cassandra-e2e,:connector-cassandra-e2e"), 8
+            ),
+        )
+        self.assertEqual(
+            ["part-1", "part-2", "part-3"],
+            build_sub_update_it_shards(
+                modules_to_json(":connector-a-e2e,:connector-b-e2e,:connector-c-e2e"),
+                8,
+            ),
+        )
+        # Modules owned by dedicated jobs leave every shared shard empty.
+        self.assertEqual(
+            [],
+            build_sub_update_it_shards(
+                modules_to_json(
+                    ":connector-kafka-e2e,:seatunnel-engine-k8s-e2e,"
+                    ":connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e"
+                ),
+                8,
+            ),
+        )
+        self.assertEqual([], build_sub_update_it_shards("[]", 8))
+        many_modules = [f"connector-m{i}-e2e" for i in range(11)]
+        self.assertEqual(
+            [f"part-{i}" for i in range(1, 9)],
+            build_sub_update_it_shards(json.dumps(many_modules), 8),
+        )
+
+    def test_updated_shards_agree_with_per_shard_modules(self) -> None:
+        modules = modules_to_json(
+            ":connector-a-e2e,:connector-kafka-e2e,:connector-b-e2e,"
+            ":connector-jdbc-e2e,:seatunnel-engine-k8s-e2e,:connector-c-e2e"
+        )
+        shards = build_sub_update_it_shards(modules, 8)
+        for current_num in range(8):
+            with self.subTest(current_num=current_num):
+                self.assertEqual(
+                    f"part-{current_num + 1}" in shards,
+                    bool(build_sub_update_it_modules(modules, 8, current_num)),
+                )
+
+    def test_updated_shards_reject_non_positive_shard_count(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "total shard count must be positive, got 0"
+        ):
+            build_sub_update_it_shards("[]", 0)
+
+    def test_updated_module_jobs_are_gated_on_their_shard(self) -> None:
+        workflow = self.workflow_text()
+        jobs = dict(
+            re.findall(
+                r"^  (updated-modules-integration-test-part-\d+):\n(.*?)(?=^  \S|\Z)",
+                workflow,
+                re.MULTILINE | re.DOTALL,
+            )
+        )
+        self.assertEqual(8, len(jobs))
+        self.assertTrue(
+            'sub_update_it_shards "$IT_MODULES" 8' in workflow,
+            "changes job must compute the non-empty updated-modules shards",
+        )
+        for part in range(1, 9):
+            job = jobs[f"updated-modules-integration-test-part-{part}"]
+            with self.subTest(part=part):
+                if_line = re.search(r"^    if: (.*)$", job, re.MULTILINE).group(1)
+                self.assertIn(
+                    "contains(fromJSON(needs.changes.outputs.updated-it-shards), "
+                    f"'part-{part}')",
+                    if_line,
+                )
+                self.assertIn(
+                    f'sub_update_it_module "$IT_MODULES" 8 {part - 1}', job
+                )
+
     def test_full_shard_rejects_non_positive_shard_count(self) -> None:
         with self.assertRaisesRegex(
             ValueError, "total shard count must be positive, got 0"
@@ -274,6 +358,79 @@ class ConnectorItShardingTest(unittest.TestCase):
                     f"shard index {current_num} out of range \\[0, 7\\)",
                 ):
                     build_sub_it_modules("connector-normal-e2e", 7, current_num)
+
+    @staticmethod
+    def repo_root():
+        return Path(__file__).resolve().parents[2]
+
+    @staticmethod
+    def pom_artifact_id(pom):
+        text = re.sub(r"<parent>.*?</parent>", "", pom.read_text(encoding="utf-8"), flags=re.S)
+        return re.search(r"<artifactId>([^<]+)</artifactId>", text).group(1)
+
+    def workflow_pl_modules(self):
+        modules = set()
+        for pl in re.findall(
+            r"-pl\s+(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)", self.workflow_text()
+        ):
+            modules.update(module.lstrip(":") for module in pl.split(",") if module)
+        return modules
+
+    def test_standalone_paths_map_to_their_test_modules(self) -> None:
+        self.assertEqual(
+            ["seatunnel-trace-analyzer", "seatunnel-starter-e2e"],
+            build_standalone_modules(
+                json.dumps(
+                    [
+                        "seatunnel-trace/seatunnel-trace-analyzer/src/main/java/A.java",
+                        "seatunnel-trace/pom.xml",
+                        "seatunnel-e2e/seatunnel-core-e2e/seatunnel-starter-e2e/pom.xml",
+                    ]
+                )
+            ),
+        )
+        self.assertEqual([], build_standalone_modules("[]"))
+
+    def test_standalone_modules_exist_and_match_workflow_filter(self) -> None:
+        workflow = self.workflow_text()
+        filter_line = next(
+            line for line in workflow.splitlines() if line.strip().startswith("standalone_files=")
+        )
+        self.assertEqual(
+            [prefix + "**" for prefix, _ in STANDALONE_MODULE_PATHS],
+            re.findall(r'"([^"]+)"', filter_line),
+        )
+        for path_prefix, module in STANDALONE_MODULE_PATHS:
+            with self.subTest(module=module):
+                poms = [
+                    pom
+                    for pom in (self.repo_root() / path_prefix).rglob("pom.xml")
+                    if "target" not in pom.parts
+                ]
+                self.assertIn(module, {self.pom_artifact_id(pom) for pom in poms})
+
+    def test_engine_changes_run_the_k8s_integration_test(self) -> None:
+        job = re.search(
+            r"^  engine-k8s-it:\n(.*?)(?=^  \S)", self.workflow_text(), re.M | re.S
+        ).group(1)
+        self.assertTrue(
+            "needs.changes.outputs.engine == 'true'" in job,
+            "engine-k8s-it must run for engine changes",
+        )
+
+    def test_every_non_connector_e2e_it_module_has_a_workflow_job(self) -> None:
+        e2e_root = self.repo_root() / "seatunnel-e2e"
+        workflow_modules = self.workflow_pl_modules()
+        for pom in sorted(e2e_root.rglob("pom.xml")):
+            relative = pom.relative_to(e2e_root).parts
+            if relative[0] in ("seatunnel-connector-v2-e2e", "seatunnel-e2e-common") or "target" in relative:
+                continue
+            test_root = pom.parent / "src" / "test" / "java"
+            if not test_root.is_dir() or not any(test_root.rglob("*IT.java")):
+                continue
+            module = self.pom_artifact_id(pom)
+            with self.subTest(module=module):
+                self.assertIn(module, workflow_modules)
 
 if __name__ == "__main__":
     unittest.main()
