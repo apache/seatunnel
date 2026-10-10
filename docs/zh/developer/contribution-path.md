@@ -147,6 +147,16 @@ workflow 按下面的规则选择 jobs：
 
 判断一次绿色 Backend `Build` 是否包含所有 connector 集成测试分片前，请先查看该 Build 实际列出的 jobs。
 
+### 如果 Build 检查报 "Workflow run detection failed"
+
+这表示在你的 fork 中找不到 PR head 提交对应的 `Build` workflow 运行，并不是测试失败。可以按以下方式恢复：
+
+1. **GitHub 没有为这次 push 创建运行（最常见）。** 打开你 fork 的 **Actions** 标签页，选择 **Build** workflow，点击 **Run workflow** 并选中 PR 分支；定时的 `Update build status workflow` 会在 15 分钟内把这次运行同步回 PR 的 `Build` 检查。也可以推一个空提交：`git commit --allow-empty -m "Trigger CI" && git push`。
+2. **fork 从未开启 Actions。** 在 fork 的 **Actions** 标签页启用 workflow，再按第 1 条手动触发。
+3. **分支基于旧的 `dev`。** rebase 到最新 `dev` 后重新推送。
+
+如果 fork 中已有运行，但检查超过 15 分钟仍处于失败或排队状态，可以请 committer 在仓库的 **Actions** 标签页手动运行一次 `Update build status workflow`。
+
 ## 哪类首个贡献更容易落地
 
 这些类型通常更容易合入：
