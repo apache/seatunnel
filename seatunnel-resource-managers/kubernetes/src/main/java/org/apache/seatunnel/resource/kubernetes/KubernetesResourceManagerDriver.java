@@ -37,9 +37,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
@@ -51,11 +53,33 @@ public final class KubernetesResourceManagerDriver
     private final KubernetesApplicationParameters parameters;
     private final String applicationId;
     private final String clusterName;
-    private final Map<String, KubernetesWorkerNode> workers = new HashMap<>();
-    private final Set<String> releasing = new HashSet<>();
-    private final Set<String> missingWorkers = new HashSet<>();
-    private final Set<CompletableFuture<Void>> launches = new HashSet<>();
-    private final Map<String, CompletableFuture<KubernetesWorkerNode>> pending = new HashMap<>();
+    /**
+     * Worker nodes currently owned by this driver, keyed by Pod name. Entries are removed on
+     * explicit release or successful completion; anything still present is expected to be running.
+     */
+    private final Map<String, KubernetesWorkerNode> workers = new ConcurrentHashMap<>();
+    /**
+     * Workers whose deletion request is in flight. The watch must ignore them because a Pod can
+     * briefly appear as terminating after release has already removed it from {@link #workers}.
+     */
+    private final Set<String> releasing = ConcurrentHashMap.newKeySet();
+    /**
+     * Workers absent in the previous poll. A worker is reported as terminated only after two
+     * consecutive misses, avoiding a false failure when listPods races a concurrent create.
+     */
+    private final Set<String> missingWorkers = ConcurrentHashMap.newKeySet();
+    /**
+     * In-flight Pod creation tasks. Shutdown waits for these because a create accepted just before
+     * close can still produce a Pod that must be compensated with a delete.
+     */
+    private final Set<CompletableFuture<Void>> launches = ConcurrentHashMap.newKeySet();
+    /**
+     * Pod creations whose result has not yet been published to the caller. Startup cancellation
+     * completes these exceptionally, and successful launch removes the corresponding entry.
+     */
+    private final Map<String, CompletableFuture<KubernetesWorkerNode>> pending =
+            new ConcurrentHashMap<>();
+
     private Supplier<String> masterAddress;
     private ResourceEventHandler<KubernetesWorkerNode> resourceEventHandler;
     private ScheduledExecutorService mainThreadExecutor;
@@ -63,9 +87,15 @@ public final class KubernetesResourceManagerDriver
     private KubernetesJob job;
     private KubernetesWatch workerWatch;
     private final IdGenerator idGenerator;
-    private boolean running;
-    private boolean closed;
-    private boolean workersStopped;
+    /**
+     * Admission and observation gate. Once false, requestWorker rejects new workers and the watch
+     * stops publishing failures or terminations.
+     */
+    private final AtomicBoolean running = new AtomicBoolean();
+    /** Set by close() so repeated lifecycle calls do not reopen or double-close the SDK. */
+    private final AtomicBoolean closed = new AtomicBoolean();
+    /** Guards stopWorkers() so late calls cannot start a second drain after cleanup is underway. */
+    private final AtomicBoolean workersStopped = new AtomicBoolean();
 
     /**
      * Takes ownership of the client and fixed application identity/cluster name; initialize starts
@@ -99,7 +129,7 @@ public final class KubernetesResourceManagerDriver
             Executor ioExecutor,
             Supplier<String> masterAddress)
             throws Exception {
-        if (closed || this.resourceEventHandler != null) {
+        if (closed.get() || this.resourceEventHandler != null) {
             throw new IllegalStateException(
                     "Kubernetes driver has already been initialized or closed");
         }
@@ -108,7 +138,7 @@ public final class KubernetesResourceManagerDriver
         this.mainThreadExecutor = mainThreadExecutor;
         this.ioExecutor = ioExecutor;
         this.job = api.getJob(applicationId);
-        this.running = true;
+        this.running.set(true);
         this.workerWatch =
                 api.watchPods(
                         KubernetesResourceFactory.selector(
@@ -128,7 +158,7 @@ public final class KubernetesResourceManagerDriver
     public synchronized CompletableFuture<KubernetesWorkerNode> requestWorker(
             WorkerSpecification resources) {
         CompletableFuture<KubernetesWorkerNode> future = new CompletableFuture<>();
-        if (!running) {
+        if (!running.get()) {
             future.completeExceptionally(
                     new IllegalStateException("Kubernetes driver is not running"));
             return future;
@@ -145,9 +175,7 @@ public final class KubernetesResourceManagerDriver
             launches.add(launch);
             launch.whenComplete(
                     (ignored, failure) -> {
-                        synchronized (this) {
-                            launches.remove(launch);
-                        }
+                        launches.remove(launch);
                         if (failure != null) {
                             future.completeExceptionally(failure);
                         }
@@ -163,21 +191,17 @@ public final class KubernetesResourceManagerDriver
             WorkerSpecification resources,
             CompletableFuture<KubernetesWorkerNode> future) {
         String name = worker.getResourceID().getResourceIdString();
-        synchronized (this) {
-            if (!running) {
-                future.completeExceptionally(new CancellationException("Application is stopping"));
-                return;
-            }
+        if (!running.get()) {
+            future.completeExceptionally(new CancellationException("Application is stopping"));
+            return;
         }
         try {
             api.createPod(
                     KubernetesResourceFactory.worker(
                             job, name, parameters, resources, clusterName, masterAddress.get()));
-            synchronized (this) {
-                if (running && future.complete(worker)) {
-                    pending.remove(name);
-                    return;
-                }
+            if (running.get() && future.complete(worker)) {
+                pending.remove(name);
+                return;
             }
             // A request accepted just before close must not leave a Pod behind after cleanup.
             api.deletePod(name);
@@ -198,24 +222,17 @@ public final class KubernetesResourceManagerDriver
     public CompletableFuture<Void> releaseWorker(KubernetesWorkerNode worker) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         String name = worker.getResourceID().getResourceIdString();
-        synchronized (this) {
-            if (!workers.containsKey(name)) {
-                return CompletableFuture.completedFuture(null);
-            }
-            releasing.add(name);
+        if (workers.remove(name) == null) {
+            return CompletableFuture.completedFuture(null);
         }
+        releasing.add(name);
         try {
             api.deletePod(name);
-            synchronized (this) {
-                workers.remove(name);
-            }
             result.complete(null);
         } catch (Exception e) {
             result.completeExceptionally(e);
         } finally {
-            synchronized (this) {
-                releasing.remove(name);
-            }
+            releasing.remove(name);
         }
         return result;
     }
@@ -234,17 +251,16 @@ public final class KubernetesResourceManagerDriver
     private void checkWorkers(List<KubernetesPod> pods) {
         Set<String> observed;
         Set<String> missingNow = new HashSet<>();
-        synchronized (this) {
-            if (!running) {
-                return;
-            }
-            observed = new HashSet<>(workers.keySet());
-            observed.removeAll(pending.keySet());
-            observed.removeAll(releasing);
-            if (observed.isEmpty()) {
-                missingWorkers.clear();
-                return;
-            }
+        // Snapshot the workers that are expected to exist, excluding in-flight and releasing ones.
+        if (!running.get()) {
+            return;
+        }
+        observed = new HashSet<>(workers.keySet());
+        observed.removeAll(pending.keySet());
+        observed.removeAll(releasing);
+        if (observed.isEmpty()) {
+            missingWorkers.clear();
+            return;
         }
         Map<String, KubernetesPod> current = new HashMap<>();
         for (KubernetesPod pod : pods) {
@@ -252,41 +268,42 @@ public final class KubernetesResourceManagerDriver
         }
         KubernetesWorkerNode terminatedWorker = null;
         String diagnostics = null;
-        synchronized (this) {
-            if (!running) {
-                return;
+        // Require two consecutive misses before failing: listPods can race with a concurrent
+        // create.
+        if (!running.get()) {
+            return;
+        }
+        for (String name : observed) {
+            KubernetesWorkerNode worker = workers.get(name);
+            if (worker == null || releasing.contains(name)) {
+                continue;
             }
-            for (String name : observed) {
-                KubernetesWorkerNode worker = workers.get(name);
-                if (worker == null || releasing.contains(name)) {
-                    continue;
-                }
-                KubernetesPod pod = current.get(name);
-                if (pod != null && pod.isSucceeded()) {
-                    workers.remove(name);
-                    missingWorkers.remove(name);
-                    continue;
-                }
-                if (pod == null || pod.isTerminating() || pod.isTerminated()) {
-                    if (missingWorkers.contains(name)) {
-                        terminatedWorker = worker;
-                        diagnostics =
-                                pod == null
-                                        ? "Worker pod disappeared"
-                                        : "Worker pod terminated with phase " + pod.getPhase();
-                        break;
-                    }
-                    missingNow.add(name);
-                }
+            KubernetesPod pod = current.get(name);
+            if (pod != null && pod.isSucceeded()) {
+                workers.remove(name);
+                missingWorkers.remove(name);
+                continue;
             }
-            if (terminatedWorker != null) {
-                running = false;
-                missingWorkers.clear();
-            } else {
-                missingWorkers.clear();
-                missingWorkers.addAll(missingNow);
+            if (pod == null || pod.isTerminating() || pod.isTerminated()) {
+                if (missingWorkers.contains(name)) {
+                    terminatedWorker = worker;
+                    diagnostics =
+                            pod == null
+                                    ? "Worker pod disappeared"
+                                    : "Worker pod terminated with phase " + pod.getPhase();
+                    break;
+                }
+                missingNow.add(name);
             }
         }
+        if (terminatedWorker != null) {
+            running.set(false);
+            missingWorkers.clear();
+        } else {
+            missingWorkers.clear();
+            missingWorkers.addAll(missingNow);
+        }
+        // Publish outside the lock so a slow event handler cannot block worker observation.
         if (terminatedWorker != null) {
             KubernetesWorkerNode worker = terminatedWorker;
             String reason = diagnostics;
@@ -296,11 +313,8 @@ public final class KubernetesResourceManagerDriver
     }
 
     private void onWatchFailure(Exception failure) {
-        synchronized (this) {
-            if (running) {
-                running = false;
-                mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
-            }
+        if (running.compareAndSet(true, false)) {
+            mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
         }
     }
 
@@ -313,17 +327,15 @@ public final class KubernetesResourceManagerDriver
     @Override
     public void stopWorkers() throws Exception {
         CompletableFuture<?>[] pendingLaunches;
-        synchronized (this) {
-            if (workersStopped) {
-                return;
-            }
-            workersStopped = true;
-            running = false;
-            pendingLaunches = launches.toArray(new CompletableFuture[0]);
-            for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
-                future.completeExceptionally(new CancellationException("Application is stopping"));
-            }
+        if (!workersStopped.compareAndSet(false, true)) {
+            return;
         }
+        running.set(false);
+        pendingLaunches = launches.toArray(new CompletableFuture[0]);
+        for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
+            future.completeExceptionally(new CancellationException("Application is stopping"));
+        }
+        // Stop the poll loop before draining creates so a late snapshot cannot fail the shutdown.
         if (workerWatch != null) {
             workerWatch.close();
         }
@@ -339,6 +351,7 @@ public final class KubernetesResourceManagerDriver
             failure = e;
         }
         if (job != null) {
+            // Bulk delete is the final safety net for Pods that were never tracked or raced close.
             try {
                 api.deleteWorkers(job.getName());
             } catch (Exception e) {
@@ -361,11 +374,8 @@ public final class KubernetesResourceManagerDriver
      */
     @Override
     public void close() throws Exception {
-        synchronized (this) {
-            if (closed) {
-                return;
-            }
-            closed = true;
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
         try {
             stopWorkers();

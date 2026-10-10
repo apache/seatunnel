@@ -39,17 +39,18 @@ import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
@@ -73,18 +74,46 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private final AMRMClient<AMRMClient.ContainerRequest> resourceManager;
     private final NMClient nodeManager;
     private final String workerNodeLabel;
-    private final Queue<PendingWorker> pending = new ArrayDeque<>();
-    private final Map<String, YarnWorkerNode> workers = new HashMap<>();
+    /**
+     * Requests accepted by YARN but not yet matched to an allocated container. Failure drains these
+     * exceptionally; shutdown removes their RM requests.
+     */
+    private final Queue<PendingWorker> pending = new ConcurrentLinkedQueue<>();
+    /**
+     * Allocated workers currently owned by this driver, keyed by YARN container ID. Completed
+     * container events remove entries here, and shutdown releases anything still present.
+     */
+    private final Map<String, YarnWorkerNode> workers = new ConcurrentHashMap<>();
+
     private ScheduledFuture<?> heartbeats;
-    private CompletableFuture<Void> heartbeatExecution = CompletableFuture.completedFuture(null);
+    /**
+     * The single in-flight heartbeat. scheduleHeartbeat starts a new one only after this future is
+     * done, so RM allocate calls never overlap.
+     */
+    private volatile CompletableFuture<Void> heartbeatExecution =
+            CompletableFuture.completedFuture(null);
+
     private ScheduledExecutorService mainThreadExecutor;
     private Executor ioExecutor;
     private Supplier<String> masterAddress;
     private ResourceEventHandler<YarnWorkerNode> resourceEventHandler;
-    private boolean active;
-    private boolean registered;
-    private boolean finished;
-    private boolean nodeManagerInitialized;
+    /**
+     * Admission and heartbeat gate. Once false, requestWorker is rejected and pending/allocated
+     * workers are drained by shutdown or failure handling.
+     */
+    private final AtomicBoolean active = new AtomicBoolean();
+    /**
+     * Whether this AM has already registered with the YARN ResourceManager. close() uses this to
+     * decide whether a final unregister/failure publication is still required.
+     */
+    private final AtomicBoolean registered = new AtomicBoolean();
+    /** Guards unregister so the terminal status is published exactly once. */
+    private final AtomicBoolean finished = new AtomicBoolean();
+    /**
+     * Whether the NodeManager client has been started and therefore needs an explicit stop during
+     * close, even if worker startup failed early.
+     */
+    private final AtomicBoolean nodeManagerInitialized = new AtomicBoolean();
 
     public YarnResourceManagerDriver(
             Configuration configuration, Path staging, YarnDriverSettings settings) {
@@ -145,17 +174,18 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         this.ioExecutor = ioExecutor;
         resourceManager.init(configuration);
         resourceManager.start();
-        nodeManagerInitialized = true;
+        nodeManagerInitialized.set(true);
         nodeManager.init(configuration);
         nodeManager.start();
+        // The master address is currently formatted as host:port; split before registering.
         String address = masterAddress.get();
         int separator = address.lastIndexOf(':');
         resourceManager.registerApplicationMaster(
                 address.substring(0, separator),
                 Integer.parseInt(address.substring(separator + 1)),
                 "");
-        registered = true;
-        active = true;
+        registered.set(true);
+        active.set(true);
         heartbeats =
                 mainThreadExecutor.scheduleWithFixedDelay(
                         this::scheduleHeartbeat,
@@ -165,8 +195,8 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     /** Keeps at most one blocking heartbeat in flight without blocking resource callbacks. */
-    private synchronized void scheduleHeartbeat() {
-        if (active && heartbeatExecution.isDone()) {
+    private void scheduleHeartbeat() {
+        if (active.get() && heartbeatExecution.isDone()) {
             try {
                 heartbeatExecution = CompletableFuture.runAsync(this::heartbeat, ioExecutor);
             } catch (RuntimeException failure) {
@@ -179,7 +209,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     public synchronized CompletableFuture<YarnWorkerNode> requestWorker(
             WorkerSpecification specification) {
         CompletableFuture<YarnWorkerNode> result = new CompletableFuture<>();
-        if (!active) {
+        if (!active.get()) {
             result.completeExceptionally(
                     new IllegalStateException("YARN resource manager is not active"));
             return result;
@@ -199,19 +229,16 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     void heartbeat() {
-        synchronized (this) {
-            if (!active) {
-                return;
-            }
+        if (!active.get()) {
+            return;
         }
         try {
             AllocateResponse response = resourceManager.allocate(APPLICATION_PROGRESS);
+            // Completed containers first: unexpected non-success exits fail the application.
             for (ContainerStatus status : response.getCompletedContainersStatuses()) {
                 String id = status.getContainerId().toString();
                 YarnWorkerNode terminatedWorker;
-                synchronized (this) {
-                    terminatedWorker = active ? workers.remove(id) : null;
-                }
+                terminatedWorker = active.get() ? workers.remove(id) : null;
                 if (terminatedWorker != null
                         && status.getExitStatus() != ContainerExitStatus.SUCCESS) {
                     mainThreadExecutor.execute(
@@ -224,15 +251,14 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                                                     + status.getDiagnostics()));
                 }
             }
+            // Allocated containers are paired with the oldest pending worker request.
             for (Container container : response.getAllocatedContainers()) {
                 YarnWorkerNode workerNode =
                         new YarnWorkerNode(container, new ResourceID(container.getId().toString()));
                 PendingWorker worker;
-                synchronized (this) {
-                    worker = active ? pending.poll() : null;
-                    if (worker != null) {
-                        workers.put(workerNode.getWorkerId(), workerNode);
-                    }
+                worker = active.get() ? pending.poll() : null;
+                if (worker != null) {
+                    workers.put(workerNode.getWorkerId(), workerNode);
                 }
                 if (worker == null) {
                     resourceManager.releaseAssignedContainer(workerNode.getContainerId());
@@ -250,17 +276,13 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                                     worker.specification,
                                     hadoopUserName,
                                     masterDistributionHome));
-                    synchronized (this) {
-                        if (active
-                                && workers.containsKey(workerNode.getWorkerId())
-                                && worker.result.complete(workerNode)) {
-                            continue;
-                        }
+                    if (active.get()
+                            && workers.containsKey(workerNode.getWorkerId())
+                            && worker.result.complete(workerNode)) {
+                        continue;
                     }
                     // A launch can finish after shutdown removed its allocation record.
-                    synchronized (this) {
-                        workers.remove(workerNode.getWorkerId());
-                    }
+                    workers.remove(workerNode.getWorkerId());
                     try {
                         nodeManager.stopContainer(
                                 workerNode.getContainerId(), workerNode.getNodeId());
@@ -270,9 +292,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                     worker.result.completeExceptionally(
                             new IOException("YARN application stopped during worker launch"));
                 } catch (Exception failure) {
-                    synchronized (this) {
-                        workers.remove(workerNode.getWorkerId());
-                    }
+                    workers.remove(workerNode.getWorkerId());
                     resourceManager.releaseAssignedContainer(workerNode.getContainerId());
                     worker.result.completeExceptionally(failure);
                     throw failure;
@@ -284,13 +304,9 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     private void reportError(Exception failure) {
-        boolean report;
-        synchronized (this) {
-            report = active;
-            active = false;
-            for (PendingWorker worker : pending) {
-                worker.result.completeExceptionally(failure);
-            }
+        boolean report = active.getAndSet(false);
+        for (PendingWorker worker : pending) {
+            worker.result.completeExceptionally(failure);
         }
         if (report) {
             mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
@@ -300,10 +316,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     @Override
     public CompletableFuture<Void> releaseWorker(YarnWorkerNode registration) {
         CompletableFuture<Void> result = new CompletableFuture<>();
-        YarnWorkerNode worker;
-        synchronized (this) {
-            worker = workers.remove(registration.getWorkerId());
-        }
+        YarnWorkerNode worker = workers.remove(registration.getWorkerId());
         try {
             if (worker != null) {
                 // Remove first, so the expected completed-container event cannot fail the
@@ -323,13 +336,17 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
 
     /** Reports the job's terminal state; the runtime releases workers before finishing. */
     @Override
-    public synchronized void finish(ApplicationStatus status, String diagnostics) throws Exception {
-        active = false;
-        if (registered && !finished) {
+    public void finish(ApplicationStatus status, String diagnostics) throws Exception {
+        active.set(false);
+        if (registered.get() && finished.compareAndSet(false, true)) {
             FinalApplicationStatus finalStatus =
                     YarnApplicationStatus.toFinalApplicationStatus(status);
-            resourceManager.unregisterApplicationMaster(finalStatus, diagnostics, "");
-            finished = true;
+            try {
+                resourceManager.unregisterApplicationMaster(finalStatus, diagnostics, "");
+            } catch (Exception failure) {
+                finished.set(false);
+                throw failure;
+            }
         }
     }
 
@@ -341,16 +358,15 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         List<PendingWorker> waiting;
         List<YarnWorkerNode> allocated;
         CompletableFuture<Void> heartbeat;
-        synchronized (this) {
-            active = false;
-            if (heartbeats != null) {
-                heartbeats.cancel(false);
-            }
-            heartbeat = heartbeatExecution;
-            waiting = new ArrayList<>(pending);
-            pending.clear();
-            allocated = new ArrayList<>(workers.values());
+        active.set(false);
+        if (heartbeats != null) {
+            heartbeats.cancel(false);
         }
+        // Stop scheduling new heartbeats while allowing the in-flight one to finish.
+        heartbeat = heartbeatExecution;
+        waiting = new ArrayList<>(pending);
+        pending.clear();
+        allocated = new ArrayList<>(workers.values());
         Exception failure = null;
         for (PendingWorker worker : waiting) {
             worker.result.completeExceptionally(
@@ -362,6 +378,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
             }
         }
         if (!allocated.isEmpty() || !heartbeat.isDone()) {
+            // Bound cleanup to the runtime shutdown deadline while releasing every known worker.
             List<Future<?>> stopping = new ArrayList<>();
             stopping.add(heartbeat);
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
@@ -396,7 +413,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         } catch (Exception error) {
             failure = error;
         }
-        if (registered && !finished) {
+        if (registered.get() && !finished.get()) {
             try {
                 finish(
                         ApplicationStatus.FAILED,
@@ -405,7 +422,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 failure = accumulate(failure, error);
             }
         }
-        if (nodeManagerInitialized) {
+        if (nodeManagerInitialized.get()) {
             try {
                 nodeManager.stop();
             } catch (Exception error) {
