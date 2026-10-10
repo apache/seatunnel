@@ -105,6 +105,7 @@ public class RestConstant {
     public static final String REST_URL_STOP_JOB = "/stop-job";
     public static final String REST_URL_STOP_JOBS = "/stop-jobs";
     public static final String REST_URL_UPDATE_TAGS = "/update-tags";
+    public static final String REST_URL_UPDATE_LOCAL_MEMBER_TAGS = "/update-local-member-tags";
     public static final String REST_URL_PENDING_JOBS = "/pending-jobs";
     // Get All Nodes Log
     public static final String REST_URL_LOGS = "/logs";
@@ -121,6 +122,7 @@ public class RestConstant {
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
     public static final String REST_URL_REALTIME_METRICS = "/metrics/realtime";
+    public static final String REST_URL_HTTP_SERVICE_STATUS = "/http-service/status";
     // api path end
 
 }

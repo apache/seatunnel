@@ -34,37 +34,45 @@ http://<host>:8080/<context-path>/#/overview
 
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
 
-The Web UI does not submit jobs or provide lifecycle control actions such as cancel, stop, savepoint, or restore. Use the REST API or CLI when you need those operations.
+The Web UI combines visual inspection with common operational actions. It supports job submission and restore flows, plus confirmed cancel, stop, and savepoint controls for running jobs. Use the REST API or CLI for automation and workflows not exposed by the UI.
 ![overview.png](../../../images/ui/overview.png)
 
 ## Capability Summary
 
-| UI area | Current capability |
-|---------|--------------------|
-| Overview | View cluster version, slot usage, worker count, and job counts |
-| Jobs | View running and finished jobs, paginate job lists, and open job details |
-| Job Detail | View DAG, job metrics, exception text, job configuration, logs, and realtime observability data |
-| Workers | View worker-node system monitoring information |
-| Master | View master-node system monitoring information |
+| UI area    | Current capability                                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overview   | View cluster version, slot usage, worker count, and job counts                                                                                                     |
+| Jobs       | Submit jobs from configuration text or uploaded files, restore jobs from checkpoint or savepoint state, view running and finished jobs, paginate job lists, and open job details |
+| Job Detail | View DAG, job metrics, exception text, job configuration, checkpoint overview and history, logs, and realtime observability data                                   |
+| Operations | Browse connector OptionRule metadata and view safe HTTP, HTTPS, authentication, and mTLS status                                                                    |
+| Workers    | View worker-node system monitoring information and update tags on the current node                                                                                 |
+| Master     | View master-node system monitoring information                                                                                                                     |
 
 ## Jobs
+
+### Submit Jobs
+
+The Jobs page includes a "Submit Job" panel for submitting a new SeaTunnel job without leaving the Web UI. Users can paste JSON, HOCON, or SQL job configuration text, or upload a `.json`, `.conf`, `.config`, or `.sql` configuration file.
+
+The same panel can restore a job from checkpoint or savepoint state by selecting a restore mode and entering the source job ID. It sends the explicit REST parameters `restoreMode=CHECKPOINT|SAVEPOINT` and `restoreSourceJobId=<existing-job-id>`, so the submitted configuration still needs to match the job being restored. The Web UI does not send a destination job ID for checkpoint restore, so the engine creates a new job ID; savepoint restore retains the source job ID.
 
 ### Running Jobs
 
 The "Running Jobs" section lists SeaTunnel jobs that are currently in execution. Users can view job ID, job name, creation time, status, and open a detail page for a specific job.
 
-The list refreshes periodically and supports pagination.
+The list refreshes periodically and supports pagination. The Action column provides `View`, `Stop`, `Savepoint`, and `Cancel` controls. `Stop` sends a graceful stop request without savepoint, `Savepoint` stops the job through savepoint, and `Cancel` sends a forced stop request for exceptional situations. All state-changing actions require confirmation and show status feedback in the page.
 
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
 
 ### Job Detail
 
-The Job Detail page contains four main tabs:
+The Job Detail page contains five main tabs:
 
 - **Overview**: shows the job DAG, source and sink throughput metrics, flush-signal metrics, and realtime vertex or edge metrics when observability is enabled.
 - **Exception**: shows the job error message when the job has failed or reported an exception.
 - **Configuration**: shows the runtime job configuration exposed by the engine.
+- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state, then opens the submit panel with the source job ID and restore mode prefilled. The tab does not check the job status: the engine refuses the restore while the source job is still active, and reports `No checkpoint found` when its state has already been cleaned up. Both messages are shown in the submit panel, so stop, savepoint or cancel the source job before restoring from it.
 - **Log**: shows job log files returned by the engine log API.
 
 #### Realtime Observability
@@ -139,6 +147,27 @@ On a narrow screen, collapse the sidebar and scroll the table horizontally to
 inspect the slot summary or reach Details.
 
 ![Narrow Workers table with fixture data](../../../images/ui/workers-narrow.png)
+
+The Workers page can also update the tags of the local worker, meaning the member that served the
+current Web UI request. That row is marked **Local** in the Tags column; click **Select** to load its
+tags into the **Worker Tags** panel above the table, edit one `key=value` tag per line, and use
+**Update Tags** or **Clear Tags**, both behind a confirmation. The panel calls
+`/update-local-member-tags` with that member's UUID, so the request
+is rejected unless the Web UI is served by the member being updated. Remote workers are shown for
+inspection only; open the target node's own Web UI address to change its tags.
+
+**Limitation:** if the Web UI is reached through a load balancer or reverse proxy that fronts
+several masters, only the member that happens to serve the request is editable, and tag updates for
+every other member are rejected. Reach the target member directly when editing tags.
+
+## Operations
+
+The "Operations" page provides read-only and metadata-driven operational helpers:
+
+- Connector OptionRule metadata lookup for `source`, `sink`, and `transform` plugins, including required options, optional options, condition rules, and value constraints.
+- Safe HTTP service status, including HTTP, HTTPS, context path, dynamic port, basic authentication, and mutual TLS flags.
+
+Sensitive values such as passwords, tokens, certificate paths, and key-store credentials are not displayed.
 
 ## Master
 

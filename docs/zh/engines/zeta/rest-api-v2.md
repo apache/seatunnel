@@ -1327,13 +1327,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ### 更新运行节点的tags
 
-<details>
-<summary><code>POST</code><code><b>/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+<details><summary><code>POST</code><code><b>/update-tags</b></code><code>使用旧版扁平 map 请求体更新当前 REST 节点的 tags</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
 #### 更新节点tags
 ##### 请求体
-如果请求参数是`Map`对象，表示要更新当前节点的tags
+`/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。tag 值必须是字符串；服务端会把每个值按字符串存储，不支持嵌套对象作为值。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
+
 ```json
 {
   "tag1": "dev_1",
@@ -1350,12 +1350,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ```
 #### 移除节点tags
 ##### 请求体
-如果参数为空`Map`对象，表示要清除当前节点的tags
+发送空的扁平 `Map` 即可清空当前 REST 节点的全部 tags：
+
 ```json
 {}
 ```
 ##### 响应
-响应体将为：
+
 ```json
 {
   "status": "success",
@@ -1383,6 +1384,74 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
   "message": "Invalid JSON format in request body."
 }
 ```
+</details>
+
+### 更新本地成员 tags
+
+<details><summary><code>POST</code><code><b>/update-local-member-tags</b></code><code>校验目标成员 UUID 后更新响应该请求的 REST 节点的 tags</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+
+这是 Web UI Workers 页面使用的接口。它是新增接口：`/update-tags` 及其扁平 map 契约保持不变。
+
+#### 认证
+
+`/update-local-member-tags` 与其他所有 REST 接口注册在同一个 servlet context 上，因此受相同的 basic 认证和双向 TLS 配置保护，不需要额外的凭据或配置。
+
+#### 请求体
+
+| 字段     | 必填 | 类型   | 说明                                                                                                          |
+|--------|----|------|-------------------------------------------------------------------------------------------------------------|
+| `uuid` | 是  | 字符串  | 必须响应本次请求的节点的成员 UUID。可从 `/system-monitoring-information` 获取，其返回的每个集群成员都带有 `uuid` 和 `localMember` 字段。 |
+| `tags` | 是  | 对象   | tag 名到 tag 值的映射，会整体替换该节点当前的 tags。空对象表示清空全部 tags。                                                        |
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
+}
+```
+
+清空该节点的全部 tags：
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+#### 响应
+
+```json
+{
+  "status": "success",
+  "message": "update node tags done."
+}
+```
+
+#### 请求参数异常
+
+以下错误均以 HTTP `400` 返回，响应体格式如下。
+
+| 场景                                  | `message`                                                           |
+|-------------------------------------|---------------------------------------------------------------------|
+| 请求体为空                               | `Request body is empty.`                                            |
+| 请求体不是 JSON 对象                       | `Invalid JSON format in request body.`                              |
+| 缺少 `uuid`，或 `uuid` 与响应请求的节点不一致      | `Target member uuid must match the REST node serving this request.` |
+| 缺少 `tags`，或 `tags` 不是 JSON 对象       | `The tags field must be an object.`                                 |
+
+```json
+{
+  "status": "fail",
+  "message": "Target member uuid must match the REST node serving this request."
+}
+```
+
+#### 限制
+
+UUID 校验只针对响应请求的节点。如果 REST 地址是一个前置多个 master 的负载均衡或反向代理，那么只有恰好响应本次请求的成员可以被更新，针对其他成员的请求都会以 UUID 不匹配错误被拒绝。请改为直接向目标成员自己的 REST 地址发送请求。
 </details>
 
 
@@ -1654,6 +1723,51 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 
 </details>
 
+### 获取 HTTP 服务状态
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(返回当前节点 HTTP 服务运行状态。)</code></summary>
+
+#### 响应
+
+返回当前节点 HTTP 服务开关、配置端口、实际监听端口、上下文路径和认证模式。
+接口不会返回密码、用户名、keystore 路径、truststore 路径等敏感值。
+该接口与其他所有 REST 接口注册在同一个 servlet context 上，因此受相同的 basic 认证和双向 TLS 配置保护。
+
+| 字段                    | 类型  | 说明                                                                                              |
+|-----------------------|-----|-------------------------------------------------------------------------------------------------|
+| `httpEnabled`         | 布尔  | 当前节点是否启用了 REST 服务（`http.enable-http`）。                                                           |
+| `httpsEnabled`        | 布尔  | 当前节点是否启用了 HTTPS（`http.enable-https`）。                                                           |
+| `contextPath`         | 字符串 | REST 接口所在的上下文路径；未配置时为 `/`。                                                                      |
+| `configuredHttpPort`  | 数字  | 配置中的 HTTP 端口（`http.port`，默认 `8080`）。                                                            |
+| `configuredHttpsPort` | 数字  | 配置中的 HTTPS 端口（`http.https-port`，默认 `8443`）。                                                     |
+| `httpPort`            | 数字  | 当前 HTTP connector 实际绑定的端口。启用动态端口时可能与 `configuredHttpPort` 不同；没有活动的 HTTP connector 时等于配置端口。      |
+| `httpsPort`           | 数字  | 当前 HTTPS connector 实际绑定的端口，回退规则与 `httpPort` 相同。                                                 |
+| `dynamicPortEnabled`  | 布尔  | 配置端口被占用时是否允许自动选择下一个可用端口（`http.enable-dynamic-port`）。                                            |
+| `portRange`           | 数字  | 启用动态端口时搜索的端口范围大小（`http.port-range`）。                                                            |
+| `basicAuthEnabled`    | 布尔  | 当前节点是否强制 HTTP basic 认证。                                                                          |
+| `mutualTlsEnabled`    | 布尔  | 当前 HTTPS connector 是否要求客户端证书。该值反映实际生效的 TLS 上下文，而不只是是否配置了 truststore。                            |
+
+#### 响应示例
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 8080,
+  "configuredHttpsPort": 8443,
+  "httpPort": 8080,
+  "httpsPort": 8443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
+
+</details>
+
 ### 获取作业 Checkpoint 概览
 
 <details>
@@ -1911,8 +2025,13 @@ Checkpoint 信息字段：
 | 目标                       | 方法                                                                                                                                                       |
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 暂停一个正在运行的作业（先停止，之后再恢复） | 调用 [`/stop-job`](#停止作业)，并设置 `isStopWithSavePoint: true`。作业会停止运行，同时会保存一个当前状态的 savepoint。                                                                    |
-| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `isStartWithSavePoint: true`，并传入与之前停止时**相同**的 `jobId` 和相同的作业配置。作业会基于该 `jobId` 最近一次的 savepoint 恢复。                                |
+| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `restoreMode=SAVEPOINT`、`restoreSourceJobId=<stopped-job-id>` 并传入相同的作业配置。作业会基于该来源作业最近一次的 savepoint 恢复。仍支持使用相同 `jobId` 加 `isStartWithSavePoint: true` 的旧契约。                                |
 | 删除一个作业                   | 没有专门的删除接口。如果作业仍在运行，先通过 [`/stop-job`](#停止作业) 停止它；作业进入结束状态后，其记录会在 `history-job-expire-minutes`（默认 1440 分钟）到期后自动清理，参见[历史作业过期配置](separated-cluster-deployment.md#44-历史作业过期配置)。 |
 
-**注意：** 当 `isStartWithSavePoint: true` 时必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
+**注意：** 设置 `restoreMode` 时必须提供 `restoreSourceJobId`。`isStartWithSavePoint: true` 仍是旧的快捷方式，必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
 `Please provide jobId when start with save point.`
+
+**恢复保护：** 当来源作业尚未进入结束状态（`FINISHED`、`FAILED`、`CANCELED` 或 `SAVEPOINT_DONE`）时，带 `restoreMode` 的提交会以 HTTP `400` 被拒绝，例如
+`restoreSourceJobId=42 is still RUNNING; stop or cancel the source job before restoring from its checkpoint state`。
+请先停止、savepoint 或取消来源作业。如果来源作业的 checkpoint 或 savepoint 状态已经被清理，提交会失败并返回
+`No checkpoint found for jobId=..., restoreMode=..., restoreSourceJobId=...`。

@@ -34,37 +34,45 @@ http://<host>:8080/<context-path>/#/overview
 
 Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。它可以帮助运维人员查看集群概览、运行中和已完成作业、作业详情页、日志、实时 DAG 指标，以及 worker 和 master 节点状态。
 
-Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 等作业生命周期控制；需要这些操作时，请使用 REST API 或命令行。
+Web UI 在可视化巡检之外，也提供常用运维操作：可以提交和恢复作业，并为运行中作业提供需要确认的 cancel、stop 和 savepoint 控件。自动化场景或 UI 未暴露的工作流仍请使用 REST API 或命令行。
 ![overview.png](../../../images/ui/overview.png)
 
 ## 能力总览
 
-| UI 区域 | 当前能力 |
-|---------|----------|
-| Overview | 查看集群版本、slot 使用、worker 数量和作业数量 |
-| Jobs | 查看运行中和已完成作业、分页浏览作业列表、进入作业详情 |
-| Job Detail | 查看 DAG、作业指标、异常文本、作业配置、日志，以及开启后的实时可观测指标 |
-| Workers | 查看 worker 节点系统监控信息 |
-| Master | 查看 master 节点系统监控信息 |
+| UI 区域    | 当前能力                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| Overview   | 查看集群版本、slot 使用、worker 数量和作业数量                                                                        |
+| Jobs       | 通过配置文本或上传文件提交作业、从 checkpoint 或 savepoint 状态恢复启动作业、查看运行中和已完成作业、分页浏览作业列表、进入作业详情 |
+| Job Detail | 查看 DAG、作业指标、异常文本、作业配置、checkpoint 概览与历史、日志，以及开启后的实时可观测指标                       |
+| Operations | 浏览 Connector OptionRule 元数据，并查看安全过滤后的 HTTP、HTTPS、认证和 mTLS 状态                                    |
+| Workers    | 查看 worker 节点系统监控信息，并更新当前节点 tags                                                                     |
+| Master     | 查看 master 节点系统监控信息                                                                                          |
 
 ## 作业
+
+### 提交作业
+
+Jobs 页面提供 “Submit Job” 面板，可以直接在 Web UI 中提交新的 SeaTunnel 作业。用户可以粘贴 JSON、HOCON 或 SQL 任务配置，也可以上传 `.json`、`.conf`、`.config` 或 `.sql` 配置文件。
+
+同一个面板也支持从 checkpoint 或 savepoint 状态恢复启动作业：选择恢复模式并填写来源作业 ID 后，会发送明确的 REST 参数 `restoreMode=CHECKPOINT|SAVEPOINT` 和 `restoreSourceJobId=<existing-job-id>`，因此提交的配置仍需与被恢复的作业匹配。Web UI 不会为 checkpoint 恢复传递目标作业 ID，因此引擎会创建新的作业 ID；savepoint 恢复会保留来源作业 ID。
 
 ### 运行中的作业
 
 “运行中的作业”模块列出当前正在执行的 SeaTunnel 作业。用户可以查看作业 ID、作业名称、创建时间、状态，并进入具体作业的详情页。
 
-列表会周期性刷新，并支持分页。
+列表会周期性刷新，并支持分页。Action 列提供 `View`、`Stop`、`Savepoint` 和 `Cancel` 控件。`Stop` 发送不带 savepoint 的平滑停止请求，`Savepoint` 通过 savepoint 停止作业，`Cancel` 面向异常场景发送强制停止请求。所有会改变状态的操作都需要确认，并会在页面展示状态反馈。
 
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
 
 ### 作业详情
 
-作业详情页包含四个主要 tab：
+作业详情页包含五个主要 tab：
 
 - **Overview**：展示作业 DAG、source 和 sink 吞吐指标、flush signal 指标，以及开启可观测性后的 vertex 或 edge 实时指标。
 - **Exception**：当作业失败或上报异常时，展示异常文本。
 - **Configuration**：展示引擎暴露的运行时作业配置。
+- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作；操作会打开提交面板并自动带入来源作业 ID 和恢复模式。该页签不会检查作业状态：来源作业仍在运行时引擎会拒绝恢复，其状态已被清理时会返回 `No checkpoint found`，两类错误信息都会显示在提交面板中，因此请先停止、savepoint 或取消来源作业再进行恢复。
 - **Log**：展示引擎日志 API 返回的作业日志文件。
 
 #### 实时可观测性（Realtime Observability）
@@ -130,6 +138,25 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 在窄屏上，可以收起侧边栏并水平滚动表格，查看槽位信息或访问详情按钮。
 
 ![使用测试数据的窄屏 Worker 表格](../../../images/ui/workers-narrow.png)
+
+Workers 页面还可以更新本地 worker（即响应当前 Web UI 请求的那个成员）的 tags。该行在标签列中
+会标记为**当前节点**；点击**选择**即可把它的 tags 载入表格上方的 **Worker Tags** 面板，每行一个
+`key=value` tag，然后使用需要确认的**更新 Tags** 或**清空 Tags**。面板调用
+`/update-local-member-tags` 并携带该成员的
+UUID，因此只有当 Web UI 正是由被更新的成员提供服务时请求才会被接受。远端 worker 仅用于查看；
+如需修改某个目标节点的 tags，请访问该节点自己的 Web UI 地址。
+
+**限制：** 如果通过负载均衡或反向代理访问 Web UI，且其后端有多个 master，那么只有实际响应本次
+请求的成员可以编辑，对其他成员的 tag 更新都会被拒绝。编辑 tags 时请直接访问目标成员。
+
+## 运维
+
+“Operations” 页面提供只读和元数据驱动的运维辅助能力：
+
+- 查询 `source`、`sink` 和 `transform` 插件的 Connector OptionRule 元数据，包括必填项、可选项、条件规则和值约束。
+- 查看安全过滤后的 HTTP 服务状态，包括 HTTP、HTTPS、context path、动态端口、basic authentication 和 mutual TLS 开关。
+
+密码、token、证书路径、keystore 凭据等敏感信息不会在页面展示。
 
 ## 管理节点
 

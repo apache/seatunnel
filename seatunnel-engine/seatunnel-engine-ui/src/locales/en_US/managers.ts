@@ -44,5 +44,28 @@ export default {
   resources: 'Worker resources',
   monitoring: 'System monitoring',
   resource_missing: 'No resource snapshot is available for this worker.',
-  monitor_missing: 'No system monitoring sample is available for this worker.'
+  monitor_missing: 'No system monitoring sample is available for this worker.',
+  tagEditor: {
+    title: 'Worker Tags',
+    content: 'Tags',
+    placeholder: 'One tag per line, for example: zone=prod',
+    update: 'Update Tags',
+    clear: 'Clear Tags',
+    success: 'Node tags updated.',
+    failed: 'Failed to update node tags.',
+    outcomeUnknown: 'The tag update result is unknown. Refresh before retrying.',
+    invalid: 'Each tag line must use key=value.',
+    contentRequired: 'Enter at least one tag, or use Clear Tags.',
+    duplicate: 'Tag keys must be unique.',
+    local: 'Local',
+    remote: 'Remote',
+    remoteHint: 'Open the target node Web UI to update this worker.',
+    select: 'Select',
+    noWorkerSelected: 'No worker selected',
+    workerRequired: 'Please select a worker first.',
+    confirm: 'Confirm',
+    cancelConfirm: 'Dismiss',
+    updateConfirmMessage: 'Update tags for this worker?',
+    clearConfirmMessage: 'Clear all tags for this worker?'
+  }
 }

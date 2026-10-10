@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -52,6 +53,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.internal.json.Json;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -230,6 +232,105 @@ public class RestApiSubmitJobStartWithSavePointTest {
     }
 
     @Test
+    public void testSubmitCheckpointRestoreWithBlankSourceJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&restoreMode=checkpoint&restoreSourceJobId=%20%20&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(response.body.contains("restoreSourceJobId"));
+    }
+
+    @Test
+    public void testSubmitCheckpointRestoreWithNonNumericSourceJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&restoreMode=checkpoint&restoreSourceJobId=not-a-job&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(
+                response.body.contains("restoreSourceJobId must be a numeric job id"),
+                () -> "responseBody=" + response.body);
+    }
+
+    /**
+     * Proves the restore guard is wired into the REST submit path and not only unit-tested as a
+     * predicate: a restore from a still RUNNING source job is refused with 400, and once that job
+     * has been cancelled the same request passes the guard (it may then fail only on checkpoint
+     * availability, which is a different error).
+     */
+    @Test
+    public void testSubmitCheckpointRestoreFromActiveSourceJobReturns400() throws Exception {
+        String base = "http://localhost:" + workerRestPort;
+        HttpResponse submit =
+                postJson(
+                        base + "/submit-job?format=json&jobName=restore_guard_source",
+                        getStreamingRequestBody());
+        Assertions.assertEquals(200, submit.code, () -> "responseBody=" + submit.body);
+        long sourceJobId =
+                Long.parseLong(Json.parse(submit.body).asObject().getString("jobId", ""));
+        String restoreUrl =
+                base
+                        + "/submit-job?format=json&restoreMode=checkpoint&restoreSourceJobId="
+                        + sourceJobId
+                        + "&jobName="
+                        + TEST_JOB_NAME;
+        try {
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .until(
+                            () ->
+                                    masterServer.getCoordinatorService().getJobStatus(sourceJobId)
+                                            == JobStatus.RUNNING);
+
+            HttpResponse refused = postJson(restoreUrl, getRequestBody());
+            Assertions.assertEquals(400, refused.code, () -> "responseBody=" + refused.body);
+            Assertions.assertTrue(refused.body.contains("\"status\":\"fail\""));
+            Assertions.assertTrue(
+                    refused.body.contains(
+                            "restoreSourceJobId=" + sourceJobId + " is still RUNNING"),
+                    () -> "responseBody=" + refused.body);
+        } finally {
+            postJson(base + "/stop-job", "{\"jobId\": " + sourceJobId + "}");
+        }
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .until(
+                        () ->
+                                masterServer
+                                        .getCoordinatorService()
+                                        .getJobStatus(sourceJobId)
+                                        .isEndState());
+
+        HttpResponse afterCancel = postJson(restoreUrl, getRequestBody());
+        Assertions.assertFalse(
+                afterCancel.body.contains("is still"), () -> "responseBody=" + afterCancel.body);
+        if (afterCancel.code == 200) {
+            // A checkpoint completed before the cancel, so the restore started a new job; stop it.
+            long restoredJobId =
+                    Long.parseLong(Json.parse(afterCancel.body).asObject().getString("jobId", ""));
+            postJson(base + "/stop-job", "{\"jobId\": " + restoredJobId + "}");
+        } else {
+            Assertions.assertEquals(
+                    400, afterCancel.code, () -> "responseBody=" + afterCancel.body);
+            Assertions.assertTrue(
+                    afterCancel.body.contains("No checkpoint found"),
+                    () -> "responseBody=" + afterCancel.body);
+        }
+    }
+
+    @Test
     public void testSubmitSavepointRestoreWithoutSourceJobIdReturns400() throws Exception {
         String requestUrl =
                 "http://localhost:"
@@ -241,6 +342,20 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
         Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
         Assertions.assertTrue(response.body.contains("restoreSourceJobId"));
+    }
+
+    @Test
+    public void testSubmitLegacySavepointRestoreWithBlankJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&isStartWithSavePoint=true&jobId=%20%20&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(response.body.contains("Please provide jobId"));
     }
 
     @Test
@@ -395,6 +510,15 @@ public class RestApiSubmitJobStartWithSavePointTest {
             buildSeaTunnelJobConfigFromJsonRequest() throws IOException {
         return RestUtil.buildConfig(
                 RestUtil.convertByteToJsonNode(getRequestBody().getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** An unbounded FakeSource job that stays RUNNING until it is stopped. */
+    private String getStreamingRequestBody() {
+        return getRequestBody()
+                .replace("\"job.mode\": \"BATCH\"", "\"job.mode\": \"STREAMING\"")
+                .replace(
+                        "\"row.num\": 1,",
+                        "\"row.num\": 10,\n      \"split.read-interval\": 1000,");
     }
 
     private String getRequestBody() {

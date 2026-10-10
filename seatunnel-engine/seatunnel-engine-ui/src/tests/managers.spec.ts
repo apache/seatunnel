@@ -18,7 +18,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { NButton, NDataTable, NDrawer } from 'naive-ui'
+import { NButton, NDataTable, NDrawer, NPopconfirm } from 'naive-ui'
 import i18n from '@/locales'
 import type { Monitor, WorkerResource, WorkerResourceSnapshot } from '@/service/manager/types'
 import { managerService } from '@/service/manager'
@@ -143,6 +143,10 @@ describe('managers', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
     vi.spyOn(managerService, 'getMonitors').mockResolvedValue([monitor()])
     vi.spyOn(managerService, 'getWorkerResources').mockResolvedValue(snapshot())
+    vi.spyOn(managerService, 'updateTags').mockResolvedValue({
+      status: 'success',
+      message: 'update node tags done.'
+    })
     i18n.global.locale.value = 'en_US'
   })
   afterEach(() => {
@@ -180,6 +184,74 @@ describe('managers', () => {
     expect(document.body.textContent).toContain('heap.memory.max')
     expect(document.body.textContent).not.toContain('922337203685')
     expect(wrapper.findComponent(NDrawer).props('show')).toBe(true)
+  })
+  test('updates local worker tags behind a confirmation and refetches monitors', async () => {
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor(), uuid: 'worker-1', localMember: true, tags: { zone: 'old' } },
+      { ...monitor('remote', '5803'), uuid: 'worker-2', localMember: false, tags: {} }
+    ])
+    const { wrapper } = await setup()
+    await flushPromises()
+    expect(wrapper.text()).toContain('zone=old')
+    expect(wrapper.text()).toContain('Remote')
+    const selectButtons = wrapper
+      .findAllComponents(NButton)
+      .filter((button) => button.text() === 'Select')
+    expect(selectButtons).toHaveLength(2)
+    // Remote members are inspection-only: their Select button stays disabled.
+    expect(selectButtons[1].props('disabled')).toBe(true)
+    await selectButtons[0].trigger('click')
+    expect(wrapper.text()).toContain('localhost:5802')
+    await wrapper.find('textarea').setValue('zone=prod')
+    const updateButton = wrapper.findAll('button').find((button) => button.text() === 'Update Tags')
+    expect(updateButton).toBeTruthy()
+    await updateButton?.trigger('click')
+    expect(managerService.updateTags).not.toHaveBeenCalled()
+    const confirmations = wrapper.findAllComponents(NPopconfirm)
+    expect(confirmations).toHaveLength(2)
+    const onPositiveClick = confirmations[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).toHaveBeenCalledTimes(1)
+    expect(managerService.updateTags).toHaveBeenCalledWith({
+      uuid: 'worker-1',
+      tags: { zone: 'prod' }
+    })
+    expect(wrapper.text()).toContain('Node tags updated.')
+    // The table is refetched after the mutation instead of trusting the response.
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+  })
+  test('rejects duplicate tag keys before calling the server', async () => {
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor(), uuid: 'worker-1', localMember: true, tags: {} }
+    ])
+    const { wrapper } = await setup()
+    await flushPromises()
+    await wrapper
+      .findAllComponents(NButton)
+      .find((button) => button.text() === 'Select')!
+      .trigger('click')
+    await wrapper.find('textarea').setValue('zone=a\nzone=b')
+    const confirmations = wrapper.findAllComponents(NPopconfirm)
+    const onPositiveClick = confirmations[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Tag keys must be unique.')
+  })
+  test('master page hides the tag editor and never calls updateTags', async () => {
+    vi.mocked(managerService.getMonitors).mockResolvedValue([
+      { ...monitor('master', '5801', true), uuid: 'master-1', localMember: true, tags: {} }
+    ])
+    const { wrapper } = await setup('/managers/master')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Worker Tags')
+    expect(wrapper.findAllComponents(NPopconfirm)).toHaveLength(0)
+    expect(wrapper.find('textarea').exists()).toBe(false)
   })
   test('dynamic slots never show tracked totals as capacity', async () => {
     vi.mocked(managerService.getWorkerResources).mockResolvedValue(
