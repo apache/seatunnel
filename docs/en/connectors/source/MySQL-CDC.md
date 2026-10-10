@@ -175,7 +175,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)        |
 | FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT               |
 | DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>SET<br/>JSON   | STRING              |
 | DATE                                                                                           | DATE                |
 | TIME(s)                                                                                        | TIME(s)             |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
