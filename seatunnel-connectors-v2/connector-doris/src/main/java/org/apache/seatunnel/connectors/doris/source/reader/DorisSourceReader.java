@@ -66,8 +66,18 @@ public class DorisSourceReader implements SourceReader<SeaTunnelRow, DorisSource
 
     @Override
     public void close() throws IOException {
+        closeValueReader();
+    }
+
+    /**
+     * Releases the reader of the previous split. {@link DorisValueReader#close()} is the only place
+     * that sends the {@code closeScanner} RPC and closes the Thrift connection, so skipping it here
+     * would leak both for every split but the last.
+     */
+    private void closeValueReader() {
         if (valueReader != null) {
             valueReader.close();
+            valueReader = null;
         }
     }
 
@@ -86,6 +96,7 @@ public class DorisSourceReader implements SourceReader<SeaTunnelRow, DorisSource
                                     "the table '%s.%s' cannot be found in table_list of job configuration.",
                                     partition.getDatabase(), partition.getTable()));
                 }
+                closeValueReader();
                 valueReader = new DorisValueReader(partition, dorisSourceConfig, dorisSourceTable);
                 while (valueReader.hasNext()) {
                     SeaTunnelRow record = valueReader.next();
