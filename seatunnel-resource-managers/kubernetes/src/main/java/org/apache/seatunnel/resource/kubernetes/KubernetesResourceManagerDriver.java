@@ -31,6 +31,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +51,9 @@ import java.util.function.Supplier;
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
 public final class KubernetesResourceManagerDriver
         implements ResourceManagerDriver<KubernetesWorkerNode> {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(KubernetesResourceManagerDriver.class);
+
     private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
 
     private final KubernetesClient api;
@@ -147,6 +153,10 @@ public final class KubernetesResourceManagerDriver
                         WORKER_WATCH_INTERVAL_MILLIS,
                         this::checkWorkers,
                         this::onWatchFailure);
+        LOG.info(
+                "Initialized Kubernetes driver for application {}, watching worker pods of job {}",
+                applicationId,
+                job.getName());
     }
 
     /**
@@ -200,6 +210,7 @@ public final class KubernetesResourceManagerDriver
             api.createPod(
                     KubernetesResourceFactory.worker(
                             job, name, parameters, resources, clusterName, masterAddress.get()));
+            LOG.debug("Created worker pod {}", name);
             if (running.get() && future.complete(worker)) {
                 pending.remove(name);
                 return;
@@ -328,11 +339,16 @@ public final class KubernetesResourceManagerDriver
      * @param diagnostics platform-provided termination reason
      */
     private void publishWorkerTermination(KubernetesWorkerNode worker, String diagnostics) {
+        LOG.warn(
+                "Worker pod {} failed: {}",
+                worker.getResourceID().getResourceIdString(),
+                diagnostics);
         mainThreadExecutor.execute(
                 () -> resourceEventHandler.onWorkerTerminated(worker, diagnostics));
     }
 
     private void onWatchFailure(Exception failure) {
+        LOG.warn("Kubernetes worker watch failed", failure);
         if (running.compareAndSet(true, false)) {
             mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
         }

@@ -57,13 +57,16 @@ public final class SeatunnelKubernetesApplicationCli {
         int exitCode = 0;
         try {
             String id = applicationId(args);
+            LOG.info("Running Kubernetes application {}", id);
             KubernetesApplicationParameters parameters =
                     KubernetesApplicationParameters.read(Paths.get(args[1]));
             ApplicationSpecification specification = parameters.getSpecification();
+            LOG.debug("Loaded application specification {}", specification.getName());
             SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
             KubernetesResourceManagerDriver driver = createDriver(parameters, id, clusterName(id));
             HazelcastInstanceImpl master =
                     startMaster(engineConfiguration, specification, id, driver);
+            LOG.info("Master started for Kubernetes application {}", id);
             runJob(specification, master, driver);
         } catch (Exception failure) {
             LOG.error("Kubernetes application failed", failure);

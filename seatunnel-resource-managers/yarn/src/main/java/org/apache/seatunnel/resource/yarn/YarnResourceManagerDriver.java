@@ -38,6 +38,9 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,6 +60,8 @@ import java.util.function.Supplier;
  * Fixed worker allocation: abnormal container termination fails the application, without recovery.
  */
 public final class YarnResourceManagerDriver implements ResourceManagerDriver<YarnWorkerNode> {
+    private static final Logger LOG = LoggerFactory.getLogger(YarnResourceManagerDriver.class);
+
     /** Allocation priority shared by all fixed-capacity workers in one application. */
     private static final int WORKER_PRIORITY = 0;
 
@@ -185,6 +190,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 Integer.parseInt(address.substring(separator + 1)),
                 "");
         registered.set(true);
+        LOG.info("Registered YARN application master at {}", address);
         active.set(true);
         heartbeats =
                 mainThreadExecutor.scheduleWithFixedDelay(
@@ -250,6 +256,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         // Completed containers first: unexpected non-success exits fail the application.
         for (ContainerStatus status : statuses) {
             String id = status.getContainerId().toString();
+            LOG.debug("Container {} completed with exit status {}", id, status.getExitStatus());
             YarnWorkerNode terminatedWorker = active.get() ? workers.remove(id) : null;
             if (terminatedWorker != null && status.getExitStatus() != ContainerExitStatus.SUCCESS) {
                 mainThreadExecutor.execute(
@@ -283,6 +290,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 resourceManager.releaseAssignedContainer(workerNode.getContainerId());
                 continue;
             }
+            LOG.debug("Allocated container {} for worker launch", workerNode.getContainerId());
             resourceManager.removeContainerRequest(worker.request);
             try {
                 nodeManager.startContainer(
@@ -319,6 +327,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     private void reportError(Exception failure) {
+        LOG.warn("YARN resource manager failed", failure);
         boolean report = active.getAndSet(false);
         for (PendingWorker worker : pending) {
             worker.result.completeExceptionally(failure);

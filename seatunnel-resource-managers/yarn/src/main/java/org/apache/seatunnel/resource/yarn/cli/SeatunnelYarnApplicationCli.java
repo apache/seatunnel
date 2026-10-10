@@ -57,25 +57,45 @@ public final class SeatunnelYarnApplicationCli {
     public static void main(String[] args) {
         int exitCode = 0;
         try {
-            Configuration configuration = loadConfiguration();
+            Configuration configuration =
+                    YarnConfigurationUtils.loadLocalized(
+                            YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME);
             Path staging = YarnStagingDirectory.fromEnvironment();
+            // Keep a shutdown hook as the fallback for asynchronous termination (SIGTERM, OOM
+            // kill, or any exit that skips the finally below). On those paths the finally never
+            // runs, so this hook is the only cleanup that executes. Without it the staging
+            // directory — which still holds the resolved job configuration and possibly
+            // credentials — would leak on HDFS after an unclean exit.
             Thread cleanup = stagingCleanupHook(configuration, staging);
             Runtime.getRuntime().addShutdownHook(cleanup);
             try {
                 String id = applicationId();
+                LOG.info("Running YARN application {}", id);
                 YarnApplicationConfiguration applicationConfiguration =
-                        readApplicationConfiguration();
+                        YarnApplicationConfiguration.read(
+                                Paths.get(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
                 ApplicationSpecification specification =
                         applicationConfiguration.getSpecification();
+                LOG.debug("Loaded application specification {}", specification.getName());
                 SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
                 ResourceManagerDriver<?> driver =
                         createDriver(
                                 configuration, staging, applicationConfiguration, clusterName(id));
                 HazelcastInstanceImpl master =
                         startMaster(engineConfiguration, specification, id, driver);
+                LOG.info("Master started for YARN application {}", id);
                 runJob(specification, master, driver);
             } finally {
+                LOG.info("Job finished, removing staging directory {}", staging);
+                // Remove staging eagerly now that the job has finished: the master and every
+                // worker have already localized these files, so the HDFS copy is dead data.
+                // Cleaning up here (rather than relying only on the hook) guarantees removal on a
+                // normal exit, and releases both the disk quota and any resolved credentials the
+                // staging directory still contains.
                 cleanupStaging(configuration, staging);
+                // Drop the hook so the eager cleanup above is not executed a second time during
+                // the upcoming System.exit shutdown sequence. The hook remains registered only on
+                // the abnormal path where this finally never runs.
                 removeShutdownHook(cleanup);
             }
         } catch (Exception failure) {
@@ -83,15 +103,6 @@ public final class SeatunnelYarnApplicationCli {
             exitCode = 1;
         }
         System.exit(exitCode);
-    }
-
-    /**
-     * Loads the localized Hadoop configuration for AM-side RPC and staging access.
-     *
-     * @return Hadoop configuration localized into the AM working directory
-     */
-    private static Configuration loadConfiguration() {
-        return YarnConfigurationUtils.loadLocalized(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME);
     }
 
     /**
@@ -145,16 +156,6 @@ public final class SeatunnelYarnApplicationCli {
                 .getApplicationAttemptId()
                 .getApplicationId()
                 .toString();
-    }
-
-    /**
-     * Reads the localized application specification used by master and worker allocation.
-     *
-     * @return resolved YARN application configuration
-     */
-    private static YarnApplicationConfiguration readApplicationConfiguration() throws Exception {
-        return YarnApplicationConfiguration.read(
-                Paths.get(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
     }
 
     /**
@@ -228,8 +229,7 @@ public final class SeatunnelYarnApplicationCli {
             SeaTunnelConfig engineConfiguration,
             ApplicationSpecification specification,
             String id,
-            ResourceManagerDriver<?> driver)
-            throws Exception {
+            ResourceManagerDriver<?> driver) {
         try {
             return SeaTunnelServerStarter.createHazelcastInstance(
                     engineConfiguration,
