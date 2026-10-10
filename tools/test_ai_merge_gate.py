@@ -101,11 +101,13 @@ class BlastRadiusTest(unittest.TestCase):
         other = f("seatunnel-connectors-v2/connector-redis/src/main/java/a/B.java")
         self.assertIn("multi-unit", rules(verdict([FIX, other, TEST])))
 
-    def test_shared_bases_and_fixtures_are_rejected(self):
+    def test_shared_bases_and_fixtures_are_rejected_until_dependents_are_proven(self):
         for module in ("connector-common", "connector-fake", "connector-assert", "connector-console",
                        "connector-cdc/connector-cdc-base", "connector-file/connector-file-base"):
             path = "seatunnel-connectors-v2/%s/src/main/java/a/B.java" % module
-            self.assertIn("path", rules(verdict([f(path), TEST])), module)
+            result = verdict([f(path), TEST])
+            self.assertIn("wide-blast", rules(result), module)
+            self.assertEqual(result["class"], "shared", module)
 
     def test_grouped_connector_module_is_its_own_unit(self):
         path = "seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/src/main/java/a/Helper.java"
@@ -115,8 +117,8 @@ class BlastRadiusTest(unittest.TestCase):
         dialect = f(JDBC + "internal/dialect/mysql/MysqlDialect.java")
         self.assertEqual(verdict([dialect, TEST])["units"], ["connector-jdbc:mysql"])
         core = f(JDBC + "internal/dialect/JdbcDialect.java")
-        self.assertIn("path", rules(verdict([core, TEST])))
-        self.assertIn("path", rules(verdict([f(JDBC + "source/JdbcSource.java"), TEST])))
+        self.assertIn("wide-blast", rules(verdict([core, TEST])))
+        self.assertIn("wide-blast", rules(verdict([f(JDBC + "source/JdbcSource.java"), TEST])))
 
     def test_two_jdbc_dialects_are_two_units(self):
         a = f(JDBC + "internal/dialect/mysql/A.java")
@@ -200,6 +202,20 @@ class TestWeakeningTest(unittest.TestCase):
         self.assertTrue(verdict([f(KAFKA + "x/Plain.java", patch, dele=1, add=1)])["eligible"])
 
 
+class ConfigTest(unittest.TestCase):
+    def test_empty_repository_variables_fall_back_to_safe_defaults(self):
+        # GitHub renders an unset `vars.X` as an empty string; that must not disable required checks.
+        cfg = gate.Config({"AI_MERGE_REQUIRED_CHECKS": "", "AI_MERGE_APPROVERS": "", "AI_MERGE_BASE": "",
+                           "AI_MERGE_NEW_CONNECTOR_CHECKS": "", "AI_MERGE_ENABLED": ""})
+        self.assertEqual(cfg.required_checks, ["Build"])
+        self.assertEqual(cfg.approvers, ["DanielLeens"])
+        self.assertEqual(cfg.base, "dev")
+        self.assertEqual(cfg.new_connector_checks, ["Code style", "Dependency licenses"])
+        self.assertEqual(cfg.label_actors, [])
+        self.assertEqual(cfg.wide_checks, [])
+        self.assertFalse(cfg.merge_enabled)
+
+
 class HygieneTest(unittest.TestCase):
     def test_deletion_and_rename_are_rejected(self):
         self.assertIn("delete-or-rename", rules(verdict([f("docs/en/a.md", status="removed")])))
@@ -235,6 +251,214 @@ class HygieneTest(unittest.TestCase):
 
     def test_empty_pr_is_rejected(self):
         self.assertIn("empty", rules(verdict([])))
+
+
+# ---------------------------------------------------------------------------------------------
+# new-connector and shared classes
+# ---------------------------------------------------------------------------------------------
+
+KNOWN = {"kudu-client", "commons-lang3", "guava"}
+NEW = "seatunnel-connectors-v2/connector-foo/"
+NEW_JAVA = NEW + "src/main/java/org/apache/seatunnel/connectors/seatunnel/foo/"
+NEW_E2E = "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-foo-e2e/"
+
+MODULE_POM = (
+    "@@ -0,0 +1,20 @@\n+<project>\n+<parent><groupId>org.apache.seatunnel</groupId>"
+    "<artifactId>connectors-v2</artifactId></parent>\n+<artifactId>connector-foo</artifactId>\n"
+    "+<dependency>\n+<artifactId>connector-common</artifactId>\n+<version>${project.version}</version>\n"
+    "+</dependency>\n+<dependency>\n+<artifactId>commons-lang3</artifactId>\n+</dependency>\n"
+)
+
+
+def new_connector_files():
+    return [
+        f(NEW + "pom.xml", MODULE_POM, status="added"),
+        f(NEW_JAVA + "source/FooSource.java", "@@ -0,0 +1 @@\n+class FooSource {}\n", status="added"),
+        f(NEW_JAVA + "source/FooSourceState.java", "@@ -0,0 +1 @@\n+class FooSourceState {}\n", status="added"),
+        f(NEW_JAVA + "source/FooSourceFactory.java",
+          "@@ -0,0 +1 @@\n+Options.key(\"x\").stringType().noDefaultValue();\n", status="added"),
+        f(NEW + "src/test/java/FooTest.java", "@@ -0,0 +1 @@\n+@Test\n", status="added"),
+        f(NEW_E2E + "pom.xml", "@@ -0,0 +1 @@\n+<artifactId>connector-foo-e2e</artifactId>\n", status="added"),
+        f(NEW_E2E + "src/test/java/FooIT.java", "@@ -0,0 +1 @@\n+@TestTemplate\n", status="added"),
+        f("seatunnel-connectors-v2/pom.xml", "@@ -1 +1 @@\n+        <module>connector-foo</module>\n"),
+        f("seatunnel-e2e/seatunnel-connector-v2-e2e/pom.xml", "@@ -1 +1 @@\n+        <module>connector-foo-e2e</module>\n"),
+        f("seatunnel-dist/pom.xml",
+          "@@ -1 +1 @@\n+                <dependency>\n+                    <groupId>org.apache.seatunnel</groupId>\n"
+          "+                    <artifactId>connector-foo</artifactId>\n"
+          "+                    <version>${project.version}</version>\n+                    <scope>provided</scope>\n"
+          "+                </dependency>\n"),
+        f("plugin-mapping.properties", "@@ -1 +1 @@\n+seatunnel.source.Foo = connector-foo\n+seatunnel.sink.Foo = connector-foo\n"),
+        f("config/plugin_config", "@@ -1 +1 @@\n+connector-foo\n"),
+        f("docs/en/connectors/source/Foo.md", status="added"),
+    ]
+
+
+def verdict_new(files, known=KNOWN, cfg=CFG):
+    return gate.evaluate(PR, files, cfg, known)
+
+
+def replace(files, path, **changes):
+    return [dict(x, **changes) if x["filename"] == path else x for x in files]
+
+
+class NewConnectorTest(unittest.TestCase):
+    def test_complete_new_connector_registration_is_eligible(self):
+        result = verdict_new(new_connector_files())
+        self.assertTrue(result["eligible"], result["blockers"])
+        self.assertEqual(result["class"], "new-connector")
+        self.assertEqual(result["units"], ["connector-foo"])
+
+    def test_new_connector_required_checks_include_registration_and_license_proofs(self):
+        names = gate.required_checks(verdict_new(new_connector_files()), CFG)
+        self.assertIn("Code style", names)
+        self.assertIn("Dependency licenses", names)
+        self.assertNotIn("Code style", gate.required_checks(verdict([FIX, TEST]), CFG))
+
+    def test_same_registration_files_without_a_new_module_are_rejected(self):
+        files = [x for x in new_connector_files() if not x["filename"].endswith(("foo/pom.xml", "foo-e2e/pom.xml"))
+                 and "/connector-foo/src/" not in x["filename"] and "connector-foo-e2e/src" not in x["filename"]]
+        files += [f(KAFKA + "x/Plain.java"), TEST]
+        for path in ("seatunnel-dist/pom.xml", "plugin-mapping.properties", "config/plugin_config",
+                     "seatunnel-connectors-v2/pom.xml"):
+            self.assertIn("path", rules(verdict_new([x for x in files if x["filename"] == path] + [TEST])), path)
+
+    def test_registration_naming_another_module_is_rejected(self):
+        files = replace(new_connector_files(), "plugin-mapping.properties",
+                        patch="@@ -1 +1 @@\n+seatunnel.source.Kafka = connector-kafka\n")
+        self.assertIn("registration", rules(verdict_new(files)))
+        files = replace(new_connector_files(), "seatunnel-connectors-v2/pom.xml",
+                        patch="@@ -1 +1 @@\n+<module>connector-redis</module>\n")
+        self.assertIn("registration", rules(verdict_new(files)))
+
+    def test_registration_that_removes_or_adds_other_lines_is_rejected(self):
+        files = replace(new_connector_files(), "plugin-mapping.properties",
+                        patch="@@ -1 +1 @@\n-seatunnel.source.Old = connector-old\n+seatunnel.source.Foo = connector-foo\n")
+        self.assertIn("registration", rules(verdict_new(files)))
+        extra = "@@ -1 +1 @@\n+<dependency>\n+<artifactId>connector-foo</artifactId>\n+<exclusions>\n"
+        self.assertIn("registration", rules(verdict_new(replace(new_connector_files(), "seatunnel-dist/pom.xml", patch=extra))))
+
+    def test_new_third_party_dependency_needs_a_human(self):
+        pom = MODULE_POM + "+<dependency>\n+<artifactId>brand-new-sdk</artifactId>\n+</dependency>\n"
+        files = replace(new_connector_files(), NEW + "pom.xml", patch=pom)
+        self.assertIn("new-third-party-dependency", rules(verdict_new(files)))
+        self.assertIn("new-third-party-dependency", rules(verdict_new(new_connector_files(), known=None)))
+        self.assertTrue(verdict_new(files, known=KNOWN | {"brand-new-sdk"})["eligible"])
+
+    def test_literal_version_and_build_logic_in_new_pom_are_rejected(self):
+        for extra, rule in (("+<version>1.2.3</version>\n", "pom-version"),
+                            ("+<artifactId>maven-antrun-plugin</artifactId>\n", "pom-build-logic"),
+                            ("+<repository>\n", "pom-build-logic"), ("+<scope>system</scope>\n", "pom-build-logic")):
+            files = replace(new_connector_files(), NEW + "pom.xml", patch=MODULE_POM + extra)
+            self.assertIn(rule, rules(verdict_new(files)), rule)
+
+    def test_shade_plugin_is_fine_when_the_plugin_is_already_used_elsewhere(self):
+        pom = MODULE_POM + "+<plugin>\n+<artifactId>maven-shade-plugin</artifactId>\n+</plugin>\n"
+        files = replace(new_connector_files(), NEW + "pom.xml", patch=pom)
+        self.assertIn("new-third-party-dependency", rules(verdict_new(files)))
+        self.assertTrue(verdict_new(files, known=KNOWN | {"maven-shade-plugin"})["eligible"])
+
+    def test_labeler_entry_for_the_new_module_is_accepted_but_edits_of_existing_entries_are_not(self):
+        label = ".github/workflows/labeler/label-scope-conf.yml"
+        add = ("@@ -1 +1 @@\n+foo:\n+  - all:\n+      - changed-files:\n"
+               "+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-foo/**\n"
+               "+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(foo)/**'\n")
+        ok = new_connector_files() + [f(label, add)]
+        self.assertTrue(verdict_new(ok)["eligible"], verdict_new(ok)["blockers"])
+        other = new_connector_files() + [f(label, "@@ -1 +1 @@\n+  - seatunnel-connectors-v2/connector-bar/**\n")]
+        self.assertIn("registration", rules(verdict_new(other)))
+        edit = new_connector_files() + [f(label, "@@ -1 +1 @@\n-  - old\n+  - seatunnel-connectors-v2/connector-foo/**\n", dele=1)]
+        self.assertIn("registration", rules(verdict_new(edit)))
+        alone = [f(label, add), TEST]
+        self.assertIn("path", rules(verdict_new(alone)))
+
+    def test_new_example_config_is_accepted_but_changing_an_existing_one_is_not(self):
+        ex = "seatunnel-examples/seatunnel-engine-examples/src/main/resources/examples/foo_to_console.conf"
+        self.assertTrue(verdict_new(new_connector_files() + [f(ex, status="added")])["eligible"])
+        self.assertIn("path", rules(verdict_new(new_connector_files() + [f(ex)])))
+
+    def test_new_e2e_module_may_be_named_differently_from_its_connector(self):
+        e2e_parent = "seatunnel-e2e/seatunnel-connector-v2-e2e/pom.xml"
+        files = [x for x in new_connector_files()
+                 if "connector-foo-e2e" not in x["filename"] and x["filename"] != e2e_parent]
+        e2e = "seatunnel-e2e/seatunnel-connector-v2-e2e/connector-fooapi-e2e/"
+        files += [f(e2e + "pom.xml", "@@ -0,0 +1 @@\n+<artifactId>connector-fooapi-e2e</artifactId>\n", status="added"),
+                  f(e2e + "src/test/java/FooIT.java", "@@ -0,0 +1 @@\n+@TestTemplate\n", status="added"),
+                  f("seatunnel-e2e/seatunnel-connector-v2-e2e/pom.xml", "@@ -1 +1 @@\n+<module>connector-fooapi-e2e</module>\n")]
+        result = verdict_new(files)
+        self.assertTrue(result["eligible"], result["blockers"])
+        stray = [x for x in files if "fooapi" not in x["filename"]] + [
+            f("seatunnel-e2e/seatunnel-connector-v2-e2e/connector-redis-e2e/src/test/java/R.java", "@@ -0,0 +1 @@\n+@Test\n")]
+        self.assertIn("foreign-tests", rules(verdict_new(stray)))
+
+    def test_new_connector_needs_docs_and_a_test(self):
+        no_docs = [x for x in new_connector_files() if not x["filename"].startswith("docs/")]
+        self.assertIn("new-connector-docs", rules(verdict_new(no_docs)))
+        no_tests = [x for x in new_connector_files() if "/src/test/" not in x["filename"]]
+        self.assertIn("no-regression-test", rules(verdict_new(no_tests)))
+
+    def test_new_connector_state_options_and_security_are_warnings_but_process_calls_block(self):
+        patch = "@@ -0,0 +1 @@\n+String password = o.get(); synchronized (this) {}\n"
+        files = new_connector_files() + [f(NEW_JAVA + "source/Plain.java", patch, status="added")]
+        result = verdict_new(files)
+        self.assertTrue(result["eligible"], result["blockers"])
+        self.assertTrue({"checkpoint-state", "security", "concurrency"} <= {w["rule"] for w in result["warnings"]})
+        bad = new_connector_files() + [f(NEW_JAVA + "source/Plain.java", "@@ -0,0 +1 @@\n+System.exit(1);\n", status="added")]
+        self.assertIn("classloading", rules(verdict_new(bad)))
+
+    def test_new_connector_may_not_touch_another_connector_or_change_its_own_files(self):
+        other = new_connector_files() + [FIX]
+        self.assertIn("multi-unit", rules(verdict_new(other)))
+        second = new_connector_files() + [f("seatunnel-connectors-v2/connector-bar/pom.xml", MODULE_POM, status="added")]
+        self.assertIn("multi-unit", rules(verdict_new(second)))
+
+    def test_new_connector_service_file_must_name_a_class_added_by_the_pr(self):
+        path = NEW + "src/main/resources/META-INF/services/org.apache.seatunnel.api.table.factory.Factory"
+        ok = new_connector_files() + [f(path, "@@ -0,0 +1 @@\n+org.apache.seatunnel.connectors.seatunnel.foo.source.FooSourceFactory\n", status="added")]
+        self.assertTrue(verdict_new(ok)["eligible"], verdict_new(ok)["blockers"])
+        bad = new_connector_files() + [f(path, "@@ -0,0 +1 @@\n+org.apache.seatunnel.connectors.seatunnel.kafka.KafkaFactory\n", status="added")]
+        self.assertIn("registration", rules(verdict_new(bad)))
+        existing = [f("seatunnel-connectors-v2/connector-kafka/src/main/resources/META-INF/services/x",
+                      "@@ -0,0 +1 @@\n+a.B\n"), TEST]
+        self.assertIn("path", rules(verdict_new(existing)))
+
+    def test_pom_change_of_an_existing_connector_is_still_rejected(self):
+        patch = "@@ -1 +1 @@\n-<version>1</version>\n+<version>2</version>\n"
+        for path in ("seatunnel-connectors-v2/connector-kafka/pom.xml", "pom.xml", "seatunnel-engine/pom.xml"):
+            self.assertFalse(verdict_new([f(path, patch, dele=1), TEST])["eligible"], path)
+
+
+class SharedModuleTest(unittest.TestCase):
+    WIDE = gate.Config({"AI_MERGE_WIDE_CHECKS": "Connector IT All"})
+    COMMON = "seatunnel-connectors-v2/connector-common/src/"
+
+    def shared(self, main_patch="@@ -0,0 +1 @@\n+int a;\n", test=True):
+        files = [f(self.COMMON + "main/java/a/Util.java", main_patch)]
+        if test:
+            files.append(f(self.COMMON + "test/java/a/UtilTest.java", "@@ -0,0 +1 @@\n+@Test\n", status="added"))
+        return files
+
+    def test_shared_change_is_eligible_only_when_dependents_checks_are_configured(self):
+        self.assertIn("wide-blast", rules(verdict_new(self.shared())))
+        result = verdict_new(self.shared(), cfg=self.WIDE)
+        self.assertTrue(result["eligible"], result["blockers"])
+        self.assertTrue(result["wide"])
+        self.assertIn("Connector IT All", gate.required_checks(result, self.WIDE))
+
+    def test_shared_change_needs_a_test_in_the_same_module(self):
+        self.assertIn("wide-needs-module-test", rules(verdict_new(self.shared(test=False) + [TEST], cfg=self.WIDE)))
+
+    def test_shared_change_has_a_tighter_cap_and_protects_public_signatures(self):
+        big = self.shared("@@ -0,0 +1 @@\n" + "+int a;\n" * 81)
+        self.assertIn("size", rules(verdict_new(big, cfg=self.WIDE)))
+        sig = "@@ -1 +1 @@\n-    public static String quote(String s) {\n+    public static String quote(String s, boolean x) {\n"
+        self.assertIn("shared-signature", rules(verdict_new(self.shared(sig), cfg=self.WIDE)))
+
+    def test_shared_change_cannot_be_mixed_with_a_connector_change(self):
+        self.assertIn("multi-unit", rules(verdict_new(self.shared() + [FIX], cfg=self.WIDE)))
+
+    def test_shared_content_rules_are_not_relaxed(self):
+        patch = "@@ -0,0 +1 @@\n+synchronized (lock) {}\n"
+        self.assertIn("concurrency", rules(verdict_new(self.shared(patch), cfg=self.WIDE)))
 
 
 if __name__ == "__main__":
