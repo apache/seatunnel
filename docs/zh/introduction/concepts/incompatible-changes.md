@@ -69,6 +69,12 @@
 
 ### JDBC Connector
 
+- **行为变更：JDBC Source 使用全部数值/日期复合主键列分片**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` source，仅适用于 MySQL、PostgreSQL、SQLite、SQL Server 和 Oracle 12c 及以上版本。
+  - **变更说明**：启用并发动态分片且未显式配置 `partition_column` 时，所有复合主键列均为数值或日期类型的表，改为按完整键元组分片，不再仅使用第一个受支持的主键列。包含 STRING 列的主键及其他方言保持单列分片行为。
+  - **影响**：复合分片会逐个查询分片边界，因此分片边界、各分片的行分布和启动时间可能变化。读取的行保持不变，每行仍恰好读取一次。
+  - **迁移指南**：将 `partition_column` 设置为单个主键列以保持之前的单列分片行为，或设置 `enable_concurrent_read = false` 跳过分片分析，以单个分片读取整张表。
+
 - **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
   - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。

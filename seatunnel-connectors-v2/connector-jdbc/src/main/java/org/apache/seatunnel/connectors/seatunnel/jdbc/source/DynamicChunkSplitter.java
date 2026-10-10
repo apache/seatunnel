@@ -49,7 +49,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -164,7 +163,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             chunkStart = chunkEnd;
             chunkEnd =
                     queryNextChunkMaxComposite(table, columns, config.getSplitSize(), chunkStart);
-            if (chunkEnd != null && Arrays.equals(chunkStart, chunkEnd)) {
+            if (chunkEnd != null && compareArrays(chunkStart, chunkEnd) == 0) {
                 // we don't allow equal chunk start and end,
                 // should query the next one larger than chunkEnd
                 chunkEnd = queryMinComposite(table, columns, chunkEnd);

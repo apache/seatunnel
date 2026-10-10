@@ -32,6 +32,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DsqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss.OpenGaussDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psqllow.PostgresLowDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks.StarRocksDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -391,6 +395,15 @@ public class CompositeKeyChunkSplitterTest {
         Assertions.assertEquals(" FETCH FIRST 10 ROWS ONLY", oracle.getLimitClause(10));
         Assertions.assertEquals(
                 " OFFSET 9 ROWS FETCH NEXT 1 ROWS ONLY", oracle.getOffsetLimitClause(9, 1));
+    }
+
+    @Test
+    public void testUnvalidatedDerivedDialectsDisableCompositeKeySplit() throws SQLException {
+        DatabaseMetaData metaData = databaseMetaData(15);
+        Assertions.assertFalse(new StarRocksDialect().supportCompositeKeySplit(metaData));
+        Assertions.assertFalse(new DsqlDialect(null).supportCompositeKeySplit(metaData));
+        Assertions.assertFalse(new OpenGaussDialect().supportCompositeKeySplit(metaData));
+        Assertions.assertFalse(new PostgresLowDialect(null).supportCompositeKeySplit(metaData));
     }
 
     @Test

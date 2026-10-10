@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -436,8 +437,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     Column column = columnMap.get(pkField);
                     if (column != null
                             && isSupportSplitColumn(column)
-                            && !org.apache.seatunnel.api.table.type.SqlType.STRING.equals(
-                                    column.getDataType().getSqlType())) {
+                            && !SqlType.STRING.equals(column.getDataType().getSqlType())) {
                         pkColumns.add(column);
                     }
                 }

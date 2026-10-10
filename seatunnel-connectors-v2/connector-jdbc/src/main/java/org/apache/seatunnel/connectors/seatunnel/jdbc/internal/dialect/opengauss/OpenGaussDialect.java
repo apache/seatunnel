@@ -19,11 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengaus
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
+import java.sql.DatabaseMetaData;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class OpenGaussDialect extends PostgresDialect {
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Composite splitting has not been validated for this dialect by official E2E.
+        return false;
+    }
 
     @Override
     public Optional<String> getUpsertStatement(

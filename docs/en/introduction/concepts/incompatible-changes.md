@@ -126,6 +126,12 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Behavior change: JDBC source splits composite numeric/date primary keys on all key columns**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` source, only for MySQL, PostgreSQL, SQLite, SQL Server, and Oracle 12c or later.
+  - **Description**: With concurrent dynamic splitting enabled and no explicit `partition_column`, tables whose composite primary-key columns are all numeric or date types now split on the full key tuple instead of the first supported key column. Keys containing STRING columns and other dialects retain the single-column behavior.
+  - **Impact**: Chunk boundaries, row distribution across chunks, and startup time may change because composite splitting queries each chunk boundary. The rows read remain the same, with each row read exactly once.
+  - **Migration Guide**: Set `partition_column` to a single primary-key column to retain the previous single-column splitting behavior, or set `enable_concurrent_read = false` to skip split analysis and read the table as one split.
+
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.
