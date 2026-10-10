@@ -321,6 +321,13 @@ public class StringFunctionTest {
     }
 
     @Test
+    public void testMd5WithBytesInput() {
+        List<Object> args = new ArrayList<>();
+        args.add("abc".getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals("900150983cd24fb0d6963f7d28e17f72", StringFunction.md5(args));
+    }
+
+    @Test
     public void testToBase64BytesInputRejectsCharset() {
         IllegalArgumentException bytesWithCharset =
                 Assertions.assertThrows(
