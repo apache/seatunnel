@@ -62,6 +62,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### Replace Transform Schema Refresh
+
+- **Behavior change**: Replace resolves `replace_fields` against the refreshed input schema after schema changes and checkpoint restoration. Previously cached positions could replace an unrelated column or leave the configured field unchanged after column positions shifted.
+- **Impact and migration**: If a configured field was dropped or renamed, schema refresh now fails with the existing missing-field error instead of processing subsequent rows with stale positions. Update `replace_fields` to match the source schema before restarting. No option, default, API, or checkpoint format changes are introduced.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and

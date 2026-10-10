@@ -35,6 +35,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### Replace 转换的模式刷新
+
+- **行为变更**：模式变更或检查点恢复后，Replace 会根据刷新的输入模式重新解析 `replace_fields`。此前，列位置变化后，缓存的位置可能导致替换无关列或漏掉配置的字段。
+- **影响和迁移**：如果配置的字段已被删除或重命名，模式刷新现在会报出现有的字段不存在错误，而不是使用过期位置继续处理数据行。重新启动作业之前，请更新 `replace_fields`，使其与源表模式一致。此更改不涉及选项、默认值、API 或检查点格式变更。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
