@@ -273,7 +273,10 @@ contain private data, including literals in configured paths. Path-reading
 diagnostics and skip logs include only safe source/destination field identifiers
 and the exception type; field identifiers outside `[A-Za-z_][A-Za-z0-9_]{0,63}`
 are shown as `<redacted>`. They omit the source JSON, configured path and raw
-exception message. For `FAIL`, `ErrorDataTransformException` retains a sanitized
+exception message. The zero-based `column_index` identifies the flattened output
+field position, including fields expanded from an array-valued `columns` entry,
+even when its name is redacted. For `FAIL`,
+`ErrorDataTransformException` retains a sanitized
 `JsonPathException` cause, not the original exception: preserving its message or
 stack trace could re-expose input data or a private path literal. This keeps the
 cause chain present but sacrifices the original cause subtype and stack detail.

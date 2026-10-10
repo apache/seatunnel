@@ -220,7 +220,64 @@ class JsonPathErrorHandlingTest {
                         ErrorDataTransformException.class,
                         () -> transform.map(new SeaTunnelRow(new Object[] {"{}"})));
         Assertions.assertTrue(failure.getMessage().contains("dest_field=<redacted>"));
+        Assertions.assertTrue(failure.getMessage().contains("column_index=0"));
         Assertions.assertFalse(renderedTrace(failure).contains(PRIVATE_VALUE));
+    }
+
+    @Test
+    void testNumericSensitiveFieldIdentifierIsRedacted() {
+        JsonPathTransform transform = createTransform("int", null, null, "$.amount", "123-45-6789");
+        ErrorDataTransformException failure =
+                Assertions.assertThrows(
+                        ErrorDataTransformException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {"{}"})));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=<redacted>"));
+        Assertions.assertTrue(failure.getMessage().contains("column_index=0"));
+        Assertions.assertFalse(renderedTrace(failure).contains("123-45-6789"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"user-id", "user.name", "customer name", "客户编号"})
+    void testRedactedFieldIdentifierHasColumnIndex(String destField) {
+        JsonPathTransform transform = createTransform("int", null, null, "$.amount", destField);
+        ErrorDataTransformException failure =
+                Assertions.assertThrows(
+                        ErrorDataTransformException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {"{}"})));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=<redacted>"));
+        Assertions.assertTrue(failure.getMessage().contains("column_index=0"));
+    }
+
+    @Test
+    void testBatchExtractionReportsFlattenedColumnIndex() {
+        Map<String, Object> column = new HashMap<>();
+        column.put("src_field", "content");
+        column.put("path", Arrays.asList("$.first", "$.second"));
+        column.put("dest_field", Arrays.asList("first", "user-id"));
+        column.put("dest_type", Arrays.asList("string", "int"));
+        Map<String, Object> options = new HashMap<>();
+        options.put("columns", Arrays.asList(column));
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "orders",
+                        new SeaTunnelRowType(
+                                new String[] {"content"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(
+                        JsonPathTransformConfig.of(ReadonlyConfig.fromMap(options), table), table);
+
+        ErrorDataTransformException failure =
+                Assertions.assertThrows(
+                        ErrorDataTransformException.class,
+                        () ->
+                                transform.map(
+                                        new SeaTunnelRow(
+                                                new Object[] {
+                                                    "{\"first\":\"ok\",\"second\":\"invalid\"}"
+                                                })));
+        Assertions.assertTrue(failure.getMessage().contains("column_index=1"));
+        Assertions.assertTrue(failure.getMessage().contains("dest_field=<redacted>"));
     }
 
     private static void assertSafePathFailure(ErrorDataTransformException failure, String source) {
