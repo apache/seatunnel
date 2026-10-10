@@ -107,4 +107,66 @@ public class SQLHashFunctionsTest {
         Assertions.assertEquals(outRow1.getField(0), outRow2.getField(0));
         Assertions.assertEquals(murmur64Direct("test123"), outRow1.getField(0));
     }
+
+    @Test
+    public void testMd5WithNormalString() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow = runSql("select MD5(text) as hash from dual", rowType, "abc");
+
+        Assertions.assertInstanceOf(String.class, outRow.getField(0));
+        Assertions.assertEquals("900150983cd24fb0d6963f7d28e17f72", outRow.getField(0));
+    }
+
+    @Test
+    public void testMd5WithEmptyString() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow = runSql("select MD5(text) as hash from dual", rowType, "");
+
+        Assertions.assertEquals("d41d8cd98f00b204e9800998ecf8427e", outRow.getField(0));
+    }
+
+    @Test
+    public void testMd5WithNull() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow = runSql("select MD5(text) as hash from dual", rowType, (Object) null);
+
+        Assertions.assertNull(outRow.getField(0));
+    }
+
+    @Test
+    public void testMd5WithMultibyteUtf8() {
+        // Multi-byte UTF-8 path: Hive md5 hashes the UTF-8 bytes of the string.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow = runSql("select MD5(text) as hash from dual", rowType, "你好");
+
+        Assertions.assertEquals("7eca689f0d3389d9dea66ae112e5cfd7", outRow.getField(0));
+    }
+
+    @Test
+    public void testMd5HiveParity() {
+        // Hive canonical vector: MD5('The quick brown fox jumps over the lazy dog')
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select MD5(text) as hash from dual",
+                        rowType,
+                        "The quick brown fox jumps over the lazy dog");
+
+        Assertions.assertEquals("9e107d9d372bb6826bd81d3542a419d6", outRow.getField(0));
+    }
 }

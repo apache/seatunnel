@@ -222,16 +222,21 @@ class SQLNumericComparisonTest {
     }
 
     @Test
-    void preservesFloatingComparisonForNegatedDecimalOperands() {
+    void comparesNegatedDecimalOperandsExactly() {
         BigDecimal value = new BigDecimal("-123456789012345678.99");
         assertEquals(
-                true, matches("a = -CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+                false, matches("a = -CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
         assertEquals(
-                true, matches("-a = CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+                false, matches("-a = CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true, matches("a = -CAST('123456789012345678.99' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true, matches("-a = CAST('123456789012345678.99' AS DECIMAL(38, 2))", value, 0L));
         assertEquals(
                 false, matches("a = CAST('-123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
         assertEquals(
                 true, matches("a = CAST('-123456789012345678.99' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(true, matches("a = -123456789012345678.98", value, 0L));
     }
 
     @Test

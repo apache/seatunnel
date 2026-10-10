@@ -12,14 +12,14 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 |        名称         |   类型   | 是否必须 | 默认值 |
 |-------------------|--------|------|-----|
-| plugin_input | string | yes  | -   |
-| plugin_output | string | yes  | -   |
+| plugin_input | string | no   | -   |
+| plugin_output | string | no   | -   |
 | query             | string | yes  | -   |
 | engine            | string | no   | ZETA |
 
 ### plugin_input [string]
 
-源表名称，查询 SQL 表名称必须与此字段匹配。
+源表名称，查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。
 
 ### query [string]
 
@@ -184,6 +184,12 @@ sink {
   }
 }
 ```
+
+## 集合表达式
+
+ARRAY 和 MAP 的参数支持一元 `+`/`-` 和括号。例如，`ARRAY(-1, +2, (3))` 生成 `[-1, 2, 3]`，`MAP('negative', (-1))` 生成值为 `-1` 的映射。
+
+带符号的集合表达式保留数值元素类型，并传递 NULL 操作数。TINYINT 数组现在使用 `ARRAY<TINYINT>`，替代此前错误的 `ARRAY<STRING>` 模式。
 
 ## 更新日志
 

@@ -90,6 +90,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | escape_char                | string  | 否   | -                           |
 | recursive_file_scan        | boolean | 否   | true                        |
 | sort_files_by_modification_time | boolean | 否   | false                       |
+| common-options             |         | 否   | -                           |
 
 ## 示例
 

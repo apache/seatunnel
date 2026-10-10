@@ -85,7 +85,7 @@ ${library.version}-${seatunnel.shade.version}
 
 ### 前置条件
 
-- Java 8+
+- Java 11+
 - Maven 3.x
 
 ### 克隆并构建
