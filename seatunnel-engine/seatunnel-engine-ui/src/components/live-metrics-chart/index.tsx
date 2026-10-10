@@ -57,7 +57,7 @@ export default defineComponent({
       default: 'No metrics'
     },
     height: {
-      type: Number,
+      type: [Number, String] as PropType<number | string>,
       default: 260
     },
     unit: {
@@ -92,7 +92,11 @@ export default defineComponent({
       const from = now - props.windowMs
       const unit = props.unit || series[0]?.unit
       const single = series.length === 1
-      const compact = props.height < 160
+      const compact =
+        props.height === '100%' || (typeof props.height === 'number' && props.height < 160)
+      const isVisiblePoint = (point: { ts: number; value: number }) =>
+        point.ts >= from && Number.isFinite(point.value)
+      const hasVisiblePoints = series.some((item) => (item.points || []).some(isVisiblePoint))
 
       const yAxis =
         unit === 'ratio'
@@ -101,8 +105,6 @@ export default defineComponent({
               min: 0,
               max: 1,
               scale: false,
-              name: compact ? '' : '%',
-              nameTextStyle: { color: '#999', padding: [0, 0, 0, 8], fontSize: 10 },
               axisLabel: {
                 fontSize: compact ? 9 : 10,
                 margin: compact ? 4 : 8,
@@ -111,26 +113,39 @@ export default defineComponent({
               splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
             }
           : {
+              show: unit !== 'count' || hasVisiblePoints,
               type: 'value' as const,
               min: compact ? 0 : undefined,
+              minInterval: unit === 'count' ? 1 : undefined,
               scale: !compact,
-              name: compact ? '' : unit === 'duration' ? 'ms' : '',
-              nameTextStyle: { color: '#999', fontSize: 10 },
               axisLabel: { fontSize: compact ? 9 : 10, margin: compact ? 4 : 8 },
               splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
             }
 
       chart.setOption(
         {
-          title: single
-            ? {
-                show: true,
-                text: series[0].name,
-                left: 0,
-                top: 0,
-                textStyle: { color: '#666', fontSize: compact ? 11 : 12, fontWeight: 'normal' }
-              }
-            : { show: false },
+          title:
+            unit === 'count' && !hasVisiblePoints
+              ? {
+                  show: true,
+                  text: props.emptyText,
+                  left: 'center',
+                  top: 'middle',
+                  textStyle: {
+                    color: '#9ca3af',
+                    fontSize: compact ? 10 : 12,
+                    fontWeight: 'normal'
+                  }
+                }
+              : single && !compact
+                ? {
+                    show: true,
+                    text: series[0].name,
+                    left: 0,
+                    top: 0,
+                    textStyle: { color: '#666', fontSize: compact ? 11 : 12, fontWeight: 'normal' }
+                  }
+                : { show: false },
           color: COLORS,
           tooltip: {
             trigger: 'axis',
@@ -152,24 +167,27 @@ export default defineComponent({
               return [time, ...lines].join('<br/>')
             }
           },
-          legend: single
-            ? { show: false }
-            : {
-                type: 'scroll',
-                top: 0,
-                itemWidth: compact ? 10 : 14,
-                itemHeight: compact ? 8 : 10,
-                textStyle: { fontSize: compact ? 10 : 11 },
-                data: series.map((s) => s.name)
-              },
+          legend:
+            single && !compact
+              ? { show: false }
+              : {
+                  type: 'scroll',
+                  top: 0,
+                  itemWidth: compact ? 10 : 14,
+                  itemHeight: compact ? 8 : 10,
+                  textStyle: { fontSize: compact ? 10 : 11 },
+                  data: series.map((s) => s.name)
+                },
           grid: {
             left: compact ? 28 : 48,
             right: compact ? 4 : 24,
-            top: compact ? (single ? 16 : 20) : single ? 28 : 36,
-            bottom: compact ? 0 : 32,
+            // Reserve one line for the legend so it never overlaps the highest Y-axis label.
+            top: compact ? 30 : single ? 28 : 36,
+            bottom: compact ? 10 : 32,
             containLabel: !compact
           },
           xAxis: {
+            show: unit !== 'count' || hasVisiblePoints,
             type: 'time',
             min: from,
             max: now,
@@ -207,7 +225,7 @@ export default defineComponent({
                   }
                 : undefined,
               data: [...(s.points || [])]
-                .filter((p) => p.ts >= from)
+                .filter(isVisiblePoint)
                 .sort((a, b) => a.ts - b.ts)
                 .map((p) => [p.ts, p.value])
             }
@@ -240,12 +258,11 @@ export default defineComponent({
       { deep: true }
     )
 
-    return () => (
-      <div
-        ref={el}
-        class="w-full"
-        style={{ height: `${props.height}px`, minHeight: `${props.height}px` }}
-      />
-    )
+    return () => {
+      const height = typeof props.height === 'number' ? `${props.height}px` : props.height
+      return (
+        <div ref={el} class="live-metrics-chart w-full" style={{ height, minHeight: height }} />
+      )
+    }
   }
 })

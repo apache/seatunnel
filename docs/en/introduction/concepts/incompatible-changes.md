@@ -5,6 +5,134 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Runtime Requirements
+
+- **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
+  - **Affected component**: every module — the whole distribution, the Zeta engine, all connectors, and the published Docker image
+  - **Description**: The build now targets Java 11 (`maven.compiler.source` and `maven.compiler.target` are `11`), so every published jar contains class file version 55. GitHub CI compiles and tests on JDK 17 against this Java 11 baseline, and the published Docker image moved from `seatunnelhub/openjdk:8u342` to `eclipse-temurin:11-jdk`, keeping a full JDK rather than a JRE so `jps`/`jstack`/`jmap` stay available for diagnosing a running node.
+  - **Impact**:
+    - A Java 8 JVM can no longer load SeaTunnel classes. Startup fails with `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`. This applies to the client, to the Zeta master and worker nodes, and to any process that loads connector jars.
+    - **Flink**: the JobManager and TaskManager JVMs load SeaTunnel connector classes, so the whole Flink cluster must run Java 11 or later, not just the submitting client. Flink supports Java 11 from 1.13 onward, and the official Flink images publish `-java11` tags.
+    - **Spark**: the driver and executor JVMs load SeaTunnel connector classes, so the whole Spark cluster must run Java 11 or later. Spark only gained official Java 11 support in Spark 3.0 (SPARK-24417). Spark 2.4 does still start under Java 11, but it logs illegal reflective access warnings and puts an old commons-lang3 on the classpath that some connectors trip over, so Spark 3.x is strongly recommended.
+    - Third-party connectors that are themselves compiled for Java 8 keep working. A Java 11 JVM loads older class files without changes, so only the JVM version matters, not the bytecode level of your own jars.
+  - **Migration Guide**:
+    1. Upgrade the JVM to Java 11 or Java 17 on every node that runs SeaTunnel code: the client, the Zeta master and workers, and the Flink or Spark cluster you submit to.
+    2. If you submit to Flink, move the cluster onto an image or deployment that runs Java 11 or later.
+    3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
+    4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
+    5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
+
+### SQL TINYINT array schema
+
+The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
+### DuckDB BIT and ENUM automatic DDL
+
+- Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
+  instead of the previous 1/255 fallback. Positive lengths are unchanged. Automatically generated
+  columns use MySQL `LONGTEXT` or PostgreSQL `text` instead of the old bounded string types.
+- Existing target tables are not resized. Review their column definitions and widen them manually
+  before transferring values that exceed the existing limits.
+- With `create_index = true` (the default), MySQL automatic table creation fails when one of these
+  columns is a primary key: `LONGTEXT` cannot be used as a full-column primary key. Pre-create the
+  target table with an explicitly bounded key type that fits the source data and MySQL index limits,
+  and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` to preserve that schema. Do not use
+  `RECREATE_SCHEMA` for a manually defined target. An arbitrary key-prefix length can reject distinct
+  source keys that share that prefix, so it is not a semantics-preserving substitute.
+
+### Helm Chart: Zeta REST API v1 disabled by default
+
+- **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
+  - **Affected component**: Helm chart `deploy/kubernetes/seatunnel` (`conf/hazelcast-master.yaml`,
+    `conf/hazelcast-worker.yaml`, `values.yaml`)
+  - **Description**: The chart previously set `hazelcast.network.rest-api.enabled: true`, exposing the
+    deprecated Zeta REST API v1 (including `submit-job`, `stop-job`, `encrypt-config`, logs and thread
+    dump) on the Hazelcast member port (5801) without authentication. It is now `false`, matching the
+    standalone `config/hazelcast.yaml` default and the v1 documentation. The default Prometheus pod
+    annotations are repointed from `5801` (`/hazelcast/rest/instance/metrics`) to the REST API v2 /
+    Jetty listener on `8080` (`/metrics`), which returns the same samples.
+  - **Impact**: Deployments that called REST API v1 on port 5801 must switch to REST API v2 on port
+    8080. Prometheus setups that scraped `5801/hazelcast/rest/instance/metrics` directly (rather than
+    through the pod annotations) must update the target to `8080/metrics`. Job submission through the
+    Hazelcast client protocol and REST API v2 on 8080 are unaffected. Because the ConfigMap is mounted
+    with `subPath` and the Deployments carry no config checksum annotation, running pods keep the old
+    setting until restarted, so restart the master/worker pods after `helm upgrade`.
+  - **Migration Guide**: Use REST API v2 on port 8080 (the chart's documented interface). If Zeta REST
+    API v1 is genuinely required, set `rest-api.enabled: true` in a custom ConfigMap
+    (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
+    after upgrading so the new configuration is applied.
+
+### Redis Authentication
+
+- Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
+  `CLUSTER` mode. Previously, `SINGLE` used password-only authentication followed by `ACL SETUSER`,
+  and `CLUSTER` ignored `user`. Connection setup no longer creates or modifies ACL users.
+- Before upgrading, create the intended ACL user and grant its required command and key permissions,
+  including `INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for
+  topology discovery in `CLUSTER` mode. Set `auth` to that user's password. An omitted or empty password
+  is sent as an empty string when `user` is nonblank.
+- To keep using the default user, remove `user` and retain `auth` when a password is required.
+  Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
+
+### Zeta SQL Transform: built-in AES_ENCRYPT / AES_DECRYPT
+
+- **Behavior change: AES_ENCRYPT / AES_DECRYPT are now built-in functions**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `AES_ENCRYPT(value, key[, iv])` and `AES_DECRYPT(value, key[, iv])` are now
+    built-in Zeta SQL functions and are dispatched before user-registered `ZetaUDF`s. They use
+    `AES/CBC/PKCS5Padding` with Base64 output; without an explicit IV a random IV is generated and
+    prepended to the ciphertext so `AES_DECRYPT` can recover it without an explicit IV.
+  - **Impact**: A job that registered a custom `ZetaUDF` named `AES_ENCRYPT` or `AES_DECRYPT` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start using this
+    built-in implementation instead of the UDF. If the UDF used a different key derivation, IV
+    handling or output encoding, ciphertext already written by the UDF may fail to decrypt (or,
+    roughly once in 256 for CBC padding, decrypt to garbage).
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in functions. To stay
+    wire-compatible with the `FieldEncrypt` `AesCbcEncryptor`, supply the key with the `base64:`
+    prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
+    `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
+
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
+### FakeSource (connector-fake)
+
+- Declarative option constraints are now enforced at factory validation time instead of
+  silently passing and failing only at runtime. Affected options: `split.num`,
+  `vector.dimension` and `binary.vector.dimension` must be > 0; `row.num`,
+  `split.read-interval`, `map.size`, `array.size`, `bytes.length` and `string.length` must be
+  >= 0; `tinyint.min/max`, `smallint.min/max`, `int.min/max`, `bigint.min/max`,
+  `float.min/max`, `double.min/max` and `vector.float.min/max` must satisfy min <= max.
+  Note that `row.num = 0` (empty source) is still valid. Existing jobs that set invalid
+  values and previously ran successfully will now fail fast at startup with a validation
+  error.
+
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
@@ -36,7 +164,8 @@ You need to check this document before you upgrade to related version.
     - **CDC (Debezium-based, TiDB)**: CDC connectors now correctly handle `TIMESTAMP_TZ` type in the Debezium deserialization layer. Previously, `TIMESTAMP_TZ` was unsupported and would throw `UnsupportedOperationException`. Users who were previously unable to use timezone-aware columns in CDC pipelines can now do so.
     - **Iceberg (existing tables)**: Before this PR, SeaTunnel's `TIMESTAMP` type was incorrectly written to Iceberg as `timestamp` with timezone (`withZone()`). After this PR, `TIMESTAMP` is written as `timestamp` without timezone (`withoutZone()`), and Iceberg `withZone()` columns are read back as `TIMESTAMP_TZ`. **Upgrade impact**: If you have existing Iceberg tables where timestamp columns were created by an older SeaTunnel version, those columns are stored as `withZone()`. After upgrading, SeaTunnel will read them as `TIMESTAMP_TZ` instead of `TIMESTAMP`. Downstream sinks or transforms that expected `TIMESTAMP` may encounter type mismatch errors. **Migration**: Re-create the affected Iceberg table with the new schema, or use a SQL Transform to cast `TIMESTAMP_TZ` back to `TIMESTAMP` in your pipeline configuration.
     - **TIMESTAMP_TZ downgrade contract**: SeaTunnel applies a two-tier serialization contract for `TIMESTAMP_TZ` depending on what the sink format can represent:
-      - **DB column-typed sinks without native timezone support (Doris, StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
+      - **Doris Sink**: `TIMESTAMP_TZ` values are converted to the effective Doris target timezone before being stored as `DATETIME`. Set `sink.datetime-timezone` to choose that target timezone explicitly; if it is unset, SeaTunnel uses the JVM default timezone. For example, with `sink.datetime-timezone = "Asia/Shanghai"`, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 02:00:00`.
+      - **Other DB column-typed sinks without native timezone support (StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
       - **String/text-based sinks (Text file, Kafka, Pulsar, RocketMQ, RabbitMQ, Redis, etc.)**: The full ISO 8601 offset is preserved (e.g., `"2024-01-01T03:00:00+09:00"`). These formats can represent timezone offsets as strings, so no information is lost. If you need wall-clock behavior for a string sink, use a SQL Transform to cast `TIMESTAMP_TZ` to `TIMESTAMP` before writing.
     - **Xugu TIMESTAMP_TZ (lossy)**: Xugu `TIMESTAMP WITH TIME ZONE` columns are exposed as `TIMESTAMP_TZ` at the type layer, but the actual write path drops the timezone offset and stores only the wall-clock value due to a Xugu JDBC driver batch limitation (bug [E19138]). A warning is logged on the first write.
 
@@ -117,6 +246,18 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: Doris Source option key `doris.request.retriesdoris.deserialize.queue.size` renamed to `doris.deserialize.queue.size`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-doris` (`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`)
+  - **Description**: The option key for the asynchronous Arrow deserialization queue size has been a typo since it was introduced in #7895: the key was accidentally concatenated as `doris.request.retriesdoris.deserialize.queue.size`, gluing the preceding option's name (`doris.request.retries`) onto the intended key (`doris.deserialize.queue.size`). The option key is now the intended `doris.deserialize.queue.size`. The default value (`64`) and the option behavior are unchanged.
+  - **Impact**: Configurations that explicitly set the old malformed key `doris.request.retriesdoris.deserialize.queue.size` will no longer be picked up; the connector will fall back to the default queue size of `64`. The old key was a concatenation artifact and could only be discovered by copying it from the docs, so most users are unaffected.
+  - **Migration Guide**: If you explicitly tuned this option, rename the key to `doris.deserialize.queue.size` in your source configuration.
+
+- **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
+  - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **Description**: Previously, `HttpSinkWriter.doHttpRequest` handled both a non-200 HTTP response and any request exception (network error, timeout, serialization error) by logging at `error` level and returning normally, so the failed row/batch was silently dropped while the job kept running and checkpoints completed. The writer now throws `HttpConnectorException` (`REQUEST_FAILED`) for both cases, so the failure propagates to the engine and fails the task/job.
+  - **Impact**: Jobs whose downstream HTTP endpoint occasionally returns non-200 or is occasionally unreachable used to keep running with silent data loss; after this change they fail loudly at the first failed write. The connector still has no built-in retry or dead-letter mechanism, so re-submitting a failed job may deliver rows that succeeded before the failure again — make sure the receiver tolerates duplicate delivery on retry/restart.
+  - **Migration Guide**: No configuration change is required. If your endpoint is expected to return non-200 responses as part of normal operation, handle them upstream of the sink or add an external retry mechanism before upgrading.
+
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
   - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
@@ -185,6 +326,11 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
 ### Transform Changes
+
+- **Behavior change: AMAZON embedding honors retry options**
+  - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
+  - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.
+  - **Impact and migration**: Configured `model_retry_max_attempts` values greater than 1 now enable SeaTunnel retries, which may incur additional model charges; use 1 to retain a single SeaTunnel attempt. The default remains 1. The SDK's own retry and timeout behavior is unchanged; `model_request_timeout_ms` is not currently applied to Bedrock calls.
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -285,6 +431,33 @@ You need to check this document before you upgrade to related version.
   — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
   (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
+### Format Changes
+
+- **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
+  - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
+  - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
+
 ### Engine Behavior Changes
+
+- **Behavior change: the REST log-content endpoints return at most 64 MB by default**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
+    `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
+    `GET /hazelcast/rest/maps/log/:file`.
+  - **Description**: These endpoints read the requested log file whole, which materialises it on the
+    heap twice, so a single request for the log of a long-running streaming job could exhaust a
+    node's memory. The new `seatunnel.engine.http.log-response-max-size-mb` option caps how much is
+    read and defaults to `64`. A larger file is represented by its last `log-response-max-size-mb`
+    of UTF-8 content, aligned to a complete line when possible (or a partial tail of an oversized
+    line). The response notice names the actual retained bytes and the file-size snapshot.
+  - **Impact**: A cluster upgraded without editing `seatunnel.yaml` starts receiving the tail rather
+    than the whole of any log file above 64 MB, with status `200` as before. Anything that archives
+    logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
+    `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
+    raised. The truncation notice on the first line makes a partial response recognisable.
+  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
+    `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
+    covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
+    read of a multi-gigabyte log has to fit in the node's heap.
 
 ### Dependency Upgrades
