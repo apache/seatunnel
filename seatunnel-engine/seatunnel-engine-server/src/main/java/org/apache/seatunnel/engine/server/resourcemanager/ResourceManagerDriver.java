@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.api.annotation.Experimental;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -36,6 +37,7 @@ import java.util.function.Supplier;
  * notifications during intentional release and shutdown. No method may alter another application's
  * resources. This contract provides no worker replacement, scaling, or master HA.
  */
+@Experimental
 public interface ResourceManagerDriver<WorkerType extends ResourceIDRetrievable>
         extends AutoCloseable {
     /**

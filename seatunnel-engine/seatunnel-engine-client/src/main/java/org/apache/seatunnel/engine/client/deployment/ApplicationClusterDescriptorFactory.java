@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.client.deployment;
 
+import org.apache.seatunnel.api.annotation.Experimental;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import java.util.Map;
@@ -29,6 +30,7 @@ import java.util.Map;
  * Factories need a public no-argument constructor and should not create remote resources during
  * discovery. Exactly one factory may advertise a given deployment type on the selected classpath.
  */
+@Experimental
 public interface ApplicationClusterDescriptorFactory<ID> {
 
     /** @return the external resource platform handled by this provider */

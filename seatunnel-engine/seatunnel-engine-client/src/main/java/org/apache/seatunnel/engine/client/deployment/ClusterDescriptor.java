@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.client.deployment;
 
+import org.apache.seatunnel.api.annotation.Experimental;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 
@@ -30,6 +31,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
  *
  * @param <ID> the platform's native application identity
  */
+@Experimental
 public interface ClusterDescriptor<ID> extends AutoCloseable {
 
     /** Deploys an application and returns its platform ID without connecting an Engine client. */
