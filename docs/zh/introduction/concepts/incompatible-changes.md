@@ -17,7 +17,6 @@
     如果没有检查 null，现在可能抛出 `NullPointerException`。
   - **迁移指南**：分别处理 null 映射元素和空映射。读写数组时使用声明的 SeaTunnel 元素类型；
     如果自定义代码需要通用的工作数组，请复制到新的 `Object[]`。无需修改配置或 checkpoint 格式。
-
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
