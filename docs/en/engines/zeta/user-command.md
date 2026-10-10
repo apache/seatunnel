@@ -88,6 +88,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
 | Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | Yes ([metadata + local serializer checks](../../connectors/sink/Kafka.md#connectivity-dry-run); dynamic topics have limited checks, Produce/transaction permissions are not checked) |
 | FakeSource | Yes (schema inference only, no external system) | - |
+| Cassandra | Yes ([prepared SELECT metadata](../../connectors/source/Cassandra.md#connectivity-dry-run); no application-row reads) | No |
 | MongoDB | No | Yes ([connectivity + configured authentication](../../connectors/sink/MongoDB.md#connectivity-dry-run); no collection, schema, write permission or transaction checks) |
 | Neo4j | Yes ([driver connectivity + configured schema; not database/query validation](../../connectors/source/Neo4j.md#connectivity-dry-run)) | No |
 | RabbitMQ | Yes ([existing-queue metadata + configured schema; not consumer permissions](../../connectors/source/Rabbitmq.md#connectivity-dry-run)) | No |
