@@ -178,6 +178,7 @@ public class SubPlan {
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
+        jobMaster.registerCdcProgressContext(pipelineLocation);
         // reset errorByPhysicalVertex when restore pipeline
         errorByPhysicalVertex = new AtomicReference<>();
         physicalVertexList.forEach(
@@ -307,6 +308,8 @@ public class SubPlan {
     }
 
     private void subPlanDone(PipelineStatus pipelineStatus) {
+        // Observation cleanup must not depend on metrics-history or persistent cleanup success.
+        jobMaster.closeCdcProgressContext(getPipelineLocation());
         try {
             RetryUtils.retryWithException(
                     () -> {

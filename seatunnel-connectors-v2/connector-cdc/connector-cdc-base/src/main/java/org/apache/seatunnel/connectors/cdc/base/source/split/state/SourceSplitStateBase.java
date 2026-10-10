@@ -49,6 +49,10 @@ public abstract class SourceSplitStateBase {
         return (IncrementalSplitState) this;
     }
 
+    public final String splitId() {
+        return split.splitId();
+    }
+
     /** Use the current split state to create a new SourceSplit. */
     public abstract SourceSplitBase toSourceSplit();
 }
