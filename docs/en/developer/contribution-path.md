@@ -151,8 +151,8 @@ Check the jobs listed under the Backend `Build` before assuming that a green res
 
 This means no `Build` workflow run was found in your fork for the PR head commit — it is not a test failure. Recover as follows:
 
-1. **GitHub did not create a run for your push (most common).** Open the **Actions** tab of your fork, select the **Build** workflow, click **Run workflow**, and pick the PR branch. The scheduled `Update build status workflow` links the run back to the PR `Build` check within 15 minutes. Alternatively, push an empty commit: `git commit --allow-empty -m "Trigger CI" && git push`.
-2. **Actions disabled in the fork.** Enable workflows from the fork's **Actions** tab, then trigger the build as in step 1.
+1. **Actions disabled in the fork.** Open the **Actions** tab of your fork: if it shows an enable button or a billing banner (Actions can be disabled account-wide by a billing or spending-limit hold), resolve that first — while Actions is disabled, no build runs in the fork at all.
+2. **GitHub did not create a run for your push.** Select the **Build** workflow in your fork's **Actions** tab, click **Run workflow**, and pick the PR branch. The scheduled `Update build status workflow` links the run back to the PR `Build` check within 15 minutes. Alternatively, push an empty commit: `git commit --allow-empty -m "Trigger CI" && git push`.
 3. **Branch based on an old `dev`.** Rebase onto the latest `dev` and push again.
 
 If a run exists in your fork but the check stays failed or queued for more than 15 minutes, ask a committer to run the `Update build status workflow` manually from the repository's **Actions** tab.
