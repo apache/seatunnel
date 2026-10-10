@@ -351,6 +351,8 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+        helper.execute("/csv/local_file_csv_custom_delimiter_write.conf");
+        helper.execute("/csv/local_file_csv_custom_delimiter_assert.conf");
     }
 
     @TestTemplate

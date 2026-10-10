@@ -248,6 +248,8 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 ### csv_string_quote_mode [string]
 
+引号使用已配置的 `field_delimiter`：当字符串字段中包含分隔符、引号或换行时，在 `MINIMAL` 模式下该值会被加上引号，字段内已有的引号会被转义。
+
 当文件格式为CSV时，CSV的字符串引号模式： 
 
 - ALL（全部）：所有字符串字段都将被加上引号。 
