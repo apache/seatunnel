@@ -327,6 +327,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.CONCAT_WS:
             case ZetaSQLFunction.HEXTORAW:
             case ZetaSQLFunction.RAWTOHEX:
+            case ZetaSQLFunction.MD5:
             case ZetaSQLFunction.TO_BASE64:
             case ZetaSQLFunction.FROM_BASE64:
             case ZetaSQLFunction.INSERT:
@@ -359,6 +360,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TRIM_SCALE:
             case ZetaSQLFunction.AES_ENCRYPT:
             case ZetaSQLFunction.AES_DECRYPT:
+            case ZetaSQLFunction.GET_JSON_OBJECT:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
