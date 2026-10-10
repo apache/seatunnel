@@ -173,11 +173,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             newCachedThreadPool(new BlockingTaskThreadFactory());
 
     /**
-     * Optional override for blocking-task submission. Package-visible so tests can inject an
-     * executor that throws {@link java.util.concurrent.RejectedExecutionException} after partial
-     * submission without replacing the service-wide worker pool.
+     * Optional override for blocking-task submission. Package-visible so tests in this package can
+     * inject an executor that throws {@link java.util.concurrent.RejectedExecutionException} after
+     * partial submission without replacing the service-wide worker pool.
      */
-    volatile ExecutorService blockingTaskExecutorOverride;
+    ExecutorService blockingTaskExecutorOverride;
 
     /** Supplier for creating and running new BusWork threads. */
     private final RunBusWorkSupplier runBusWorkSupplier =
@@ -414,27 +414,44 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(blockingExecutor);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
-        // Record each Future as it is submitted so a mid-batch RejectedExecutionException still
-        // leaves already-accepted workers reachable for cancellation during post-publish rollback.
-        List<Future<?>> futures = new ArrayList<>();
-        taskGroupExecutionTracker.blockingFutures = futures;
-        for (Task task : tasks) {
-            BlockingWorker worker =
-                    new BlockingWorker(
-                            new TaskTracker(task, taskGroupExecutionTracker), startedLatch);
-            NamedTaskWrapper namedWorker =
-                    new NamedTaskWrapper(
-                            worker,
-                            "BlockingWorker-"
-                                    + taskGroupExecutionTracker.taskGroup.getTaskGroupLocation());
-            futures.add(mdcExecutorService.submit(namedWorker));
-        }
+        // Keep accepted futures local until every worker has released startedLatch. Publishing the
+        // list earlier lets cancelAllTask() cancel a FutureTask that has not run yet, so
+        // BlockingWorker.run() never counts the latch down and this await (held inside
+        // deployTask's synchronized(this)) blocks every later deploy. Build the list locally and
+        // publish it only after startup, matching #12454. A mid-batch submit failure never awaits
+        // the latch, so publishing the already-accepted futures in the catch is safe: rollback can
+        // then cancel them, including workers that have not started.
+        List<Future<?>> blockingFutures = new ArrayList<>(tasks.size());
+        try {
+            for (Task task : tasks) {
+                BlockingWorker worker =
+                        new BlockingWorker(
+                                new TaskTracker(task, taskGroupExecutionTracker), startedLatch);
+                NamedTaskWrapper namedWorker =
+                        new NamedTaskWrapper(
+                                worker,
+                                "BlockingWorker-"
+                                        + taskGroupExecutionTracker.taskGroup
+                                                .getTaskGroupLocation());
+                blockingFutures.add(mdcExecutorService.submit(namedWorker));
+            }
 
-        // Do not return from this method until all workers have started. Otherwise,
-        // on cancellation there is a race where the executor might not have started
-        // the worker yet. This would result in taskletDone() never being called for
-        // a worker.
-        uncheckRun(startedLatch::await);
+            // Do not return from this method until all workers have started. Otherwise,
+            // on cancellation there is a race where the executor might not have started
+            // the worker yet. This would result in taskletDone() never being called for
+            // a worker.
+            uncheckRun(startedLatch::await);
+        } catch (Throwable submitFailure) {
+            taskGroupExecutionTracker.blockingFutures = blockingFutures;
+            throw submitFailure;
+        }
+        // Early failure cleanup must not cancel a worker before run() releases startedLatch.
+        // Publish the futures after startup, then honor any failure or cancellation received
+        // while waiting so already-running tasks are still interrupted.
+        taskGroupExecutionTracker.blockingFutures = blockingFutures;
+        if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+            taskGroupExecutionTracker.cancelAllTask();
+        }
     }
 
     /**
@@ -743,7 +760,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } else {
                 onFailureBeforeContextPublished.accept(t);
             }
-            resultFuture.completeExceptionally(t);
+            // Workers may already have completed this future as FAILED via taskDone. Keep that
+            // completion. Otherwise the wrapper returned below would surface the deploy exception
+            // and hide the FAILED state already reported to the master.
+            resultFuture.complete(
+                    new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, t));
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }
@@ -1360,16 +1381,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskGroupLocation taskGroupLocation =
                     taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
             final Task t = tracker.task;
-            // Context may already have been rolled back after a post-publish deploy failure.
+            // Only a rolled-back context (removed, or its classloader map claimed) skips the task.
+            // An ordinary cancel (isCancel) must still init/call/close: skipping close() here would
+            // change the cancellation contract for a worker that starts after cancel was requested.
             TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-            if (taskGroupContext == null || taskGroupExecutionTracker.isCancel.get()) {
-                startedLatch.countDown();
-                taskGroupExecutionTracker.taskDone(t);
-                return;
-            }
-            // A null map (not a missing per-task entry) means a concurrent rollback has already
-            // claimed this context's classloaders; a missing entry must still run the task.
-            Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
+            Map<Long, ClassLoader> classLoaders =
+                    taskGroupContext == null ? null : taskGroupContext.getClassLoaders();
             if (classLoaders == null) {
                 startedLatch.countDown();
                 taskGroupExecutionTracker.taskDone(t);
@@ -1492,25 +1509,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskTracker.taskGroupExecutionTracker;
                 TaskGroupLocation taskGroupLocation =
                         taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
-                // Mirror BlockingWorker: context may already have been rolled back after a
-                // post-publish deploy failure, or cancellation may already be in flight.
+                // A rolled-back context, or a group that already failed/was cancelled, must not
+                // run.
+                // isCancel is covered by executionCompletedExceptionally(); the null classloader
+                // map is the rollback signal and is distinct from a missing per-task entry.
                 TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-                if (taskGroupContext == null
-                        || taskGroupExecutionTracker.isCancel.get()
+                Map<Long, ClassLoader> classLoaders =
+                        taskGroupContext == null ? null : taskGroupContext.getClassLoaders();
+                if (classLoaders == null
                         || taskGroupExecutionTracker.executionCompletedExceptionally()) {
-                    taskGroupExecutionTracker.taskDone(taskTracker.task);
-                    if (null != exclusiveTaskTracker.get()) {
-                        // If it's exclusive need to end the work
-                        break;
-                    } else {
-                        // No action required and don't put back
-                        continue;
-                    }
-                }
-                // A null map (not a missing per-task entry) means a concurrent rollback has
-                // already claimed this context's classloaders; a missing entry must still run.
-                Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
-                if (classLoaders == null) {
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         break;
@@ -1666,13 +1673,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         /**
-         * Marks the group cancelled and best-effort stops anything already submitted when
-         * deployment fails after context publication.
+         * Best-effort stops anything already submitted when deployment fails after context
+         * publication.
+         *
+         * <p>Does not set {@code isCancel}. {@link #taskDone(Task)} treats {@code isCancel} as
+         * CANCELED, which would hide a real deploy failure. The exception is recorded before
+         * workers are cancelled, so the last {@code taskDone} reports FAILED. The deploy thread
+         * completes the same future with FAILED only if no worker completed it first.
          *
          * @param failure the deployment failure that triggered rollback
          */
         void abortAfterFailedPublish(Throwable failure) {
-            isCancel.set(true);
+            // Record the failure before cancelling workers so taskDone cannot observe a clean
+            // completion and report FINISHED for a deployment that actually failed.
             exception(failure);
             cancelAllTask();
         }

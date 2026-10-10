@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceOptions;
@@ -39,6 +40,11 @@ import java.util.List;
 import java.util.Map;
 
 class Neo4jFactoryTest {
+
+    @Test
+    void supportsConnectivityDryRun() {
+        Assertions.assertTrue(new Neo4jSourceFactory() instanceof SupportSourceDryRunValidation);
+    }
 
     @Test
     void optionRule() {
@@ -280,6 +286,50 @@ class Neo4jFactoryTest {
         Assertions.assertEquals(2, tables.size());
         Assertions.assertEquals("people", tables.get(0).getTableId().toTablePath().toString());
         Assertions.assertEquals("companies", tables.get(1).getTableId().toTablePath().toString());
+    }
+
+    @Test
+    void dryRunSchemaMatchesRuntimeForSingleAndMultipleTables() throws Exception {
+        Map<String, Object> multi = sourceConnectionConfig();
+        multi.put(
+                "tables_configs",
+                Arrays.asList(
+                        tableConfig("people", "CREATE (:MustNotExecute)"),
+                        tableConfig("companies", "THIS IS NOT VALID CYPHER")));
+        Neo4jSourceFactory factory = new Neo4jSourceFactory();
+        for (Map<String, Object> options : Arrays.asList(validSourceConfig(), multi)) {
+            TableSourceFactoryContext context =
+                    new TableSourceFactoryContext(
+                            ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+            List<CatalogTable> expected =
+                    ((Neo4jSource) (Object) factory.createSource(context).createSource())
+                            .getProducedCatalogTables();
+            List<CatalogTable> actual = factory.inferSchemaForDryRun(context);
+            Assertions.assertEquals(expected.size(), actual.size());
+            for (int i = 0; i < expected.size(); i++) {
+                Assertions.assertEquals(expected.get(i).getTableId(), actual.get(i).getTableId());
+                Assertions.assertEquals(
+                        expected.get(i).getSeaTunnelRowType(), actual.get(i).getSeaTunnelRowType());
+                Assertions.assertEquals(expected.get(i).getOptions(), actual.get(i).getOptions());
+            }
+        }
+    }
+
+    @Test
+    void dryRunInvalidUriDoesNotEchoCredentials() {
+        Map<String, Object> options = validSourceConfig();
+        options.put("uri", "neo4j://private-secret@[invalid");
+        Exception failure =
+                Assertions.assertThrows(
+                        java.io.IOException.class,
+                        () ->
+                                new Neo4jSourceFactory()
+                                        .inferSchemaForDryRun(
+                                                new TableSourceFactoryContext(
+                                                        ReadonlyConfig.fromMap(options),
+                                                        getClass().getClassLoader())));
+        Assertions.assertFalse(failure.getMessage().contains("private-secret"));
+        Assertions.assertNull(failure.getCause());
     }
 
     private static Map<String, Object> sourceConnectionConfig() {

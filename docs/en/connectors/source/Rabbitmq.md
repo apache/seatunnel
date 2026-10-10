@@ -30,6 +30,19 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 
 :::
 
+## Connectivity dry-run
+
+Run `bin/seatunnel.sh --config <your-job.conf> --dry-run connect` with your own job configuration.
+
+This source supports connection/authentication and existing-queue metadata checks. It uses the same URI precedence, virtual host, TLS configuration and configured single-table or `tables_configs` schemas as the normal source, without creating a reader.
+
+- Each configured queue is checked with a passive declaration. No queue is created or deleted, no consumer is registered, and no message is read, acknowledged or published.
+- Queues must already exist, even when `passive = false`. A normal job may create a missing queue, but this dry-run deliberately cannot. Exclusive queues owned by another connection cannot be checked.
+- A successful check does **not** prove consumer/read permissions, queue declaration compatibility, payload format/schema compatibility, or runtime delivery guarantees. Passive declarations may refresh a queue's expiration timer.
+- Socket connection, AMQP handshake and channel RPC waits are capped at 10 seconds each; a smaller positive `connection_timeout` is retained. Zero is bounded for this preflight. Queue checks are sequential, so this is not a 10-second limit for the entire command. DNS resolution follows the JVM resolver.
+- Automatic/topology recovery is disabled only on the temporary connection. Cleanup aborts that connection with a one-second wait limit, including after failure. Normal source settings and behavior are unchanged.
+- Validation errors do not include raw connection strings, broker text or secret-bearing exception causes. Sink connectivity remains unsupported.
+
 ## Options
 
 | name                       | type    | required | default value |
@@ -46,6 +59,8 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | protobuf_schema            | string  | no       | -             |
 | protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
@@ -62,6 +77,7 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -88,6 +104,16 @@ the password to use when connecting to the broker
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
 
 ### queue_name [string]
 
@@ -186,6 +212,11 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for consumer accounts without queue-declaration permission.
+
 ## Migration Guide & Configuration Rules
 
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
@@ -197,6 +228,8 @@ If you are upgrading from a previous version that only supported single-table re
 - In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
 - When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
 - If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
 - `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
 ## Example

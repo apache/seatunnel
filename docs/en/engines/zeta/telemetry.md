@@ -150,6 +150,14 @@ These metrics are exported by the active master only; scraping a worker node's e
 
 ### Report Metrics Operation
 
+Metrics snapshot writes and deletions attempt at most 10 conditional updates per bucket. If contention
+persists, the operation fails with `Failed to update metrics partition ... after 10 concurrent
+modifications`. A failed worker report is logged and counted in
+`report_metrics_operation_total{result="failure"}`; subsequent scheduled reports can retry while
+the task context is retained. Pending pipeline cleanup retains its record when metrics deletion
+fails. This limit bounds conflict retries, not network latency: individual Hazelcast invocations
+still use their configured timeouts. The metrics format and checkpoint/savepoint state are unchanged.
+
 | MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
 |---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
 | report_metrics_operation_total                    | Counter | **address**, worker instance address,for example: "127.0.0.1:5801". **result**, one of "success" "failure" "interrupted" | The total number of `ReportMetricsOperation` invocations sent by a worker                                       |
@@ -207,7 +215,7 @@ This metric is exported by the active master only. It reports only an aggregate 
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**,including: "Code Cache" "PS Eden Space" "PS Old Ge" "PS Survivor Space" "Compressed Class Space" "Metaspace"                                 | Total bytes allocated in a given JVM memory pool. Only updated after GC, not continuously              |
 | jvm_gc_collection_seconds_count            | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
-| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "1.8.0_212-b10" | VM version info                                                                                        |
+| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "11.0.22+7"    | VM version info                                                                                        |
 | process_cpu_seconds_total                  | Counter | -                                                                                                                                                     | Total user and system CPU time spent in seconds                                                        |
 | process_start_time_seconds                 | Gauge   | -                                                                                                                                                     | Start time of the process since unix epoch in seconds                                                  |
 | process_open_fds                           | Gauge   | -                                                                                                                                                     | Number of open file descriptors                                                                        |

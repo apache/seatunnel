@@ -94,6 +94,13 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         synchronized (output.getCheckpointLock()) {
             internalPollNext(output);
         }
+        // Wait out the poll interval only after the checkpoint lock is
+        // released. Sleeping while holding it kept the checkpoint barrier
+        // out for the whole interval, so a streaming job's checkpoint expired.
+        if (!Boundedness.BOUNDED.equals(context.getBoundedness())
+                && httpParameter.getPollIntervalMillis() > 0) {
+            Thread.sleep(httpParameter.getPollIntervalMillis());
+        }
     }
 
     @Override
@@ -105,10 +112,6 @@ public class PrometheusSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
-            } else {
-                if (httpParameter.getPollIntervalMillis() > 0) {
-                    Thread.sleep(httpParameter.getPollIntervalMillis());
-                }
             }
         }
     }

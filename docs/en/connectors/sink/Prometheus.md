@@ -50,7 +50,7 @@ downloaded from Maven Central.
 | key_value                   | String | Yes      | -       | Name of the upstream field that contains the Prometheus sample value. A `double` field is recommended. |
 | key_timestamp               | String | No       | -       | Name of the upstream field that contains the Prometheus sample timestamp. If omitted, the sink uses the current system time. |
 | headers                     | Map    | No       | -       | HTTP request headers. |
-| retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
+| retry                       | Int    | No       | 3       | Maximum retry attempts for a failed remote-write request. Retries transport `IOException`s and retryable HTTP statuses (`5xx` and `429`); other `4xx` responses fail fast. Set to `0` to disable retries. |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
 | batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
@@ -113,20 +113,24 @@ expected; tune `sink.flush.interval` and the checkpoint interval together if req
 ### Checkpoint Flush and Failure Handling
 
 The checkpoint flush is a single remote-write request, and a failed flush fails the checkpoint rather
-than dropping the batch. Two consequences are worth knowing:
+than dropping the batch. The sink retries transient failures before giving up, and tolerates the
+replay case:
 
-- **Transient failures fail the checkpoint.** A network blip, a receiver restart, or a `5xx` response
-  fails the current checkpoint. On Flink the default `tolerableCheckpointFailureNumber` is `0`, so a
-  single failure restarts the job; on Spark and Flink you may want to raise the engine's tolerable
-  checkpoint failure setting for a low-throughput job. A bounded retry with backoff inside the flush
-  is tracked as a follow-up in [#11911](https://github.com/apache/seatunnel/issues/11911).
-- **Replay safety depends on the receiver.** After a failed checkpoint the job restarts and the source
-  replays from the last successful checkpoint, so the buffered samples are re-sent. This is safe only
-  when the remote-write receiver accepts an exact duplicate (same labels, timestamp, and value). A
-  receiver that rejects a same-timestamp sample with a different value, or an out-of-order sample
-  (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for these), can fail
-  the replayed flush and keep failing the checkpoint. Enable the receiver's out-of-order window, or
-  ensure replays are exact duplicates, if this matters for your deployment.
+- **Transient failures are retried.** A transport error (connection refused, reset, timeout) or a
+  retryable HTTP status (`5xx` or `429`) is retried up to `retry` times with exponential backoff
+  (`retry_backoff_multiplier_ms`, capped at `retry_backoff_max_ms`); only once the retries are
+  exhausted does the flush fail the checkpoint. Other `4xx` responses are not retryable and fail fast.
+  On Flink the default `tolerableCheckpointFailureNumber` is `0`, so an exhausted-retry failure
+  restarts the job; for a low-throughput job on Spark or Flink you may also want to raise that engine
+  setting.
+- **Replay after a failed checkpoint is tolerated.** After a failed checkpoint the job restarts and
+  the source replays from the last successful checkpoint, so the buffered samples are re-sent. If the
+  remote-write receiver rejects a re-sent sample as a duplicate (same labels and timestamp) or as
+  out-of-order (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for
+  these), the sink treats that `400` as delivered rather than failing, so a replay does not loop the
+  job. The delivery guarantee remains at-least-once. This is a best-effort match on receiver-specific
+  error wording; a receiver that returns `400` with different wording is not recognized and the flush
+  fails as with any other `4xx`, and each tolerated rejection is logged at `WARN`.
 
 ## Example
 

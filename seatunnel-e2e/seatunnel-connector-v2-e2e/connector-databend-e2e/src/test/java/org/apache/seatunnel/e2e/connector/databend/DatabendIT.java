@@ -235,7 +235,13 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.minioContainer =
-                new GenericContainer<>("minio/minio:latest")
+                // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
+                // pulls; use a public mirror of MinIO RELEASE.2025-04-22T22-12-26Z instead.
+                // Pinned to the same release used by the other MinIO containers in this test
+                // suite instead of :latest, so an upstream MinIO release can't silently change
+                // this test's behavior underneath it.
+                new GenericContainer<>(
+                                "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
@@ -248,13 +254,14 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
 
         this.minioContainer.start();
 
-        LOG.info("MinIO container starting，wait 5 secs ...");
-        Thread.sleep(5000);
-
-        boolean bucketCreated = createMinIOBucketWithAWSSDK("databend");
-        if (!bucketCreated) {
-            LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
-        }
+        // The bucket must exist before Databend boots against it; retry the
+        // creation until it succeeds instead of a fixed sleep followed by a
+        // single attempt that can silently miss a slow MinIO startup.
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, java.util.concurrent.TimeUnit.SECONDS)
+                .pollInterval(2, java.util.concurrent.TimeUnit.SECONDS)
+                .until(() -> createMinIOBucketWithAWSSDK("databend"));
         this.container =
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)

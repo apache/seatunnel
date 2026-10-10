@@ -29,10 +29,6 @@ import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 public class CassandraClient {
     public static CqlSessionBuilder getCqlSessionBuilder(
@@ -41,33 +37,17 @@ public class CassandraClient {
             String username,
             String password,
             String dataCenter) {
-        List<CqlSessionBuilder> cqlSessionBuilderList =
-                Arrays.stream(nodeAddress.split(","))
-                        .map(
-                                address -> {
-                                    String[] nodeAndPort = address.split(":", 2);
-                                    if (StringUtils.isEmpty(username)
-                                            && StringUtils.isEmpty(password)) {
-                                        return CqlSession.builder()
-                                                .addContactPoint(
-                                                        new InetSocketAddress(
-                                                                nodeAndPort[0],
-                                                                Integer.parseInt(nodeAndPort[1])))
-                                                .withKeyspace(keyspace)
-                                                .withLocalDatacenter(dataCenter);
-                                    }
-                                    return CqlSession.builder()
-                                            .addContactPoint(
-                                                    new InetSocketAddress(
-                                                            nodeAndPort[0],
-                                                            Integer.parseInt(nodeAndPort[1])))
-                                            .withAuthCredentials(username, password)
-                                            .withKeyspace(keyspace)
-                                            .withLocalDatacenter(dataCenter);
-                                })
-                        .collect(Collectors.toList());
-        return cqlSessionBuilderList.get(
-                ThreadLocalRandom.current().nextInt(cqlSessionBuilderList.size()));
+        CqlSessionBuilder builder =
+                CqlSession.builder().withKeyspace(keyspace).withLocalDatacenter(dataCenter);
+        for (String address : nodeAddress.split(",")) {
+            String[] nodeAndPort = address.split(":", 2);
+            builder.addContactPoint(
+                    new InetSocketAddress(nodeAndPort[0], Integer.parseInt(nodeAndPort[1])));
+        }
+        if (!StringUtils.isEmpty(username) || !StringUtils.isEmpty(password)) {
+            builder.withAuthCredentials(username, password);
+        }
+        return builder;
     }
 
     public static SimpleStatement createSimpleStatement(

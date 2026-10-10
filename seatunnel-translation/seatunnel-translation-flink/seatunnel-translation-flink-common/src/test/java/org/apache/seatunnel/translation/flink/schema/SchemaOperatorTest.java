@@ -75,17 +75,7 @@ public class SchemaOperatorTest {
 
     @Test
     void testRestoreSchemaEventIsAlwaysSupported() throws Exception {
-        CatalogTable restoredTable =
-                CatalogTable.of(
-                        TableIdentifier.of("catalog", "database", "table"),
-                        TableSchema.builder()
-                                .column(
-                                        PhysicalColumn.of(
-                                                "id", BasicType.LONG_TYPE, 20L, false, null, null))
-                                .build(),
-                        Collections.emptyMap(),
-                        Collections.emptyList(),
-                        null);
+        CatalogTable restoredTable = createRestoredTable("table");
 
         OperatorTestContext context =
                 createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
@@ -95,6 +85,46 @@ public class SchemaOperatorTest {
 
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(1, getPendingQueue(context.operator).size());
+    }
+
+    @Test
+    void testRestoreSchemaEventsWithSameTimestampAreBothProcessed() throws Exception {
+        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+        Mockito.when(
+                        coordinator.requestSchemaChange(
+                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(true);
+
+        OperatorTestContext context =
+                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
+        setField(context.operator, "coordinator", coordinator);
+
+        RestoreTableSchemaEvent firstEvent =
+                new RestoreTableSchemaEvent(createRestoredTable("first_table"));
+        RestoreTableSchemaEvent secondEvent =
+                new RestoreTableSchemaEvent(createRestoredTable("second_table"));
+        long sharedTimestamp = firstEvent.getCreatedTime();
+        setField(secondEvent, "createdTime", sharedTimestamp);
+
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(firstEvent), sharedTimestamp));
+        context.operator.processElement(
+                new StreamRecord<>(createSchemaRow(secondEvent), sharedTimestamp));
+
+        context.operator.notifyCheckpointComplete(10L);
+        context.operator.notifyCheckpointComplete(11L);
+        context.operator.notifyCheckpointComplete(12L);
+        context.operator.notifyCheckpointComplete(13L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), firstEvent);
+        assertSchemaBroadcast(context.output.records.get(1), secondEvent);
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        Mockito.verify(coordinator)
+                .requestSchemaChange(firstEvent.tableIdentifier(), sharedTimestamp, 300_000L);
+        Mockito.verify(coordinator)
+                .requestSchemaChange(secondEvent.tableIdentifier(), sharedTimestamp, 300_000L);
     }
 
     @Test
@@ -361,6 +391,19 @@ public class SchemaOperatorTest {
         return AlterTableAddColumnEvent.add(
                 TableIdentifier.of("catalog", "database", "table"),
                 PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+    }
+
+    private static CatalogTable createRestoredTable(String tableName) {
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "database", tableName),
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.LONG_TYPE, 20L, false, null, null))
+                        .build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
     }
 
     private static SeaTunnelRow createSchemaRow(SchemaChangeEvent event) {

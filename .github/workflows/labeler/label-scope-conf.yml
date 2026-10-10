@@ -187,6 +187,13 @@ google-ads:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-ads/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-ads)/**'
+google-analytics4:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-google-analytics4/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-google-analytics4-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-analytics4)/**'
 google-firestore:
   - all:
       - changed-files:
@@ -209,6 +216,11 @@ azure-queue-storage:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-queue-storage/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-queue-storage)/**'
+azure-event-hubs:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-event-hubs/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-event-hubs)/**'
 google-sheets:
   - all:
       - changed-files:
@@ -232,7 +244,9 @@ hive:
 http:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-http/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-http/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-paypal-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
 prometheus:
   - all:
@@ -356,6 +370,13 @@ socket:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-socket/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(socket)/**'
+syslog:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-syslog/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-syslog-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(syslog)/**'
 starrocks:
   - all:
       - changed-files:
@@ -442,3 +463,12 @@ firebase:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
+websocket:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-websocket/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-websocket-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(websocket)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(websocket)-e2e/**'
