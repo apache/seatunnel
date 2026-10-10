@@ -1357,7 +1357,7 @@ For more information about customize encryption, please refer to the documentati
 
 #### update node tags
 ##### Body
-`/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
+`/update-tags` keeps the legacy flat `Map` contract: every top-level key is a tag name and every value is that tag's value. Tag values must be strings; the server stores every value as a string, so nested objects are not a supported value type. No key is reserved, so a key literally named `uuid` or `tags` is stored as an ordinary tag instead of being read as a target member or a nested tag map. The request always applies to the REST node that serves it; to target a specific node, send the request to that node's own REST address.
 
 ```json
 {

@@ -1332,7 +1332,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 #### 更新节点tags
 ##### 请求体
-`/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
+`/update-tags` 保留旧版扁平 `Map` 契约：每个顶层 key 都是 tag 名，对应的 value 就是该 tag 的值。tag 值必须是字符串；服务端会把每个值按字符串存储，不支持嵌套对象作为值。该接口不保留任何特殊 key，因此名为 `uuid` 或 `tags` 的 key 也只会作为普通 tag 存储，不会被解释为目标成员或嵌套的 tag map。请求始终作用于响应该请求的 REST 节点；如需更新指定节点，请把请求发送到该节点自己的 REST 地址。
 
 ```json
 {

@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
 /** Integration test for basic authentication in SeaTunnel Engine. */
@@ -157,6 +158,61 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                                 + RestConstant.REST_URL_OVERVIEW)
                 .then()
                 .statusCode(401);
+    }
+
+    /**
+     * The Web UI operation endpoints added for tag management and HTTP service status must sit
+     * behind the same basic-auth filter as every pre-existing servlet: one mutates member state and
+     * the other discloses the node's security posture.
+     */
+    @Test
+    public void testOperationEndpointsRequireCredentials() {
+        String base = HTTP + server.getHost() + COLON + server.getMappedPort(8080);
+
+        given().get(base + RestConstant.REST_URL_HTTP_SERVICE_STATUS).then().statusCode(401);
+        given().contentType(ContentType.JSON)
+                .body(
+                        "{\"uuid\": \"00000000-0000-0000-0000-000000000000\", \"tags\": {\"zone\": \"x\"}}")
+                .post(base + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(401);
+        given().contentType(ContentType.JSON)
+                .body("{\"zone\": \"x\"}")
+                .post(base + RestConstant.REST_URL_UPDATE_TAGS)
+                .then()
+                .statusCode(401);
+    }
+
+    /**
+     * With valid credentials the status endpoint reports the enforced basic auth, and the tag
+     * endpoint reaches its own validation (a foreign UUID is rejected by the servlet, not by the
+     * filter), which proves the request passed the shared auth chain.
+     */
+    @Test
+    public void testOperationEndpointsWithCorrectCredentials() {
+        String credentials = USERNAME + ":" + PASSWORD;
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+        String base = HTTP + server.getHost() + COLON + server.getMappedPort(8080);
+
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .get(base + RestConstant.REST_URL_HTTP_SERVICE_STATUS)
+                .then()
+                .statusCode(200)
+                .body("httpEnabled", equalTo(true))
+                .body("basicAuthEnabled", equalTo(true))
+                .body("mutualTlsEnabled", equalTo(false));
+        given().header(BASIC_AUTH_HEADER, BASIC_AUTH_PREFIX + encodedCredentials)
+                .contentType(ContentType.JSON)
+                .body(
+                        "{\"uuid\": \"00000000-0000-0000-0000-000000000000\", \"tags\": {\"zone\": \"x\"}}")
+                .post(base + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(400)
+                .body("status", equalTo("fail"))
+                .body(
+                        "message",
+                        equalTo(
+                                "Target member uuid must match the REST node serving this request."));
     }
 
     /** Test submitting a job via REST API with correct credentials. */
