@@ -55,9 +55,10 @@ cd seatunnel-cli
 
 # Quick setup (installs all providers + dev tools)
 bash setup.sh
+source .venv/bin/activate
 ```
 
-Then configure your LLM provider:
+The setup script installs into `seatunnel-cli/.venv` and reuses that environment on later runs. Activate it before using `seatunnel`, or call `.venv/bin/seatunnel` directly. It does not install packages into the system Python. Then configure your LLM provider:
 
 ```bash
 seatunnel --init
@@ -311,6 +312,10 @@ Options:
 | `/help` | Show help panel |
 | `/quit` | Exit |
 
+Sessions are listed and automatically resumed by their last activity time. Continuing an older session makes it the most recent session; unreadable session files are skipped.
+
+`/new`, `/clear`, and a successful `/resume` discard any unanswered clarification from the previous session. The next request uses the selected session only.
+
 ## Examples
 
 ### MySQL to S3 (Batch)
@@ -437,6 +442,8 @@ Transform metadata is resolved through the same path as source and sink metadata
 ### Memory System
 
 The CLI remembers facts across sessions to improve config accuracy:
+
+Conversation summaries use the same credential redaction as saved history: recognized secrets are removed before the summary request and before the summary is saved.
 
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.

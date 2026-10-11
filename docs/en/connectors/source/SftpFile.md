@@ -32,6 +32,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] markdown
   - [x] pdf
 
+SftpFile is a bounded source. When `discovery_mode = once` (the default) the connector enumerates files once and
+finishes; use `discovery_mode = continuous` together with `sync_mode = update` to keep the job running and stream
+new/changed files into the sink.
+
 ## Description
 
 Read data from sftp file server.
@@ -98,6 +102,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | time_format                | String  | No       | HH:mm:ss                      | Time type format, used to tell connector how to convert string to time, supported as the following formats: <br/> `HH:mm:ss` `HH:mm:ss.SSS` <br/> default `HH:mm:ss`                                                                                                                                                                                                            |
 | skip_header_row_number     | Long    | No       | 0                             | Skip the first few lines, but only for the txt and csv. <br/> For example, set like following: <br/> `skip_header_row_number = 2` <br/> then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                            |
 | read_columns               | list    | no       | -                             | The read column list of the data source, user can use it to implement field projection.                                                                                                                                                                                                                                                                                         |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                           |
 | excel_engine               | string  | no       | POI                           | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                                                            |
 | poi_excel_max_file_size    | long    | no       | 52428800                      | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                            |
@@ -106,8 +111,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | csv_use_header_line        | boolean | no       | false                         | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                             |
 | schema                     | Config  | No       | -                             | Please check #schema below                                                                                                                                                                                                                                                                                                                                                      |
 | compress_codec             | String  | No       | None                          | The compress codec of files and the details that supported as the following shown: <br/> - txt: `lzo` `None` <br/> - json: `lzo` `None` <br/> - csv: `lzo` `None` <br/> - orc: `lzo` `snappy` `lz4` `zlib` `None` <br/> - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `None` <br/> Tips: excel type does Not support any compression format                            |
-| archive_compress_codec     | string  | no       | none                          |                                                                                                                                                                                                                                                                                                                                                                                 |
-| encoding                   | string  | no       | UTF-8                         |                                                                                                                                                                                                                                                                                                                                                                                 |
+| archive_compress_codec     | string  | no       | none                          | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
+| encoding                   | string  | no       | UTF-8                         | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`. |
 | null_format                | string  | no       | -                             | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                              |
 | binary_chunk_size          | int     | no       | 1024                          | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                |
 | binary_complete_file_mode  | boolean | no       | false                         | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                      |
@@ -560,6 +565,101 @@ sink {
   }
 }
 ```
+
+### Recursive scan over text files
+
+Set `recursive_file_scan = true` to enumerate files in subdirectories of `path`. The example below reads text files
+under a nested directory and uses an explicit schema so each row maps to typed SeaTunnel columns.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### Public key authentication
+
+When the SFTP server is configured for SSH key authentication, supply the private key path through `keyfile` and omit
+`password`. The connector uses the JSCH library internally, so `keyfile` follows the OpenSSH private-key format and
+must be readable by the engine process.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+`password` and `keyfile` are both loaded into the SSH session when configured. The connector uses the JSCH library,
+whose default authentication order tries `publickey` (via `keyfile`) before `password`. To avoid surprises during
+authentication failures, prefer setting only one of them. The engine process must have permission to read `keyfile`;
+if the key file is passphrase-protected, configure the SSH agent or decrypt it before the job starts.
 ### Multiple Table
 
 ```hocon

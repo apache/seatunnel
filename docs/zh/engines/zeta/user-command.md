@@ -66,6 +66,9 @@ Usage: seatunnel.sh [options]
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
+未使用 `--async` 时，客户端会等待作业的最终结果。如果作业在任务启动或自动恢复期间持续失败，例如
+Paimon source 缺少 `SELECT` 权限，达到配置的重试上限后，作业会返回 `FAILED`，客户端以非零状态退出。
+
 **--async** 参数可以让作业在后台运行，当作业提交后，客户端会退出。
 
 ```shell
@@ -97,7 +100,13 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | 连接器 | Source | Sink |
 |--------|--------|------|
 | Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
+| Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 支持（[元数据 + 本地序列化检查](../../connectors/sink/Kafka.md#连通性-dry-run)；动态主题仅执行有限检查，不检查 Produce/事务权限） |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
+| MongoDB | 不支持 | 支持（[连通性 + 配置的认证](../../connectors/sink/MongoDB.md#连通性-dry-run)，不检查集合、schema、写入权限或事务） |
+| Neo4j | 支持（[驱动连通性 + 配置 schema，不含数据库/查询校验](../../connectors/source/Neo4j.md#连接预检查)） | 不支持 |
+| RabbitMQ | 支持（[已有队列元数据 + 配置 schema，不含消费权限](../../connectors/source/Rabbitmq.md#连接预检查)） | 不支持 |
+| S3File | 支持（元数据连通性 + 内联 schema，仅单表 text/csv/json/xml；参见[支持范围](../../connectors/source/S3File.md#连接预检查)） | - |
+| Redis | 支持（[连通性 + 认证](../../connectors/source/Redis.md#连通性-dry-run) + 配置的 schema，不访问 key） | 支持（[连通性 + 认证](../../connectors/sink/Redis.md#连通性-dry-run)，不校验字段兼容性和写入权限） |
 
 作业中的每个插件都会在校验汇总中报告以下两种状态之一：
 

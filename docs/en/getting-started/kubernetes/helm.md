@@ -91,6 +91,14 @@ curl http://127.0.0.1:8080/system-monitoring-information
 
 After that, submit jobs through [REST API V2](../../engines/zeta/rest-api-v2.md).
 
+> **Note:** The Helm chart disables the deprecated Zeta REST API v1 on the Hazelcast member port
+> (5801) by default (`hazelcast.network.rest-api.enabled: false`), matching the standalone
+> `config/hazelcast.yaml`. Use REST API v2 on port 8080, the interface shown above. For the same
+> reason the default Prometheus pod annotations scrape metrics from `8080/metrics`. If you must use
+> REST API v1, set `rest-api.enabled: true` in a custom ConfigMap and restrict port 5801 with a
+> `NetworkPolicy`. A `helm upgrade` updates the ConfigMap, but running pods keep the old
+> configuration until they are restarted.
+
 ## What's More
 
 For now, you have taken a quick look at SeaTunnel. See the connector documentation to find all supported sources and sinks.

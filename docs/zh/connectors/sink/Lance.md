@@ -62,9 +62,13 @@ Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上
 
 Lance 数据的目录或数据集路径。使用本地目录模式时，请确保 SeaTunnel 运行环境有权限创建并写入该路径。
 
+显式配置时，该值不能为空字符串或仅包含空白字符。省略时仍使用默认值 `/test.lance`。
+
 ### namespace_type
 
 Lance namespace 类型。当前连接器支持 `dir`。
+
+显式配置时，该值不能为空字符串或仅包含空白字符。省略时仍使用默认值 `dir`。
 
 ### namespace_id
 

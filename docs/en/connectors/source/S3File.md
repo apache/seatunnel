@@ -41,6 +41,46 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 Read data from aws s3 file system.
 
+### Connectivity dry-run
+
+`--dry-run connect` can check a single S3A source before submitting a job. The
+source must use `bucket = "s3a://your-bucket"`, an absolute `path`, an explicit
+inline `schema.fields` or `schema.columns`, and `file_format_type` of `text`,
+`csv`, `json`, or `xml`. Set `parse_partition_from_path = false` and omit
+`read_columns`; file-derived schemas, projection, and partition inference are
+not validated by this metadata-only check. Unsupported configurations fail the
+connect dry-run with an explanation; normal job execution is unchanged.
+
+The check reuses Hadoop S3A endpoint, credential-chain, proxy and path-style
+configuration. It checks object metadata with HEAD, or makes one prefix listing
+with `maxKeys=1` and delimiter `/`. It does not open file contents, recursively
+list files, create readers, upload, delete, or initialize a shared filesystem.
+An exact object does not require listing permission. A prefix requires listing
+permission; a successful empty listing is accepted for `discovery_mode =
+"continuous"`, since files may arrive later. For a batch source, an empty
+virtual prefix without a directory marker fails; an accessible empty bucket
+root is accepted. Missing buckets and denied requests fail in both modes.
+
+Validation-only connection establishment and socket timeouts are capped at
+5 seconds, preserving smaller positive values. SDK request retries are disabled
+for validation, including bucket-specific overrides. These are network timeout
+settings, not a total deadline for DNS, credential-provider initialization, or
+SDK setup. Runtime timeouts and retries are unchanged.
+
+This initial check does not support `tables_configs`, legacy `s3n` buckets,
+SSE-C customer-provided encryption keys, `fs.s3a.security.credential.provider.path`,
+S3Guard, multipart purge, or custom S3 client factories. It does not prove object
+content readability, file-format correctness, schema compatibility with the
+stored data, worker-side credentials, or target/update/post-sync permissions.
+
+Save your job configuration meeting the requirements above as
+`config/s3-to-console.conf` (this is a user-created file, not a bundled template),
+then run from the SeaTunnel installation directory:
+
+```bash
+bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
+```
+
 ## Supported DataSource Info
 
 | Datasource | Supported versions |
@@ -198,6 +238,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                        |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | secret_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | hadoop_s3_properties            | map     | no       | -                                                     | If you need to add other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                                                                                                                                                                                                                                              |
@@ -215,7 +256,6 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | poi_excel_max_file_size         | long    | no       | 52428800                                              | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                                                       |
 | xml_row_tag                     | string  | no       | -                                                     | Specifies the tag name of the data rows within the XML file, only valid for XML files.                                                                                                                                                                                                                                                                                                                     |
 | xml_use_attr_format             | boolean | no       | -                                                     | Specifies whether to process data using the tag attribute format, only valid for XML files.                                                                                                                                                                                                                                                                                                                |
-| csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                                                        |
 | compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | enable_file_split               | boolean | no       | false                                                 | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
@@ -240,6 +280,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | retention_check_interval        | string  | no       | 1H                                                    | Retention scan interval when backup retention is configured.                                                                                                                                                                                                                                                                                 |
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
 | filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
+| file_filter_modified_start | string | no | - | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
 | quote_char                      | string  | no       | "                                                     | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                                                     |
 | escape_char                     | string  | no       | -                                                     | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                                                |

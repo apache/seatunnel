@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -479,6 +480,18 @@ public class BigQueryCatalog implements Catalog {
     }
 
     private SeaTunnelDataType<?> mapToSeaTunnelType(Field field) {
+        SeaTunnelDataType<?> elementType = mapToSeaTunnelScalarType(field);
+        // BigQuery represents an array as a REPEATED field of the element's standard type
+        // rather than a distinct type name; without this check a REPEATED field round-trips
+        // as its bare element type and breaks schema-coherence comparisons against a source
+        // ARRAY column (see BigQuerySaveModeHandler#isTypeCompatible).
+        if (Field.Mode.REPEATED.equals(field.getMode())) {
+            return ArrayType.of(elementType);
+        }
+        return elementType;
+    }
+
+    private SeaTunnelDataType<?> mapToSeaTunnelScalarType(Field field) {
         StandardSQLTypeName standardType = field.getType().getStandardType();
         switch (standardType) {
             case BOOL:

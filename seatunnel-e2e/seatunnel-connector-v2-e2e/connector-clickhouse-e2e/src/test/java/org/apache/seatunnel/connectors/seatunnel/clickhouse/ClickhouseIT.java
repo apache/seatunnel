@@ -92,6 +92,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "source_table";
     private static final String SOURCE_MERGE_TREE_TABLE = "source_merge_tree_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final String SPECIAL_COLUMN_SOURCE_TABLE = "special_column_source_table";
+    private static final String SPECIAL_COLUMN_SINK_TABLE = "special_column_sink_table";
     private static final List<String> MULTI_SINK_TABLES =
             Arrays.asList("multi_sink_table1", "multi_sink_table2");
     private static final List<String> MULTI_SOURCE_SINK_TABLES =
@@ -121,6 +123,18 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     public void testSourceParallelism(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/clickhouse_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testClickhouseSinkWithSpecialCharactersInColumnNames(TestContainer container)
+            throws Exception {
+        initializeClickhouseSpecialColumnTable();
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_special_columns_to_clickhouse.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertSpecialColumnTableRows();
+        dropTable(DATABASE + "." + SPECIAL_COLUMN_SOURCE_TABLE);
+        dropTable(DATABASE + "." + SPECIAL_COLUMN_SINK_TABLE);
     }
 
     @TestTemplate
@@ -526,6 +540,71 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void initializeClickhouseSpecialColumnTable() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String createSourceTable =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `id`           Int64,\n"
+                                    + "    `GLREG`        String,\n"
+                                    + "    `GLREG#`       String,\n"
+                                    + "    `MY COL`       String,\n"
+                                    + "    `COL-1`        String\n"
+                                    + ")engine=MergeTree ORDER BY(id)",
+                            DATABASE, SPECIAL_COLUMN_SOURCE_TABLE);
+            String createSinkTable =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `id`           Int64,\n"
+                                    + "    `GLREG`        String,\n"
+                                    + "    `GLREG#`       String,\n"
+                                    + "    `MY COL`       String,\n"
+                                    + "    `COL-1`        String\n"
+                                    + ")engine=MergeTree ORDER BY(id)",
+                            DATABASE, SPECIAL_COLUMN_SINK_TABLE);
+            statement.execute(createSourceTable);
+            statement.execute(createSinkTable);
+            statement.execute(
+                    String.format(
+                            "insert into %s.%s (`id`, `GLREG`, `GLREG#`, `MY COL`, `COL-1`)"
+                                    + " values (1, 'normal', 'hash', 'space', 'dash'),"
+                                    + " (2, 'row2', 'row2#', 'row2 col', 'row2-1'),"
+                                    + " (3, 'row3', 'row3#', 'row3 col', 'row3-1')",
+                            DATABASE, SPECIAL_COLUMN_SOURCE_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void assertSpecialColumnTableRows() {
+        String expected =
+                "1,normal,hash,space,dash;"
+                        + "2,row2,row2#,row2 col,row2-1;"
+                        + "3,row3,row3#,row3 col,row3-1";
+        try (Statement statement = this.connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select `id`, `GLREG`, `GLREG#`, `MY COL`, `COL-1`"
+                                                + " from %s.%s order by `id`",
+                                        DATABASE, SPECIAL_COLUMN_SINK_TABLE))) {
+            StringBuilder actual = new StringBuilder();
+            while (resultSet.next()) {
+                if (actual.length() > 0) {
+                    actual.append(";");
+                }
+                actual.append(resultSet.getLong(1));
+                for (int i = 2; i <= 5; i++) {
+                    actual.append(",").append(resultSet.getString(i));
+                }
+            }
+            Assertions.assertEquals(expected, actual.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException("Querying Clickhouse table failed!", e);
         }
     }
 

@@ -33,13 +33,18 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
+    private static final int SPLIT_PROGRESS_LOG_INTERVAL = 50;
+
     private final Context context;
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
+    private final AtomicInteger assignedSplitCount = new AtomicInteger();
+    private final AtomicInteger processedSplitCount = new AtomicInteger();
 
     public JdbcSourceReader(
             Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
@@ -72,6 +77,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 } finally {
                     inputFormat.close();
                 }
+                int processedCount = processedSplitCount.incrementAndGet();
+                if (processedCount % SPLIT_PROGRESS_LOG_INTERVAL == 0) {
+                    log.info(
+                            "Processed {} of {} assigned jdbc source splits",
+                            processedCount,
+                            assignedSplitCount.get());
+                }
             } else if (noMoreSplit && splits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded jdbc source");
@@ -90,6 +102,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @Override
     public void addSplits(List<JdbcSourceSplit> splits) {
         this.splits.addAll(splits);
+        this.assignedSplitCount.addAndGet(splits.size());
     }
 
     @Override

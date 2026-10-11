@@ -89,7 +89,7 @@ minikube start --kubernetes-version=v1.23.3
 生产环境建议固定 SeaTunnel 镜像 tag，并将常用连接器、依赖和基础配置构建到镜像中，避免运行时下载依赖带来的不确定性。
 
 ```Dockerfile
-FROM seatunnelhub/openjdk:8u342
+FROM eclipse-temurin:11-jdk
 
 ARG SEATUNNEL_VERSION
 ENV SEATUNNEL_HOME="/opt/seatunnel"
