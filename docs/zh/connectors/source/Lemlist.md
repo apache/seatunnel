@@ -4,9 +4,25 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 
 > Lemlist 源连接器
 
+## 支持这些引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 Lemlist API 读取数据。连接器会把 `password` 当作 Lemlist API Key，通过 Basic 认证生成请求头，然后复用 HTTP Source 的能力解析返回结果。
+
+Lemlist 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求、重试和分页能力。把 `password` 配置为 Lemlist API Key，再把 `url` 指向要调用的 Lemlist 接口。
+
+## 支持的数据源信息
+
+使用 Lemlist 连接器需要安装下面的依赖。可以通过 install-plugin.sh 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源     | 支持版本 | 依赖                                                                                            |
+|------------|----------|-------------------------------------------------------------------------------------------------|
+| Lemlist    | 通用     | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)              |
 
 ## 关键特性
 
@@ -93,6 +109,8 @@ schema = {
 
 ## 示例
 
+### 批量读取 Lemlist 团队信息
+
 ```hocon
 env {
   parallelism = 1
@@ -127,6 +145,85 @@ source {
 sink {
   Console {
     plugin_input = "lemlist"
+  }
+}
+```
+
+### 使用页码分页读取
+
+部分 Lemlist 接口使用页码分页。配置 `pageing` 中的 `total_page_size` 和
+`batch_size`，连接器会持续请求下一页，直到达到配置的总页数或响应不再
+返回预期的数据条数。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Lemlist {
+    plugin_output = "lemlist_pages"
+    url = "https://api.lemlist.com/api/campaigns"
+    password = "replace-with-api-key"
+    method = "GET"
+    format = "json"
+    pageing = {
+      total_page_size = 5
+      batch_size = 20
+      page_field = "page"
+      page_type = "PageNumber"
+    }
+    schema = {
+      fields {
+        _id = string
+        name = string
+        createdAt = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "lemlist_pages"
+  }
+}
+```
+
+### 流模式下轮询读取
+
+对于数据随时间增长的 Lemlist 接口，使用 `STREAMING` 模式运行连接器，
+通过 `poll_interval_millis` 控制 SeaTunnel 重新发起请求的频率。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Lemlist {
+    plugin_output = "lemlist_stream"
+    url = "https://api.lemlist.com/api/activities"
+    password = "replace-with-api-key"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        _id = string
+        type = string
+        createdAt = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "lemlist_stream"
   }
 }
 ```
