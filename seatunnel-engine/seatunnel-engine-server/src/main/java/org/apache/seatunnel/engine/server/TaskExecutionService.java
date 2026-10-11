@@ -786,7 +786,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskGroupExecutionTracker executionTracker,
             Throwable deploymentFailure) {
         if (executionTracker != null) {
-            executionTracker.abortAfterFailedPublish(deploymentFailure);
+            // Isolate the abort step. cancelAllTask() only swallows CancellationException; any
+            // other throw must not skip the stale-entry removal below, which is the point of
+            // this rollback.
+            try {
+                executionTracker.abortAfterFailedPublish(deploymentFailure);
+            } catch (Throwable cleanupFailure) {
+                deploymentFailure.addSuppressed(cleanupFailure);
+                logger.severe(
+                        "Abort submitted tasks after post-publish deployment rollback failed",
+                        cleanupFailure);
+            }
             threadShareTaskQueue.removeIf(
                     tracker -> tracker.taskGroupExecutionTracker == executionTracker);
         }

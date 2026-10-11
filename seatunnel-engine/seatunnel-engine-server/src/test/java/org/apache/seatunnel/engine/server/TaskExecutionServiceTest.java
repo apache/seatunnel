@@ -1072,7 +1072,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     /**
      * A group of only blocking tasks whose deploy fails after the workers are already running must
-     * finish FAILED, not CANCELED.
+     * finish FAILED, not CANCELED. The workers stay blocked until rollback interrupts them, so
+     * taskDone cannot observe a clean completion before the failure is recorded.
      */
     @Test
     public void testAllBlockingDeployFailureAfterWorkersStartedCompletesAsFailed()
@@ -1132,10 +1133,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                             new ConcurrentHashMap<>(),
                                             () -> {},
                                             failure -> {}));
-            // deployLocalTask submits workers before setTasksContext and then blocks in that
-            // call. Wait until the worker is inside call() so taskDone can race the deploy failure.
+            // deployLocalTask submits workers before setTasksContext. Wait until both are inside
+            // call(), then let only the rollback's cancel(true) interrupt them. Releasing them
+            // from the test body can let taskDone observe a clean DONE before the failure is
+            // recorded and report FINISHED.
             assertTrue(enteredCall.await(10, TimeUnit.SECONDS));
-            releaseCall.countDown();
             TaskExecutionState result =
                     deployment.get(10, TimeUnit.SECONDS).get(10, TimeUnit.SECONDS);
             assertEquals(FAILED, result.getExecutionState());
