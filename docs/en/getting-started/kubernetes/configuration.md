@@ -196,6 +196,12 @@ This IMap stores checkpoint overview and history data used by REST APIs and UI o
 This override is optional. Use it when you want to avoid persisting observability-only data and reduce MapStore/WAL write amplification. Omit it if you want checkpoint monitor overview/history to use the same MapStore settings as other `engine*` IMaps.
 :::
 
+### Finished Job Metrics MapStore
+
+:::info Note
+The examples below also disable MapStore for `engine_finishedJobMetrics`, so after a full cluster restart the metrics of jobs that finished before the restart are not kept. Job recovery does not depend on this map. To keep these metrics, remove the `engine_finishedJobMetrics` entry: an exact map entry does not inherit any setting from `engine*`, so setting `enabled: true` in it does not work.
+:::
+
 ### HDFS
 
 ```yaml
@@ -212,6 +218,9 @@ hazelcast:
           clusterName: seatunnel-cluster
           storage.type: hdfs
           fs.defaultFS: hdfs://namenode:8020
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 ### S3 or Compatible Object Storage
@@ -237,6 +246,9 @@ hazelcast:
           fs.s3a.access.key: YOUR_ACCESS_KEY
           fs.s3a.secret.key: YOUR_SECRET_KEY
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 :::caution Warning
@@ -302,6 +314,9 @@ hazelcast:
           fs.oss.endpoint: https://oss-<region>.aliyuncs.com
           fs.oss.accessKeyId: YOUR_ACCESS_KEY_ID
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 If you do not want to render OSS credentials into the final ConfigMap, use Hadoop credential provider for `fs.oss.accessKeyId` and `fs.oss.accessKeySecret`, or set `fs.oss.credentials.provider` to a custom provider. The custom provider must implement the Aliyun OSS SDK `com.aliyun.oss.common.auth.CredentialsProvider` interface and must be available in the SeaTunnel image.
