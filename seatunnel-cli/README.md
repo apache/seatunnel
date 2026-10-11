@@ -276,6 +276,90 @@ seatunnel "从 Kafka 读取订单数据写入 ClickHouse" -o my_job.conf
 seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model gpt-4o
 ```
 
+### Diagnosing a Job
+
+`--diagnose` answers "why is this job not making progress?" from what the
+engine already publishes. It is read-only -- a `GET /job-info/<id>` and a
+`GET /jobs/checkpoints/<id>`, never a submit or a stop -- and uses no LLM at
+all, so it works with no API key and no provider configured:
+
+```bash
+seatunnel --diagnose 852362670771666945
+
+# Another host, or a cluster whose enable-dynamic-port moved the listener
+SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 852362670771666945
+```
+
+`/job-info` is part of the v2 REST API, which Zeta serves from its Jetty HTTP
+port -- `8080` in the packaged `config/seatunnel.yaml`. Point
+`SEATUNNEL_API_BASE` there if your cluster is elsewhere or uses another port.
+
+```
+Job 852362670771666945 mysql-to-doris — RUNNING
+  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
+            It is failing and being restored repeatedly, so the job looks alive while
+            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
+            since the last restore)
+```
+
+What it reports: the parsed error code and root cause of a failed job, a
+pipeline restarting in a loop (and whether it has used up its restore budget),
+a job that has sat in a pre-running state too long to be normal, and a running
+job whose source reads nothing or whose sink writes nothing. Exit status is
+non-zero only when the job itself is `FAILED`, so a stuck-but-live job does not
+look like a command failure.
+
+It also reports **why a job that used to be fast has got slower**, which the
+job state alone cannot explain: a job that is lagging is still `RUNNING` with
+both row counters moving. Checkpoint history supplies the missing comparison:
+
+```
+Job 852362670771666945 mysql-cdc-to-doris — RUNNING
+  [warning] Pipeline 1 checkpoints are getting slower: recently 48.0s against 4.0s
+            earlier in the retained history. (median durationMillis 4000 -> 48000 over 16 checkpoints)
+  [warning] Pipeline 1 now spends almost all its time checkpointing: a checkpoint takes
+            48.0s and one is triggered every 1m00s. (recent median duration 48000ms vs interval 60000ms)
+  [info]    Pipeline 1 checkpoint state is growing: recently 120.0MiB against 12.0MiB earlier.
+```
+
+A stalled checkpoint is also named down to the subtasks holding up the barrier
+(`3 of 8 subtasks have acknowledged it`), which points at one stage rather than
+at the job as a whole.
+
+The engine keeps the last 32 checkpoints per pipeline, so the trend covers that
+window rather than the whole run. The "spends its time checkpointing" rule
+needs no baseline and so still fires on a job that degraded earlier and has
+been slow since. If the cluster predates the checkpoint endpoint, or its
+monitor service is off, the rest of the diagnosis is printed unchanged, with
+one line noting that this part of the analysis did not run.
+
+Every rule is deliberately limited to what one response can prove, because a
+wrong hint costs more than a missing one:
+
+- `restoreCount` counts restores since submission, so what it means depends on
+  the pipeline's current state. A pipeline that is `FINISHED` or `CANCELED` is
+  over and says nothing; a `FAILED` one is reported only if it spent its whole
+  restore budget, in the past tense; one that is shutting down reports its
+  restores as history. A loop is only claimed when the pipeline is between
+  attempts, or has been running for less than 10 minutes since its last
+  restore — so a loop whose attempts each survive longer than that is reported
+  as history rather than as a live fault.
+- the row-count rules wait until the job has been RUNNING for two minutes, and
+  for a `job.mode = STREAMING` job an idle source is reported as a note rather
+  than a warning -- a quiet topic and a misconfigured one read the same here.
+- `DOING_SAVEPOINT` is reported as a duration, not as a hung task: a large
+  state legitimately takes minutes to write.
+- a checkpoint failure is only a warning while the **latest** failure is newer
+  than the latest completion. `counts.failed` is cumulative, so one expired
+  checkpoint would otherwise keep it above zero forever.
+- the stalled-checkpoint rule fires after 2 minutes in progress, which is above
+  the packaged `checkpoint.timeout` of 60s. On default settings a hung
+  checkpoint expires first and is reported as a failure instead, so this rule
+  matters on clusters that have raised that timeout.
+- durations are measured against the engine's own clock -- the job rules use
+  `diagnostics.generatedAt`, the checkpoint rules use `updatedAt` -- so a
+  client clock that disagrees with the cluster cannot invent a stuck job.
+
 ### CLI Arguments
 
 ```
@@ -289,6 +373,7 @@ Options:
   --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
+  --diagnose JOB_ID        Explain a job's current state and exit (read-only, no LLM)
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source
   -V, --version            Show version
   -h, --help               Show help message
