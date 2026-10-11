@@ -21,6 +21,29 @@
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
 
+### 用户变量(`-i` 参数)
+
+- **`-i` 参数值在 `System.getProperties()`中不可见**
+
+  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过 `System.getProperties()` 访问。
+
+- **`-i` 参数不再允许重复key**
+  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
+  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
+
+- **双引号包裹的 `-i` 值会被解包**
+  - 例如 `-i k="v"` 现在等价于 `-i k=v`（引号被剥掉）。双引号主要针对包含逗号(`,`),花括号(`{}`)和方括号(`[]`)等包含结构化定界符的字符串参数值使用，其他普通字符可不用双引号。
+
+- **不平衡的`{}`或`[]`会被部分解析成map和list**
+  - `-i k=[a,b],c]` 中`[a,b]`会当成数组解析，`c]` 因为没有 `=` 会被忽略（不会作为字符串保留）
+  - 以 `{` 或 `[` 开头、括号平衡但不是合法 HOCON/JSON 的参数值，现在会在解析阶段抛出 BadValue 错误。之前能正常工作的未加引号的值（如 `-i pattern={a,b} `）会因此失败。如需保留为普通字符串，请用转义双引号包裹：
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` key 和 value 现在会 trim，空 key 会被拒绝**
+  - `-i 'k1= , k2=v2'` 现在会明确将空格去掉，k1的会变为空字符串，第二个键值对的key会变为`k2`而不是带空格的` k2`。
+  - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
+  - 有意义的首尾空白会被静默去除。
+
 ### SQL TINYINT 数组模式
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
@@ -34,30 +57,6 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
-
-### User Variables
-### 用户变量(`-i` variables)
-
-- **`-i` 参数值在 `System.getProperties()`中不可见**
-
-  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过 `System.getProperties()` 访问。
-
-- **`-i` 参数不再允许重复key**
-  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
-  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
-
-- **双引号包裹的 `-i` 值会被解包**
-  - 例如 `-i k="v"` 现在等价于 `-i k=v`（引号被剥掉）。双引号主要针对包含逗号(`,`),花括号(`{}`)和方括号(`[]`)等包含结构化定界符的字符串参数值使用，其他普通字符可不用双引号。
-    
-- **不平衡的`{}`或`[]`会被部分解析成map和list**
-  - `-i k=[a,b],c]` 中`[a,b]`会当成数组解析，`c]` 因为没有 `=` 会被忽略（不会作为字符串保留）
-  - 以 `{` 或 `[` 开头、括号平衡但不是合法 JSON 的参数值，现在会在解析阶段抛出 BadValue 错误。之前能正常工作的未加引号的值（如 `-i pattern={a,b} `）会因此失败。如需保留为普通字符串，请用转义双引号包裹：
-    `-i pattern=\"{a,b}\"`
-  
-- **`-i` key 和 value 现在会 trim，空 key 会被拒绝**
-  - `-i 'k1= , k2=v2'` 现在会明确将空格去掉，k1的会变为空字符串，第二个键值对的key会变为`k2`而不是带空格的` k2`。
-  - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
-  - 有意义的首尾空白会被静默去除。
 
 ### Redis 认证
 
