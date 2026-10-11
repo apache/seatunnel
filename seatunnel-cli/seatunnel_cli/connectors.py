@@ -48,11 +48,21 @@ logger = logging.getLogger(__name__)
 
 # ─── Runtime API client ───
 
-# Default REST API base — SeaTunnel engine HTTP port.
-# In cluster mode (seatunnel-server.sh): REST API on port 5801 by default.
+# Default REST API base — the engine's Jetty HTTP port, 8080.
+#
+# Not 5801. Every endpoint this CLI calls (/running-jobs, /option-rules,
+# /submit-job, /job-info) is registered as a Jetty servlet in JettyService and
+# served on `seatunnel.engine.http.port`, which is 8080 both as the code
+# default and in the packaged config/seatunnel.yaml. Port 5801 is the
+# Hazelcast member port: there the same handlers answer only under
+# RestConstant.CONTEXT_PATH ("/hazelcast/rest/maps") and only when Hazelcast's
+# own REST API is enabled, which the packaged config does not do. A base URL
+# of localhost:5801 therefore returns 404 for every call the CLI makes.
+#
 # In local mode (-m local): REST API is NOT available.
-# Users can override with SEATUNNEL_API_BASE env var.
-_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:5801")
+# Users can override with SEATUNNEL_API_BASE env var — needed when
+# enable-dynamic-port moves the listener off 8080, or for a remote cluster.
+_ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:8080")
 _API_CACHE: dict[str, dict] = {}  # memory cache: "source:Jdbc" → parsed response
 _ENGINE_AVAILABLE: bool | None = None  # None = not checked yet
 _ENGINE_CHECK_TS: float = 0  # timestamp of last check — recheck after 60s

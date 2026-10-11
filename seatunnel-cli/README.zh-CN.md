@@ -192,7 +192,7 @@ apache-seatunnel-3.0.0/          <-- 自动检测为 SEATUNNEL_HOME
 如需实时连接器元数据和 REST API 作业提交，请启动 SeaTunnel 服务：
 
 ```bash
-export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
+export SEATUNNEL_API_BASE=http://localhost:8080  # 默认值：引擎的 Jetty HTTP 端口
 ```
 
 引擎运行时，CLI 以**集群模式**运行，支持实时连接器元数据、引擎级校验和通过 REST API 直接提交作业。引擎不可用时，回退到**离线模式**，使用内置的连接器元数据。
@@ -216,7 +216,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
-| `SEATUNNEL_API_BASE` | 否 | `http://localhost:5801` | SeaTunnel REST API 端点 |
+| `SEATUNNEL_API_BASE` | 否 | `http://localhost:8080` | SeaTunnel REST API 端点（引擎的 Jetty HTTP 端口，不是 5801 成员端口） |
 | `SEATUNNEL_CLI_DATA` | 否 | `<cli-package>/.data/` | 覆盖 CLI 数据目录（会话、记忆、配置） |
 
 ## 使用方法
