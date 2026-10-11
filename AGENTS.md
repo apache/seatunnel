@@ -99,6 +99,12 @@ public List<SourceSplit> enumerateSplits(SplitEnumerationContext context) {
 }
 ```
 
+### Test Classes
+
+* Do NOT create new test classes casually — extend the existing test class when the scenario belongs to it.
+* If the connector, transform, or engine area you change already has an IT (E2E) test, you MUST also add or update
+  that IT test in the same change.
+
 ### Apache License Header (MANDATORY)
 
 All **new files** MUST include the ASF license header:

@@ -58,7 +58,7 @@ HBase 的 zookeeper 集群主机，例如：“hadoop001:2181,hadoop002:2181,had
 
 HBase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。
 行键列使用 `rowkey`，HBase 单元格使用 `列簇:列名` 形式，例如 `info:name`。
-更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### hbase_extra_config [config]
 

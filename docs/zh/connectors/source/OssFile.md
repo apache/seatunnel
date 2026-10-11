@@ -191,9 +191,10 @@ schema {
 | bucket                     | string  | 是    | -                  | oss文件系统的bucket地址，例如：`oss://seatunnel-test`。                                                                                                          |
 | endpoint                   | string  | 是    | -                  | fs oss端点                                                                                                                                             |
 | read_columns               | list    | 否    | -                  | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。        |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | access_key                 | string  | 否    | -                  |                                                                                                                                                      |
 | access_secret              | string  | 否    | -                  |                                                                                                                                                      |
-| delimiter                  | string  | 否    | \001               | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。                                                                                                  |
+| delimiter/field_delimiter  | string  | 否    | \001               | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。**delimiter** 参数将在 2.3.5 版本后废弃，请改用 **field_delimiter**。                                                            |
 | row_delimiter              | string  | 否    | \n                 | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。默认`\n`。                                                                                                                    |
 | parse_partition_from_path  | boolean | 否    | true               | 控制是否从文件路径解析分区键和值。例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件。文件中的每条记录数据都将添加这两个字段：name="tyrantlucifer"，age=16 |
 | date_format                | string  | 否    | yyyy-MM-dd         | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。默认`yyyy-MM-dd`                                                               |
@@ -209,7 +210,7 @@ schema {
 | xml_row_tag                | string  | 否    | -                  | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                               |
 | xml_use_attr_format        | boolean | 否    | -                  | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。                                                                                                               |
 | compress_codec             | string  | 否    | none               | 文件使用的压缩编解码器。                                                                                                                                         |
-| encoding                   | string  | 否    | UTF-8              |
+| encoding                   | string  | 否    | UTF-8 | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
 | null_format                | string  | 否    | -                  | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                     |
 | binary_chunk_size          | int     | 否    | 1024               | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                 |
 | binary_complete_file_mode  | boolean | 否    | false              | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                     |

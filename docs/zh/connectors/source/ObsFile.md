@@ -72,10 +72,11 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
 | read_columns              | list    | 否  | -                   | 数据源的读取列列表                               |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | sheet_name                | string  | 否  | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
 | excel_engine              | string  | 否  | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
 | poi_excel_max_file_size   | long    | 否  | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
-| delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
+| delimiter/field_delimiter | string  | 否  | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认 `\001`，与 hive 的默认分隔符相同。**delimiter** 参数将在 2.3.5 版本后废弃，请改用 **field_delimiter**。                                  |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |
 | skip_header_row_number    | long    | 否  | 0                   | 跳过前几行，但仅适用于 txt 和 csv。                  |
@@ -84,6 +85,16 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
 | filename_extension        | string  | 否  | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | schema                    | config  | 否  | -                   | 读取 JSON、文本等格式时的字段定义。详见 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| xml_row_tag | string | 否 | - | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。 |
+| xml_use_attr_format | boolean | 否 | - | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。 |
+| csv_use_header_line | boolean | 否 | false | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用 |
+| compress_codec | string | 否 | none | 文件使用的压缩编解码器。 |
+| archive_compress_codec | string | 否 | none | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
+| encoding | string | 否 | UTF-8 | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
+| null_format | string | 否 | - | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N` |
+| binary_chunk_size | int | 否 | 1024 | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
+| binary_complete_file_mode | boolean | 否 | false | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。 |
+| file_filter_pattern | string | 否 | - | 用于过滤文件的模式。 |
 | common-options            |         | 否  | -                   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
 | sheet_name                | string  | 否  | -                   | 读取 Excel 文件时要读取的工作表名称。 |
 | file_filter_modified_start | string | 否  | -                   | 按文件最后修改时间筛选文件的起始时间（包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
