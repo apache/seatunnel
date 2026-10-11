@@ -74,6 +74,24 @@ public class SeaTunnelClusterScriptTest {
     }
 
     /**
+     * Verifies that the foreground start replaces the shell with the JVM, so a SIGTERM sent to the
+     * started process reaches the JVM instead of a shell that ignores it.
+     */
+    @Test
+    public void testClusterScriptExecsServerJvmInForeground() throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        runClusterScript(appDirectory, null);
+
+        List<String> javaParentPid =
+                Files.readAllLines(
+                        temporaryDirectory.resolve("java-args.txt.ppid"), StandardCharsets.UTF_8);
+        Assertions.assertEquals(
+                String.valueOf(ProcessHandle.current().pid()),
+                javaParentPid.get(0).trim(),
+                "The JVM should replace the script process (exec), not run as its child");
+    }
+
+    /**
      * Verifies that the Windows cluster script keeps custom SeaTunnel home values and forwards the
      * effective value before later JVM option appends.
      */
@@ -183,6 +201,7 @@ public class SeaTunnelClusterScriptTest {
         Files.write(
                 fakeJava,
                 ("#!/bin/sh\n"
+                                + "echo \"$PPID\" > \"$CAPTURE_FILE.ppid\"\n"
                                 + "for arg in \"$@\"; do\n"
                                 + "  printf '%s\\n' \"$arg\"\n"
                                 + "done > \"$CAPTURE_FILE\"\n")

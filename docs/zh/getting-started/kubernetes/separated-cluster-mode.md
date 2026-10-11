@@ -483,6 +483,12 @@ lifecycle:
           done
 ```
 
+:::tip 提示
+容器 `command` 应直接启动 `seatunnel-cluster.sh`（例如 `["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]`），不要通过 `/bin/sh -c` 包装。脚本会 `exec` 启动 JVM，使 JVM 成为 PID 1 并收到删除 Pod 时发送的 SIGTERM。若 PID 1 是 `/bin/sh -c`，SIGTERM 会被忽略，Pod 要等到 `terminationGracePeriodSeconds` 结束后才被强制终止。
+
+收到 SIGTERM 后，Hazelcast 会按 `hazelcast.shutdownhook.policy` 执行关闭钩子。默认的 `TERMINATE` 会让成员立即离开集群，运行中的任务从最近的 checkpoint 恢复。若使用 `GRACEFUL`，请确保 `hazelcast.graceful.shutdown.max.wait` 小于 `terminationGracePeriodSeconds`。
+:::
+
 ## 应用配置
 
 :::info 说明

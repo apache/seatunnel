@@ -318,6 +318,12 @@ lifecycle:
           done
 ```
 
+:::tip Note
+Start `seatunnel-cluster.sh` directly in the container `command` (for example `["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]`), not through `/bin/sh -c`. The script `exec`s the JVM, so the JVM is PID 1 and receives the SIGTERM sent on pod deletion. A `/bin/sh -c` wrapper as PID 1 ignores SIGTERM, and the pod is killed only after `terminationGracePeriodSeconds`.
+
+On SIGTERM the Hazelcast shutdown hook runs with `hazelcast.shutdownhook.policy`. The default `TERMINATE` makes the member leave immediately, and running tasks recover from their last checkpoint. With `GRACEFUL`, keep `hazelcast.graceful.shutdown.max.wait` below `terminationGracePeriodSeconds`.
+:::
+
 Apply the manifests:
 
 :::info Note

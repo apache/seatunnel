@@ -40,6 +40,9 @@ spec:
         {{- include "seatunnel.worker.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ template "seatunnel.fullname" . }}
+      {{- if .Values.worker.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- end }}
       {{- if .Values.worker.affinity }}
       affinity:
         {{- toYaml .Values.worker.affinity | nindent 8 }}
