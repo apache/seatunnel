@@ -33,6 +33,9 @@ source {
         # include schema into kafka message
         key.converter.schemas.enable = false
         value.converter.schemas.enable = false
+        # preserve explicit NULL instead of using the schema default
+        key.converter.replace.null.with.default = false
+        value.converter.replace.null.with.default = false
         # topic prefix
         database.server.name =  "mysql_cdc_1"
     }
@@ -52,3 +55,9 @@ sink {
 }
 ```
 
+## NULL and schema defaults
+
+For `COMPATIBLE_DEBEZIUM_JSON`, an explicit `NULL` value is serialized as JSON `null` by default,
+even when the field schema has a non-null default. Set
+`key.converter.replace.null.with.default` or `value.converter.replace.null.with.default` to `true`
+to use the upstream Kafka Connect behavior and replace null fields with their schema defaults.
