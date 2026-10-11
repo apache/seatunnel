@@ -91,6 +91,9 @@ To use this connector you need to put `hadoop-cos-{hadoop.version}-{version}.jar
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv. `false`: don't write header, `true`: write header.                                                                                  |
+| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Controls how the target directory is treated before the synchronization task starts.                                                                                            |
+| data_save_mode                        | Enum    | no       | APPEND_DATA                                | Controls how existing data files in the target directory are processed before the synchronization task starts.                                                                  |
 
 ### path [string]
 

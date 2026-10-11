@@ -31,10 +31,17 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_ADD_COLUMN`      | Table column addition event     | `AlterTableAddColumnEvent`      |
 | `SCHEMA_CHANGE_DROP_COLUMN`     | Table column deletion event     | `AlterTableDropColumnEvent`     |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`   | Table column modification event | `AlterTableModifyColumnEvent`   |
-| `READER_OPEN`                   | Reader open event               | `ReaderOpenEvent`               |
-| `READER_CLOSE`                  | Reader close event              | `ReaderCloseEvent`              |
-| `WRITER_OPEN`                   | Writer open event               | `WriterOpenEvent`               |
-| `WRITER_CLOSE`                  | Writer close event              | `WriterCloseEvent`              |
+| `SCHEMA_CHANGE_CHANGE_COLUMN`   | Table column change event       | `AlterTableChangeColumnEvent`   |
+| `SCHEMA_CHANGE_RENAME_TABLE`    | Table rename event              | `AlterTableNameEvent`           |
+| `SCHEMA_CHANGE_ALTER_TABLE_COMMENT` | Table comment change event  | `AlterTableCommentEvent`        |
+| `SCHEMA_CHANGE_ALTER_COLUMN_COMMENT` | Column comment change event | `AlterColumnCommentEvent`       |
+| `SCHEMA_CHANGE_RESTORE`         | Table schema restore event      | `RestoreTableSchemaEvent`       |
+| `LIFECYCLE_ENUMERATOR_OPEN`     | Split enumerator open event     | `EnumeratorOpenEvent`           |
+| `LIFECYCLE_ENUMERATOR_CLOSE`    | Split enumerator close event    | `EnumeratorCloseEvent`          |
+| `LIFECYCLE_READER_OPEN`         | Reader open event               | `ReaderOpenEvent`               |
+| `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
+| `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |
+| `READER_MESSAGE_DELAYED`        | Reader message delayed event    | `MessageDelayedEvent`           |
 
 > Note: Different event types correspond to different event data structures. When customizing an event handler, you need to judge the type through `event.getEventType()` to ensure type-safe conversion.
 
@@ -194,9 +201,9 @@ import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
-import org.apache.seatunnel.api.event.schema.AlterTableAddColumnEvent;
-import org.apache.seatunnel.api.event.source.ReaderOpenEvent;
-import org.apache.seatunnel.api.event.sink.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 
 /**
  * Example of a custom multi-type event handler, including processing logic for multiple events
@@ -216,10 +223,10 @@ public class CustomMultiEventHandler implements EventHandler {
             case SCHEMA_CHANGE_ADD_COLUMN:
                 handleAddColumnEvent((AlterTableAddColumnEvent) event);
                 break;
-            case READER_OPEN:
+            case LIFECYCLE_READER_OPEN:
                 handleReaderOpenEvent((ReaderOpenEvent) event);
                 break;
-            case WRITER_CLOSE:
+            case LIFECYCLE_WRITER_CLOSE:
                 handleWriterCloseEvent((WriterCloseEvent) event);
                 break;
             // Add processing for other event types as needed

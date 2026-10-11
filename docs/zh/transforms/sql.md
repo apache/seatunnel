@@ -12,14 +12,14 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 |        名称         |   类型   | 是否必须 | 默认值 |
 |-------------------|--------|------|-----|
-| plugin_input | string | no   | -   |
+| plugin_input | list<string> | no   | -   |
 | plugin_output | string | no   | -   |
 | query             | string | yes  | -   |
 | engine            | string | no   | ZETA |
 
-### plugin_input [string]
+### plugin_input [list<string>]
 
-源表名称，查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。
+源表名称。查询 SQL 表名称必须与此字段匹配。如果不配置，将使用输入目录表的表名。在多表场景下该选项接受表名列表，SQL 读取其中的第一个表名。
 
 ### query [string]
 

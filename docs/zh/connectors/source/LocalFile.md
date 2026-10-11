@@ -54,7 +54,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | 名称                         | 类型      | 是否必须 | 默认值                 |
 |----------------------------|---------|------|---------------------|
 | path                       | string  | 是    | -                   |
-| file_format_type           | string  | 是    | -                   |
+| file_format_type           | string  | 否    | -                   |
 | read_columns               | list    | 否    | -                   |
 | read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
