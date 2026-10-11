@@ -27,7 +27,11 @@ import org.tikv.common.ConfigUtils;
 import org.tikv.common.TiConfiguration;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 /** TiDB source options */
 public class TiDBSourceOptions implements Serializable {
@@ -43,6 +47,16 @@ public class TiDBSourceOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Table name of the database to monitor.");
+
+    public static final Option<List<String>> TABLE_NAMES =
+            Options.key("table-names")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Table names to capture changes from, each entry must be in the"
+                                    + " format database_name.table_name, for example:"
+                                    + " [\"db1.table1\", \"db2.table2\"]. Takes precedence over"
+                                    + " database-name/table-name when both are set.");
 
     public static final Option<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
@@ -104,5 +118,79 @@ public class TiDBSourceOptions implements Serializable {
                 .getOptional(TIKV_BATCH_SCAN_CONCURRENCY)
                 .ifPresent(tiConf::setBatchScanConcurrency);
         return tiConf;
+    }
+
+    /**
+     * Resolves the captured table list in the unified {@code database_name.table_name} format.
+     * Prefers the multi-table option {@code table-names}; falls back to the legacy single-table
+     * options {@code database-name}/{@code table-name} for backward compatibility.
+     *
+     * @param configuration the readonly config of the TiDB-CDC source
+     * @return de-duplicated list of table full names, never null or empty
+     */
+    public static List<String> getTableFullNames(final ReadonlyConfig configuration) {
+        List<String> tableNames = configuration.getOptional(TABLE_NAMES).orElse(null);
+        if (tableNames != null && !tableNames.isEmpty()) {
+            List<String> fullNames = new ArrayList<>(new LinkedHashSet<>(tableNames));
+            fullNames.forEach(TiDBSourceOptions::validateTableFullName);
+            return fullNames;
+        }
+        String databaseName = configuration.get(DATABASE_NAME);
+        String tableName = configuration.get(TABLE_NAME);
+        if (databaseName == null || tableName == null) {
+            throw new IllegalArgumentException(
+                    "TiDB-CDC source must configure either 'table-names' (e.g."
+                            + " [\"database_name.table_name\"]) or both 'database-name' and"
+                            + " 'table-name'.");
+        }
+        return Collections.singletonList(databaseName + "." + tableName);
+    }
+
+    /**
+     * Parses the database part of a {@code database_name.table_name} full name. The first dot is
+     * the separator, so table names containing dots are supported.
+     *
+     * @param tableFullName table full name in {@code database_name.table_name} format
+     * @return the database name
+     */
+    public static String parseDatabaseName(final String tableFullName) {
+        validateTableFullName(tableFullName);
+        return tableFullName.substring(0, tableFullName.indexOf('.'));
+    }
+
+    /**
+     * Parses the table part of a {@code database_name.table_name} full name.
+     *
+     * @param tableFullName table full name in {@code database_name.table_name} format
+     * @return the table name
+     */
+    public static String parseTableName(final String tableFullName) {
+        validateTableFullName(tableFullName);
+        return tableFullName.substring(tableFullName.indexOf('.') + 1);
+    }
+
+    /**
+     * Builds a {@code database_name.table_name} full name, the inverse of {@link
+     * #parseDatabaseName} and {@link #parseTableName}.
+     *
+     * @param databaseName database name
+     * @param tableName table name
+     * @return table full name in {@code database_name.table_name} format
+     */
+    public static String tableFullName(final String databaseName, final String tableName) {
+        return databaseName + "." + tableName;
+    }
+
+    private static void validateTableFullName(final String tableFullName) {
+        if (tableFullName == null) {
+            throw new IllegalArgumentException(
+                    "Table name must be in database_name.table_name format, but got: null");
+        }
+        int separatorIndex = tableFullName.indexOf('.');
+        if (separatorIndex <= 0 || separatorIndex == tableFullName.length() - 1) {
+            throw new IllegalArgumentException(
+                    "Table name must be in database_name.table_name format, but got: "
+                            + tableFullName);
+        }
     }
 }
