@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 在开始下载SeaTunnel之前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
 
-* 安装[Java](https://www.java.com/en/download/) (Java 8 或 11， 其他高于Java 8的版本理论上也可以工作) 以及设置 `JAVA_HOME`。
+* 安装[Java](https://www.java.com/en/download/) (Java 11 或 Java 17) 以及设置 `JAVA_HOME`。
 
 ## 步骤 2: 下载 SeaTunnel
 
@@ -20,7 +20,7 @@ import TabItem from '@theme/TabItem';
 或者您也可以通过终端下载
 
 ```shell
-export version="3.0.0"
+export version="3.0.1"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -30,13 +30,13 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用它时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/seatunnel`目录下)。
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.0.1
 ```
 
-如果您需要指定的连接器版本，以3.0.0为例，您需要执行如下命令
+如果您需要指定的连接器版本，以3.0.1为例，您需要执行如下命令
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.0.1
 ```
 
 通常您并不需要所有的连接器插件，所以您可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin.properties配置文件如下
