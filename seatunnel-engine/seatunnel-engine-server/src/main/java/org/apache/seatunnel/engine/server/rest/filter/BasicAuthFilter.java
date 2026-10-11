@@ -111,13 +111,24 @@ public class BasicAuthFilter implements Filter {
      * through timing, how many leading bytes matched.
      *
      * <p>MessageDigest.isEqual accumulates the difference over every byte instead of returning at
-     * the first mismatch. It reads exactly as many bytes as its first argument holds, so the
-     * request's own value is passed first: the loop length is then something the caller already
-     * knows, and the length of the configured credential is not revealed.
+     * the first mismatch, so the work it does is independent of how many leading bytes agree. It
+     * reads exactly as many bytes as its first argument holds, so the request's own value is passed
+     * first: the loop length is then something the caller already knows.
      *
-     * <p>Verified against the OpenJDK 8u source and the JDK 17 bytecode. Both fold the length
-     * difference into the accumulator and run the loop for the full length of the first argument,
-     * so neither returns early on a length mismatch.
+     * <p>How much the length itself is hidden depends on the JDK, so this does not claim more than
+     * was measured. Disassembled with {@code javap -c} on 11.0.32, 17.0.20 and 21.0.12: the length
+     * difference is folded into the accumulator and the loop runs for the first argument's length,
+     * with no early return when the lengths differ. On Java 8 it is different. A reviewer
+     * disassembled 8u71 and 8u171 and found an {@code if_icmpeq} on the two array lengths followed
+     * by an immediate {@code return false}, so on those builds whether a guess has the same byte
+     * length as the configured credential can still be inferred, though the leading bytes cannot.
+     * SeaTunnel ships for Java 8, so do not rely on the length being hidden there. No boundary
+     * update is named deliberately: only the builds listed above were disassembled, and which 8u or
+     * 11.x update first changed shape was not established.
+     *
+     * <p>One further early exit, present in every build checked: when the configured value is
+     * empty, {@code isEqual} returns whether the provided value is empty too without entering the
+     * loop. That only arises from an empty configured credential.
      *
      * @param provided the value supplied by the request, never null at the call sites below
      * @param expected the configured value, which is null when the credential is not set
