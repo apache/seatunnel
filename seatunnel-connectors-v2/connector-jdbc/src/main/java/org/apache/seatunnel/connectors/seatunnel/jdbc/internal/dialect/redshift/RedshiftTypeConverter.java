@@ -34,6 +34,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+
 // reference https://docs.aws.amazon.com/redshift/latest/dg/c_Supported_data_types.html
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -71,6 +73,12 @@ public class RedshiftTypeConverter extends PostgresTypeConverter {
     @Override
     public String identifier() {
         return DatabaseIdentifier.REDSHIFT;
+    }
+
+    @Override
+    protected boolean isUserDefinedStringType(int sqlType) {
+        // VARCHAR type names unknown to PostgreSQL stay unsupported for Redshift.
+        return sqlType == Types.OTHER;
     }
 
     @Override

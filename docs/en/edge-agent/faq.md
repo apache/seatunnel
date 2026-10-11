@@ -11,7 +11,7 @@ High-frequency questions about identity, migration, WAL DEAD rows, and multiple 
 
 ### What is edge-agent.id?
 
-An identity file at the install root (next to edge-agent.pid). When agent.id, input.id, or output.id are omitted from YAML, the agent reads or writes them here; explicit YAML IDs win. See [Identity file](configuration.md#identity-file-edge-agentid).
+An identity file at the install root (next to edge-agent.pid). When agent.id, input.id, or output.id are omitted from YAML, the agent reads or writes them here; explicit YAML IDs win. See [Identity file](configuration.md#identity-file).
 
 ### What do agent.id, input.id, and output.id do?
 
@@ -46,7 +46,7 @@ Launcher environment variable; default $EDGE_AGENT_HOME/edge-agent.id. See [Oper
 
 ## WAL persistence
 
-Default path, on-disk files (data, -wal, -shm), and what each table stores: [Configuration — WAL persistence files](configuration.md#sqlite-persistence-files). Console mode still uses this database.
+Default path, on-disk files (data, -wal, -shm), and what each table stores: [Configuration — WAL persistence files](configuration.md#wal-persistence-files). Console mode still uses this database.
 
 ### What does WAL status DEAD mean?
 

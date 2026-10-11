@@ -10,7 +10,7 @@ TableRename transform plugin for rename table name.
 
 |          name           | type   | required | default value | Description                                                                                                           |
 |:-----------------------:|--------|----------|---------------|-----------------------------------------------------------------------------------------------------------------------|
-|      convert_case       | string | no       |               | The case conversion type. The options can be `UPPER`, `LOWER`                                                         |
+|      convert_case       | enum   | no       |               | The case conversion type. The options can be `UPPER`, `LOWER`                                                         |
 |         prefix          | string | no       |               | The prefix to be added to the table name                                                                              |
 |         suffix          | string | no       |               | The suffix to be added to the table name                                                                              |
 | replacements_with_regex | array  | no       |               | The array of replacement rules with regex. The replacement rule is a map with `replace_from` and `replace_to` fields. |

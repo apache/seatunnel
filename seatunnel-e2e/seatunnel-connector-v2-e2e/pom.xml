@@ -45,6 +45,7 @@
         <module>connector-file-bos-e2e</module>
         <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
+        <module>connector-file-smb-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
         <module>connector-file-gcs-e2e</module>
@@ -61,6 +62,7 @@
         <module>connector-iotdb-e2e</module>
         <module>connector-iotdb-v2-e2e</module>
         <module>connector-cdc-mysql-e2e</module>
+        <module>connector-cdc-oceanbase-e2e</module>
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>
         <module>connector-iceberg-hadoop3-e2e</module>
@@ -78,6 +80,7 @@
         <module>connector-google-analytics4-e2e</module>
         <module>connector-snmp-e2e</module>
         <module>connector-azure-queue-storage-e2e</module>
+        <module>connector-azure-event-hubs-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
@@ -113,6 +116,7 @@
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
         <module>connector-firebase-e2e</module>
+        <module>connector-websocket-e2e</module>
     </modules>
 
     <properties>
