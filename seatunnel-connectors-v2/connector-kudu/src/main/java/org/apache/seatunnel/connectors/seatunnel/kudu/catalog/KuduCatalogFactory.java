@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
@@ -47,7 +48,7 @@ public class KuduCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KuduBaseOptions.MASTER)
+                .required(KuduBaseOptions.MASTER, Conditions.notBlank(KuduBaseOptions.MASTER))
                 .optional(KuduBaseOptions.WORKER_COUNT)
                 .optional(KuduBaseOptions.OPERATION_TIMEOUT)
                 .optional(KuduBaseOptions.ADMIN_OPERATION_TIMEOUT)

@@ -59,6 +59,11 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Option Notes
 
+- `kudu_masters` is required and must not be empty or contain only whitespace. Use one master
+  address or a comma-separated list, for example `kudu-master-1:7051,kudu-master-2:7051`.
+  This validation does not trim the configured value or validate the address format.
+  Whitespace around individual master addresses is passed to the Kudu client as-is, so avoid
+  surrounding whitespace in comma-separated entries.
 - `table_name` is optional. If it is not set, the sink writes to the table name carried by the upstream row.
 - For multi-table jobs, use placeholders in `table_name` to route rows to different Kudu tables.
 - CDC rows are supported: insert records are appended, update records are written as upserts, and delete records are deleted by key.

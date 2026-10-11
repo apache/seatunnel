@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -44,7 +45,7 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KuduSourceOptions.MASTER)
+                .required(KuduSourceOptions.MASTER, Conditions.notBlank(KuduSourceOptions.MASTER))
                 .optional(KuduSourceOptions.SCHEMA)
                 .optional(
                         KuduSourceOptions.WORKER_COUNT,
