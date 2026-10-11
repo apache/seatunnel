@@ -55,21 +55,21 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 | name                       | type    | required | default value               | Description |
 |----------------------------|---------|----------|-----------------------------|-------------|
-| path                       | string  | yes      | -                           |
+| path                       | string  | yes      | -                           | The COS path to read, can have sub paths. See `parse_partition_from_path` for format requirements. |
 | file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
-| bucket                     | string  | yes      | -                           |
-| secret_id                  | string  | yes      | -                           |
-| secret_key                 | string  | yes      | -                           |
-| region                     | string  | yes      | -                           |
+| bucket                     | string  | yes      | -                           | The bucket name of the COS service. |
+| secret_id                  | string  | yes      | -                           | The secret ID for COS authentication. |
+| secret_key                 | string  | yes      | -                           | The secret key for COS authentication. |
+| region                     | string  | yes      | -                           | The region of the COS service. |
 | read_columns               | list    | no       | -                           | Column projection list for field mapping. |
 | read_partitions            | list    | no       | -                           | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | delimiter/field_delimiter  | string  | no       | \001                        | **delimiter** is deprecated after 2.3.5, use **field_delimiter** instead. Field delimiter for text files. |
 | row_delimiter              | string  | no       | \n                          | Row delimiter for text files, default `\n`. |
 | parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
 | skip_header_row_number     | long    | no       | 0                           | Number of header lines to skip, only for txt and csv. |
-| date_format                | string  | no       | yyyy-MM-dd                  |
-| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format                | string  | no       | HH:mm:ss                    |
+| date_format                | string  | no       | yyyy-MM-dd                  | Date format for string-to-date conversion, supports `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`. |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         | Datetime format for string-to-datetime conversion, supports `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`. |
+| time_format                | string  | no       | HH:mm:ss                    | Time format for string-to-time conversion, supports `HH:mm:ss` `HH:mm:ss.SSS`. |
 | schema                     | config  | no       | -                           | Upstream data schema, required when file_format_type is text, json, excel, xml, or csv. |
 | sheet_name                 | string  | no       | -                           | Workbook sheet to read, only for excel. |
 | excel_engine               | string  | no       | POI                         | Excel reading engine, supports `POI` (default) and `EasyExcel`. |

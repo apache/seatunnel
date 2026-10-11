@@ -55,21 +55,21 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 | 名称                         | 类型      | 必需 | 默认值                         | 描述 |
 |----------------------------|---------|----|-----------------------------|------|
-| path                       | string  | 是  | -                           |
+| path                       | string  | 是  | -                           | 需要读取的 COS 路径，可以有子路径。路径格式要求请参考 `parse_partition_from_path` 选项。 |
 | file_format_type           | string  | 是  | -                           | 支持的文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
-| bucket                     | string  | 是  | -                           |
-| secret_id                  | string  | 是  | -                           |
-| secret_key                 | string  | 是  | -                           |
-| region                     | string  | 是  | -                           |
+| bucket                     | string  | 是  | -                           | COS 服务的 bucket 名称。 |
+| secret_id                  | string  | 是  | -                           | COS 认证的 Secret ID。 |
+| secret_key                 | string  | 是  | -                           | COS 认证的 Secret Key。 |
+| region                     | string  | 是  | -                           | COS 服务的区域。 |
 | read_columns               | list    | 否  | -                           | 读取列列表，用于实现字段投影。 |
 | read_partitions            | list    | 否  | -                           | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | delimiter/field_delimiter  | string  | 否  | \001                        | **delimiter** 在 2.3.5 版本后弃用，请改用 **field_delimiter**。文本文件的字段分隔符。 |
 | row_delimiter              | string  | 否  | \n                          | 文本文件的行分隔符，默认 `\n`。 |
 | parse_partition_from_path  | boolean | 否  | true                        | 是否从文件路径解析分区键和值。 |
 | skip_header_row_number     | long    | 否  | 0                           | 跳过的头部行数，仅适用于 txt 和 csv。 |
-| date_format                | string  | 否  | yyyy-MM-dd                  |
-| datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss         |
-| time_format                | string  | 否  | HH:mm:ss                    |
+| date_format                | string  | 否  | yyyy-MM-dd                  | 日期格式，用于将字符串转换为日期，支持 `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。 |
+| datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间格式，用于将字符串转换为日期时间，支持 `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`。 |
+| time_format                | string  | 否  | HH:mm:ss                    | 时间格式，用于将字符串转换为时间，支持 `HH:mm:ss` `HH:mm:ss.SSS`。 |
 | schema                     | config  | 否  | -                           | 上游数据 schema，当 file_format_type 为 text、json、excel、xml、csv 时需要配置。 |
 | sheet_name                 | string  | 否  | -                           | 读取的工作簿表名，仅适用于 excel。 |
 | excel_engine               | string  | 否  | POI                         | Excel 读取引擎，支持 `POI`（默认）和 `EasyExcel`。 |
