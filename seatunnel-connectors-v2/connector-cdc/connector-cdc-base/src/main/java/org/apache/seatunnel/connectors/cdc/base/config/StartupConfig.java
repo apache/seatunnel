@@ -74,6 +74,7 @@ public final class StartupConfig implements Serializable {
             case COMMITTED_OFFSET:
                 return offsetFactory.committedOffset();
             case SPECIFIC:
+            case MIXED:
                 if (specificOffset != null) {
                     return offsetFactory.specific(specificOffset);
                 }

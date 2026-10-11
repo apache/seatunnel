@@ -30,9 +30,12 @@ import io.debezium.relational.TableId;
 import lombok.AllArgsConstructor;
 import lombok.ToString;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -128,6 +131,41 @@ public class IncrementalSplitStateTest {
         splitState = new IncrementalSplitState(split);
         Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
         Assertions.assertFalse(splitState.autoEnterPureIncrementPhaseIfAllowed());
+    }
+
+    @Test
+    public void testToSourceSplitPreservesTableSpecificStartOffsets() {
+        TableId tableId = new TableId("db", "schema", "table");
+        Offset tableStartOffset = new TestOffset(100);
+        Map<TableId, Offset> tableStartOffsets = new HashMap<>();
+        tableStartOffsets.put(tableId, tableStartOffset);
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "test",
+                        Collections.singletonList(tableId),
+                        new TestOffset(90),
+                        null,
+                        Collections.emptyList(),
+                        tableStartOffsets,
+                        null,
+                        Collections.emptyMap());
+
+        IncrementalSplit restoredSplit = new IncrementalSplitState(split).toSourceSplit();
+
+        Assertions.assertEquals(tableStartOffsets, restoredSplit.getTableStartOffsets());
+    }
+
+    @Test
+    public void testLegacySplitWithoutTableSpecificStartOffsetsUsesEmptyMap() throws Exception {
+        IncrementalSplit split =
+                createIncrementalSplit(new TestOffset(100), Collections.emptyList());
+        Field field = IncrementalSplit.class.getDeclaredField("tableStartOffsets");
+        field.setAccessible(true);
+        field.set(split, null);
+
+        Assertions.assertTrue(split.getTableStartOffsets().isEmpty());
+        Assertions.assertTrue(
+                new IncrementalSplitState(split).toSourceSplit().getTableStartOffsets().isEmpty());
     }
 
     private static IncrementalSplit createIncrementalSplit(
