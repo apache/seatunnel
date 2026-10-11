@@ -49,6 +49,15 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     public static final Option<Long> EMIT_INTERVAL_MS =
             Options.key("emit_interval_ms").longType().defaultValue(50L);
 
+    /**
+     * Artificial delay applied to {@code snapshotState} once the reader has drained every split it
+     * will ever receive, i.e. to the barrier(s) that close a bounded run. It keeps the final
+     * checkpoint un-acknowledged for that long so failover tests can act deterministically inside
+     * the job shutdown phase instead of racing it. Zero (the default) disables the delay.
+     */
+    public static final Option<Long> EXHAUSTED_SNAPSHOT_DELAY_MS =
+            Options.key("exhausted_snapshot_delay_ms").longType().defaultValue(0L);
+
     @Override
     public String factoryIdentifier() {
         return "CheckpointableSequenceSource";
@@ -57,7 +66,13 @@ public class CheckpointableSequenceSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(START_OFFSET, END_OFFSET, SPLIT_NUM, RECORDS_PER_POLL, EMIT_INTERVAL_MS)
+                .optional(
+                        START_OFFSET,
+                        END_OFFSET,
+                        SPLIT_NUM,
+                        RECORDS_PER_POLL,
+                        EMIT_INTERVAL_MS,
+                        EXHAUSTED_SNAPSHOT_DELAY_MS)
                 .build();
     }
 
