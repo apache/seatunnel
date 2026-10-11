@@ -104,6 +104,25 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Test only: the azure storage type is tested against Azurite. At runtime users put
+             hadoop-azure and its Azure Storage SDK in lib/; nothing here is packaged. -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-azure</artifactId>
+            <version>${seatunnel.shade.hadoop.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-common</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

@@ -24,7 +24,8 @@ public enum FileConfiguration {
     HDFS("hdfs", new HdfsConfiguration()),
     S3("s3", new S3Configuration()),
     OSS("oss", new OssConfiguration()),
-    GCS("gcs", new GcsConfiguration());
+    GCS("gcs", new GcsConfiguration()),
+    AZURE("azure", new AzureConfiguration());
 
     /** file system type */
     private final String name;

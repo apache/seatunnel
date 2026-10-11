@@ -14,7 +14,7 @@ Checkpoint Storage is a storage mechanism for storing checkpoint data.
 
 SeaTunnel Engine supports the following checkpoint storage types:
 
-- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,Azure Blob Storage,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
 We use the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
@@ -157,6 +157,57 @@ Please add the following jar to the lib directory:
 - [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
 
 Note: renames use the GCS object move API by default. Services that do not implement it, such as the `fake-gcs-server` emulator, need `fs.gs.operation.move.enable: false`, which makes the connector fall back to copy and delete.
+
+#### Azure Blob Storage
+
+Azure Blob Storage based hdfs-file uses the [Hadoop Azure (WASB) file system](https://hadoop.apache.org/docs/r3.1.4/hadoop-azure/index.html). `azure.container` is required and must be a container URI: `wasbs://<container>@<account>.blob.core.windows.net` (TLS, recommended) or `wasb://<container>@<account>.blob.core.windows.net`. The `namespace` is the path inside the container. ADLS Gen2 (`abfs://`, `abfss://`) is not supported by this storage type. The container must already exist; it is not created on first write.
+
+All `fs.azure.*` keys are passed to hadoop-azure unchanged. Two ways to authenticate are supported. With the storage account key:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: azure
+          azure.container: wasbs://your-container@your-account.blob.core.windows.net
+          fs.azure.account.key.your-account.blob.core.windows.net: your-account-key
+```
+
+With a container SAS token:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: azure
+          azure.container: wasbs://your-container@your-account.blob.core.windows.net
+          fs.azure.sas.your-container.your-account.blob.core.windows.net: your-sas-token
+```
+
+The SAS token needs read, write, delete and list permission on the container. Managed identity and OAuth are not supported by WASB.
+
+Please add the following jars to the lib directory:
+- [hadoop-azure-3.1.4.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-azure/3.1.4) (Apache License 2.0)
+- [azure-storage-7.0.0.jar](https://mvnrepository.com/artifact/com.microsoft.azure/azure-storage/7.0.0) (MIT License)
+- [azure-keyvault-core-1.0.0.jar](https://mvnrepository.com/artifact/com.microsoft.azure/azure-keyvault-core/1.0.0) (MIT License)
+- [jetty-util-ajax-9.4.20.v20190813.jar](https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-util-ajax/9.4.20.v20190813) (Apache License 2.0 / EPL 1.0)
+- [jetty-util-9.4.20.v20190813.jar](https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-util/9.4.20.v20190813) (Apache License 2.0 / EPL 1.0)
+
+hadoop-azure 3.1.4 matches the Hadoop version of `seatunnel-shade-hadoop3-uber`. These jars are not shipped with SeaTunnel: you download them, and their licenses apply to your deployment. SeaTunnel's own LICENSE and NOTICE files do not cover them.
 
 #### S3
 

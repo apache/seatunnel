@@ -26,7 +26,8 @@ public enum FileConfiguration {
     S3("s3", new S3Configuration()),
     OSS("oss", new OssConfiguration()),
     COS("cos", new CosConfiguration()),
-    GCS("gcs", new GcsConfiguration());
+    GCS("gcs", new GcsConfiguration()),
+    AZURE("azure", new AzureConfiguration());
 
     /** file system type */
     private final String name;
