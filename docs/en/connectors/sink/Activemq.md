@@ -56,6 +56,7 @@ For consuming queues, see the separate [ActiveMQ source](../source/Activemq.md).
 - Configure the broker address with `uri`. `host` and `port` are not ActiveMQ sink options.
 - Use any SeaTunnel source before this sink. The ActiveMQ connector only controls how the final rows are sent to the queue.
 - When `use_async_send = true` or `delivery_mode = 1` (NON_PERSISTENT), the ActiveMQ client sends without waiting for broker confirmation and this sink does not register an `ExceptionListener`, so a failed send may not be surfaced to the job. Use these options only when acceptable message loss is tolerable.
+- The factory-level options (`max_thread_pool_size`, `send_timeout`, `use_compression`, `connect_response_timeout`, `producer_window_size`, `use_async_send`) are only applied when explicitly set. When not set, the value from the matching `jms.*` parameter in the `uri` (if present) or the ActiveMQ client default is used.
 
 ## Example
 

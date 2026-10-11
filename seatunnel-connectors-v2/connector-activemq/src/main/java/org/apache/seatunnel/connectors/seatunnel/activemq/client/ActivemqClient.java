@@ -68,13 +68,6 @@ public class ActivemqClient {
     public ActivemqClient(ReadonlyConfig config) {
         this.config = config;
         try {
-            this.connectionFactory = getConnectionFactory();
-            log.info("connection factory created");
-            this.connection = createConnection(config);
-            this.connection.start();
-            this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            Destination destination = session.createQueue(config.get(QUEUE_NAME));
-            this.producer = session.createProducer(destination);
             int deliveryMode = config.get(DELIVERY_MODE);
             if (deliveryMode != 1 && deliveryMode != 2) {
                 throw new IllegalArgumentException(
@@ -86,6 +79,14 @@ public class ActivemqClient {
                 throw new IllegalArgumentException(
                         "priority must be between 0 and 9, got: " + priority);
             }
+
+            this.connectionFactory = getConnectionFactory();
+            log.info("connection factory created");
+            this.connection = createConnection(config);
+            this.connection.start();
+            this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(config.get(QUEUE_NAME));
+            this.producer = session.createProducer(destination);
             this.producer.setDeliveryMode(deliveryMode);
             this.producer.setTimeToLive(config.get(TIME_TO_LIVE));
             this.producer.setPriority(priority);

@@ -56,6 +56,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 - Broker 地址请使用 `uri` 配置，`host` 和 `port` 不是 ActiveMQ Sink 的配置项。
 - 该 Sink 前面可以接任意 SeaTunnel Source。ActiveMQ 连接器只负责把最终的数据行发送到队列。
 - 当 `use_async_send = true` 或 `delivery_mode = 1`（非持久化）时，ActiveMQ 客户端发送消息后不等 Broker 确认即返回，且本连接器未注册 `ExceptionListener`，因此发送失败可能不会通知到作业。仅在可接受消息丢失的场景下使用这些选项。
+- 工厂级选项（`max_thread_pool_size`、`send_timeout`、`use_compression`、`connect_response_timeout`、`producer_window_size`、`use_async_send`）仅在显式配置时生效。未配置时，使用 `uri` 中对应的 `jms.*` 参数（如果存在）或 ActiveMQ 客户端默认值。
 
 ## 示例
 

@@ -324,9 +324,9 @@ class ActivemqClientTest {
 
     /**
      * When the broker URI contains {@code jms.*} query parameters and the user does not set the
-     * corresponding SeaTunnel options, the URI parameters must be preserved on the
-     * ActiveMQConnectionFactory. This test uses a real (non-mocked) factory to verify the
-     * end-to-end behavior.
+     * corresponding SeaTunnel options, the factory setters must NOT be called so that the URI
+     * parameters are preserved. This test uses {@code mockConstruction} to verify that the
+     * default-value setters are never invoked; it does not exercise a real factory.
      */
     @Test
     void preservesUriJmsParamsWhenOptionsNotSet() throws Exception {
@@ -477,33 +477,17 @@ class ActivemqClientTest {
      * fail fast with a clear message instead of surfacing as a generic construction error.
      */
     @Test
-    void constructorRejectsInvalidDeliveryMode() throws Exception {
-        Connection mockConnection = mock(Connection.class);
-        Session mockSession = mock(Session.class);
-        Queue mockQueue = mock(Queue.class);
-        MessageProducer mockProducer = mock(MessageProducer.class);
-
+    void constructorRejectsInvalidDeliveryMode() {
         Map<String, Object> config = baseConfig();
         config.put(ActivemqSinkOptions.DELIVERY_MODE.key(), 5);
 
-        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
-                mockConstruction(
-                        ActiveMQConnectionFactory.class,
-                        (factory, ctx) ->
-                                when(factory.createConnection()).thenReturn(mockConnection))) {
-            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
-                    .thenReturn(mockSession);
-            when(mockSession.createQueue(TEST_QUEUE)).thenReturn(mockQueue);
-            when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
+        ActivemqConnectorException ex =
+                assertThrows(
+                        ActivemqConnectorException.class,
+                        () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
 
-            ActivemqConnectorException ex =
-                    assertThrows(
-                            ActivemqConnectorException.class,
-                            () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
-
-            assertTrue(ex.getCause() instanceof IllegalArgumentException);
-            assertTrue(ex.getCause().getMessage().contains("delivery_mode"));
-        }
+        assertTrue(ex.getCause() instanceof IllegalArgumentException);
+        assertTrue(ex.getCause().getMessage().contains("delivery_mode"));
     }
 
     /**
@@ -511,32 +495,16 @@ class ActivemqClientTest {
      * clear message.
      */
     @Test
-    void constructorRejectsInvalidPriority() throws Exception {
-        Connection mockConnection = mock(Connection.class);
-        Session mockSession = mock(Session.class);
-        Queue mockQueue = mock(Queue.class);
-        MessageProducer mockProducer = mock(MessageProducer.class);
-
+    void constructorRejectsInvalidPriority() {
         Map<String, Object> config = baseConfig();
         config.put(ActivemqSinkOptions.PRIORITY.key(), 15);
 
-        try (MockedConstruction<ActiveMQConnectionFactory> ignored =
-                mockConstruction(
-                        ActiveMQConnectionFactory.class,
-                        (factory, ctx) ->
-                                when(factory.createConnection()).thenReturn(mockConnection))) {
-            when(mockConnection.createSession(false, Session.AUTO_ACKNOWLEDGE))
-                    .thenReturn(mockSession);
-            when(mockSession.createQueue(TEST_QUEUE)).thenReturn(mockQueue);
-            when(mockSession.createProducer(mockQueue)).thenReturn(mockProducer);
+        ActivemqConnectorException ex =
+                assertThrows(
+                        ActivemqConnectorException.class,
+                        () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
 
-            ActivemqConnectorException ex =
-                    assertThrows(
-                            ActivemqConnectorException.class,
-                            () -> new ActivemqClient(ReadonlyConfig.fromMap(config)));
-
-            assertTrue(ex.getCause() instanceof IllegalArgumentException);
-            assertTrue(ex.getCause().getMessage().contains("priority"));
-        }
+        assertTrue(ex.getCause() instanceof IllegalArgumentException);
+        assertTrue(ex.getCause().getMessage().contains("priority"));
     }
 }
