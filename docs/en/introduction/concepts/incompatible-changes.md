@@ -26,12 +26,12 @@ You need to check this document before you upgrade to related version.
 
 - **`-i` values are no longer visible via `System.getProperties()`**
 
-  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. Starting from this version,`-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
+  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. Starting from this version, `-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
 
 - **Duplicate keys via `-i` are no longer supported**
   - Duplicate keys passed via `-i` are now rejected with an error.
     Previously, duplicate keys were silently overridden, which could cause unexpected data sync errors due to mistakes such as copy-paste typo.
-  - If exists duplicated keys from code generating or cli, please remove unused config.
+  - If your code generation or CLI produces duplicated keys, please remove the unused ones.
 
 - **Double-quoted `-i` values are now unwrapped**
   - For example, `-i k="v"` is now equivalent to `-i k=v` (quotes are stripped). Double quotes are mainly intended for string values that contain structural delimiters such as commas (`,`), curly braces (`{}`), and square brackets (`[]`). Plain values without such characters do not need double quotes.
@@ -45,12 +45,11 @@ You need to check this document before you upgrade to related version.
 - **`-i` keys and values are now trimmed, and empty keys are rejected**
   - `-i 'k1= , k2=v2'` now explicitly removes whitespace: `k1` becomes an empty string, and the key of the second pair becomes `k2` instead of ` k2`.
   - `-i ' =v1 , k2=v2'` now reports an error, because the key for `v1` is empty after trimming.
-  - `-i` Meaningful leading and trailing whitespace is silently removed.
+  - `-i`: Meaningful leading and trailing whitespace is silently removed.
 
 ### SQL TINYINT array schema
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
-  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. Starting from this version,`-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
 
 ### DuckDB BIT and ENUM automatic DDL
 
