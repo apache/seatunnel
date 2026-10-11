@@ -111,24 +111,26 @@ public class BasicAuthFilter implements Filter {
      * through timing, how many leading bytes matched.
      *
      * <p>MessageDigest.isEqual accumulates the difference over every byte instead of returning at
-     * the first mismatch, so the work it does is independent of how many leading bytes agree. It
-     * reads exactly as many bytes as its first argument holds, so the request's own value is passed
-     * first: the loop length is then something the caller already knows.
+     * the first mismatch, so the work it does is independent of how many leading bytes agree. Where
+     * it enters that loop it reads exactly as many bytes as its first argument holds, so the
+     * request's own value is passed first: the loop length is then something the caller already
+     * knows.
      *
-     * <p>How much the length itself is hidden depends on the JDK, so this does not claim more than
-     * was measured. Disassembled with {@code javap -c} on 11.0.32, 17.0.20 and 21.0.12: the length
-     * difference is folded into the accumulator and the loop runs for the first argument's length,
-     * with no early return when the lengths differ. On Java 8 it is different. A reviewer
-     * disassembled 8u71 and 8u171 and found an {@code if_icmpeq} on the two array lengths followed
-     * by an immediate {@code return false}, so on those builds whether a guess has the same byte
-     * length as the configured credential can still be inferred, though the leading bytes cannot.
-     * SeaTunnel ships for Java 8, so do not rely on the length being hidden there. No boundary
-     * update is named deliberately: only the builds listed above were disassembled, and which 8u or
-     * 11.x update first changed shape was not established.
+     * <p>How much the length itself is hidden depends on the JDK, so this claims no more than was
+     * measured. On the builds disassembled with {@code javap -c}, 11.0.32, 17.0.20 and 21.0.12, the
+     * length difference is folded into the accumulator and the loop runs for the first argument's
+     * length, with no early return when the lengths differ. On the Java 8 builds checked, 8u71 and
+     * 8u171, {@code isEqual} instead compares the two array lengths with {@code if_icmpeq} and
+     * returns false immediately when they differ, so there the equality of the byte lengths can
+     * still be inferred, though the leading bytes cannot. SeaTunnel ships for Java 8, so do not
+     * rely on the length being hidden. No boundary update is named on purpose: only the builds
+     * listed were disassembled, and which 8u or 11.x update first changed shape was not
+     * established.
      *
-     * <p>One further early exit, present in every build checked: when the configured value is
-     * empty, {@code isEqual} returns whether the provided value is empty too without entering the
-     * loop. That only arises from an empty configured credential.
+     * <p>One further early exit, seen in all three builds disassembled here: when the configured
+     * value is empty, {@code isEqual} returns whether the provided value is empty too without
+     * entering the loop. The 8u builds were not checked for this case. It only arises from an empty
+     * configured credential.
      *
      * @param provided the value supplied by the request, never null at the call sites below
      * @param expected the configured value, which is null when the credential is not set
