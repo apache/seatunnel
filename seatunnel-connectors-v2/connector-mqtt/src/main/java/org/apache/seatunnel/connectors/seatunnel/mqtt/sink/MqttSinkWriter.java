@@ -63,17 +63,12 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
 
     public MqttSinkWriter(
             SinkWriter.Context context, SeaTunnelRowType rowType, ReadonlyConfig pluginConfig) {
+        // Option value validation (qos range, batch_size, format) is enforced declaratively by
+        // MqttSinkFactory#optionRule() at job submission time.
         this.topic = pluginConfig.get(MqttSinkOptions.TOPIC);
         this.qos = pluginConfig.get(MqttSinkOptions.QOS);
-        if (this.qos < 0 || this.qos > 1) {
-            throw new IllegalArgumentException(
-                    "MQTT QoS must be 0 (at-most-once) or 1 (at-least-once), got: " + this.qos);
-        }
         this.retryTimeoutMs = pluginConfig.get(MqttSinkOptions.RETRY_TIMEOUT);
         this.batchSize = pluginConfig.get(MqttSinkOptions.BATCH_SIZE);
-        if (this.batchSize < 1) {
-            throw new IllegalArgumentException("batch_size must be >= 1, got: " + this.batchSize);
-        }
         this.messageBuffer = new ArrayList<>(this.batchSize);
         this.serializationSchema = createSerializationSchema(rowType, pluginConfig);
 
