@@ -28,6 +28,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.syntax import Syntax
@@ -1573,6 +1574,158 @@ class SeaTunnelCLI:
             self.console.print(f"  [error]Failed to execute: {e}[/error]")
 
 
+_SEVERITY_STYLE = {"error": "error", "warning": "warning", "info": "info"}
+
+# The engine parses a job id as a decimal long, so anything else can only be a
+# typo or a mangled copy-paste. Catching it here turns "1/2" -- which would
+# otherwise be sent as the URL path `/job-info/1/2` and come back as a 404 --
+# into a message that names the actual problem.
+_JOB_ID_RE = re.compile(r"-?\d+$")
+
+# An engine error body is bounded only by rest.MAX_RESPONSE_BYTES (8 MiB).
+# That is the right limit for a response being parsed; it is the wrong amount
+# of text to print into someone's terminal, so the printed form is clipped.
+_ERROR_BODY_MAX_CHARS = 2000
+
+
+def _clip(text: str, limit: int = _ERROR_BODY_MAX_CHARS) -> str:
+    """Shorten engine-supplied text for display, saying so when it is cut."""
+    return text if len(text) <= limit else f"{text[:limit]}... [{len(text)} chars total]"
+
+
+def run_diagnose(job_id: str, console: Console) -> int:
+    """Explain one job's current state from ``/job-info``. Returns an exit code.
+
+    Deliberately model-free. Every line printed here is derived from a field
+    the engine publishes, so this works with no API key, no provider configured
+    and no network beyond the cluster -- which is exactly the situation someone
+    is in when a job is stuck in production and they want an answer now.
+
+    It is also read-only: one GET, no submit, no stop, no savepoint. That is
+    what makes it safe to point at a live production job.
+    """
+    from .connectors import _ENGINE_API_BASE
+    from .diagnostics.jobs import diagnose_job, is_non_terminal
+    from .memory import redact_credentials
+
+    if not _JOB_ID_RE.match(job_id):
+        console.print(
+            f"[error]{escape(job_id)} is not a job id.[/error] A SeaTunnel job id is a "
+            f"decimal number, as printed on submit and listed by /running-jobs."
+        )
+        return 1
+
+    url = f"{_ENGINE_API_BASE}/job-info/{job_id}"
+    try:
+        job_info = rest.request_json(url, timeout=10)
+    except rest.RestError as e:
+        # A 404 here is the single most likely mistake (wrong id, a job old
+        # enough to have been evicted from the finished-job history, or the
+        # base URL pointing at a port that does not serve the v2 REST API), so
+        # it is worth separating from a cluster that is not answering at all.
+        if e.status == 404:
+            console.print(
+                f"[error]No job {escape(job_id)} at {escape(_ENGINE_API_BASE)}.[/error] It may "
+                f"have been evicted from the finished-job history, or the id may be wrong. "
+                f"If the cluster is elsewhere, set SEATUNNEL_API_BASE to its REST address "
+                f"(the Jetty HTTP port, 8080 in the packaged config -- not the member port 5801)."
+            )
+        else:
+            # Redacted and capped for the same reasons the finding lines are:
+            # the engine body can quote a JDBC URL with a password, and
+            # rest.py only bounds it at MAX_RESPONSE_BYTES (8 MiB), which is
+            # far more than anyone wants pasted into a terminal.
+            console.print(
+                f"[error]Could not read job {escape(job_id)} ({e.status}):[/error] "
+                f"{escape(_clip(redact_credentials(str(e.body))))}"
+            )
+        return 1
+    except Exception as e:
+        console.print(
+            f"[error]Could not reach the engine at {escape(_ENGINE_API_BASE)}:[/error] "
+            f"{escape(str(e))}\n"
+            f"Set SEATUNNEL_API_BASE if the REST API is on another host or port."
+        )
+        return 1
+
+    # The engine does not 404 for an id it does not know: JobInfoService falls
+    # through to `{"jobId": "<id>"}` with status 200 when the job is in
+    # neither the running-job map nor the finished-job state. Without this
+    # check that response reaches the rules as a job with no status, nothing
+    # matches, and the output reads "Nothing to report" -- i.e. "your job is
+    # fine" about a job that does not exist. A non-object body (a bare `null`
+    # or a list from a proxy) is the same situation and is caught here too,
+    # before anything calls .get() on it.
+    status = job_info.get("jobStatus") if isinstance(job_info, dict) else None
+    if not isinstance(status, str) or not status.strip():
+        console.print(
+            f"[error]No job {escape(job_id)} on the cluster at "
+            f"{escape(_ENGINE_API_BASE)}.[/error] The engine returned no status for it, "
+            f"which means the id is unknown there: either it is wrong, or the job has "
+            f"been evicted from the finished-job history."
+        )
+        return 1
+    status = status.strip()
+
+    name = job_info.get("jobName") or "(unnamed)"
+    # escape(): the job name is chosen by whoever submitted the job, so a name
+    # like "[prod] sync" would otherwise be read as a style tag and vanish.
+    console.print(
+        f"Job [bold]{escape(job_id)}[/bold] {escape(str(name))} "
+        f"— [bold]{escape(status)}[/bold]"
+    )
+
+    # The `diagnostics` block carries the restore counters and state
+    # timestamps, so the crash-loop and stuck-state rules are built entirely
+    # on it. When it is missing those rules have no input, and saying nothing
+    # would present "no data" as "no problem".
+    #
+    # Only while the job can still move, though: the engine builds the block
+    # for a job the master coordinates, so for a finished or cancelled job its
+    # absence is expected and the notice would be noise.
+    diagnostics_present = isinstance(job_info.get("diagnostics"), dict)
+    diagnostics_expected = is_non_terminal(status)
+    if diagnostics_expected and not diagnostics_present:
+        console.print(
+            "  Restart counts and state ages were not available in this response, "
+            "so the crash-loop and stuck-state checks did not run (the master may "
+            "not be serving diagnostics for this job).",
+            style="info",
+        )
+
+    findings = diagnose_job(job_info)
+    if not findings:
+        # Only claim a clean bill of health when the rules actually had their
+        # input; otherwise the notice above is the whole story.
+        if diagnostics_present or not diagnostics_expected:
+            console.print("  Nothing to report: no rule matched this job's state.", style="info")
+        return 0
+
+    for finding in findings:
+        # The error message can carry a JDBC URL with a password, and a
+        # finding quotes it, so redact on the way out even though nothing is
+        # being sent anywhere -- terminal output gets pasted into issues.
+        #
+        # markup=False because the finding text is data, not markup. Three
+        # reasons it matters: `render()` prefixes "[error]", and "error" is a
+        # style name in THEME, so rich would consume the prefix as a style tag
+        # and the severity would reach the user by colour alone -- invisible in
+        # a pipe, in CI, or under NO_COLOR. An engine message containing
+        # "ErrorDescription:[master is down]" would lose the bracketed part.
+        # And a fragment that looks like a closing tag, such as a path in
+        # "[/data/x.csv]", raises MarkupError -- crashing the one command
+        # someone runs when a job is already broken.
+        console.print(
+            f"  {redact_credentials(finding.render())}",
+            style=_SEVERITY_STYLE.get(finding.severity, "info"),
+            markup=False,
+        )
+    # Only a terminal failure is an error for the shell. A stuck or
+    # crash-looping job is a live job, and reporting it as a command failure
+    # would break `seatunnel --diagnose x && ...` for a job that is merely slow.
+    return 1 if status == "FAILED" else 0
+
+
 def main():
     """Entry point for seatunnel CLI."""
     parser = argparse.ArgumentParser(
@@ -1612,6 +1765,13 @@ def main():
         help="Interactive first-time setup: choose LLM provider and save config",
     )
     parser.add_argument(
+        "--diagnose",
+        metavar="JOB_ID",
+        help="Explain the current state of a job on the cluster and exit. "
+             "Read-only and model-free: needs no API key, only a reachable "
+             "engine REST API (see SEATUNNEL_API_BASE).",
+    )
+    parser.add_argument(
         "--export-metadata",
         nargs="?",
         const="auto",
@@ -1628,6 +1788,13 @@ def main():
         console = Console(theme=THEME)
         SeaTunnelCLI.run_init(console)
         sys.exit(0)
+
+    # --diagnose: read-only cluster query. Handled before any provider setup
+    # below, because it must work for a user who has no LLM configured at all.
+    if args.diagnose:
+        console = Console(theme=THEME)
+        _install_secret_log_filter()
+        sys.exit(run_diagnose(args.diagnose, console))
 
     # --export-metadata: run Java exporter, no LLM needed
     if args.export_metadata:

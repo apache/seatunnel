@@ -244,6 +244,52 @@ seatunnel "从 Kafka 读取订单数据写入 ClickHouse" -o my_job.conf
 seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model gpt-4o
 ```
 
+### 诊断作业
+
+`--diagnose` 用引擎已经暴露的信息回答"这个作业为什么不往前走"。它是只读的——
+只发一次 `GET /job-info/<id>`，不会提交也不会停止作业——并且完全不调用 LLM，
+因此在没有 API key、没有配置任何提供商的情况下也能用：
+
+```bash
+seatunnel --diagnose 852362670771666945
+
+# 集群在其他主机上，或 enable-dynamic-port 让监听端口发生了变化
+SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 852362670771666945
+```
+
+`/job-info` 属于 v2 REST API，由 Zeta 的 Jetty HTTP 端口提供服务——打包配置
+`config/seatunnel.yaml` 中是 `8080`。集群在别处或端口不同时，请把
+`SEATUNNEL_API_BASE` 指向该地址。
+
+```
+Job 852362670771666945 mysql-to-doris — RUNNING
+  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
+            It is failing and being restored repeatedly, so the job looks alive while
+            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
+            since the last restore)
+```
+
+它会报告：失败作业解析出的错误码与根因、反复重启的 pipeline（以及是否已用尽
+重启次数）、在运行前状态停留过久的作业、以及源端读不到数据或目标端写不出数据的
+运行中作业。只有作业本身处于 `FAILED` 时退出码才非零——卡住但仍存活的作业不会被
+当成命令执行失败。
+
+每条规则都刻意只说单次响应能证明的事情，因为错误的提示比没有提示代价更大：
+
+- `restoreCount` 统计的是自提交以来的重启次数，所以它的含义完全取决于 pipeline
+  当前的状态。`FINISHED` / `CANCELED` 的 pipeline 已经结束，不会输出任何内容；
+  `FAILED` 的只在重启预算用尽时以过去时报告；正在关停的则把重启次数作为历史
+  记录输出。只有当 pipeline 处于两次尝试之间、或距上次重启运行不足 10 分钟时，
+  才会判定为重启循环——因此每次尝试都能存活超过 10 分钟的循环会被当作历史
+  记录，而不是当前故障。
+- 行数规则要等作业进入 RUNNING 满两分钟后才生效；对 `job.mode = STREAMING`
+  的作业，源端空闲只作为提示而非告警——安静的 topic 和配错的 topic 在这里
+  读数完全相同。
+- `DOING_SAVEPOINT` 只报告持续时长，不会说成任务挂死：状态大时写 savepoint
+  本来就要几分钟。
+- 时长以 master 自己的 `diagnostics.generatedAt` 为基准计算，客户端时钟与
+  集群不一致时不会凭空造出一个"卡住"的作业。
+
 ### CLI 参数
 
 ```
@@ -257,6 +303,7 @@ seatunnel [request] [options]
   --provider PROVIDER      LLM 提供商：bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            覆盖主模型 ID
   --fast-model MODEL       覆盖快速模型 ID
+  --diagnose JOB_ID        诊断作业当前状态后退出（只读，不调用 LLM）
   --sync-catalog PATH      从 SeaTunnel 源码重新生成连接器目录
   -V, --version            显示版本
   -h, --help               显示帮助信息
