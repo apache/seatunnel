@@ -12,7 +12,7 @@ sidebar_position: 7
 
 SeaTunnel Engine支持以下检查点存储类型:
 
-- HDFS (OSS,COS,S3,GCS,HDFS,LocalFile)
+- HDFS (OSS,COS,S3,GCS,Azure Blob Storage,HDFS,LocalFile)
 - LocalFile (本地)，(已弃用: 使用HDFS(LocalFile)替代).
 
 我们使用微内核设计模式将检查点存储模块从引擎中分离出来。这允许用户实现他们自己的检查点存储模块。
@@ -155,6 +155,57 @@ seatunnel:
 - [gcs-connector-hadoop3-2.2.33-shaded.jar](https://mvnrepository.com/artifact/com.google.cloud.bigdataoss/gcs-connector/hadoop3-2.2.33)
 
 注意：默认情况下重命名操作使用GCS对象move API。对于未实现该API的服务（例如`fake-gcs-server`模拟器），需要配置`fs.gs.operation.move.enable: false`，connector会改为先复制再删除。
+
+#### Azure Blob Storage
+
+基于 Azure Blob Storage 的 hdfs-file 使用 [Hadoop Azure（WASB）文件系统](https://hadoop.apache.org/docs/r3.1.4/hadoop-azure/index.html)。`azure.container` 为必填项，必须是容器 URI：`wasbs://<container>@<account>.blob.core.windows.net`（TLS，推荐）或 `wasb://<container>@<account>.blob.core.windows.net`。`namespace` 是容器内的路径。该存储类型不支持 ADLS Gen2（`abfs://`、`abfss://`）。容器必须预先创建，首次写入时不会自动创建。
+
+所有 `fs.azure.*` 配置项都会原样传给 hadoop-azure。支持两种认证方式。使用存储账户密钥：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: azure
+          azure.container: wasbs://your-container@your-account.blob.core.windows.net
+          fs.azure.account.key.your-account.blob.core.windows.net: your-account-key
+```
+
+使用容器 SAS token：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: azure
+          azure.container: wasbs://your-container@your-account.blob.core.windows.net
+          fs.azure.sas.your-container.your-account.blob.core.windows.net: your-sas-token
+```
+
+SAS token 需要对容器具有读、写、删除和列出权限。WASB 不支持托管标识（Managed Identity）和 OAuth。
+
+使用前请将如下jar添加到lib目录下：
+- [hadoop-azure-3.1.4.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-azure/3.1.4)（Apache License 2.0）
+- [azure-storage-7.0.0.jar](https://mvnrepository.com/artifact/com.microsoft.azure/azure-storage/7.0.0)（MIT License）
+- [azure-keyvault-core-1.0.0.jar](https://mvnrepository.com/artifact/com.microsoft.azure/azure-keyvault-core/1.0.0)（MIT License）
+- [jetty-util-ajax-9.4.20.v20190813.jar](https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-util-ajax/9.4.20.v20190813)（Apache License 2.0 / EPL 1.0）
+- [jetty-util-9.4.20.v20190813.jar](https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-util/9.4.20.v20190813)（Apache License 2.0 / EPL 1.0）
+
+hadoop-azure 3.1.4 与 `seatunnel-shade-hadoop3-uber` 的 Hadoop 版本一致。这些 jar 不随 SeaTunnel 发布，需要您自行下载，其许可证适用于您的部署；SeaTunnel 自身的 LICENSE 和 NOTICE 文件不包含它们。
 
 #### S3
 

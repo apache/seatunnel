@@ -435,6 +435,38 @@ gcs-connector-hadoop3-2.2.33-shaded.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
+If you use Azure Blob Storage, you can configure it like this:
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: azure
+        azure.container: wasbs://your-container@your-account.blob.core.windows.net
+        # or a container SAS token: fs.azure.sas.your-container.your-account.blob.core.windows.net
+        fs.azure.account.key.your-account.blob.core.windows.net: your-account-key
+```
+
+Notice: A WASB block blob only becomes visible when it is closed, so the `hdfs` storage type cannot keep IMap data on Azure safely. With `storage.type: azure`, the IMap WAL writer rewrites and closes its current object on every update (the same as for S3, OSS and GCS), rolling over to a new object at `block.size` (default 1 MB). Each update therefore uploads the whole current object, so Azure IMap persistence is best suited to low or moderate IMap update rates. The container must already exist.
+
+Notice: When using Azure Blob Storage, make sure that the following jars are in the lib directory.
+
+```
+hadoop-azure-3.1.4.jar
+azure-storage-7.0.0.jar
+azure-keyvault-core-1.0.0.jar
+jetty-util-ajax-9.4.20.v20190813.jar
+jetty-util-9.4.20.v20190813.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
 ## 6. Configure The SeaTunnel Engine Client
 
 All SeaTunnel Engine client configurations are in the `hazelcast-client.yaml`.
