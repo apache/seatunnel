@@ -145,6 +145,33 @@ class HudiTwoPhaseCommitTest {
     }
 
     @Test
+    void shouldReleaseThePreviousClientWhenTheCommitterIsInitializedAgain() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        HudiCommitInfo hudiCommitInfo;
+        try {
+            writeRecords(writer, RECORD_COUNT);
+            hudiCommitInfo = writer.prepareCommit(1L).get();
+        } finally {
+            writer.close();
+        }
+
+        // newCommitter initializes the committer once, init() is called again here because the
+        // SinkAggregatedCommitter contract allows a retry to recreate its runtime resources
+        HudiSinkAggregatedCommitter committer = newCommitter(sinkConfig);
+        try {
+            committer.init();
+
+            Assertions.assertTrue(commit(committer, hudiCommitInfo).isEmpty());
+            Assertions.assertEquals(RECORD_COUNT, totalRecords(metaClient.reloadActiveTimeline()));
+        } finally {
+            committer.close();
+        }
+    }
+
+    @Test
     void shouldRollbackTheInstantOfAnAbortedCheckpoint() throws Exception {
         HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
         HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));

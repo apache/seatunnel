@@ -41,8 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUtil.inferTablePath;
@@ -76,6 +78,12 @@ public class HudiSinkAggregatedCommitter
 
     private transient HoodieTableMetaClient metaClient;
 
+    /**
+     * The instants that were aggregated for a checkpoint but not committed yet. They are only used
+     * to report a job that ends without committing its last instants.
+     */
+    private final Set<String> pendingInstants = new HashSet<>();
+
     public HudiSinkAggregatedCommitter(
             HudiSinkConfig sinkConfig,
             HudiTableConfig tableConfig,
@@ -87,6 +95,11 @@ public class HudiSinkAggregatedCommitter
 
     @Override
     public void init() {
+        // the SinkAggregatedCommitter contract allows the engine to call init() again on a retry,
+        // release the client of the previous attempt before replacing it
+        if (writeClientProvider != null) {
+            writeClientProvider.close();
+        }
         this.writeClientProvider =
                 new HudiWriteClientProvider(
                         sinkConfig, tableConfig.getTableName(), seaTunnelRowType);
@@ -112,6 +125,7 @@ public class HudiSinkAggregatedCommitter
                         .filter(Objects::nonNull)
                         .filter(commitInfo -> commitInfo.getInstantTime() != null)
                         .collect(Collectors.toList());
+        pendingCommitInfos.forEach(commitInfo -> pendingInstants.add(commitInfo.getInstantTime()));
         return new HudiAggregatedCommitInfo(pendingCommitInfos);
     }
 
@@ -124,13 +138,14 @@ public class HudiSinkAggregatedCommitter
     @Override
     public List<HudiAggregatedCommitInfo> commit(
             List<HudiAggregatedCommitInfo> aggregatedCommitInfos) {
-        for (HudiAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            if (aggregatedCommitInfo == null) {
-                continue;
-            }
-            for (HudiCommitInfo commitInfo : aggregatedCommitInfo.getCommitInfos()) {
-                commitInstant(commitInfo);
-            }
+        List<HudiCommitInfo> commitInfos = flatten(aggregatedCommitInfos);
+        if (commitInfos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // the timeline of the table is reloaded once per call instead of once per commit info
+        HoodieTimeline activeTimeline = reloadActiveTimeline();
+        for (HudiCommitInfo commitInfo : commitInfos) {
+            commitInstant(commitInfo, activeTimeline);
         }
         return Collections.emptyList();
     }
@@ -155,39 +170,60 @@ public class HudiSinkAggregatedCommitter
     /**
      * Rolls back the instants of a checkpoint that was aborted.
      *
-     * <p>The data of an aborted checkpoint is replayed by the source after the pipeline restarts,
-     * so the instants that hold it must not be committed. Zeta never aborts a checkpoint without
-     * restarting the pipeline, and the instants of a writer that died are also rolled back by Hudi
-     * when their heartbeat expires, so this is the best-effort path for the other engines.
+     * <p>Per the {@link SinkAggregatedCommitter} contract this is currently only called by the
+     * Spark engine; the engines that restart the pipeline after a failure, Zeta and Flink, do not
+     * call it. The data of a checkpoint that never completed is replayed by the source after such a
+     * restart, so the instants that hold it must not be committed, and the instants of a writer
+     * that died are rolled back by Hudi itself once their heartbeat expires, which the exactly-once
+     * semantics enables by switching the failed writes cleaning policy to LAZY.
      */
     @Override
     public void abort(List<HudiAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
-        for (HudiAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            if (aggregatedCommitInfo == null) {
-                continue;
-            }
-            for (HudiCommitInfo commitInfo : aggregatedCommitInfo.getCommitInfos()) {
-                rollbackInstant(commitInfo);
-            }
+        List<HudiCommitInfo> commitInfos = flatten(aggregatedCommitInfos);
+        if (commitInfos.isEmpty()) {
+            return;
+        }
+        HoodieTimeline activeTimeline = reloadActiveTimeline();
+        for (HudiCommitInfo commitInfo : commitInfos) {
+            rollbackInstant(commitInfo, activeTimeline);
         }
     }
 
     @Override
     public void close() throws IOException {
+        if (!pendingInstants.isEmpty()) {
+            log.error(
+                    "The hudi table [{}] ends with {} instant(s) that were never committed: {}. With the "
+                            + "exactly-once semantics the records of a checkpoint are committed only after that "
+                            + "checkpoint completes, so please check that the checkpoint is enabled and that the last "
+                            + "checkpoint completed successfully.",
+                    tableConfig.getTableName(),
+                    pendingInstants.size(),
+                    pendingInstants);
+        }
         if (writeClientProvider != null) {
             writeClientProvider.close();
         }
     }
 
-    private void commitInstant(HudiCommitInfo commitInfo) {
+    private List<HudiCommitInfo> flatten(List<HudiAggregatedCommitInfo> aggregatedCommitInfos) {
+        return aggregatedCommitInfos.stream()
+                .filter(Objects::nonNull)
+                .flatMap(aggregatedCommitInfo -> aggregatedCommitInfo.getCommitInfos().stream())
+                .filter(Objects::nonNull)
+                .filter(commitInfo -> commitInfo.getInstantTime() != null)
+                .collect(Collectors.toList());
+    }
+
+    private void commitInstant(HudiCommitInfo commitInfo, HoodieTimeline activeTimeline) {
         String instantTime = commitInfo.getInstantTime();
-        HoodieTimeline activeTimeline = reloadActiveTimeline();
         if (activeTimeline.filterCompletedInstants().containsInstant(instantTime)) {
             log.info(
                     "The hudi instant [{}] of table [{}] is already committed, skip committing it for checkpoint [{}].",
                     instantTime,
                     tableConfig.getTableName(),
                     commitInfo.getCheckpointId());
+            pendingInstants.remove(instantTime);
             return;
         }
         if (!activeTimeline.containsInstant(instantTime)) {
@@ -202,6 +238,7 @@ public class HudiSinkAggregatedCommitter
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient =
                 writeClientProvider.getOrCreateClient();
         writeClient.commit(instantTime, commitInfo.getWriteStatuses(), Option.empty());
+        pendingInstants.remove(instantTime);
         log.info(
                 "Commit hudi instant [{}] of table [{}] for checkpoint [{}] success.",
                 instantTime,
@@ -209,11 +246,12 @@ public class HudiSinkAggregatedCommitter
                 commitInfo.getCheckpointId());
     }
 
-    private void rollbackInstant(HudiCommitInfo commitInfo) throws IOException {
+    private void rollbackInstant(HudiCommitInfo commitInfo, HoodieTimeline activeTimeline)
+            throws IOException {
         String instantTime = commitInfo.getInstantTime();
-        HoodieTimeline activeTimeline = reloadActiveTimeline();
         if (!activeTimeline.containsInstant(instantTime)
                 || activeTimeline.filterCompletedInstants().containsInstant(instantTime)) {
+            pendingInstants.remove(instantTime);
             return;
         }
         log.warn(
@@ -222,6 +260,7 @@ public class HudiSinkAggregatedCommitter
                 tableConfig.getTableName(),
                 commitInfo.getCheckpointId());
         writeClientProvider.getOrCreateClient().rollback(instantTime);
+        pendingInstants.remove(instantTime);
     }
 
     private HoodieTimeline reloadActiveTimeline() {

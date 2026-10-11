@@ -317,7 +317,11 @@ public class HudiRecordWriter implements Serializable {
                 // writing them into a new instant here would leave an instant that is never
                 // committed behind.
                 if (pendingInstantTime != null) {
-                    LOG.warn(
+                    // the records of this instant are lost: an instant is only committed after the
+                    // checkpoint that contains it completes, so a job that ends here either has the
+                    // checkpoint disabled or never completed one. Surface it instead of a routine
+                    // warning, because the job silently produced no committed output.
+                    LOG.error(
                             "The records written into hudi instant [{}] of table [{}] are not committed, "
                                     + "because no checkpoint completed after they were written. Please check that the "
                                     + "checkpoint is enabled and that the last checkpoint completed successfully.",
