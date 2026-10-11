@@ -66,19 +66,50 @@ class MultiTableSinkCommitterTest {
         Assertions.assertIterableEquals(Arrays.asList("t2-c0", "t2-c1"), table2Committer.aborted);
     }
 
+    @Test
+    void testSharedCommitterIsInvokedOnceForAllAliases() throws IOException {
+        String table1 = "catalog.db.table1";
+        String table2 = "catalog.db.table2";
+        RecordingSinkCommitter sharedCommitter = new RecordingSinkCommitter();
+        Map<String, SinkCommitter<?>> sinkCommitters = new HashMap<>();
+        sinkCommitters.put(table1, sharedCommitter);
+        sinkCommitters.put(table2, sharedCommitter);
+        MultiTableSinkCommitter multiTableSinkCommitter =
+                new MultiTableSinkCommitter(sinkCommitters);
+
+        MultiTableCommitInfo commitInfo = new MultiTableCommitInfo(new ConcurrentHashMap<>());
+        commitInfo.getCommitInfo().put(SinkIdentifier.of(table1, 0), "t1-c0");
+        commitInfo.getCommitInfo().put(SinkIdentifier.of(table2, 0), "t2-c0");
+
+        multiTableSinkCommitter.commit(Collections.singletonList(commitInfo));
+        multiTableSinkCommitter.abort(Collections.singletonList(commitInfo));
+
+        Assertions.assertEquals(1, sharedCommitter.commitCount);
+        Assertions.assertEquals(1, sharedCommitter.abortCount);
+        Assertions.assertEquals(2, sharedCommitter.committed.size());
+        Assertions.assertTrue(
+                sharedCommitter.committed.containsAll(Arrays.asList("t1-c0", "t2-c0")));
+        Assertions.assertEquals(2, sharedCommitter.aborted.size());
+        Assertions.assertTrue(sharedCommitter.aborted.containsAll(Arrays.asList("t1-c0", "t2-c0")));
+    }
+
     private static class RecordingSinkCommitter implements SinkCommitter<Object> {
 
         private List<Object> committed = Collections.emptyList();
         private List<Object> aborted = Collections.emptyList();
+        private int commitCount;
+        private int abortCount;
 
         @Override
         public List<Object> commit(List<Object> commitInfos) {
+            commitCount++;
             this.committed = commitInfos;
             return Collections.emptyList();
         }
 
         @Override
         public void abort(List<Object> commitInfos) {
+            abortCount++;
             this.aborted = commitInfos;
         }
     }
