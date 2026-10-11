@@ -67,7 +67,14 @@ header 字段和事件时间元数据。
 | poll.timeout                        | Long                                | 否    | 10000                        | kafka主动拉取时间间隔(毫秒)。                                                                                                                                                                                                                                                                                                             |
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
-| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
+| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text、canal_json、debezium_json、ogg_json、maxwell_json、avro、protobuf、native 和 custom_cdc_json。更多格式说明请参考 [formats](../formats)。 |
+| schema_list                         | List                                | 仅 `custom_cdc_json` 必填 | -               | `custom_cdc_json` 的输出表定义。每个条目需包含 `table` 和 `columns`，可使用 `json_field` 将输出列映射到 before/after 镜像中的 JSONPath。 |
+| schema_path                         | String                              | 否    | -                            | `custom_cdc_json` 消息中 schema 名称的 JSONPath。配置的表名带 schema 时使用。 |
+| table_path                          | String                              | 仅 `custom_cdc_json` 必填 | -               | `custom_cdc_json` 消息中表名的 JSONPath。 |
+| operation_path                      | String                              | 仅 `custom_cdc_json` 必填 | -               | `custom_cdc_json` 消息中变更操作类型的 JSONPath。 |
+| custom_cdc_operation_type_mapping   | Map                                 | 否    | 内置映射                      | 将操作值映射为 `INSERT`、`UPDATE`、`DELETE`、`UPDATE_BEFORE` 或 `UPDATE_AFTER`。默认识别 `c`/`r`/`create`/`insert`、`u`/`update` 和 `d`/`delete`。 |
+| before_path                         | String                              | 仅 `custom_cdc_json` 必填 | -               | `custom_cdc_json` 消息中 before 镜像的 JSONPath。 |
+| after_path                          | String                              | 仅 `custom_cdc_json` 必填 | -               | `custom_cdc_json` 消息中 after 镜像的 JSONPath。 |
 | avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
 | value_converter_schema_enabled      | Boolean                             | 否    | true                         | 仅在 `format = compatible_kafka_connect_json` 时生效。Kafka Connect value 转换后的 JSON 载荷是否携带 schema。                                                                                                                                                                                                                                                                                |
 | format_error_handle_way             | String                              | 否    | fail                         | 数据格式错误的处理方式。默认值为 fail，可选值为 fail 和 skip。当选择 fail 时，数据格式错误将阻塞并抛出异常。当选择 skip 时，数据格式错误将跳过此行数据。                                                                                                                                                                                                                                     |
@@ -126,6 +133,37 @@ debezium_record_table_filter {
 ```
 
 只有 `test.public.products` 表的数据将被消费。
+
+### custom_cdc_json
+
+`custom_cdc_json` 用于读取字段名或嵌套层级不符合内置 CDC 格式的 JSON 变更消息。它会根据 `schema_list` 将消息路由到对应的表，使用 JSONPath 映射字段，并产生相应的行类型。`UPDATE` 会依次产生 `UPDATE_BEFORE` 和 `UPDATE_AFTER` 两行；未配置的表会被跳过。
+
+由于该格式的输出 schema 随表而变化，不能与 `kafka_headers_fields` 一起使用。
+
+```hocon
+source {
+  Kafka {
+    topic = "custom-cdc"
+    bootstrap.servers = "kafka:9092"
+    format = "custom_cdc_json"
+    schema_path = "$.schema"
+    table_path = "$.table"
+    operation_path = "$.operation"
+    before_path = "$.payload.before"
+    after_path = "$.payload.after"
+    schema_list = [
+      {
+        table = "public.customer"
+        columns = [
+          { name = "id", type = "int", nullable = false },
+          { name = "name", type = "string", nullable = true }
+        ]
+        json_field = { name = "$.customer_name" }
+      }
+    ]
+  }
+}
+```
 
 ## 元数据支持
 

@@ -129,6 +129,9 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String DEBEZIUM_DATA_PATH = "/debezium/debezium_data.txt";
     private static final String DEBEZIUM_KAFKA_SOURCE_TOPIC = "dbserver1.debezium.products";
 
+    // ---------------------------Custom CDC JSON Format Parameter-----------------------------
+    private static final String CUSTOM_CDC_JSON_KAFKA_SOURCE_TOPIC = "custom-cdc-json";
+
     private static final List<String> KAFKA_TOPICS =
             Arrays.asList(
                     CANAL_KAFKA_SOURCE_TOPIC,
@@ -136,6 +139,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                     MAXWELL_KAFKA_SOURCE_TOPIC,
                     COMPATIBLE_KAFKA_SOURCE_TOPIC,
                     DEBEZIUM_KAFKA_SOURCE_TOPIC,
+                    CUSTOM_CDC_JSON_KAFKA_SOURCE_TOPIC,
                     CANAL_KAFKA_SINK_TOPIC,
                     OGG_KAFKA_SINK_TOPIC,
                     MAXWELL_KAFKA_SINK_TOPIC,
@@ -425,6 +429,21 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
         // Check debezium
         checkDebeziumFormat();
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
+    @TestTemplate
+    public void testCustomCdcJsonFormatCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info("====================== Check custom CDC JSON ======================");
+        sendCustomCdcJsonRecords();
+
+        Container.ExecResult result =
+                container.executeJob("/customCdcJsonFormatIT/kafka_custom_cdc_json_to_assert.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
     @TestTemplate
@@ -1058,6 +1077,33 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             }
         }
         producer.close();
+    }
+
+    private void sendCustomCdcJsonRecords() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", KAFKA_CONTAINER.getBootstrapServers());
+        props.put("acks", "all");
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+        List<String> records =
+                Arrays.asList(
+                        "{\"schema\":\"public\",\"table\":\"customer\",\"operation\":\"insert\",\"before\":null,\"after\":{\"id\":1,\"customer_name\":\"Alice\"}}",
+                        "{\"schema\":\"public\",\"table\":\"customer\",\"operation\":\"update\",\"before\":{\"id\":1,\"customer_name\":\"Alice\"},\"after\":{\"id\":1,\"customer_name\":\"Alicia\"}}",
+                        "{\"schema\":\"public\",\"table\":\"orders\",\"operation\":\"delete\",\"before\":{\"id\":9,\"total\":42.5},\"after\":null}");
+        try (KafkaProducer<String, String> producer = new KafkaProducer<>(props)) {
+            for (String record : records) {
+                producer.send(
+                                new ProducerRecord<>(
+                                        CUSTOM_CDC_JSON_KAFKA_SOURCE_TOPIC, null, record))
+                        .get();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while producing custom CDC JSON records", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to produce custom CDC JSON records", e);
+        }
     }
 
     // Get result data
