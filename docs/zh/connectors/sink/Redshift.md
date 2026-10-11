@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa 事务` 确保 `精确一次`。因此仅支持 `精确一次` 的数据库才支持 `Xa 事务`。您可以设置 `is_exactly_once=true` 来启用它。
 
@@ -71,8 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名                                                                                                                                                                                                                                 |
 | password                     | String  | 否       | -                            | 连接实例密码                                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                                               |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                    |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                                    |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                    |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成 SQL 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                                    |
 | schema                       | String  | 否       | -                            | Redshift 中目标表的 schema 名称。SeaTunnel 不会为该参数自动填充默认值。当目标表没有在 `table` 中显式携带 schema，或使用 `generate_sink_sql`、`schema_save_mode`、`data_save_mode` 等基于 catalog 的操作时，建议显式配置该参数。 |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持自动生成 SQL 时的 `insert`、`delete` 和 `update` 操作。                                                                                                                                                                          |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                 |

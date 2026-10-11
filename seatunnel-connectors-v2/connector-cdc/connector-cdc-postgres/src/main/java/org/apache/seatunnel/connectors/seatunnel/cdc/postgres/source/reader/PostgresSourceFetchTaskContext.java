@@ -460,12 +460,16 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         Map<String, String> offsetStrMap =
                 Objects.requireNonNull(offset, "offset is null for the sourceSplitBase")
                         .getOffset();
-        // all the keys happen to be long type for PostgresOffsetContext.Loader.load
+        // Numeric offsets are stored as strings in split state; the resume operation is an enum.
         Map<String, Object> offsetMap = new HashMap<>();
         for (String key : offsetStrMap.keySet()) {
             String value = offsetStrMap.get(key);
             if (value != null) {
-                offsetMap.put(key, Long.parseLong(value));
+                offsetMap.put(
+                        key,
+                        PostgresOffsetContext.LAST_PROCESSED_MESSAGE_TYPE_KEY.equals(key)
+                                ? value
+                                : Long.parseLong(value));
             }
         }
         return loader.load(offsetMap);

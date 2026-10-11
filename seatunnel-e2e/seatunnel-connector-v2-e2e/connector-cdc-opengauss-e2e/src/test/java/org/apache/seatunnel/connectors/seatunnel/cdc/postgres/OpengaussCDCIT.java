@@ -452,7 +452,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add field add insert source table data
+            // Keep the source and sink schemas aligned before restoring the job.
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
