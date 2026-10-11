@@ -46,6 +46,12 @@ public class ObservabilityConfig {
     private static final int DEFAULT_RETENTION_MINUTES = 3;
     private static final int MAX_RETENTION_MINUTES = 10;
     private static final int MAX_EDGE_OVERRIDE_CAPACITY = 100_000;
+    /** Upper bound on retained warning keys. Categories are finite; this is a safety cap. */
+    private static final int MAX_LOGGED_EDGE_OVERRIDE_ISSUES = 32;
+    /**
+     * Deduplicates edge-override warnings. Keys are warning categories, not caller-supplied
+     * strings, so retained size does not grow with job count or invalid-input cardinality.
+     */
     private static final Set<String> LOGGED_EDGE_OVERRIDE_ISSUES = ConcurrentHashMap.newKeySet();
 
     private final boolean enabled;
@@ -259,8 +265,7 @@ public class ObservabilityConfig {
         for (Object item : (List<?>) value) {
             if (!(item instanceof Map)) {
                 warnOnce(
-                        "edge_overrides:not_map:"
-                                + (item == null ? "null" : item.getClass().getName()),
+                        "edge_overrides:not_map",
                         "Invalid {} item (expected map): {}",
                         key,
                         item == null ? "null" : item.getClass().getName());
@@ -271,7 +276,7 @@ public class ObservabilityConfig {
             Object capacity = map.get("capacity");
             if (boundary == null || capacity == null) {
                 warnOnce(
-                        "edge_overrides:missing:" + map.keySet(),
+                        "edge_overrides:missing",
                         "Invalid {} item (missing boundary/capacity), keys={}",
                         key,
                         map.keySet());
@@ -281,7 +286,7 @@ public class ObservabilityConfig {
                 int cap = Integer.parseInt(String.valueOf(capacity));
                 if (cap < 0) {
                     warnOnce(
-                            "edge_overrides:negative:" + boundary + ":" + cap,
+                            "edge_overrides:negative",
                             "Invalid {} item (capacity must be >= 0), boundary={}, capacity={}",
                             key,
                             boundary,
@@ -290,7 +295,7 @@ public class ObservabilityConfig {
                 }
                 if (cap > MAX_EDGE_OVERRIDE_CAPACITY) {
                     warnOnce(
-                            "edge_overrides:too_large:" + boundary + ":" + cap,
+                            "edge_overrides:too_large",
                             "Invalid {} item (capacity must be <= {}), boundary={}, capacity={}. Clamp to {}.",
                             key,
                             MAX_EDGE_OVERRIDE_CAPACITY,
@@ -302,7 +307,7 @@ public class ObservabilityConfig {
                 overrides.put(String.valueOf(boundary), cap);
             } catch (Exception e) {
                 warnOnce(
-                        "edge_overrides:invalid:" + boundary + ":" + capacity,
+                        "edge_overrides:invalid",
                         "Invalid {} item (cannot parse capacity), boundary={}, capacity={}",
                         key,
                         boundary,
@@ -313,6 +318,12 @@ public class ObservabilityConfig {
     }
 
     private static void warnOnce(String uniqKey, String message, Object... args) {
+        if (LOGGED_EDGE_OVERRIDE_ISSUES.contains(uniqKey)) {
+            return;
+        }
+        if (LOGGED_EDGE_OVERRIDE_ISSUES.size() >= MAX_LOGGED_EDGE_OVERRIDE_ISSUES) {
+            return;
+        }
         if (!LOGGED_EDGE_OVERRIDE_ISSUES.add(uniqKey)) {
             return;
         }
