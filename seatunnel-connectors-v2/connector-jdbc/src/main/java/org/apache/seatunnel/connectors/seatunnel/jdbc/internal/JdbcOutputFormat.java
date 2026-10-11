@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -207,14 +208,34 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 break;
             } catch (SQLException e) {
                 recordFlushException(e);
-                LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+                List<SQLException> sqlExceptions = findSqlExceptions(e);
+                String sqlStates =
+                        sqlExceptions.stream()
+                                .map(SQLException::getSQLState)
+                                .collect(Collectors.joining(", "));
+                boolean needReestablish;
+                try {
+                    needReestablish = shouldRefreshExecutor(sqlExceptions);
+                } catch (SQLException validationEx) {
+                    // Connection validation itself failed, treat the connection as broken.
+                    needReestablish = true;
+                    LOG.warn(
+                            "JDBC connection validation failed, treat connection as broken. retry times = {}",
+                            i,
+                            validationEx);
+                }
+                LOG.error(
+                        "JDBC executeBatch error, retry times = {}, sqlStates = [{}], needReestablish = {}",
+                        i,
+                        sqlStates,
+                        needReestablish,
+                        e);
                 // Row-error mode delegates failed data batches to the writer for rollback.
                 if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
 
-                List<SQLException> sqlExceptions = findSqlExceptions(e);
                 SQLException nonRetryableDataException =
                         findNonRetryableDataException(sqlExceptions);
                 if (nonRetryableDataException != null) {
@@ -247,8 +268,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 try {
-                    if (shouldRefreshExecutor(findSqlExceptions(e))) {
+                    if (needReestablish) {
+                        LOG.info(
+                                "Reestablish JDBC connection before retry. retry times = {}, sqlStates = [{}]",
+                                i,
+                                sqlStates);
                         updateExecutor(true);
+                        LOG.info("Reestablish JDBC connection success. retry times = {}", i);
                     }
                 } catch (Exception exception) {
                     LOG.error(
