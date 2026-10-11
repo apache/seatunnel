@@ -443,6 +443,39 @@ public class SQLDateTimeFunctionsTest {
                                     dateType,
                                     LocalDate.of(2023, 1, 1))
                             .getField(0));
+
+            // 11) timezone contract: the string overload resolves against the JVM default
+            // zone, not a hardcoded UTC. Under Asia/Shanghai (UTC+8), 2023-01-01 00:00:00
+            // maps to 1672502400 (28800s earlier than UTC's 1672531200).
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            Assertions.assertEquals(
+                    1672502400L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s) as ts from dual",
+                                    strType,
+                                    "2023-01-01 00:00:00")
+                            .getField(0));
+            // OffsetDateTime is offset-aware, so its epoch is zone-independent even here.
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(odt) as ts from dual",
+                                    odtType,
+                                    OffsetDateTime.of(2023, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC))
+                            .getField(0));
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+
+            // 12) impossible date (2023-02-30) is clamped to 2023-02-28 by the SMART
+            // resolver, consistent with the other date functions in this class.
+            // Expected value 1677542400 is 2023-02-28 00:00:00 under UTC (reset by
+            // case 11); under Asia/Shanghai it would be 1677513600 (8h earlier).
+            Assertions.assertEquals(
+                    1677542400L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s) as ts from dual",
+                                    strType,
+                                    "2023-02-30 00:00:00")
+                            .getField(0));
         } finally {
             TimeZone.setDefault(originalTz);
         }

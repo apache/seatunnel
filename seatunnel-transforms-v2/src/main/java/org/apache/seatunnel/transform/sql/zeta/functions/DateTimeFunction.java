@@ -41,10 +41,18 @@ import java.time.temporal.TemporalAccessor;
 import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DateTimeFunction {
     /** English names of months and week days. */
     private static volatile String[][] MONTHS_AND_WEEKS;
+
+    private static final Map<String, DateTimeFormatter> FORMATTER_CACHE = new ConcurrentHashMap<>();
+
+    private static DateTimeFormatter getFormatter(String pattern) {
+        return FORMATTER_CACHE.computeIfAbsent(pattern, DateTimeFormatter::ofPattern);
+    }
 
     public static LocalDate currentDate() {
         return LocalDate.now();
@@ -797,7 +805,7 @@ public class DateTimeFunction {
             String timeZone = (String) args.get(2);
             zoneId = ZoneId.of(timeZone);
         }
-        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        DateTimeFormatter df = getFormatter(format);
         LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
     }
@@ -817,8 +825,11 @@ public class DateTimeFunction {
      * <p>{@code LocalDateTime} / {@code LocalDate} and string inputs are resolved against the
      * system default time zone (the inverse of {@link #fromUnixTime}); {@code OffsetDateTime} uses
      * its own offset. Unparseable string input returns {@code null} rather than raising, so a bad
-     * row value does not fail the query. An invalid pattern string, being a query-time error rather
-     * than row data, propagates from {@link DateTimeFormatter#ofPattern(String)}.
+     * row value does not fail the query. An out-of-range day-of-month (for example {@code
+     * 2023-02-30}) is adjusted to the last valid day of that month by the SMART resolver,
+     * consistent with the other date functions in this class. An invalid pattern string, being a
+     * query-time error rather than row data, propagates from {@link
+     * DateTimeFormatter#ofPattern(String)}.
      */
     public static Long unixTimestamp(List<Object> args) {
         // UNIX_TIMESTAMP() — current epoch seconds
@@ -853,7 +864,7 @@ public class DateTimeFunction {
         } else {
             pattern = "yyyy-MM-dd HH:mm:ss";
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        DateTimeFormatter formatter = getFormatter(pattern);
         try {
             TemporalAccessor parsed =
                     formatter.parseBest(str, LocalDateTime::from, LocalDate::from);
