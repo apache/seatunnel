@@ -90,6 +90,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
 
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 120L;
+
     private List<String> testDataset1;
 
     private List<String> testDataset2;
