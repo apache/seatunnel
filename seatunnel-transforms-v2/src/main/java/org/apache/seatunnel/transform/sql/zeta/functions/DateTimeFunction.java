@@ -48,10 +48,21 @@ public class DateTimeFunction {
     /** English names of months and week days. */
     private static volatile String[][] MONTHS_AND_WEEKS;
 
-    private static final Map<String, DateTimeFormatter> FORMATTER_CACHE = new ConcurrentHashMap<>();
+    private static final int FORMATTER_CACHE_MAX_SIZE = 1024;
+
+    private static final Map<String, DateTimeFormatter> FORMATTER_CACHE =
+            new ConcurrentHashMap<>(FORMATTER_CACHE_MAX_SIZE);
 
     private static DateTimeFormatter getFormatter(String pattern) {
-        return FORMATTER_CACHE.computeIfAbsent(pattern, DateTimeFormatter::ofPattern);
+        DateTimeFormatter cached = FORMATTER_CACHE.get(pattern);
+        if (cached != null) {
+            return cached;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        if (FORMATTER_CACHE.size() < FORMATTER_CACHE_MAX_SIZE) {
+            FORMATTER_CACHE.putIfAbsent(pattern, formatter);
+        }
+        return formatter;
     }
 
     public static LocalDate currentDate() {
