@@ -121,7 +121,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     }
 
     @Override
-    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         ParquetWriter<GenericRecord> writer = getOrCreateOutputStream(filePath);
@@ -149,7 +149,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
                 (k, v) -> {

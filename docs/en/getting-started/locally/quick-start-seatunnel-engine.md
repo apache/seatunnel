@@ -112,7 +112,7 @@ cd "apache-seatunnel-${version}"
 On Windows, run the equivalent batch entry point from the SeaTunnel directory:
 
 ```bat
-cd apache-seatunnel-3.0.0
+cd apache-seatunnel-3.0.1
 bin\seatunnel.cmd --config config\v2.batch.config.template -m local
 ```
 
