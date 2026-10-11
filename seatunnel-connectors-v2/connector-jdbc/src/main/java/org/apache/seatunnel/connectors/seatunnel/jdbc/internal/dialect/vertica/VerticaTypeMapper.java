@@ -58,6 +58,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
     private static final String VERTICA_BIGINT = "BIGINT";
     private static final String VERTICA_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
     private static final String VERTICA_DECIMAL = "DECIMAL";
+    private static final String VERTICA_NUMERIC = "NUMERIC";
     private static final String VERTICA_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
     private static final String VERTICA_FLOAT = "FLOAT";
     private static final String VERTICA_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
@@ -114,6 +115,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.LONG_TYPE;
             case VERTICA_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
+            case VERTICA_NUMERIC:
             case VERTICA_DECIMAL:
                 if (precision > 38) {
                     LOG.warn("{} will probably cause value overflow.", VERTICA_DECIMAL);
@@ -162,7 +164,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
             case VERTICA_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-                // Doesn't support yet
+            // Doesn't support yet
             case VERTICA_GEOMETRY:
             case VERTICA_UNKNOWN:
             default:
