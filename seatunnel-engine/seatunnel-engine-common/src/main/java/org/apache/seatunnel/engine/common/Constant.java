@@ -41,6 +41,9 @@ public class Constant {
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 
+    /** Default master-side wait budget for collecting metrics from workers. */
+    public static final long DEFAULT_METRICS_FETCH_TIMEOUT_MS = 3000L;
+
     public static final String IMAP_RUNNING_JOB_INFO = "engine_runningJobInfo";
 
     public static final String IMAP_RUNNING_JOB_STATE = "engine_runningJobState";
