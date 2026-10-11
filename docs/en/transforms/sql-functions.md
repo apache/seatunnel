@@ -1117,7 +1117,7 @@ Convert a datetime to the number of seconds since the UNIX epoch (1970-01-01 00:
 - String argument: parsed with the given `pattern` (default `yyyy-MM-dd HH:mm:ss`). For pattern characters see `java.time.format.DateTimeFormatter`.
 - `dateTime` argument: a TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE column.
 
-`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. Unparseable string input returns NULL rather than raising an error. Numeric input is not supported and returns NULL.
+`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. Unparseable string input returns NULL rather than raising an error. Numeric input is not supported and returns NULL. An out-of-range day-of-month (for example `2023-02-30`) is adjusted to the last valid day of that month, consistent with the other date-time functions. If a user-defined function (UDF) with the same name exists, it is shadowed by this built-in.
 
 Example:
 
