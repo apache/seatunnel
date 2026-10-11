@@ -329,7 +329,24 @@ public class SQLDateTimeFunctionsTest {
     }
 
     @Test
-    public void testUnixTimestamp() {
+    public void testUnixTimestampNoArg() {
+        SeaTunnelRow noArg =
+                runSql(
+                        "select UNIX_TIMESTAMP() as ts from dual",
+                        new SeaTunnelRowType(
+                                new String[] {"x"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}),
+                        "placeholder");
+        long now = Instant.now().getEpochSecond();
+        Object noArgTs = noArg.getField(0);
+        Assertions.assertNotNull(noArgTs);
+        Assertions.assertTrue(
+                Math.abs((Long) noArgTs - now) < 60,
+                "UNIX_TIMESTAMP() should be within 60s of now");
+    }
+
+    @Test
+    public void testUnixTimestampStringPatterns() {
         TimeZone originalTz = TimeZone.getDefault();
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         try {
@@ -337,22 +354,7 @@ public class SQLDateTimeFunctionsTest {
                     new SeaTunnelRowType(
                             new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
 
-            // 1) no-arg: current epoch seconds (flake-tolerant window for CI)
-            SeaTunnelRow noArg =
-                    runSql(
-                            "select UNIX_TIMESTAMP() as ts from dual",
-                            new SeaTunnelRowType(
-                                    new String[] {"x"},
-                                    new SeaTunnelDataType[] {BasicType.STRING_TYPE}),
-                            "placeholder");
-            long now = Instant.now().getEpochSecond();
-            Object noArgTs = noArg.getField(0);
-            Assertions.assertNotNull(noArgTs);
-            Assertions.assertTrue(
-                    Math.abs((Long) noArgTs - now) < 60,
-                    "UNIX_TIMESTAMP() should be within 60s of now");
-
-            // 2) string with default pattern yyyy-MM-dd HH:mm:ss
+            // default pattern yyyy-MM-dd HH:mm:ss
             Assertions.assertEquals(
                     1672531200L,
                     runSql(
@@ -361,7 +363,7 @@ public class SQLDateTimeFunctionsTest {
                                     "2023-01-01 00:00:00")
                             .getField(0));
 
-            // 3) string with custom pattern
+            // custom pattern
             Assertions.assertEquals(
                     1672531200L,
                     runSql(
@@ -370,7 +372,7 @@ public class SQLDateTimeFunctionsTest {
                                     "2023/01/01 00:00:00")
                             .getField(0));
 
-            // 4) date-only pattern -> midnight of that day
+            // date-only pattern -> midnight of that day
             Assertions.assertEquals(
                     1672531200L,
                     runSql(
@@ -378,34 +380,50 @@ public class SQLDateTimeFunctionsTest {
                                     strType,
                                     "2023-01-01")
                             .getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
 
-            // 5) null input -> null
-            Assertions.assertNull(
-                    runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, new Object[] {null})
-                            .getField(0));
+    @Test
+    public void testUnixTimestampNullAndInvalid() {
+        SeaTunnelRowType strType =
+                new SeaTunnelRowType(
+                        new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
 
-            // 6) unparseable string -> null (does not raise on bad input)
-            Assertions.assertNull(
-                    runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, "not-a-date")
-                            .getField(0));
+        // null input -> null
+        Assertions.assertNull(
+                runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, new Object[] {null})
+                        .getField(0));
 
-            // 6b) explicit NULL pattern -> null (propagates, does not fall back to default)
-            Assertions.assertNull(
-                    runSql(
-                                    "select UNIX_TIMESTAMP(s, null) as ts from dual",
-                                    strType,
-                                    "2023-01-01 00:00:00")
-                            .getField(0));
+        // unparseable string -> null (does not raise on bad input)
+        Assertions.assertNull(
+                runSql("select UNIX_TIMESTAMP(s) as ts from dual", strType, "not-a-date")
+                        .getField(0));
 
-            // 7) numeric input is not supported -> null
-            SeaTunnelRowType longType =
-                    new SeaTunnelRowType(
-                            new String[] {"n"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
-            Assertions.assertNull(
-                    runSql("select UNIX_TIMESTAMP(n) as ts from dual", longType, 1672531200L)
-                            .getField(0));
+        // explicit NULL pattern -> null (propagates, does not fall back to default)
+        Assertions.assertNull(
+                runSql(
+                                "select UNIX_TIMESTAMP(s, null) as ts from dual",
+                                strType,
+                                "2023-01-01 00:00:00")
+                        .getField(0));
 
-            // 8) typed LocalDateTime argument
+        // numeric input is not supported -> null
+        SeaTunnelRowType longType =
+                new SeaTunnelRowType(
+                        new String[] {"n"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+        Assertions.assertNull(
+                runSql("select UNIX_TIMESTAMP(n) as ts from dual", longType, 1672531200L)
+                        .getField(0));
+    }
+
+    @Test
+    public void testUnixTimestampTypedInputs() {
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        try {
+            // typed LocalDateTime argument
             SeaTunnelRowType dtType =
                     new SeaTunnelRowType(
                             new String[] {"dt"},
@@ -418,7 +436,7 @@ public class SQLDateTimeFunctionsTest {
                                     LocalDateTime.of(2023, 1, 1, 0, 0, 0))
                             .getField(0));
 
-            // 9) typed OffsetDateTime argument (offset-aware, TZ-independent)
+            // typed OffsetDateTime argument (offset-aware, TZ-independent)
             SeaTunnelRowType odtType =
                     new SeaTunnelRowType(
                             new String[] {"odt"},
@@ -431,7 +449,7 @@ public class SQLDateTimeFunctionsTest {
                                     OffsetDateTime.of(2023, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC))
                             .getField(0));
 
-            // 10) typed LocalDate argument (DATE column, resolved at midnight)
+            // typed LocalDate argument (DATE column, resolved at midnight)
             SeaTunnelRowType dateType =
                     new SeaTunnelRowType(
                             new String[] {"d"},
@@ -443,11 +461,22 @@ public class SQLDateTimeFunctionsTest {
                                     dateType,
                                     LocalDate.of(2023, 1, 1))
                             .getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
 
-            // 11) timezone contract: the string overload resolves against the JVM default
-            // zone, not a hardcoded UTC. Under Asia/Shanghai (UTC+8), 2023-01-01 00:00:00
-            // maps to 1672502400 (28800s earlier than UTC's 1672531200).
-            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+    @Test
+    public void testUnixTimestampNonUtcZone() {
+        // timezone contract: the string overload resolves against the JVM default
+        // zone, not a hardcoded UTC. Under Asia/Shanghai (UTC+8), 2023-01-01 00:00:00
+        // maps to 1672502400 (28800s earlier than UTC's 1672531200).
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        try {
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
             Assertions.assertEquals(
                     1672502400L,
                     runSql(
@@ -455,7 +484,12 @@ public class SQLDateTimeFunctionsTest {
                                     strType,
                                     "2023-01-01 00:00:00")
                             .getField(0));
-            // OffsetDateTime is offset-aware, so its epoch is zone-independent even here.
+
+            // OffsetDateTime is offset-aware, so its epoch is zone-independent.
+            SeaTunnelRowType odtType =
+                    new SeaTunnelRowType(
+                            new String[] {"odt"},
+                            new SeaTunnelDataType[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
             Assertions.assertEquals(
                     1672531200L,
                     runSql(
@@ -463,12 +497,21 @@ public class SQLDateTimeFunctionsTest {
                                     odtType,
                                     OffsetDateTime.of(2023, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC))
                             .getField(0));
-            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
 
-            // 12) impossible date (2023-02-30) is clamped to 2023-02-28 by the SMART
-            // resolver, consistent with the other date functions in this class.
-            // Expected value 1677542400 is 2023-02-28 00:00:00 under UTC (reset by
-            // case 11); under Asia/Shanghai it would be 1677513600 (8h earlier).
+    @Test
+    public void testUnixTimestampDateClamping() {
+        // impossible date (2023-02-30) is clamped to 2023-02-28 by the SMART
+        // resolver, consistent with the other date functions in this class.
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        try {
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
             Assertions.assertEquals(
                     1677542400L,
                     runSql(
@@ -476,6 +519,27 @@ public class SQLDateTimeFunctionsTest {
                                     strType,
                                     "2023-02-30 00:00:00")
                             .getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
+
+    @Test
+    public void testFromUnixTimeUnixTimestampRoundTrip() {
+        // Unit-level round trip: FROM_UNIXTIME(UNIX_TIMESTAMP(s)) under a non-UTC
+        // zone. Both functions use the same default zone, so the round trip holds.
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        try {
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+            SeaTunnelRow outRow =
+                    runSql(
+                            "select FROM_UNIXTIME(UNIX_TIMESTAMP(s), 'yyyy-MM-dd HH:mm:ss') as rt from dual",
+                            strType,
+                            "2023-01-01 00:00:00");
+            Assertions.assertEquals("2023-01-01 00:00:00", outRow.getField(0));
         } finally {
             TimeZone.setDefault(originalTz);
         }
