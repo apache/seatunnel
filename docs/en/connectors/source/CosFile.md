@@ -53,44 +53,44 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 ## Options
 
-| name                       | type    | required | default value               |
-|----------------------------|---------|----------|-----------------------------|
+| name                       | type    | required | default value               | Description |
+|----------------------------|---------|----------|-----------------------------|-------------|
 | path                       | string  | yes      | -                           |
-| file_format_type           | string  | yes      | -                           |
+| file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
 | bucket                     | string  | yes      | -                           |
 | secret_id                  | string  | yes      | -                           |
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
-| read_columns               | list    | no       | -                           |
-| read_partitions | list | no | - |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
-| row_delimiter              | string  | no       | \n                          |
-| parse_partition_from_path  | boolean | no       | true                        |
-| skip_header_row_number     | long    | no       | 0                           |
+| read_columns               | list    | no       | -                           | Column projection list for field mapping. |
+| read_partitions            | list    | no       | -                           | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv | **delimiter** is deprecated after 2.3.5, use **field_delimiter** instead. Field delimiter for text files. |
+| row_delimiter              | string  | no       | \n                          | Row delimiter for text files, default `\n`. |
+| parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
+| skip_header_row_number     | long    | no       | 0                           | Number of header lines to skip, only for txt and csv. |
 | date_format                | string  | no       | yyyy-MM-dd                  |
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
 | time_format                | string  | no       | HH:mm:ss                    |
-| schema                     | config  | no       | -                           |
-| sheet_name                 | string  | no       | -                           |
-| excel_engine               | string  | no       | POI                         |
-| poi_excel_max_file_size    | long    | no       | 52428800                    |
-| xml_row_tag                | string  | no       | -                           |
-| xml_use_attr_format        | boolean | no       | -                           |
-| csv_use_header_line        | boolean | no       | false                       |
-| file_filter_pattern        | string  | no       | -                           |
-| filename_extension         | string  | no       | -                           |
-| compress_codec             | string  | no       | none                        |
-| archive_compress_codec     | string  | no       | none                        |
-| encoding                   | string  | no       | UTF-8                       |
-| binary_chunk_size          | int     | no       | 1024                        |
-| binary_complete_file_mode  | boolean | no       | false                       |
-| common-options             |         | no       | -                           |
-| file_filter_modified_start | string  | no       | -                           | 
-| file_filter_modified_end   | string  | no       | -                           | 
-| quote_char                 | string  | no       | "                           |
-| escape_char                | string  | no       | -                           |
-| recursive_file_scan        | boolean | no       | true                        |
-| sort_files_by_modification_time | boolean | no       | false                       |
+| schema                     | config  | no       | -                           | Upstream data schema, required when file_format_type is text, json, excel, xml, or csv. |
+| sheet_name                 | string  | no       | -                           | Workbook sheet to read, only for excel. |
+| excel_engine               | string  | no       | POI                         | Excel reading engine, supports `POI` (default) and `EasyExcel`. |
+| poi_excel_max_file_size    | long    | no       | 52428800                    | Max Excel file size in bytes for POI engine, default 50 MB. |
+| xml_row_tag                | string  | no       | -                           | Tag name of data rows in XML files, only for xml. |
+| xml_use_attr_format        | boolean | no       | -                           | Whether to use tag attribute format for XML data, only for xml. |
+| csv_use_header_line        | boolean | no       | false                       | Whether to use the header line to parse CSV files matching RFC 4180. |
+| file_filter_pattern        | string  | no       | -                           | Regex pattern for filtering files by name or path. |
+| filename_extension         | string  | no       | -                           | Filter files by the specified file extension, e.g. `csv`, `.txt`, `json`, or `.xml`. |
+| compress_codec             | string  | no       | none                        | File compression codec, supports `lzo` and `none`. |
+| archive_compress_codec     | string  | no       | none                        | Archive compression codec, supports `zip` `tar` `tar.gz` `gz` `none`. |
+| encoding                   | string  | no       | UTF-8                       | File encoding, only for json, text, csv, xml. |
+| binary_chunk_size          | int     | no       | 1024                        | Chunk size in bytes for reading binary files, default 1024. |
+| binary_complete_file_mode  | boolean | no       | false                       | Whether to read the entire file as a single chunk, only for binary. |
+| common-options             |         | no       | -                           | Source plugin common parameters, see [Source Common Options](../common-options/source-common-options.md). |
+| file_filter_modified_start | string  | no       | -                           | Filter files by modification start time (inclusive), format `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end   | string  | no       | -                           | Filter files by modification end time (exclusive), format `yyyy-MM-dd HH:mm:ss`. |
+| quote_char                 | string  | no       | "                           | Single character that encloses CSV fields. |
+| escape_char                | string  | no       | -                           | Single character for escaping quotes or special characters inside CSV fields. |
+| recursive_file_scan        | boolean | no       | true                        | Whether to scan subdirectories recursively, default true. |
+| sort_files_by_modification_time | boolean | no       | false                       | Whether to sort files by modification time in descending order. When enabled, schema inference uses the latest file when reading evolving schemas. |
 
 ### path [string]
 

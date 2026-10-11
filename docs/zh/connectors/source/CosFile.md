@@ -53,44 +53,44 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 选项
 
-| 名称                         | 类型      | 必需 | 默认值                 |
-|----------------------------|---------|----|---------------------|
-| path                       | string  | 是  | -                   |
-| file_format_type           | string  | 是  | -                   |
-| bucket                     | string  | 是  | -                   |
-| secret_id                  | string  | 是  | -                   |
-| secret_key                 | string  | 是  | -                   |
-| region                     | string  | 是  | -                   |
-| read_columns               | list    | 否  | -                   |
-| read_partitions | list | 否 | - |
-| delimiter/field_delimiter  | string  | 否  | \001                |
-| row_delimiter              | string  | 否  | \n                  |
-| parse_partition_from_path  | boolean | 否  | true                |
-| skip_header_row_number     | long    | 否  | 0                   |
-| date_format                | string  | 否  | yyyy-MM-dd          |
-| datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss |
-| time_format                | string  | 否  | HH:mm:ss            |
-| schema                     | config  | 否  | -                   |
-| sheet_name                 | string  | 否  | -                   |
-| excel_engine               | string  | 否  | POI                |
-| poi_excel_max_file_size    | long    | 否  | 52428800           |
-| xml_row_tag                | string  | 否  | -                   |
-| xml_use_attr_format        | boolean | 否  | -                   |
-| csv_use_header_line        | boolean | 否  | false               |
-| file_filter_pattern        | string  | 否  |                     |
-| filename_extension         | string  | 否  | -                   |
-| compress_codec             | string  | 否  | none                |
-| archive_compress_codec     | string  | 否  | none                |
-| encoding                   | string  | 否  | UTF-8               |
-| binary_chunk_size          | int     | 否  | 1024                |
-| binary_complete_file_mode  | boolean | 否  | false               |
-| common-options             |         | 否  | -                   |
-| file_filter_modified_start | string  | 否  | -                   |
-| file_filter_modified_end   | string  | 否  | -                   |
-| quote_char                 | string  | 否  | "                   | 
-| escape_char                | string  | 否  | -                   |
-| recursive_file_scan        | boolean | 否  | true                |
-| sort_files_by_modification_time | boolean | 否 | false               |
+| 名称                         | 类型      | 必需 | 默认值                         | 描述 |
+|----------------------------|---------|----|-----------------------------|------|
+| path                       | string  | 是  | -                           |
+| file_format_type           | string  | 是  | -                           | 支持的文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
+| bucket                     | string  | 是  | -                           |
+| secret_id                  | string  | 是  | -                           |
+| secret_key                 | string  | 是  | -                           |
+| region                     | string  | 是  | -                           |
+| read_columns               | list    | 否  | -                           | 读取列列表，用于实现字段投影。 |
+| read_partitions            | list    | 否  | -                           | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
+| delimiter/field_delimiter  | string  | 否  | \001 for text and , for csv | **delimiter** 在 2.3.5 版本后弃用，请改用 **field_delimiter**。文本文件的字段分隔符。 |
+| row_delimiter              | string  | 否  | \n                          | 文本文件的行分隔符，默认 `\n`。 |
+| parse_partition_from_path  | boolean | 否  | true                        | 是否从文件路径解析分区键和值。 |
+| skip_header_row_number     | long    | 否  | 0                           | 跳过的头部行数，仅适用于 txt 和 csv。 |
+| date_format                | string  | 否  | yyyy-MM-dd                  |
+| datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss         |
+| time_format                | string  | 否  | HH:mm:ss                    |
+| schema                     | config  | 否  | -                           | 上游数据 schema，当 file_format_type 为 text、json、excel、xml、csv 时需要配置。 |
+| sheet_name                 | string  | 否  | -                           | 读取的工作簿表名，仅适用于 excel。 |
+| excel_engine               | string  | 否  | POI                         | Excel 读取引擎，支持 `POI`（默认）和 `EasyExcel`。 |
+| poi_excel_max_file_size    | long    | 否  | 52428800                    | POI 引擎允许读取的最大 Excel 文件大小（字节），默认 50 MB。 |
+| xml_row_tag                | string  | 否  | -                           | XML 文件中数据行的标签名称，仅适用于 xml。 |
+| xml_use_attr_format        | boolean | 否  | -                           | 是否使用标签属性格式处理 XML 数据，仅适用于 xml。 |
+| csv_use_header_line        | boolean | 否  | false                       | 是否使用标题行解析 CSV 文件，需符合 RFC 4180。 |
+| file_filter_pattern        | string  | 否  | -                           | 用于过滤文件的正则表达式，可按文件名或路径过滤。 |
+| filename_extension         | string  | 否  | -                           | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| compress_codec             | string  | 否  | none                        | 文件压缩编解码器，支持 `lzo` 和 `none`。 |
+| archive_compress_codec     | string  | 否  | none                        | 归档文件压缩编解码器，支持 `zip` `tar` `tar.gz` `gz` `none`。 |
+| encoding                   | string  | 否  | UTF-8                       | 文件编码，仅适用于 json、text、csv、xml。 |
+| binary_chunk_size          | int     | 否  | 1024                        | 读取二进制文件的块大小（字节），默认 1024。 |
+| binary_complete_file_mode  | boolean | 否  | false                       | 是否将完整文件作为单个块读取，仅适用于 binary。 |
+| common-options             |         | 否  | -                           | 源插件通用参数，详见[源通用选项](../common-options/source-common-options.md)。 |
+| file_filter_modified_start | string  | 否  | -                           | 按修改时间过滤文件的起始时间（包含），格式 `yyyy-MM-dd HH:mm:ss`。 |
+| file_filter_modified_end   | string  | 否  | -                           | 按修改时间过滤文件的结束时间（不包含），格式 `yyyy-MM-dd HH:mm:ss`。 |
+| quote_char                 | string  | 否  | "                           | 用于包裹 CSV 字段的单字符。 |
+| escape_char                | string  | 否  | -                           | 用于在 CSV 字段内转义引号或特殊字符的单字符。 |
+| recursive_file_scan        | boolean | 否  | true                        | 是否递归扫描子目录，默认 true。 |
+| sort_files_by_modification_time | boolean | 否  | false                       | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。 |
 
 ### path [string]
 
