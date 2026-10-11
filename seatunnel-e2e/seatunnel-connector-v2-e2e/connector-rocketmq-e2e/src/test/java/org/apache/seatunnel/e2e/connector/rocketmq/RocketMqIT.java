@@ -92,7 +92,14 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
-    /** Rows the three fake-source sink jobs each write, asserted after the sink completes. */
+    /**
+     * Rows each of the three fake-source sink jobs writes, asserted after the sink completes.
+     *
+     * <p>Must stay in sync with {@code row.num = 10} in rocketmq-sink_fake_to_rocketmq.conf,
+     * rocketmq-text-sink_fake_to_rocketmq.conf and rocketmq-sink_fake_to_rocketmq_message_tag.conf.
+     * The visibility wait and the count assertion both read it, so changing one without the other
+     * would make the wait pass early or never finish.
+     */
     private static final int EXPECTED_SINK_ROWS = 10;
 
     private static final String IMAGE = "apache/rocketmq:4.9.4";
@@ -197,13 +204,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        // Wait until every row the job wrote is visible to an admin offset read before the
-        // single consuming read below. The topic is new, so each queue starts at offset 0 and
-        // the summed max offset is exactly the number of rows stored. Without this the read can
-        // poll before the last rows are readable and the count assertion fails low; it cannot be
-        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
-        // second call would resume past them.
-        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+        awaitSinkRowsVisible(topicName);
 
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
@@ -226,13 +227,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        // Wait until every row the job wrote is visible to an admin offset read before the
-        // single consuming read below. The topic is new, so each queue starts at offset 0 and
-        // the summed max offset is exactly the number of rows stored. Without this the read can
-        // poll before the last rows are readable and the count assertion fails low; it cannot be
-        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
-        // second call would resume past them.
-        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+        awaitSinkRowsVisible(topicName);
 
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
@@ -450,13 +445,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
         String tag = "test_tag";
 
-        // Wait until every row the job wrote is visible to an admin offset read before the
-        // single consuming read below. The topic is new, so each queue starts at offset 0 and
-        // the summed max offset is exactly the number of rows stored. Without this the read can
-        // poll before the last rows are readable and the count assertion fails low; it cannot be
-        // retried instead, because getRocketMqConsumerData commits offsets as it reads and a
-        // second call would resume past them.
-        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
+        awaitSinkRowsVisible(topicName);
 
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
@@ -960,6 +949,22 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             log.warn("Failed to poll messages from {}: {}", topicName, e.getMessage(), e);
         }
         return new ArrayList<>(bodyByPosition.values());
+    }
+
+    /**
+     * Waits until every row a sink job wrote is visible to an admin offset read, before the single
+     * consuming read that follows.
+     *
+     * <p>Each sink test uses a topic of its own, so every queue starts at offset 0 and the summed
+     * max offset is exactly the number of rows stored. Without this wait the read can poll before
+     * the last rows are readable and the count assertion fails low. Retrying the read instead is
+     * not an option, because {@link #getRocketMqConsumerData(String)} commits offsets as it reads,
+     * so a second call would resume past what the first consumed.
+     *
+     * @param topicName the per-invocation topic the job just wrote to
+     */
+    private void awaitSinkRowsVisible(String topicName) {
+        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
     }
 
     /**
