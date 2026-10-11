@@ -57,15 +57,15 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
 
-单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `table_list`。`tables_configs` 仍可作为向后兼容的旧配置，但已废弃。
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `tables_configs`。`table_list` 已废弃，仅为向后兼容保留。
 
 ### table_list [array]
 
-多表读取时使用的 Hive 表配置列表（推荐方式）。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+已废弃的多表读取配置列表，仅为向后兼容保留。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。新作业请使用 `tables_configs`。
 
 ### tables_configs [array]
 
-已废弃的多表读取配置列表，仅为向后兼容保留。新作业请使用 `table_list`。
+多表读取时使用的 Hive 表配置列表（推荐方式）。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### use_regex [boolean]
 
