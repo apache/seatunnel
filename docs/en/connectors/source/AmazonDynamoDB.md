@@ -12,6 +12,8 @@ The connector is a batch source. DynamoDB does not expose field types in the sam
 
 This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
 
+Use `tables_configs` to read several DynamoDB tables with different schemas through one source.
+
 ## Supported Engines
 
 > Spark<br/>
@@ -26,6 +28,7 @@ This source reads the current table data with scan requests. It does not read Dy
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [multi-table](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -35,8 +38,9 @@ This source reads the current table data with scan requests. It does not read Dy
 | region                | string | yes      | -             | AWS region of the DynamoDB service.              |
 | access_key_id         | string | yes      | -             | AWS access key ID.                               |
 | secret_access_key     | string | yes      | -             | AWS secret access key.                           |
-| table                 | string | yes      | -             | DynamoDB table name to scan.                     |
-| schema                | config | yes      | -             | SeaTunnel fields to read from DynamoDB items.    |
+| table                 | string | no       | -             | Required in single-table mode; mutually exclusive with `tables_configs`. |
+| schema                | config | no       | -             | Required in single-table mode; define it per entry in multi-table mode. |
+| tables_configs        | list   | no       | -             | Tables and schemas to read in multi-table mode; see below. |
 | scan_item_limit       | int    | no       | 1             | Maximum items returned by each scan request.     |
 | parallel_scan_threads | int    | no       | 2             | Number of logical segments for parallel scan.    |
 | common-options        | object | no       | -             | Source plugin common parameters.                 |
@@ -61,7 +65,7 @@ The AWS secret access key used to connect to DynamoDB.
 
 ### table [string]
 
-The DynamoDB table name to scan.
+The DynamoDB table name to scan in single-table mode.
 
 ### schema [config]
 
@@ -90,6 +94,26 @@ schema = {
 ```
 
 For more schema syntax, see [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+### tables_configs [list]
+
+An alternative to the root-level `table` and `schema` for reading several tables. Each entry requires:
+
+- `table`: the DynamoDB table name to scan.
+- `schema`: the SeaTunnel fields to read from that table. `schema.table` sets the output table
+  identity; when it is not set, the DynamoDB table name is used. A dot in the name is read as a
+  `database.table` separator, so set `schema.table` when the DynamoDB table name contains dots.
+
+An entry can also set `scan_item_limit` and `parallel_scan_threads`. When an entry does not set
+them, the root-level values (or their defaults) are used. Each table is scanned with its own
+`parallel_scan_threads` segments, and each row carries the identity of the table it was read from.
+
+All entries share the root connection options `url`, `region`, `access_key_id` and
+`secret_access_key`; connection options inside an entry are rejected. A root-level `table` or
+`schema`, an empty list, an entry without `table` or `schema`, unsupported entry options and
+duplicate output table identities are rejected before the job starts. Keep the table identities
+stable when restoring a checkpoint; switching between single-table and multi-table mode requires a
+fresh job.
 
 ### scan_item_limit [int]
 
@@ -138,6 +162,8 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 | NULL                | NULL                    |
 
 ## Task Example
+
+### Read One Table
 
 The following example reads rows from `source_table` and writes them to `sink_table`.
 
@@ -188,6 +214,55 @@ sink {
     table = "sink_table"
     batch_size = 25
   }
+}
+```
+
+### Read Multiple Tables
+
+The following example reads `orders` and `customers` with different schemas. Rows from `customers`
+are routed downstream as `crm.customers`.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonDynamoDB {
+    url = "http://127.0.0.1:8000"
+    region = "us-east-1"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
+    parallel_scan_threads = 2
+    tables_configs = [
+      {
+        table = "orders"
+        parallel_scan_threads = 4
+        schema = {
+          fields {
+            id = string
+            amount = int
+          }
+        }
+      },
+      {
+        table = "customers"
+        schema = {
+          table = "crm.customers"
+          fields {
+            id = string
+            name = string
+            vip = boolean
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 
