@@ -46,6 +46,10 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolSta
 
 import org.apache.hadoop.fs.FileSystem;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.core.LifecycleEvent;
+import com.hazelcast.core.LifecycleEvent.LifecycleState;
+import com.hazelcast.core.LifecycleListener;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -70,7 +74,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class SeaTunnelServer
-        implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+        implements ManagedService,
+                MembershipAwareService,
+                LifecycleListener,
+                LiveOperationsTracker {
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -144,6 +151,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        nodeEngine.getHazelcastInstance().getLifecycleService().addLifecycleListener(this);
         BaseService.retainRunningJobDagJsonCache();
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
@@ -223,6 +231,19 @@ public class SeaTunnelServer
     @Override
     public void reset() {}
 
+    /**
+     * Publishes the local marker before Hazelcast marks the node as shutting down, and clears a
+     * prior process marker only after this member has joined the cluster.
+     */
+    @Override
+    public void stateChanged(LifecycleEvent event) {
+        if (event.getState() == LifecycleState.SHUTTING_DOWN) {
+            markLocalGracefulMemberRemoval();
+        } else if (event.getState() == LifecycleState.STARTED) {
+            clearLocalGracefulMemberRemovalMarker();
+        }
+    }
+
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
@@ -254,6 +275,54 @@ public class SeaTunnelServer
 
         MetadataProviderManager.closeProviders();
         engineContext.close();
+    }
+
+    /**
+     * Publishes a best-effort marker before a graceful shutdown so the coordinator can downgrade
+     * only it.
+     */
+    private boolean markLocalGracefulMemberRemoval() {
+        return updateLocalGracefulMemberRemovalMarker(true);
+    }
+
+    /**
+     * Removes a stale marker when a member restarts with the same address so a later unproven
+     * removal cannot appear graceful.
+     */
+    private void clearLocalGracefulMemberRemovalMarker() {
+        updateLocalGracefulMemberRemovalMarker(false);
+    }
+
+    /**
+     * Updates a best-effort marker without allowing Hazelcast marker failures to break lifecycle
+     * processing.
+     */
+    private boolean updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
+        if (nodeEngine == null) {
+            return false;
+        }
+        try {
+            Address thisAddress = nodeEngine.getThisAddress();
+            IMap<Address, Long> gracefulMemberRemovalIMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
+            if (gracefulShutdown) {
+                gracefulMemberRemovalIMap.put(
+                        thisAddress,
+                        System.currentTimeMillis(),
+                        Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS,
+                        TimeUnit.MILLISECONDS);
+            } else {
+                gracefulMemberRemovalIMap.remove(thisAddress);
+            }
+            return true;
+        } catch (Exception e) {
+            LOGGER.warning(
+                    "Failed to "
+                            + (gracefulShutdown ? "mark" : "clear")
+                            + " graceful member removal marker",
+                    e);
+            return false;
+        }
     }
 
     @Override
