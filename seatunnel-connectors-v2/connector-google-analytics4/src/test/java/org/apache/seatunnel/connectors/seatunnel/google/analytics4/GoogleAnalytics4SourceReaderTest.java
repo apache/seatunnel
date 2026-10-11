@@ -202,7 +202,14 @@ class GoogleAnalytics4SourceReaderTest {
         start(
                 exchange -> {
                     calls.incrementAndGet();
-                    reply(exchange, 200, new byte[2048]);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, 2048);
+                    try {
+                        exchange.getResponseBody().write(new byte[2048]);
+                    } catch (IOException expected) {
+                        // The reader aborts once Content-Length exceeds max_response_bytes, so
+                        // the connection may already be reset or closed by teardown here.
+                    }
                 });
         Map<String, Object> options = options();
         options.put("max_response_bytes", 1024);
