@@ -18,18 +18,25 @@
 package org.apache.seatunnel.connectors.bigquery.schema;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
 
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class BigQueryTypeConverter {
+public final class BigQueryTypeConverter {
     private static final int NUMERIC_MAX_PRECISION = 38;
     private static final int NUMERIC_MAX_SCALE = 9;
     private static final int NUMERIC_MAX_INTEGER_DIGITS = 29;
@@ -39,7 +46,82 @@ final class BigQueryTypeConverter {
 
     private BigQueryTypeConverter() {}
 
-    static String toDdlType(SeaTunnelDataType<?> dataType) {
+    // ---- BigQuery → SeaTunnel (read direction) ----
+
+    public static SeaTunnelRowType toSeaTunnelRowType(Schema schema) {
+        if (schema == null || schema.getFields() == null) {
+            return new SeaTunnelRowType(new String[0], new SeaTunnelDataType<?>[0]);
+        }
+        FieldList fields = schema.getFields();
+        String[] fieldNames = new String[fields.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[fields.size()];
+        for (int i = 0; i < fields.size(); i++) {
+            Field field = fields.get(i);
+            fieldNames[i] = field.getName();
+            fieldTypes[i] = toSeaTunnelType(field);
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    public static SeaTunnelDataType<?> toSeaTunnelType(Field field) {
+        SeaTunnelDataType<?> elementType = toSeaTunnelScalarType(field);
+        if (Field.Mode.REPEATED.equals(field.getMode())) {
+            return ArrayType.of(elementType);
+        }
+        return elementType;
+    }
+
+    private static SeaTunnelDataType<?> toSeaTunnelScalarType(Field field) {
+        LegacySQLTypeName legacyType = field.getType();
+        if (legacyType == null) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                    "Cannot determine BigQuery field type for '"
+                            + field.getName()
+                            + "': field type is null. This can occur when the BigQuery REST API "
+                            + "returns standard SQL type names (e.g. 'INT64') that the SDK cannot "
+                            + "map to legacy SQL type names.");
+        }
+        StandardSQLTypeName standardType = legacyType.getStandardType();
+        switch (standardType) {
+            case BOOL:
+                return BasicType.BOOLEAN_TYPE;
+            case INT64:
+                return BasicType.LONG_TYPE;
+            case FLOAT64:
+                return BasicType.DOUBLE_TYPE;
+            case NUMERIC:
+                return new DecimalType(38, 9);
+            case BIGNUMERIC:
+                return new DecimalType(76, 38);
+            case BYTES:
+                return PrimitiveByteArrayType.INSTANCE;
+            case DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
+            case TIME:
+                return LocalTimeType.LOCAL_TIME_TYPE;
+            case DATETIME:
+            case TIMESTAMP:
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case STRUCT:
+                FieldList subFields = field.getSubFields();
+                String[] fieldNames = new String[subFields.size()];
+                SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[subFields.size()];
+                for (int i = 0; i < subFields.size(); i++) {
+                    Field subField = subFields.get(i);
+                    fieldNames[i] = subField.getName();
+                    fieldTypes[i] = toSeaTunnelType(subField);
+                }
+                return new SeaTunnelRowType(fieldNames, fieldTypes);
+            case STRING:
+            default:
+                return BasicType.STRING_TYPE;
+        }
+    }
+
+    // ---- SeaTunnel → BigQuery (write direction, existing) ----
+
+    public static String toDdlType(SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 return "BOOL";
@@ -77,7 +159,7 @@ final class BigQueryTypeConverter {
         }
     }
 
-    static StandardSQLTypeName toStandardType(SeaTunnelDataType<?> dataType) {
+    public static StandardSQLTypeName toStandardType(SeaTunnelDataType<?> dataType) {
         if (dataType instanceof ArrayType) {
             return toStandardType(((ArrayType<?, ?>) dataType).getElementType());
         }
