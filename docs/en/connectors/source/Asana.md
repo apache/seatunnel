@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-jdbc.md';
+import ChangeLog from '../changelog/connector-http-asana.md';
 
 # Http-Asana
 
