@@ -26,7 +26,9 @@ on:
         default: 'true'
 
 concurrency:
-  group: backend-${{ github.event.pull_request.number || github.ref }}
+  # Include the caller's event so the scheduled run on dev and push builds of dev
+  # do not share a group and cancel each other.
+  group: backend-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -34,6 +36,17 @@ env:
   # GitHub-hosted runners are ephemeral, so CI does not need Ryuk to reap containers after tests.
   # Disabling it avoids transient Docker Hub pulls for testcontainers/ryuk that can fail unrelated PRs.
   TESTCONTAINERS_RYUK_DISABLED: 'true'
+  # The JDK 9+ module-opens flags Hazelcast and this project's reflective helpers need (see
+  # config/jvm_options) no longer live here. Surefire/Failsafe-forked test JVMs get them from the
+  # surefire.module.args property in the root pom.xml (appended to the argLine next to
+  # surefire.jvm.args; modules that define their own argLine, such as connector-lance, still need
+  # the unit-test step's SUREFIRE_JVM_ARGS below), which also keeps a contributor's local
+  # `./mvnw test`/`./mvnw verify` on JDK 11/17 in parity with CI. The packaged launcher scripts
+  # (seatunnel.sh, seatunnel-cluster.sh) inject the same flags themselves for the e2e Docker
+  # containers this workflow spins up, independent of this workflow's own environment. Setting
+  # JAVA_TOOL_OPTIONS here applied the flags to every process every job happened to run, including
+  # non-test jobs and non-JVM tools, and printed a "Picked up JAVA_TOOL_OPTIONS" line from every
+  # child process; scoping it to the two places that actually need it removes both problems.
 
 jobs:
   license-header:
@@ -204,6 +217,7 @@ jobs:
       helm: ${{ steps.filter.outputs.helm }}
       ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}
       it-modules: ${{ steps.it-modules.outputs.modules || '[]' }}
+      updated-it-shards: ${{ steps.updated-it-shards.outputs.shards || '[]' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -471,6 +485,20 @@ jobs:
           modules_json=$(python tools/update_modules_check/update_modules_check.py json "$build_modules")
           echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
 
+      - name: Make updated integration test shards
+        id: updated-it-shards
+        if: ${{ steps.it-modules.outputs.modules != '' && steps.it-modules.outputs.modules != '[]' }}
+        env:
+          IT_MODULES: ${{ steps.it-modules.outputs.modules }}
+        run: |
+          # Only start the updated-modules-integration-test-part-N jobs that have modules to test.
+          if ! shards=$(python tools/update_modules_check/update_modules_check.py sub_update_it_shards "$IT_MODULES" 8); then
+            echo "::warning::Could not compute updated integration test shards; running all shards"
+            shards='["part-1","part-2","part-3","part-4","part-5","part-6","part-7","part-8"]'
+          fi
+          echo "$shards"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
@@ -484,7 +512,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '17'
           cache: 'maven'
       - name: Install
         uses: nick-fields/retry@v3
@@ -519,6 +547,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18.20.7
+      # PR changes reach the current docs and the shared images only. Building every released
+      # docs snapshot as well, in both locales, pushes this job past its timeout, so keep only
+      # the newest snapshot, which the website config requires.
+      - name: Build only the current and latest released docs
+        run: |
+          cd seatunnel-website
+          node -e "const fs = require('fs'); const v = JSON.parse(fs.readFileSync('versions.json')); fs.writeFileSync('versions.json', JSON.stringify(v.slice(0, 1), null, 2) + '\n');"
       - name: Run docusaurus build
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -562,7 +597,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
     # The all-modules unit test build now takes 70-88 minutes on ubuntu-latest and keeps growing
     # with every new connector; a 90 minute budget left so little headroom that ordinary runner
@@ -580,14 +615,30 @@ jobs:
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          # This CLI -Dsurefire.jvm.args replaces surefire.jvm.args in every module. The JDK 9+
+          # --add-opens/--add-exports flags (needed by JDK 17 unit tests, JEP 396) are repeated
+          # here on purpose: the root pom carries them in surefire.module.args, but a module that
+          # defines its own surefire <argLine> bypasses the root argLine and only sees
+          # surefire.jvm.args. connector-lance does exactly that (Arrow needs
+          # --add-opens=java.base/java.nio on JDK 17), and its unit tests failed with
+          # InaccessibleObjectException when these flags were removed from this step.
+          # Keep this list in sync with surefire.module.args in the root pom.xml. The duplication
+          # is tracked in apache/seatunnel#12655; do not remove these flags before that is fixed.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          # Keep in sync with the non-Windows step above; see its comment for why the module
+          # flags must be repeated here as well as in the pom.xml surefire.module.args property.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os == 'Windows'
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   benchmark-test:
     needs: [ changes, sanity-check ]
@@ -597,7 +648,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -624,6 +675,11 @@ jobs:
             '.*' \
             -f 1 -wi 0 -i 1 -r 1s -foe true
           find "${result_dir}" -name '*.json' -print -quit | grep -q .
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   benchmark-tools-test:
     needs: [ changes, sanity-check ]
@@ -637,12 +693,12 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-1')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -667,15 +723,20 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-2')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -700,15 +761,20 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-3')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -733,15 +799,20 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-4')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 200
     steps:
@@ -766,14 +837,19 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-5')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -798,14 +874,19 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-6')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -830,14 +911,19 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-7')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -862,15 +948,20 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-8')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -895,6 +986,11 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -903,7 +999,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -921,6 +1017,11 @@ jobs:
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   edge-agent-it:
     needs: [ changes, sanity-check ]
@@ -929,7 +1030,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -947,6 +1048,11 @@ jobs:
           ./mvnw -T 1 -B verify -DskipUT=false -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   engine-k8s-it:
     needs: [ changes, sanity-check ]
@@ -955,7 +1061,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -982,6 +1088,11 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
@@ -993,7 +1104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Part-1 alone takes 99-107 minutes on ubuntu-latest; the UDF E2E module adds its own build and tests.
     timeout-minutes: 135
@@ -1012,6 +1123,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1,:seatunnel-transforms-v2-e2e-udf -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
@@ -1023,7 +1139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes about 149 minutes on ubuntu-latest, so the previous 150
     # minute budget cancelled runs that were already on their last test class.
@@ -1046,6 +1162,11 @@ jobs:
 
   # Dedicated connector ownership and shard rebalancing guidance are maintained in
   # tools/update_modules_check/update_modules_check.py.
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
@@ -1056,7 +1177,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1077,6 +1198,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -1088,7 +1214,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1109,6 +1235,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -1120,7 +1251,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1141,6 +1272,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
@@ -1152,7 +1288,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1173,6 +1309,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
@@ -1184,7 +1325,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1205,6 +1346,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
@@ -1216,7 +1362,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1237,6 +1383,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
@@ -1248,7 +1399,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1269,6 +1420,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   iceberg-connector-it:
     needs: [ changes, sanity-check ]
@@ -1280,7 +1436,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1298,6 +1454,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   hbase-connector-it:
     needs: [ changes, sanity-check ]
@@ -1309,7 +1470,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1327,6 +1488,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-hbase-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
@@ -1338,7 +1504,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes 113-115 minutes on ubuntu-latest (JdbcOracleIT alone is
     # about 25 minutes), so the previous 120 minute budget left ordinary runner variance no
@@ -1359,6 +1525,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-1 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
@@ -1370,7 +1541,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1388,6 +1559,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-2 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
@@ -1399,7 +1575,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1417,6 +1593,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-3 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
@@ -1428,7 +1609,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1446,6 +1627,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-4 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
@@ -1457,7 +1643,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1475,6 +1661,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-5 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-6:
     needs: [ changes, sanity-check ]
@@ -1486,7 +1677,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1504,6 +1695,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-6 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-7:
     needs: [ changes, sanity-check ]
@@ -1515,7 +1711,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1533,6 +1729,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-7 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-ddl:
     needs: [ changes, sanity-check ]
@@ -1544,7 +1745,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1562,6 +1763,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-ddl -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
@@ -1570,7 +1776,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Kudu E2E expands each @TestTemplate case across several PR test containers.
     timeout-minutes: 90
@@ -1589,6 +1795,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
@@ -1597,7 +1808,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1615,14 +1826,20 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-amazonsqs-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   google-pubsub-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-google-pubsub-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1640,6 +1857,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-google-pubsub-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
@@ -1648,7 +1870,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1666,6 +1888,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kafka-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
@@ -1674,7 +1901,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1692,6 +1919,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-rocketmq-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   elasticsearch-connector-it:
     needs: [ changes, sanity-check ]
@@ -1700,7 +1932,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1718,6 +1950,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-elasticsearch-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   mysql-cdc-connector-it:
     needs: [ changes, sanity-check ]
@@ -1726,7 +1963,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1744,6 +1981,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-mysql-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   doris-connector-it:
     needs: [ changes, sanity-check ]
@@ -1752,7 +1994,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1770,6 +2012,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   paimon-connector-it:
     needs: [ changes, sanity-check ]
@@ -1778,7 +2025,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1796,6 +2043,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-paimon-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
@@ -1804,7 +2056,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1827,6 +2079,11 @@ jobs:
           command: |
             echo 'running oracle cdc connector integration test...' && \
             ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-file-local-it:
     needs: [ changes, sanity-check ]
@@ -1835,7 +2092,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1853,6 +2110,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-file-sftp-it:
     needs: [ changes, sanity-check ]
@@ -1861,7 +2123,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1879,6 +2141,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-sftp-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-redis-it:
     needs: [ changes, sanity-check ]
@@ -1887,7 +2154,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1905,6 +2172,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-redis-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-sensorsdata-it:
     needs: [ changes, sanity-check ]
@@ -1913,7 +2185,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1931,3 +2203,8 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-sensorsdata-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
