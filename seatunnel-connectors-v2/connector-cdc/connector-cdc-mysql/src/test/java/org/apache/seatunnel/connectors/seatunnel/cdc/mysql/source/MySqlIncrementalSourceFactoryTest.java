@@ -113,6 +113,22 @@ public class MySqlIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testSpecificModeWithoutAnchorsIsRejected() {
+        Map<String, Object> options = basicOptions();
+        options.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "SPECIFIC");
+
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage().contains(STARTUP_SPECIFIC_OFFSET_FILE.key())
+                        && error.getMessage().contains(STARTUP_SPECIFIC_OFFSET_POS.key())
+                        && error.getMessage()
+                                .contains(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE.key()
+                                                + "' requires"),
+                () -> "specific without anchors must be rejected: " + error.getMessage());
+    }
+
+    @Test
     public void testPartialAnchorsAreRejected() {
         Map<String, Object> fileOnly = basicOptions();
         fileOnly.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "SPECIFIC");

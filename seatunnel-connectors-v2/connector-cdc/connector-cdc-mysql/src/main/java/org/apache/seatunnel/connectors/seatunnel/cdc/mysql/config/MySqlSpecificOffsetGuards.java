@@ -26,11 +26,12 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 /**
  * Reusable {@link ConditionExtension} guards for the MySQL CDC specific startup options.
  *
- * <p>Each guard is attached to exactly one {@code startup.specific-offset.*} option of the source
- * option rule, so a configuration that uses specific startup offsets is validated with the same
- * rules the runtime source applies: the offsets are only accepted when the {@code startup.mode} is
- * (or defaults to) {@code specific}, the binlog file and position must be configured together, and
- * the value domains (non-blank / non-negative) match the runtime checks. A valid anchor with
+ * <p>Each guard is attached to one option of the source option rule, so a configuration that uses
+ * specific startup offsets is validated with the same rules the runtime source applies: the offsets
+ * are only accepted when the {@code startup.mode} is (or defaults to) {@code specific}, the binlog
+ * file and position must be configured together, and the value domains (non-blank / non-negative)
+ * match the runtime checks. The {@code startup.mode} option itself carries a guard as well, so
+ * {@code specific} without any anchor is rejected before the job starts. A valid anchor with
  * optional GTID / skip metadata, and a configuration without any specific offset, remain accepted.
  *
  * <p>Runtime behavior is unchanged; the guards only surface the same failures before the job is
@@ -63,6 +64,13 @@ public final class MySqlSpecificOffsetGuards {
     public static ConditionExtension<Long> specificOffsetSkipGuard(
             Option<StartupMode> startupModeOption, Option<Long> skipOption) {
         return new SpecificOffsetSkipGuard(startupModeOption, skipOption.key());
+    }
+
+    public static ConditionExtension<StartupMode> specificStartupModeGuard(
+            Option<StartupMode> startupModeOption,
+            Option<String> fileOption,
+            Option<Long> posOption) {
+        return new SpecificStartupModeGuard(startupModeOption, fileOption, posOption);
     }
 
     protected abstract static class ModeSpecificGuard<T> implements ConditionExtension<T> {
@@ -99,6 +107,51 @@ public final class MySqlSpecificOffsetGuards {
         }
     }
 
+    /**
+     * Rejects {@code startup.mode = specific} when neither anchor of the specific offsets is
+     * configured. A partially configured pair is reported by the guard of the option that was
+     * configured, so this guard only covers the case where both anchors are absent.
+     */
+    static final class SpecificStartupModeGuard implements ConditionExtension<StartupMode> {
+        private final Option<StartupMode> startupModeOption;
+        private final Option<String> fileOption;
+        private final Option<Long> posOption;
+
+        SpecificStartupModeGuard(
+                Option<StartupMode> startupModeOption,
+                Option<String> fileOption,
+                Option<Long> posOption) {
+            this.startupModeOption = startupModeOption;
+            this.fileOption = fileOption;
+            this.posOption = posOption;
+        }
+
+        @Override
+        public String description() {
+            return "requires '"
+                    + fileOption.key()
+                    + "' with '"
+                    + posOption.key()
+                    + "' when the mode is 'specific'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value) {
+            StartupMode mode = value != null ? value : startupModeOption.defaultValue();
+            if (mode != StartupMode.SPECIFIC) {
+                return true;
+            }
+            if (!config.getOptional(fileOption).isPresent()
+                    && !config.getOptional(posOption).isPresent()) {
+                throw new OptionValidationException(
+                        String.format(
+                                "'%s' requires '%s' with '%s' when the mode is 'specific'.",
+                                startupModeOption.key(), fileOption.key(), posOption.key()));
+            }
+            return true;
+        }
+    }
+
     static final class SpecificOffsetFileGuard extends ModeSpecificGuard<String> {
         private final Option<Long> posOption;
 
@@ -110,8 +163,7 @@ public final class MySqlSpecificOffsetGuards {
 
         @Override
         public String description() {
-            return guardedKey
-                    + "' can only be used when '"
+            return "can only be used when '"
                     + startupModeOption.key()
                     + "' is 'specific', must not be blank and must be paired with '"
                     + posOption.key()
@@ -143,8 +195,7 @@ public final class MySqlSpecificOffsetGuards {
 
         @Override
         public String description() {
-            return guardedKey
-                    + "' can only be used when '"
+            return "can only be used when '"
                     + startupModeOption.key()
                     + "' is 'specific' and must be paired with '"
                     + fileOption.key()
@@ -166,8 +217,7 @@ public final class MySqlSpecificOffsetGuards {
 
         @Override
         public String description() {
-            return guardedKey
-                    + "' can only be used when '"
+            return "can only be used when '"
                     + startupModeOption.key()
                     + "' is 'specific' and must not be blank";
         }
@@ -190,8 +240,7 @@ public final class MySqlSpecificOffsetGuards {
 
         @Override
         public String description() {
-            return guardedKey
-                    + "' can only be used when '"
+            return "can only be used when '"
                     + startupModeOption.key()
                     + "' is 'specific' and must be greater than or equal to 0";
         }

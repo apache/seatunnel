@@ -95,7 +95,13 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        MySqlIncrementalSourceOptions.STOP_MODE)
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                MySqlSpecificOffsetGuards.specificStartupModeGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)))
+                .optional(MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
