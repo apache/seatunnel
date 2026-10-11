@@ -32,6 +32,7 @@ The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Norma
 | port            | int    | no       | 6334          | Qdrant gRPC port. |
 | api_key         | string | no       | ""            | Qdrant API key for authenticated deployments. |
 | use_tls         | bool   | no       | false         | Whether to use TLS for the gRPC connection. |
+| multi_table_sink_replica | int    | no       | 1             | Replica number for every table writer in multi-table sink mode. |
 | common-options  |        | no       | -             | Sink common options. |
 
 ### collection_name [string]

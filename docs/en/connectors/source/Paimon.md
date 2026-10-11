@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read data from Apache Paimon.
@@ -298,6 +304,20 @@ source {
    }
 }
 ```
+
+## FAQ
+
+### Which read modes does the Paimon source support?
+
+The SeaTunnel Paimon source supports both batch snapshot queries and streaming changelog consumption. In batch mode, it scans the target table's latest snapshot or a specified snapshot range. In streaming mode, it continuously consumes newly committed changes and splits.
+
+### How do I configure storage and catalog backends for Paimon?
+
+Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehouse`, `s3a://bucket/warehouse`, or local path) and set `paimon.catalog.type` (such as `filesystem` or `hive`). Required storage or authentication properties can be provided via `paimon.hadoop.conf`.
+
+### Does Paimon source support column projection?
+
+Yes. The Paimon source reads only the projection fields defined in the SeaTunnel job schema, avoiding unnecessary column deserialization and optimizing read performance on columnar formats like ORC and Parquet.
 
 ## Changelog
 
