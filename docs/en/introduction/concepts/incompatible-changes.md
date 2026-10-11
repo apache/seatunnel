@@ -5,6 +5,41 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Runtime Requirements
+
+- **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
+  - **Affected component**: every module — the whole distribution, the Zeta engine, all connectors, and the published Docker image
+  - **Description**: The build now targets Java 11 (`maven.compiler.source` and `maven.compiler.target` are `11`), so every published jar contains class file version 55. GitHub CI compiles and tests on JDK 17 against this Java 11 baseline, and the published Docker image moved from `seatunnelhub/openjdk:8u342` to `eclipse-temurin:11-jdk`, keeping a full JDK rather than a JRE so `jps`/`jstack`/`jmap` stay available for diagnosing a running node.
+  - **Impact**:
+    - A Java 8 JVM can no longer load SeaTunnel classes. Startup fails with `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`. This applies to the client, to the Zeta master and worker nodes, and to any process that loads connector jars.
+    - **Flink**: the JobManager and TaskManager JVMs load SeaTunnel connector classes, so the whole Flink cluster must run Java 11 or later, not just the submitting client. Flink supports Java 11 from 1.13 onward, and the official Flink images publish `-java11` tags.
+    - **Spark**: the driver and executor JVMs load SeaTunnel connector classes, so the whole Spark cluster must run Java 11 or later. Spark only gained official Java 11 support in Spark 3.0 (SPARK-24417). Spark 2.4 does still start under Java 11, but it logs illegal reflective access warnings and puts an old commons-lang3 on the classpath that some connectors trip over, so Spark 3.x is strongly recommended.
+    - Third-party connectors that are themselves compiled for Java 8 keep working. A Java 11 JVM loads older class files without changes, so only the JVM version matters, not the bytecode level of your own jars.
+  - **Migration Guide**:
+    1. Upgrade the JVM to Java 11 or Java 17 on every node that runs SeaTunnel code: the client, the Zeta master and workers, and the Flink or Spark cluster you submit to.
+    2. If you submit to Flink, move the cluster onto an image or deployment that runs Java 11 or later.
+    3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
+    4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
+    5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
+
+### SQL TINYINT array schema
+
+The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
+### DuckDB BIT and ENUM automatic DDL
+
+- Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
+  instead of the previous 1/255 fallback. Positive lengths are unchanged. Automatically generated
+  columns use MySQL `LONGTEXT` or PostgreSQL `text` instead of the old bounded string types.
+- Existing target tables are not resized. Review their column definitions and widen them manually
+  before transferring values that exceed the existing limits.
+- With `create_index = true` (the default), MySQL automatic table creation fails when one of these
+  columns is a primary key: `LONGTEXT` cannot be used as a full-column primary key. Pre-create the
+  target table with an explicitly bounded key type that fits the source data and MySQL index limits,
+  and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` to preserve that schema. Do not use
+  `RECREATE_SCHEMA` for a manually defined target. An arbitrary key-prefix length can reject distinct
+  source keys that share that prefix, so it is not a semantics-preserving substitute.
+
 ### Helm Chart: Zeta REST API v1 disabled by default
 
 - **Behavior change: the Kubernetes Helm chart no longer enables the unauthenticated Zeta REST API v1**
@@ -38,6 +73,24 @@ You need to check this document before you upgrade to related version.
   is sent as an empty string when `user` is nonblank.
 - To keep using the default user, remove `user` and retain `auth` when a password is required.
   Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
+
+### Zeta SQL Transform: built-in AES_ENCRYPT / AES_DECRYPT
+
+- **Behavior change: AES_ENCRYPT / AES_DECRYPT are now built-in functions**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `AES_ENCRYPT(value, key[, iv])` and `AES_DECRYPT(value, key[, iv])` are now
+    built-in Zeta SQL functions and are dispatched before user-registered `ZetaUDF`s. They use
+    `AES/CBC/PKCS5Padding` with Base64 output; without an explicit IV a random IV is generated and
+    prepended to the ciphertext so `AES_DECRYPT` can recover it without an explicit IV.
+  - **Impact**: A job that registered a custom `ZetaUDF` named `AES_ENCRYPT` or `AES_DECRYPT` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start using this
+    built-in implementation instead of the UDF. If the UDF used a different key derivation, IV
+    handling or output encoding, ciphertext already written by the UDF may fail to decrypt (or,
+    roughly once in 256 for CBC padding, decrypt to garbage).
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in functions. To stay
+    wire-compatible with the `FieldEncrypt` `AesCbcEncryptor`, supply the key with the `base64:`
+    prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
+    `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
 
 ### RabbitMQ Connector
 
@@ -111,7 +164,8 @@ You need to check this document before you upgrade to related version.
     - **CDC (Debezium-based, TiDB)**: CDC connectors now correctly handle `TIMESTAMP_TZ` type in the Debezium deserialization layer. Previously, `TIMESTAMP_TZ` was unsupported and would throw `UnsupportedOperationException`. Users who were previously unable to use timezone-aware columns in CDC pipelines can now do so.
     - **Iceberg (existing tables)**: Before this PR, SeaTunnel's `TIMESTAMP` type was incorrectly written to Iceberg as `timestamp` with timezone (`withZone()`). After this PR, `TIMESTAMP` is written as `timestamp` without timezone (`withoutZone()`), and Iceberg `withZone()` columns are read back as `TIMESTAMP_TZ`. **Upgrade impact**: If you have existing Iceberg tables where timestamp columns were created by an older SeaTunnel version, those columns are stored as `withZone()`. After upgrading, SeaTunnel will read them as `TIMESTAMP_TZ` instead of `TIMESTAMP`. Downstream sinks or transforms that expected `TIMESTAMP` may encounter type mismatch errors. **Migration**: Re-create the affected Iceberg table with the new schema, or use a SQL Transform to cast `TIMESTAMP_TZ` back to `TIMESTAMP` in your pipeline configuration.
     - **TIMESTAMP_TZ downgrade contract**: SeaTunnel applies a two-tier serialization contract for `TIMESTAMP_TZ` depending on what the sink format can represent:
-      - **DB column-typed sinks without native timezone support (Doris, StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
+      - **Doris Sink**: `TIMESTAMP_TZ` values are converted to the effective Doris target timezone before being stored as `DATETIME`. Set `sink.datetime-timezone` to choose that target timezone explicitly; if it is unset, SeaTunnel uses the JVM default timezone. For example, with `sink.datetime-timezone = "Asia/Shanghai"`, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 02:00:00`.
+      - **Other DB column-typed sinks without native timezone support (StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
       - **String/text-based sinks (Text file, Kafka, Pulsar, RocketMQ, RabbitMQ, Redis, etc.)**: The full ISO 8601 offset is preserved (e.g., `"2024-01-01T03:00:00+09:00"`). These formats can represent timezone offsets as strings, so no information is lost. If you need wall-clock behavior for a string sink, use a SQL Transform to cast `TIMESTAMP_TZ` to `TIMESTAMP` before writing.
     - **Xugu TIMESTAMP_TZ (lossy)**: Xugu `TIMESTAMP WITH TIME ZONE` columns are exposed as `TIMESTAMP_TZ` at the type layer, but the actual write path drops the timezone offset and stores only the wall-clock value due to a Xugu JDBC driver batch limitation (bug [E19138]). A warning is logged on the first write.
 
@@ -385,5 +439,25 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
 
 ### Engine Behavior Changes
+
+- **Behavior change: the REST log-content endpoints return at most 64 MB by default**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
+    `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
+    `GET /hazelcast/rest/maps/log/:file`.
+  - **Description**: These endpoints read the requested log file whole, which materialises it on the
+    heap twice, so a single request for the log of a long-running streaming job could exhaust a
+    node's memory. The new `seatunnel.engine.http.log-response-max-size-mb` option caps how much is
+    read and defaults to `64`. A larger file is represented by its last `log-response-max-size-mb`
+    of UTF-8 content, aligned to a complete line when possible (or a partial tail of an oversized
+    line). The response notice names the actual retained bytes and the file-size snapshot.
+  - **Impact**: A cluster upgraded without editing `seatunnel.yaml` starts receiving the tail rather
+    than the whole of any log file above 64 MB, with status `200` as before. Anything that archives
+    logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
+    `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
+    raised. The truncation notice on the first line makes a partial response recognisable.
+  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
+    `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
+    covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
+    read of a multi-gigabyte log has to fit in the node's heap.
 
 ### Dependency Upgrades
