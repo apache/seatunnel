@@ -30,15 +30,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -313,6 +316,31 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         Paths.get(
                                 seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")),
                 paths);
+    }
+
+    @Test
+    @ResourceLock("default-locale")
+    void getSinkPluginJarPathsUnderTurkishLocale() throws Exception {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            // Under tr-TR, "sink".toUpperCase() turns the 'i' into a dotted capital I
+            // (U+0130), so the result no longer matches the PluginType.SINK constant.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            List<PluginIdentifier> pluginIdentifiers =
+                    Collections.singletonList(
+                            PluginIdentifier.of(
+                                    "seatunnel", PluginType.SINK.getType(), "Clickhouse"));
+            SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
+                    new SeaTunnelSinkPluginDiscovery();
+            List<URL> pluginJarPaths =
+                    seaTunnelSinkPluginDiscovery.getPluginJarPaths(pluginIdentifiers);
+            Assertions.assertEquals(1, pluginJarPaths.size());
+            Assertions.assertEquals(
+                    Paths.get(seatunnelHome, "connectors", "connector-clickhouse.jar").toString(),
+                    new File(pluginJarPaths.get(0).toURI()).getPath());
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @AfterEach
