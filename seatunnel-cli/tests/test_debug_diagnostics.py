@@ -231,6 +231,23 @@ def test_redact_text_covers_cli_credential_shapes(text, secret):
     assert "***REDACTED***" in redacted
 
 
+@pytest.mark.parametrize(
+    "text,secret",
+    [
+        ('jdbc_password = "db-secret"', "db-secret"),
+        ('s3_secret_key = "s3-secret"', "s3-secret"),
+        ('access_token = "tok-secret"', "tok-secret"),
+        ('truststore_password = "ts-secret"', "ts-secret"),
+        ('api_token = "api-secret"', "api-secret"),
+        ("jdbc_password=plain-secret", "plain-secret"),
+    ],
+)
+def test_redact_text_covers_prefixed_credential_keys(text, secret):
+    redacted = redact_text(text)
+    assert secret not in redacted
+    assert "***REDACTED***" in redacted
+
+
 def test_redact_text_keeps_env_placeholders():
     text = 'password = "${MYSQL_PASSWORD}"'
     assert redact_text(text) == text
@@ -254,6 +271,38 @@ def test_replace_and_restore_creds_roundtrip():
     assert "ak-value" not in safe
     assert "${ALREADY}" in safe
     assert restore_creds_from_placeholders(safe, cred_map) == config
+
+
+def test_replace_prefixed_credential_keys_roundtrip():
+    from seatunnel_cli.credentials import (
+        replace_creds_with_placeholders,
+        restore_creds_from_placeholders,
+    )
+
+    config = (
+        'jdbc_password = "db-secret"\n'
+        's3_secret_key = "s3-secret"\n'
+        'access_token = "tok-secret"\n'
+        'password = "${MYSQL_PASSWORD}"\n'
+    )
+    safe, cred_map = replace_creds_with_placeholders(config)
+    assert "db-secret" not in safe
+    assert "s3-secret" not in safe
+    assert "tok-secret" not in safe
+    assert "${MYSQL_PASSWORD}" in safe
+    assert "${_CRED_" in safe
+    assert restore_creds_from_placeholders(safe, cred_map) == config
+
+
+def test_format_debug_line_redacts_phase2_summary():
+    line = format_debug_line(
+        "dryrun",
+        phase2='FAIL: password = "super-secret"\nsecond line should not appear',
+    )
+    assert "super-secret" not in line
+    assert "***REDACTED***" in line
+    assert "\n" not in line
+    assert "second line" not in line
 
 
 def test_run_validator_debug_treats_valid_as_local_pass():

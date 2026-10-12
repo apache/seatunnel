@@ -103,7 +103,12 @@ def format_debug_line(stage: str, **fields) -> str:
         "reason",
     ):
         if key in fields and fields[key] is not None and fields[key] != "":
-            parts.append(f"{key}={fields[key]}")
+            value = fields[key]
+            if isinstance(value, str):
+                value = first_line_reason(value)
+                if not value:
+                    continue
+            parts.append(f"{key}={value}")
     return "[debug] " + " ".join(parts)
 
 
