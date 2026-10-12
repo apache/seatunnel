@@ -95,7 +95,11 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                         });
         this.ioExecutor =
                 Executors.newFixedThreadPool(
-                        Math.min(8, specification.getWorkerCount()),
+                        // Keep one spare thread beyond the worker count: worker release is
+                        // dispatched
+                        // on this same pool, so a ResourceManager call that blocks (for example a
+                        // heartbeat stuck on an unresponsive RM) must not starve cleanup.
+                        Math.max(2, Math.min(8, specification.getWorkerCount())),
                         runnable -> {
                             Thread thread = new Thread(runnable, "seatunnel-resource-io");
                             thread.setDaemon(true);
