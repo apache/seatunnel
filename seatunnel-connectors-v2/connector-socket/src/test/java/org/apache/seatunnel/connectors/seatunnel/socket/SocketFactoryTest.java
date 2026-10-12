@@ -76,6 +76,7 @@ class SocketFactoryTest {
     void testSourceOptionRuleAcceptsValidAndPaddedHost() {
         Map<String, Object> cfg = baseSourceConfig();
         Assertions.assertDoesNotThrow(() -> validateSource(cfg));
+        // Validation accepts a padded nonblank host as-is; it does not trim the value.
         cfg.put(SocketSourceOptions.HOST.key(), " localhost ");
         Assertions.assertDoesNotThrow(() -> validateSource(cfg));
     }
