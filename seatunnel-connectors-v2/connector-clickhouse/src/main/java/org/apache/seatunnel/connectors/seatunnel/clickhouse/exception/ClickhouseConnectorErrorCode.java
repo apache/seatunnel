@@ -43,7 +43,8 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
     COMPLEX_SQL_NOT_SUPPORT_PARALLEL_ERROR(
             "CLICKHOUSE-15", "Complex sql not support parallel read."),
     ROW_BATCH_GET_FAILED("CLICKHOUSE-16", "Row batch get error"),
-    GET_TABLE_LIST_CONFIG_ERROR("CLICKHOUSE-17", "Get table list config error.");
+    GET_TABLE_LIST_CONFIG_ERROR("CLICKHOUSE-17", "Get table list config error."),
+    DRY_RUN_VALIDATION_FAILED("CLICKHOUSE-18", "Connect dry-run validation failed.");
 
     private final String code;
     private final String description;
