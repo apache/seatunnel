@@ -43,6 +43,9 @@
             <artifactId>serializer-protobuf</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Test-scoped only: production code intentionally references the pre-relocation
+             job model class names as strings; the tests bind those strings to the real
+             engine-common classes so a future rename fails the build. -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-common</artifactId>

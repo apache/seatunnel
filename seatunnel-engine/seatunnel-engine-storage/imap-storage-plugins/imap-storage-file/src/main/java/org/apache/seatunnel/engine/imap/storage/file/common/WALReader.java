@@ -53,6 +53,11 @@ public class WALReader {
      * see #9928. Removing an entry from this table breaks upgrades from any release that still
      * wrote the old class name, so keep it in place and extend it whenever a persisted job model
      * class is moved again.
+     *
+     * <p>Resolution is single-level: each entry rewrites one legacy name to its current location.
+     * If a target class is relocated again later, add an entry for every intermediate name so WAL
+     * files written between relocations still resolve; do not rely on the map being followed
+     * transitively.
      */
     private static final Map<String, String> LEGACY_CLASS_NAME_MAPPINGS;
 

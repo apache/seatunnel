@@ -244,6 +244,29 @@ public class WALReaderAndWriterTest {
         Assertions.assertFalse(reader.loadAllKeys(SAME_TIMESTAMP_TOMBSTONE_PATH).contains(key));
     }
 
+    /**
+     * Binds every legacy mapping target to the live engine-common class at compile time: if a
+     * target class is renamed again, this test fails to compile or fails the assertion instead of
+     * leaving a stale shim behind.
+     */
+    @Test
+    public void testLegacyMappingsTargetCurrentClassNames() throws Exception {
+        java.lang.reflect.Field field =
+                WALReader.class.getDeclaredField("LEGACY_CLASS_NAME_MAPPINGS");
+        field.setAccessible(true);
+        java.util.Map<String, String> mappings = (java.util.Map<String, String>) field.get(null);
+
+        Assertions.assertEquals(
+                JobStatus.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobStatus"));
+        Assertions.assertEquals(
+                JobResult.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobResult"));
+        Assertions.assertEquals(
+                JobStatusData.class.getName(),
+                mappings.get("org.apache.seatunnel.engine.core.job.JobStatusData"));
+    }
+
     @Test
     public void testReaderLoadsJobStatusWrittenWithLegacyClassName() throws Exception {
         String key = "job-status";
