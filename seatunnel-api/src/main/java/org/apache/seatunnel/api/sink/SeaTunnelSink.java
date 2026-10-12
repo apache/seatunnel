@@ -183,12 +183,17 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * that point at the same endpoint and table but authenticate with different users, tokens, or
      * connection-level settings must not return the same identifier, otherwise rows of one table
      * are silently written under the credentials of whichever alias created the shared writer
-     * first. Sinks that return the same identifier must have equivalent write schema, write
-     * settings, and commit semantics because one of them creates the shared writer and committer.
-     * The coordinator validates at construction that sinks sharing one identifier declare
-     * compatible {@link CatalogTable} schemas, and logs an INFO line whenever a further alias joins
-     * an existing shared writer. On recovery, that writer receives the merged state of all aliased
-     * tables in a single {@link #restoreWriter(SinkWriter.Context, List)} call.
+     * first. Prefer an opaque hash for credential-adjacent parts rather than embedding raw secrets:
+     * the coordinator never logs the identifier verbatim (only a hash), but the value still lives
+     * as a map key. Sinks that return the same identifier must have equivalent physical row layout,
+     * write settings, and commit semantics because the shared writer is created from the first
+     * alias's sink instance and then receives rows from every aliased table. The coordinator
+     * validates at construction that sinks sharing one identifier declare compatible physical row
+     * layouts, and logs an INFO line (connector, tables, identifier hash) whenever a further alias
+     * joins an existing shared writer. Connectors without a {@link CatalogTable} cannot be
+     * validated and take full responsibility for compatible settings. On recovery, that writer
+     * receives the merged state of all aliased tables in a single {@link
+     * #restoreWriter(SinkWriter.Context, List)} call.
      *
      * <p>The multi-table coordinator namespaces this identifier by connector implementation class,
      * so identifiers from different connector types are never shared.

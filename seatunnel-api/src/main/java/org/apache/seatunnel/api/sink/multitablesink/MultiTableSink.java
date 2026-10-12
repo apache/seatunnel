@@ -33,10 +33,10 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import lombok.Getter;
@@ -114,21 +114,30 @@ public class MultiTableSink
 
     /**
      * Fails fast when sinks that opted into writer sharing would route tables with different write
-     * schemas onto one physical destination.
+     * layouts onto one physical destination.
      *
      * <p>Sharing only happens for sinks that return the same {@link
      * SeaTunnelSink#getPhysicalDestinationIdentifier()} (sinks that do not opt in stay isolated by
-     * sink-instance identity), so this walk rejects <em>intentional</em> sharing whose schemas
-     * disagree, instead of silently routing rows through a writer that was built for a different
-     * layout. Tables configured as initially failed are skipped: they never reach a writer.
+     * sink-instance identity), so this walk rejects <em>intentional</em> sharing whose physical row
+     * layouts disagree, instead of silently routing rows through a writer that was built for a
+     * different layout. Tables configured as initially failed are skipped: they never reach a
+     * writer.
      *
-     * <p>When either sink of a shared pair does not expose a {@link CatalogTable}, the pair cannot
-     * be validated here and is trusted; connectors without a catalog table take responsibility for
-     * compatible settings themselves (see {@link
+     * <p>Comparison is on the physical write layout ({@link CatalogTable#getSeaTunnelRowType()})
+     * rather than full {@link org.apache.seatunnel.api.table.catalog.TableSchema} equality, so
+     * non-layout metadata such as column comments, lengths, scales, primary keys and constraint
+     * keys does not fail the check. Only field names and field types that the file sink actually
+     * writes are compared.
+     *
+     * <p>The shared writer is created from the first alias's sink instance and then receives rows
+     * from every aliased table, so sinks sharing one identifier must also have equivalent write
+     * settings and commit semantics. When either sink of a shared pair does not expose a {@link
+     * CatalogTable}, the pair cannot be validated here and is trusted; connectors without a catalog
+     * table take responsibility for compatible settings themselves (see {@link
      * SeaTunnelSink#getPhysicalDestinationIdentifier()}).
      *
      * @throws IllegalStateException when two tables that share a physical destination declare
-     *     different write schemas
+     *     different physical row layouts
      */
     private void validateSharedDestinationSchemas() {
         Map<DestinationKey, TablePath> sharedDestinations = new HashMap<>();
@@ -147,18 +156,19 @@ public class MultiTableSink
             if (!firstCatalogTable.isPresent() || !catalogTable.isPresent()) {
                 continue;
             }
-            TableSchema firstSchema = firstCatalogTable.get().getTableSchema();
-            TableSchema schema = catalogTable.get().getTableSchema();
-            if (!Objects.equals(firstSchema, schema)) {
+            SeaTunnelRowType firstRowType = firstCatalogTable.get().getSeaTunnelRowType();
+            SeaTunnelRowType rowType = catalogTable.get().getSeaTunnelRowType();
+            if (!Objects.equals(firstRowType, rowType)) {
                 throw new IllegalStateException(
                         String.format(
                                 "Source tables '%s' and '%s' both resolve to physical destination '%s' "
-                                        + "of connector '%s', but their write schemas differ. A shared "
-                                        + "writer cannot serve tables with different schemas; give each "
-                                        + "table its own destination or align the schemas.",
+                                        + "of connector '%s', but their physical row layouts differ. A shared "
+                                        + "writer cannot serve tables with different field names or field types; give each "
+                                        + "table its own destination or align the row layouts.",
                                 firstTablePath,
                                 tablePath,
-                                sinks.get(tablePath).getPhysicalDestinationIdentifier().orElse(""),
+                                logSafeDestinationId(
+                                        sinks.get(tablePath).getPhysicalDestinationIdentifier()),
                                 sinks.get(tablePath).getClass().getName()));
             }
         }
@@ -219,14 +229,16 @@ public class MultiTableSink
                     } else {
                         // Opt-in sharing: a second alias joins the writer created by a previous
                         // table. Surface this so operators can audit where rows of each alias go.
+                        // The destination identifier is never logged verbatim: connectors may fold
+                        // credentials or endpoints into it, so only a stable hash is emitted.
                         final SinkWriter<SeaTunnelRow, ?, ?> sharedWriter = writer;
                         log.info(
                                 "Reusing shared sink writer: connector '{}' now also routes "
-                                        + "table '{}' to physical destination '{}' "
+                                        + "table '{}' to physical destination ({}) "
                                         + "(first table '{}')",
                                 sink.getClass().getName(),
                                 tablePath,
-                                sink.getPhysicalDestinationIdentifier().orElse(""),
+                                logSafeDestinationId(sink.getPhysicalDestinationIdentifier()),
                                 writers.entrySet().stream()
                                         .filter(e -> e.getValue() == sharedWriter)
                                         .map(e -> e.getKey().getTableIdentifier())
@@ -337,14 +349,15 @@ public class MultiTableSink
                         destinationWriters.put(destinationKey, writer);
                     } else {
                         // Opt-in sharing on the restore path: surface it the same way as create.
+                        // Never log the identifier verbatim (see create path).
                         final SinkWriter<SeaTunnelRow, ?, ?> sharedWriter = writer;
                         log.info(
                                 "Reusing restored shared sink writer: connector '{}' now also "
-                                        + "routes table '{}' to physical destination '{}' "
+                                        + "routes table '{}' to physical destination ({}) "
                                         + "(first table '{}')",
                                 sink.getClass().getName(),
                                 tablePath,
-                                sink.getPhysicalDestinationIdentifier().orElse(""),
+                                logSafeDestinationId(sink.getPhysicalDestinationIdentifier()),
                                 writers.entrySet().stream()
                                         .filter(e -> e.getValue() == sharedWriter)
                                         .map(e -> e.getKey().getTableIdentifier())
@@ -473,6 +486,24 @@ public class MultiTableSink
     private DestinationKey getDestinationKey(TablePath tablePath, int replicaIndex) {
         SeaTunnelSink<?, ?, ?, ?> sink = sinks.get(tablePath);
         return new DestinationKey(sink, sink.getPhysicalDestinationIdentifier(), replicaIndex);
+    }
+
+    /**
+     * Renders a physical destination identifier for logs without exposing sensitive coordinates.
+     *
+     * <p>Connectors are instructed to fold endpoints, buckets and credential distinctions into the
+     * identifier, so the coordinator must never log it verbatim. Only a stable hash is emitted; the
+     * full value stays in memory as a map key.
+     *
+     * @param identifier the connector-provided physical destination identifier
+     * @return a log-safe rendering such as {@code destination-hash=1a2b3c4d} or {@code
+     *     destination-empty}
+     */
+    private static String logSafeDestinationId(Optional<String> identifier) {
+        if (!identifier.isPresent() || identifier.get().isEmpty()) {
+            return "destination-empty";
+        }
+        return "destination-hash=" + Integer.toHexString(identifier.get().hashCode());
     }
 
     @Override

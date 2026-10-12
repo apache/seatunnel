@@ -49,7 +49,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyF
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
@@ -129,8 +131,16 @@ public abstract class BaseMultipleTableFileSink
     }
 
     /**
-     * Shares a writer only for aliases with the same static row layout. Schema-evolution jobs keep
-     * isolated writers because each source alias can evolve its own in-memory row layout.
+     * Shares a writer only for aliases with the same static row layout and the same physical file
+     * destination. Schema-evolution jobs keep isolated writers because each source alias can evolve
+     * its own in-memory row layout.
+     *
+     * <p>The identifier folds in every coordinate that distinguishes a file destination: filesystem
+     * endpoint (via {@code hadoopConf}), path, file format, tmp path and file-name expression, plus
+     * the static row type. Connection-level settings from {@code hadoopConf} are folded in as a
+     * stable hash rather than verbatim, so divergent buckets, endpoints or credentials produce
+     * distinct identifiers without embedding secrets in the identifier string. Two aliases that
+     * differ in any of these coordinates never share a writer.
      *
      * @return a physical file destination identifier when writer sharing is safe, otherwise empty
      */
@@ -139,8 +149,44 @@ public abstract class BaseMultipleTableFileSink
         if (fileSinkConfig.isSchemaEvolutionEnabled()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(fileSinkConfig.getPath())
-                .map(path -> path + ";row-type=" + catalogTable.getSeaTunnelRowType());
+        String path = fileSinkConfig.getPath();
+        if (path == null) {
+            return Optional.empty();
+        }
+        String rowType = String.valueOf(catalogTable.getSeaTunnelRowType());
+        String fsName = hadoopConf != null ? String.valueOf(hadoopConf.getHdfsNameKey()) : "";
+        String format = String.valueOf(fileSinkConfig.getFileFormat());
+        String tmpPath = String.valueOf(fileSinkConfig.getTmpPath());
+        String fileNameExpression = String.valueOf(fileSinkConfig.getFileNameExpression());
+        String fsOptionsHash = hashHadoopOptions();
+        return Optional.of(
+                String.join(
+                        ";",
+                        "path=" + path,
+                        "fs=" + fsName,
+                        "format=" + format,
+                        "tmp=" + tmpPath,
+                        "fileName=" + fileNameExpression,
+                        "row-type=" + rowType,
+                        "fsOpts=" + fsOptionsHash));
+    }
+
+    /**
+     * Hashes filesystem connection options into a stable, opaque token.
+     *
+     * <p>Options may carry endpoints, buckets and credential-adjacent settings. They must
+     * distinguish identifiers, but must not be embedded verbatim.
+     *
+     * @return hex hash of the sorted option entries, or {@code empty} when none are set
+     */
+    private String hashHadoopOptions() {
+        if (hadoopConf == null
+                || hadoopConf.getExtraOptions() == null
+                || hadoopConf.getExtraOptions().isEmpty()) {
+            return "empty";
+        }
+        Map<String, String> sorted = new TreeMap<>(hadoopConf.getExtraOptions());
+        return Integer.toHexString(sorted.toString().hashCode());
     }
 
     @Override

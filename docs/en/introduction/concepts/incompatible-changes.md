@@ -117,6 +117,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: Multi-table file sinks share one writer per physical destination**
+  - **Affected component**: `seatunnel-api` (`MultiTableSink`) and `seatunnel-connectors-v2/connector-file/connector-file-base` (all File/HDFS/S3/OSS/GCS sinks via `BaseMultipleTableFileSink`)
+  - **Description**: When multiple source tables resolve to the same file destination (same path, filesystem endpoint, file format, tmp path and file-name expression with an equivalent physical row layout), only one `SinkWriter` is created per replica instead of one per source table. The physical destination identifier now folds in path, filesystem coordinates, format, tmp path, file-name expression and a hash of filesystem options, so divergent buckets, endpoints or credentials never share a writer. Sinks sharing one destination must declare compatible physical row layouts (field names and field types); otherwise the job fails fast at submission with `IllegalStateException`.
+  - **Impact**: Existing multi-table jobs that previously created isolated writers per source table now share writers and produce a merged file layout. Jobs with unintentionally colliding destinations that previously succeeded by accident now fail fast on mismatched row layouts.
+  - **Migration Guide**: Give each table its own destination (distinct path or tmp path) to keep isolated writers, or align the physical row layouts of tables that intentionally share a destination. Checkpoints written before writer sharing restore by merging per-alias state into the shared writer; no manual state migration is needed.
+
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
   - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
