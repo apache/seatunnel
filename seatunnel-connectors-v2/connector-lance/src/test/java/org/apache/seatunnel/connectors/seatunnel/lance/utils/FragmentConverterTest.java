@@ -31,9 +31,22 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
+import com.lancedb.lance.Dataset;
+import com.lancedb.lance.FragmentMetadata;
+import com.lancedb.lance.WriteParams;
+
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.List;
 
 class FragmentConverterTest {
 
@@ -65,5 +78,96 @@ class FragmentConverterTest {
             Assertions.assertTrue(root.getVector("c_bytes").isNull(0));
             Assertions.assertEquals(1, root.getVector("c_bytes").getValueCount());
         }
+    }
+
+    @Test
+    void shouldPackMultipleRowsIntoOneVectorSchemaRoot() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        Schema schema = new Schema(Arrays.asList(Field.nullable("c_string", new ArrowType.Utf8())));
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                Arrays.asList(
+                                        new SeaTunnelRow(new Object[] {"row-0"}),
+                                        new SeaTunnelRow(new Object[] {"row-1"}),
+                                        new SeaTunnelRow(new Object[] {"row-2"})),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(3, root.getRowCount());
+            VarCharVector vector = (VarCharVector) root.getVector("c_string");
+            Assertions.assertEquals("row-0", new String(vector.get(0), StandardCharsets.UTF_8));
+            Assertions.assertEquals("row-1", new String(vector.get(1), StandardCharsets.UTF_8));
+            Assertions.assertEquals("row-2", new String(vector.get(2), StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void shouldWriteOneFragmentPerBatch() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        Schema schema = new Schema(Arrays.asList(Field.nullable("c_string", new ArrowType.Utf8())));
+        List<SeaTunnelRow> rows =
+                Arrays.asList(
+                        new SeaTunnelRow(new Object[] {"row-0"}),
+                        new SeaTunnelRow(new Object[] {"row-1"}),
+                        new SeaTunnelRow(new Object[] {"row-2"}));
+
+        Path tempDir = Files.createTempDirectory("lance-batch-fragment");
+        try (RootAllocator allocator = new RootAllocator()) {
+            String datasetPath = tempDir.resolve("batch.lance").toString();
+            createEmptyDataset(allocator, datasetPath, schema);
+            List<FragmentMetadata> fragments =
+                    FragmentConverter.reconvert(rows, rowType, schema, allocator, datasetPath);
+            Assertions.assertEquals(1, fragments.size());
+            Assertions.assertEquals(3, fragments.get(0).getNumRows());
+        } finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    private static void createEmptyDataset(
+            RootAllocator allocator, String datasetPath, Schema schema) {
+        try (Dataset ignored =
+                Dataset.create(
+                        allocator,
+                        datasetPath,
+                        schema,
+                        new WriteParams.Builder().withMode(WriteParams.WriteMode.CREATE).build())) {
+            // An empty dataset gives Fragment.create a place to write data files.
+        }
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        Files.walkFileTree(
+                root,
+                new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                            throws IOException {
+                        Files.deleteIfExists(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                            throws IOException {
+                        if (exc != null) {
+                            throw exc;
+                        }
+                        Files.deleteIfExists(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
     }
 }
