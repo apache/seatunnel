@@ -216,7 +216,12 @@ public class PostgresUtils {
                     log.error("Failed to close Statement", e);
                 }
             }
-            connection.setAutoCommit(previousAutoCommit);
+            try {
+                connection.setAutoCommit(previousAutoCommit);
+            } catch (SQLException e) {
+                // Preserve the original sampling exception if restoring the connection state fails.
+                log.warn("Failed to restore auto-commit state", e);
+            }
         }
         Object[] resultsArray = results.toArray();
         Arrays.sort(resultsArray);
