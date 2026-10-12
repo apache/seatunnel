@@ -82,9 +82,9 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "Pass through to Debezium lob.enabled. true mines CLOB, NCLOB, and BLOB"
-                                    + " redo. When omitted, debezium.lob.enabled is left unchanged. An"
-                                    + " explicit value overrides debezium.lob.enabled.");
+                            "Pass through to Debezium lob.enabled. true mines CLOB, NCLOB, BLOB, and"
+                                    + " XMLTYPE redo. When omitted, debezium.lob.enabled is left unchanged."
+                                    + " An explicit value overrides debezium.lob.enabled.");
 
     public static final Option<Boolean> LOB_RESELECT_ENABLED =
             Options.key("lob.reselect.enabled")
@@ -95,7 +95,7 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                                     + " change, and LOB columns on DELETE and UPDATE_BEFORE, are the"
                                     + " unavailable-value placeholder. A sink that writes the whole row"
                                     + " replaces the stored value with that placeholder. true re-selects those"
-                                    + " CLOB, NCLOB, and BLOB columns on INSERT and UPDATE_AFTER by"
+                                    + " CLOB, NCLOB, BLOB, and XMLTYPE columns on INSERT and UPDATE_AFTER by"
                                     + " primary key, binding commit_scn as AS OF SCN ?, and DELETE and"
                                     + " UPDATE_BEFORE placeholders become null. Rejected unless lob.enabled"
                                     + " is true. A re-select failure follows lob.unavailable-value.handling.");

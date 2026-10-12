@@ -245,6 +245,8 @@ public class OracleLobUnavailableValueHandlerTest {
         Assertions.assertTrue(OracleLobUnavailableValueHandler.isLobSourceType("CLOB"));
         Assertions.assertTrue(OracleLobUnavailableValueHandler.isLobSourceType("nclob"));
         Assertions.assertTrue(OracleLobUnavailableValueHandler.isLobSourceType("BLOB(4000)"));
+        Assertions.assertTrue(OracleLobUnavailableValueHandler.isLobSourceType("XMLTYPE"));
+        Assertions.assertTrue(OracleLobUnavailableValueHandler.isLobSourceType("SYS.XMLTYPE"));
         Assertions.assertFalse(OracleLobUnavailableValueHandler.isLobSourceType("VARCHAR2"));
         Assertions.assertFalse(OracleLobUnavailableValueHandler.isLobSourceType(null));
     }

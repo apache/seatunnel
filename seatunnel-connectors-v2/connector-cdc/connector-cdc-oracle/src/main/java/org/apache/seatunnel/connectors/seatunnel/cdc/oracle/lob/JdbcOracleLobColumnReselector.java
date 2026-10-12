@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.lob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -27,6 +28,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLXML;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
@@ -327,6 +329,35 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
             }
             return blob.getBytes(1, (int) length);
         }
+        if (value instanceof SQLXML) {
+            SQLXML xml = (SQLXML) value;
+            try {
+                return xml.getString();
+            } finally {
+                xml.free();
+            }
+        }
+        if (value != null && value.getClass().getName().endsWith("XMLType")) {
+            return xmlTypeString(value);
+        }
         return value;
+    }
+
+    /**
+     * {@code oracle.xdb.XMLType} exposes {@code getStringVal()} and does not always implement
+     * {@link SQLXML}. Read that method so a re-selected XMLTYPE column is a string.
+     */
+    private static String xmlTypeString(Object value) throws SQLException {
+        if (value == null || !value.getClass().getName().endsWith("XMLType")) {
+            return null;
+        }
+        try {
+            Method getStringVal = value.getClass().getMethod("getStringVal");
+            Object text = getStringVal.invoke(value);
+            return text == null ? null : text.toString();
+        } catch (ReflectiveOperationException e) {
+            throw new SQLException(
+                    "Failed to read Oracle XMLType value from " + value.getClass().getName(), e);
+        }
     }
 }

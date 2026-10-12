@@ -59,7 +59,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>SQL NULL LOB columns are not re-selected. This handler runs only when Debezium {@code
  * lob.enabled} is true, so a null is a real null. Selecting it again would overwrite an explicit
  * NULL, including the case where {@code EMPTY_CLOB()} and a later {@code LOB_WRITE} were merged
- * into one event.
+ * into one event. {@code XMLTYPE} and {@code SYS.XMLTYPE} are handled like CLOB strings.
  */
 @Slf4j
 public class OracleLobUnavailableValueHandler implements Serializable, AutoCloseable {
@@ -334,7 +334,9 @@ public class OracleLobUnavailableValueHandler implements Serializable, AutoClose
         }
         return "CLOB".equals(normalized)
                 || "NCLOB".equals(normalized)
-                || "BLOB".equals(normalized);
+                || "BLOB".equals(normalized)
+                || "XMLTYPE".equals(normalized)
+                || "SYS.XMLTYPE".equals(normalized);
     }
 
     private static List<String> primaryKeyColumns(CatalogTable table) {

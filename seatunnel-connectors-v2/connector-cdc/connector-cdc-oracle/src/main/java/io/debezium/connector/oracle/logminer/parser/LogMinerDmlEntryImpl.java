@@ -71,6 +71,11 @@ public class LogMinerDmlEntryImpl implements LogMinerDmlEntry {
                 EventType.SELECT_LOB_LOCATOR, newColumnValues, oldColumnValues);
     }
 
+    public static LogMinerDmlEntry forXml(Object[] oldColumnValues) {
+        final Object[] newColumnValues = Arrays.copyOf(oldColumnValues, oldColumnValues.length);
+        return new LogMinerDmlEntryImpl(EventType.XML_BEGIN, newColumnValues, oldColumnValues);
+    }
+
     @Override
     public EventType getEventType() {
         return eventType;

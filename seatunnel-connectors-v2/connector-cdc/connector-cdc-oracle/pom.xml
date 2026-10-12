@@ -31,6 +31,8 @@
     <properties>
         <debezium.version>1.9.8.Final</debezium.version>
         <oracle.version>19.18.0.0</oracle.version>
+        <!-- xmlparserv2 registers an Oracle SAX factory. Keep the JDK parser for tests. -->
+        <surefire.jvm.args>-Dfile.encoding=UTF-8 -Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl</surefire.jvm.args>
     </properties>
 
     <dependencyManagement>
@@ -64,6 +66,13 @@
             <dependency>
                 <groupId>com.oracle.database.xml</groupId>
                 <artifactId>xdb</artifactId>
+                <version>${oracle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- Oracle XML parser used by xdb. Provided: users copy it next to ojdbc8. -->
+            <dependency>
+                <groupId>com.oracle.database.xml</groupId>
+                <artifactId>xmlparserv2</artifactId>
                 <version>${oracle.version}</version>
                 <scope>provided</scope>
             </dependency>
@@ -105,6 +114,10 @@
         <dependency>
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xdb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xmlparserv2</artifactId>
         </dependency>
     </dependencies>
 

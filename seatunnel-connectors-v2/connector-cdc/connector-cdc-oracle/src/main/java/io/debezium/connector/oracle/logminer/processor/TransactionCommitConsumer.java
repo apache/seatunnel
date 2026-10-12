@@ -32,10 +32,15 @@ import io.debezium.connector.oracle.logminer.events.LobWriteEvent;
 import io.debezium.connector.oracle.logminer.events.LogMinerEvent;
 import io.debezium.connector.oracle.logminer.events.SelectLobLocatorEvent;
 import io.debezium.connector.oracle.logminer.events.TruncateEvent;
+import io.debezium.connector.oracle.logminer.events.XmlBeginEvent;
+import io.debezium.connector.oracle.logminer.events.XmlEndEvent;
+import io.debezium.connector.oracle.logminer.events.XmlWriteEvent;
 import io.debezium.function.BlockingConsumer;
 import io.debezium.relational.Table;
 import oracle.sql.RAW;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +58,7 @@ import java.util.function.Function;
  * merging events that should be merged when LOB support is enabled, and then delegating the final
  * stream of events to a delegate consumer.
  *
- * <p>When a table has a LOB field, Oracle LogMiner often supplies us with synthetic events
+ * <p>When a table has a LOB or XML field, Oracle LogMiner often supplies us with synthetic events
  * that deal with sub-tasks that occur in the database as a result of writing LOB data to the
  * database. We would prefer to emit these synthetic events as a part of the overall logical event,
  * whether that is an insert or update.
@@ -91,6 +96,7 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
     private final OracleDatabaseSchema schema;
     private final Map<String, RowState> rows = new HashMap<>();
     private final ConstructionDetails currentLobDetails = new ConstructionDetails();
+    private final ConstructionDetails currentXmlDetails = new ConstructionDetails();
 
     private int transactionIndex = 0;
     private int totalEvents = 0;
@@ -152,6 +158,8 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
             prepareAndDispatch(accumulatorEvent);
             if (rowId.equals(currentLobDetails.rowId)) {
                 currentLobDetails.reset();
+            } else if (rowId.equals(currentXmlDetails.rowId)) {
+                currentXmlDetails.reset();
             }
             rows.put(rowId, new RowState(event, transactionIndex));
             accumulatorEvent = event;
@@ -166,12 +174,23 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
                     table,
                     accumulatorEvent,
                     LobUnderConstruction::fromInitialValue);
+        } else if (EventType.XML_BEGIN == event.getEventType()) {
+            final String columnName = ((XmlBeginEvent) event).getColumnName();
+            initConstructable(
+                    currentXmlDetails,
+                    rowId,
+                    columnName,
+                    table,
+                    accumulatorEvent,
+                    XmlUnderConstruction::fromInitialValue);
         }
     }
 
     private void acceptManipulationEvent(LogMinerEvent event) {
         if (event instanceof LobWriteEvent || event instanceof LobEraseEvent) {
             acceptLobManipulationEvent(event);
+        } else if (event instanceof XmlWriteEvent || event instanceof XmlEndEvent) {
+            acceptXmlManipulationEvent(event);
         }
     }
 
@@ -206,6 +225,50 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
         } catch (final DebeziumException exception) {
             LOGGER.warn(
                     "\tInvalid LOB manipulation event: {} ; ignoring {} {}",
+                    exception,
+                    event.getEventType(),
+                    event);
+        }
+    }
+
+    private void acceptXmlManipulationEvent(LogMinerEvent event) {
+        if (!currentXmlDetails.isInitialized()) {
+            // should only happen when we start streaming in the middle of an XML transaction
+            // (DBZ-4367)
+            LOGGER.trace(
+                    "Got XML manipulation event without preceding XML begin; ignoring {} {}.",
+                    event.getEventType(),
+                    event);
+            return;
+        }
+
+        if (EventType.XML_WRITE != event.getEventType()
+                && EventType.XML_END != event.getEventType()) {
+            LOGGER.warn(
+                    "\t{} for table '{}' column '{}' is not supported.",
+                    event.getEventType(),
+                    event.getTableId(),
+                    currentXmlDetails.columnName);
+            LOGGER.trace(
+                    "All LOB manipulation events apart from XML_WRITE are currently ignored; ignoring {} {}.",
+                    event.getEventType(),
+                    event);
+            discardCurrentMergeState(currentXmlDetails);
+            return;
+        } else if (EventType.XML_END == event.getEventType()) {
+            // silently ignore it
+            return;
+        }
+
+        final XmlUnderConstruction xml = (XmlUnderConstruction) getConstructable(currentXmlDetails);
+        try {
+            final XmlWriteEvent writeEvent = (XmlWriteEvent) event;
+            if (writeEvent.getXml() != null || writeEvent.getXmlBytes() != null) {
+                xml.add(new XmlFragment(writeEvent));
+            }
+        } catch (DebeziumException exception) {
+            LOGGER.warn(
+                    "\tInvalid XML manipulation event: {} ; ignoring {} {}",
                     exception,
                     event.getEventType(),
                     event);
@@ -278,8 +341,10 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
         switch (prev.getEventType()) {
             case INSERT:
             case UPDATE:
+            case XML_BEGIN:
             case SELECT_LOB_LOCATOR:
                 switch (next.getEventType()) {
+                    case XML_BEGIN:
                     case SELECT_LOB_LOCATOR:
                         merge = true;
                         break;
@@ -794,6 +859,79 @@ public class TransactionCommitConsumer implements AutoCloseable, BlockingConsume
 
             LOGGER.trace("Don't know how to construct an initial LOB value from {}.", value);
             return new LobUnderConstruction();
+        }
+    }
+
+    static class XmlFragment extends Fragment {
+        final byte[] bytes;
+
+        XmlFragment(final XmlWriteEvent event) {
+            if (EventType.XML_WRITE != event.getEventType()) {
+                throw new IllegalArgumentException(
+                        "can only construct XmlFragments from XML_WRITE events");
+            }
+            this.bytes = event.getXmlBytes();
+            this.data = event.getXml();
+        }
+
+        XmlFragment(String data) {
+            this.bytes = null;
+            this.data = data;
+        }
+    }
+
+    static class XmlUnderConstruction extends AbstractUnderConstruction<XmlFragment> {
+
+        static XmlUnderConstruction fromInitialValue(Object value) {
+            if (null == value) {
+                return new XmlUnderConstruction();
+            }
+            if (value instanceof XmlUnderConstruction) {
+                return (XmlUnderConstruction) value;
+            }
+            if (value instanceof String) {
+                XmlUnderConstruction lob = new XmlUnderConstruction();
+                lob.add(new XmlFragment((String) value));
+                return lob;
+            }
+
+            LOGGER.trace("Don't know how to construct an initial XML value from {}.", value);
+            return new XmlUnderConstruction();
+        }
+
+        /**
+         * Assembles the document. Consecutive {@code HEXTORAW} chunks are concatenated as bytes and
+         * decoded as one UTF-8 string, so a character split across chunk boundaries stays intact.
+         * Quoted inline chunks are already characters and are appended as text.
+         */
+        @Override
+        Object merge() {
+            if (isNull) {
+                return null;
+            }
+            StringBuilder text = new StringBuilder();
+            ByteArrayOutputStream pendingBytes = null;
+            for (XmlFragment fragment : fragments) {
+                if (fragment.bytes != null) {
+                    if (pendingBytes == null) {
+                        pendingBytes = new ByteArrayOutputStream();
+                    }
+                    pendingBytes.write(fragment.bytes, 0, fragment.bytes.length);
+                } else if (fragment.data != null) {
+                    appendBytes(text, pendingBytes);
+                    pendingBytes = null;
+                    text.append(fragment.data);
+                }
+            }
+            appendBytes(text, pendingBytes);
+            return text.toString();
+        }
+
+        private static void appendBytes(StringBuilder text, ByteArrayOutputStream pendingBytes) {
+            if (pendingBytes == null || pendingBytes.size() == 0) {
+                return;
+            }
+            text.append(new String(pendingBytes.toByteArray(), StandardCharsets.UTF_8));
         }
     }
 

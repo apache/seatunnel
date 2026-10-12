@@ -32,6 +32,8 @@ import io.debezium.connector.oracle.logminer.parser.LogMinerDmlEntry;
 import io.debezium.connector.oracle.logminer.parser.LogMinerDmlEntryImpl;
 import io.debezium.connector.oracle.logminer.processor.TransactionCommitConsumer.LobFragment;
 import io.debezium.connector.oracle.logminer.processor.TransactionCommitConsumer.LobUnderConstruction;
+import io.debezium.connector.oracle.logminer.processor.TransactionCommitConsumer.XmlFragment;
+import io.debezium.connector.oracle.logminer.processor.TransactionCommitConsumer.XmlUnderConstruction;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableEditor;
@@ -233,6 +235,16 @@ public class TransactionCommitConsumerTest {
         Object[] merged = emitted.get(0).getDmlEntry().getNewValues();
         Assertions.assertEquals(1, merged[0]);
         Assertions.assertNull(merged[1]);
+    }
+
+    @Test
+    public void assemblesXmlFragmentsInOrder() {
+        XmlUnderConstruction xml = XmlUnderConstruction.fromInitialValue(null);
+        Assertions.assertNull(xml.merge());
+
+        xml.add(new XmlFragment("<root>"));
+        xml.add(new XmlFragment(EMOJI + "</root>"));
+        Assertions.assertEquals("<root>" + EMOJI + "</root>", xml.merge());
     }
 
     private static TransactionCommitConsumer consumer(Table table, List<DmlEvent> emitted) {
