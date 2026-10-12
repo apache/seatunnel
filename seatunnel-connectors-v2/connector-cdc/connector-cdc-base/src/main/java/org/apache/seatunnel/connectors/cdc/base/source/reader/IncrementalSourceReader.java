@@ -164,7 +164,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     // break the bounded contract and leave the job running indefinitely.
                     throw new IllegalStateException(
                             String.format(
-                                    "Snapshot-only startup mode received an incremental (binlog) split '%s' on subtask %d. "
+                                    "Snapshot-only startup mode received an incremental split '%s' on subtask %d. "
                                             + "Changing startup.mode across a restore is not supported.",
                                     split.splitId(), subtaskId));
                 }

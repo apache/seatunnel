@@ -145,7 +145,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         mode -> {
                             throw new IllegalArgumentException(
                                     String.format(
-                                            "'%s' startup mode is a bounded snapshot-only job and does not enter continuous binlog streaming, "
+                                            "'%s' startup mode is a bounded snapshot-only job and does not enter continuous change log streaming, "
                                                     + "so it is incompatible with '%s = %s'. Remove the stop mode option.",
                                             StartupMode.SNAPSHOT_ONLY,
                                             SourceOptions.STOP_MODE_KEY,
@@ -158,8 +158,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         if (specificOffsetPresent) {
             throw new IllegalArgumentException(
                     String.format(
-                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
-                                    + "so binlog-oriented startup offset options ('%s', '%s') are not allowed.",
+                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup change log offsets, "
+                                    + "so startup offset options ('%s', '%s') are not allowed.",
                             StartupMode.SNAPSHOT_ONLY,
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
@@ -167,8 +167,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         if (config.getOptional(SourceOptions.STARTUP_TIMESTAMP).isPresent()) {
             throw new IllegalArgumentException(
                     String.format(
-                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
-                                    + "so binlog-oriented startup offset option '%s' is not allowed.",
+                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup change log offsets, "
+                                    + "so startup offset option '%s' is not allowed.",
                             StartupMode.SNAPSHOT_ONLY, SourceOptions.STARTUP_TIMESTAMP.key()));
         }
     }
