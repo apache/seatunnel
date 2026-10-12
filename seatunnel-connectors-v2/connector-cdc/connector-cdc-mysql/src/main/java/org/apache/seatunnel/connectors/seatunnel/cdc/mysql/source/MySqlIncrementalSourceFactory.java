@@ -129,15 +129,20 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
 
     @Override
     public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
-        ReadonlyConfig config = context.getOptions();
+        ReadonlyConfig config = normalizeConfig(context.getOptions());
         return buildCatalogTables(context, config, Collections.emptyList());
     }
 
     @Override
     public void validateConnectionForDryRun(
             TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
-        ReadonlyConfig config = context.getOptions();
+        ReadonlyConfig config = normalizeConfig(context.getOptions());
         validateReplicationPrivileges(config);
+    }
+
+    /** Normalize source options before dry-run validation. */
+    protected ReadonlyConfig normalizeConfig(ReadonlyConfig config) {
+        return config;
     }
 
     @Override
