@@ -40,6 +40,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
@@ -130,6 +131,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {
+        waitForCassandraAdvertisedPorts();
         Container.ExecResult execResult = container.executeJob(CASSANDRA_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertNotNull(getRow());
@@ -140,6 +142,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCassandraMultiTableSource(TestContainer container) throws Exception {
+        waitForCassandraAdvertisedPorts();
         Container.ExecResult execResult = container.executeJob(CASSANDRA_MULTI_TABLE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         long sinkCount = getMTSinkRowCount();
@@ -163,9 +166,13 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                 new CassandraContainer<>(CASSANDRA_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withEnv("CASSANDRA_DC", DATACENTER)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(CASSANDRA_DOCKER_IMAGE)));
+                                        DockerLoggerFactory.getLogger(CASSANDRA_DOCKER_IMAGE)))
+                        .waitingFor(
+                                Wait.forListeningPort()
+                                        .withStartupTimeout(Duration.ofSeconds(180)));
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Cassandra container started");
         Awaitility.given()
@@ -317,25 +324,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     }
 
     private void clearSinkTable() {
-        String qualified = String.format("%s.%s", KEYSPACE, SINK_TABLE);
-        try {
-            session.execute(String.format("TRUNCATE %s", qualified));
-            Awaitility.await()
-                    .pollInterval(Duration.ofMillis(200))
-                    .atMost(Duration.ofSeconds(5))
-                    .until(
-                            () -> {
-                                ResultSet rs =
-                                        session.execute(
-                                                SimpleStatement.builder(
-                                                                "SELECT count(*) FROM " + qualified)
-                                                        .build());
-                                Row row = rs.one();
-                                return row != null && row.getLong(0) == 0L;
-                            });
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to clear sink table: " + qualified, e);
-        }
+        truncateAndAwaitEmpty(SINK_TABLE);
     }
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -513,25 +502,79 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     }
 
     private void clearMTSinkTable() {
-        String qualified = String.format("%s.%s", KEYSPACE, MT_SINK_TABLE);
+        truncateAndAwaitEmpty(MT_SINK_TABLE);
+    }
+
+    private void truncateAndAwaitEmpty(String table) {
+        String qualified = KEYSPACE + "." + table;
         try {
-            session.execute(String.format("TRUNCATE %s", qualified));
-            Awaitility.await()
-                    .pollInterval(Duration.ofMillis(200))
-                    .atMost(Duration.ofSeconds(5))
-                    .until(
-                            () -> {
+            session.execute(
+                    SimpleStatement.builder("TRUNCATE TABLE " + qualified)
+                            .setKeyspace(KEYSPACE)
+                            .build());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to TRUNCATE table " + qualified, e);
+        }
+
+        Awaitility.await()
+                .atMost(60L, TimeUnit.SECONDS)
+                .pollInterval(500L, TimeUnit.MILLISECONDS)
+                .until(
+                        () -> {
+                            try {
                                 ResultSet rs =
                                         session.execute(
                                                 SimpleStatement.builder(
                                                                 "SELECT count(*) FROM " + qualified)
+                                                        .setKeyspace(KEYSPACE)
                                                         .build());
                                 Row row = rs.one();
-                                return row != null && row.getLong(0) == 0L;
-                            });
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to clear MT sink table: " + qualified, e);
-        }
+                                long count = (row != null) ? row.getLong(0) : -1L;
+                                return count == 0L;
+                            } catch (Exception ignored) {
+                                return false;
+                            }
+                        });
+    }
+
+    private void waitForCassandraAdvertisedPorts() {
+        Awaitility.await()
+                .atMost(60L, TimeUnit.SECONDS)
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try {
+                                ResultSet localRs =
+                                        session.execute(
+                                                SimpleStatement.builder(
+                                                                "SELECT native_transport_port FROM system.local")
+                                                        .build());
+                                Row localRow = localRs.one();
+                                if (localRow != null && !localRow.isNull("native_transport_port")) {
+                                    int localPort = localRow.getInt("native_transport_port");
+                                    if (localPort == 1) {
+                                        return false;
+                                    }
+                                }
+
+                                ResultSet peerRs =
+                                        session.execute(
+                                                SimpleStatement.builder(
+                                                                "SELECT native_transport_port FROM system.peers")
+                                                        .build());
+                                for (Row peerRow : peerRs.all()) {
+                                    if (!peerRow.isNull("native_transport_port")) {
+                                        int port = peerRow.getInt("native_transport_port");
+                                        if (port == 1) {
+                                            return false;
+                                        }
+                                    }
+                                }
+                                return true;
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        });
     }
 
     private void initCassandraConfig() {
