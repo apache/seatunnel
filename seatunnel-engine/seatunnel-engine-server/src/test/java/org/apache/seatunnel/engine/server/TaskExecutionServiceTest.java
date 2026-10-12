@@ -67,11 +67,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -1407,13 +1409,38 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupContext context =
                 new TaskGroupContext(FLAKE_ID_GENERATOR.newId(), taskGroup, classLoaders, jars);
 
-        Map<Long, Collection<URL>> claimed = context.claimJarsForClassLoaderRelease();
-        Assertions.assertNotNull(claimed);
+        // Two threads must race the CAS itself. A second sequential call would also return null
+        // after jars is cleared, so it would stay green if the AtomicBoolean were removed.
+        CyclicBarrier start = new CyclicBarrier(2);
+        ExecutorService racers = Executors.newFixedThreadPool(2);
+        Map<Long, Collection<URL>> claimed;
+        try {
+            List<Future<Map<Long, Collection<URL>>>> claims = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                claims.add(
+                        racers.submit(
+                                () -> {
+                                    start.await(10, TimeUnit.SECONDS);
+                                    return context.claimJarsForClassLoaderRelease();
+                                }));
+            }
+            List<Map<Long, Collection<URL>>> results = new ArrayList<>();
+            for (Future<Map<Long, Collection<URL>>> claim : claims) {
+                results.add(claim.get(10, TimeUnit.SECONDS));
+            }
+            assertEquals(
+                    1,
+                    results.stream().filter(Objects::nonNull).count(),
+                    "exactly one racer may claim classloader release");
+            claimed = results.stream().filter(Objects::nonNull).findFirst().get();
+        } finally {
+            racers.shutdownNow();
+        }
         Assertions.assertNull(context.getClassLoaders());
         Assertions.assertNull(context.getJars());
         Assertions.assertNull(
                 context.claimJarsForClassLoaderRelease(),
-                "second claim must no-op so rollback and recycleClassLoader cannot double-release");
+                "a later claim must no-op so rollback and recycleClassLoader cannot double-release");
 
         for (Collection<URL> claimedJars : claimed.values()) {
             classLoaderService.releaseClassLoader(location.getJobId(), claimedJars);
@@ -1471,14 +1498,9 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         cancellationFutures.put(context, cancellationFuture);
 
         try {
-            // Simulate post-publish rollback claiming classloader release first.
-            java.lang.reflect.Method releaseOnce =
-                    TaskExecutionService.class.getDeclaredMethod(
-                            "releaseClassLoadersOnce",
-                            TaskGroupLocation.class,
-                            TaskGroupContext.class);
-            releaseOnce.setAccessible(true);
-            releaseOnce.invoke(taskExecutionService, location, context);
+            // Same claim the post-publish rollback uses, without binding the test to a private
+            // name.
+            taskExecutionService.releaseClassLoadersOnce(location, context);
             assertEquals(
                     1,
                     classLoaderService.queryClassLoaderReferenceCount(

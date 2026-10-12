@@ -839,8 +839,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * and normal completion cannot both decrement the job-scoped {@link ClassLoaderService} ref
      * count.
      */
-    private void releaseClassLoadersOnce(
-            TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
+    // Package-visible so tests can claim release without reflecting on a private method.
+    void releaseClassLoadersOnce(TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
         Map<Long, Collection<URL>> jarsByTask = context.claimJarsForClassLoaderRelease();
         if (jarsByTask == null) {
             return;
@@ -1386,17 +1386,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          */
         @Override
         public void run() {
-            TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
-                    tracker.taskGroupExecutionTracker;
-            TaskGroupLocation taskGroupLocation =
-                    taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+            TaskGroupExecutionTracker taskGroupExecutionTracker = tracker.taskGroupExecutionTracker;
             final Task t = tracker.task;
-            // Only a rolled-back context (removed, or its classloader map claimed) skips the task.
+            // Only a rolled-back context (classloader map already claimed) skips the task.
+            // Read this generation from the tracker. executionContexts is keyed by location and a
+            // later redeploy can already occupy that key while this worker is still in flight.
             // An ordinary cancel (isCancel) must still init/call/close: skipping close() here would
             // change the cancellation contract for a worker that starts after cancel was requested.
-            TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-            Map<Long, ClassLoader> classLoaders =
-                    taskGroupContext == null ? null : taskGroupContext.getClassLoaders();
+            TaskGroupContext taskGroupContext = taskGroupExecutionTracker.context;
+            Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
             if (classLoaders == null) {
                 startedLatch.countDown();
                 taskGroupExecutionTracker.taskDone(t);
@@ -1517,15 +1515,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 : taskQueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
-                TaskGroupLocation taskGroupLocation =
-                        taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
                 // A rolled-back context, or a group that already failed/was cancelled, must not
-                // run.
+                // run. Read this generation from the tracker so a newer deployment at the same
+                // location cannot hide the rollback signal.
                 // isCancel is covered by executionCompletedExceptionally(); the null classloader
                 // map is the rollback signal and is distinct from a missing per-task entry.
-                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-                Map<Long, ClassLoader> classLoaders =
-                        taskGroupContext == null ? null : taskGroupContext.getClassLoaders();
+                TaskGroupContext taskGroupContext = taskGroupExecutionTracker.context;
+                Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
                 if (classLoaders == null
                         || taskGroupExecutionTracker.executionCompletedExceptionally()) {
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
