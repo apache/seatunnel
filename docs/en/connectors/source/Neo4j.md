@@ -43,6 +43,18 @@ the returned fields to a SeaTunnel schema.
 | Map              | MAP                 |
 | Null             | NULL                |
 
+## Connectivity dry-run
+
+Run `bin/seatunnel.sh --config <your-job.conf> --dry-run connect` with your own job configuration.
+
+This source uses the existing driver connection/authentication configuration and returns the same configured single-table or `tables_configs` schemas as a normal source.
+
+- The temporary driver calls `verifyConnectivityAsync()`. It does not create a session, execute user Cypher, read graph records, or write data.
+- Success validates driver connectivity and the authentication performed by the driver handshake. It does **not** validate the configured database, database/query permissions, Cypher syntax, result columns/types, or schema compatibility with stored data. In particular, an invalid query or a nonexistent `database` can still pass this connectivity-only check.
+- Driver connection and verification waits are capped at 15 seconds, retaining a smaller positive `max_connection_timeout`; zero is bounded for preflight. Driver close is initiated even on failure and waited for at most 5 seconds. DNS resolution follows the JVM resolver.
+- Retry/timeout limits apply only to the temporary driver. Normal source configuration, source execution and sink behavior are unchanged.
+- Validation errors omit raw URIs, driver error text and secret-bearing exception causes. Sink connectivity remains unsupported.
+
 ## Source Options
 
 | Name                       | Type   | Required | Default | Description                                                                                                                                       |
