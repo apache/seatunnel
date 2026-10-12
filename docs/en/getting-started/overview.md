@@ -60,7 +60,7 @@ If you want to validate your installation in the shortest path:
 
 ## What You Need Before Using SeaTunnel
 
-- Java 8 or Java 11 with `JAVA_HOME` configured
+- Java 11 or Java 17 with `JAVA_HOME` configured
 - A SeaTunnel binary package from the [download page](https://seatunnel.apache.org/download)
 - Required connector plugins installed under `${SEATUNNEL_HOME}/connectors/`
 - Any third-party driver jars required by your chosen connectors
@@ -80,5 +80,5 @@ Use these pages next:
 - [Job Configuration Guide](./job-configuration-guide.md)
 - [Scenario Recipes](./recipes/overview.md)
 - [SeaTunnel Engine(Zeta) Deployment](../engines/zeta/deployment.md)
-- [REST API And Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [Submitting Jobs to a Remote Zeta Cluster](../getting-started/submit-job-to-remote-zeta-cluster.md)

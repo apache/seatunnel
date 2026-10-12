@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa 事务` 确保 `精确一次`。因此仅支持 `精确一次` 的数据库才支持 `Xa 事务`。您可以设置 `is_exactly_once=true` 来启用它。
 
@@ -71,8 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名                                                                                                                                                                                                                                 |
 | password                     | String  | 否       | -                            | 连接实例密码                                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                                               |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                    |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                                    |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                    |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成 SQL 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                                    |
 | schema                       | String  | 否       | -                            | Redshift 中目标表的 schema 名称。SeaTunnel 不会为该参数自动填充默认值。当目标表没有在 `table` 中显式携带 schema，或使用 `generate_sink_sql`、`schema_save_mode`、`data_save_mode` 等基于 catalog 的操作时，建议显式配置该参数。 |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持自动生成 SQL 时的 `insert`、`delete` 和 `update` 操作。                                                                                                                                                                          |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                 |
@@ -87,9 +88,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | field_ide                    | String  | 否       | -                            | 确定从源同步到 Sink 时是否需要转换字段。`ORIGINAL` 表示不需要转换；`UPPERCASE` 表示转换为大写；`LOWERCASE` 表示转换为小写。                                                                                                                     |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和 URL 具有相同的参数时，优先级由驱动程序的特定实现决定。                                                                                                                                                                |
 | common-options               |         | 否       | -                            | Sink 插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情                                                                                                                                              |
-| schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标端已有的表结构选择不同的处理方案。                                                                                                                                                                                     |
-| data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端已有的数据选择不同的处理方案。                                                                                                                                                                                       |
-| custom_sql                   | String  | 否       | -                            | 当 data_save_mode 选择 CUSTOM_PROCESSING 时，您需要填写 CUSTOM_SQL 参数。此参数通常填写一个可执行的 SQL，该 SQL 将在同步任务之前执行。                                                                                                          |
+| schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标端已有的表结构选择不同的处理方案。支持的取值：`RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST`。                                                                                                                  |
+| data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端已有的数据选择不同的处理方案。支持的取值：`DROP_DATA`、`APPEND_DATA`、`CUSTOM_PROCESSING`、`ERROR_WHEN_DATA_EXISTS`。                                                                                                                       |
+| custom_sql                   | String  | 否       | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时，需要填写 CUSTOM_SQL 参数。此参数通常填写一个可在同步任务前执行的 SQL。                                                                                                          |
 | enable_upsert                | Boolean | 否       | true                         | 通过 primary_keys 启用 upsert，如果任务只有 `insert`，将此参数设置为 `false` 可以加快数据导入                                                                                                                                                   |
 | multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入的副本数，当 `multi_table_sink_replica > 1` 时，数据将并行写入多个表                                                                                                                                                                    |
 
@@ -99,7 +100,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 此示例定义了一个 SeaTunnel 同步任务，该任务通过 FakeSource 自动生成数据并将其发送到 JDBC Sink。FakeSource 总共生成 16 行数据（row.num=16），每行有两个字段：name（字符串类型）和 age（int 类型）。最终目标表 test_table 中也将有 16 行数据。在运行此作业之前，您需要在 Redshift 中创建数据库和表 test_table。如果您尚未安装和部署 SeaTunnel，请按照[安装 SeaTunnel](../../getting-started/locally/deployment.md) 中的说明进行安装和部署，然后按照[快速启动 SeaTunnel 引擎](../../getting-started/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 1
@@ -138,7 +139,7 @@ sink {
 
 > 此示例不需要编写复杂的 SQL 语句，您可以配置数据库名和表名来自动为您生成插入语句
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -157,7 +158,7 @@ sink {
 
 > 对于需要精确写入的场景，我们保证精确一次
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -176,7 +177,7 @@ sink {
 
 > 我们也支持 CDC 变更数据。在这种情况下，您需要配置数据库、表和主键。
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
@@ -201,7 +202,7 @@ sink {
 
 > 通过 CDC 源同步多张表到目标 Redshift 数据库，使用占位符实现动态表名映射
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -239,7 +240,7 @@ sink {
 
 > 从数据库使用 JDBC Source 批量同步多张表到 Redshift
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

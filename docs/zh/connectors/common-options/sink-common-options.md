@@ -6,6 +6,9 @@ sidebar_position: 4
 
 > Sink 连接器常用参数
 
+关于 Sink 写入模式、自动生成 SQL、`schema_save_mode`、`data_save_mode`、`custom_sql`、
+`enable_upsert` 的选择，请先阅读 [Sink 写入模式与 Save Mode](sink-write-modes.md)。
+
 :::caution 警告
 
 旧的配置名称 `source_table_name` 已经过时，请尽快迁移到新名称 `plugin_input`。
@@ -70,4 +73,3 @@ sink {
 
 > 如果作业只有一个 source 和一个（或零个）transform 和一个 sink ，则不需要为连接器指定 `plugin_input` 和 `plugin_output`。
 > 如果 source 、transform 和 sink 中任意运算符的数量大于 1，则必须为作业中的每个连接器指定 `plugin_input` 和 `plugin_output`
-

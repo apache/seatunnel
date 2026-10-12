@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -116,15 +117,9 @@ public class DorisMultiReadIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     public void testDorisMultiRead(TestContainer container)
@@ -343,14 +338,18 @@ public class DorisMultiReadIT extends AbstractDorisIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[] {new URL(DRIVER_JAR)},
+                            new URL[] {mysqlDriverJarPath().toUri().toURL()},
                             DorisMultiReadIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
             Properties props = new Properties();
             props.put("user", USERNAME);
             props.put("password", PASSWORD);
-            conn = driver.connect(String.format(URL, container.getHost()), props);
+            conn =
+                    driver.connect(
+                            String.format(
+                                    URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                            props);
             try (Statement statement = conn.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(SOURCE_DB_0));

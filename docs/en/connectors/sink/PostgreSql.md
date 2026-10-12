@@ -29,10 +29,11 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -81,8 +82,8 @@ semantics (using XA transaction guarantee).
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                                                                                                                                                                                                                                                                                                                                                          |
-| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side. |
+| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                                                                                                                                                                                                                                                                                                                                                          |
+| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side. |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -106,7 +107,7 @@ semantics (using XA transaction guarantee).
 
 Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
 
-This option is mutually exclusive with `query` and has a higher priority.
+This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.
 
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
@@ -315,6 +316,53 @@ COPY is not a good fit when:
 - you want PostgreSQL native upsert conflict handling
 - your data contains `MAP`, `ARRAY`, or `ROW` types
 - the current JDBC driver connection does not expose `getCopyAPI()`
+
+### Streaming With Timer Flush
+
+For long-running streaming jobs, set `batch_interval_ms` together with `batch_size`. The flush is **write-triggered**: each incoming write checks the buffered row count and elapsed time and flushes synchronously when either threshold is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a strict wall-clock latency bound. Pick a value in the seconds range to balance throughput and per-record latency.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+When the upstream rows carry table identity, use `${schema_name}` and `${table_name}` placeholders in `table`. Combined with `multi_table_sink_replica`, SeaTunnel writes each row to the matching target table in parallel.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
+```
 
 ## Changelog
 

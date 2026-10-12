@@ -25,10 +25,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -42,6 +45,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -116,8 +120,38 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
             String queueName = entry.getKey();
             CatalogTable table = entry.getValue();
 
-            this.schemaMap.put(queueName, new JsonDeserializationSchema(table, false, false));
+            this.schemaMap.put(queueName, createDeserializationSchema(table));
             this.exactTableIdMap.put(queueName, table.getTableId().toTablePath().toString());
+        }
+    }
+
+    private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(CatalogTable table) {
+        RabbitmqMessageFormat format = parseMessageFormat(table);
+        switch (format) {
+            case JSON:
+                return new JsonDeserializationSchema(table, false, false);
+            case PROTOBUF:
+                return new ProtobufDeserializationSchema(table);
+            default:
+                throw new RabbitmqConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format("Unsupported RabbitMQ message format: %s", format));
+        }
+    }
+
+    private RabbitmqMessageFormat parseMessageFormat(CatalogTable table) {
+        String format =
+                table.getOptions()
+                        .getOrDefault(
+                                RabbitmqBaseOptions.FORMAT.key(),
+                                RabbitmqMessageFormat.JSON.name());
+        try {
+            return RabbitmqMessageFormat.valueOf(format.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new RabbitmqConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("Unsupported RabbitMQ message format: %s", format),
+                    e);
         }
     }
 

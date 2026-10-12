@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -53,7 +53,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
 | sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
-| sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
+| sink.enable-delete             | bool    | No       | false                        | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
 | sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                      |
 | sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                            |
 | sink.buffer-size               | int     | No       | 256 * 1024                   | the buffer size to cache data for stream load.                                                                                                                                                                                                                       |
@@ -61,11 +61,12 @@ The internal implementation of Doris sink connector is cached and imported by st
 | doris.batch.size               | int     | No       | 1024                         | the batch size of the write to doris each http request, when the row reaches the size or checkpoint is executed, the data of cached will write to server.                                                                                                            |
 | needs_unsupported_type_casting | boolean | No       | false                        | Whether to enable the unsupported type casting, such as Decimal64 to Double                                                                                                                                                                                          |
 | case_sensitive                 | boolean | No       | true                         | Whether to preserve the original case of table and column names. When set to false, table and column names will be converted to lowercase.                                                                                                                            |
+| sink.datetime-timezone         | string  | No       | JVM default                  | Session zone ID (a `java.time.ZoneId`-compatible ID such as `Asia/Shanghai` or `+08:00`) used to convert `TIMESTAMP_TZ` values to wall-clock strings for Doris `DATETIME` columns. When unset, the JVM default zone is used (legacy behavior). Set this to the Doris session zone to avoid JVM-default coupling. |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                       |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                           |
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
-| doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
+| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `row_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
 
 ## Redirect Behavior
 
@@ -93,7 +94,7 @@ Option introduction：
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
-`DROP_DATA`： Preserve database structure and delete data  
+`DROP_DATA`： Preserve database structure and delete data. By default the complete target table is truncated. When `doris.config.partitions` contains a comma-separated list of formal Doris partition names, only those partitions are truncated and subsequent Stream Load writes are restricted to the same partitions. Every target in a multi-table job must contain the configured partition names. Doris rejects cleanup when a partition does not exist. Partition values and temporary partitions are not supported.
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
@@ -173,6 +174,7 @@ You can use the following placeholders
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
 | JSON            | STRING                                  |
+| VARIANT         | STRING                                  |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |
@@ -182,6 +184,9 @@ You can use the following placeholders
 
 The supported formats include CSV and JSON
 
+When writing to Doris `VARIANT` columns from SeaTunnel `STRING` fields, the field value should be a
+valid JSON document.
+
 ## Tuning Guide
 Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.
 
@@ -190,6 +195,33 @@ In stream mode, if the `doris.batch.size` and `checkpoint.interval` are both con
 This is because the total amount of data arriving at the end may not exceed the threshold specified by `doris.batch.size`. Therefore, commit can only be triggered by checkpoint before the volume of received data does not exceed this threshold. Therefore, you should select an appropriate `checkpoint.interval`.
 
 Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sink.buffer-size` will have no effect. So only the checkpoint can trigger the commit.
+
+### Timer flush on Zeta
+
+This engine-level feature is supported only by Zeta. Spark and Flink do not inject `FlushSignal` records. On Zeta, configure `sink.flush.interval` in the `env` block to finish the current Stream Load before `doris.batch.size` is reached.
+
+Timer flush is registered only when `sink.enable-2pc=false`. It is intentionally disabled when `sink.enable-2pc=true` because flushing and opening a new Stream Load between checkpoints would break the 2PC transaction boundary and exactly-once guarantee. The initial timer flush implementation therefore provides at-least-once delivery only.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.label-prefix = "timer-flush"
+    sink.enable-2pc = false
+    doris.batch.size = 10000
+  }
+}
+```
 
 ## Troubleshooting 307 Temporary Redirect
 
@@ -380,7 +412,7 @@ sink {
 
 ### Use JSON format to import data
 
-```
+```hocon
 sink {
     Doris {
         fenodes = "e2e_dorisdb:8030"
@@ -396,12 +428,11 @@ sink {
         }
     }
 }
-
 ```
 
 ### Use CSV format to import data
 
-```
+```hocon
 sink {
     Doris {
         fenodes = "e2e_dorisdb:8030"
@@ -417,6 +448,7 @@ sink {
         }
     }
 }
+```
 
 ### Case-Sensitive Configuration
 
@@ -436,6 +468,95 @@ sink {
           read_json_by_line = "true"
         }
     }
+}
+```
+
+### Custom SQL Pre-processing
+
+When `data_save_mode = "CUSTOM_PROCESSING"`, the SQL set in `custom_sql` is executed on the target
+Doris cluster before the synchronization task reads data. This lets you prepare, clean, or seed the
+target table out-of-band of the connector's normal write path. The connector still writes through
+Stream Load afterwards.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        F_ID = bigint
+        F_INT = int
+        F_BIGINT = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_sink"
+    table = "doris_e2e_unique_table"
+    data_save_mode = "CUSTOM_PROCESSING"
+    custom_sql = "INSERT INTO e2e_sink.doris_e2e_unique_table (F_ID, F_INT, F_BIGINT) VALUES (1, 123, 1234567890123);"
+    sink.enable-2pc = true
+    sink.label-prefix = "test_custom_sql"
+    save_mode_create_template = """CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) ENGINE=OLAP UNIQUE KEY (`F_ID`) DISTRIBUTED BY HASH (`F_ID`) PROPERTIES ("replication_allocation" = "tag.location.default: 1")"""
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### CDC With Schema Change
+
+This example shows MySQL-CDC streaming into Doris with `schema-changes.enabled = true` so that
+column additions, type widening, and other DDL changes from the upstream MySQL source are applied
+to the target Doris table.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "products"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = true
+    sink.enable-delete = true
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
 }
 ```
 
@@ -568,9 +689,11 @@ Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC s
 
 ### Are Doris column names case-sensitive?
 
-See the case-sensitivity example above for the exact behavior. If upstream field names still do not
-match the Doris schema, normalize them before the sink stage or align the target schema explicitly
-instead of relying on an undocumented `column_mapping` option.
+See the case-sensitivity example above for the exact behavior. By default (`case_sensitive = true`)
+the connector preserves the original case of `database` and `table`. Set `case_sensitive = false`
+to fold both names to lowercase before they reach Doris. If upstream field names still do not
+match the Doris schema, normalize them at the source stage (e.g. with a `Rename` transform) or
+align the target schema explicitly rather than relying on undocumented options.
 
 ### What data format does Doris Stream Load use?
 

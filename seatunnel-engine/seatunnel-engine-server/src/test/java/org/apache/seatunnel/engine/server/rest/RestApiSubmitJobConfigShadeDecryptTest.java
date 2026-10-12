@@ -63,6 +63,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
 
     private static final String ENCRYPTED_USERNAME = "c2VhdHVubmVs";
     private static final String ENCRYPTED_PASSWORD = "c2VhdHVubmVsX3Bhc3N3b3Jk";
+    private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private HazelcastInstanceImpl instance;
     private SeaTunnelServer server;
@@ -107,6 +108,12 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         } catch (Exception e) {
             System.err.println(ExceptionUtils.getMessage(e));
         }
+    }
+
+    @Test
+    public void testFixtureStartsWithoutDiscovery() {
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        Assertions.assertNull(instance.node.getJoiner());
     }
 
     @Test
@@ -356,6 +363,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     private static String getHazelcastConfig() {
+        // This single-member fixture must not scan nearby ports used by its REST service.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -365,18 +373,21 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "        CLUSTER_WRITE:\n"
                 + "          enabled: true\n"
                 + "    join:\n"
+                + "      auto-detection:\n"
+                + "        enabled: false\n"
+                + "      multicast:\n"
+                + "        enabled: false\n"
                 + "      tcp-ip:\n"
-                + "        enabled: true\n"
-                + "        member-list:\n"
-                + "          - localhost\n"
+                + "        enabled: false\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + HAZELCAST_PORT
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
-                + "    hazelcast.tcp.join.port.try.count: 30\n"
                 + "    hazelcast.invocation.retry.pause.millis: 2000\n"
                 + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
                 + "    hazelcast.logging.type: log4j2\n"

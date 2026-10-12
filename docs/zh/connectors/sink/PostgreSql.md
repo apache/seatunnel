@@ -28,9 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |
@@ -77,8 +78,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否   | -                            | 连接实例的用户名。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                     | String  | 否   | -                            | 连接实例的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                        | String  | 否   | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 的优先级更高。                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| database                     | String  | 否   | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，并具有更高的优先级。                                                                                                                                                                                                                                                                                                                                                                                          |
-| table                        | String  | 否   | -                            | 使用数据库和此表名自动生成 SQL，并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，并具有更高的优先级。表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则： `${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。 |
+| database                     | String  | 否   | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                                                                                                                                                                                                                                                                                          |
+| table                        | String  | 否   | -                            | 使用数据库和此表名自动生成 SQL，并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则： `${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。 |
 | primary_keys                 | Array   | 否   | -                            | 此选项用于支持在自动生成 SQL 时进行 `insert`，`delete` 和 `update` 操作。                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec | Int     | 否   | 30                           | 用于验证连接的数据库操作完成的等待时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                  | Int     | 否   | 0                            | 提交失败的重试次数（executeBatch）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -102,7 +103,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 使用 `database` 和此 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。
 
-此选项与 `query` 互斥，并具有更高的优先级。
+仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准
 
 表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则：`${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。
 
@@ -308,6 +309,53 @@ INSERT batching。这时重复键是否报错，完全取决于目标表自身�
 - 你希望通过 PostgreSQL 原生 upsert 语义处理冲突
 - 你的数据包含 `MAP`、`ARRAY`、`ROW` 类型
 - 当前 JDBC 驱动连接对象不提供 `getCopyAPI()`
+
+### 流式定时刷新
+
+对于长时间运行的流式作业，可以同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+当上游行携带表标识时，可以在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，把每行路由到对应的目标表。配合 `multi_table_sink_replica`，SeaTunnel 并行写入多张表。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
+```
 
 ## 变更日志
 

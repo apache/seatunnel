@@ -425,6 +425,17 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 sampleShardingAllow);
 
         long approximateRowCnt = queryApproximateRowCnt(table);
+        if (approximateRowCnt <= 0) {
+            // Some JDBC dialects return zero or negative estimates when table statistics are
+            // stale or unavailable. In that case, split by the measured key range instead of
+            // issuing per-chunk boundary probes.
+            log.info(
+                    "The approximate row count of table {} is {}, use range chunk fallback.",
+                    tablePath,
+                    approximateRowCnt);
+            return splitEvenlySizedChunksByRange(
+                    tablePath, min, max, chunkSize, sampleShardingThreshold);
+        }
         double distributionFactor =
                 calculateDistributionFactor(tablePath, min, max, approximateRowCnt);
 
@@ -465,7 +476,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             throws Exception {
         int shardCount = (int) (approximateRowCnt / chunkSize);
         int inverseSamplingRate = config.getSplitInverseSamplingRate();
-        if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
+        if (shouldUseSamplingSharding(sampleShardingAllow)
+                && sampleShardingThreshold < shardCount) {
             // It is necessary to ensure that the number of data rows sampled by the
             // sampling rate is greater than the number of shards.
             // Otherwise, if the sampling rate is too low, it may result in an insufficient
@@ -486,7 +498,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             Object[] sample =
                     jdbcDialect.sampleDataFromColumn(
                             getOrEstablishConnection(),
-                            table,
+                            applyWhereCondition(table),
                             splitColumnName,
                             inverseSamplingRate,
                             config.getFetchSize());
@@ -497,11 +509,29 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return efficientShardingThroughSampling(
                     tablePath, sample, approximateRowCnt, shardCount);
         }
+        if (sampleShardingAllow
+                && sampleShardingThreshold < shardCount
+                && !jdbcDialect.supportsSamplingSharding()) {
+            log.info(
+                    "Sampling sharding is disabled for dialect {}, fallback to bounded uneven chunk splitting for table {}",
+                    jdbcDialect.dialectName(),
+                    tablePath);
+        }
         return splitUnevenlySizedChunks(table, splitColumnName, min, max, chunkSize);
     }
 
+    /**
+     * Sampling sharding requires both the user option and a dialect whose driver streams the
+     * sampled result set instead of buffering it in memory.
+     */
+    @VisibleForTesting
+    boolean shouldUseSamplingSharding(boolean sampleShardingAllow) {
+        return sampleShardingAllow && jdbcDialect.supportsSamplingSharding();
+    }
+
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {
-        return jdbcDialect.approximateRowCntStatement(getOrEstablishConnection(), table);
+        return jdbcDialect.approximateRowCntStatement(
+                getOrEstablishConnection(), applyWhereCondition(table));
     }
 
     private double calculateDistributionFactor(
@@ -627,6 +657,109 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         // add the ending split
         splits.add(ChunkRange.of(chunkStart, null));
         return splits;
+    }
+
+    /**
+     * Splits an evenly distributed key range when the approximate row count is unavailable.
+     *
+     * <p>The generated chunk count is proportional to {@code (max - min) / chunkSize}. To keep
+     * sparse ranges bounded, the method returns a single full-table split when the estimated chunk
+     * count exceeds {@code maxChunkCount}, when the range cannot be measured safely, or when chunk
+     * boundaries cannot advance.
+     */
+    @VisibleForTesting
+    static List<ChunkRange> splitEvenlySizedChunksByRange(
+            TablePath tablePath, Object min, Object max, int chunkSize, int maxChunkCount) {
+        checkArgument(chunkSize > 0, "chunkSize must be greater than 0");
+        checkArgument(maxChunkCount > 0, "maxChunkCount must be greater than 0");
+        log.info(
+                "Use evenly-sized range chunk fallback for table {}, the chunk size is {}",
+                tablePath,
+                chunkSize);
+        if (!isRangeChunkFallbackSafe(tablePath, min, max, chunkSize, maxChunkCount)) {
+            return Collections.singletonList(ChunkRange.all());
+        }
+        final List<ChunkRange> splits = new ArrayList<>();
+        Object chunkStart = null;
+        Object chunkEnd;
+        try {
+            chunkEnd = ObjectUtils.plus(min, chunkSize);
+        } catch (ArithmeticException e) {
+            log.info(
+                    "Skip range chunk fallback for table {} because the first chunk boundary overflows: min={}, chunk size={}",
+                    tablePath,
+                    min,
+                    chunkSize,
+                    e);
+            return Collections.singletonList(ChunkRange.all());
+        }
+        if (ObjectUtils.compare(chunkEnd, min) <= 0) {
+            log.info(
+                    "Skip range chunk fallback for table {} because the first chunk boundary does not advance: min={}, chunk end={}, chunk size={}",
+                    tablePath,
+                    min,
+                    chunkEnd,
+                    chunkSize);
+            return Collections.singletonList(ChunkRange.all());
+        }
+        while (ObjectUtils.compare(chunkEnd, max) <= 0) {
+            splits.add(ChunkRange.of(chunkStart, chunkEnd));
+            chunkStart = chunkEnd;
+            try {
+                Object nextChunkEnd = ObjectUtils.plus(chunkEnd, chunkSize);
+                if (ObjectUtils.compare(nextChunkEnd, chunkEnd) <= 0) {
+                    log.info(
+                            "Stop range chunk fallback for table {} because the chunk boundary does not advance: chunk end={}, next chunk end={}, chunk size={}",
+                            tablePath,
+                            chunkEnd,
+                            nextChunkEnd,
+                            chunkSize);
+                    break;
+                }
+                chunkEnd = nextChunkEnd;
+            } catch (ArithmeticException e) {
+                break;
+            }
+        }
+        splits.add(ChunkRange.of(chunkStart, null));
+        return splits;
+    }
+
+    /**
+     * Checks whether range fallback can produce a bounded number of chunks.
+     *
+     * <p>{@code maxChunkCount} is supplied by {@code split.sample-sharding.threshold}, so the
+     * fallback reuses the same shard-count guard used by sampling. Unsafe math, unsupported numeric
+     * ranges, or oversized sparse ranges force the caller to use one full-table split.
+     */
+    private static boolean isRangeChunkFallbackSafe(
+            TablePath tablePath, Object min, Object max, int chunkSize, int maxChunkCount) {
+        BigDecimal range;
+        try {
+            range = ObjectUtils.minus(max, min);
+        } catch (RuntimeException e) {
+            log.info(
+                    "Skip range chunk fallback for table {} because split key range cannot be measured: min={}, max={}",
+                    tablePath,
+                    min,
+                    max,
+                    e);
+            return false;
+        }
+        if (range.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal estimatedChunkCount =
+                range.divide(BigDecimal.valueOf(chunkSize), 0, ROUND_CEILING).add(BigDecimal.ONE);
+        if (estimatedChunkCount.compareTo(BigDecimal.valueOf(maxChunkCount)) > 0) {
+            log.info(
+                    "Skip range chunk fallback for table {} because estimated chunk count {} exceeds max chunk count {}",
+                    tablePath,
+                    estimatedChunkCount,
+                    maxChunkCount);
+            return false;
+        }
+        return true;
     }
 
     public static List<ChunkRange> efficientShardingThroughSampling(
@@ -777,7 +910,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         Object chunkEnd =
                 jdbcDialect.queryNextChunkMax(
                         getOrEstablishConnection(),
-                        table,
+                        applyWhereCondition(table),
                         splitColumnName,
                         chunkSize,
                         previousChunkEnd);

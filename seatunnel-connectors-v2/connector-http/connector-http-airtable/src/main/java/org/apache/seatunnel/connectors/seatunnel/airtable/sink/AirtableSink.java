@@ -58,6 +58,7 @@ public class AirtableSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.httpParameter = new HttpParameter();
         this.httpParameter.setUrl(AirtableConfig.buildBaseUrl(apiBaseUrl, baseId, table));
         this.httpParameter.setHeaders(AirtableConfig.buildAuthHeaders(token, null));
+        this.httpParameter.validateCredentialScheme();
 
         this.batchSize = pluginConfig.get(AirtableSinkOptions.BATCH_SIZE);
         this.typecast = pluginConfig.get(AirtableSinkOptions.TYPECAST);

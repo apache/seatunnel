@@ -146,11 +146,21 @@ public class SourceOptions {
                                     + SchemaChangeEventType.validNames()
                                     + " (update.columns is a group alias for all column-level changes). ");
 
+    public static final Option<Boolean> ENABLE_CONCURRENT_READ =
+            Options.key("enable_concurrent_read")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable concurrent read with split during snapshot phase. "
+                                    + "When set to false, the source reads the table as a single split "
+                                    + "without any split analysis, which is useful for tables without indexes.");
+
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
-                .optional(DEBEZIUM_PROPERTIES);
+                .optional(DEBEZIUM_PROPERTIES)
+                .optional(ENABLE_CONCURRENT_READ);
     }
 }

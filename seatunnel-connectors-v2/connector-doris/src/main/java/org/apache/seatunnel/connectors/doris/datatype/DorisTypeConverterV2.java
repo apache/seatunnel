@@ -286,6 +286,12 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             builder.dataType(DORIS_JSON);
             return;
         }
+        if (column.getSourceType() != null
+                && column.getSourceType().equalsIgnoreCase(DORIS_VARIANT)) {
+            builder.columnType(DORIS_VARIANT);
+            builder.dataType(DORIS_VARIANT);
+            return;
+        }
 
         super.sampleReconvertString(column, builder);
     }

@@ -28,10 +28,12 @@ import com.hazelcast.instance.impl.DefaultNodeExtension;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.TextCommandServiceImpl;
+import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.util.Enumeration;
 import java.util.Map;
 
 import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.HTTP_GET;
@@ -46,7 +48,14 @@ public class NodeExtension extends DefaultNodeExtension {
         super(node);
         seaTunnelServer = new SeaTunnelServer(seaTunnelConfig);
         extCommon = new NodeExtensionCommon(node, seaTunnelServer);
-        collectorRegistry = CollectorRegistry.defaultRegistry;
+        collectorRegistry = new CollectorRegistry(true);
+    }
+
+    /** Returns process-wide metrics followed by metrics for this node. */
+    public Enumeration<MetricFamilySamples> getMetricFamilySamples() {
+        return new ConcatenatedEnumeration<>(
+                CollectorRegistry.defaultRegistry.metricFamilySamples(),
+                collectorRegistry.metricFamilySamples());
     }
 
     @Override
@@ -94,5 +103,25 @@ public class NodeExtension extends DefaultNodeExtension {
     @Override
     public void printNodeInfo() {
         extCommon.printNodeInfo(systemLogger);
+    }
+
+    private static final class ConcatenatedEnumeration<T> implements Enumeration<T> {
+        private final Enumeration<T> first;
+        private final Enumeration<T> second;
+
+        private ConcatenatedEnumeration(Enumeration<T> first, Enumeration<T> second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            return first.hasMoreElements() || second.hasMoreElements();
+        }
+
+        @Override
+        public T nextElement() {
+            return first.hasMoreElements() ? first.nextElement() : second.nextElement();
+        }
     }
 }
