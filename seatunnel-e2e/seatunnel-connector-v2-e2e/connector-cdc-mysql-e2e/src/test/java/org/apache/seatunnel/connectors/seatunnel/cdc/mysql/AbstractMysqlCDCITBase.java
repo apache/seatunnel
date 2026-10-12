@@ -284,8 +284,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         // The job restarts from the last checkpoint and replays the binlog events written
         // after it (including the f_bigint=20000 update). The trigger must be gone before
         // that replay reaches the sink, otherwise the restored job fails again. Verify the
-        // trigger was actually dropped, then wait until the job is back to RUNNING (replay
-        // finished) before injecting the next change.
+        // trigger was actually dropped, then confirm the job is still RUNNING; this status
+        // check only confirms that the job is alive during recovery. The source-to-sink
+        // equality assertion below is the actual signal that recovery has converged.
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
