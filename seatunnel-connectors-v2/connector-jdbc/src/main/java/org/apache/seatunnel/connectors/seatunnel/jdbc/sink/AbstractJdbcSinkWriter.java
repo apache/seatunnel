@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -56,6 +57,14 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     protected JdbcConnectionProvider connectionProvider;
     protected JdbcSinkConfig jdbcSinkConfig;
     protected JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+
+    /**
+     * Whether every successful batch flush should commit the connection when it uses manual commit.
+     * Only the non-XA writer sets this to true, and only when checkpointing is disabled, so rebuilt
+     * output formats keep the same commit boundary after schema changes.
+     */
+    protected boolean commitOnFlush;
+
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
 
@@ -76,14 +85,21 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
-        JdbcConnectionProvider refreshTableSchemaConnectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
-        try (Connection connection =
-                refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
-            dialect.applySchemaChange(connection, sinkTablePath, event);
-        } catch (Throwable e) {
-            throw new JdbcConnectorException(
-                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
+        if (!(event instanceof RestoreTableSchemaEvent)) {
+            JdbcConnectionProvider refreshTableSchemaConnectionProvider =
+                    dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+            try (Connection connection =
+                    refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
+                dialect.applySchemaChange(connection, sinkTablePath, event);
+            } catch (Throwable e) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT,
+                        e);
+            }
+        } else {
+            log.info(
+                    "Restore runtime schema for table {} without applying physical DDL",
+                    sinkTablePath);
         }
 
         this.outputFormat =
@@ -93,6 +109,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
         this.outputFormat.open();
     }

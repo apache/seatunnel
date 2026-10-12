@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
@@ -29,6 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.s3.source.S3FileSourceFact
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 class S3FileFactoryTest {
 
@@ -92,6 +98,47 @@ class S3FileFactoryTest {
                         S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileBaseOptions.S3_SECRET_KEY),
                 "S3File sink optionRule should require secret_key when the credentials provider is SimpleAWSCredentialsProvider");
+    }
+
+    @Test
+    void sinkOptionRuleRequiresFilePath() {
+        OptionRule optionRule = new S3FileSinkFactory().optionRule();
+        Map<String, Object> config = sinkConfig();
+        config.remove(S3FileBaseOptions.FILE_PATH.key());
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(config, optionRule));
+
+        config.put(S3FileBaseOptions.FILE_PATH.key(), "/tmp/seatunnel");
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
+    }
+
+    @Test
+    void sinkOptionRuleRequiresBucket() {
+        OptionRule optionRule = new S3FileSinkFactory().optionRule();
+        Map<String, Object> config = sinkConfig();
+        config.remove(S3FileBaseOptions.S3_BUCKET.key());
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(config, optionRule));
+
+        config.put(S3FileBaseOptions.S3_BUCKET.key(), "s3a://seatunnel-test");
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
+    }
+
+    private static Map<String, Object> sinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(S3FileBaseOptions.FILE_PATH.key(), "/tmp/seatunnel");
+        config.put(S3FileBaseOptions.S3_BUCKET.key(), "s3a://seatunnel-test");
+        config.put(S3FileBaseOptions.FS_S3A_ENDPOINT.key(), "s3.example.com");
+        config.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
+                S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
+        return config;
+    }
+
+    private static void validate(Map<String, Object> config, OptionRule optionRule) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(optionRule);
     }
 
     private static boolean optionRuleContains(OptionRule rule, Option<?> option) {

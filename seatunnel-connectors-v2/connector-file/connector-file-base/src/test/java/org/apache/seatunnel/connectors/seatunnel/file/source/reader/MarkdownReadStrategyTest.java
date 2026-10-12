@@ -19,8 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
+import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -31,11 +36,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 class MarkdownReadStrategyTest {
+
+    private static final String CONVERTED_SOURCE_PATH = "file:///documents/folder/../report.xlsx";
+    private static final String INTERMEDIATE_MARKDOWN_PATH = "file:///tmp/report.md";
+    private static final String ORIGINAL_SOURCE_HASH =
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     private static final String[] DEFAULT_FIELD_NAMES = {
         "element_id",
@@ -66,6 +78,7 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(75, tempCollector.getRows().size());
         Assertions.assertEquals(
                 DEFAULT_FIELD_NAMES.length, tempCollector.getRows().get(0).getArity());
+        Assertions.assertNull(tempCollector.getRows().get(0).getOptionsOrNull());
 
         Assertions.assertEquals("Heading_1", tempCollector.getRows().get(0).getField(0));
         Assertions.assertEquals("Heading", tempCollector.getRows().get(0).getField(1));
@@ -199,6 +212,182 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(firstDocumentId, secondCollector.getRows().get(0).getField(9));
         Assertions.assertEquals(firstChunkIndex, secondCollector.getRows().get(0).getField(11));
         Assertions.assertNotEquals(firstContentHash, secondCollector.getRows().get(0).getField(12));
+    }
+
+    @Test
+    public void testCollectRowsFromConvertedMarkdown() throws Exception {
+        URL resource = this.getClass().getResource("/anydoc/test_read_excel.md");
+        String convertedMarkdown =
+                new String(Files.readAllBytes(Paths.get(resource.toURI())), StandardCharsets.UTF_8);
+        MarkdownReadStrategy markdownReadStrategy =
+                (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
+        TempCollector collector = new TempCollector();
+        TempCollector intermediateCollector = new TempCollector();
+
+        markdownReadStrategy.collectMarkdownRows(
+                convertedMarkdown, CONVERTED_SOURCE_PATH, ORIGINAL_SOURCE_HASH, collector);
+        markdownReadStrategy.collectMarkdownRows(
+                convertedMarkdown,
+                INTERMEDIATE_MARKDOWN_PATH,
+                ORIGINAL_SOURCE_HASH,
+                intermediateCollector);
+
+        // TablesExtension is intentionally disabled today, so the table remains one paragraph.
+        Assertions.assertEquals(2, collector.getRows().size());
+        Assertions.assertEquals("Heading", collector.getRows().get(0).getField(1));
+        Assertions.assertEquals("Sheet1", collector.getRows().get(0).getField(3));
+        Assertions.assertEquals("Paragraph", collector.getRows().get(1).getField(1));
+        Assertions.assertTrue(
+                String.valueOf(collector.getRows().get(1).getField(3)).contains("Cosmos"));
+        String canonicalSourceUri =
+                MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(CONVERTED_SOURCE_PATH);
+        Assertions.assertEquals(canonicalSourceUri, collector.getRows().get(0).getField(8));
+        Assertions.assertEquals(
+                MarkdownKnowledgeSyncMetadata.buildDocumentId(canonicalSourceUri),
+                collector.getRows().get(0).getField(9));
+        Assertions.assertNotEquals(
+                intermediateCollector.getRows().get(0).getField(9),
+                collector.getRows().get(0).getField(9));
+        Assertions.assertNotEquals(
+                intermediateCollector.getRows().get(0).getField(10),
+                collector.getRows().get(0).getField(10));
+        Assertions.assertEquals(1, collector.getRows().get(0).getField(11));
+        Assertions.assertEquals(2, collector.getRows().get(1).getField(11));
+        for (SeaTunnelRow row : collector.getRows()) {
+            Assertions.assertEquals(
+                    ORIGINAL_SOURCE_HASH,
+                    row.getOptions().get(KnowledgeSyncMetadataField.DOCUMENT_HASH.getName()));
+        }
+    }
+
+    @Test
+    void shouldRejectEmptyConvertedMarkdownWithSourceContext() {
+        MarkdownReadStrategy markdownReadStrategy =
+                (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
+
+        FileConnectorException nullFailure =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                markdownReadStrategy.collectMarkdownRows(
+                                        null,
+                                        CONVERTED_SOURCE_PATH,
+                                        ORIGINAL_SOURCE_HASH,
+                                        new TempCollector()));
+        FileConnectorException blankFailure =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                markdownReadStrategy.collectMarkdownRows(
+                                        "  ",
+                                        CONVERTED_SOURCE_PATH,
+                                        ORIGINAL_SOURCE_HASH,
+                                        new TempCollector()));
+
+        Assertions.assertTrue(nullFailure.getMessage().contains(CONVERTED_SOURCE_PATH));
+        Assertions.assertTrue(blankFailure.getMessage().contains(CONVERTED_SOURCE_PATH));
+    }
+
+    @Test
+    void shouldRequireOriginalDocumentHashWhenRagMetadataEnabled() {
+        MarkdownReadStrategy markdownReadStrategy =
+                (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
+
+        FileConnectorException failure =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                markdownReadStrategy.collectMarkdownRows(
+                                        "# Title",
+                                        CONVERTED_SOURCE_PATH,
+                                        null,
+                                        new TempCollector()));
+
+        Assertions.assertTrue(failure.getMessage().contains(CONVERTED_SOURCE_PATH));
+    }
+
+    @Test
+    void shouldCollectConvertedMarkdownWithoutRagMetadata() {
+        MarkdownReadStrategy markdownReadStrategy =
+                (MarkdownReadStrategy) createMarkdownReadStrategy();
+        TempCollector collector = new TempCollector();
+
+        markdownReadStrategy.collectMarkdownRows("# Title", CONVERTED_SOURCE_PATH, null, collector);
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals(DEFAULT_FIELD_NAMES.length, collector.getRows().get(0).getArity());
+        Assertions.assertNull(collector.getRows().get(0).getOptionsOrNull());
+    }
+
+    @Test
+    void shouldEmitExactDocumentAndImmediateChunkHashesInIndependentOptions() throws Exception {
+        Path markdownFile = tempDir.resolve("hashes.md");
+        byte[] documentBytes =
+                "# First\r\n\r\nSecond paragraph\r\n".getBytes(StandardCharsets.UTF_8);
+        Files.write(markdownFile, documentBytes);
+
+        AbstractReadStrategy markdownReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector collector = new TempCollector();
+        markdownReadStrategy.read(markdownFile.toString(), "", collector);
+
+        Assertions.assertTrue(collector.getRows().size() > 1);
+        String expectedDocumentHash = sha256Hex(documentBytes);
+        for (SeaTunnelRow row : collector.getRows()) {
+            Map<String, Object> options = row.getOptions();
+            Assertions.assertEquals(
+                    markdownFile.toString(),
+                    options.get(KnowledgeSyncMetadataField.SOURCE_URI.getName()));
+            Assertions.assertEquals(
+                    "doc_" + FileSourceDocumentRouting.sha256Hex(markdownFile.toString()),
+                    options.get(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
+            Assertions.assertEquals(
+                    expectedDocumentHash,
+                    options.get(KnowledgeSyncMetadataField.DOCUMENT_HASH.getName()));
+            Assertions.assertEquals(
+                    row.getField(12), options.get(KnowledgeSyncMetadataField.CHUNK_HASH.getName()));
+            Assertions.assertEquals(
+                    FileSourceDocumentRouting.sha256Hex(String.valueOf(row.getField(3))),
+                    options.get(KnowledgeSyncMetadataField.CHUNK_HASH.getName()));
+            Assertions.assertFalse(
+                    options.containsKey(KnowledgeSyncMetadataField.CHUNK_ID.getName()));
+            Assertions.assertFalse(
+                    options.containsKey(KnowledgeSyncMetadataField.CHUNK_INDEX.getName()));
+        }
+
+        SeaTunnelRow first = collector.getRows().get(0);
+        SeaTunnelRow second = collector.getRows().get(1);
+        first.getOptions().put("unrelated", "first-only");
+        Assertions.assertFalse(second.getOptions().containsKey("unrelated"));
+    }
+
+    @Test
+    void shouldPreserveExistingRowOptionsWhenAddingKnowledgeSyncMetadata() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"text"});
+        row.getOptions().put("unrelated", "preserved");
+
+        MarkdownReadStrategy.addKnowledgeSyncMetadata(
+                row, "source", "doc_id", "document_hash", "chunk_hash");
+
+        Assertions.assertEquals("preserved", row.getOptions().get("unrelated"));
+        Assertions.assertEquals(
+                "source", row.getOptions().get(KnowledgeSyncMetadataField.SOURCE_URI.getName()));
+        Assertions.assertEquals(
+                "doc_id", row.getOptions().get(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
+        Assertions.assertEquals(
+                "document_hash",
+                row.getOptions().get(KnowledgeSyncMetadataField.DOCUMENT_HASH.getName()));
+        Assertions.assertEquals(
+                "chunk_hash",
+                row.getOptions().get(KnowledgeSyncMetadataField.CHUNK_HASH.getName()));
+    }
+
+    private static String sha256Hex(byte[] bytes) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+        StringBuilder result = new StringBuilder(digest.length * 2);
+        for (byte value : digest) {
+            result.append(String.format("%02x", value & 0xff));
+        }
+        return result.toString();
     }
 
     private static AbstractReadStrategy createMarkdownReadStrategy() {

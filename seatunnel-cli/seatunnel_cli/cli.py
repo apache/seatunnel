@@ -38,7 +38,8 @@ from prompt_toolkit import prompt as pt_prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
-from . import __version__, get_data_dir
+from . import __version__, get_data_dir, rest
+from .diagnostics import ParsedError, parse_error
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
 
@@ -121,6 +122,28 @@ def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> s
     for placeholder, original in cred_map.items():
         config = config.replace(placeholder, original)
     return config
+
+
+_ERROR_EXCERPT_LIMIT = 3000
+_OMITTED_MARKER = "...(earlier frames omitted)...\n"
+
+
+def _build_failure_report(error_text: str) -> tuple[ParsedError, str]:
+    """Parse a raw job failure and render the excerpt that is sent to the model.
+
+    Two separate things happen here on purpose. The parse runs on the *whole*
+    text, because the structured fields are cheap and we want them even when
+    the trace is far too long to forward. The excerpt keeps the *end* of the
+    text, because a Java trace prints the outer wrapper first and the innermost
+    ``Caused by`` last -- so cutting the front discards the root cause, the one
+    field a repair prompt actually needs. `_run_local` already tail-truncates
+    its captured output for the same reason.
+    """
+    parsed = parse_error(error_text)
+    text = error_text or ""
+    if len(text) <= _ERROR_EXCERPT_LIMIT:
+        return parsed, text
+    return parsed, _OMITTED_MARKER + text[-_ERROR_EXCERPT_LIMIT:]
 
 
 class SeaTunnelCLI:
@@ -336,6 +359,7 @@ class SeaTunnelCLI:
             loaded, last_config = self.session_manager.load_session(session_id)
             self.orchestrator.load_history(loaded)
             self.last_config = last_config
+            self._pending_request = None
             self.console.print(
                 f"  Resumed [bold]{session_id}[/bold] ({len(loaded)} messages)", style="success"
             )
@@ -356,6 +380,7 @@ class SeaTunnelCLI:
                 pass
         self.orchestrator.conversation_history.clear()
         self.last_config = None
+        self._pending_request = None
         sid = self.session_manager.new_session()
         self.console.print(f"  New session: [bold]{sid}[/bold]", style="success")
 
@@ -514,20 +539,23 @@ class SeaTunnelCLI:
         console.print("    [bold]4[/bold]. bedrock-mantle — OpenAI-family models on Bedrock (GPT-5.6 Terra/Sol)")
         console.print("       Requires: AWS credentials + pip install \".[bedrock-mantle]\"")
         console.print("       Note: Responses-API-only models on the bedrock-mantle endpoint\n")
+        console.print("    [bold]5[/bold]. orcarouter — OrcaRouter AI gateway (OpenAI-compatible)")
+        console.print("       Requires: ORCAROUTER_API_KEY + pip install \".[openai]\"")
+        console.print("       Note: many models behind one endpoint, e.g. orcarouter/auto\n")
 
         try:
-            choice = pt_prompt("  Enter your choice (1/2/3/4): ").strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3/4/5): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
         choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
-                      "4": "bedrock-mantle"}
+                      "4": "bedrock-mantle", "5": "orcarouter"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
             console.print(
-                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, or 4.[/error]"
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, 4, or 5.[/error]"
             )
             return
 
@@ -603,6 +631,30 @@ class SeaTunnelCLI:
                     config.setdefault("settings", {})["openai_base_url"] = base_url
                     console.print(f"  Base URL set: [bold]{base_url}[/bold]")
 
+        elif choice == "orcarouter":
+            existing = os.environ.get("ORCAROUTER_API_KEY")
+            if existing:
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  ORCAROUTER_API_KEY: [bold green]detected[/bold green] ({masked})")
+            else:
+                console.print("  ORCAROUTER_API_KEY not found in environment.\n")
+                console.print(
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export ORCAROUTER_API_KEY=orc_...\n"
+                    "  [dim]Get a key: https://www.orcarouter.ai[/dim]\n",
+                )
+                try:
+                    key_input = pt_prompt(
+                        "  Enter API key for this session (or Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["ORCAROUTER_API_KEY"] = key_input
+                    console.print(
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
+                    )
+
         elif choice in ("bedrock", "bedrock-mantle"):
             console.print("  AWS Bedrock requires AWS credentials.\n")
             if choice == "bedrock-mantle":
@@ -665,6 +717,11 @@ class SeaTunnelCLI:
             default_fast = "gpt-4o-mini"
             model_env = "OPENAI_MODEL"
             fast_env = "OPENAI_SMALL_FAST_MODEL"
+        elif choice == "orcarouter":
+            default_model = "orcarouter/auto"
+            default_fast = "orcarouter/auto"
+            model_env = "ORCAROUTER_MODEL"
+            fast_env = "ORCAROUTER_SMALL_FAST_MODEL"
         elif choice == "bedrock-mantle":
             default_model = "openai.gpt-5.6-terra"
             default_fast = "openai.gpt-5.6-terra"
@@ -881,6 +938,15 @@ class SeaTunnelCLI:
             base_url = os.environ.get("OPENAI_BASE_URL")
             if base_url:
                 self.console.print(f"  Base URL: [bold]{base_url}[/bold]", style="info")
+        elif provider_name == "orcarouter":
+            if os.environ.get("ORCAROUTER_API_KEY"):
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
+            else:
+                creds_ok = False
+                self.console.print("[error]ORCAROUTER_API_KEY not set.[/error]")
+            self.console.print(
+                "  Base URL: [bold]https://api.orcarouter.ai/v1[/bold]", style="info"
+            )
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
         self.console.print(f"  Fast model: [bold]{provider.fast_model_id}[/bold]", style="info")
@@ -1061,6 +1127,7 @@ class SeaTunnelCLI:
             )
             self.orchestrator.conversation_history.clear()
             self.last_config = None
+            self._pending_request = None
             self.session_manager.new_session()
             self.console.print("  Cleared. New session started.", style="info")
 
@@ -1264,29 +1331,21 @@ class SeaTunnelCLI:
 
     def _run_via_rest_api(self, api_base: str):
         """Submit job via REST API and poll status."""
-        import json as _json
-        import urllib.request
-        import urllib.error
-
         self.console.print("  Submitting job via REST API...", style="info")
         try:
-            url = f"{api_base}/submit-job?format=hocon"
-            req = urllib.request.Request(
-                url,
+            body = rest.request_json(
+                f"{api_base}/submit-job?format=hocon",
+                method="POST",
                 data=self.last_config.encode("utf-8"),
                 headers={"Content-Type": "text/plain"},
-                method="POST",
+                timeout=30,
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = _json.loads(resp.read().decode("utf-8"))
-
             job_id = body.get("jobId")
             job_name = body.get("jobName", "")
             self.console.print(f"  Job submitted: [bold]{job_id}[/bold] ({job_name})", style="success")
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8", errors="replace")
-            self.console.print(f"  [error]Submit failed ({e.code}):[/error]")
-            self._show_error_and_diagnose(error_body)
+        except rest.RestError as e:
+            self.console.print(f"  [error]Submit failed ({e.status}):[/error]")
+            self._show_error_and_diagnose(e.body)
             return
         except Exception as e:
             self.console.print(f"  [error]Submit failed: {e}[/error]")
@@ -1297,9 +1356,6 @@ class SeaTunnelCLI:
 
     def _poll_job_status(self, api_base: str, job_id: str):
         """Poll job status until terminal state, then show results."""
-        import json as _json
-        import urllib.request
-
         terminal_states = {"FINISHED", "CANCELED", "FAILED"}
         self.console.print("  Waiting for job to complete...", style="info")
 
@@ -1310,10 +1366,7 @@ class SeaTunnelCLI:
         for _ in range(max_polls):
             time.sleep(poll_interval)
             try:
-                url = f"{api_base}/job-info/{job_id}"
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    info = _json.loads(resp.read().decode("utf-8"))
+                info = rest.request_json(f"{api_base}/job-info/{job_id}", timeout=10)
 
                 status = info.get("jobStatus", "UNKNOWN")
                 if status != last_status:
@@ -1367,7 +1420,9 @@ class SeaTunnelCLI:
     def _show_error_and_diagnose(self, error_text: str):
         """Diagnose error and directly patch the existing config, with conversation memory."""
         from .memory import redact_credentials
-        truncated = error_text[:3000]
+        parsed, excerpt = _build_failure_report(error_text)
+        if parsed.code or parsed.exception:
+            self.console.print(f"  Root cause: {parsed.headline()}", style="info")
         self.console.print("  Diagnosing and fixing config...", style="info")
 
         repair_system = (
@@ -1391,9 +1446,22 @@ class SeaTunnelCLI:
         safe_config, cred_map = _replace_creds_with_placeholders(
             self.last_config
         ) if self.last_config else ("", {})
-        safe_error = redact_credentials(truncated)
+        safe_error = redact_credentials(excerpt)
+        # The parsed fields come from the whole trace, so they survive even when
+        # the excerpt below had to drop frames. Stating them separately also stops
+        # the model from having to re-derive the error code from the raw text.
+        # They are redacted as well: they are cut from that same trace, so a
+        # root_cause line can carry a JDBC URL with a password in it. "signature"
+        # is dropped because it is an internal dedupe key, not a diagnosis.
+        facts = "\n".join(
+            f"- {k}: {redact_credentials(str(v))}"
+            for k, v in parsed.as_dict().items()
+            if k != "signature"
+        )
         repair_msg = (
-            f"Job execution failed with this error:\n\n```\n{safe_error}\n```\n\n"
+            f"Job execution failed.\n\n"
+            f"Parsed failure:\n{facts}\n\n"
+            f"Raw error:\n\n```\n{safe_error}\n```\n\n"
             f"The config that failed:\n```hocon\n{safe_config}\n```\n\n"
             f"Fix this config. Only change what's needed to resolve the error."
         )
@@ -1527,7 +1595,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "bedrock-mantle", "anthropic", "openai"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1579,17 +1647,21 @@ def main():
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
     # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
-    # bedrock/anthropic read ANTHROPIC_MODEL*.
+    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter has its own.
     _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider in _OPENAI_FAMILY:
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_MODEL"] = args.model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider in _OPENAI_FAMILY:
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model

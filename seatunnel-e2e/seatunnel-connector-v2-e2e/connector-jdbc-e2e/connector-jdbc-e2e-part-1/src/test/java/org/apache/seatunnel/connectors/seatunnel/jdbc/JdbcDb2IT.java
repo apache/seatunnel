@@ -124,11 +124,6 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames = {
             "C_BOOLEAN",
@@ -201,8 +196,6 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                         .acceptLicense();
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-
         return container;
     }
 

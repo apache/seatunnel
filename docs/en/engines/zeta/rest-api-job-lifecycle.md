@@ -264,6 +264,15 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=CHECKPOINT&restoreSour
   }'
 ```
 
+The same `restoreMode` and `restoreSourceJobId` query parameters work with the
+[upload endpoint](rest-api-v2.md#submit-a-job-by-upload-config-file) when submitting a config file
+instead of a JSON body -- both endpoints share the same restore handling:
+
+```bash
+curl --location 'http://<master>:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248' \
+  --form 'config_file=@"/temp/my-cdc-job.conf"'
+```
+
 If the checkpoint data for `restoreSourceJobId` is missing, already cleaned up, or incompatible,
 the submission fails fast.
 

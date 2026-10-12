@@ -19,8 +19,10 @@ package mongodb.source;
 
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
@@ -58,6 +60,19 @@ public class MongodbIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testSupportedStopModes() {
+        MongodbIncrementalSourceFactory mongodbIncrementalSourceFactory =
+                new MongodbIncrementalSourceFactory();
+        mongodbIncrementalSourceFactory.optionRule().getOptionalOptions().stream()
+                .filter((option) -> option.key().equals(SourceOptions.STOP_MODE_KEY))
+                .forEach(
+                        (option) ->
+                                Assertions.assertIterableEquals(
+                                        Arrays.asList(StopMode.NEVER, StopMode.TIMESTAMP),
+                                        ((SingleChoiceOption<StopMode>) option).getOptionValues()));
+    }
+
+    @Test
     public void testSourceConfigBuilderAcceptsLatestStartupMode() {
         // Regression for the real source-assembly path: the builder used to reject
         // StartupMode.LATEST at runtime even though the option rule advertised it.
@@ -92,5 +107,115 @@ public class MongodbIncrementalSourceFactoryTest {
         // snapshot: starting here means only changes made after the job starts are consumed.
         Assertions.assertNotNull(((ChangeStreamOffset) startupOffset).getTimestamp());
         Assertions.assertNull(((ChangeStreamOffset) startupOffset).getResumeToken());
+    }
+
+    @Test
+    public void testSourceConfigBuilderAcceptsTimestampStopMode() {
+        long stopTimestamp = 1_700_000_000_000L;
+        StopConfig stopConfig = new StopConfig(StopMode.TIMESTAMP, null, null, stopTimestamp);
+
+        MongodbSourceConfig config =
+                MongodbSourceConfigProvider.newBuilder()
+                        .hosts("localhost:27017")
+                        .stopOptions(stopConfig)
+                        .validate()
+                        .create(0);
+
+        Assertions.assertEquals(StopMode.TIMESTAMP, config.getStopConfig().getStopMode());
+        ChangeStreamOffset stopOffset =
+                (ChangeStreamOffset)
+                        config.getStopConfig().getStopOffset(new ChangeStreamOffsetFactory());
+        Assertions.assertEquals(
+                stopTimestamp / 1000, Integer.toUnsignedLong(stopOffset.getTimestamp().getTime()));
+    }
+
+    @Test
+    public void testSourceConfigBuilderAcceptsTimestampRange() {
+        MongodbSourceConfig config =
+                MongodbSourceConfigProvider.newBuilder()
+                        .hosts("localhost:27017")
+                        .startupOptions(
+                                new StartupConfig(
+                                        StartupMode.TIMESTAMP, null, null, 1_700_000_000_000L))
+                        .stopOptions(
+                                new StopConfig(StopMode.TIMESTAMP, null, null, 1_700_000_001_000L))
+                        .validate()
+                        .create(0);
+
+        Assertions.assertEquals(StartupMode.TIMESTAMP, config.getStartupConfig().getStartupMode());
+        Assertions.assertEquals(StopMode.TIMESTAMP, config.getStopConfig().getStopMode());
+    }
+
+    @Test
+    public void testSourceConfigBuilderRejectsInvalidTimestampRange() {
+        long startupTimestamp = 1_700_000_000_000L;
+
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .hosts("localhost:27017")
+                                .startupOptions(
+                                        new StartupConfig(
+                                                StartupMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp))
+                                .stopOptions(
+                                        new StopConfig(
+                                                StopMode.TIMESTAMP, null, null, startupTimestamp))
+                                .validate());
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .hosts("localhost:27017")
+                                .startupOptions(
+                                        new StartupConfig(
+                                                StartupMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp))
+                                .stopOptions(
+                                        new StopConfig(
+                                                StopMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp - 1000L))
+                                .validate());
+        MongodbConnectorException sameSecondException =
+                Assertions.assertThrows(
+                        MongodbConnectorException.class,
+                        () ->
+                                MongodbSourceConfigProvider.newBuilder()
+                                        .hosts("localhost:27017")
+                                        .startupOptions(
+                                                new StartupConfig(
+                                                        StartupMode.TIMESTAMP,
+                                                        null,
+                                                        null,
+                                                        startupTimestamp))
+                                        .stopOptions(
+                                                new StopConfig(
+                                                        StopMode.TIMESTAMP,
+                                                        null,
+                                                        null,
+                                                        startupTimestamp + 500L))
+                                        .validate());
+        Assertions.assertTrue(sameSecondException.getMessage().contains("second precision"));
+    }
+
+    @Test
+    public void testSourceConfigBuilderRejectsUnsupportedStopMode() {
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .stopOptions(new StopConfig(StopMode.SPECIFIC, null, null, null)));
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .stopOptions(new StopConfig(StopMode.LATEST, null, null, null)));
     }
 }
