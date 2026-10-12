@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import org.slf4j.LoggerFactory;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.TableId;
@@ -130,6 +132,11 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
      * <p>The parsed {@link Column} is not reliable for this: for a MySQL table without a primary
      * key, the column of a nullable unique key is reported as not optional.
      *
+     * <p>Called while generating the snapshot splits of a table, for each candidate split column
+     * (the configured split column, the first primary key column and the first column of each
+     * unique key). The default implementation runs one {@link DatabaseMetaData#getColumns} query
+     * per call; a dialect may override it with a cheaper source of the same information.
+     *
      * @param jdbcConnection the JDBC connection
      * @param tableId the table the column belongs to
      * @param column the column to check
@@ -139,17 +146,32 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     default boolean isColumnNullable(JdbcConnection jdbcConnection, TableId tableId, Column column)
             throws SQLException {
         DatabaseMetaData metaData = jdbcConnection.connection().getMetaData();
+        String ignoreCaseMatch = null;
         try (ResultSet rs =
                 metaData.getColumns(
                         tableId.catalog(), tableId.schema(), tableId.table(), column.name())) {
             while (rs.next()) {
-                // table and column names are LIKE patterns, so match them exactly
-                if (tableId.table().equals(rs.getString("TABLE_NAME"))
-                        && column.name().equals(rs.getString("COLUMN_NAME"))) {
+                // table and column names are LIKE patterns, so match them by name
+                String tableName = rs.getString("TABLE_NAME");
+                String columnName = rs.getString("COLUMN_NAME");
+                if (tableId.table().equals(tableName) && column.name().equals(columnName)) {
                     return !"NO".equalsIgnoreCase(rs.getString("IS_NULLABLE"));
+                }
+                if (ignoreCaseMatch == null
+                        && tableId.table().equalsIgnoreCase(tableName)
+                        && column.name().equalsIgnoreCase(columnName)) {
+                    ignoreCaseMatch = rs.getString("IS_NULLABLE");
                 }
             }
         }
+        if (ignoreCaseMatch != null) {
+            return !"NO".equalsIgnoreCase(ignoreCaseMatch);
+        }
+        LoggerFactory.getLogger(JdbcDataSourceDialect.class)
+                .warn(
+                        "No column metadata found for column {} of table {}, use the parsed column nullability",
+                        column.name(),
+                        tableId);
         return column.isOptional();
     }
 

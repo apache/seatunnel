@@ -53,7 +53,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
     private static final String NULLABLE_SPLIT_COLUMN_HINT =
             "To read the snapshot in parallel, declare a NOT NULL unique column or configure a "
-                    + "non-nullable snapshotSplitColumn.";
+                    + "non-nullable primaryKeys or snapshotSplitColumn in table-names-config.";
 
     private final JdbcSourceConfig sourceConfig;
     private final JdbcDataSourceDialect dialect;
@@ -90,7 +90,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 if (sourceConfig.isExactlyOnce()) {
                     throw new UnsupportedOperationException(
                             String.format(
-                                    "Exactly once is enabled, but not found primary key or non-nullable unique key for table %s",
+                                    "Exactly once is enabled, but not found non-nullable primary key or unique key for table %s",
                                     tableId));
                 }
                 SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
@@ -464,7 +464,15 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         if (primaryKey.isPresent()) {
             Column firstColumn = table.columnWithName(primaryKey.get().getColumnNames().get(0));
-            if (isEvenlySplitColumn(firstColumn)) {
+            // A primary key configured in table-names-config may name a nullable column
+            if (dialect.isColumnNullable(jdbc, tableId, firstColumn)) {
+                log.warn(
+                        "Skip primary key {} of table {} as snapshot split column: column {} is nullable. "
+                                + NULLABLE_SPLIT_COLUMN_HINT,
+                        primaryKey.get().getColumnNames(),
+                        tableId,
+                        firstColumn.name());
+            } else if (isEvenlySplitColumn(firstColumn)) {
                 splitColumn = columnComparable(splitColumn, firstColumn);
                 if (sqlTypePriority(splitColumn) == 1) {
                     return splitColumn;

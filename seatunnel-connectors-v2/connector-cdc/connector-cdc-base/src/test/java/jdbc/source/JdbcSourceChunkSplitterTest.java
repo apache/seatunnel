@@ -146,6 +146,31 @@ class JdbcSourceChunkSplitterTest {
     }
 
     @Test
+    void splitColumnSkipsNullableConfiguredPrimaryKey() throws SQLException {
+        // table-names-config.primaryKeys may name a nullable column
+        TestSourceDialectWithNullablePrimaryKey dialect =
+                new TestSourceDialectWithNullablePrimaryKey();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, dialect);
+
+        Assertions.assertNull(
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", "")));
+    }
+
+    @Test
+    void splitColumnPrefersNotNullUniqueKeyOverNullablePrimaryKey() throws SQLException {
+        TestSourceDialectWithNullablePrimaryKeyAndNotNullUniqueKey dialect =
+                new TestSourceDialectWithNullablePrimaryKeyAndNotNullUniqueKey();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, dialect);
+
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", ""));
+
+        Assertions.assertEquals("int", splitColumn.name());
+    }
+
+    @Test
     void isColumnNullableReadsDatabaseMetadata() throws SQLException {
         TestSourceDialect dialect = new TestSourceDialect();
         TableId tableId = new TableId("db", null, "no_pk");
@@ -186,6 +211,17 @@ class JdbcSourceChunkSplitterTest {
 
         Assertions.assertFalse(
                 dialect.isColumnNullableFromMetadata(jdbc, tableId, intColumn("code", false)));
+    }
+
+    @Test
+    void isColumnNullableMatchesNameIgnoringCaseWithoutExactRow() throws SQLException {
+        TestSourceDialect dialect = new TestSourceDialect();
+        TableId tableId = new TableId("db", null, "No_Pk");
+        // for example MySQL with lower_case_table_names=1 returns the name in lower case
+        JdbcConnection jdbc = jdbcWithColumns(tableId, "Code", row("no_pk", "code", "YES"));
+
+        Assertions.assertTrue(
+                dialect.isColumnNullableFromMetadata(jdbc, tableId, intColumn("Code", false)));
     }
 
     private static Column intColumn(String name, boolean optional) {
@@ -542,6 +578,31 @@ class JdbcSourceChunkSplitterTest {
                                     ConstraintKey.ConstraintKeyColumn.of(
                                             "int", ConstraintKey.ColumnSortType.ASC))));
             return keys;
+        }
+    }
+
+    private class TestSourceDialectWithNullablePrimaryKey extends TestSourceDialect {
+
+        @Override
+        public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Optional.of(PrimaryKey.of("pkName", Collections.singletonList("nullable_int")));
+        }
+    }
+
+    private class TestSourceDialectWithNullablePrimaryKeyAndNotNullUniqueKey
+            extends TestSourceDialectWithNullablePrimaryKey {
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Collections.singletonList(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_not_null",
+                            Collections.singletonList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "int", ConstraintKey.ColumnSortType.ASC))));
         }
     }
 }
