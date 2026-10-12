@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -339,23 +340,32 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
 
     @Override
     public CompletableFuture<Void> releaseWorker(YarnWorkerNode registration) {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        // Remove first, so the expected completed-container event cannot fail the application.
         YarnWorkerNode worker = workers.remove(registration.getWorkerId());
-        try {
-            if (worker != null) {
-                // Remove first, so the expected completed-container event cannot fail the
-                // application.
-                try {
-                    nodeManager.stopContainer(worker.getContainerId(), worker.getNodeId());
-                } finally {
-                    resourceManager.releaseAssignedContainer(worker.getContainerId());
-                }
-            }
-            result.complete(null);
-        } catch (Exception e) {
-            result.completeExceptionally(e);
+        if (worker == null) {
+            return CompletableFuture.completedFuture(null);
         }
-        return result;
+        // Stop asynchronously so the runtime can release every worker in parallel within a single
+        // cleanup deadline; blocking the caller per worker would serialize the whole stop budget.
+        return CompletableFuture.runAsync(() -> stopReleasedWorker(worker), ioExecutor);
+    }
+
+    /** Stops one released container on the IO executor and always returns its RM allocation. */
+    private void stopReleasedWorker(YarnWorkerNode worker) {
+        Exception failure = null;
+        try {
+            nodeManager.stopContainer(worker.getContainerId(), worker.getNodeId());
+        } catch (Exception error) {
+            failure = error;
+        }
+        try {
+            resourceManager.releaseAssignedContainer(worker.getContainerId());
+        } catch (Exception error) {
+            failure = accumulate(failure, error);
+        }
+        if (failure != null) {
+            throw new CompletionException(failure);
+        }
     }
 
     /** Reports the job's terminal state; the runtime releases workers before finishing. */
@@ -408,9 +418,9 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             try {
                 for (YarnWorkerNode worker : allocated) {
-                    stopping.add(
-                            CompletableFuture.runAsync(
-                                    () -> releaseWorker(worker).join(), ioExecutor));
+                    // releaseWorker already dispatches to the IO executor, so collect its future
+                    // directly and await all releases together within the shared deadline.
+                    stopping.add(releaseWorker(worker));
                 }
                 for (Future<?> stop : stopping) {
                     try {

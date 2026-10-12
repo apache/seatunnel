@@ -39,6 +39,7 @@ import org.apache.hadoop.yarn.util.Records;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
@@ -390,6 +391,73 @@ class YarnResourceManagerDriverTest {
         } finally {
             finishAllocation.countDown();
             driver.close();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void releaseWorkerStopsWithoutBlockingTheCaller() throws Exception {
+        Files.write(
+                temporary.toPath().resolve("distribution.properties"),
+                Arrays.asList("archive=distribution.zip", "root="));
+        for (String file :
+                Arrays.asList(
+                        "distribution.zip",
+                        YarnConstants.LOCALIZED_SPECIFICATION_NAME,
+                        YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME)) {
+            Files.write(temporary.toPath().resolve(file), new byte[] {1});
+        }
+        AMRMClient<AMRMClient.ContainerRequest> resourceManager = mock(AMRMClient.class);
+        NMClient nodeManager = mock(NMClient.class);
+        ResourceEventHandler<YarnWorkerNode> events = mock(ResourceEventHandler.class);
+        AllocateResponse empty = Records.newRecord(AllocateResponse.class);
+        AtomicReference<AllocateResponse> nextResponse = new AtomicReference<>(empty);
+        when(resourceManager.allocate(anyFloat()))
+                .thenAnswer(invocation -> nextResponse.getAndSet(empty));
+        Container container = Records.newRecord(Container.class);
+        container.setId(ContainerId.fromString("container_1_0001_01_000001"));
+        container.setNodeId(NodeId.newInstance("localhost", 1234));
+        CountDownLatch stopStarted = new CountDownLatch(1);
+        CountDownLatch allowStop = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            stopStarted.countDown();
+                            allowStop.await(5, TimeUnit.SECONDS);
+                            return null;
+                        })
+                .when(nodeManager)
+                .stopContainer(any(), any());
+        String previousHome = System.getProperty("seatunnel.home");
+        System.setProperty("seatunnel.home", temporary.toString());
+        try (YarnResourceManagerDriver driver =
+                new YarnResourceManagerDriver(
+                        localConfiguration(),
+                        new Path(temporary.toURI()),
+                        new YarnResourceManagerDriver.YarnDriverSettings(
+                                "application-test", null, "test-user", temporary.toString()),
+                        resourceManager,
+                        nodeManager)) {
+            driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "localhost:5801");
+            CompletableFuture<YarnWorkerNode> requested =
+                    driver.requestWorker(new WorkerSpecification(512, 1, 2));
+            AllocateResponse allocated = Records.newRecord(AllocateResponse.class);
+            allocated.setAllocatedContainers(Collections.singletonList(container));
+            nextResponse.set(allocated);
+            driver.heartbeat();
+            YarnWorkerNode worker = requested.get(5, TimeUnit.SECONDS);
+            CompletableFuture<Void> release = driver.releaseWorker(worker);
+            assertTrue(stopStarted.await(5, TimeUnit.SECONDS));
+            // The caller must not block on the container stop; release completes on the IO
+            // executor.
+            assertFalse(release.isDone());
+            allowStop.countDown();
+            assertNull(release.get(5, TimeUnit.SECONDS));
+        } finally {
+            if (previousHome == null) {
+                System.clearProperty("seatunnel.home");
+            } else {
+                System.setProperty("seatunnel.home", previousHome);
+            }
         }
     }
 

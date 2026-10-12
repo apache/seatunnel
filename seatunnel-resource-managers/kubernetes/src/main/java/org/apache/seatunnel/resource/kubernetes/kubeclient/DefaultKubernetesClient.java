@@ -170,37 +170,28 @@ final class DefaultKubernetesClient implements KubernetesClient {
                     if (stopped.get()) {
                         return;
                     }
+                    List<KubernetesPod> pods;
                     try {
-                        List<KubernetesPod> pods = listPods(selector);
-                        firstFailureNanos.set(0L);
-                        listener.accept(pods);
+                        pods = listPods(selector);
                     } catch (Exception failure) {
-                        if (isNonRetryable(failure)) {
-                            stopAndReport(executor, stopped, errorHandler, failure);
-                            return;
-                        }
-                        long started = firstFailureNanos.get();
-                        if (started == 0L) {
-                            firstFailureNanos.compareAndSet(0L, System.nanoTime());
-                            started = firstFailureNanos.get();
-                        }
-                        LOG.warn(
-                                "Could not list application pods for selector {}; will keep polling",
+                        handleListFailure(
+                                executor,
+                                stopped,
+                                errorHandler,
+                                firstFailureNanos,
                                 selector,
                                 failure);
-                        if (System.nanoTime() - started
-                                >= TimeUnit.MILLISECONDS.toNanos(
-                                        KubernetesConstants
-                                                .WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS)) {
-                            stopAndReport(
-                                    executor,
-                                    stopped,
-                                    errorHandler,
-                                    new IllegalStateException(
-                                            "Kubernetes pod watch exceeded the transient failure budget for selector "
-                                                    + selector,
-                                            failure));
-                        }
+                        return;
+                    }
+                    // A successful poll clears the accumulated transient failure budget.
+                    firstFailureNanos.set(0L);
+                    // The listener is the driver's observation callback. A failure here is terminal
+                    // for the watch and must be reported directly: treating it as a list failure
+                    // would clear the budget on the next successful poll and never escalate.
+                    try {
+                        listener.accept(pods);
+                    } catch (Exception failure) {
+                        stopAndReport(executor, stopped, errorHandler, failure);
                     }
                 };
         executor.scheduleWithFixedDelay(runnable, 0, intervalMillis, TimeUnit.MILLISECONDS);
@@ -208,6 +199,53 @@ final class DefaultKubernetesClient implements KubernetesClient {
             stopped.set(true);
             executor.shutdownNow();
         };
+    }
+
+    /**
+     * Applies the transient-failure policy to one failed pod listing. A non-retryable failure or an
+     * exhausted budget stops the watch and reports the failure; otherwise it is logged and the
+     * budget keeps accumulating across polls until the next successful listing.
+     */
+    private static void handleListFailure(
+            ScheduledExecutorService executor,
+            AtomicBoolean stopped,
+            Consumer<Exception> errorHandler,
+            AtomicLong firstFailureNanos,
+            String selector,
+            Exception failure) {
+        if (isNonRetryable(failure)) {
+            stopAndReport(executor, stopped, errorHandler, failure);
+            return;
+        }
+        long started = firstFailureNanos.get();
+        if (started == 0L) {
+            firstFailureNanos.compareAndSet(0L, System.nanoTime());
+            started = firstFailureNanos.get();
+        }
+        LOG.warn(
+                "Could not list application pods for selector {}; will keep polling",
+                selector,
+                failure);
+        if (transientFailureBudgetExhausted(started)) {
+            stopAndReport(
+                    executor,
+                    stopped,
+                    errorHandler,
+                    new IllegalStateException(
+                            "Kubernetes pod watch exceeded the transient failure budget for selector "
+                                    + selector,
+                            failure));
+        }
+    }
+
+    /**
+     * @param startedNanos {@link System#nanoTime()} of the first failure in the current streak
+     * @return whether the tolerated transient pod-listing failure budget has elapsed
+     */
+    private static boolean transientFailureBudgetExhausted(long startedNanos) {
+        return System.nanoTime() - startedNanos
+                >= TimeUnit.MILLISECONDS.toNanos(
+                        KubernetesConstants.WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS);
     }
 
     private static void stopAndReport(

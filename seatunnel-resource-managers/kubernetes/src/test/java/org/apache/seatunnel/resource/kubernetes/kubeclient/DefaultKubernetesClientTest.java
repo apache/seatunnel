@@ -124,4 +124,47 @@ class DefaultKubernetesClientTest {
             }
         }
     }
+
+    @Test
+    void reportsListenerFailureWithoutRetryingIt() throws Exception {
+        CountDownLatch reported = new CountDownLatch(1);
+        AtomicReference<Exception> error = new AtomicReference<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain ->
+                                                        new Response.Builder()
+                                                                .request(chain.request())
+                                                                .protocol(Protocol.HTTP_1_1)
+                                                                .code(200)
+                                                                .message("OK")
+                                                                .body(
+                                                                        ResponseBody.create(
+                                                                                "{\"apiVersion\":\"v1\",\"kind\":\"PodList\",\"items\":[]}",
+                                                                                MediaType.get(
+                                                                                        "application/json")))
+                                                                .build())
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            KubernetesWatch watch =
+                    api.watchPods(
+                            "role=worker",
+                            10,
+                            pods -> {
+                                throw new IllegalStateException("listener failure");
+                            },
+                            failure -> {
+                                error.set(failure);
+                                reported.countDown();
+                            });
+            try {
+                assertTrue(reported.await(5, TimeUnit.SECONDS));
+                assertEquals("listener failure", error.get().getMessage());
+            } finally {
+                watch.close();
+            }
+        }
+    }
 }

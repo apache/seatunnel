@@ -377,6 +377,45 @@ class KubernetesResourceManagerDriverTest {
         verify(api).close();
     }
 
+    @Test
+    @Timeout(10)
+    void releaseWorkerDeletesWithoutBlockingTheCaller() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getJob("app")).thenReturn(job());
+        CountDownLatch deleteStarted = new CountDownLatch(1);
+        CountDownLatch allowDelete = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            deleteStarted.countDown();
+                            allowDelete.await(5, TimeUnit.SECONDS);
+                            return null;
+                        })
+                .when(api)
+                .deletePod(anyString());
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
+                        "app",
+                        "isolated-app")) {
+            driver.initialize(
+                    mock(ResourceEventHandler.class),
+                    mainThreadExecutor,
+                    ioExecutor,
+                    () -> "10.0.0.1:5801");
+            KubernetesWorkerNode worker =
+                    driver.requestWorker(specification().getWorkerSpecification())
+                            .get(5, TimeUnit.SECONDS);
+            CompletableFuture<Void> release = driver.releaseWorker(worker);
+            assertTrue(deleteStarted.await(5, TimeUnit.SECONDS));
+            // The caller must not block on the pod deletion; release completes on the IO executor.
+            assertFalse(release.isDone());
+            allowDelete.countDown();
+            assertNull(release.get(5, TimeUnit.SECONDS));
+        }
+    }
+
     private static ApplicationSpecification specification() {
         return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
     }

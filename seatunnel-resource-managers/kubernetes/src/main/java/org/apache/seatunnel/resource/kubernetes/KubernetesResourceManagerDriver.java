@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -232,21 +233,25 @@ public final class KubernetesResourceManagerDriver
      */
     @Override
     public CompletableFuture<Void> releaseWorker(KubernetesWorkerNode worker) {
-        CompletableFuture<Void> result = new CompletableFuture<>();
         String name = worker.getResourceID().getResourceIdString();
         if (workers.remove(name) == null) {
             return CompletableFuture.completedFuture(null);
         }
         releasing.add(name);
+        // Delete asynchronously so the runtime can release every worker in parallel within a single
+        // cleanup deadline; blocking the caller per worker would serialize the whole stop budget.
+        return CompletableFuture.runAsync(() -> deleteReleasedWorker(name), ioExecutor);
+    }
+
+    /** Deletes one released pod on the IO executor and stops ignoring it when the call returns. */
+    private void deleteReleasedWorker(String name) {
         try {
             api.deletePod(name);
-            result.complete(null);
-        } catch (Exception e) {
-            result.completeExceptionally(e);
+        } catch (Exception failure) {
+            throw new CompletionException(failure);
         } finally {
             releasing.remove(name);
         }
-        return result;
     }
 
     void checkWorkers() {

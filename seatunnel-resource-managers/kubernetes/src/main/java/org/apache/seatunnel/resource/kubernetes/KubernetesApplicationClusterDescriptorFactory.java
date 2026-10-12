@@ -62,8 +62,12 @@ public final class KubernetesApplicationClusterDescriptorFactory
     }
 
     /**
-     * Creates and starts one application without waiting for a live master or rolling it back when
-     * its startup later fails. The returned Job name is still queryable through a shared client.
+     * Test support only: creates and starts one application without waiting for a live master or
+     * rolling it back when its startup later fails, so an integration test can observe the master's
+     * own partial cleanup. The returned Job name is still queryable through a shared client.
+     *
+     * <p>This is not part of the SPI contract. Production callers must use {@link #create(Map)} and
+     * the returned {@link ClusterDescriptor}.
      *
      * @param specification resolved application fields
      * @param options namespace and optional submitter kubeconfig
