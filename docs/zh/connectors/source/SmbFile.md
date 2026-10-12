@@ -25,6 +25,8 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 - [x] 文件格式类型
   - [x] text
   - [x] csv
+  - [x] parquet
+  - [x] orc
   - [x] json
   - [x] excel
   - [x] xml
@@ -93,6 +95,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | skip_header_row_number     | Long    | 否   | 0                             | 跳过前几行，仅适用于 txt 和 csv                                                           |
 | schema                     | Config  | 否   | -                             | 上游数据的 schema                                                                       |
 | read_columns               | List    | 否   | -                             | 数据源的读取列列表，用户可以用它实现字段投影                                                  |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | sheet_name                 | String  | 否   | -                             | 读取工作簿中的 sheet，仅在 file_format 为 excel 时使用                                     |
 | xml_row_tag                | String  | 否   | -                             | 指定 XML 文件中数据行的标签名，仅在 file_format 为 xml 时使用                                  |
 | xml_use_attr_format        | Boolean | 否   | -                             | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用                                  |
