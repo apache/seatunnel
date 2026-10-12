@@ -76,4 +76,38 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Skip the analysis of table count in full stage");
+
+    public static final Option<Boolean> LOB_ENABLED =
+            Options.key("lob.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Pass through to Debezium lob.enabled. true mines CLOB, NCLOB, and BLOB"
+                                    + " redo. When omitted, debezium.lob.enabled is left unchanged. An"
+                                    + " explicit value overrides debezium.lob.enabled.");
+
+    public static final Option<Boolean> LOB_RESELECT_ENABLED =
+            Options.key("lob.reselect.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "With lob.enabled true and this option false, a LOB column an UPDATE did not"
+                                    + " change, and LOB columns on DELETE and UPDATE_BEFORE, are the"
+                                    + " unavailable-value placeholder. A sink that writes the whole row"
+                                    + " replaces the stored value with that placeholder. true re-selects those"
+                                    + " CLOB, NCLOB, and BLOB columns on INSERT and UPDATE_AFTER by"
+                                    + " primary key, binding commit_scn as AS OF SCN ?, and DELETE and"
+                                    + " UPDATE_BEFORE placeholders become null. Rejected unless lob.enabled"
+                                    + " is true. A re-select failure follows lob.unavailable-value.handling.");
+
+    public static final Option<OracleLobUnavailableValueHandling> LOB_UNAVAILABLE_VALUE_HANDLING =
+            Options.key("lob.unavailable-value.handling")
+                    .enumType(OracleLobUnavailableValueHandling.class)
+                    .defaultValue(OracleLobUnavailableValueHandling.WARN_AND_KEEP)
+                    .withDescription(
+                            "The placeholder remains when re-select is off, the table has no primary key,"
+                                    + " or the lookup fails, and a full-row sink write would store it."
+                                    + " warn_and_keep logs once and keeps it. null replaces it with null so"
+                                    + " the sink does not store the placeholder. fail stops the task. null"
+                                    + " and fail are rejected unless lob.enabled is true.");
 }
