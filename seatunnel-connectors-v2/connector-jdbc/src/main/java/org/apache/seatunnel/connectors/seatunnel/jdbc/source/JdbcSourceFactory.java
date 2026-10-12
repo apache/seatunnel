@@ -61,10 +61,9 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         config.getJdbcConnectionConfig().getDialect(),
                         config.getJdbcConnectionConfig().getCompatibleMode(),
                         config.getJdbcConnectionConfig());
-        jdbcDialect.connectionUrlParse(
+        jdbcDialect.configureSourceConnection(
                 config.getJdbcConnectionConfig().getUrl(),
-                config.getJdbcConnectionConfig().getProperties(),
-                jdbcDialect.defaultParameter());
+                config.getJdbcConnectionConfig().getProperties());
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new JdbcSource(config);
     }
 

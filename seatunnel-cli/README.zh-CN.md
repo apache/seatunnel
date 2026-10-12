@@ -54,9 +54,10 @@ cd seatunnel-cli
 
 # 快速安装（安装所有提供商 + 开发工具）
 bash setup.sh
+source .venv/bin/activate
 ```
 
-然后配置 LLM 提供商：
+脚本会将依赖安装到 `seatunnel-cli/.venv`，再次运行时复用该环境。使用 `seatunnel` 前请先激活环境，也可直接运行 `.venv/bin/seatunnel`；脚本不会把依赖安装到系统 Python。然后配置 LLM 提供商：
 
 ```bash
 seatunnel --init
@@ -173,7 +174,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **默认行为：** 如果未设置 `SEATUNNEL_HOME`，CLI 会根据自身包位置自动检测。在发行版压缩包中，CLI 位于 `cli/seatunnel_cli/`，因此会向上解析两级到压缩包根目录：
 
 ```
-apache-seatunnel-3.0.0/          <-- 自动检测为 SEATUNNEL_HOME
+apache-seatunnel-3.0.1/          <-- 自动检测为 SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI 包位置
@@ -278,6 +279,8 @@ seatunnel [request] [options]
 | `/clear` | 清除对话历史并开始新会话 |
 | `/help` | 显示帮助面板 |
 | `/quit` | 退出 |
+
+会话列表和自动恢复按最近活跃时间排序。恢复旧会话并继续使用后，它会成为最近会话；无法读取的会话文件会被跳过。
 
 `/new`、`/clear` 和成功的 `/resume` 会丢弃上一会话未回答的澄清请求，下一条请求只使用所选会话的上下文。
 
