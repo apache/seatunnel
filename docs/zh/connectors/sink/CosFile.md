@@ -90,10 +90,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅在file_format为parquet时使用.                                                                                                     |
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                                                                                    |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                        |
-| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | enable_header_write                   | boolean | 否    | false                                      | 仅当 file_format_type 为 text、csv 时使用。`false`：不写表头，`true`：写表头。 |
-| schema_save_mode                      | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 同步任务开始前，对目标目录的处理方式。 |
-| data_save_mode                        | Enum    | 否    | APPEND_DATA                                | 同步任务开始前，对目标目录中已有数据文件的处理方式。 |
 
 ### path [string]
 

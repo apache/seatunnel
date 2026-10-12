@@ -40,6 +40,7 @@ SeaTunnel提供了丰富的事件监听器功能，用于管理数据同步时�
 | `LIFECYCLE_READER_CLOSE`       | 读取器关闭事件  | `ReaderCloseEvent`            |
 | `LIFECYCLE_WRITER_CLOSE`       | 写入器关闭事件  | `WriterCloseEvent`            |
 | `READER_MESSAGE_DELAYED`       | 读取消息延迟事件  | `MessageDelayedEvent`        |
+| `STAIN_TRACE`                  | 污点追踪事件      | `StainTraceEvent`            |
 
 > 注意：不同事件类型对应不同的事件数据结构，在自定义事件处理器时需通过`event.getEventType()`进行类型判断，以确保类型安全转换。
 

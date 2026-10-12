@@ -58,7 +58,7 @@ Clickhouse source 和 ClickhouseFile sink 的行为不变。
 | STRING         | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
 | TINYINT        | Int8                                                                                                                                          |
 | SMALLINT       | Int16                                                                                                                                         |
-| INT            | Int32                                                                                                                                         |
+| INT            | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
 | BIGINT         | Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
 | BOOLEAN        | Bool                                                                                                                                          |
 | DOUBLE         | Float64                                                                                                                                       |

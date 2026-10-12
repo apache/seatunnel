@@ -42,6 +42,7 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
 | `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |
 | `READER_MESSAGE_DELAYED`        | Reader message delayed event    | `MessageDelayedEvent`           |
+| `STAIN_TRACE`                    | Stain trace event               | `StainTraceEvent`               |
 
 > Note: Different event types correspond to different event data structures. When customizing an event handler, you need to judge the type through `event.getEventType()` to ensure type-safe conversion.
 
