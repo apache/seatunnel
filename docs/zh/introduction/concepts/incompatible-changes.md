@@ -27,6 +27,9 @@
   YARN 或 Kubernetes 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
 - `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
   提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+- `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理
+  逻辑需下移到 `closeResourceManager()`，由 `close()` 保证只调用一次；此前重写 `close()` 的子类将无法
+  编译，需要迁移。
 
 ### SQL TINYINT 数组模式
 

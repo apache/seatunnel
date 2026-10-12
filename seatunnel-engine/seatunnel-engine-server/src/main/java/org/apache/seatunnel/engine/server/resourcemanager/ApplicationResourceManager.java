@@ -95,10 +95,10 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                         });
         this.ioExecutor =
                 Executors.newFixedThreadPool(
-                        // Keep one spare thread beyond the worker count: worker release is
-                        // dispatched
-                        // on this same pool, so a ResourceManager call that blocks (for example a
-                        // heartbeat stuck on an unresponsive RM) must not starve cleanup.
+                        // Keep at least two IO threads so a single-worker application still has a
+                        // thread left to release its worker while a ResourceManager call (for
+                        // example a YARN heartbeat) is blocked, and cap platform IO concurrency at
+                        // 8.
                         Math.max(2, Math.min(8, specification.getWorkerCount())),
                         runnable -> {
                             Thread thread = new Thread(runnable, "seatunnel-resource-io");

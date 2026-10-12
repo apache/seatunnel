@@ -30,6 +30,9 @@ You need to check this document before you upgrade to related version.
 - `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
   executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
   terminal outcome through `finish(...)` and release their platform clients in `close()`.
+- `AbstractResourceManager.close()` is now the `final`, idempotent lifecycle entry point, so it can no
+  longer be overridden. Move deployment-specific cleanup into `closeResourceManager()`, which `close()`
+  invokes exactly once; subclasses that overrode `close()` no longer compile and must migrate.
 
 ### SQL TINYINT array schema
 
