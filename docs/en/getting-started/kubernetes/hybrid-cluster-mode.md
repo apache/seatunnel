@@ -281,9 +281,9 @@ spec:
             name: seatunnel-engine-config
 ```
 
-## Health Check and Graceful Shutdown
+## Health Check and Shutdown
 
-For cluster mode, add `startupProbe`, health checks, and `preStop` to each SeaTunnel container to avoid killing slow starts and to reduce the impact of rolling updates or node eviction.
+For cluster mode, add `startupProbe` and health checks to each SeaTunnel container to avoid killing slow starts and to reduce the impact of rolling updates or node eviction.
 
 ```yaml
 startupProbe:
@@ -305,6 +305,19 @@ livenessProbe:
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 3
+```
+
+On pod deletion Kubernetes sends SIGTERM to PID 1 and sends SIGKILL after `terminationGracePeriodSeconds`. The StatefulSet above already sets the two things a clean exit needs:
+
+- `command` runs `seatunnel-cluster.sh` directly, not through `/bin/sh -c`. The script `exec`s the JVM, so the JVM is PID 1 and receives the SIGTERM. A `/bin/sh -c` wrapper as PID 1 ignores SIGTERM, and the pod is killed only after the grace period.
+- `terminationGracePeriodSeconds` gives the JVM time to run its shutdown hook before SIGKILL.
+
+On SIGTERM the Hazelcast shutdown hook runs with `hazelcast.shutdownhook.policy`, the node stops its running tasks and leaves the cluster within seconds, and those tasks recover from their last checkpoint. This is a fast, clean exit from the cluster, not a graceful stop of running jobs. `GRACEFUL` only lets Hazelcast migrate partition data before the member leaves; if you use it, keep `hazelcast.graceful.shutdown.max.wait` below `terminationGracePeriodSeconds`.
+
+:::tip Optional preStop
+A `preStop` hook is only needed when the container cannot run the script directly, for example when `command` must stay `/bin/sh -c`. `stop-seatunnel-cluster.sh` sends SIGTERM to the `SeaTunnelServer` process itself, and the hook then waits for the process to exit:
+
+```yaml
 lifecycle:
   preStop:
     exec:
@@ -317,11 +330,6 @@ lifecycle:
             sleep 1
           done
 ```
-
-:::tip Note
-Start `seatunnel-cluster.sh` directly in the container `command` (for example `["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]`), not through `/bin/sh -c`. The script `exec`s the JVM, so the JVM is PID 1 and receives the SIGTERM sent on pod deletion. A `/bin/sh -c` wrapper as PID 1 ignores SIGTERM, and the pod is killed only after `terminationGracePeriodSeconds`.
-
-On SIGTERM the Hazelcast shutdown hook runs with `hazelcast.shutdownhook.policy`. The default `TERMINATE` makes the member leave immediately, and running tasks recover from their last checkpoint. With `GRACEFUL`, keep `hazelcast.graceful.shutdown.max.wait` below `terminationGracePeriodSeconds`.
 :::
 
 Apply the manifests:
