@@ -67,7 +67,6 @@ public class JdbcSqlServerSplitIT extends TestSuiteBase implements TestResource 
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_TABLE = "composite_split_test";
-    private static final int SQLSERVER_PORT = 14333;
 
     private MSSQLServerContainer<?> sqlServerContainer;
 
@@ -83,8 +82,6 @@ public class JdbcSqlServerSplitIT extends TestSuiteBase implements TestResource 
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
-        sqlServerContainer.setPortBindings(
-                java.util.Collections.singletonList(String.format("%s:%s", SQLSERVER_PORT, 1433)));
         Startables.deepStart(Stream.of(sqlServerContainer)).join();
         Class.forName(sqlServerContainer.getDriverClassName());
         given().ignoreExceptions()
@@ -92,7 +89,13 @@ public class JdbcSqlServerSplitIT extends TestSuiteBase implements TestResource 
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(this::initializeTable);
+                .untilAsserted(
+                        () -> {
+                            try (Connection connection = getJdbcConnection()) {
+                                Assertions.assertTrue(connection.isValid(5));
+                            }
+                        });
+        initializeTable();
     }
 
     private void initializeTable() throws SQLException {

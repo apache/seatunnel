@@ -26,6 +26,8 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
+import java.sql.DatabaseMetaData;
+
 @AutoService(JdbcDialectFactory.class)
 public class OceanBaseDialectFactory implements JdbcDialectFactory {
     @Override
@@ -47,8 +49,16 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         if ("oracle".equalsIgnoreCase(compatibleMode)) {
-            return new OracleDialect();
+            return new OceanBaseOracleDialect();
         }
         return new OceanBaseMysqlDialect();
+    }
+
+    private static class OceanBaseOracleDialect extends OracleDialect {
+        @Override
+        public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+            // Composite splitting has not been validated for this dialect by official E2E.
+            return false;
+        }
     }
 }

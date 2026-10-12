@@ -404,6 +404,36 @@ public class CompositeKeyChunkSplitterTest {
         Assertions.assertFalse(new DsqlDialect(null).supportCompositeKeySplit(metaData));
         Assertions.assertFalse(new OpenGaussDialect().supportCompositeKeySplit(metaData));
         Assertions.assertFalse(new PostgresLowDialect(null).supportCompositeKeySplit(metaData));
+
+        JdbcDialect greenplum =
+                JdbcDialectLoader.load("jdbc:pivotal:greenplum://localhost:5432/test", null, null);
+        Assertions.assertFalse(greenplum.supportCompositeKeySplit(metaData));
+
+        JdbcDialect highgo =
+                JdbcDialectLoader.load("jdbc:highgo://localhost:5866/test", null, null);
+        Assertions.assertFalse(highgo.supportCompositeKeySplit(metaData));
+
+        JdbcDialect highgoLow =
+                JdbcDialectLoader.load(
+                        "jdbc:highgo://localhost:5866/test", "POSTGRESLOW", null, "lowercase");
+        Assertions.assertTrue(highgoLow instanceof PostgresLowDialect);
+        Assertions.assertFalse(highgoLow.supportCompositeKeySplit(metaData));
+        Assertions.assertEquals("\"mixedcase\"", highgoLow.quoteIdentifier("MixedCase"));
+
+        JdbcDialect highgoLower =
+                JdbcDialectLoader.load(
+                        "jdbc:highgo://localhost:5866/test", null, null, "lowercase");
+        Assertions.assertFalse(highgoLower.supportCompositeKeySplit(metaData));
+        Assertions.assertEquals("\"mixedcase\"", highgoLower.quoteIdentifier("MixedCase"));
+
+        JdbcDialect oceanbaseOracle =
+                JdbcDialectLoader.load("jdbc:oceanbase://localhost:2881/test", null, "ORACLE");
+        Assertions.assertFalse(oceanbaseOracle.supportCompositeKeySplit(databaseMetaData(23)));
+
+        JdbcDialect oceanbaseMysql =
+                JdbcDialectLoader.load("jdbc:oceanbase://localhost:2881/test", null, "mysql");
+        Assertions.assertFalse(oceanbaseMysql.supportCompositeKeySplit(metaData));
+        Assertions.assertEquals("`MixedCase`", oceanbaseMysql.quoteIdentifier("MixedCase"));
     }
 
     @Test
