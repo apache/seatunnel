@@ -28,6 +28,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.concurrent.TimeUnit;
 
@@ -155,6 +156,29 @@ public final class TemporalConversions {
                         + obj.getClass().getName());
     }
 
+    /**
+     * Parses a Debezium timestamp string that ends in {@code Z} or a numeric offset such as {@code
+     * -05:00}.
+     *
+     * <p>JDK 8 {@link Instant#parse(CharSequence)} accepts only {@code Z}. Oracle {@code TIMESTAMP
+     * WITH TIME ZONE} is emitted by Debezium as a {@code ZonedTimestamp} with the session offset,
+     * so {@code -05:00} must be accepted here. A value with no offset still fails.
+     *
+     * @param value raw Debezium timestamp text
+     * @return the same instant
+     */
+    public static Instant parseDebeziumTimestamp(String value) {
+        try {
+            return OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
+        } catch (DateTimeParseException e) {
+            throw new DateTimeParseException(
+                    "Unable to parse Debezium timestamp '" + value + "'",
+                    value,
+                    e.getErrorIndex(),
+                    e);
+        }
+    }
+
     @SuppressWarnings("MagicNumber")
     public static LocalDateTime toLocalDateTime(Object obj, ZoneId serverTimeZone) {
         if (obj == null) {
@@ -214,9 +238,9 @@ public final class TemporalConversions {
                     nanosOfSecond);
         }
         if (obj instanceof String) {
-            String str = (String) obj;
-            // TIMESTAMP type is encoded in string type
-            Instant instant = Instant.parse(str);
+            // TIMESTAMP WITH TIME ZONE is a ZonedTimestamp string. Convert through the instant so
+            // the server zone, not the offset in the text, is the LocalDateTime zone.
+            Instant instant = parseDebeziumTimestamp((String) obj);
             return LocalDateTime.ofInstant(instant, serverTimeZone);
         }
         throw new IllegalArgumentException(
