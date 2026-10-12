@@ -762,7 +762,12 @@ public class MultiTableSinkWriterTest {
 
         Assertions.assertTrue(error.getMessage().contains("src.db.t1"));
         Assertions.assertTrue(error.getMessage().contains("src.db.t2"));
-        Assertions.assertTrue(error.getMessage().contains("dest.db.shared"));
+        // The destination identifier is intentionally redacted by
+        // logSafeDestinationId (identifiers may carry endpoints/credentials),
+        // so the raw destination path must not leak into the message — only
+        // its hash does.
+        Assertions.assertTrue(error.getMessage().contains("destination-hash="));
+        Assertions.assertFalse(error.getMessage().contains("dest.db.shared"));
     }
 
     @Test
