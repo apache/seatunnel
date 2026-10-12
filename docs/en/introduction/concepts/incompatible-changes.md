@@ -455,7 +455,7 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
     `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
     raised. The truncation notice on the first line makes a partial response recognisable.
-   - **Migration Guide**: Set `log-response-max-size-mb: 0` under
+  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
     `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
     covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
     read of a multi-gigabyte log has to fit in the node's heap.
