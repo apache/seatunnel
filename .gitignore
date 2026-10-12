@@ -51,6 +51,9 @@ apidoc
 
 # Python
 *.py[cod]
+seatunnel-cli/.venv
+seatunnel-cli/.venv.invalid.*
+seatunnel-cli/*.egg-info/
 
 Test.java
 Test.scala
