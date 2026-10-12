@@ -22,6 +22,9 @@ import org.junit.jupiter.api.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,11 +95,43 @@ class LineageDatasetFactoryTest {
     }
 
     @Test
+    void extractsJdbcIdentityFromUrlAndTableOptions() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("url", "jdbc:postgresql://db.example.com:5432/warehouse");
+        options.put("database", "sales");
+        options.put("table", "orders");
+
+        List<LineageDataset> datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("postgresql://db.example.com:5432", datasets.get(0).namespace());
+        assertEquals("sales.orders", datasets.get(0).name());
+    }
+
+    @Test
     void emitsNothingForAnUnsupportedConnector() {
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("row.num", 10);
 
         assertTrue(LineageDatasetFactory.fromConnectorOptions("FakeSource", options).isEmpty());
+    }
+
+    @Test
+    void discoversBuiltInExtractorsThroughServiceLoader() {
+        List<String> names =
+                StreamSupport.stream(
+                                ServiceLoader.load(LineageDatasetExtractor.class).spliterator(),
+                                false)
+                        .map(extractor -> extractor.getClass().getSimpleName())
+                        .sorted()
+                        .collect(Collectors.toList());
+
+        assertEquals(
+                List.of(
+                        "DorisLineageDatasetExtractor",
+                        "JdbcLineageDatasetExtractor",
+                        "PaimonLineageDatasetExtractor"),
+                names);
     }
 
     private static Map<String, Object> paimonOptions() {

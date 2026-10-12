@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.lineage;
 
-import java.net.URI;
+import org.apache.seatunnel.lineage.extractor.LineageDatasetOptionSupport;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
+import java.util.ServiceLoader;
 
 /** Builds canonical datasets from connector option maps without depending on connector classes. */
 public final class LineageDatasetFactory {
+
+    private static final List<LineageDatasetExtractor> EXTRACTORS = loadExtractors();
+
     private LineageDatasetFactory() {}
 
     /**
@@ -58,7 +62,7 @@ public final class LineageDatasetFactory {
             return Collections.emptyList();
         }
         if (pluginName == null || pluginName.trim().isEmpty()) {
-            pluginName = string(options, "plugin_name", "plugin-name");
+            pluginName = LineageDatasetOptionSupport.string(options, "plugin_name", "plugin-name");
         }
         if (pluginName == null) {
             pluginName = nestedPluginName(options);
@@ -66,113 +70,20 @@ public final class LineageDatasetFactory {
         if (pluginName == null) {
             return Collections.emptyList();
         }
-        if ("paimon".equalsIgnoreCase(pluginName)) {
-            return paimon(options);
-        }
-        if ("doris".equalsIgnoreCase(pluginName)) {
-            return doris(options);
-        }
-        if (isJdbc(pluginName, options)) {
-            return jdbc(options);
+        for (LineageDatasetExtractor extractor : EXTRACTORS) {
+            if (extractor.supports(pluginName, options)) {
+                return extractor.extract(options);
+            }
         }
         return Collections.emptyList();
-    }
-
-    private static List<LineageDataset> paimon(Map<String, ?> options) {
-        String catalog = string(options, "catalog_name", "catalog-name");
-        if (catalog == null || catalog.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-        return datasets(
-                options,
-                reference ->
-                        LineageDatasetNaming.paimon(catalog, reference.database, reference.table));
-    }
-
-    private static List<LineageDataset> doris(Map<String, ?> options) {
-        String host = firstHost(string(options, "fenodes", "fe_nodes", "fe-nodes"));
-        Integer queryPort = integer(options, 9030, "query-port", "query_port", "query.port");
-        if (queryPort == null) {
-            return Collections.emptyList();
-        }
-        return datasets(
-                options,
-                reference ->
-                        LineageDatasetNaming.doris(
-                                host, queryPort, reference.database, reference.table));
-    }
-
-    private static List<LineageDataset> jdbc(Map<String, ?> options) {
-        String url = string(options, "url", "jdbc_url", "jdbc-url");
-        if (url == null || !url.startsWith("jdbc:")) {
-            return Collections.emptyList();
-        }
-        try {
-            URI uri = URI.create(url.substring("jdbc:".length()));
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
-            int port = uri.getPort();
-            String urlDatabase = trimSlashes(uri.getPath());
-            if (scheme == null || host == null || port <= 0) {
-                return Collections.emptyList();
-            }
-            return datasets(
-                    options,
-                    reference ->
-                            LineageDatasetNaming.jdbc(
-                                    scheme,
-                                    host,
-                                    port,
-                                    reference.database == null ? urlDatabase : reference.database,
-                                    reference.table));
-        } catch (IllegalArgumentException e) {
-            return Collections.emptyList();
-        }
-    }
-
-    /** Maps every resolvable table entry of a connector block through one naming rule. */
-    private static List<LineageDataset> datasets(
-            Map<String, ?> options, Function<TableReference, Optional<LineageDataset>> naming) {
-        List<LineageDataset> result = new ArrayList<>();
-        for (Map<String, ?> table : tables(options)) {
-            TableReference reference = tableReference(table);
-            if (reference == null) {
-                continue;
-            }
-            naming.apply(reference).ifPresent(result::add);
-        }
-        return result;
-    }
-
-    private static boolean isJdbc(String pluginName, Map<String, ?> options) {
-        return string(options, "url", "jdbc_url", "jdbc-url") != null
-                || pluginName.toLowerCase().contains("jdbc")
-                || pluginName.equalsIgnoreCase("mysql")
-                || pluginName.equalsIgnoreCase("postgresql")
-                || pluginName.equalsIgnoreCase("oracle");
-    }
-
-    private static List<Map<String, ?>> tables(Map<String, ?> options) {
-        Object tableList = first(options, "table_list", "table-list", "tables");
-        if (tableList instanceof List) {
-            List<Map<String, ?>> result = new ArrayList<>();
-            for (Object value : (List<?>) tableList) {
-                if (value instanceof Map) {
-                    result.add((Map<String, ?>) value);
-                }
-            }
-            if (!result.isEmpty()) {
-                return result;
-            }
-        }
-        return Collections.singletonList(options);
     }
 
     private static String nestedPluginName(Map<String, ?> options) {
         for (Map.Entry<String, ?> entry : options.entrySet()) {
             if (entry.getValue() instanceof Map) {
                 String name =
-                        string((Map<String, ?>) entry.getValue(), "plugin_name", "plugin-name");
+                        LineageDatasetOptionSupport.string(
+                                (Map<String, ?>) entry.getValue(), "plugin_name", "plugin-name");
                 if (name != null) {
                     return name;
                 }
@@ -185,94 +96,17 @@ public final class LineageDatasetFactory {
         return null;
     }
 
-    private static String firstHost(String value) {
-        if (value == null) {
-            return null;
+    private static List<LineageDatasetExtractor> loadExtractors() {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        if (loader == null) {
+            loader = LineageDatasetFactory.class.getClassLoader();
         }
-        String first = value.split(",")[0].trim();
-        try {
-            URI uri = URI.create(first.contains("://") ? first : "http://" + first);
-            return uri.getHost() == null ? first.split(":")[0] : uri.getHost();
-        } catch (IllegalArgumentException e) {
-            return first.split(":")[0];
+        List<LineageDatasetExtractor> extractors = new ArrayList<>();
+        for (LineageDatasetExtractor extractor :
+                ServiceLoader.load(LineageDatasetExtractor.class, loader)) {
+            extractors.add(extractor);
         }
-    }
-
-    private static Integer integer(Map<String, ?> options, int fallback, String... keys) {
-        Object value = first(options, keys);
-        if (value == null) {
-            return fallback;
-        }
-        try {
-            return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private static String string(Map<String, ?> options, String... keys) {
-        Object value = first(options, keys);
-        return value == null ? null : String.valueOf(value);
-    }
-
-    private static Object first(Map<String, ?> options, String... keys) {
-        for (String key : keys) {
-            if (options.containsKey(key)) {
-                return options.get(key);
-            }
-        }
-        return null;
-    }
-
-    private static TableReference tableReference(Map<String, ?> options) {
-        String configuredPath = string(options, "table_path", "table-path", "tablePath");
-        String database = string(options, "database", "database_name");
-        String table = string(options, "table", "table_name");
-        if (configuredPath != null && !configuredPath.trim().isEmpty()) {
-            String tablePath = configuredPath.trim();
-            if (LineageDatasetNaming.isDefaultTablePath(tablePath)) {
-                return null;
-            }
-            String[] parts = tablePath.split("\\.", -1);
-            if (parts.length > 1) {
-                database = parts[0];
-                table = join(parts, 1);
-            } else {
-                table = parts[0];
-            }
-        }
-        return new TableReference(database, table);
-    }
-
-    private static String join(String[] parts, int start) {
-        StringBuilder result = new StringBuilder();
-        for (int i = start; i < parts.length; i++) {
-            if (i > start) {
-                result.append('.');
-            }
-            result.append(parts[i]);
-        }
-        return result.toString();
-    }
-
-    private static String trimSlashes(String value) {
-        if (value == null) {
-            return null;
-        }
-        String result = value;
-        while (result.startsWith("/")) {
-            result = result.substring(1);
-        }
-        return result;
-    }
-
-    private static final class TableReference {
-        private final String database;
-        private final String table;
-
-        private TableReference(String database, String table) {
-            this.database = database;
-            this.table = table;
-        }
+        extractors.sort(Comparator.comparingInt(LineageDatasetExtractor::order));
+        return Collections.unmodifiableList(extractors);
     }
 }
