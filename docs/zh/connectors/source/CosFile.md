@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 |----------------------------|---------|----|-----------------------------|------|
 | path                       | string  | 是  | -                           | 需要读取的 COS 路径，可以有子路径。路径格式要求请参考 `parse_partition_from_path` 选项。 |
 | file_format_type           | string  | 是  | -                           | 支持的文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
-| bucket                     | string  | 是  | -                           | COS 服务的 bucket 名称。 |
+| bucket                     | string  | 是  | -                           | COS 文件系统的 bucket 地址，例如 `cosn://seatunnel-test`。 |
 | secret_id                  | string  | 是  | -                           | COS 认证的 Secret ID。 |
 | secret_key                 | string  | 是  | -                           | COS 认证的 Secret Key。 |
 | region                     | string  | 是  | -                           | COS 服务的区域。 |

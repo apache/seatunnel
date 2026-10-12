@@ -57,7 +57,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 |----------------------------|---------|----------|-----------------------------|-------------|
 | path                       | string  | yes      | -                           | The COS path to read, can have sub paths. See `parse_partition_from_path` for format requirements. |
 | file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
-| bucket                     | string  | yes      | -                           | The bucket name of the COS service. |
+| bucket                     | string  | yes      | -                           | The bucket address of the COS file system, for example `cosn://seatunnel-test`. |
 | secret_id                  | string  | yes      | -                           | The secret ID for COS authentication. |
 | secret_key                 | string  | yes      | -                           | The secret key for COS authentication. |
 | region                     | string  | yes      | -                           | The region of the COS service. |
