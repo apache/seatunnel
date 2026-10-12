@@ -79,6 +79,8 @@ field name（string）
 
 Field type declarations should adhere to this [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
+This option is optional. If it is not configured, the connector checks a field value against the actual field type of the incoming row (the upstream schema), so you do not have to repeat the type declaration. If it is configured, the field value must match the declared type; a mismatch makes the row fail the rule and the job fails. In both cases the type check only applies to non-null values, and the rules in `field_value` are always evaluated with the field type of the incoming row. Whether a null value is allowed is decided by the `NOT_NULL` and `NULL` rules in `field_value`.
+
 ### field_value [ConfigList]
 
 A list value rule define the data value validation

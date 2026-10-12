@@ -32,6 +32,7 @@ Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。
 | port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
 | api_key         | string | 否   | ""        | 认证场景下使用的 Qdrant API key。 |
 | use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
+| multi_table_sink_replica | int    | 否   | 1         | 多表写入模式下每张表对应的 Sink 写入并发数。 |
 | common-options  |        | 否   | -         | Sink 通用选项。 |
 
 ### collection_name [string]
