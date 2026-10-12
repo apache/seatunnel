@@ -106,9 +106,9 @@ public class HudiSinkWriter
      * {@inheritDoc}
      *
      * <p>Nothing is rolled back here on purpose. The data written for a checkpoint that never
-     * completed is replayed by the source after the pipeline restarts, and the instants that are
-     * left behind by the failed attempt are rolled back by Hudi itself, because their writer
-     * heartbeat expires. Rolling the instant back here could also race with the aggregated
+     * completed is replayed by the source after the pipeline restarts, and the instant that holds
+     * it is rolled back by the record writer when it closes, or by the aggregated committer on the
+     * engines that call {@code abort}. Rolling it back here could race with the aggregated
      * committer, which commits the instants of the checkpoints that did complete.
      */
     @Override

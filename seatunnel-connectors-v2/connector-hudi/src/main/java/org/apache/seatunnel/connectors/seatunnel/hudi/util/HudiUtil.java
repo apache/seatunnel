@@ -200,14 +200,24 @@ public class HudiUtil {
                                         .withAutoClean(true)
                                         .withAsyncClean(false)
                                         // The default EAGER policy rolls back every inflight
-                                        // instant before a new instant is created. That would
+                                        // instant before a new instant is created, which would
                                         // roll back the instants that are still waiting for the
-                                        // commit of their checkpoint, so the exactly-once
-                                        // semantics uses the LAZY policy, which only rolls back
-                                        // the instants whose writer heartbeat expired.
+                                        // commit of their checkpoint. The exactly-once semantics
+                                        // therefore uses NEVER: Hudi neither rolls back the pending
+                                        // instant nor starts the per instant writer heartbeat that
+                                        // the LAZY policy relies on. The commit of a checkpointed
+                                        // instant then no longer depends on the heartbeat of the
+                                        // writer that produced it, so the restore path works no
+                                        // matter how long the pipeline was down, and a long running
+                                        // job does not accumulate one heartbeat timer thread and
+                                        // one
+                                        // heartbeat file per checkpoint. The instants of a
+                                        // checkpoint that never completed are rolled back by the
+                                        // connector itself, see HudiSinkAggregatedCommitter#abort
+                                        // and HudiRecordWriter#close.
                                         .withFailedWritesCleaningPolicy(
                                                 hudiSinkConfig.isExactlyOnce()
-                                                        ? HoodieFailedWritesCleaningPolicy.LAZY
+                                                        ? HoodieFailedWritesCleaningPolicy.NEVER
                                                         : HoodieFailedWritesCleaningPolicy.EAGER)
                                         .build())
                         .withEmbeddedTimelineServerEnabled(false)

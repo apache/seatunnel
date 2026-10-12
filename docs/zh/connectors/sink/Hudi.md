@@ -215,20 +215,38 @@ sink {
 2. checkpoint 完成后，聚合提交器（aggregated committer）才提交该 checkpoint 对应的 instant。提交之后文件才对读取方可见。
 3. checkpoint 的提交信息会作为 checkpoint 状态保存。如果提交丢失（例如作业在 checkpoint 完成之后、提交之前失败），
    作业从该 checkpoint 恢复后会重新提交同一个 instant；已经提交过的 instant 会被跳过，因此记录不会重复发布。
-4. 未完成的 checkpoint 的记录不会被提交：流水线重启后由 source 重放这些记录，失败尝试留下的 instant 会在写入器心跳
-   过期后由 Hudi 自行回滚。
+4. 未完成的 checkpoint 的记录不会被提交：流水线重启后由 source 重放这些记录，失败尝试留下的 instant 由连接器自己回滚
+   （写入器关闭时回滚，或在调用 `abort` 的引擎上由聚合提交器回滚）。
+
+`EXACTLY_ONCE` 会把 Hudi 客户端的失败写入清理策略设置为 `NEVER`：Hudi 既不会回滚等待 checkpoint 的 instant，也不会启动
+`LAZY` 策略依赖的“每个 instant 一个写入器心跳”。这样做有两个关键效果：
+
+* 已 checkpoint 的 instant 的提交不再依赖产生它的写入器心跳，因此无论流水线停机多久，恢复提交都能成功。若使用 `LAZY`
+  策略，写入器消失超过 `hoodie.client.heartbeat.interval_in_ms * hoodie.client.heartbeat.tolerable.misses`（默认
+  60s * 2）后，提交会抛出 `Heartbeat ... has expired`，或者表的清理动作会把这个 instant 回滚掉。
+* 长时间运行的作业不会每个 checkpoint 累积一个心跳定时器线程和一个心跳文件，因为根本不会创建心跳。
+
+`NEVER` 策略下 Hudi 不会自动清理失败写入：未完成 checkpoint 的 instant 由连接器回滚，已完成 checkpoint 的 instant 会在
+作业恢复时提交；如果流水线被强制杀掉导致两者都没发生，该 instant 会一直留在 active timeline 上，需要手动回滚（例如使用
+Hudi 的 `HoodieWriteClient#rollback` 或 `hoodie-cli`）。
 
 约束与取舍：
 
 * 必须开启 checkpoint，否则不会提交任何 instant，数据也不会可见。没有 checkpoint 的批处理作业或需要“刷新即可见”的
   作业请使用 `AT_LEAST_ONCE`。
 * 数据只在 checkpoint 完成后可见，因此可见性延迟至少是一个 checkpoint 间隔。
+* 被 Hudi 拒绝的记录（例如 payload 或 schema 转换失败）会让本次 checkpoint 失败，而不是被静默丢弃——因为已完成的
+  checkpoint 不会再被重放。
+* 待提交的 instant 会在聚合提交器的 checkpoint 状态与内存中保留到对应 checkpoint 完成，因此 checkpoint 间隔很长时，
+  这段时间的 write status 会占用堆内存。
+* 不要在运行中把 `EXACTLY_ONCE` 改回 `AT_LEAST_ONCE`：该模式下聚合提交器的 checkpoint 状态会被丢弃，最近几个 checkpoint
+  的待提交 instant 将永远不会被提交。请用一次 `EXACTLY_ONCE` 运行把它们提交完，或手动回滚。
 * instant 由聚合提交器在引擎完成 checkpoint（Zeta、Flink）或微批（Spark）后提交，因此需要使用会提交成功
   checkpoint 对应 commit info 的引擎。
 * 并行写入仍然遵循 Hudi 的单写入者并发控制，两个作业（或两个写入器）更新同一个 file group 时可能互相覆盖。请保证
   同一张表只有一个写入者，或让写入器处理互不相交的 key 和分区。
-* 如果提交时 instant 已经不在 active timeline 上（例如写入器心跳在提交前过期），作业会以明确的错误失败，而不是静默
-  发布不完整的数据。
+* 如果提交时 instant 已经不在 active timeline 上（例如被手工回滚或被同一张表的其他写入器回滚），作业会以明确的错误
+  失败，而不是静默发布不完整的数据。
 
 ## 示例
 

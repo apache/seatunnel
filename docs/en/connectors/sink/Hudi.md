@@ -226,8 +226,28 @@ How it works:
    the same instant again after it restores from that checkpoint. An instant that is already
    committed is skipped, so the records are never published twice.
 4. The records of a checkpoint that never completed are not committed. The source replays them after
-   the pipeline restarts, and the instants that the failed attempt left behind are rolled back by
-   Hudi when the writer heartbeat expires.
+   the pipeline restarts, and the instant that the failed attempt left behind is rolled back by the
+   connector itself, either by the writer when it closes or by the committer on the engines that call
+   `abort`.
+
+With `EXACTLY_ONCE` the failed writes cleaning policy of the Hudi client is set to `NEVER`. Hudi
+therefore neither rolls back an instant that waits for its checkpoint, nor starts the per instant
+writer heartbeat that the `LAZY` policy relies on. Two consequences matter:
+
+* The commit of a checkpointed instant does not depend on the heartbeat of the writer that produced
+  it, so the restore path works no matter how long the pipeline was down. With the `LAZY` policy the
+  commit would fail with `Heartbeat ... has expired`, or a cleanup of the table would roll the
+  instant back, once the writer had been gone for longer than
+  `hoodie.client.heartbeat.interval_in_ms * hoodie.client.heartbeat.tolerable.misses` (60s * 2 by
+  default).
+* A long running job does not accumulate one heartbeat timer thread and one heartbeat file per
+  checkpoint, because no heartbeat is started at all.
+
+Hudi does not clean up failed writes of an exactly-once table by itself. The connector rolls back the
+instant of a checkpoint that never completed, and the instants of a checkpoint that did complete are
+committed when the job restores. If the pipeline is killed so hard that neither happens, the instant
+stays on the active timeline until it is rolled back manually, for example with Hudi's
+`HoodieWriteClient#rollback` or `hoodie-cli`.
 
 Requirements and trade-offs:
 
@@ -236,6 +256,15 @@ Requirements and trade-offs:
   records as soon as they are flushed.
 * The records are visible only after a checkpoint completes, so the visibility latency is at least
   the checkpoint interval.
+* A record that Hudi rejects (for example a payload or schema conversion failure) fails the
+  checkpoint instead of being dropped from it, because a checkpoint that completed is never
+  replayed.
+* The pending instants of a job are kept in the checkpoint state of the committer and in its memory
+  until their checkpoint completes, so a very long checkpoint interval keeps the write statuses of
+  that interval on the heap.
+* Do not switch a running pipeline from `EXACTLY_ONCE` back to `AT_LEAST_ONCE`: the checkpoint state
+  of the committer is dropped in that mode, so the pending instants of the last checkpoints would
+  never be committed. Finish them with an `EXACTLY_ONCE` run, or roll them back manually.
 * The instants are committed by the aggregated committer when the engine completes a checkpoint
   (Zeta, Flink) or a micro batch (Spark), so the sink needs an engine that commits the commit info
   of a successful checkpoint.

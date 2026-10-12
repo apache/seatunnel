@@ -173,9 +173,11 @@ public class HudiSinkAggregatedCommitter
      * <p>Per the {@link SinkAggregatedCommitter} contract this is currently only called by the
      * Spark engine; the engines that restart the pipeline after a failure, Zeta and Flink, do not
      * call it. The data of a checkpoint that never completed is replayed by the source after such a
-     * restart, so the instants that hold it must not be committed, and the instants of a writer
-     * that died are rolled back by Hudi itself once their heartbeat expires, which the exactly-once
-     * semantics enables by switching the failed writes cleaning policy to LAZY.
+     * restart, so the instants that hold it must not be committed. The exactly-once semantics
+     * switches the failed writes cleaning policy to {@code NEVER}, so Hudi never rolls these
+     * instants back by itself either; rolling them back here, in {@link #close} for a writer that
+     * ended without a completed checkpoint, or manually, is what keeps a table free of failed
+     * writes.
      */
     @Override
     public void abort(List<HudiAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
@@ -231,8 +233,9 @@ public class HudiSinkAggregatedCommitter
                     HudiErrorCode.COMMIT_INSTANT_FAILED,
                     String.format(
                             "The hudi instant [%s] of table [%s] for checkpoint [%d] is not on the active timeline anymore, "
-                                    + "it was rolled back before it could be committed. Please check whether the writer heartbeat "
-                                    + "expired, for example because the writer task was stuck for longer than the heartbeat timeout.",
+                                    + "it was rolled back before it could be committed, most likely by an operator or by "
+                                    + "another writer of the same table. The exactly-once semantics keeps the pending instant on "
+                                    + "the timeline until its checkpoint is committed and does not let Hudi roll it back.",
                             instantTime, tableConfig.getTableName(), commitInfo.getCheckpointId()));
         }
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient =

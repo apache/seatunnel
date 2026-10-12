@@ -249,6 +249,39 @@ public class HudiRecordWriter implements Serializable {
     }
 
     /**
+     * Fails the checkpoint when Hudi rejected any record of the pending instant.
+     *
+     * <p>The exactly-once semantics promises that a committed checkpoint contains all of its
+     * records, so a rejected record must fail the job instead of being dropped from a checkpoint
+     * that the source will never replay.
+     */
+    private void checkWriteStatuses() {
+        for (WriteStatus writeStatus : pendingWriteStatuses) {
+            if (writeStatus.hasErrors() || writeStatus.hasGlobalError()) {
+                throw new HudiConnectorException(
+                        HudiErrorCode.WRITE_RECORDS_FAILED,
+                        String.format(
+                                "Hudi rejected %d record(s) of the instant [%s] of table [%s], first failure: %s. "
+                                        + "The checkpoint is not committed, so the records can be replayed.",
+                                writeStatus.getTotalErrorRecords(),
+                                pendingInstantTime,
+                                hudiTableConfig.getTableName(),
+                                firstFailure(writeStatus)));
+            }
+        }
+    }
+
+    private String firstFailure(WriteStatus writeStatus) {
+        if (writeStatus.hasGlobalError()) {
+            return String.valueOf(writeStatus.getGlobalError());
+        }
+        return writeStatus.getErrors().entrySet().stream()
+                .findFirst()
+                .map(error -> error.getKey() + " -> " + error.getValue())
+                .orElse("unknown");
+    }
+
+    /**
      * Flushes the buffered records and returns the commit info of the instant that holds the
      * records written since the last prepare commit.
      *
@@ -265,6 +298,9 @@ public class HudiRecordWriter implements Serializable {
         if (!exactlyOnce || pendingInstantTime == null) {
             return Optional.empty();
         }
+        // the checkpoint is only completed when all of its records were accepted, otherwise the
+        // rejected records would be dropped from a checkpoint that is never replayed
+        checkWriteStatuses();
         HudiCommitInfo commitInfo =
                 new HudiCommitInfo(
                         checkpointId, pendingInstantTime, new ArrayList<>(pendingWriteStatuses));
@@ -276,6 +312,22 @@ public class HudiRecordWriter implements Serializable {
         pendingInstantTime = null;
         pendingWriteStatuses.clear();
         return Optional.of(commitInfo);
+    }
+
+    private void rollbackPendingInstant() {
+        try {
+            clientProvider.getOrCreateClient().rollback(pendingInstantTime);
+            LOG.info(
+                    "Roll back the hudi instant [{}] of table [{}], no checkpoint committed it.",
+                    pendingInstantTime,
+                    hudiTableConfig.getTableName());
+        } catch (Exception e) {
+            LOG.error(
+                    "Roll back the hudi instant [{}] of table [{}] failed, please roll it back manually.",
+                    pendingInstantTime,
+                    hudiTableConfig.getTableName(),
+                    e);
+        }
     }
 
     protected void prepareRecords(SeaTunnelRow element) {
@@ -320,13 +372,16 @@ public class HudiRecordWriter implements Serializable {
                     // the records of this instant are lost: an instant is only committed after the
                     // checkpoint that contains it completes, so a job that ends here either has the
                     // checkpoint disabled or never completed one. Surface it instead of a routine
-                    // warning, because the job silently produced no committed output.
+                    // warning, because the job silently produced no committed output, and roll the
+                    // instant back so its files do not stay behind forever: Hudi does not clean up
+                    // failed writes itself under the NEVER policy that exactly-once uses.
                     LOG.error(
                             "The records written into hudi instant [{}] of table [{}] are not committed, "
                                     + "because no checkpoint completed after they were written. Please check that the "
                                     + "checkpoint is enabled and that the last checkpoint completed successfully.",
                             pendingInstantTime,
                             hudiTableConfig.getTableName());
+                    rollbackPendingInstant();
                 }
             } else {
                 try {

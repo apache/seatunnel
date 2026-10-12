@@ -145,6 +145,94 @@ class HudiTwoPhaseCommitTest {
     }
 
     @Test
+    void shouldNotStartAHeartbeatForAnInstantWaitingForItsCheckpoint() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        String tablePath = createTable(sinkConfig);
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        try {
+            // two checkpoints, each of them writes one instant
+            for (int checkpointId = 1; checkpointId <= 2; checkpointId++) {
+                writeRecords(writer, BATCH_SIZE);
+                Assertions.assertTrue(writer.prepareCommit(checkpointId).isPresent());
+            }
+
+            // Hudi starts a per instant heartbeat timer that only the client which commits the
+            // instant stops. The instant is committed by the aggregated committer, so a heartbeat
+            // would never be stopped and both the timer thread and the heartbeat file would
+            // accumulate for every checkpoint of a long running job.
+            Assertions.assertEquals(
+                    Collections.emptyList(),
+                    heartbeatFiles(tablePath),
+                    "no heartbeat must be created for an instant that waits for its checkpoint");
+        } finally {
+            writer.close();
+        }
+    }
+
+    @Test
+    void shouldCommitARestoredInstantWhenTheWriterIsGoneAndTheHeartbeatIsStale() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        String tablePath = createTable(sinkConfig);
+        HoodieTableMetaClient metaClient = metaClient(tablePath);
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        HudiCommitInfo hudiCommitInfo;
+        try {
+            writeRecords(writer, RECORD_COUNT);
+            hudiCommitInfo = writer.prepareCommit(1L).get();
+        } finally {
+            writer.close();
+        }
+        String instantTime = hudiCommitInfo.getInstantTime();
+
+        // the writer is gone and its heartbeat, if any, is long expired: a restore of the
+        // checkpoint
+        // that completed before the failure must still commit the instant
+        java.nio.file.Path heartbeatFile =
+                java.nio.file.Paths.get(
+                        HoodieTableMetaClient.getHeartbeatFolderPath(tablePath), instantTime);
+        java.nio.file.Files.createDirectories(heartbeatFile.getParent());
+        java.nio.file.Files.write(heartbeatFile, new byte[0]);
+        java.nio.file.Files.setLastModifiedTime(
+                heartbeatFile,
+                java.nio.file.attribute.FileTime.fromMillis(
+                        System.currentTimeMillis() - 3_600_000L));
+
+        HudiSinkAggregatedCommitter restartedCommitter = newCommitter(sinkConfig);
+        try {
+            Assertions.assertTrue(
+                    restartedCommitter
+                            .restoreCommit(
+                                    Collections.singletonList(
+                                            restartedCommitter.combine(
+                                                    Collections.singletonList(hudiCommitInfo))))
+                            .isEmpty());
+
+            HoodieTimeline completedTimeline = metaClient.reloadActiveTimeline();
+            Assertions.assertEquals(
+                    Collections.singletonList(instantTime),
+                    commitTimestamps(completedTimeline),
+                    "the instant of the completed checkpoint must be committed after the restore");
+            Assertions.assertEquals(RECORD_COUNT, totalRecords(completedTimeline));
+        } finally {
+            restartedCommitter.close();
+        }
+    }
+
+    private List<String> heartbeatFiles(String tablePath) throws IOException {
+        java.nio.file.Path heartbeatFolder =
+                java.nio.file.Paths.get(HoodieTableMetaClient.getHeartbeatFolderPath(tablePath));
+        if (!java.nio.file.Files.exists(heartbeatFolder)) {
+            return Collections.emptyList();
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> files =
+                java.nio.file.Files.list(heartbeatFolder)) {
+            return files.map(path -> path.getFileName().toString()).collect(Collectors.toList());
+        }
+    }
+
+    @Test
     void shouldReleaseThePreviousClientWhenTheCommitterIsInitializedAgain() throws Exception {
         HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
         HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));

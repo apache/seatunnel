@@ -28,6 +28,7 @@ public enum HudiErrorCode implements SeaTunnelErrorCode {
     TABLE_CONFIG_NOT_FOUND("HUDI-04", "Table configuration not set."),
     INITIALIZE_TABLE_FAILED("HUDI-05", "Initialize table failed"),
     COMMIT_INSTANT_FAILED("HUDI-06", "Commit hudi instant failed"),
+    WRITE_RECORDS_FAILED("HUDI-07", "Hudi rejected records of the pending instant"),
     ;
 
     private final String code;
