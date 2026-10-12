@@ -193,13 +193,13 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式，匹配到的表名需要包含库名，例如：`database.*\\.table_.*`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                         |
 | table-names-config                        | List     | 否    | -       | 按表单独配置。例如：`[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。`snapshotSplitColumn` 应该是主键或唯一键；如果指定了非唯一列，SeaTunnel 会忽略该配置并自动选择合适的拆分列。                                                                                                                                                                                         |
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific`, `timestamp` 和 `snapshot-only`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.<br/> `snapshot-only`: 仅读取快照数据，读取完成后任务有界结束，不会在快照完成后进入持续 binlog 流式读取。适用于一次性回填或初始化引导场景。该模式支持使用 `exactly_once` 在快照阶段执行有界回填，但不能与除 `never` 外的 `stop.mode` 或 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 同时使用。<br/>不支持在从 checkpoint 恢复时更改 `startup.mode`。在 `snapshot-only` 与其他启动模式之间切换时，请提交新作业。                 |
-| startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
-| startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
-| startup.specific-offset.gtid-set          | String   | 否    | -       | 当 `startup.mode` 为 `specific` 时，可选配置 MySQL GTID 集合. 该选项需要和 `startup.specific-offset.file`、`startup.specific-offset.pos` 一起使用.                                                                                                                                             |
+| startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.** 当 `startup.mode` 为 `snapshot-only` 时不允许配置此选项.                                                                                                                                                                      |
+| startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.** 当 `startup.mode` 为 `snapshot-only` 时不允许配置此选项.                                                                                                                                                                     |
+| startup.specific-offset.gtid-set          | String   | 否    | -       | 当 `startup.mode` 为 `specific` 时，可选配置 MySQL GTID 集合. 该选项需要和 `startup.specific-offset.file`、`startup.specific-offset.pos` 一起使用. 当 `startup.mode` 为 `snapshot-only` 时不允许配置此选项.                                                                                                                                             |
 | startup.specific-offset.skip-events       | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的 binlog event 数量. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                         |
 | startup.specific-offset.skip-rows         | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的行数. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                                    |
-| startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。**                                                                                                                                                                    |
-| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
+| startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。** 当 `startup.mode` 为 `snapshot-only` 时不允许配置此选项。                                                                                                                                                                    |
+| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.<br/> 当 `startup.mode` 为 `snapshot-only` 时只允许配置为 `never`.                                                                                         |
 | stop.specific-offset.file                 | String   | 否    | -       | 从指定的binlog日志文件名停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                         |
 | stop.specific-offset.pos                  | Long     | 否    | -       | 从指定的binlog日志文件位置停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                        |
 | snapshot.split.size                       | Integer  | 否    | 8096    | 表快照的分割大小（行数）,读取表的快照时,被捕获的表会被分割成多个分割块.                                                                                                                                                                                                        |
@@ -529,17 +529,32 @@ source {
 
 当只需要做一次性全量引导（backfill）而不希望任务持续消费 binlog 时，使用 `startup.mode = "snapshot-only"`。任务会读取配置表的快照数据，读取完成后自然结束（有界任务），不会进入增量/binlog 阶段。
 
-该模式不会进入持续 binlog 流式读取，因此与除 `never` 外的 `stop.mode` 以及 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 选项互斥；同时配置这些选项会在启动时报错。`exactly_once` 仍可用于快照阶段的有界回填，但不会启动持续 binlog 流式读取。当 `exactly_once = true` 且任务并行度大于 1 时，快照阶段的有界回填会为每个 reader 打开独立的复制连接，因此需要将 `server-id` 配置为覆盖任务并行度的范围（例如 `5656-5657`），否则重复的 `server-id` 会被 MySQL 断开连接。
+该模式不会进入持续 binlog 流式读取，因此与除 `never` 外的 `stop.mode` 以及 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 选项互斥；同时配置这些选项会在启动时报错。`exactly_once` 仍可用于快照阶段的有界回填，但不会启动持续 binlog 流式读取。
+
+并发写入下的一致性取决于 `exactly_once`：
+
+- `exactly_once = false`（默认）时，每个快照分片在各自的时间点通过普通查询读取，不做 binlog 回填。如果任务运行期间源表有写入，有界输出并不是一个一致的时间点快照：同一个变更可能只体现在部分分片中。仅在任务运行期间源表无写入时使用该配置。
+- `exactly_once = true` 时，每个分片会用其低水位到高水位之间的 binlog 事件进行修正，因此每个分片的输出与其自身的高水位一致。各分片完成时间不同，整体输出仍不是单一的全局时间点快照；分片完成之后发生的变更不会被读取，因为任务不会进入持续 binlog 流式读取。源表在快照期间可能有写入时请开启该配置；如果要求整体输出对应同一时间点，请在任务运行期间暂停写入。
+
+当 `exactly_once = true` 时，快照阶段的有界回填会为每个 reader 打开独立的 MySQL 复制连接，因此需要将 `server-id` 配置为覆盖任务并行度的范围（例如并行度为 2 时配置 `server-id = "5656-5657"`）。每个 reader 使用范围内的 `起始值 + subtask 序号` 作为 server id。SeaTunnel 不会在提交任务时校验该范围是否覆盖任务并行度；范围过小时，只会在 reader 启动时报错，提示 subtask ID 超出了 server id 范围。该范围还必须与复制同一个 MySQL 实例的其他任务、从库和工具互不重复：当另一个复制连接以相同的 server id 注册时，MySQL 会断开先前的连接，表现为回填过程中间歇性的读取失败。
+
+下面的示例以并行度 2 读取快照并开启有界 binlog 回填。请将占位符替换为实际值，并使用[配置变量替换](../../introduction/concepts/config.md#配置变量替换)传入凭据，不要把真实凭据直接写入作业文件，例如提交任务时通过 `-i mysql_password=<password>` 传入，或设置 `mysql_password` 环境变量。
 
 ```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
 source {
   MySQL-CDC {
-    server-id = "5656-5657"
-    username = "st_user_source"
-    password = "mysqlpw"
-    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
-    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    url = "jdbc:mysql://<mysql_host>:3306/<database>"
+    username = "<username>"
+    password = "${mysql_password}"
+    table-names = ["<database>.<table>"]
     startup.mode = "snapshot-only"
+    exactly_once = true
+    server-id = "5656-5657"
   }
 }
 ```
@@ -652,7 +667,7 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 
 ### 全量快照阶段如何工作？何时切换为增量读取？
 
-使用 `startup.mode = "initial"` 时，SeaTunnel 会对已配置的表执行一致性全量快照，随后从快照阶段记录的 binlog 位置切换为增量读取，确保切换过程中不丢失变更事件。使用 `startup.mode = "snapshot-only"` 时，source 会在快照阶段完成后结束，不会进入持续 binlog 读取。
+使用 `startup.mode = "initial"` 时，SeaTunnel 会对已配置的表执行一致性全量快照，随后从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失变更事件。使用 `startup.mode = "snapshot-only"` 时，source 会在快照阶段完成后结束，不会进入持续 binlog 读取。
 
 ### MySQL CDC 是否支持 DDL 传播？
 
