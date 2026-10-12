@@ -32,19 +32,17 @@ _CRED_KEYS = (
 
 # HOCON `password = "..."`, colon form, JSON `"password": "..."`, single quotes.
 # Placeholders that already start with ${ are left untouched by callers.
-# Allow "_" before the key so jdbc_password / s3_secret_key / access_token match,
-# while still refusing to start a key in the middle of an alphanumeric word.
-_KEY_BOUNDARY = r"(?<![A-Za-z0-9])"
-
+# No left boundary: matches jdbc_password / accessToken / dbPassword suffixes the
+# same way the pre-shared _CRED_KV_RE did. The right side is anchored by "?[:=].
 CRED_KV_RE = re.compile(
-    rf'(?P<prefix>{_KEY_BOUNDARY}"?(?:{_CRED_KEYS})"?\s*[:=]\s*)'
+    rf'(?P<prefix>"?(?:{_CRED_KEYS})"?\s*[:=]\s*)'
     r'(?:"(?P<dvalue>[^"]*)"|\'(?P<svalue>[^\']*)\')',
     re.IGNORECASE,
 )
 
 # Unquoted `password=supersecret` / `secret_key: abc` (debug / logs only).
 _UNQUOTED_CRED_RE = re.compile(
-    rf'{_KEY_BOUNDARY}"?(?:{_CRED_KEYS})"?\s*[:=]\s*(?!["\'])(?!\$\{{)\S+',
+    rf'"?(?:{_CRED_KEYS})"?\s*[:=]\s*(?!["\'])(?!\$\{{)\S+',
     re.IGNORECASE,
 )
 

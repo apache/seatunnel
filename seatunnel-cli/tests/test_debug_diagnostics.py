@@ -240,6 +240,9 @@ def test_redact_text_covers_cli_credential_shapes(text, secret):
         ('truststore_password = "ts-secret"', "ts-secret"),
         ('api_token = "api-secret"', "api-secret"),
         ("jdbc_password=plain-secret", "plain-secret"),
+        ('accessToken = "camel-token"', "camel-token"),
+        ('dbPassword = "camel-pass"', "camel-pass"),
+        ('clientSecret = "camel-secret"', "camel-secret"),
     ],
 )
 def test_redact_text_covers_prefixed_credential_keys(text, secret):
@@ -283,12 +286,18 @@ def test_replace_prefixed_credential_keys_roundtrip():
         'jdbc_password = "db-secret"\n'
         's3_secret_key = "s3-secret"\n'
         'access_token = "tok-secret"\n'
+        'accessToken = "camel-token"\n'
+        'dbPassword = "camel-pass"\n'
+        'clientSecret = "camel-secret"\n'
         'password = "${MYSQL_PASSWORD}"\n'
     )
     safe, cred_map = replace_creds_with_placeholders(config)
     assert "db-secret" not in safe
     assert "s3-secret" not in safe
     assert "tok-secret" not in safe
+    assert "camel-token" not in safe
+    assert "camel-pass" not in safe
+    assert "camel-secret" not in safe
     assert "${MYSQL_PASSWORD}" in safe
     assert "${_CRED_" in safe
     assert restore_creds_from_placeholders(safe, cred_map) == config
