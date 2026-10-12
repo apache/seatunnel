@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraCo
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.BatchStatement;
@@ -74,7 +75,30 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.batchStatement = BatchStatement.builder(cassandraParameters.getBatchType()).build();
         this.boundStatementList = new ArrayList<>();
         this.completionStages = new ArrayList<>();
-        this.preparedStatement = session.prepare(initPrepareCQL());
+        this.preparedStatement = prepareStatement(initPrepareCQL());
+    }
+
+    /**
+     * Prepares the insert statement with a short retry: the DataStax driver 4.x can report a
+     * transient "No connection was available" right after {@code build()}, before the per-node data
+     * connection pool has warmed up.
+     */
+    private PreparedStatement prepareStatement(String cql) {
+        AllNodesFailedException lastFailure = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                return session.prepare(cql);
+            } catch (AllNodesFailedException failure) {
+                lastFailure = failure;
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        throw lastFailure;
     }
 
     @Override
