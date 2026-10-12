@@ -30,6 +30,9 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/**
+ * Factory that registers the Asana source under the identifier "Asana" and declares its options.
+ */
 @AutoService(Factory.class)
 public class AsanaSourceFactory extends HttpSourceFactory {
     @Override

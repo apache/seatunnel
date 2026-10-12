@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -46,14 +45,18 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Asana tasks source. Reuses {@link HttpSource}, but after super(pluginConfig) replaces the schema,
+ * JSONPath fields and paging so the ten fixed Asana columns and the cursor pagination
+ * ("next_page.offset") are used instead of user-supplied config.
+ */
 @Slf4j
 public class AsanaSource extends HttpSource {
     private final AsanaSourceParameter asanaSourceParameter = new AsanaSourceParameter();
 
     public AsanaSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        asanaSourceParameter.buildWithConfig(
-                pluginConfig, pluginConfig.get(AsanaSourceOptions.API_KEY));
+        asanaSourceParameter.buildWithConfig(pluginConfig);
 
         TableSchema.Builder schema = TableSchema.builder();
         Map<String, String> fields = new LinkedHashMap<>();

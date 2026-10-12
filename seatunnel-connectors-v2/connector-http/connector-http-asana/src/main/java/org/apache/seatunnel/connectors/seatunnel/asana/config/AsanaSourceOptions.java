@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
+/** Config options specific to the Asana source, on top of the shared HTTP options. */
 public class AsanaSourceOptions extends HttpCommonOptions {
     public static final Option<String> API_KEY =
             Options.key("api_key")

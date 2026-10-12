@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.asana;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.asana.config.AsanaSourceParameter;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +42,7 @@ public class AsanaSourceReaderTest {
         configMap.put("retry_backoff_max_ms", 50);
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         AsanaSourceParameter parameter = new AsanaSourceParameter();
-        parameter.buildWithConfig(config, config.get(AsanaSourceOptions.API_KEY));
+        parameter.buildWithConfig(config);
         return new AsanaSourceReader(parameter, null, null, null, null, null);
     }
 
@@ -96,9 +95,39 @@ public class AsanaSourceReaderTest {
             AsanaSourceReader reader = newReader(server, 3);
             reader.open();
             try {
-                Assertions.assertEquals(500, reader.executeRequest().getCode());
+                RuntimeException ex =
+                        Assertions.assertThrows(
+                                RuntimeException.class, () -> reader.executeRequest());
+                Assertions.assertTrue(ex.getMessage().contains("HTTP 500"));
                 Assertions.assertEquals(4, server.getRequestCount());
             } finally {
+                reader.close();
+            }
+        }
+    }
+
+    @Test
+    public void testInterruptedBackoffRestoresFlag() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setResponseCode(429));
+            server.start();
+            AsanaSourceReader reader = newReader(server, 3);
+            reader.open();
+
+            Thread.currentThread().interrupt();
+            try {
+                reader.executeRequest();
+                Assertions.fail("Expected exception due to thread interruption");
+            } catch (Exception e) {
+                Assertions.assertTrue(
+                        Thread.currentThread().isInterrupted(), "Interrupt flag must be restored");
+                String msg = String.valueOf(e.getMessage());
+                Assertions.assertFalse(
+                        msg.contains("test-token"), "Message must not contain token");
+                Assertions.assertFalse(
+                        msg.contains("Authorization"), "Message must not contain Authorization");
+            } finally {
+                Thread.interrupted();
                 reader.close();
             }
         }

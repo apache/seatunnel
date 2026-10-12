@@ -28,21 +28,38 @@ import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOp
 
 public class AsanaSourceParameter extends HttpParameter {
 
+    private static String requireNonBlank(String value, String optionKey) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format("Asana option '%s' must not be blank.", optionKey));
+        }
+        return value.trim();
+    }
+
     /**
-     * Overrides buildWithConfig to accept an explicit apiKey parameter. Asana's REST API requires
-     * the API key to be passed specifically as an Authorization header, so this method ensures the
-     * key is properly extracted and configured.
+     * Builds the Asana request: tasks URL, Bearer Authorization header, query params and retry
+     * defaults. Validates that api_key and project_gid are not blank.
      */
-    public void buildWithConfig(ReadonlyConfig config, String apiKey) {
+    public void buildWithConfig(ReadonlyConfig config) {
         super.buildWithConfig(config);
+        String apiKey = requireNonBlank(config.get(AsanaSourceOptions.API_KEY), "api_key");
+        String projectGid =
+                requireNonBlank(config.get(AsanaSourceOptions.PROJECT_GID), "project_gid");
+
         String base = config.get(AsanaSourceOptions.BASE_URL);
-        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
         setUrl(base + "/tasks");
         setMethod(HttpRequestMethod.GET);
-        if (headers == null) headers = new HashMap<>();
+
+        if (headers == null) {
+            headers = new HashMap<>();
+        }
         headers.put("Authorization", "Bearer " + apiKey);
+
         params = new HashMap<>();
-        params.put("project", config.get(AsanaSourceOptions.PROJECT_GID));
+        params.put("project", projectGid);
         params.put("limit", "100");
         params.put(
                 "opt_fields",
@@ -52,6 +69,7 @@ public class AsanaSourceParameter extends HttpParameter {
                 .ifPresent(v -> params.put("modified_since", v));
         setKeepPageParamAsHttpParam(true);
         setJsonFiledMissedReturnNull(true);
+
         if (!config.getOptional(AsanaSourceOptions.RETRY).isPresent()) {
             setRetry(3);
             setRetryBackoffMultiplierMillis(DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS);

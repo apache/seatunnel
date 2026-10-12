@@ -11,12 +11,11 @@ Reads tasks from the Asana REST API (`GET /tasks`) for one project. Built on
 
 ## Key Features
 
-- [x] batch
-- [ ] stream
-- [ ] exactly-once   (at-least-once; dedupe on `gid`)
-- [ ] column projection
-- [ ] parallelism
-- [ ] support user-defined split
+- [x] Batch
+- [ ] Stream
+- [ ] Exactly-once
+- [ ] Column projection
+- [ ] Parallelism
 
 ## Options
 
@@ -77,7 +76,8 @@ sink {
 
 ## Notes
 
-Delivery is at-least-once; a restarted job begins from the first page. Rate-limit
-handling is bounded backoff only; `Retry-After` is not honored.
+Each run reads the project from the first page. After a failure, a restarted job re-reads from the beginning and may emit rows that were already sent; 
+tasks edited during a run can also appear twice. Every row includes the task `gid`, which can assist an idempotent downstream sink in deduplicating or upserting, 
+but the connector provides no delivery guarantee. Rate-limit handling is bounded backoff only; `Retry-After` is not honored.
 
 <ChangeLog />
