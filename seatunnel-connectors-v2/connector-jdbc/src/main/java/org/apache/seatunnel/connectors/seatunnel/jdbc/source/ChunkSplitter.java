@@ -292,7 +292,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
         String baseQuery =
                 StringUtils.isNotBlank(table.getQuery())
-                        ? table.getQuery()
+                        ? normalizeQuery(table.getQuery())
                         : String.format(
                                 "SELECT * FROM %s",
                                 jdbcDialect.tableIdentifier(table.getTablePath()));
@@ -300,6 +300,19 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 SqlWhereConditionHelper.applyWhereConditionWithWrap(
                         baseQuery, config.getWhereConditionClause(), true);
         return table.withQuery(effectiveQuery);
+    }
+
+    /**
+     * Returns the source relation used by split metadata queries. A filtered table query is wrapped
+     * as a derived table so that every dialect, including Oracle, uses the portable alias form
+     * without {@code AS}.
+     */
+    protected String tableFromClause(JdbcSourceTable table) {
+        String query = normalizeQuery(table.getQuery());
+        if (StringUtils.isBlank(query)) {
+            return jdbcDialect.tableIdentifier(table.getTablePath());
+        }
+        return "(" + query + ") st";
     }
 
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
@@ -511,7 +524,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
     }
 
-    private String normalizeQuery(String query) {
+    protected String normalizeQuery(String query) {
         if (StringUtils.isEmpty(query)) {
             return query;
         }

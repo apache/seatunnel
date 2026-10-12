@@ -821,6 +821,107 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testCompositeKeySplitUsesWhereConditionForBoundariesAndReads() throws Exception {
+        String compositeTable = "composite_filtered_split_test";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + compositeTable
+                            + " (order_id BIGINT NOT NULL, line_no INT NOT NULL, payload VARCHAR(20), "
+                            + "PRIMARY KEY (order_id, line_no))");
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, line_no, payload) VALUES (?, ?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setInt(2, i / 3);
+                ps.setString(3, "p" + i);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + compositeTable);
+        configMap.put("split.size", "10");
+        configMap.put("where_condition", "payload LIKE 'p1%'");
+
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, compositeTable);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePath);
+        JdbcSourceTable sourceTable =
+                JdbcSourceTable.builder().tablePath(tablePath).catalogTable(table).build();
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+        JdbcSourceSplit[] splits =
+                splitter.generateSplits(sourceTable).toArray(new JdbcSourceSplit[0]);
+        Assertions.assertTrue(splits.length > 1, "Filtered rows should still be split");
+        Assertions.assertEquals("order_id,line_no", splits[0].getSplitKeyName());
+
+        Set<String> expectedKeys = new HashSet<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT order_id, line_no FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " WHERE payload LIKE 'p1%' ORDER BY order_id, line_no")) {
+            while (rs.next()) {
+                expectedKeys.add(rs.getLong(1) + "|" + rs.getInt(2));
+            }
+        }
+        Assertions.assertTrue(expectedKeys.size() > 10);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT order_id, line_no FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " WHERE payload LIKE 'p1%' ORDER BY order_id, line_no LIMIT 10")) {
+            Object[] expectedFirstBoundary = null;
+            while (rs.next()) {
+                expectedFirstBoundary = new Object[] {rs.getLong(1), rs.getInt(2)};
+            }
+            Assertions.assertNotNull(expectedFirstBoundary);
+            Assertions.assertArrayEquals(expectedFirstBoundary, (Object[]) splits[0].getSplitEnd());
+        }
+
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement ps =
+                            splitter.generateSplitStatement(split, table.getTableSchema());
+                    ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    readCount++;
+                    readKeys.add(rs.getLong("order_id") + "|" + rs.getInt("line_no"));
+                }
+            }
+        }
+        Assertions.assertEquals(expectedKeys.size(), readCount);
+        Assertions.assertEquals(expectedKeys, readKeys);
+        mySqlCatalog.close();
+    }
+
+    @Test
     public void testCompositeKeyWithStringColumnFallsBackToSingleColumn() throws Exception {
         String compositeTable = "composite_string_test";
         Set<String> expectedKeys = new HashSet<>();

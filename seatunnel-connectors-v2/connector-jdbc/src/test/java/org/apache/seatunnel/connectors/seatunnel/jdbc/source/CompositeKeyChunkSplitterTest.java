@@ -257,6 +257,43 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
+    public void testFilteredMetadataRelationUsesNormalizedQueryWithoutAsAlias() {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.of(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("url", "jdbc:oracle:thin:@localhost:1521:xe");
+                                        put("driver", "oracle.jdbc.OracleDriver");
+                                        put("where_condition", "WHERE status = 'active'");
+                                    }
+                                }));
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT * FROM source_table;  ")
+                        .build();
+
+        JdbcSourceTable filtered = splitter.applyWhereCondition(table);
+        String fromClause = splitter.tableFromClause(filtered);
+
+        Assertions.assertEquals(
+                "(SELECT * FROM (SELECT * FROM source_table) tmp WHERE status = 'active') st",
+                fromClause);
+        Assertions.assertFalse(fromClause.contains(" AS st"));
+        Assertions.assertFalse(fromClause.contains("source_table;"));
+    }
+
+    @Test
+    public void testUnfilteredMetadataRelationUsesTablePath() {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config());
+        JdbcSourceTable table = table(catalogTable(compositePkColumns(), null));
+
+        Assertions.assertEquals("`db`.`table`", splitter.tableFromClause(table));
+    }
+
+    @Test
     public void testCompositeSplitQuerySQLUsesExpandedTupleConditions() {
         JdbcSourceConfig config = config();
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
