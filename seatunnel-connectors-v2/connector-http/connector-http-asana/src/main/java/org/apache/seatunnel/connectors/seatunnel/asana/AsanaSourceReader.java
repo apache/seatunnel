@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.asana;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
@@ -27,16 +28,16 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
-import lombok.extern.slf4j.Slf4j;
-
-import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_STATE;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reader that re-implements executeRequest to retry HTTP 429 and 5xx with exponential backoff
  * before handing the response to the base reader.
  */
-@Slf4j
 public class AsanaSourceReader extends HttpSourceReader {
+
+    private static final Logger log = LoggerFactory.getLogger(AsanaSourceReader.class);
 
     public AsanaSourceReader(
             HttpParameter httpParameter,
@@ -69,7 +70,7 @@ public class AsanaSourceReader extends HttpSourceReader {
             }
             if (attempt > maxRetries) {
                 throw new HttpConnectorException(
-                        ILLEGAL_STATE,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format(
                                 "Asana request failed with HTTP %d after %d attempt(s) (retry=%d)",
                                 code, attempt, maxRetries));
