@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.StatementBoundLobs;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -419,7 +421,9 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public int executeUpdate() throws SQLException {
-        return statement.executeUpdate();
+        int updated = statement.executeUpdate();
+        StatementBoundLobs.free(this);
+        return updated;
     }
 
     @Override
@@ -449,7 +453,11 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void close() throws SQLException {
-        statement.close();
+        try {
+            StatementBoundLobs.free(this);
+        } finally {
+            statement.close();
+        }
     }
 
     @Override
@@ -564,12 +572,18 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void clearBatch() throws SQLException {
-        statement.clearBatch();
+        try {
+            statement.clearBatch();
+        } finally {
+            StatementBoundLobs.free(this);
+        }
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-        return statement.executeBatch();
+        int[] result = statement.executeBatch();
+        StatementBoundLobs.free(this);
+        return result;
     }
 
     @Override
