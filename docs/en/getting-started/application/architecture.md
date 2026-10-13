@@ -48,6 +48,33 @@ flowchart TB
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
+## Startup and execution flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CLI as Application CLI
+    participant RM as Resource Manager
+    participant M as Application Master
+    participant W as Zeta Workers
+    participant CS as Checkpoint storage
+
+    CLI->>RM: create owner application and accompanying resources
+    CLI->>RM: start application
+    Note over CLI,RM: submit returns without waiting for the master
+    M->>M: read the localized specification
+    M->>M: start the Zeta master member
+    M->>RM: request the fixed worker set
+    RM->>W: start worker processes
+    W->>M: join over Hazelcast TCP and register slots
+    M->>M: parse and resolve the job file against the Pod environment
+    M->>W: schedule tasks
+    W->>CS: persist checkpoints
+    W->>M: task results
+    M->>RM: release workers and publish the terminal result
+    M->>M: exit; the platform records the final state
+```
+
 ## Engine side
 
 ```text
