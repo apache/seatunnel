@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -34,6 +35,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
@@ -109,6 +111,22 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private Config config;
     private CassandraContainer<?> container;
     private CqlSession session;
+
+    @Test
+    public void testUnavailableBootstrapContactPoint() {
+        String available = container.getHost() + ":" + container.getMappedPort(PORT);
+        String unavailable = container.getHost() + ":1";
+        for (String hosts :
+                Arrays.asList(unavailable + "," + available, available + "," + unavailable)) {
+            try (CqlSession connected =
+                    CassandraClient.getCqlSessionBuilder(hosts, KEYSPACE, "", "", DATACENTER)
+                            .build()) {
+                Assertions.assertEquals(KEYSPACE, connected.getKeyspace().get().asInternal());
+                Assertions.assertNotNull(
+                        connected.execute("SELECT * FROM source_table LIMIT 1").one());
+            }
+        }
+    }
 
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {

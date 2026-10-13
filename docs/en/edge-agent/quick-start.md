@@ -31,7 +31,7 @@ The install root contains bin/, config/, and starter/.
 
 ### Prerequisites
 
-- Java 8 or 11 on the edge host, with JAVA_HOME set.
+- Java 11 or 17 on the edge host, with JAVA_HOME set.
 - No SeaTunnel Engine and no EdgeSocket connectivity required.
 - Writable install root (default WAL data/wal.db, logs, edge-agent.id).
 
@@ -181,5 +181,4 @@ Keep edge-agent.id and the data/ directory (default wal.db plus -wal/-shm) when 
 ## Next steps
 
 Once you have completed the quick start, continue with the [Deployment Guide](deployment-guide.md) for production setup, or see the [Configuration Reference](configuration.md) for full parameters. For a complete documentation map, visit [About Edge Agent](about.md#recommended-reading-order).
-
 
