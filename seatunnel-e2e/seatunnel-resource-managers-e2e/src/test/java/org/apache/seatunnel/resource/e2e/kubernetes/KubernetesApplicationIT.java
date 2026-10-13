@@ -58,6 +58,7 @@ import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.RbacAuthorizationV1Api;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim;
@@ -65,6 +66,7 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1ResourceQuota;
 import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
+import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
@@ -287,6 +289,64 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
+        }
+    }
+
+    @Test
+    void secretAndConfigMapConfigurationReachesTheJob() throws Exception {
+        String createdSecret = "seatunnel-application-e2e-secret";
+        try (KubernetesApplicationClient application = deployApplication("configuration")) {
+            String generatedConfigMap = application.getClusterId() + "-generated";
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                assertEquals(
+                        createdSecret,
+                        environment(master, "E2E_JOB_MODE")
+                                .getValueFrom()
+                                .getSecretKeyRef()
+                                .getName());
+                assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
+                assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                for (V1Pod worker : workers(application)) {
+                    assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
+                    assertTrue(mounted(worker, "/opt/seatunnel/config/seatunnel.yaml"));
+                }
+                V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
+                assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());
+                assertTrue(secret.getData().containsKey("E2E_JOB_MODE"));
+                V1ConfigMap generated =
+                        core.readNamespacedConfigMap(generatedConfigMap, namespace, null);
+                assertFalse(generated.getMetadata().getOwnerReferences().isEmpty());
+                assertEquals(
+                        "source=kubernetes-configmap",
+                        generated.getData().get("application-e2e.properties"));
+                // Substitution is resolved from the Pod environment; the batch job only succeeds
+                // when job.mode and parallelism are resolved on the master.
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+            } finally {
+                deployer.cancelApplication(application.getClusterId());
+            }
+            awaitAllResourcesRemoved(application);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertTrue(
+                                        missing(
+                                                () ->
+                                                        core.readNamespacedSecret(
+                                                                createdSecret, namespace, null)));
+                                assertTrue(
+                                        missing(
+                                                () ->
+                                                        core.readNamespacedConfigMap(
+                                                                generatedConfigMap,
+                                                                namespace,
+                                                                null)));
+                            });
+            // The referenced ConfigMap is user-owned and must survive cancellation.
+            assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }
     }
 
@@ -861,6 +921,21 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 .map(env -> env.getValue())
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing inline specification"));
+    }
+
+    private static V1EnvVar environment(V1Pod pod, String name) {
+        return pod.getSpec().getContainers().get(0).getEnv().stream()
+                .filter(env -> name.equals(env.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing environment variable " + name));
+    }
+
+    private static boolean mounted(V1Pod pod, String path) {
+        return pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
+                .anyMatch(
+                        mount ->
+                                path.equals(mount.getMountPath())
+                                        && Boolean.TRUE.equals(mount.getReadOnly()));
     }
 
     private void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
