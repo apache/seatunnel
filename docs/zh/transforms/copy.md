@@ -11,10 +11,22 @@
 |   名称   |   类型   | 是否必须 | 默认值 |
 |--------|--------|------|-----|
 | fields | Object | yes  |     |
+| src_field | String | no  |     |
+| dest_field | String | no  |     |
 
 ### fields [config]
 
 指定输入和输出之间的字段复制关系
+
+### src_field [string]（已废弃）
+
+想要复制的源字段。这是 `fields` 的废弃单字段替代写法，新配置请使用 `fields`。
+
+使用 `src_field` 时必须同时设置 `dest_field`，且两者不能与 `fields` 同时使用。
+
+### dest_field [string]（已废弃）
+
+将 `src_field` 复制到的目标字段。当配置了 `src_field` 时必须设置。
 
 ### 常见选项 [string]
 
