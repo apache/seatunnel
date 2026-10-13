@@ -26,6 +26,11 @@ import java.util.HashMap;
 import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MAX_MS;
 import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
 
+/**
+ * Builds the HTTP request parameters for the Asana tasks endpoint: the tasks URL, the Bearer
+ * Authorization header, query params (project, page limit, fields, optional modified_since) and
+ * retry defaults. Validates that api_key and project_gid are not blank.
+ */
 public class AsanaSourceParameter extends HttpParameter {
 
     private static String requireNonBlank(String value, String optionKey) {
