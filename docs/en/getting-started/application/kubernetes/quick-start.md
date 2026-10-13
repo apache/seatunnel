@@ -134,9 +134,15 @@ kubernetes {
   namespace = "seatunnel-apps"
   image = "registry.example.com/seatunnel:application"
   service-account = "seatunnel-application"
-  configmap.runtime.ref = "seatunnel-configuration"
-  configmap.runtime.mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-  configmap.runtime.mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
+  configmap {
+    runtime {
+      ref = "seatunnel-configuration"
+      mount {
+        seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+        log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
+      }
+    }
+  }
 }
 ```
 
