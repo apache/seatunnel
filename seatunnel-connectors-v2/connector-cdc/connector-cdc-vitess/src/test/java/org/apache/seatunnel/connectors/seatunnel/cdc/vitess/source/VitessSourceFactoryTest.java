@@ -18,6 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.vitess.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -246,6 +250,192 @@ class VitessSourceFactoryTest {
 
         Assertions.assertTrue(
                 exception.getMessage().contains("does not belong to keyspace 'test'"));
+    }
+
+    /** The declarative rule must carry the schema metadata contract the source relies on. */
+    @Test
+    void testOptionRuleIsDeclared() {
+        OptionRule optionRule = factory.optionRule();
+
+        Assertions.assertNotNull(optionRule);
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.SCHEMA));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_CONFIGS));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_NAMES));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_PATTERN));
+    }
+
+    /** A root schema that lists its columns stays valid. */
+    @Test
+    void testRuleAcceptsRootSchemaWithColumns() {
+        assertRuleAccepts(ruleOptionsWithRootSchema(rootSchemaWithColumns()));
+    }
+
+    /** A root schema may point at the metadata table instead of listing its columns. */
+    @Test
+    void testRuleAcceptsRootSchemaWithMetadataTableId() {
+        assertRuleAccepts(ruleOptionsWithRootSchema(rootSchemaWithMetadataTableId()));
+    }
+
+    /** A root schema without columns or metadata_table_id must fail at submission time. */
+    @Test
+    void testRuleRejectsRootSchemaWithoutSchemaMetadata() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+
+        OptionValidationException exception = assertRuleRejects(ruleOptionsWithRootSchema(schema));
+
+        Assertions.assertTrue(exception.getMessage().contains("columns"));
+        Assertions.assertTrue(exception.getMessage().contains("metadata_table_id"));
+    }
+
+    /** tables_configs entries with a complete schema block stay valid. */
+    @Test
+    void testRuleAcceptsTableConfigsWithSchemaBlocks() {
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", multiTableConfigs("test.products", "test.customers"));
+
+        assertRuleAccepts(options);
+    }
+
+    /** An empty tables_configs must fail before the source resolves any table. */
+    @Test
+    void testRuleRejectsEmptyTableConfigs() {
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", Collections.emptyList());
+
+        OptionValidationException exception = assertRuleRejects(options);
+
+        Assertions.assertTrue(exception.getMessage().contains("tables_configs"));
+        Assertions.assertTrue(exception.getMessage().contains("is not empty"));
+    }
+
+    /** Every tables_configs entry must carry a schema block. */
+    @Test
+    void testRuleRejectsTableConfigsEntryWithoutSchemaBlock() {
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", Collections.singletonList(tableConfigWithoutSchema()));
+
+        OptionValidationException exception = assertRuleRejects(options);
+
+        Assertions.assertTrue(exception.getMessage().contains("tables_configs[0]"));
+        Assertions.assertTrue(exception.getMessage().contains("must contain a schema block"));
+    }
+
+    /** A nested schema block must declare columns or metadata_table_id as well. */
+    @Test
+    void testRuleRejectsTableConfigsEntryWithoutSchemaMetadata() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("schema", schema);
+
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", Collections.singletonList(tableConfig));
+
+        OptionValidationException exception = assertRuleRejects(options);
+
+        Assertions.assertTrue(exception.getMessage().contains("tables_configs[0].schema"));
+        Assertions.assertTrue(exception.getMessage().contains("metadata_table_id"));
+    }
+
+    /** table-names and table-pattern are alternatives, never a pair. */
+    @Test
+    void testRuleRejectsTableNamesTogetherWithTablePattern() {
+        Map<String, Object> options = ruleOptionsWithRootSchema(rootSchemaWithColumns());
+        options.put("table-names", Collections.singletonList("test.products"));
+        options.put("table-pattern", "test\\..*");
+
+        OptionValidationException exception = assertRuleRejects(options);
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("must not be used together with 'table-pattern'"));
+    }
+
+    /** Either table selector on its own keeps working. */
+    @Test
+    void testRuleAcceptsSingleTableSelector() {
+        Map<String, Object> tableNamesOnly = ruleOptionsWithRootSchema(rootSchemaWithColumns());
+        tableNamesOnly.put("table-names", Collections.singletonList("test.products"));
+        assertRuleAccepts(tableNamesOnly);
+
+        Map<String, Object> tablePatternOnly = ruleOptionsWithRootSchema(rootSchemaWithColumns());
+        tablePatternOnly.put("table-pattern", "test\\..*");
+        assertRuleAccepts(tablePatternOnly);
+    }
+
+    /** The rule and the source path must report the same contract wording. */
+    @Test
+    void testRuleAndFactoryShareSchemaMetadataMessages() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+        Map<String, Object> rootSchemaOptions = ruleOptionsWithRootSchema(schema);
+
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("schema", schema);
+        Map<String, Object> tableConfigsOptions = baseOptions(StartupMode.LATEST, null);
+        tableConfigsOptions.put("tables_configs", Collections.singletonList(tableConfig));
+
+        Assertions.assertTrue(
+                assertRuleRejects(rootSchemaOptions)
+                        .getMessage()
+                        .contains(runtimeFailureMessage(rootSchemaOptions)));
+        Assertions.assertTrue(
+                assertRuleRejects(tableConfigsOptions)
+                        .getMessage()
+                        .contains(runtimeFailureMessage(tableConfigsOptions)));
+    }
+
+    private void assertRuleAccepts(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(factory.optionRule());
+    }
+
+    private OptionValidationException assertRuleRejects(Map<String, Object> options) {
+        return Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                .validate(factory.optionRule()));
+    }
+
+    private Map<String, Object> ruleOptionsWithRootSchema(Map<String, Object> schema) {
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("schema", schema);
+        return options;
+    }
+
+    private Map<String, Object> rootSchemaWithColumns() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+        schema.put("columns", Collections.singletonList(column("id", "int")));
+        return schema;
+    }
+
+    private Map<String, Object> rootSchemaWithMetadataTableId() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+        schema.put("metadata_table_id", "test.products");
+        return schema;
+    }
+
+    private Map<String, Object> tableConfigWithoutSchema() {
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("table", "test.products");
+        return tableConfig;
+    }
+
+    private String runtimeFailureMessage(Map<String, Object> options) {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> factory.createSource(context).createSource());
+        return exception.getMessage();
     }
 
     private VitessSource createVitessSource(TableSource<?, VitessSourceSplit, ?> tableSource) {
