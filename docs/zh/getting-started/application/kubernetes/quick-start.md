@@ -5,24 +5,18 @@ title: 快速开始
 
 # Kubernetes 快速开始
 
-## 1. 准备发行包和镜像
+Application Mode 为每个作业运行一套独立的 Zeta 集群。提交端创建挂起的 Kubernetes Job 及其依赖，
+启动后立即返回；Master Pod 启动固定数量的 Worker，只运行一个作业，结束后释放 Worker 并退出。
 
-### 使用官方发行包
+## 1. 准备镜像
 
-从 [SeaTunnel 下载页](https://seatunnel.apache.org/download/)下载包含 Application Mode 的二进制发行包。正式版本不需要重新执行 Maven 构建。
-
-### 从源码构建
-
-需要验证尚未发布的功能或修改代码时，在仓库根目录执行：
+使用包含 Application Mode 的发行版，或从源码构建：
 
 ```bash
-./mvnw -Prelease,seatunnel \
-  -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
+./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-### 创建镜像
-
-使用下载或源码构建得到的标准发行包创建镜像：
+用标准发行版构建应用镜像：
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -32,12 +26,8 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
-```bash
-docker build -t registry.example.com/seatunnel:application .
-docker push registry.example.com/seatunnel:application
-```
-
-镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/` 和 `resource-managers/kubernetes/`。作业需要的 Connector、Format 和驱动必须提前放入镜像。
+镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及作业
+所需的全部 Connector、Format 和驱动 jar。
 
 ## 2. 创建 Namespace 和 RBAC
 
@@ -85,9 +75,19 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-提交用户还需要在该 Namespace 中管理 Job、Secret、Service 和 Pod 的权限。Application Secret 包含解析后的作业配置，因此 Secret 的 `get` 和 `list` 权限应只授予提交身份。
+上面的 ServiceAccount 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用。**提交身份**
+另行需要：
 
-使用发行包配置创建运行时 ConfigMap。Master 和 Worker Pod 都会把它挂载到 `/opt/seatunnel/config`：
+- 必需：Job 的 create/get/delete、Service 的 create/delete、ConfigMap 的 get（提交前校验引用）；
+- 仅使用 `kubernetes.secret` 时：Secret 的 create/delete；
+- 仅使用 `kubernetes.secret-ref` 时：Secret 的 get（无权限时校验降级为告警）。
+
+本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
+
+## 3. 创建运行时 ConfigMap
+
+Master 和 Worker Pod 需要发行版里的 `seatunnel.yaml` 与 `log4j2_client.properties`。创建一个
+ConfigMap，按键逐文件挂载：
 
 ```bash
 kubectl -n seatunnel-apps create configmap seatunnel-configuration \
@@ -95,13 +95,9 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
   --from-file=log4j2_client.properties=config/log4j2_client.properties
 ```
 
-## 3. 创建作业和部署配置
+挂载使用 `subPath`，只替换声明的文件，镜像里配置目录的其他文件不受影响。
 
-修改 Kubernetes 部署参数前，先复制发行包中的模板：
-
-```bash
-cp config/v1.kubernetes.conf.template kubernetes.conf
-```
+## 4. 准备作业与部署配置
 
 `job.conf`：
 
@@ -117,7 +113,11 @@ source {
 sink { Console {} }
 ```
 
-`kubernetes.conf`：
+从 `config/v1.kubernetes.conf.template` 复制并修改平台选项：
+
+```bash
+cp config/v1.kubernetes.conf.template kubernetes.conf
+```
 
 ```hocon
 application {
@@ -131,26 +131,43 @@ kubernetes {
   service-account = "seatunnel-application"
   configmap.runtime.ref = "seatunnel-configuration"
   configmap.runtime.mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+  configmap.runtime.mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
 }
 ```
 
-## 4. 提交并等待结果
+每个挂载的 key 必须写完整容器路径，两个条目不能挂到同一路径。需要传凭据时用平台管理的 Secret
+并在作业文件里引用：
 
-```bash
-bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --application-config kubernetes.conf --wait
+```hocon
+kubernetes {
+  # 引用平台已有 Secret，或让 SeaTunnel 创建：
+  secret-ref = "platform-job-secrets"
+  # secret { name = "example-job-secrets", data { MYSQL_PASSWORD = ${MYSQL_PASSWORD} } }
+  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+}
 ```
 
-命令打印 Kubernetes application ID（生成的 Job 名称）和原生 Zeta job ID。去掉 `--wait` 可 detached 提交，关闭客户端不会取消远端 Job。
+然后在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
 
-## 5. 查询或取消
+## 5. 提交与查看
 
 ```bash
-bin/seatunnel-application.sh status --target kubernetes \
-  --id example-01234567-abc --application-config kubernetes.conf
+bin/seatunnel-application.sh submit --target kubernetes -c job.conf -a kubernetes.conf
+bin/seatunnel-application.sh status --target kubernetes --id APPLICATION_ID -a kubernetes.conf --wait
+bin/seatunnel-application.sh cancel --target kubernetes --id APPLICATION_ID -a kubernetes.conf
 
-bin/seatunnel-application.sh cancel --target kubernetes \
-  --id example-01234567-abc --application-config kubernetes.conf
+kubectl -n seatunnel-apps get jobs,pods,services
+kubectl -n seatunnel-apps describe job APPLICATION_ID
+kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
-继续阅读[配置参考](configuration.md)、[Checkpoint 恢复](checkpoint-recovery.md)和 [FAQ](faq.md)。
+`submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢或调度慢不会让提交失败；需要终态时用
+`status --wait`（或 `submit --wait`）。
+
+## 6. 排障与清理
+
+- Master Pod 一直 Pending：检查镜像拉取、准入策略、ResourceQuota 和节点容量，`kubectl describe pod`；
+- Worker 未注册：检查 Service 解析、ServiceAccount 的 Pod 权限、NetworkPolicy；
+- Pod 内缺文件：引用的 ConfigMap/Secret、key 和 `mount` 全路径都要一致，提交端会先校验引用的 key；
+- `cancel` 会删除 Job 及其拥有的全部资源；引用的 Secret/ConfigMap 不会被修改。完成的 Job 保留到
+  `kubernetes.finished-job-retention-seconds` 到期。

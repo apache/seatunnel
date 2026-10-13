@@ -5,24 +5,19 @@ title: Quick Start
 
 # Kubernetes quick start
 
-## 1. Prepare the distribution and image
+Application Mode runs one isolated Zeta cluster per job. The submitter creates a suspended
+Kubernetes Job plus its dependencies, starts it and returns immediately; the master Pod starts the
+fixed workers, runs exactly one job, releases the workers and exits.
 
-### Use a released distribution
+## 1. Prepare the image
 
-Download a binary distribution that includes Application Mode from the [SeaTunnel download page](https://seatunnel.apache.org/download/). A released distribution does not require a Maven build.
-
-### Build from source
-
-To test unreleased functionality or local code changes, run from the repository root:
+Use a released distribution that includes Application Mode, or build one from source:
 
 ```bash
-./mvnw -Prelease,seatunnel \
-  -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
+./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-### Build the image
-
-Build an image from the downloaded or locally built standard distribution:
+Build the application image from the standard distribution:
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -32,12 +27,8 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
-```bash
-docker build -t registry.example.com/seatunnel:application .
-docker push registry.example.com/seatunnel:application
-```
-
-The image must contain `starter/`, `config/`, `lib/`, `connectors/`, and `resource-managers/kubernetes/`. Include every connector, format, and driver required by the job.
+The image must contain `starter/`, `config/`, `lib/`, `connectors/` and
+`resource-managers/kubernetes/`, plus every connector, format and driver used by the job.
 
 ## 2. Create namespace and RBAC
 
@@ -85,9 +76,22 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-The submitting user also needs permission to manage Jobs, Secrets, Services, and Pods in this namespace. Restrict Secret `get` and `list` permissions to the submitting identity because the application Secret contains the resolved job configuration.
+The ServiceAccount above is used by the **master Pod** to create, observe and delete worker Pods
+and to read the owner Job. The **submitting identity** separately needs:
 
-Create the runtime ConfigMap from the distribution configuration. Both master and worker Pods mount it at `/opt/seatunnel/config`:
+- required: create/get/delete Jobs, create/delete Services, and get ConfigMaps (references are
+  validated before submission);
+- only with `kubernetes.secret`: create/delete Secrets;
+- only with `kubernetes.secret-ref`: get Secrets (validation is skipped with a warning when the
+  identity cannot read them).
+
+The localized specification travels in the master Pod environment; no application Secret is
+created by default.
+
+## 3. Create the runtime ConfigMap
+
+The master and worker Pods need `seatunnel.yaml` and `log4j2_client.properties` from the
+distribution. Create one ConfigMap and mount the keys per file:
 
 ```bash
 kubectl -n seatunnel-apps create configmap seatunnel-configuration \
@@ -95,13 +99,10 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
   --from-file=log4j2_client.properties=config/log4j2_client.properties
 ```
 
-## 3. Create job and deployment configuration
+Mounts use `subPath`, so only the declared files are replaced and the rest of the image
+configuration directory stays untouched.
 
-Copy the distribution template before editing the Kubernetes deployment settings:
-
-```bash
-cp config/v1.kubernetes.conf.template kubernetes.conf
-```
+## 4. Create job and deployment configuration
 
 `job.conf`:
 
@@ -117,7 +118,11 @@ source {
 sink { Console {} }
 ```
 
-`kubernetes.conf`:
+Start from `config/v1.kubernetes.conf.template` and set the platform options:
+
+```bash
+cp config/v1.kubernetes.conf.template kubernetes.conf
+```
 
 ```hocon
 application {
@@ -131,26 +136,46 @@ kubernetes {
   service-account = "seatunnel-application"
   configmap.runtime.ref = "seatunnel-configuration"
   configmap.runtime.mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+  configmap.runtime.mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
 }
 ```
 
-## 4. Submit and wait
+Every mounted key needs its full container path; two entries cannot share one path. To pass
+credentials, inject platform-managed values and reference them from the job file:
 
-```bash
-bin/seatunnel-application.sh submit --target kubernetes \
-  --config job.conf --application-config kubernetes.conf --wait
+```hocon
+kubernetes {
+  # Reference a Secret managed by your platform, or let SeaTunnel create one:
+  secret-ref = "platform-job-secrets"
+  # secret { name = "example-job-secrets", data { MYSQL_PASSWORD = ${MYSQL_PASSWORD} } }
+  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+}
 ```
 
-The command prints the Kubernetes application ID, which is the generated Job name, and the native Zeta job ID. Remove `--wait` for detached submission. Closing the client does not cancel the remote Job.
+Then use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod, never on the
+submitting host.
 
-## 5. Inspect or cancel
+## 5. Submit and inspect
 
 ```bash
-bin/seatunnel-application.sh status --target kubernetes \
-  --id example-01234567-abc --application-config kubernetes.conf
+bin/seatunnel-application.sh submit --target kubernetes -c job.conf -a kubernetes.conf
+bin/seatunnel-application.sh status --target kubernetes --id APPLICATION_ID -a kubernetes.conf --wait
+bin/seatunnel-application.sh cancel --target kubernetes --id APPLICATION_ID -a kubernetes.conf
 
-bin/seatunnel-application.sh cancel --target kubernetes \
-  --id example-01234567-abc --application-config kubernetes.conf
+kubectl -n seatunnel-apps get jobs,pods,services
+kubectl -n seatunnel-apps describe job APPLICATION_ID
+kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
-Continue with [Configuration](configuration.md), [Checkpoint recovery](checkpoint-recovery.md), and [FAQ](faq.md).
+`submit` returns as soon as the API accepted the started Job, so slow image pulls or scheduling
+never fail the command. Use `status --wait` (or `submit --wait`) when you need the terminal result.
+
+## 6. Troubleshoot and clean up
+
+- Master Pod pending: image pull, admission, ResourceQuota or node capacity; check
+  `kubectl describe pod`.
+- Workers never register: Service resolution, ServiceAccount Pod permissions, network policy.
+- Missing file in the Pod: the reference, the key and the full `mount` path must all match; the
+  submitter validates referenced keys before creating resources.
+- `cancel` deletes the Job and every resource it owns; referenced Secrets and ConfigMaps are never
+  modified. Finished Jobs are retained until `kubernetes.finished-job-retention-seconds` expires.
