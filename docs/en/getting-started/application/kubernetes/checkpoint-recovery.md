@@ -86,7 +86,7 @@ After the original application has stopped and a completed checkpoint exists:
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes \
   --config job.conf --application-config kubernetes.conf \
-  --restore-job-id PREVIOUS_JOB_ID --wait
+  --restore-job-id PREVIOUS_JOB_ID
 ```
 
 :::caution
