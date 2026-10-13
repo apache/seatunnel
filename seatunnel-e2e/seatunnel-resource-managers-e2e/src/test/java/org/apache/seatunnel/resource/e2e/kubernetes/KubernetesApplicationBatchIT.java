@@ -40,7 +40,6 @@ import java.util.Base64;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.getResourcesFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -104,7 +103,7 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
             try {
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
-                String masterLogs = podLogs(masterPod(application).getMetadata().getName());
+                String masterLogs = retainedPodLogs(masterPod(application).getMetadata().getName());
                 assertTrue(
                         masterLogs.contains("NonexistentSink"),
                         () ->
@@ -136,7 +135,7 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                                 "--id",
                                 applicationId,
                                 "-a",
-                                getResourcesFile("/kubernetes/batch/application.config").getPath())
+                                scenarioFile("batch", "application.config").getPath())
                         .redirectErrorStream(true)
                         .redirectOutput(output.toFile())
                         .start();

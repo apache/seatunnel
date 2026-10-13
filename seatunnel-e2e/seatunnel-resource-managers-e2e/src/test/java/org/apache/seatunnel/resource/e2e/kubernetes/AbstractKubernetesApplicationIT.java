@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
 import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.junit.TimingExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDeployer;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
@@ -35,6 +36,7 @@ import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
@@ -52,7 +54,11 @@ import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.RbacAuthorizationV1Api;
+import io.kubernetes.client.openapi.models.CoreV1Event;
+import io.kubernetes.client.openapi.models.CoreV1EventList;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -62,6 +68,8 @@ import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -79,6 +87,7 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.getResourcesFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -92,13 +101,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the helpers here cover the polling, inspection and assertion work they share.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(TimingExtension.class)
 public abstract class AbstractKubernetesApplicationIT implements TestResource {
     private static final String K3S_IMAGE = "rancher/k3s:v1.31.6-k3s1";
     private static final String CONTAINER_NAME = "seatunnel";
     protected static final String CONTAINERD_SOCKET = "/run/k3s/containerd/containerd.sock";
-    private static final long STATUS_TIMEOUT_SECONDS = 300;
+    protected static final long STATUS_TIMEOUT_SECONDS = 300;
     private static final long WORKERS_TIMEOUT_SECONDS = 240;
-    private static final long CLEANUP_TIMEOUT_SECONDS = 60;
+    protected static final long CLEANUP_TIMEOUT_SECONDS = 60;
     protected static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     protected static final String ROLE_LABEL = "seatunnel.apache.org/role";
     protected static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
@@ -111,7 +121,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     protected static BatchV1Api batch;
     protected static ApiClient apiClient;
     protected static ClusterDescriptor<String> deployer;
-    protected static K3sContainer k3s;
+    private static K3sContainer k3s;
     private static Path kubeconfig;
     private static KubernetesClient platformMonitor;
     private static boolean namespaceCreated;
@@ -143,7 +153,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             deployer.cancelApplication(application.getClusterId());
             awaitAllResourcesRemoved(application);
         } catch (Exception | Error failure) {
-            recordPodDiagnostics(application);
+            recordApplicationDiagnostics(application);
             throw failure;
         }
     }
@@ -158,6 +168,21 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Scenario classes override to release what {@link #startScenarioFixtures()} created. */
     protected void stopScenarioFixtures() throws Exception {}
 
+    /** Returns one of the suite-level Kubernetes resources of {@code test/resources/kubernetes}. */
+    protected static File suiteFile(String name) {
+        return getResourcesFile("/kubernetes/" + name);
+    }
+
+    /** Returns one of the files a scenario keeps under {@code test/resources/kubernetes/<name>}. */
+    protected static File scenarioFile(String scenario, String name) {
+        return getResourcesFile("/kubernetes/" + scenario + "/" + name);
+    }
+
+    /** Runs one command inside the disposable cluster for scenario-level fault injection. */
+    protected static Container.ExecResult execInCluster(String... command) throws Exception {
+        return k3s.execInContainer(command);
+    }
+
     protected static KubernetesApplicationClient deployApplication(String scenario)
             throws Exception {
         return deployApplication(specification(scenario), scenario);
@@ -167,8 +192,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             ApplicationSpecification specification, String scenario) throws Exception {
         Map<String, String> options =
                 SeatunnelApplicationConfig.load(
-                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
-                                .toPath(),
+                        scenarioFile(scenario, "application.config").toPath(),
                         Collections.emptyMap());
         ApplicationClusterDeployer applicationDeployer =
                 new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
@@ -177,31 +201,46 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
 
     protected static void awaitStatus(
             KubernetesApplicationClient application, ApplicationStatus expected) {
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                                .pollInterval(2, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () ->
+                                                assertEquals(
+                                                        expected,
+                                                        deployer.getApplicationStatus(
+                                                                application.getClusterId()))));
+    }
+
+    /** Runs a polling assertion and captures the application Pods when it fails. */
+    protected static void withPodDiagnostics(
+            KubernetesApplicationClient application, Runnable assertion) {
         try {
-            Awaitility.await()
-                    .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    assertEquals(
-                                            expected,
-                                            deployer.getApplicationStatus(
-                                                    application.getClusterId())));
-        } catch (RuntimeException e) {
-            recordPodDiagnostics(application);
-            throw e;
+            assertion.run();
+        } catch (RuntimeException | Error failure) {
+            recordApplicationDiagnostics(application);
+            throw failure;
         }
     }
 
-    protected static void recordPodDiagnostics(KubernetesApplicationClient application) {
+    /**
+     * Captures everything needed to explain a failure: the application status, the Job status and
+     * conditions, the Job events and the retained Pod logs. The Pods may already be gone when a
+     * startup failure is detected, so the Job state and events are the durable evidence.
+     */
+    protected static void recordApplicationDiagnostics(KubernetesApplicationClient application) {
+        String applicationId = application.getClusterId();
         try {
-            Path reports =
-                    Paths.get(
-                            PROJECT_ROOT_PATH,
-                            "seatunnel-e2e",
-                            "seatunnel-resource-managers-e2e",
-                            "target",
-                            "failsafe-reports");
+            LOG.error("Application {} status: {}", applicationId, application.getStatus());
+        } catch (Exception failure) {
+            LOG.warn("Cannot read the status of application {}", applicationId, failure);
+        }
+        recordJobDiagnostics(applicationId);
+        try {
+            Path reports = diagnosticsDirectory();
             Files.createDirectories(reports);
             for (V1Pod pod : pods(application, null)) {
                 String name = pod.getMetadata().getName();
@@ -232,49 +271,114 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         }
     }
 
+    private static void recordJobDiagnostics(String applicationId) {
+        try {
+            V1Job job = batch.readNamespacedJob(applicationId, namespace, null);
+            LOG.error("Application Job {} status: {}", applicationId, job.getStatus());
+            if (job.getStatus() != null && job.getStatus().getConditions() != null) {
+                for (V1JobCondition condition : job.getStatus().getConditions()) {
+                    LOG.error(
+                            "Application Job {} condition: type={}, status={}, reason={}, message={}",
+                            applicationId,
+                            condition.getType(),
+                            condition.getStatus(),
+                            condition.getReason(),
+                            condition.getMessage());
+                }
+            }
+        } catch (Exception failure) {
+            LOG.warn("Cannot read the Job of application {}", applicationId, failure);
+        }
+        try {
+            CoreV1EventList events =
+                    core.listNamespacedEvent(
+                            namespace,
+                            null,
+                            null,
+                            null,
+                            "involvedObject.name=" + applicationId,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null);
+            for (CoreV1Event event : events.getItems()) {
+                LOG.error(
+                        "Application event: type={}, reason={}, count={}, message={}",
+                        event.getType(),
+                        event.getReason(),
+                        event.getCount(),
+                        event.getMessage());
+            }
+        } catch (Exception failure) {
+            LOG.warn("Cannot read the events of application {}", applicationId, failure);
+        }
+    }
+
     protected static void awaitWorkersRunning(
             KubernetesApplicationClient application, int expected) {
-        try {
-            Awaitility.await()
-                    .atMost(WORKERS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                List<V1Pod> workers = workers(application);
-                                assertEquals(expected, workers.size());
-                                assertTrue(
-                                        workers.stream()
-                                                .allMatch(
-                                                        pod ->
-                                                                pod.getStatus() != null
-                                                                        && "Running"
-                                                                                .equals(
-                                                                                        pod.getStatus()
-                                                                                                .getPhase())));
-                            });
-        } catch (RuntimeException failure) {
-            recordPodDiagnostics(application);
-            throw failure;
-        }
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(WORKERS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                                .pollInterval(2, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () -> {
+                                            ApplicationStatus status = application.getStatus();
+                                            assertFalse(
+                                                    status.isTerminal(),
+                                                    () ->
+                                                            "Application is "
+                                                                    + status
+                                                                    + " while waiting for "
+                                                                    + expected
+                                                                    + " workers");
+                                            assertEquals(
+                                                    1,
+                                                    pods(application, "master").size(),
+                                                    "The master Pod must stay alive while its workers start");
+                                            List<V1Pod> workers = workers(application);
+                                            assertEquals(expected, workers.size());
+                                            assertTrue(
+                                                    workers.stream()
+                                                            .allMatch(
+                                                                    pod ->
+                                                                            pod.getStatus() != null
+                                                                                    && "Running"
+                                                                                            .equals(
+                                                                                                    pod.getStatus()
+                                                                                                            .getPhase())));
+                                        }));
     }
 
     protected static void awaitWorkersRemoved(KubernetesApplicationClient application) {
-        try {
-            Awaitility.await()
-                    .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
-        } catch (RuntimeException failure) {
-            recordPodDiagnostics(application);
-            throw failure;
-        }
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                                .untilAsserted(() -> assertTrue(workers(application).isEmpty())));
     }
 
-    protected static boolean mounted(V1Pod pod, String path) {
+    /** Checks that {@code path} is mounted into the Pod's container as a read-only file. */
+    protected static boolean mountedReadOnly(V1Pod pod, String path) {
         return pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
                 .anyMatch(
                         mount ->
                                 path.equals(mount.getMountPath())
                                         && Boolean.TRUE.equals(mount.getReadOnly()));
+    }
+
+    /** Failure diagnostics land next to the Maven integration-test reports. */
+    private static Path diagnosticsDirectory() {
+        String baseDir =
+                System.getProperty(
+                        "basedir",
+                        PROJECT_ROOT_PATH + "/seatunnel-e2e/seatunnel-resource-managers-e2e");
+        return Paths.get(baseDir, "target", "failsafe-reports");
     }
 
     private static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
@@ -353,25 +457,27 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Reads the two complete scenario files directly, without option overrides or templates. */
     protected static ApplicationSpecification specification(String scenario) {
         return SeatunnelApplicationConfig.parse(
-                getResourcesFile("/kubernetes/" + scenario + "/job.conf").toPath(),
+                scenarioFile(scenario, "job.conf").toPath(),
                 SeatunnelApplicationConfig.load(
-                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
-                                .toPath(),
+                        scenarioFile(scenario, "application.config").toPath(),
                         Collections.emptyMap()));
     }
 
-    protected static String podLogs(KubernetesApplicationClient application, String name)
+    /**
+     * Reads the logs of a Pod of a running application; fails when the application already ended.
+     */
+    protected static String livePodLogs(KubernetesApplicationClient application, String name)
             throws Exception {
         ApplicationStatus status = application.getStatus();
         if (status.isTerminal() || status == ApplicationStatus.UNKNOWN) {
             throw new IllegalStateException(
                     "Application stopped while waiting for Pod " + name + " logs: " + status);
         }
-        return podLogs(name);
+        return retainedPodLogs(name);
     }
 
     /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
-    protected static String podLogs(String name) throws Exception {
+    protected static String retainedPodLogs(String name) throws Exception {
         try {
             return core.readNamespacedPodLog(
                     name,
@@ -409,58 +515,25 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         }
     }
 
-    /** Builds the application image and starts the disposable cluster on first use. */
+    /** Brings up the disposable cluster once per JVM and registers its cleanup. */
     private static synchronized void startCluster() throws Exception {
         if (started) {
             return;
         }
         started = true;
         try {
-            Path applicationConfig =
-                    getResourcesFile("/kubernetes/batch/application.config").toPath();
             Map<String, String> options =
-                    SeatunnelApplicationConfig.load(applicationConfig, Collections.emptyMap());
+                    SeatunnelApplicationConfig.load(
+                            suiteFile("suite.config").toPath(), Collections.emptyMap());
             namespace = options.get(KubernetesOptions.NAMESPACE.key());
             kubeconfig = Paths.get(options.get(KubernetesOptions.KUBE_CONFIG.key()));
             String image = options.get(KubernetesOptions.IMAGE.key());
             buildApplicationImage(image);
-            k3s =
-                    new K3sContainer(DockerImageName.parse(K3S_IMAGE))
-                            .withStartupTimeout(Duration.ofMinutes(3))
-                            .withLogConsumer(
-                                    new Slf4jLogConsumer(DockerLoggerFactory.getLogger(K3S_IMAGE)));
-            k3s.start();
-            Files.createDirectories(kubeconfig.getParent());
-            Files.write(kubeconfig, k3s.getKubeConfigYaml().getBytes(StandardCharsets.UTF_8));
+            startK3s();
             importImage(image);
-            // The isolation case runs two masters and two workers: four CPUs and 3 GiB in total.
-            // Keep this within the standard public GitHub Actions runner's four CPUs. Remove
-            // only CPU reservations from system deployments in this disposable cluster; actual CPU
-            // use remains shared, memory reservations and application quotas are unchanged.
-            Container.ExecResult systemCpuRequests =
-                    k3s.execInContainer(
-                            "kubectl",
-                            "set",
-                            "resources",
-                            "deployment",
-                            "--all",
-                            "--namespace=kube-system",
-                            "--requests=cpu=0");
-            assertEquals(0, systemCpuRequests.getExitCode(), systemCpuRequests.getStderr());
-            assertTrue(systemCpuRequests.getStdout().contains("coredns"));
-            apiClient = Config.fromConfig(kubeconfig.toString());
-            apiClient.setReadTimeout(30000);
-            core = new CoreV1Api(apiClient);
-            batch = new BatchV1Api(apiClient);
-            // Unavailable clusters are failures rather than silently skipped integration coverage.
-            core.listNamespace(null, null, null, null, null, null, null, null, null, 10, null);
-            core.createNamespace(
-                    new V1Namespace().metadata(new V1ObjectMeta().name(namespace)),
-                    null,
-                    null,
-                    null,
-                    null);
-            namespaceCreated = true;
+            releaseSystemCpuRequests();
+            connectKubernetes();
+            createNamespace();
             createSharedFixtures();
             deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
             platformMonitor = KubernetesClientFactory.create(options, false);
@@ -473,6 +546,56 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                         new Thread(
                                 AbstractKubernetesApplicationIT::stopCluster,
                                 "kubernetes-application-e2e-cleanup"));
+    }
+
+    /** Starts the K3s container and writes the kubeconfig the submitting client uses. */
+    private static void startK3s() throws Exception {
+        k3s =
+                new K3sContainer(DockerImageName.parse(K3S_IMAGE))
+                        .withStartupTimeout(Duration.ofMinutes(3))
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(K3S_IMAGE)));
+        k3s.start();
+        Files.createDirectories(kubeconfig.getParent());
+        Files.write(kubeconfig, k3s.getKubeConfigYaml().getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Frees CPU reservations of the cluster's system deployments. The isolation case runs two
+     * masters and two workers (four CPUs and 3 GiB in total), which has to fit the standard public
+     * GitHub Actions runner; actual CPU use stays shared and memory reservations are unchanged.
+     */
+    private static void releaseSystemCpuRequests() throws Exception {
+        Container.ExecResult systemCpuRequests =
+                k3s.execInContainer(
+                        "kubectl",
+                        "set",
+                        "resources",
+                        "deployment",
+                        "--all",
+                        "--namespace=kube-system",
+                        "--requests=cpu=0");
+        assertEquals(0, systemCpuRequests.getExitCode(), systemCpuRequests.getStderr());
+        assertTrue(systemCpuRequests.getStdout().contains("coredns"));
+    }
+
+    /** Builds the Kubernetes clients and fails when the freshly started cluster is unreachable. */
+    private static void connectKubernetes() throws Exception {
+        apiClient = Config.fromConfig(kubeconfig.toString());
+        apiClient.setReadTimeout(30000);
+        core = new CoreV1Api(apiClient);
+        batch = new BatchV1Api(apiClient);
+        core.listNamespace(null, null, null, null, null, null, null, null, null, 10, null);
+    }
+
+    private static void createNamespace() throws Exception {
+        core.createNamespace(
+                new V1Namespace().metadata(new V1ObjectMeta().name(namespace)),
+                null,
+                null,
+                null,
+                null);
+        namespaceCreated = true;
     }
 
     /** Removes the disposable cluster; also invoked by the JVM shutdown hook after the suite. */
@@ -528,9 +651,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     private static void createSharedFixtures() throws Exception {
         core.createNamespacedServiceAccount(
                 namespace,
-                Yaml.loadAs(
-                        getResourcesFile("/kubernetes/service-account.yaml"),
-                        V1ServiceAccount.class),
+                Yaml.loadAs(suiteFile("service-account.yaml"), V1ServiceAccount.class),
                 null,
                 null,
                 null,
@@ -539,14 +660,10 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         runtimeConfiguration.put(
                 "seatunnel.yaml",
                 new String(
-                        Files.readAllBytes(getResourcesFile("/kubernetes/seatunnel.yaml").toPath()),
+                        Files.readAllBytes(suiteFile("seatunnel.yaml").toPath()),
                         StandardCharsets.UTF_8));
         runtimeConfiguration.put(
-                "log4j2_client.properties",
-                new String(
-                        Files.readAllBytes(
-                                Paths.get(PROJECT_ROOT_PATH, "config", "log4j2_client.properties")),
-                        StandardCharsets.UTF_8));
+                "log4j2_client.properties", distributionConfig("log4j2_client.properties"));
         // No hardcoded runtime files: take them from the distribution configuration.
         for (String name :
                 Arrays.asList(
@@ -555,11 +672,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                         "jvm_options",
                         "jvm_master_options",
                         "jvm_worker_options")) {
-            runtimeConfiguration.put(
-                    name,
-                    new String(
-                            Files.readAllBytes(Paths.get(PROJECT_ROOT_PATH, "config", name)),
-                            StandardCharsets.UTF_8));
+            runtimeConfiguration.put(name, distributionConfig(name));
         }
         core.createNamespacedConfigMap(
                 namespace,
@@ -573,14 +686,40 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
         rbac.createNamespacedRole(
                 namespace,
-                Yaml.loadAs(getResourcesFile("/kubernetes/role.yaml"), V1Role.class),
+                Yaml.loadAs(suiteFile("role.yaml"), V1Role.class),
                 null,
                 null,
                 null,
                 null);
         V1RoleBinding roleBinding =
-                Yaml.loadAs(getResourcesFile("/kubernetes/role-binding.yaml"), V1RoleBinding.class);
+                Yaml.loadAs(suiteFile("role-binding.yaml"), V1RoleBinding.class);
         rbac.createNamespacedRoleBinding(namespace, roleBinding, null, null, null, null);
+    }
+
+    /**
+     * Adds or replaces one entry of the shared runtime ConfigMap. Scenario classes that need extra
+     * runtime configuration change it through this method and {@link #removeRuntimeConfigMapEntry}.
+     */
+    protected static void putRuntimeConfigMapEntry(String key, String value) throws Exception {
+        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
+        runtime.getData().put(key, value);
+        core.replaceNamespacedConfigMap(
+                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+    }
+
+    /** Removes one entry that {@link #putRuntimeConfigMapEntry} added. */
+    protected static void removeRuntimeConfigMapEntry(String key) throws Exception {
+        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
+        runtime.getData().remove(key);
+        core.replaceNamespacedConfigMap(
+                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+    }
+
+    /** Reads one file of the distribution {@code config/} directory. */
+    private static String distributionConfig(String name) throws IOException {
+        return new String(
+                Files.readAllBytes(Paths.get(PROJECT_ROOT_PATH, "config", name)),
+                StandardCharsets.UTF_8);
     }
 
     private static void importImage(String image) throws Exception {
@@ -641,9 +780,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
-            Files.copy(
-                    getResourcesFile("/kubernetes/Dockerfile").toPath(),
-                    context.resolve("Dockerfile"));
+            Files.copy(suiteFile("Dockerfile").toPath(), context.resolve("Dockerfile"));
             docker().buildImageCmd(context.toFile())
                     .withTags(Collections.singleton(image))
                     .start()

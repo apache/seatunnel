@@ -56,19 +56,13 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 null,
                 null);
         // Valid environment-variable name proving envFrom values resolve job placeholders.
-        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
-        runtime.getData().put("E2E_CM_ENV", "configmap-env");
-        core.replaceNamespacedConfigMap(
-                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+        putRuntimeConfigMapEntry("E2E_CM_ENV", "configmap-env");
     }
 
     /** Restores the shared runtime ConfigMap and removes the class-scoped reference Secret. */
     @Override
     protected void stopScenarioFixtures() throws Exception {
-        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
-        runtime.getData().remove("E2E_CM_ENV");
-        core.replaceNamespacedConfigMap(
-                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+        removeRuntimeConfigMapEntry("E2E_CM_ENV");
         core.deleteNamespacedSecret(
                 REFERENCE_SECRET, namespace, null, null, null, null, null, null);
     }
@@ -120,14 +114,16 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                 .getName());
                 assertEquals("literal-value", environment(master, "E2E_LITERAL").getValue());
                 assertTrue(envFromConfigMap(master, RUNTIME_CONFIG_MAP));
-                assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
                 assertTrue(
-                        mounted(
+                        mountedReadOnly(
+                                master, "/opt/seatunnel/config/application-e2e.properties"));
+                assertTrue(
+                        mountedReadOnly(
                                 master,
                                 "/opt/seatunnel/config/application-e2e-default.properties"));
-                assertTrue(mounted(master, "/opt/seatunnel/custom/seatunnel.yaml"));
-                assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
-                assertTrue(mounted(master, "/opt/seatunnel/config/jvm_options"));
+                assertTrue(mountedReadOnly(master, "/opt/seatunnel/custom/seatunnel.yaml"));
+                assertTrue(mountedReadOnly(master, "/var/run/seatunnel/secrets"));
+                assertTrue(mountedReadOnly(master, "/opt/seatunnel/config/jvm_options"));
                 V1Service service =
                         core.readNamespacedService(application.getClusterId(), namespace, null);
                 assertEquals("None", service.getSpec().getClusterIP());
@@ -169,13 +165,15 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                 .getCommand()
                                 .contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
                 for (V1Pod worker : workers(application)) {
-                    assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
                     assertTrue(
-                            mounted(
+                            mountedReadOnly(
+                                    worker, "/opt/seatunnel/config/application-e2e.properties"));
+                    assertTrue(
+                            mountedReadOnly(
                                     worker,
                                     "/opt/seatunnel/config/application-e2e-default.properties"));
-                    assertTrue(mounted(worker, "/opt/seatunnel/custom/seatunnel.yaml"));
-                    assertTrue(mounted(worker, "/var/run/seatunnel/secrets"));
+                    assertTrue(mountedReadOnly(worker, "/opt/seatunnel/custom/seatunnel.yaml"));
+                    assertTrue(mountedReadOnly(worker, "/var/run/seatunnel/secrets"));
                     assertEquals(
                             createdSecret,
                             environment(worker, "E2E_JOB_MODE")
@@ -218,7 +216,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 cancelAndAwait(application);
             }
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 assertTrue(
@@ -254,7 +252,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
             try {
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
-                assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
+                assertTrue(mountedReadOnly(master, "/etc/seatunnel-secrets/application"));
                 V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
                 assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());
                 assertTrue(secret.getData().containsKey("job.conf"));
@@ -265,7 +263,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 cancelAndAwait(application);
             }
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     assertTrue(
@@ -286,7 +284,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
             try {
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
-                assertTrue(mounted(master, "/opt/seatunnel/config/job.conf"));
+                assertTrue(mountedReadOnly(master, "/opt/seatunnel/config/job.conf"));
                 V1ConfigMap configMap =
                         core.readNamespacedConfigMap(createdConfigMap, namespace, null);
                 assertFalse(configMap.getMetadata().getOwnerReferences().isEmpty());
@@ -298,7 +296,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 cancelAndAwait(application);
             }
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     assertTrue(
@@ -324,8 +322,8 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                 .getSecretKeyRef()
                                 .getName());
                 assertTrue(envFromSecret(master, REFERENCE_SECRET));
-                assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
-                assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                assertTrue(mountedReadOnly(master, "/etc/seatunnel-secrets/application"));
+                assertTrue(mountedReadOnly(master, "/opt/seatunnel/config/seatunnel.yaml"));
                 // Workers are created by the master in-cluster and reuse the same pod
                 // decorator chain, so the envFrom reference must reach them too.
                 for (V1Pod worker : workers(application)) {

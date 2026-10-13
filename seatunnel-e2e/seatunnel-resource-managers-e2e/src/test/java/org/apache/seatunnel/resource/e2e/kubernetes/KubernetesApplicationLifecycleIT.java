@@ -34,7 +34,6 @@ import io.kubernetes.client.util.Yaml;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.getResourcesFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -44,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Verifies isolation, cancellation, worker loss and quota cleanup in a disposable K3s. */
 public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicationIT {
     private static final String CONTAINERD_RUNTIME_PREFIX = "containerd://";
+    private static final long QUOTA_READY_TIMEOUT_SECONDS = 30;
 
     @Test
     void simultaneousApplicationsAreIsolatedAndCancellationRemovesEverything() throws Exception {
@@ -164,13 +164,12 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
     @Test
     void quotaFailureDuringWorkerAllocationCleansPartialApplication() throws Exception {
         V1ResourceQuota workerQuota =
-                Yaml.loadAs(
-                        getResourcesFile("/kubernetes/worker-quota.yaml"), V1ResourceQuota.class);
+                Yaml.loadAs(suiteFile("worker-quota.yaml"), V1ResourceQuota.class);
         String quota = workerQuota.getMetadata().getName();
         core.createNamespacedResourceQuota(namespace, workerQuota, null, null, null, null);
         try {
             Awaitility.await()
-                    .atMost(30, TimeUnit.SECONDS)
+                    .atMost(QUOTA_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .until(
                             () -> {
                                 V1ResourceQuota current =
@@ -194,29 +193,27 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
     }
 
     private static void awaitJobRunning(KubernetesApplicationClient application) {
-        try {
-            Awaitility.await()
-                    .atMost(180, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    assertTrue(
-                                            podLogs(
-                                                            application,
-                                                            masterPod(application)
-                                                                    .getMetadata()
-                                                                    .getName())
-                                                    .contains(
-                                                            "turned from state SCHEDULED to RUNNING.")));
-        } catch (RuntimeException failure) {
-            recordPodDiagnostics(application);
-            throw failure;
-        }
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                                .pollInterval(2, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () ->
+                                                assertTrue(
+                                                        livePodLogs(
+                                                                        application,
+                                                                        masterPod(application)
+                                                                                .getMetadata()
+                                                                                .getName())
+                                                                .contains(
+                                                                        "turned from state SCHEDULED to RUNNING."))));
     }
 
     private static void awaitWorkersExited(KubernetesApplicationClient application) {
         Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
+                .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             List<V1Pod> workers = workers(application);
@@ -247,15 +244,15 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                                         volume.getConfigMap() != null
                                                 && RUNTIME_CONFIG_MAP.equals(
                                                         volume.getConfigMap().getName())));
-        assertTrue(mounted(pod, "/opt/seatunnel/config/seatunnel.yaml"));
-        assertTrue(mounted(pod, "/opt/seatunnel/config/log4j2_client.properties"));
+        assertTrue(mountedReadOnly(pod, "/opt/seatunnel/config/seatunnel.yaml"));
+        assertTrue(mountedReadOnly(pod, "/opt/seatunnel/config/log4j2_client.properties"));
     }
 
     /** Kills the container of one application Pod inside the disposable cluster. */
     private static void killPodContainer(V1Pod pod) throws Exception {
         String containerId = pod.getStatus().getContainerStatuses().get(0).getContainerID();
         Container.ExecResult result =
-                k3s.execInContainer(
+                execInCluster(
                         "ctr",
                         "--address",
                         CONTAINERD_SOCKET,

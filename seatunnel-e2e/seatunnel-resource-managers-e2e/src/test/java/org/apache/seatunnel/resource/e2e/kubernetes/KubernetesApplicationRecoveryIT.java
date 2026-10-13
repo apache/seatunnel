@@ -35,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.getResourcesFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -43,13 +42,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Verifies durable checkpoint recovery across worker failure in a disposable K3s cluster. */
 public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicationIT {
+    private static final long CHECKPOINT_TIMEOUT_SECONDS = 180;
+    private static final long RESTORED_WORKER_TIMEOUT_SECONDS = 30;
 
     @Test
     void durableCheckpointRestoresSourceProgressAfterWorkerFailure() throws Exception {
         V1PersistentVolumeClaim checkpointVolume =
-                Yaml.loadAs(
-                        getResourcesFile("/kubernetes/checkpoints-pvc.yaml"),
-                        V1PersistentVolumeClaim.class);
+                Yaml.loadAs(suiteFile("checkpoints-pvc.yaml"), V1PersistentVolumeClaim.class);
         String claim = checkpointVolume.getMetadata().getName();
         core.createNamespacedPersistentVolumeClaim(
                 namespace, checkpointVolume, null, null, null, null);
@@ -61,13 +60,14 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 awaitWorkersRunning(first, 1);
                 String worker = workers(first).get(0).getMetadata().getName();
                 Awaitility.await()
-                        .atMost(180, TimeUnit.SECONDS)
-                        .untilAsserted(() -> assertTrue(podLogs(first, worker).contains(marker)));
+                        .atMost(CHECKPOINT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> assertTrue(livePodLogs(first, worker).contains(marker)));
                 // At most one checkpoint is pending; two further completions ensure that the
                 // accepted checkpoint was triggered after the marker was observed.
                 int completed =
                         completedCheckpoints(
-                                podLogs(first, masterPod(first).getMetadata().getName()),
+                                livePodLogs(first, masterPod(first).getMetadata().getName()),
                                 firstSpecification.getJobId());
                 awaitDurableCheckpoint(first, firstSpecification.getJobId(), completed + 2);
                 core.deleteNamespacedPod(
@@ -75,7 +75,7 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 awaitStatus(first, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(first);
             } catch (Exception | AssertionError failure) {
-                recordPodDiagnostics(first);
+                recordApplicationDiagnostics(first);
                 throw failure;
             } finally {
                 cancelAndAwait(first);
@@ -97,10 +97,10 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 awaitDurableCheckpoint(restored, restoredSpecification.getJobId(), 1);
                 String restoredWorker = workers(restored).get(0).getMetadata().getName();
                 Awaitility.await()
-                        .atMost(30, TimeUnit.SECONDS)
+                        .atMost(RESTORED_WORKER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .untilAsserted(
                                 () -> {
-                                    String logs = podLogs(restored, restoredWorker);
+                                    String logs = livePodLogs(restored, restoredWorker);
                                     assertFalse(
                                             logs.isEmpty(),
                                             "Restored worker logs must be readable");
@@ -109,7 +109,7 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                                             "The restored source must not replay rows included in the durable checkpoint");
                                 });
             } catch (Exception | AssertionError failure) {
-                recordPodDiagnostics(restored);
+                recordApplicationDiagnostics(restored);
                 throw failure;
             } finally {
                 cancelAndAwait(restored);
@@ -135,28 +135,27 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
 
     private static void awaitDurableCheckpoint(
             KubernetesApplicationClient application, long jobId, int expectedCompletions) {
-        try {
-            Awaitility.await()
-                    .atMost(180, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                V1Pod master = masterPod(application);
-                                assertTrue(
-                                        completedCheckpoints(
-                                                        podLogs(
-                                                                application,
-                                                                master.getMetadata().getName()),
-                                                        jobId)
-                                                >= expectedCompletions);
-                                assertTrue(
-                                        checkpointFile(master, jobId)
-                                                .contains(Long.toString(jobId)));
-                            });
-        } catch (RuntimeException failure) {
-            recordPodDiagnostics(application);
-            throw failure;
-        }
+        withPodDiagnostics(
+                application,
+                () ->
+                        Awaitility.await()
+                                .atMost(CHECKPOINT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                                .pollInterval(2, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () -> {
+                                            V1Pod master = masterPod(application);
+                                            assertTrue(
+                                                    completedCheckpoints(
+                                                                    livePodLogs(
+                                                                            application,
+                                                                            master.getMetadata()
+                                                                                    .getName()),
+                                                                    jobId)
+                                                            >= expectedCompletions);
+                                            assertTrue(
+                                                    checkpointFile(master, jobId)
+                                                            .contains(Long.toString(jobId)));
+                                        }));
     }
 
     private static String checkpointFile(V1Pod master, long jobId) throws Exception {
