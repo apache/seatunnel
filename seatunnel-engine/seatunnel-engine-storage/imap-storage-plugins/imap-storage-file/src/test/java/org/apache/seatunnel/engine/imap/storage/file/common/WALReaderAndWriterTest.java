@@ -23,6 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -59,6 +60,8 @@ public class WALReaderAndWriterTest {
     private static final Path SAME_TIMESTAMP_TOMBSTONE_PATH =
             new Path("/tmp/imap-wal-same-timestamp-tombstone/");
     private static final Path LEGACY_JOB_STATUS_PATH = new Path("/tmp/imap-wal-legacy-job-status/");
+    private static final Path UNKNOWN_CLASS_NAME_PATH =
+            new Path("/tmp/imap-wal-unknown-class-name/");
     private static final Serializer SERIALIZER = new ProtoStuffSerializer();
 
     @BeforeAll
@@ -352,11 +355,52 @@ public class WALReaderAndWriterTest {
         Assertions.assertEquals(jobStatusData.getFinishTime(), replayedStatusData.getFinishTime());
     }
 
+    /**
+     * Feeds a record whose class name is neither a current class nor a legacy mapping key: the
+     * failure must surface the recorded and the resolved class name so a stale or wrong mapping is
+     * diagnosable from the restart error alone. A name absent from the legacy table resolves to
+     * itself, so both rendered names equal the recorded one.
+     */
+    @Test
+    public void testUnknownClassNameSurfacesInExceptionMessage() throws Exception {
+        String unknownClassName = "org.apache.seatunnel.engine.core.job.NeverExistedJobStatus";
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, UNKNOWN_CLASS_NAME_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize("unknown-class"))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize("value"))
+                            .valueClassName(unknownClassName)
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        IMapStorageException exception =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> reader.loadAllData(UNKNOWN_CLASS_NAME_PATH, new HashSet<>()));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(
+                                "class name is "
+                                        + unknownClassName
+                                        + ", resolved class name is "
+                                        + unknownClassName),
+                "exception message should render the recorded and resolved class names, got: "
+                        + exception.getMessage());
+    }
+
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);
         FS.delete(SAME_TIMESTAMP_TOMBSTONE_PATH, true);
         FS.delete(LEGACY_JOB_STATUS_PATH, true);
+        FS.delete(UNKNOWN_CLASS_NAME_PATH, true);
         FS.close();
     }
 }

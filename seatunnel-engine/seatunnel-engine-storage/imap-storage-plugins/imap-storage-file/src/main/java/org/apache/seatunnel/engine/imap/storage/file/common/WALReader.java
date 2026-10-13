@@ -147,15 +147,19 @@ public class WALReader {
             } catch (IOException e) {
                 // log.error("deserialize data error, data is {}, className is {}", data, className,
                 // e);
+                // IMapStorageException formats the message with String.format, so use %s
+                // placeholders instead of {} to keep the data and class name visible.
                 throw new IMapStorageException(
-                        e, "deserialize data error: data is s%, className is s%", data, className);
+                        e, "deserialize data error: data is %s, className is %s", data, className);
             }
         } catch (ClassNotFoundException e) {
             //  log.error("deserialize data error, class name is {}, resolved class name is {}",
             // className, resolveClassName(className), e);
+            // IMapStorageException formats the message with String.format, so use %s
+            // placeholders instead of {} to keep both class names visible.
             throw new IMapStorageException(
                     e,
-                    "deserialize data error, class name is {}, resolved class name is {}",
+                    "deserialize data error, class name is %s, resolved class name is %s",
                     className,
                     resolveClassName(className));
         }
