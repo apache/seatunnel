@@ -47,7 +47,7 @@ Base64编码默认支持加密以下参数：
       env {
         parallelism = 1
         shade.identifier = "base64"
-        shade.options = ["username", "password", "f1", "config.f1", "config2.list"]
+        shade.options = ["username", "password", "f1", "config1.f1", "config2.list"]
       }
 
       source {

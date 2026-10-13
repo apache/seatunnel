@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
-* Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
+* Install [Java](https://www.java.com/en/download/) (Java 11 or Java 17) and set `JAVA_HOME`.
 
 ## Step 2: Download SeaTunnel
 
@@ -20,7 +20,7 @@ Go to the [Seatunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal.
 
 ```shell
-export version="3.0.0"
+export version="3.0.1"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -33,10 +33,10 @@ Starting from the 2.2.0-beta version, the binary package no longer provides the 
 sh bin/install-plugin.sh
 ```
 
-If you need a specific connector version, taking 3.0.0 as an example, you need to execute the following command.
+If you need a specific connector version, taking 3.0.1 as an example, you need to execute the following command.
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.0.1
 ```
 
 Usually you don't need all the connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`, for example, if you only need the `connector-console` plugin, then you can modify the plugin.properties configuration file as follows.

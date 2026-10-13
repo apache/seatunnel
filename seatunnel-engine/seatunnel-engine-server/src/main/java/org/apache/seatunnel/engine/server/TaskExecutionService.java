@@ -94,6 +94,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -404,7 +405,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
-        taskGroupExecutionTracker.blockingFutures =
+        List<Future<?>> blockingFutures =
                 tasks.stream()
                         .map(
                                 t ->
@@ -425,7 +426,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         // on cancellation there is a race where the executor might not have started
         // the worker yet. This would result in taskletDone() never being called for
         // a worker.
-        uncheckRun(startedLatch::await);
+        try {
+            uncheckRun(startedLatch::await);
+        } finally {
+            // Early failure cleanup must not cancel a worker before run() releases startedLatch.
+            // Publish the futures after startup, then honor any failure or cancellation received
+            // while waiting so already-running tasks are still interrupted.
+            taskGroupExecutionTracker.blockingFutures = blockingFutures;
+            if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                taskGroupExecutionTracker.cancelAllTask();
+            }
+        }
     }
 
     /**
@@ -1562,6 +1573,33 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * Cancels tasks and background work owned by this tracker, regardless of active generation.
          */
         private void cancelAllTask() {
+            try {
+                ExecutorService tracingExecutorService = MDCTracer.tracing(executorService);
+                taskGroup
+                        .getTasks()
+                        .forEach(
+                                task ->
+                                        tracingExecutorService.submit(
+                                                () -> {
+                                                    try {
+                                                        task.cancel();
+                                                    } catch (Throwable t) {
+                                                        logger.warning(
+                                                                String.format(
+                                                                        "Cancel task %s external resources failed: %s",
+                                                                        task.getTaskID(),
+                                                                        ExceptionUtils.getMessage(
+                                                                                t)));
+                                                    }
+                                                }));
+            } catch (RejectedExecutionException e) {
+                // The executor may already be shut down; never let this block the interrupt-based
+                // cancellation below.
+                logger.warning(
+                        "Submitting task external resource cancellation failed, the executor may "
+                                + "have been shut down: "
+                                + ExceptionUtils.getMessage(e));
+            }
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));
