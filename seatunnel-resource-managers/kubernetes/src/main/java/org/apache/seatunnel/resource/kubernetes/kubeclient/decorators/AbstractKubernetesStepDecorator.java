@@ -23,7 +23,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesR
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,6 +37,11 @@ public abstract class AbstractKubernetesStepDecorator implements KubernetesStepD
      */
     @Override
     public KubernetesJob decorateJob(KubernetesJob job) {
+        if (job == null) {
+            throw new IllegalStateException(
+                    getClass().getSimpleName()
+                            + " must follow the step that creates the application Job");
+        }
         V1PodTemplateSpec template = job.getInternalResource().getSpec().getTemplate();
         V1Pod decorated =
                 decoratePod(new V1Pod().metadata(template.getMetadata()).spec(template.getSpec()));
@@ -48,11 +52,15 @@ public abstract class AbstractKubernetesStepDecorator implements KubernetesStepD
 
     @Override
     public V1Pod decoratePod(V1Pod pod) {
+        if (pod == null) {
+            throw new IllegalStateException(
+                    getClass().getSimpleName() + " must follow the step that creates the Pod");
+        }
         return pod;
     }
 
     @Override
-    public List<KubernetesResource<?>> buildAccompanyingResources() throws IOException {
+    public List<KubernetesResource<?>> buildAccompanyingResources() {
         return Collections.emptyList();
     }
 }

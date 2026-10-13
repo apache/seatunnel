@@ -32,7 +32,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplication
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
@@ -86,7 +86,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     public String deployApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification, options);
-        String id = KubernetesResourceFactory.newId(specification.getName());
+        String id = KubernetesResourceIdentity.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         validateUserManagedResources(parameters);
         KubernetesApplicationSpecification applicationSpecification =
@@ -223,7 +223,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                                 + job.getFailureReason());
             }
             String selector =
-                    KubernetesResourceFactory.selector(id, KubernetesConstants.MASTER_ROLE);
+                    KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE);
             for (KubernetesPod pod : api.listPods(selector)) {
                 if (pod.isRunning() && !pod.isTerminating()) {
                     String host = pod.getInternalResource().getStatus().getPodIP();

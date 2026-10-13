@@ -18,7 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -324,7 +324,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
             }
         }
         try {
-            deletePods(KubernetesResourceFactory.selector(id));
+            deletePods(KubernetesResourceIdentity.selector(id));
         } catch (ApiException e) {
             if (failure == null) {
                 failure = e;
@@ -356,7 +356,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void deleteWorkers(String id) throws ApiException {
-        deletePods(KubernetesResourceFactory.selector(id, KubernetesConstants.WORKER_ROLE));
+        deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE));
     }
 
     private void deletePods(String selector) throws ApiException {

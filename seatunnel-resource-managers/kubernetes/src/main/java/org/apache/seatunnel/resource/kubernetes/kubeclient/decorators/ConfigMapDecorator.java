@@ -18,7 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
@@ -89,7 +89,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
                                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                                         .kind(KubernetesConstants.CONFIG_MAP_KIND)
                                         .metadata(
-                                                KubernetesResourceFactory.metadata(
+                                                KubernetesResourceIdentity.metadata(
                                                         resolvedName(entry),
                                                         KubernetesConstants.CONFIGURATION_ROLE))
                                         .data(new LinkedHashMap<>(entry.getData()))));

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.services.HeadlessClusterIPService;
@@ -47,7 +47,7 @@ public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecora
     @Override
     public List<KubernetesResource<?>> buildAccompanyingResources() {
         V1ObjectMeta metadata =
-                KubernetesResourceFactory.metadata(applicationId, KubernetesConstants.MASTER_ROLE);
+                KubernetesResourceIdentity.metadata(applicationId, KubernetesConstants.MASTER_ROLE);
         return Collections.singletonList(
                 new HeadlessClusterIPService(
                         metadata,

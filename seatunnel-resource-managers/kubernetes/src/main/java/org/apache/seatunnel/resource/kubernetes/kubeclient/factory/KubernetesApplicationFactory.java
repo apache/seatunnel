@@ -17,31 +17,36 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ApplicationJobDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.InlineSpecificationDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.WorkerPodDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
 import io.kubernetes.client.openapi.models.V1Pod;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * Builds the complete application composition on the client side.
+ * Runs the application decorator chains and returns the composed Kubernetes resources.
  *
- * <p>Decorators are applied in order: each one may decorate Pod specifications and contribute
- * accompanying resources. Role differences live here, in the composition: the master chain adds the
- * features only the master has, while the worker chain reuses the shared Pod features. No decorator
- * branches on its role. This factory makes no API calls.
+ * <p>Every resource is created by a chain step: the first step of the master chain creates the
+ * owner Job, the first step of the worker chain creates the worker Pod, and the remaining steps
+ * decorate them or contribute accompanying resources. Role differences live here, in the
+ * composition: the master chain adds the features only the master has, while the worker chain
+ * reuses the shared Pod features. No decorator branches on its role. This factory makes no API
+ * calls.
  */
 public final class KubernetesApplicationFactory {
 
@@ -54,14 +59,13 @@ public final class KubernetesApplicationFactory {
      * @param mainClass master entrypoint class
      * @param parameters resolved application and Kubernetes settings
      * @return application composition ready for creation
-     * @throws IOException if the localized specification cannot be serialized
      */
     public static KubernetesApplicationSpecification buildApplicationSpecification(
-            String applicationId, String mainClass, KubernetesApplicationParameters parameters)
-            throws IOException {
-        KubernetesJob job = KubernetesResourceFactory.job(applicationId, mainClass, parameters);
+            String applicationId, String mainClass, KubernetesApplicationParameters parameters) {
+        KubernetesJob job = null;
         List<KubernetesResource<?>> accompanyingResources = new ArrayList<>();
-        for (KubernetesStepDecorator decorator : masterDecorators(applicationId, parameters)) {
+        for (KubernetesStepDecorator decorator :
+                masterDecorators(applicationId, mainClass, parameters)) {
             job = decorator.decorateJob(job);
             accompanyingResources.addAll(decorator.buildAccompanyingResources());
         }
@@ -69,33 +73,44 @@ public final class KubernetesApplicationFactory {
     }
 
     /**
-     * Applies the worker decorator chain to one worker Pod.
+     * Runs the worker decorator chain for one worker of this application.
      *
-     * <p>The chain contains exactly the features shared with the master, so worker Pods cannot
-     * drift away from the master's mounts, environment and runtime configuration. Workers are
-     * created by the application master through the resource manager, so this method runs
-     * in-cluster with the same parameters the master restored from the localized specification.
+     * <p>The first step creates the Pod and the chain then applies exactly the features shared with
+     * the master, so worker Pods cannot drift away from the master's mounts, environment and
+     * runtime configuration. Workers are created by the application master through the resource
+     * manager, so this method runs in-cluster with the same parameters the master restored from the
+     * localized specification.
      *
-     * @param pod worker Pod being assembled
-     * @param applicationId generated application Job name that owns the worker
+     * @param owner owner Job whose UID backs the Pod's owner reference
+     * @param name generated worker Pod name
      * @param parameters resolved application and Kubernetes settings
-     * @return the decorated Pod
+     * @param resources per-worker resource and slot settings
+     * @param clusterName isolated Hazelcast cluster name
+     * @param masterAddress advertised application master address
+     * @return worker Pod ready to create
      */
-    public static V1Pod decorateWorker(
-            V1Pod pod, String applicationId, KubernetesApplicationParameters parameters) {
-        V1Pod decorated = pod;
-        for (KubernetesStepDecorator decorator : workerDecorators(applicationId, parameters)) {
-            decorated = decorator.decoratePod(decorated);
+    public static KubernetesPod buildWorkerPod(
+            KubernetesJob owner,
+            String name,
+            KubernetesApplicationParameters parameters,
+            WorkerSpecification resources,
+            String clusterName,
+            String masterAddress) {
+        V1Pod pod = null;
+        for (KubernetesStepDecorator decorator :
+                workerDecorators(owner, name, parameters, resources, clusterName, masterAddress)) {
+            pod = decorator.decoratePod(pod);
         }
-        return decorated;
+        return new KubernetesPod(pod);
     }
 
     /**
      * Composes the chain applied to the owner Job's master Pod and to the accompanying resources.
      */
     private static List<KubernetesStepDecorator> masterDecorators(
-            String applicationId, KubernetesApplicationParameters parameters) {
+            String applicationId, String mainClass, KubernetesApplicationParameters parameters) {
         List<KubernetesStepDecorator> decorators = new ArrayList<>();
+        decorators.add(new ApplicationJobDecorator(applicationId, mainClass, parameters));
         decorators.add(new InlineSpecificationDecorator(parameters));
         decorators.addAll(sharedPodDecorators(applicationId, parameters));
         decorators.add(new HeadlessServiceDecorator(applicationId, parameters));
@@ -104,8 +119,18 @@ public final class KubernetesApplicationFactory {
 
     /** Composes the chain applied to every worker Pod created by the master. */
     private static List<KubernetesStepDecorator> workerDecorators(
-            String applicationId, KubernetesApplicationParameters parameters) {
-        return sharedPodDecorators(applicationId, parameters);
+            KubernetesJob owner,
+            String name,
+            KubernetesApplicationParameters parameters,
+            WorkerSpecification resources,
+            String clusterName,
+            String masterAddress) {
+        List<KubernetesStepDecorator> decorators = new ArrayList<>();
+        decorators.add(
+                new WorkerPodDecorator(
+                        owner, name, parameters, resources, clusterName, masterAddress));
+        decorators.addAll(sharedPodDecorators(owner.getName(), parameters));
+        return decorators;
     }
 
     /** Pod features that the master and every worker need to run the same job. */

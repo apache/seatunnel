@@ -22,7 +22,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesR
 
 import io.kubernetes.client.openapi.models.V1Pod;
 
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -59,7 +58,6 @@ public interface KubernetesStepDecorator {
      * Builds resources that support this feature and must exist next to the owner Job.
      *
      * @return accompanying resources without owner references
-     * @throws IOException if a resource content cannot be serialized
      */
-    List<KubernetesResource<?>> buildAccompanyingResources() throws IOException;
+    List<KubernetesResource<?>> buildAccompanyingResources();
 }

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
@@ -73,7 +73,7 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
                                 .kind(KubernetesConstants.SECRET_KIND)
                                 .type(KubernetesConstants.OPAQUE_SECRET_TYPE)
                                 .metadata(
-                                        KubernetesResourceFactory.metadata(
+                                        KubernetesResourceIdentity.metadata(
                                                 parameters.resolvedApplicationSecretName(
                                                         applicationId),
                                                 KubernetesConstants.CONFIGURATION_ROLE))

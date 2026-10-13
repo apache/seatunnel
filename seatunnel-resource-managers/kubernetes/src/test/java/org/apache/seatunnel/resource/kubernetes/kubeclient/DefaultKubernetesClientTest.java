@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -237,8 +237,11 @@ class DefaultKubernetesClientTest {
                                 .metadata(new V1ObjectMeta().name("app-runtime"))
                                 .data(Collections.singletonMap("seatunnel.yaml", "engine { }")));
         KubernetesJob job =
-                KubernetesResourceFactory.job(
-                        "app", SeatunnelKubernetesApplicationCli.class.getName(), parameters);
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app",
+                                SeatunnelKubernetesApplicationCli.class.getName(),
+                                parameters)
+                        .getApplicationJob();
         job.getInternalResource().getMetadata().setUid("owner-uid");
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             api.createAccompanyingResources(

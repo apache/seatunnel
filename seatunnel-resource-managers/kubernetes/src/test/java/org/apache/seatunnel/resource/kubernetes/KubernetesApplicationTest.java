@@ -35,7 +35,8 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -493,7 +494,7 @@ class KubernetesApplicationTest {
                         "Mixed_Name",
                         "---",
                         "an-application-with-a-name-that-is-longer-than-the-kubernetes-resource-name-limit")) {
-            String id = KubernetesResourceFactory.newId(name);
+            String id = KubernetesResourceIdentity.newId(name);
             assertTrue(id.matches("[a-z0-9]([a-z0-9-]*[a-z0-9])?"));
             assertTrue(id.length() < 50);
         }
@@ -521,11 +522,13 @@ class KubernetesApplicationTest {
 
     private static KubernetesJob job(V1JobStatus status) {
         KubernetesJob job =
-                KubernetesResourceFactory.job(
-                        "app",
-                        SeatunnelKubernetesApplicationCli.class.getName(),
-                        KubernetesApplicationParameters.from(
-                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app",
+                                SeatunnelKubernetesApplicationCli.class.getName(),
+                                KubernetesApplicationParameters.from(
+                                        specification(),
+                                        ReadonlyConfig.fromMap(new HashMap<>(options()))))
+                        .getApplicationJob();
         job.getInternalResource().getMetadata().setUid("uid-1");
         job.getInternalResource().setStatus(status);
         return job;

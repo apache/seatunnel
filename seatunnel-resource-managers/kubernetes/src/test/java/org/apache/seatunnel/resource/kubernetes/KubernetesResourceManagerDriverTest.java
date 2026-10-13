@@ -27,7 +27,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -430,11 +430,13 @@ class KubernetesResourceManagerDriverTest {
 
     private static KubernetesJob job() {
         KubernetesJob job =
-                KubernetesResourceFactory.job(
-                        "app",
-                        SeatunnelKubernetesApplicationCli.class.getName(),
-                        KubernetesApplicationParameters.from(
-                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))));
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app",
+                                SeatunnelKubernetesApplicationCli.class.getName(),
+                                KubernetesApplicationParameters.from(
+                                        specification(),
+                                        ReadonlyConfig.fromMap(new HashMap<>(options()))))
+                        .getApplicationJob();
         job.getInternalResource().getMetadata().setUid("uid-1");
         return job;
     }

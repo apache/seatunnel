@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class KubernetesResourceFactoryTest {
+class KubernetesApplicationFactoryTest {
 
     @TempDir Path temporary;
 
@@ -80,7 +80,9 @@ class KubernetesResourceFactoryTest {
         assertEquals(policy, parameters.getImagePullPolicy());
         assertEquals(
                 policy,
-                KubernetesResourceFactory.job("app", mainClass, parameters)
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob()
                         .getInternalResource()
                         .getSpec()
                         .getTemplate()
@@ -128,7 +130,7 @@ class KubernetesResourceFactoryTest {
                 mount(jobResource, KubernetesConstants.CHECKPOINT_VOLUME).getMountPath());
         jobResource.getMetadata().setUid("owner-uid");
         V1Pod worker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 job,
                                 "worker",
                                 parameters,
@@ -236,7 +238,7 @@ class KubernetesResourceFactoryTest {
                                 .orElseThrow(() -> new AssertionError("Missing Service"));
         assertEquals("None", service.getInternalResource().getSpec().getClusterIP());
         KubernetesPod workerPod =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                         job,
                         "app-worker-0",
                         parameters,
@@ -289,7 +291,7 @@ class KubernetesResourceFactoryTest {
                 worker.getSpec().getContainers().get(0).getCommand().contains("isolated-cluster"));
         assertEquals(
                 "worker",
-                worker.getMetadata().getLabels().get(KubernetesResourceFactory.ROLE_LABEL));
+                worker.getMetadata().getLabels().get(KubernetesResourceIdentity.ROLE_LABEL));
         assertTrue(
                 jobResource
                         .getSpec()
@@ -446,7 +448,7 @@ class KubernetesResourceFactoryTest {
         assertEquals("extra-secret", masterEnvFrom.get(0).getSecretRef().getName());
         assertEquals("extra-config", masterEnvFrom.get(1).getConfigMapRef().getName());
         V1Pod worker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 applicationJob,
                                 "app-worker-0",
                                 parameters,
@@ -514,7 +516,7 @@ class KubernetesResourceFactoryTest {
                                 "app", mainClass, parameters)
                         .getApplicationJob();
         V1Pod worker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 applicationJob,
                                 "app-worker-0",
                                 parameters,
@@ -878,7 +880,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        KubernetesJob job =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob();
         List<String> command =
                 job.getInternalResource()
                         .getSpec()
@@ -907,7 +912,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        KubernetesJob job =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob();
         assertTrue(
                 job.getInternalResource()
                         .getSpec()
@@ -919,7 +927,7 @@ class KubernetesResourceFactoryTest {
                         .contains(
                                 "-Dhazelcast.config=/opt/seatunnel/config/hazelcast-master.yaml"));
         V1Pod worker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 job,
                                 "app-worker-0",
                                 parameters,
@@ -960,7 +968,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
-        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        KubernetesJob job =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob();
         List<String> masterCommand =
                 job.getInternalResource()
                         .getSpec()
@@ -973,7 +984,7 @@ class KubernetesResourceFactoryTest {
         assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_options"));
         assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_master_options"));
         V1Pod worker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 job,
                                 "app-worker-0",
                                 parameters,
@@ -1000,7 +1011,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters overridden =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(overrides)));
-        KubernetesJob overriddenJob = KubernetesResourceFactory.job("app", mainClass, overridden);
+        KubernetesJob overriddenJob =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, overridden)
+                        .getApplicationJob();
         assertTrue(
                 overriddenJob
                         .getInternalResource()
@@ -1012,7 +1026,7 @@ class KubernetesResourceFactoryTest {
                         .getCommand()
                         .contains("@/etc/seatunnel/custom.options"));
         V1Pod overriddenWorker =
-                KubernetesResourceFactory.worker(
+                KubernetesApplicationFactory.buildWorkerPod(
                                 overriddenJob,
                                 "app-worker-0",
                                 overridden,
@@ -1162,7 +1176,9 @@ class KubernetesResourceFactoryTest {
     }
 
     private static List<String> masterCommand(KubernetesApplicationParameters parameters) {
-        return KubernetesResourceFactory.job("app", mainClass, parameters)
+        return KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters)
+                .getApplicationJob()
                 .getInternalResource()
                 .getSpec()
                 .getTemplate()

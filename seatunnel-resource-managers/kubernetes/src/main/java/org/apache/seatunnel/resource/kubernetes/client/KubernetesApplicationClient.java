@@ -20,7 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.client;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
@@ -72,7 +72,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
                 String selector =
-                        KubernetesResourceFactory.selector(
+                        KubernetesResourceIdentity.selector(
                                 applicationId, KubernetesConstants.WORKER_ROLE);
                 List<KubernetesPod> pods = api.listPods(selector);
                 for (KubernetesPod pod : pods) {

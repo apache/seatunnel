@@ -24,8 +24,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -149,7 +150,7 @@ public final class KubernetesResourceManagerDriver
         this.running.set(true);
         this.workerWatch =
                 api.watchPods(
-                        KubernetesResourceFactory.selector(
+                        KubernetesResourceIdentity.selector(
                                 job.getName(), KubernetesConstants.WORKER_ROLE),
                         WORKER_WATCH_INTERVAL_MILLIS,
                         this::checkWorkers,
@@ -209,7 +210,7 @@ public final class KubernetesResourceManagerDriver
         }
         try {
             api.createPod(
-                    KubernetesResourceFactory.worker(
+                    KubernetesApplicationFactory.buildWorkerPod(
                             job, name, parameters, resources, clusterName, masterAddress.get()));
             LOG.debug("Created worker pod {}", name);
             if (running.get() && future.complete(worker)) {
@@ -257,7 +258,7 @@ public final class KubernetesResourceManagerDriver
     void checkWorkers() {
         try {
             String selector =
-                    KubernetesResourceFactory.selector(
+                    KubernetesResourceIdentity.selector(
                             job.getName(), KubernetesConstants.WORKER_ROLE);
             checkWorkers(api.listPods(selector));
         } catch (Exception failure) {
