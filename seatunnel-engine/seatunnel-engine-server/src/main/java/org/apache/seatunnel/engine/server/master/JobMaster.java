@@ -1282,9 +1282,18 @@ public class JobMaster {
      * <p>Task locations are stable across retries, so keeping the old snapshots would make the
      * replacement attempt continue counting from the failed attempt's values.
      *
+     * <p>The failed attempt's task-group contexts are cleaned first: a context that survives the
+     * wipe can re-populate the metrics store afterwards, defeating the reset.
+     *
      * @param pipelineLocation pipeline that is about to be restored
      */
     public void clearPipelineMetricsForRestore(PipelineLocation pipelineLocation) {
+        try {
+            cleanTaskGroupContext(pipelineLocation);
+        } catch (Exception e) {
+            LOGGER.warning(
+                    "Failed to clean task-group contexts before restoring " + pipelineLocation, e);
+        }
         try {
             seaTunnelServer.removeMetrics(pipelineLocation);
         } catch (Exception e) {
