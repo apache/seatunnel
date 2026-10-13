@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.config;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+
 import lombok.Getter;
 
 import java.util.Objects;
@@ -30,9 +32,6 @@ import java.util.Objects;
  */
 @Getter
 public final class KubernetesEnvironmentVariable {
-    private static final String SECRET_PREFIX = "secret:";
-    private static final String CONFIG_MAP_PREFIX = "configmap:";
-
     private final String name;
     private final String literalValue;
     private final String secretName;
@@ -57,11 +56,17 @@ public final class KubernetesEnvironmentVariable {
      * @throws IllegalArgumentException if a reference is malformed
      */
     public static KubernetesEnvironmentVariable fromValue(String name, String value) {
-        if (value.startsWith(SECRET_PREFIX)) {
-            return reference(name, value.substring(SECRET_PREFIX.length()), true);
+        if (value.startsWith(KubernetesConstants.ENV_VALUE_SECRET_PREFIX)) {
+            return reference(
+                    name,
+                    value.substring(KubernetesConstants.ENV_VALUE_SECRET_PREFIX.length()),
+                    true);
         }
-        if (value.startsWith(CONFIG_MAP_PREFIX)) {
-            return reference(name, value.substring(CONFIG_MAP_PREFIX.length()), false);
+        if (value.startsWith(KubernetesConstants.ENV_VALUE_CONFIGMAP_PREFIX)) {
+            return reference(
+                    name,
+                    value.substring(KubernetesConstants.ENV_VALUE_CONFIGMAP_PREFIX.length()),
+                    false);
         }
         return new KubernetesEnvironmentVariable(name, value, null, null, null);
     }
@@ -79,10 +84,10 @@ public final class KubernetesEnvironmentVariable {
     /** @return the literal value, or {@code null} for referenced variables */
     public String serializeValue() {
         if (isSecret()) {
-            return SECRET_PREFIX + secretName + "/" + key;
+            return KubernetesConstants.ENV_VALUE_SECRET_PREFIX + secretName + "/" + key;
         }
         if (isConfigMap()) {
-            return CONFIG_MAP_PREFIX + configMapName + "/" + key;
+            return KubernetesConstants.ENV_VALUE_CONFIGMAP_PREFIX + configMapName + "/" + key;
         }
         return literalValue;
     }

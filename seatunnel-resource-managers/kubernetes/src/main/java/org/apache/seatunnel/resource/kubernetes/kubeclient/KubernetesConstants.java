@@ -71,6 +71,45 @@ public final class KubernetesConstants {
 
     public static final String ENV_FROM_CONFIGMAP = ENV_FROM_PREFIX + "configmap";
 
+    /** Value schemes of one {@code kubernetes.env.*} reference. */
+    public static final String ENV_VALUE_SECRET_PREFIX = "secret:";
+
+    public static final String ENV_VALUE_CONFIGMAP_PREFIX = "configmap:";
+
+    /** Java launcher tokens of the master and worker container command. */
+    public static final String JAVA_CLASSPATH_OPTION = "-cp";
+
+    public static final String JVM_MAX_HEAP_PREFIX = "-Xmx";
+
+    public static final String JVM_MEGABYTE_SUFFIX = "m";
+
+    public static final String JVM_EXIT_ON_OUT_OF_MEMORY = "-XX:+ExitOnOutOfMemoryError";
+
+    public static final String JVM_ARGUMENT_FILE_PREFIX = "@";
+
+    /** System properties the containers pass to the application JVM. */
+    public static final String SYSPROP_SEATUNNEL_HOME = "-Dseatunnel.home=";
+
+    public static final String SYSPROP_SEATUNNEL_CONFIG = "-Dseatunnel.config=";
+
+    public static final String SYSPROP_LOG4J_CONFIG = "-Dlog4j2.configurationFile=";
+
+    public static final String SYSPROP_HAZELCAST_CONFIG = "-Dhazelcast.config=";
+
+    public static final String SYSPROP_LOGS_PATH = "-Dseatunnel.logs.path=";
+
+    public static final String SYSPROP_LOGS_FILE_NAME = "-Dseatunnel.logs.file_name=";
+
+    public static final String SYSPROP_HAZELCAST_LOGGING = "-Dhazelcast.logging.type=log4j2";
+
+    /** Directory and file name of the application logs inside the distribution. */
+    public static final String LOGS_DIRECTORY = "logs";
+
+    public static final String APPLICATION_LOG_FILE_NAME = "seatunnel-application";
+
+    /** Shell flag used by the worker probe and other {@code sh -c} invocations. */
+    public static final String SHELL_COMMAND_FLAG = "-c";
+
     /** Name of the reserved key whose content replaces the inline job configuration. */
     public static final String JOB_CONFIG_FILE = "job.conf";
 

@@ -139,26 +139,37 @@ public abstract class AbstractWorkloadFactory {
         String home = parameters.getSeatunnelHome();
         List<String> command = new ArrayList<>();
         command.add(KubernetesConstants.JAVA_COMMAND);
-        command.add("-Xmx" + heapMb(memoryMb) + "m");
-        command.add("-XX:+ExitOnOutOfMemoryError");
+        command.add(
+                KubernetesConstants.JVM_MAX_HEAP_PREFIX
+                        + heapMb(memoryMb)
+                        + KubernetesConstants.JVM_MEGABYTE_SUFFIX);
+        command.add(KubernetesConstants.JVM_EXIT_ON_OUT_OF_MEMORY);
         command.addAll(KubernetesConstants.MANDATORY_JVM_MODULE_FLAGS);
-        command.add("-Dhazelcast.logging.type=log4j2");
-        command.add("-Dseatunnel.logs.path=" + home + "/logs");
-        command.add("-Dseatunnel.logs.file_name=seatunnel-application");
-        command.add("-Dseatunnel.home=" + home);
+        command.add(KubernetesConstants.SYSPROP_HAZELCAST_LOGGING);
+        command.add(
+                KubernetesConstants.SYSPROP_LOGS_PATH
+                        + home
+                        + "/"
+                        + KubernetesConstants.LOGS_DIRECTORY);
+        command.add(
+                KubernetesConstants.SYSPROP_LOGS_FILE_NAME
+                        + KubernetesConstants.APPLICATION_LOG_FILE_NAME);
+        command.add(KubernetesConstants.SYSPROP_SEATUNNEL_HOME + home);
         if (parameters.getSeatunnelConfigFile() != null) {
-            command.add("-Dseatunnel.config=" + parameters.getSeatunnelConfigFile());
+            command.add(
+                    KubernetesConstants.SYSPROP_SEATUNNEL_CONFIG
+                            + parameters.getSeatunnelConfigFile());
         }
         if (parameters.getLog4jConfigFile() != null) {
-            command.add("-Dlog4j2.configurationFile=" + parameters.getLog4jConfigFile());
+            command.add(KubernetesConstants.SYSPROP_LOG4J_CONFIG + parameters.getLog4jConfigFile());
         }
         if (hazelcastConfig != null) {
-            command.add("-Dhazelcast.config=" + hazelcastConfig);
+            command.add(KubernetesConstants.SYSPROP_HAZELCAST_CONFIG + hazelcastConfig);
         }
         for (String jvmOptionsFile : jvmOptionsFiles) {
-            command.add("@" + jvmOptionsFile);
+            command.add(KubernetesConstants.JVM_ARGUMENT_FILE_PREFIX + jvmOptionsFile);
         }
-        command.add("-cp");
+        command.add(KubernetesConstants.JAVA_CLASSPATH_OPTION);
         command.add(classpath(home));
         command.add(main);
         command.addAll(Arrays.asList(args));

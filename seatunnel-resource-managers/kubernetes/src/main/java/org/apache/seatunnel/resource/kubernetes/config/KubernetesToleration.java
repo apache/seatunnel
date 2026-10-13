@@ -44,6 +44,9 @@ public final class KubernetesToleration {
     private static final String EQUAL_OPERATOR = "Equal";
     private static final String EXISTS_OPERATOR = "Exists";
 
+    /** Entry separator of the configured list. */
+    private static final String ENTRY_SEPARATOR = ";";
+
     private final String key;
     private final String operator;
     private final String value;
@@ -69,7 +72,7 @@ public final class KubernetesToleration {
             return Collections.emptyList();
         }
         List<KubernetesToleration> tolerations = new ArrayList<>();
-        for (String entry : configured.split(";")) {
+        for (String entry : configured.split(ENTRY_SEPARATOR)) {
             String text = entry.trim();
             if (text.isEmpty()) {
                 throw new IllegalArgumentException(
@@ -84,7 +87,7 @@ public final class KubernetesToleration {
     public static String serialize(List<KubernetesToleration> tolerations) {
         return tolerations.stream()
                 .map(KubernetesToleration::serialize)
-                .collect(Collectors.joining(";"));
+                .collect(Collectors.joining(ENTRY_SEPARATOR));
     }
 
     private static KubernetesToleration parseEntry(String optionKey, String text) {

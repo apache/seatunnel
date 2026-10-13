@@ -70,11 +70,6 @@ public final class KubernetesApplicationConfig {
     private static final String SECTION_DATA = "data";
     private static final String SECTION_MOUNT = "mount";
 
-    /** Distribution layout used to resolve relative runtime file names. */
-    private static final String CONFIG_DIRECTORY = "config/";
-
-    private static final String PARENT_DIRECTORY = "..";
-
     /** Validation patterns for Kubernetes names, data keys, environment names and paths. */
     private static final String DNS_LABEL_PATTERN = "[a-z0-9]([-a-z0-9]*[a-z0-9])?";
 
@@ -91,9 +86,6 @@ public final class KubernetesApplicationConfig {
 
     private static final List<String> LOG4J_SUFFIXES =
             Arrays.asList(".properties", ".xml", ".json", ".yaml", ".yml");
-
-    /** Header comment of the localized specification written into the container environment. */
-    private static final String SPECIFICATION_COMMENT = "SeaTunnel Kubernetes application";
 
     private final ApplicationSpecification specification;
     private final String namespace;
@@ -388,7 +380,7 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(
                 KubernetesOptions.WORKER_TOLERATIONS.key(),
                 KubernetesToleration.serialize(workerTolerations));
-        properties.store(writer, SPECIFICATION_COMMENT);
+        properties.store(writer, "SeaTunnel Kubernetes application");
     }
 
     /** Returns the Kubernetes API spelling of the validated pull policy. */
@@ -835,7 +827,7 @@ public final class KubernetesApplicationConfig {
             path = value;
         } else {
             for (String segment : value.split("/")) {
-                if (PARENT_DIRECTORY.equals(segment)) {
+                if ("..".equals(segment)) {
                     throw new IllegalArgumentException(
                             KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
                                     + " must not contain '..'");
@@ -909,7 +901,7 @@ public final class KubernetesApplicationConfig {
     }
 
     private static String configDirectory(String seatunnelHome) {
-        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + CONFIG_DIRECTORY;
+        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/";
     }
 
     /** @return whether the lower-cased path ends with one of the accepted suffixes */

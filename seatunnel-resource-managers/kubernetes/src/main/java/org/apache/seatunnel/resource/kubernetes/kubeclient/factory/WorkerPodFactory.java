@@ -97,7 +97,7 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
                         .command(
                                 Arrays.asList(
                                         KubernetesConstants.SHELL_COMMAND,
-                                        "-c",
+                                        KubernetesConstants.SHELL_COMMAND_FLAG,
                                         KubernetesConstants.PROCESS_PROBE_COMMAND));
         return new V1Probe()
                 .exec(action)
