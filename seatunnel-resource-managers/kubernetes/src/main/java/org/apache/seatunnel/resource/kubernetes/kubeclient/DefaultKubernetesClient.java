@@ -22,6 +22,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesRes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
@@ -34,9 +35,13 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -105,15 +110,31 @@ final class DefaultKubernetesClient implements KubernetesClient {
                 null);
     }
 
+    /**
+     * Creates every accompanying resource with the owner Job's server-assigned reference.
+     *
+     * <p>Resources created earlier in the list stay behind when a later resource fails; the caller
+     * compensates them by deleting the owner Job, so Kubernetes removes exactly the objects created
+     * for this application and never a pre-existing object with the same name.
+     */
     @Override
-    public void createSecret(KubernetesSecret value) throws ApiException {
-        core.createNamespacedSecret(namespace, value.getInternalResource(), null, null, null, null);
-    }
-
-    @Override
-    public void createService(KubernetesService value) throws ApiException {
-        core.createNamespacedService(
-                namespace, value.getInternalResource(), null, null, null, null);
+    public void createAccompanyingResources(
+            KubernetesJob owner, List<KubernetesResource<?>> resources) throws ApiException {
+        V1OwnerReference ownerReference = ownerReference(owner);
+        for (KubernetesResource<?> resource : resources) {
+            if (resource instanceof KubernetesSecret) {
+                V1Secret secret = ((KubernetesSecret) resource).getInternalResource();
+                secret.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
+                core.createNamespacedSecret(namespace, secret, null, null, null, null);
+            } else if (resource instanceof KubernetesService) {
+                V1Service service = ((KubernetesService) resource).getInternalResource();
+                service.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
+                core.createNamespacedService(namespace, service, null, null, null, null);
+            } else {
+                throw new IllegalArgumentException(
+                        "Unsupported accompanying Kubernetes resource " + resource.getName());
+            }
+        }
     }
 
     /**
@@ -281,7 +302,10 @@ final class DefaultKubernetesClient implements KubernetesClient {
         }
     }
 
-    /** Attempts every cleanup even when another resource deletion fails. */
+    /**
+     * Deletes the owner Job with foreground propagation so Kubernetes removes the Pods, Secret and
+     * Service created for this application, then removes any remaining labeled Pods.
+     */
     @Override
     public void deleteApplication(String id) throws ApiException {
         ApiException failure = null;
@@ -301,31 +325,20 @@ final class DefaultKubernetesClient implements KubernetesClient {
                 failure.addSuppressed(e);
             }
         }
-        try {
-            core.deleteNamespacedService(id, namespace, null, null, null, null, null, null);
-        } catch (ApiException e) {
-            if (e.getCode() != 404) {
-                if (failure == null) {
-                    failure = e;
-                } else {
-                    failure.addSuppressed(e);
-                }
-            }
-        }
-        try {
-            core.deleteNamespacedSecret(id, namespace, null, null, null, null, null, null);
-        } catch (ApiException e) {
-            if (e.getCode() != 404) {
-                if (failure == null) {
-                    failure = e;
-                } else {
-                    failure.addSuppressed(e);
-                }
-            }
-        }
         if (failure != null) {
             throw failure;
         }
+    }
+
+    /** Builds the owner reference used by every resource created for one application Job. */
+    private static V1OwnerReference ownerReference(KubernetesJob owner) {
+        return new V1OwnerReference()
+                .apiVersion(KubernetesConstants.BATCH_API_VERSION)
+                .kind(KubernetesConstants.JOB_KIND)
+                .name(owner.getName())
+                .uid(owner.getUid())
+                .controller(false)
+                .blockOwnerDeletion(false);
     }
 
     /**

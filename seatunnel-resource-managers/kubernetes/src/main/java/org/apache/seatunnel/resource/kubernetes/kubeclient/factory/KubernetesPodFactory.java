@@ -35,7 +35,6 @@ import io.kubernetes.client.openapi.models.V1PersistentVolumeClaimVolumeSource;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1Probe;
 import io.kubernetes.client.openapi.models.V1ResourceRequirements;
-import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
 import io.kubernetes.client.openapi.models.V1TCPSocketAction;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
@@ -73,14 +72,9 @@ final class KubernetesPodFactory {
                         KubernetesConstants.CONFIG_DIRECTORY
                                 + "/"
                                 + KubernetesConstants.SPECIFICATION_FILE));
-        container.addVolumeMountsItem(
-                volumeMount(
-                        KubernetesConstants.APPLICATION_VOLUME,
-                        KubernetesConstants.CONFIG_DIRECTORY,
-                        true));
         container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification.getMasterPort(), specification);
-        V1PodSpec pod = pod(parameters, container, true).addVolumesItem(applicationVolume(id));
+        V1PodSpec pod = pod(parameters, container, true);
         mountRuntimeConfiguration(parameters, container, pod);
         String checkpointClaim = parameters.getCheckpointPvc();
         if (checkpointClaim != null) {
@@ -102,15 +96,6 @@ final class KubernetesPodFactory {
                                 .fieldRef(
                                         new V1ObjectFieldSelector()
                                                 .fieldPath(KubernetesConstants.POD_IP_FIELD_PATH)));
-    }
-
-    private static V1Volume applicationVolume(String id) {
-        return new V1Volume()
-                .name(KubernetesConstants.APPLICATION_VOLUME)
-                .secret(
-                        new V1SecretVolumeSource()
-                                .secretName(id)
-                                .defaultMode(KubernetesConstants.APPLICATION_SECRET_MODE));
     }
 
     private static V1Volume checkpointVolume(String claim) {

@@ -17,6 +17,16 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import org.junit.jupiter.api.Test;
@@ -29,12 +39,18 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import okio.Buffer;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -166,5 +182,107 @@ class DefaultKubernetesClientTest {
                 watch.close();
             }
         }
+    }
+
+    @Test
+    void createsAccompanyingResourcesWithTheOwnerReference() throws Exception {
+        List<String> requests = new ArrayList<>();
+        AtomicReference<String> postedBody = new AtomicReference<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    requests.add(
+                                                            chain.request().method()
+                                                                    + " "
+                                                                    + chain.request()
+                                                                            .url()
+                                                                            .encodedPath());
+                                                    Buffer body = new Buffer();
+                                                    chain.request().body().writeTo(body);
+                                                    postedBody.set(body.readUtf8());
+                                                    return new Response.Builder()
+                                                            .request(chain.request())
+                                                            .protocol(Protocol.HTTP_1_1)
+                                                            .code(201)
+                                                            .message("Created")
+                                                            .body(
+                                                                    ResponseBody.create(
+                                                                            "{\"kind\":\"Secret\"}",
+                                                                            MediaType.get(
+                                                                                    "application/json")))
+                                                            .build();
+                                                })
+                                        .build());
+        KubernetesApplicationParameters parameters = parameters();
+        KubernetesSecret secret = KubernetesResourceFactory.secret("app", parameters);
+        KubernetesJob job =
+                KubernetesResourceFactory.job(
+                        "app", SeatunnelKubernetesApplicationCli.class.getName(), parameters);
+        job.getInternalResource().getMetadata().setUid("owner-uid");
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            api.createAccompanyingResources(
+                    job, Collections.<KubernetesResource<?>>singletonList(secret));
+        }
+        assertEquals(Collections.singletonList("POST /api/v1/namespaces/test/secrets"), requests);
+        assertTrue(postedBody.get().contains("\"uid\":\"owner-uid\""));
+    }
+
+    @Test
+    void deletesOnlyTheOwnerJobAndLabeledPods() throws Exception {
+        List<String> requests = new ArrayList<>();
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain -> {
+                                                    requests.add(
+                                                            chain.request().method()
+                                                                    + " "
+                                                                    + chain.request()
+                                                                            .url()
+                                                                            .encodedPath());
+                                                    return new Response.Builder()
+                                                            .request(chain.request())
+                                                            .protocol(Protocol.HTTP_1_1)
+                                                            .code(200)
+                                                            .message("OK")
+                                                            .body(
+                                                                    ResponseBody.create(
+                                                                            "{\"kind\":\"Status\"}",
+                                                                            MediaType.get(
+                                                                                    "application/json")))
+                                                            .build();
+                                                })
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            api.deleteApplication("app");
+        }
+        assertEquals(2, requests.size());
+        assertTrue(
+                requests.get(0).startsWith("DELETE /apis/batch/v1/namespaces/test/jobs/app"),
+                requests.toString());
+        assertTrue(
+                requests.get(1).startsWith("DELETE /api/v1/namespaces/test/pods"),
+                requests.toString());
+        assertFalse(
+                requests.stream()
+                        .anyMatch(
+                                request ->
+                                        request.contains("/secrets")
+                                                || request.contains("/services")),
+                requests.toString());
+    }
+
+    private static KubernetesApplicationParameters parameters() {
+        Map<String, String> options = new HashMap<>();
+        options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env {}", options);
+        return KubernetesApplicationParameters.from(
+                specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
     }
 }

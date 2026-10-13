@@ -163,15 +163,15 @@ public final class KubernetesResourceFactory {
     }
 
     /**
-     * Serializes the application into a Secret owned by the already-created Job.
+     * Serializes the application into a Secret that is created after the owner Job.
      *
-     * @param job owner Job containing its server-assigned UID
+     * @param id application Job name used as the Secret name
      * @param parameters resolved application and Kubernetes runtime settings
      * @return mounted configuration model with the submitter's local kubeconfig path removed
      * @throws IOException if in-memory serialization fails
      */
-    public static KubernetesSecret secret(
-            KubernetesJob job, KubernetesApplicationParameters parameters) throws IOException {
+    public static KubernetesSecret secret(String id, KubernetesApplicationParameters parameters)
+            throws IOException {
         StringWriter serialized = new StringWriter();
         parameters.write(serialized);
         return new KubernetesSecret(
@@ -179,27 +179,23 @@ public final class KubernetesResourceFactory {
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                         .kind(KubernetesConstants.SECRET_KIND)
                         .type(KubernetesConstants.OPAQUE_SECRET_TYPE)
-                        .metadata(
-                                metadata(
-                                        job, job.getName(), KubernetesConstants.CONFIGURATION_ROLE))
+                        .metadata(metadata(id, KubernetesConstants.CONFIGURATION_ROLE))
                         .stringData(
                                 Collections.singletonMap(
                                         SPECIFICATION_FILE, serialized.toString())));
     }
 
     /**
-     * Builds the headless service owned by the application's master Job.
+     * Builds the headless service created after the application's master Job.
      *
-     * @param job owner Job containing its server-assigned UID
+     * @param id application Job name used as the Service name
      * @param parameters application master network parameters
      * @return service model selecting only this application's master pod
      */
-    public static KubernetesService service(
-            KubernetesJob job, KubernetesApplicationParameters parameters) {
-        String id = job.getName();
+    public static KubernetesService service(String id, KubernetesApplicationParameters parameters) {
         int port = parameters.getSpecification().getMasterPort();
         return new HeadlessClusterIPService(
-                metadata(job, id, KubernetesConstants.MASTER_ROLE),
+                metadata(id, KubernetesConstants.MASTER_ROLE),
                 ownershipLabels(id, KubernetesConstants.MASTER_ROLE),
                 KubernetesConstants.HAZELCAST_PORT_NAME,
                 port);
@@ -230,11 +226,12 @@ public final class KubernetesResourceFactory {
                         .spec(spec));
     }
 
+    private static V1ObjectMeta metadata(String name, String role) {
+        return new V1ObjectMeta().name(name).labels(ownershipLabels(name, role));
+    }
+
     private static V1ObjectMeta metadata(KubernetesJob job, String name, String role) {
-        return new V1ObjectMeta()
-                .name(name)
-                .labels(ownershipLabels(job.getName(), role))
-                .ownerReferences(Collections.singletonList(owner(job)));
+        return metadata(name, role).ownerReferences(Collections.singletonList(owner(job)));
     }
 
     private static V1ObjectMeta podMetadata(

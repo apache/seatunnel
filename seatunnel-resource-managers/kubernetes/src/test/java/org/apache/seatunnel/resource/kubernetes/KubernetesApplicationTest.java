@@ -251,8 +251,7 @@ class KubernetesApplicationTest {
             verify(client).close();
         }
         verify(api, never()).createJob(any());
-        verify(api, never()).createSecret(any());
-        verify(api, never()).createService(any());
+        verify(api, never()).createAccompanyingResources(any(), any());
         verify(api, never()).startJob(anyString());
         verify(api, never()).deleteApplication(anyString());
         verify(api).close();
@@ -288,33 +287,11 @@ class KubernetesApplicationTest {
         InOrder order = inOrder(api);
         order.verify(api).getConfigMap("seatunnel-runtime");
         order.verify(api).createJob(any());
-        order.verify(api).createSecret(any());
-        order.verify(api).createService(any());
+        order.verify(api).createAccompanyingResources(any(), any());
         order.verify(api).startJob(applicationId);
         descriptor.close();
         verify(api, never()).deleteApplication(anyString());
         verify(api).close();
-    }
-
-    @Test
-    void rollsBackPartiallyCreatedAndAmbiguouslyCreatedApplications() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
-        when(api.createJob(any())).thenReturn(job());
-        doThrow(new ApiException(403, "denied")).when(api).createService(any());
-        assertThrows(
-                ApiException.class,
-                () ->
-                        new KubernetesApplicationClusterDescriptor(api, options())
-                                .deployApplication(specification()));
-        verify(api).deleteApplication(anyString());
-        KubernetesClient interrupted = mock(KubernetesClient.class);
-        when(interrupted.createJob(any())).thenThrow(new ApiException(0, "connection interrupted"));
-        assertThrows(
-                ApiException.class,
-                () ->
-                        new KubernetesApplicationClusterDescriptor(interrupted, options())
-                                .deployApplication(specification()));
-        verify(interrupted).deleteApplication(anyString());
     }
 
     @Test
@@ -331,9 +308,65 @@ class KubernetesApplicationTest {
         assertThrows(
                 TimeoutException.class,
                 () ->
-                        new KubernetesApplicationClusterDescriptor(api, options())
+                        new KubernetesApplicationClusterDescriptor(api, options)
                                 .deployApplication(specification));
         verify(api).deleteApplication(anyString());
+    }
+
+    @Test
+    void compensatesCreatedResourcesWhenAccompanyingResourcesFail() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.createJob(any())).thenReturn(job());
+        doThrow(new ApiException(403, "denied"))
+                .when(api)
+                .createAccompanyingResources(any(), any());
+        assertThrows(
+                ApiException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options())
+                                .deployApplication(specification()));
+        verify(api).deleteApplication(anyString());
+    }
+
+    @Test
+    void compensatesAmbiguousJobCreationRequests() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.createJob(any())).thenThrow(new ApiException(0, "connection interrupted"));
+        assertThrows(
+                ApiException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options())
+                                .deployApplication(specification()));
+        verify(api, never()).createAccompanyingResources(any(), any());
+        verify(api).deleteApplication(anyString());
+    }
+
+    @Test
+    void compensatesAmbiguousAccompanyingResourceRequests() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.createJob(any())).thenReturn(job());
+        doThrow(new ApiException(0, "connection interrupted"))
+                .when(api)
+                .createAccompanyingResources(any(), any());
+        assertThrows(
+                ApiException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options())
+                                .deployApplication(specification()));
+        verify(api).deleteApplication(anyString());
+    }
+
+    @Test
+    void doesNotCompensateResourcesThisSubmissionDidNotCreate() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.createJob(any())).thenThrow(new ApiException(409, "already exists"));
+        assertThrows(
+                ApiException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options())
+                                .deployApplication(specification()));
+        verify(api, never()).createAccompanyingResources(any(), any());
+        verify(api, never()).deleteApplication(anyString());
     }
 
     @Test

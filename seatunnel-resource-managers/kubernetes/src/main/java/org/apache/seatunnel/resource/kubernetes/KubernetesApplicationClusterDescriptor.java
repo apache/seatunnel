@@ -39,7 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
-import io.kubernetes.client.openapi.ApiException;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -91,9 +90,12 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     }
 
     /**
-     * Creates and starts the owner Job without waiting for a live master. This is used by tests
-     * that intentionally submit applications which fail during startup and must observe the
-     * master's own partial cleanup.
+     * Localizes the specification, creates the owner Job and starts it without waiting for a live
+     * master.
+     *
+     * @param specification resolved job content and fixed resource requirements
+     * @return the generated Kubernetes Job name
+     * @throws Exception if the specification is invalid or the Kubernetes API rejects a resource
      */
     String submitApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationParameters parameters =
@@ -105,59 +107,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         }
         String id = KubernetesResourceFactory.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
-        return createApplicationResources(id, mainClass, parameters);
-    }
-
-    /**
-     * Creates the Job, Secret, Service and starts the Job, rolling back on failure.
-     *
-     * @param id generated Kubernetes Job name
-     * @param mainClass master entrypoint class
-     * @param parameters resolved Kubernetes deployment parameters
-     * @return the Kubernetes Job name
-     * @throws Exception if resource creation or startup fails
-     */
-    private String createApplicationResources(
-            String id, String mainClass, KubernetesApplicationParameters parameters)
-            throws Exception {
-        KubernetesJob job = null;
-        try {
-            LOG.debug("Creating owner Job {}", id);
-            job = api.createJob(KubernetesResourceFactory.job(id, mainClass, parameters));
-            LOG.debug("Creating Secret for job {}", id);
-            api.createSecret(KubernetesResourceFactory.secret(job, parameters));
-            LOG.debug("Creating Service for job {}", id);
-            api.createService(KubernetesResourceFactory.service(job, parameters));
-            LOG.debug("Starting Job {}", id);
-            api.startJob(id);
-            return id;
-        } catch (Exception failure) {
-            LOG.warn("Kubernetes application {} deployment failed", id, failure);
-            if (job == null
-                    || job.isFailed()
-                    || !(failure instanceof ApiException)
-                    || ((ApiException) failure).getCode() != 409) {
-                try {
-                    api.deleteApplication(id);
-                } catch (Exception cleanup) {
-                    failure.addSuppressed(cleanup);
-                }
-            }
-            if (failure instanceof ApiException) {
-                ApiException apiFailure = (ApiException) failure;
-                throw new ApiException(
-                        "Kubernetes application deployment failed for "
-                                + id
-                                + " (HTTP "
-                                + apiFailure.getCode()
-                                + ")",
-                        apiFailure,
-                        apiFailure.getCode(),
-                        apiFailure.getResponseHeaders(),
-                        apiFailure.getResponseBody());
-            }
-            throw failure;
-        }
+        return new KubernetesApplicationDeployment(api, id, mainClass, parameters).deploy();
     }
 
     private String awaitMaster(String id, long timeoutMillis) throws Exception {

@@ -20,8 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import io.kubernetes.client.openapi.ApiException;
@@ -42,17 +41,24 @@ public interface KubernetesClient extends AutoCloseable {
     /** Creates the suspended owner Job and returns its server-assigned metadata. */
     KubernetesJob createJob(KubernetesJob job) throws ApiException;
 
+    /**
+     * Creates resources that accompany the already-created owner Job.
+     *
+     * <p>Every resource receives the owner Job's reference before creation, so deleting the Job
+     * removes exactly the resources created for this application.
+     *
+     * @param owner created Job supplying the owner reference
+     * @param resources accompanying resources in creation order
+     * @throws ApiException if any resource cannot be created
+     */
+    void createAccompanyingResources(KubernetesJob owner, List<KubernetesResource<?>> resources)
+            throws ApiException;
+
     /** Reads the durable owner Job for one application. */
     KubernetesJob getJob(String name) throws ApiException;
 
     /** Starts a previously suspended owner Job without replacing concurrent controller fields. */
     void startJob(String name) throws ApiException;
-
-    /** Creates the Secret containing the localized application specification. */
-    void createSecret(KubernetesSecret secret) throws ApiException;
-
-    /** Creates the headless Service used for master discovery. */
-    void createService(KubernetesService service) throws ApiException;
 
     /** Creates one worker Pod owned by the application Job. */
     void createPod(KubernetesPod pod) throws ApiException;
@@ -78,7 +84,7 @@ public interface KubernetesClient extends AutoCloseable {
     /** Deletes one worker Pod and accepts an already absent Pod. */
     void deletePod(String name) throws ApiException;
 
-    /** Deletes the owner Job and all dependent application resources. */
+    /** Deletes the owner Job so Kubernetes also removes the resources it owns. */
     void deleteApplication(String id) throws ApiException;
 
     /** Deletes all worker Pods while preserving the application master. */

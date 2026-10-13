@@ -38,6 +38,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1Volume;
+import io.kubernetes.client.openapi.models.V1VolumeMount;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -94,7 +96,7 @@ class KubernetesResourceFactoryTest {
     }
 
     @Test
-    void mountsExistingCheckpointClaimOnlyOnMaster() {
+    void mountsExistingCheckpointClaimOnlyOnMaster() throws Exception {
         Map<String, String> options = options();
         options.put(KubernetesOptions.CHECKPOINT_PVC.key(), "existing-checkpoints");
         ApplicationSpecification specification =
@@ -102,29 +104,19 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesJob job = KubernetesResourceFactory.job("application", mainClass, parameters);
+        KubernetesJob job =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "application", mainClass, parameters)
+                        .getApplicationJob();
         V1Job jobResource = job.getInternalResource();
         assertEquals(
                 "existing-checkpoints",
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getVolumes()
-                        .get(1)
+                volume(jobResource, KubernetesConstants.CHECKPOINT_VOLUME)
                         .getPersistentVolumeClaim()
                         .getClaimName());
         assertEquals(
                 "/opt/seatunnel/checkpoints",
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getContainers()
-                        .get(0)
-                        .getVolumeMounts()
-                        .get(1)
-                        .getMountPath());
+                mount(jobResource, KubernetesConstants.CHECKPOINT_VOLUME).getMountPath());
         jobResource.getMetadata().setUid("owner-uid");
         V1Pod worker =
                 KubernetesResourceFactory.worker(
@@ -160,7 +152,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        KubernetesJob job =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob();
         V1Job jobResource = job.getInternalResource();
         jobResource.getMetadata().setUid("uid-1");
         assertTrue(
@@ -193,7 +188,7 @@ class KubernetesResourceFactoryTest {
                         .getImagePullSecrets()
                         .get(1)
                         .getName());
-        KubernetesSecret secret = KubernetesResourceFactory.secret(job, parameters);
+        KubernetesSecret secret = KubernetesResourceFactory.secret("app", parameters);
         V1Secret configuration = secret.getInternalResource();
         String localized =
                 configuration.getStringData().get(KubernetesResourceFactory.SPECIFICATION_FILE);
@@ -217,7 +212,6 @@ class KubernetesResourceFactoryTest {
         assertEquals(parameters.getWorkerAnnotations(), restored.getWorkerAnnotations());
         assertEquals(parameters.getMasterNodeSelector(), restored.getMasterNodeSelector());
         assertEquals(parameters.getWorkerNodeSelector(), restored.getWorkerNodeSelector());
-        assertEquals("uid-1", configuration.getMetadata().getOwnerReferences().get(0).getUid());
         assertEquals("Opaque", configuration.getType());
         assertFalse(
                 configuration
@@ -226,46 +220,21 @@ class KubernetesResourceFactoryTest {
                         .contains("submitter-kubeconfig"));
         assertEquals(
                 0400,
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getVolumes()
-                        .get(0)
+                volume(jobResource, KubernetesConstants.APPLICATION_VOLUME)
                         .getSecret()
                         .getDefaultMode());
         assertEquals(
+                "/etc/seatunnel-application",
+                mount(jobResource, KubernetesConstants.APPLICATION_VOLUME).getMountPath());
+        assertTrue(mount(jobResource, KubernetesConstants.APPLICATION_VOLUME).getReadOnly());
+        assertEquals(
                 "seatunnel-runtime",
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getVolumes()
-                        .get(1)
-                        .getConfigMap()
-                        .getName());
+                volume(jobResource, KubernetesConstants.CONFIG_VOLUME).getConfigMap().getName());
         assertEquals(
                 "/opt/seatunnel/config",
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getContainers()
-                        .get(0)
-                        .getVolumeMounts()
-                        .get(1)
-                        .getMountPath());
-        assertTrue(
-                jobResource
-                        .getSpec()
-                        .getTemplate()
-                        .getSpec()
-                        .getContainers()
-                        .get(0)
-                        .getVolumeMounts()
-                        .get(1)
-                        .getReadOnly());
-        KubernetesService service = KubernetesResourceFactory.service(job, parameters);
+                mount(jobResource, KubernetesConstants.CONFIG_VOLUME).getMountPath());
+        assertTrue(mount(jobResource, KubernetesConstants.CONFIG_VOLUME).getReadOnly());
+        KubernetesService service = KubernetesResourceFactory.service("app", parameters);
         assertEquals("None", service.getInternalResource().getSpec().getClusterIP());
         KubernetesPod workerPod =
                 KubernetesResourceFactory.worker(
@@ -366,6 +335,25 @@ class KubernetesResourceFactoryTest {
 
     private static ApplicationSpecification specification() {
         return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+    }
+
+    private static V1Volume volume(V1Job job, String name) {
+        for (V1Volume volume : job.getSpec().getTemplate().getSpec().getVolumes()) {
+            if (name.equals(volume.getName())) {
+                return volume;
+            }
+        }
+        throw new AssertionError("Missing volume " + name);
+    }
+
+    private static V1VolumeMount mount(V1Job job, String name) {
+        for (V1VolumeMount mount :
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getVolumeMounts()) {
+            if (name.equals(mount.getName())) {
+                return mount;
+            }
+        }
+        throw new AssertionError("Missing volume mount " + name);
     }
 
     private static Map<String, String> options() {
