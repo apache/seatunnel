@@ -77,11 +77,11 @@ public class ActivemqSinkFactory implements TableSinkFactory {
                         SEND_TIMEOUT,
                         USE_COMPRESSION,
                         CONNECT_RESPONSE_TIMEOUT,
-                        DELIVERY_MODE,
-                        PRIORITY,
                         PRODUCER_WINDOW_SIZE,
+                        USE_ASYNC_SEND,
+                        DELIVERY_MODE,
                         TIME_TO_LIVE,
-                        USE_ASYNC_SEND)
+                        PRIORITY)
                 .build();
     }
 

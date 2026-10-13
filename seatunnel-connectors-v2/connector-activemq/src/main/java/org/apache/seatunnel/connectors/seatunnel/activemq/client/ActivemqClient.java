@@ -26,9 +26,9 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.jms.Connection;
-import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.MessageProducer;
+import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
@@ -66,51 +66,32 @@ public class ActivemqClient {
     private final MessageProducer producer;
 
     public ActivemqClient(ReadonlyConfig config) {
+        this(config, createClientResources(config));
+    }
+
+    ActivemqClient(
+            ReadonlyConfig config,
+            ActiveMQConnectionFactory connectionFactory,
+            Connection connection) {
+        this(config, createProducerResources(config, connectionFactory, connection));
+    }
+
+    private ActivemqClient(ReadonlyConfig config, ClientResources resources) {
         this.config = config;
-        try {
-            int deliveryMode = config.get(DELIVERY_MODE);
-            if (deliveryMode != 1 && deliveryMode != 2) {
-                throw new IllegalArgumentException(
-                        "delivery_mode must be 1 (NON_PERSISTENT) or 2 (PERSISTENT), got: "
-                                + deliveryMode);
-            }
-            int priority = config.get(PRIORITY);
-            if (priority < 0 || priority > 9) {
-                throw new IllegalArgumentException(
-                        "priority must be between 0 and 9, got: " + priority);
-            }
-
-            this.connectionFactory = getConnectionFactory();
-            log.info("connection factory created");
-            this.connection = createConnection(config);
-            this.connection.start();
-            this.session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            Destination destination = session.createQueue(config.get(QUEUE_NAME));
-            this.producer = session.createProducer(destination);
-            this.producer.setDeliveryMode(deliveryMode);
-            this.producer.setTimeToLive(config.get(TIME_TO_LIVE));
-            this.producer.setPriority(priority);
-            log.info("connection created");
-
-        } catch (Exception e) {
-            log.error("Error while creating AMQ client", e);
-            // Best-effort cleanup of partially-created resources to avoid leaks
-            try {
-                close();
-            } catch (Exception closeError) {
-                e.addSuppressed(closeError);
-            }
-            throw new ActivemqConnectorException(
-                    ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
-                    "Error while create AMQ client ",
-                    e);
-        }
+        this.connectionFactory = resources.connectionFactory;
+        this.connection = resources.connection;
+        this.session = resources.session;
+        this.producer = resources.producer;
     }
 
     public ActiveMQConnectionFactory getConnectionFactory() {
-        // Strip credentials from URI before logging to avoid leaking sensitive information
-        String safeUri = config.get(URI).replaceAll("(://)[^@:]+:[^@]+@", "$1***@");
-        log.info("broker url : " + safeUri);
+        return connectionFactory;
+    }
+
+    static ActiveMQConnectionFactory createConnectionFactory(ReadonlyConfig config) {
+        String rawUri = config.get(URI);
+        String masked = rawUri.replaceAll("([a-zA-Z0-9_.-]+):([^/@]+)@", "$1:***@");
+        log.info("broker url : " + masked);
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.get(URI));
 
         if (config.get(ALWAYS_SESSION_ASYNC) != null) {
@@ -148,72 +129,155 @@ public class ActivemqClient {
             factory.setNestedMapAndListEnabled(config.get(NESTED_MAP_AND_LIST_ENABLED));
         }
 
-        // Options declared with .defaultValue() use getOptional() so the setter is only called
-        // when the user explicitly set the option. Otherwise the ActiveMQConnectionFactory would
-        // always apply the SeaTunnel default, silently overwriting jms.* parameters from the URI.
-        config.getOptional(MAX_THREAD_POOL_SIZE).ifPresent(factory::setMaxThreadPoolSize);
-        config.getOptional(SEND_TIMEOUT).ifPresent(factory::setSendTimeout);
-        config.getOptional(USE_COMPRESSION).ifPresent(factory::setUseCompression);
-        config.getOptional(CONNECT_RESPONSE_TIMEOUT).ifPresent(factory::setConnectResponseTimeout);
-        config.getOptional(PRODUCER_WINDOW_SIZE).ifPresent(factory::setProducerWindowSize);
-        config.getOptional(USE_ASYNC_SEND).ifPresent(factory::setUseAsyncSend);
+        if (config.get(MAX_THREAD_POOL_SIZE) != null) {
+            factory.setMaxThreadPoolSize(config.get(MAX_THREAD_POOL_SIZE));
+        }
+        if (config.get(SEND_TIMEOUT) != null) {
+            factory.setSendTimeout(config.get(SEND_TIMEOUT));
+        }
+        if (config.get(USE_COMPRESSION) != null) {
+            factory.setUseCompression(config.get(USE_COMPRESSION));
+        }
+        if (config.get(CONNECT_RESPONSE_TIMEOUT) != null) {
+            factory.setConnectResponseTimeout(config.get(CONNECT_RESPONSE_TIMEOUT));
+        }
+        if (config.get(PRODUCER_WINDOW_SIZE) != null) {
+            factory.setProducerWindowSize(config.get(PRODUCER_WINDOW_SIZE));
+        }
+        if (config.get(USE_ASYNC_SEND) != null) {
+            factory.setUseAsyncSend(config.get(USE_ASYNC_SEND));
+        }
         return factory;
     }
 
     public void write(byte[] msg) {
         try {
             String messageBody = new String(msg, StandardCharsets.UTF_8);
-            TextMessage textMessage = session.createTextMessage(messageBody);
-            producer.send(textMessage);
+            TextMessage objectMessage = session.createTextMessage(messageBody);
+            producer.send(objectMessage);
 
         } catch (JMSException e) {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.SEND_MESSAGE_FAILED,
-                    String.format("Cannot send AMQ message to queue %s", config.get(QUEUE_NAME)),
+                    String.format(
+                            "Cannot send AMQ message %s at %s",
+                            config.get(QUEUE_NAME), config.get(CLIENT_ID)),
                     e);
         }
     }
 
     public void close() {
-        JMSException firstError = null;
-        try {
-            if (producer != null) {
-                producer.close();
-            }
-        } catch (JMSException e) {
-            firstError = e;
-        }
-        try {
-            if (session != null) {
-                session.close();
-            }
-        } catch (JMSException e) {
-            if (firstError == null) {
-                firstError = e;
-            }
-        }
-        try {
-            if (connection != null) {
-                connection.close();
-            }
-        } catch (JMSException e) {
-            if (firstError == null) {
-                firstError = e;
-            }
-        }
-        if (firstError != null) {
+        JMSException e = closeResources(producer, session, connection);
+        if (e != null) {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CLOSE_CONNECTION_FAILED,
                     String.format(
-                            "Error while closing AMQ connection with %s", config.get(QUEUE_NAME)),
-                    firstError);
+                            "Error while closing AMQ connection with  %s", config.get(QUEUE_NAME)),
+                    e);
         }
     }
 
-    private Connection createConnection(ReadonlyConfig config) throws JMSException {
+    private static ClientResources createClientResources(ReadonlyConfig config) {
+        ActiveMQConnectionFactory factory;
+        Connection connection;
+        try {
+            factory = createConnectionFactory(config);
+            log.info("connection factory created");
+            connection = createConnection(config, factory);
+        } catch (Exception e) {
+            log.error("Error while creating AMQ client", e);
+            throw new ActivemqConnectorException(
+                    ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
+                    "Error while create AMQ client ",
+                    e);
+        }
+        log.info("connection created");
+        return createProducerResources(config, factory, connection);
+    }
+
+    private static ClientResources createProducerResources(
+            ReadonlyConfig config, ActiveMQConnectionFactory factory, Connection connection) {
+        Session session = null;
+        MessageProducer producer = null;
+        try {
+            connection.start();
+            session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Queue destination = session.createQueue(config.get(QUEUE_NAME));
+            producer = session.createProducer(destination);
+            producer.setDeliveryMode(config.get(DELIVERY_MODE));
+            if (config.get(TIME_TO_LIVE) != null) {
+            producer.setTimeToLive(config.get(TIME_TO_LIVE));
+        }
+            producer.setPriority(config.get(PRIORITY));
+            return new ClientResources(factory, connection, session, producer);
+        } catch (Exception e) {
+            JMSException closeException = closeResources(producer, session, connection);
+            if (closeException != null) {
+                e.addSuppressed(closeException);
+            }
+            throw new ActivemqConnectorException(
+                    ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
+                    "Error while create AMQ client ",
+                    e);
+        }
+    }
+
+    private static JMSException closeResources(
+            MessageProducer producer, Session session, Connection connection) {
+        JMSException exception = null;
+        if (producer != null) {
+            exception = closeResource(producer::close, exception);
+        }
+        if (session != null) {
+            exception = closeResource(session::close, exception);
+        }
+        if (connection != null) {
+            exception = closeResource(connection::close, exception);
+        }
+        return exception;
+    }
+
+    private static JMSException closeResource(CloseAction action, JMSException previous) {
+        try {
+            action.close();
+        } catch (JMSException e) {
+            if (previous == null) {
+                return e;
+            }
+            previous.addSuppressed(e);
+        }
+        return previous;
+    }
+
+    @FunctionalInterface
+    private interface CloseAction {
+        void close() throws JMSException;
+    }
+
+    private static Connection createConnection(
+            ReadonlyConfig config, ActiveMQConnectionFactory connectionFactory)
+            throws JMSException {
         if (config.get(USERNAME) != null && config.get(PASSWORD) != null) {
             return connectionFactory.createConnection(config.get(USERNAME), config.get(PASSWORD));
         }
         return connectionFactory.createConnection();
+    }
+
+    private static class ClientResources {
+        private final ActiveMQConnectionFactory connectionFactory;
+        private final Connection connection;
+        private final Session session;
+        private final MessageProducer producer;
+
+        private ClientResources(
+                ActiveMQConnectionFactory connectionFactory,
+                Connection connection,
+                Session session,
+                MessageProducer producer) {
+            this.connectionFactory = connectionFactory;
+            this.connection = connection;
+            this.session = session;
+            this.producer = producer;
+        }
     }
 }
