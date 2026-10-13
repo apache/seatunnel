@@ -33,8 +33,8 @@ import java.util.List;
  *
  * <p>Referenced ConfigMaps are never created or deleted. Entries that declare {@code data} are
  * created as ConfigMaps owned by the application Job, so cancelling the application removes them.
- * Keys are mounted through {@code subPath} at {@code <seatunnel-home>/config/<key>} unless a {@code
- * mount} entry overrides the path.
+ * Every mounted key declares its full container path through {@code mount} and is mounted through
+ * {@code subPath}, so entries never overwrite each other.
  */
 public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
