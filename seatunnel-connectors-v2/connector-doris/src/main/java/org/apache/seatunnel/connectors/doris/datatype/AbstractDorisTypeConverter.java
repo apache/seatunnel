@@ -79,6 +79,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;
+    public static final int DORIS_LARGEINT_PRECISION = 39;
 
     public static final Integer DEFAULT_SCALE = 0;
     public static final Integer MAX_SCALE = 10;
@@ -180,10 +181,9 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case DORIS_LARGEINT:
-                DecimalType decimalType;
-                decimalType = new DecimalType(20, 0);
+                DecimalType decimalType = new DecimalType(DORIS_LARGEINT_PRECISION, 0);
                 builder.dataType(decimalType);
-                builder.columnLength(20L);
+                builder.columnLength((long) DORIS_LARGEINT_PRECISION);
                 builder.scale(0);
                 break;
             case DORIS_STRING:
@@ -391,6 +391,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.scale(MAX_DATETIME_SCALE);
                 break;
             case ARRAY:
+                if (column.getSourceType() != null
+                        && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT_ARRAY)) {
+                    builder.columnType(DORIS_LARGEINT_ARRAY);
+                    builder.dataType(DORIS_LARGEINT_ARRAY);
+                    break;
+                }
                 SeaTunnelDataType<?> dataType = column.getDataType();
                 SeaTunnelDataType elementType = null;
                 if (dataType instanceof ArrayType) {

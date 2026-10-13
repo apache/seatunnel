@@ -37,11 +37,13 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -86,12 +88,16 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
+    private static final String LARGEINT_SOURCE_TABLE = "doris_largeint_source";
+    private static final String LARGEINT_SINK_TABLE = "doris_largeint_sink";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container ->
-                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
-                            .copyTo(container, "/tmp/seatunnel/plugins/Doris-CDC/lib");
+            container -> {
+                DependencyJar mysqlDriver = DependencyJar.of(com.mysql.cj.jdbc.Driver.class);
+                mysqlDriver.copyTo(container, "/tmp/seatunnel/plugins/Doris-CDC/lib");
+                mysqlDriver.copyTo(container, "/tmp/seatunnel/plugins/jdbc/lib");
+            };
 
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(
@@ -191,6 +197,66 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                         });
         executeSql(
                 "INSERT INTO " + MYSQL_DATABASE + "." + SOURCE_TABLE + " VALUES (1, 'Alice', 95)");
+    }
+
+    @TestTemplate
+    public void testDorisLargeintToMysqlAutoCreate(TestContainer container) throws Exception {
+        executeDorisSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + DATABASE
+                        + "."
+                        + LARGEINT_SOURCE_TABLE
+                        + " (id INT, large_value LARGEINT) ENGINE=OLAP DUPLICATE KEY(id) "
+                        + "DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES "
+                        + "(\"replication_allocation\" = \"tag.location.default: 1\")");
+        executeDorisSql("TRUNCATE TABLE " + DATABASE + "." + LARGEINT_SOURCE_TABLE);
+        executeDorisSql(
+                "INSERT INTO "
+                        + DATABASE
+                        + "."
+                        + LARGEINT_SOURCE_TABLE
+                        + " VALUES (1, 170141183460469231731687303715884105727), "
+                        + "(2, -170141183460469231731687303715884105728), "
+                        + "(3, 123456789012345678901)");
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + LARGEINT_SINK_TABLE);
+
+        Container.ExecResult result = container.executeJob("/doris_largeint_to_mysql.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+
+        List<BigDecimal> values = new ArrayList<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT large_value FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + LARGEINT_SINK_TABLE
+                                        + " ORDER BY id")) {
+            while (resultSet.next()) {
+                values.add(resultSet.getBigDecimal(1));
+            }
+        }
+        Assertions.assertEquals(
+                Arrays.asList(
+                        new BigDecimal("170141183460469231731687303715884105727"),
+                        new BigDecimal("-170141183460469231731687303715884105728"),
+                        new BigDecimal("123456789012345678901")),
+                values);
+
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT NUMERIC_PRECISION FROM information_schema.columns "
+                                        + "WHERE table_schema = '"
+                                        + MYSQL_DATABASE
+                                        + "' AND table_name = '"
+                                        + LARGEINT_SINK_TABLE
+                                        + "' AND column_name = 'large_value'")) {
+            Assertions.assertTrue(resultSet.next());
+            Assertions.assertEquals(39, resultSet.getInt(1));
+        }
     }
 
     private void initializeJdbcTable() {
