@@ -28,7 +28,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
-import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -69,21 +69,21 @@ public final class KubernetesApplicationFactory {
     }
 
     /**
-     * Applies the worker decorator chain to one worker Pod specification.
+     * Applies the worker decorator chain to one worker Pod.
      *
      * <p>The chain contains exactly the features shared with the master, so worker Pods cannot
      * drift away from the master's mounts, environment and runtime configuration. Workers are
      * created by the application master through the resource manager, so this method runs
      * in-cluster with the same parameters the master restored from the localized specification.
      *
-     * @param podSpec worker Pod specification being assembled
+     * @param pod worker Pod being assembled
      * @param applicationId generated application Job name that owns the worker
      * @param parameters resolved application and Kubernetes settings
-     * @return the decorated Pod specification
+     * @return the decorated Pod
      */
-    public static V1PodSpec decorateWorker(
-            V1PodSpec podSpec, String applicationId, KubernetesApplicationParameters parameters) {
-        V1PodSpec decorated = podSpec;
+    public static V1Pod decorateWorker(
+            V1Pod pod, String applicationId, KubernetesApplicationParameters parameters) {
+        V1Pod decorated = pod;
         for (KubernetesStepDecorator decorator : workerDecorators(applicationId, parameters)) {
             decorated = decorator.decoratePod(decorated);
         }

@@ -26,6 +26,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesR
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapVolumeSource;
+import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
@@ -54,7 +55,8 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public V1PodSpec decoratePod(V1PodSpec podSpec) {
+    public V1Pod decoratePod(V1Pod pod) {
+        V1PodSpec podSpec = pod.getSpec();
         int index = 0;
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             String volumeName = KubernetesConstants.CONFIG_VOLUME + "-" + index++;
@@ -73,7 +75,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
                                         .readOnly(true));
             }
         }
-        return podSpec;
+        return pod;
     }
 
     @Override

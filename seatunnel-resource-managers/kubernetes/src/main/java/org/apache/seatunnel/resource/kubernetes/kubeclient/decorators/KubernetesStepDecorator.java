@@ -20,7 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
-import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.io.IOException;
 import java.util.List;
@@ -48,12 +48,12 @@ public interface KubernetesStepDecorator {
     KubernetesJob decorateJob(KubernetesJob job);
 
     /**
-     * Applies this feature to one Pod specification.
+     * Applies this feature to one Pod, including its identity and specification.
      *
-     * @param podSpec Pod specification being assembled
-     * @return the Pod specification containing this feature's changes
+     * @param pod Pod being assembled
+     * @return the Pod containing this feature's changes
      */
-    V1PodSpec decoratePod(V1PodSpec podSpec);
+    V1Pod decoratePod(V1Pod pod);
 
     /**
      * Builds resources that support this feature and must exist next to the owner Job.

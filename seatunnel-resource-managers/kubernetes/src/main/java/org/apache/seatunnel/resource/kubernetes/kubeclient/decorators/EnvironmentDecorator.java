@@ -27,7 +27,7 @@ import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1EnvVarSource;
-import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1SecretEnvSource;
 import io.kubernetes.client.openapi.models.V1SecretKeySelector;
 
@@ -46,15 +46,15 @@ public final class EnvironmentDecorator extends AbstractKubernetesStepDecorator 
     }
 
     @Override
-    public V1PodSpec decoratePod(V1PodSpec podSpec) {
-        V1Container container = podSpec.getContainers().get(0);
+    public V1Pod decoratePod(V1Pod pod) {
+        V1Container container = pod.getSpec().getContainers().get(0);
         for (KubernetesEnvironmentVariable variable : parameters.getEnvironmentVariables()) {
             container.addEnvItem(environmentVariable(variable));
         }
         parameters
                 .getEnvFromReferences()
                 .forEach(reference -> container.addEnvFromItem(envFrom(reference)));
-        return podSpec;
+        return pod;
     }
 
     private static V1EnvVar environmentVariable(KubernetesEnvironmentVariable variable) {

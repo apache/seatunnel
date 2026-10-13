@@ -22,7 +22,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
-import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -50,11 +50,11 @@ public final class InlineSpecificationDecorator extends AbstractKubernetesStepDe
     }
 
     @Override
-    public V1PodSpec decoratePod(V1PodSpec podSpec) {
-        V1Container master = podSpec.getContainers().get(0);
+    public V1Pod decoratePod(V1Pod pod) {
+        V1Container master = pod.getSpec().getContainers().get(0);
         master.addEnvItem(
                 new V1EnvVar().name(KubernetesConstants.SPECIFICATION_ENV).value(encode()));
-        return podSpec;
+        return pod;
     }
 
     private String encode() {

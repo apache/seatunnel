@@ -170,18 +170,16 @@ public final class KubernetesResourceFactory {
                                         KubernetesConstants.WORKER_ROLE,
                                         parameters.getWorkerLabels()))
                         .annotations(parameters.getWorkerAnnotations());
-        V1PodSpec spec =
-                KubernetesApplicationFactory.decorateWorker(
-                        KubernetesPodFactory.worker(
-                                parameters, resources, clusterName, masterAddress),
-                        job.getName(),
-                        parameters);
-        return new KubernetesPod(
+        V1Pod pod =
                 new V1Pod()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                         .kind(KubernetesConstants.POD_KIND)
                         .metadata(metadata)
-                        .spec(spec));
+                        .spec(
+                                KubernetesPodFactory.worker(
+                                        parameters, resources, clusterName, masterAddress));
+        return new KubernetesPod(
+                KubernetesApplicationFactory.decorateWorker(pod, job.getName(), parameters));
     }
 
     /**

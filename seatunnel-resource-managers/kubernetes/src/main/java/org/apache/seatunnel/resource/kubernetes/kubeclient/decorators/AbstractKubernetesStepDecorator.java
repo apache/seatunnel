@@ -20,7 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
-import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 
 import java.io.IOException;
@@ -31,7 +31,7 @@ import java.util.List;
 public abstract class AbstractKubernetesStepDecorator implements KubernetesStepDecorator {
 
     /**
-     * Routes the owner Job's master Pod template through {@link #decoratePod(V1PodSpec)}.
+     * Routes the owner Job's master Pod through {@link #decoratePod(V1Pod)}.
      *
      * @param job owner Job being built
      * @return the Job whose master template contains this feature's changes
@@ -39,13 +39,16 @@ public abstract class AbstractKubernetesStepDecorator implements KubernetesStepD
     @Override
     public KubernetesJob decorateJob(KubernetesJob job) {
         V1PodTemplateSpec template = job.getInternalResource().getSpec().getTemplate();
-        template.setSpec(decoratePod(template.getSpec()));
+        V1Pod decorated =
+                decoratePod(new V1Pod().metadata(template.getMetadata()).spec(template.getSpec()));
+        template.setMetadata(decorated.getMetadata());
+        template.setSpec(decorated.getSpec());
         return job;
     }
 
     @Override
-    public V1PodSpec decoratePod(V1PodSpec podSpec) {
-        return podSpec;
+    public V1Pod decoratePod(V1Pod pod) {
+        return pod;
     }
 
     @Override

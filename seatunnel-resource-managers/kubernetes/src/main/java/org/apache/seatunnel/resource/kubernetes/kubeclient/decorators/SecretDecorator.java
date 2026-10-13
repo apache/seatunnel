@@ -23,6 +23,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 
+import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
@@ -52,12 +53,12 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public V1PodSpec decoratePod(V1PodSpec podSpec) {
+    public V1Pod decoratePod(V1Pod pod) {
         if (!parameters.hasApplicationSecret()) {
-            return podSpec;
+            return pod;
         }
-        mount(podSpec, parameters.resolvedApplicationSecretName(applicationId));
-        return podSpec;
+        mount(pod.getSpec(), parameters.resolvedApplicationSecretName(applicationId));
+        return pod;
     }
 
     @Override
