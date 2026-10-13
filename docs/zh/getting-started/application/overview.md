@@ -25,17 +25,24 @@ application 状态直接映射为平台对象，用 `status` 和 `cancel` 就能
 配额和策略也按 application 生效。checkpoint 跨 application 存活，新的 application 可以按原生
 job ID 恢复此前的作业。
 
-:::note
-Application Mode 不是 standalone 或共享集群部署的替代品：大量小作业希望共用一个长期集群时仍应使用
-集群模式；需要动态扩缩 Worker 的作业也不适合 Application Mode 的固定 Worker 集合，失败即结束。
-:::
+## 适用场景
 
-## 集群形态
+- 已经有资源平台，不想再维护长期运行的共享 SeaTunnel 集群；
+- 每个作业都希望拥有独立集群和固定资源占用；
+- 希望用平台对象查看和管理作业生命周期。
 
-- 一个 application 运行一个 Zeta Master 和固定数量的 Worker，作业运行期间不增删成员；
+## 不适用场景
+
+- 大量小作业希望占用一个长期集群（用独立或集群部署）；
+- 作业运行期间需要动态扩缩 Worker 或自动补拉 Worker；应用模式使用固定 Worker，失败即结束；
+- 发行版中没有对应资源平台的提供商。
+
+## 分布形态
+
+- 一个应用程序运行一个 Zeta Master 和固定数量的 Worker，作业运行期间不增减成员；
 - Worker 在作业启动前把 slot 注册到 Master；
-- Master 把作业结果映射为平台终态，并在退出前释放全部 Worker；
-- checkpoint 存放在引擎侧的持久化存储中，可跨 application 生命周期，由新的 application 按 job ID 恢复。
+- Master 将作业结果映射为平台终态，并在退出前释放全部 Worker；
+- checkpoint 存放在引擎侧的持久化存储中，可跨应用程序生命周期，由新的应用程序按作业 ID 恢复。
 
 ## 命令行
 

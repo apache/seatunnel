@@ -29,17 +29,25 @@ cannot borrow slots from another or disturb its state, and quotas and policies a
 application. Checkpoints survive the application, so a later application can restore an earlier job
 by its native job ID.
 
-:::note
-Application Mode is not a replacement for standalone or shared-cluster deployment: many small jobs
-that should share one long-running cluster still belong to cluster mode, and a job that needs
-dynamic worker scaling should not use the fixed worker set of Application Mode.
-:::
+## When to use Application Mode
+
+- You already operate a resource platform and do not want to maintain a long-running shared
+  SeaTunnel cluster.
+- Every job should own an isolated cluster with a fixed resource footprint.
+- The job lifecycle should be visible and manageable through platform objects.
+
+## When not to use Application Mode
+
+- Many small jobs should share one long-running cluster (use standalone or cluster deployment).
+- The job needs dynamic worker scaling or automatic worker replenishment while it runs; Application
+  Mode uses a fixed worker set and fails instead of scaling out.
+- The distribution has no provider for your resource platform.
 
 ## Cluster shape
 
 - One application runs one Zeta master and a fixed number of workers; no member is added or removed
   while the job runs.
-- Workers register their slots with the master before the single job starts.
+- Workers register their slots with the master before the job starts.
 - The master maps the job result to the platform state and releases the workers before it exits.
 - Checkpoints live in engine-owned persistent storage and survive the application; a new application
   can restore them by native job ID.
