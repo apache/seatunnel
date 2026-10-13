@@ -32,8 +32,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
@@ -89,53 +87,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     String submitApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification, options);
-        if (parameters.getConfigMap() != null) {
-            // Fail before creating application-owned resources when the user-owned runtime
-            // configuration does not exist or is not readable by the submitting client.
-            api.getConfigMap(parameters.getConfigMap());
-        }
-        validateReferencedConfigMaps(parameters);
         String id = KubernetesResourceFactory.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         return new KubernetesApplicationDeployment(api, id, mainClass, parameters).deploy();
-    }
-
-    /**
-     * Verifies referenced ConfigMaps and the keys each entry mounts before creating resources.
-     *
-     * @param parameters resolved application settings
-     * @throws Exception if a reference or one of its mounted keys is missing
-     */
-    private void validateReferencedConfigMaps(KubernetesApplicationParameters parameters)
-            throws Exception {
-        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
-            if (!entry.isReference()) {
-                continue;
-            }
-            KubernetesConfigMap configMap = api.getConfigMap(entry.getReference());
-            for (String key : entry.getMountPaths().keySet()) {
-                boolean present =
-                        (configMap.getInternalResource().getData() != null
-                                        && configMap
-                                                .getInternalResource()
-                                                .getData()
-                                                .containsKey(key))
-                                || (configMap.getInternalResource().getBinaryData() != null
-                                        && configMap
-                                                .getInternalResource()
-                                                .getBinaryData()
-                                                .containsKey(key));
-                if (!present) {
-                    throw new IllegalArgumentException(
-                            "kubernetes.configmap."
-                                    + entry.getEntryName()
-                                    + " mounts missing key "
-                                    + key
-                                    + " from ConfigMap "
-                                    + entry.getReference());
-                }
-            }
-        }
     }
 
     private String awaitMaster(String id, long timeoutMillis) throws Exception {

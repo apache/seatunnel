@@ -21,6 +21,8 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplication
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
 import org.slf4j.Logger;
@@ -67,6 +69,7 @@ final class KubernetesApplicationDeployment {
         KubernetesApplicationSpecification specification =
                 KubernetesApplicationFactory.buildApplicationSpecification(
                         id, mainClass, parameters);
+        validateUserManagedResources();
         KubernetesJob job = null;
         try {
             LOG.debug("Creating owner Job {} and its accompanying resources", id);
@@ -87,6 +90,46 @@ final class KubernetesApplicationDeployment {
             }
             throw describe(failure);
         }
+    }
+
+    /**
+     * Verifies user-managed ConfigMaps before the first application resource is created.
+     *
+     * <p>The legacy {@code kubernetes.config-map} only needs to exist. Every {@code
+     * kubernetes.configmap.<entry>} reference additionally declares which keys it mounts, so those
+     * keys must exist in the referenced ConfigMap. No application-owned resource exists yet, so a
+     * failure here never needs compensation.
+     *
+     * @throws Exception if a referenced ConfigMap or one of its mounted keys is missing
+     */
+    private void validateUserManagedResources() throws Exception {
+        if (parameters.getConfigMap() != null) {
+            api.getConfigMap(parameters.getConfigMap());
+        }
+        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+            if (!entry.isReference()) {
+                continue;
+            }
+            KubernetesConfigMap configMap = api.getConfigMap(entry.getReference());
+            for (String key : entry.getMountPaths().keySet()) {
+                if (!containsKey(configMap, key)) {
+                    throw new IllegalArgumentException(
+                            "kubernetes.configmap."
+                                    + entry.getEntryName()
+                                    + " mounts missing key "
+                                    + key
+                                    + " from ConfigMap "
+                                    + entry.getReference());
+                }
+            }
+        }
+    }
+
+    private static boolean containsKey(KubernetesConfigMap configMap, String key) {
+        return (configMap.getInternalResource().getData() != null
+                        && configMap.getInternalResource().getData().containsKey(key))
+                || (configMap.getInternalResource().getBinaryData() != null
+                        && configMap.getInternalResource().getBinaryData().containsKey(key));
     }
 
     /** @return whether a failed request may still have been applied by the API server */
