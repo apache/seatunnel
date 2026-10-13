@@ -56,7 +56,7 @@ flowchart TB
 
 1. 提交器先校验用户管理的运行时 ConfigMap，再创建 `backoffLimit: 0` 的挂起 Job。
 2. 获得 Job UID 后，创建带 OwnerReference 的 Secret 和 Headless Service。
-3. Kubernetes API 确认两个依赖资源创建成功后，提交器解除 Job 挂起并等待 Master Pod 进入 Running。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口。
+3. Kubernetes API 确认两个依赖资源创建成功后，提交器解除 Job 挂起并返回 Job 名称，不等待 Master Pod 就绪。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口；镜像拉取慢、准入或调度问题通过 `status` 和 Pod 事件观察。
 4. Master 启动独立 Zeta 集群，通过 Kubernetes API 创建固定数量的 Worker Pod。每个 Worker 配置进程 liveness probe；Master 持续观察带 application label 的 Pod 快照，识别删除和终止状态。
 5. Worker 解析 Headless Service 指向的 Master 地址，加入集群并注册 slot。Pod phase 用于故障检测，Zeta 注册仍是 Worker 就绪和 slot 容量的判断依据。
 6. 所有 Worker 就绪后，Master 提交唯一的 Zeta 作业。
@@ -78,7 +78,7 @@ application.worker-count × application.worker.slots
 
 Pod request 与 limit 使用相同 CPU、内存值。Namespace quota、LimitRange、准入策略和节点可用容量都可能阻止调度。
 
-Job、Secret 和 Service 的创建请求由 Kubernetes API 同步确认后才会启动 Job。运行时 watch 只观察会被外部控制器改变的 Pod 生命周期；提交请求失败或响应不明确时，会清理所有带 application label 的资源。
+Job、Secret 和 Service 的创建请求由 Kubernetes API 同步确认后才会启动 Job。运行时 watch 只观察会被外部控制器改变的 Pod 生命周期；提交请求失败或响应不明确时，只补偿本次提交创建的资源，不会删除同名的已有资源。
 
 ## 所有权与持久数据
 

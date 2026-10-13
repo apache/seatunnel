@@ -658,7 +658,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                         && current.getStatus().getHard() != null;
                             });
             try (KubernetesApplicationClient application =
-                    deployApplicationWithoutStartupWait(specification("quota"), "quota")) {
+                    deployApplication(specification("quota"), "quota")) {
                 try {
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
@@ -690,19 +690,6 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 new ApplicationClusterDeployer(DeployType.KUBERNETES, specification, options);
 
         return new KubernetesApplicationClient(platformMonitor, deployer.run());
-    }
-
-    private KubernetesApplicationClient deployApplicationWithoutStartupWait(
-            ApplicationSpecification specification, String scenario) throws Exception {
-        Map<String, String> options =
-                SeatunnelApplicationConfig.load(
-                        getResourcesFile("/kubernetes/" + scenario + "/application.config")
-                                .toPath(),
-                        Collections.emptyMap());
-        String id =
-                new KubernetesApplicationClusterDescriptorFactory()
-                        .deployApplicationWithoutWaitingForStartup(specification, options);
-        return new KubernetesApplicationClient(platformMonitor, id);
     }
 
     private void awaitStatus(KubernetesApplicationClient application, ApplicationStatus expected) {

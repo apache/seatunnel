@@ -56,7 +56,7 @@ flowchart TB
 
 1. The submitter validates the user-owned runtime ConfigMap, then creates a suspended Job with `backoffLimit: 0`.
 2. After receiving the Job UID, it creates an owner-referenced Secret and headless Service.
-3. After the API confirms both dependent resources, it unsuspends the Job and waits for the master Pod to run. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port.
+3. After the API confirms both dependent resources, it unsuspends the Job and returns the Job name without waiting for the master Pod. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port. Use `status` or Pod events to observe slow image pulls, admission or scheduling problems.
 4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. Each worker has a process liveness probe, and the master watches application-labelled Pod snapshots for deletion and terminal phases.
 5. Workers resolve the master through the headless Service, join the cluster, and register slots. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
 6. The master submits one Zeta job after every worker is ready.
@@ -78,7 +78,7 @@ application.worker-count × application.worker.slots
 
 Pod requests equal limits. Namespace quota, LimitRange, admission policies, and node capacity can prevent scheduling.
 
-The Kubernetes API acknowledges Job, Secret, and Service creation synchronously before the Job is started. Runtime watches are therefore used for externally changing Pod lifecycle state, while a failed or ambiguous submission request triggers cleanup of every application-labelled resource.
+The Kubernetes API acknowledges Job, Secret, and Service creation synchronously before the Job is started. Runtime watches are therefore used for externally changing Pod lifecycle state. A failed or ambiguous submission request compensates exactly the resources created by that submission, so pre-existing resources with the same name are never deleted.
 
 ## Ownership and durable data
 

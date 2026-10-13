@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-
 import org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
-import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
@@ -59,27 +56,5 @@ public final class KubernetesApplicationClusterDescriptorFactory
     public ClusterDescriptor<String> create(Map<String, String> options) throws Exception {
         KubernetesClient kubernetesClient = KubernetesClientFactory.create(options, false);
         return new KubernetesApplicationClusterDescriptor(kubernetesClient, options);
-    }
-
-    /**
-     * Test support only: creates and starts one application without waiting for a live master or
-     * rolling it back when its startup later fails, so an integration test can observe the master's
-     * own partial cleanup. The returned Job name is still queryable through a shared client.
-     *
-     * <p>This is not part of the SPI contract. Production callers must use {@link #create(Map)} and
-     * the returned {@link ClusterDescriptor}.
-     *
-     * @param specification resolved application fields
-     * @param options namespace and optional submitter kubeconfig
-     * @return native Kubernetes Job name
-     * @throws Exception if configuration or Kubernetes resource creation fails
-     */
-    @VisibleForTesting
-    public String deployApplicationWithoutWaitingForStartup(
-            ApplicationSpecification specification, Map<String, String> options) throws Exception {
-        try (KubernetesApplicationClusterDescriptor descriptor =
-                (KubernetesApplicationClusterDescriptor) create(options)) {
-            return descriptor.submitApplication(specification);
-        }
     }
 }

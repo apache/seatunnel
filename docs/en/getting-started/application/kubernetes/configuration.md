@@ -40,11 +40,11 @@ title: Configuration
 | `application.master.memory-mb` | `1024` | Master memory request and limit in MiB. |
 | `application.master.cpu-cores` | `1` | Master CPU request and limit. |
 | `application.master.port` | `5801` | Master Hazelcast TCP port. |
-| `application.startup-timeout-millis` | `120000` | Applied separately to master startup and worker creation and registration. |
+| `application.startup-timeout-millis` | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
 
 Pod JVM heap uses 75% of the memory limit, leaving the remainder for off-heap allocations and JVM overhead.
 
-`application.startup-timeout-millis` is not a job execution limit. Image pull, admission, or scheduling failures can exhaust the submitter's master-startup deadline. The master uses the same timeout separately for workers.
+`application.startup-timeout-millis` is not a job execution limit and does not bound submission. The submitter returns as soon as the API accepts the started Job, so slow image pulls, admission, or scheduling problems never fail the submit command; observe them with `status` and Pod events. The master uses the same timeout separately for workers.
 
 ## Images and credentials
 

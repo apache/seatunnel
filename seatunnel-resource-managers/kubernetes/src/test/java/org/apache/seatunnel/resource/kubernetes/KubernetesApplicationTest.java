@@ -69,7 +69,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -277,9 +276,6 @@ class KubernetesApplicationTest {
                             job.getInternalResource().getMetadata().setUid("server-uid");
                             return job;
                         });
-        when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
-        when(api.listPods(anyString()))
-                .thenReturn(Collections.singletonList(pod("master", "Running")));
         KubernetesApplicationClusterDescriptor descriptor =
                 new KubernetesApplicationClusterDescriptor(api, options());
         String applicationId = descriptor.deployApplication(specification());
@@ -290,27 +286,25 @@ class KubernetesApplicationTest {
         order.verify(api).createAccompanyingResources(any(), any());
         order.verify(api).startJob(applicationId);
         descriptor.close();
+        verify(api, never()).getJob(anyString());
+        verify(api, never()).listPods(anyString());
         verify(api, never()).deleteApplication(anyString());
         verify(api).close();
     }
 
     @Test
-    void masterSchedulingTimeoutRollsBackAllApplicationResources() throws Exception {
+    void submissionReturnsWithoutWaitingForTheMaster() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any())).thenReturn(job());
-        when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
-        when(api.listPods(anyString()))
-                .thenReturn(Collections.singletonList(pod("master", "Pending")));
-        Map<String, String> options = options();
-        options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "5");
-        ApplicationSpecification specification =
-                SeatunnelApplicationConfig.parse("env {}", options);
-        assertThrows(
-                TimeoutException.class,
-                () ->
-                        new KubernetesApplicationClusterDescriptor(api, options)
-                                .deployApplication(specification));
-        verify(api).deleteApplication(anyString());
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options())) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+            verify(api, never()).getJob(anyString());
+            verify(api, never()).listPods(anyString());
+            assertTrue(nativeClients.constructed().isEmpty());
+        }
+        verify(api, never()).deleteApplication(anyString());
     }
 
     @Test
@@ -422,27 +416,6 @@ class KubernetesApplicationTest {
             assertTrue(nativeClients.constructed().isEmpty());
             verify(api, never()).listPods(anyString());
         }
-    }
-
-    @Test
-    void deploymentReturnsIdWhenApplicationFinishesBeforeConnecting() throws Exception {
-        KubernetesClient api = mock(KubernetesClient.class);
-        when(api.createJob(any())).thenReturn(job());
-        when(api.getJob(anyString()))
-                .thenReturn(
-                        job(
-                                new V1JobStatus()
-                                        .addConditionsItem(
-                                                new V1JobCondition()
-                                                        .type("Complete")
-                                                        .status("True"))));
-        try (KubernetesApplicationClusterDescriptor descriptor =
-                new KubernetesApplicationClusterDescriptor(api, options())) {
-            String id = descriptor.deployApplication(specification());
-            verify(api).startJob(id);
-            assertTrue(nativeClients.constructed().isEmpty());
-        }
-        verify(api, never()).deleteApplication(anyString());
     }
 
     @Test

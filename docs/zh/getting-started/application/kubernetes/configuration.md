@@ -40,11 +40,11 @@ title: 配置参考
 | `application.master.memory-mb` | `1024` | Master memory request 和 limit，单位 MiB。 |
 | `application.master.cpu-cores` | `1` | Master CPU request 和 limit。 |
 | `application.master.port` | `5801` | Master Hazelcast TCP 端口。 |
-| `application.startup-timeout-millis` | `120000` | 分别用于等待 Master 启动，以及 Worker 创建和注册。 |
+| `application.startup-timeout-millis` | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
 
 每个 Pod 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
 
-`application.startup-timeout-millis` 不是作业执行时长限制。镜像拉取、准入或调度问题会使提交端等待 Master 超时；Master 使用同一超时等待 Worker。
+`application.startup-timeout-millis` 不是作业执行时长限制，也不限制提交。提交器在 API 接受并启动 Job 后立即返回，镜像拉取慢、准入或调度问题不会使提交命令失败，可通过 `status` 和 Pod 事件观察；Master 使用同一超时等待 Worker。
 
 ## 镜像和凭据
 

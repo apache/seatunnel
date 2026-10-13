@@ -35,9 +35,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.client.config.ClientConfig;
 
 import java.util.Collections;
@@ -46,11 +43,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/** Deploys a suspended owner Job, localizes configuration, then starts its control plane. */
+/** Submits one isolated application Job and discovers its control plane on demand. */
 final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(KubernetesApplicationClusterDescriptor.class);
-
     private final KubernetesClient api;
     private final ReadonlyConfig options;
 
@@ -66,27 +60,20 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     }
 
     /**
-     * Creates and starts one isolated application, rolling back all partial startup resources.
+     * Creates and starts one isolated application without waiting for its master.
+     *
+     * <p>Image pull, admission and scheduling therefore cannot fail the submission; callers observe
+     * the runtime outcome through {@link #getApplicationStatus(String)} or {@link
+     * #retrieve(Object)}. Only resources created by this invocation are compensated when creation
+     * fails.
      *
      * @param specification resolved job content and fixed resource requirements
      * @return the native Kubernetes Job name
-     * @throws Exception on invalid options, admission errors or configuration localization failures
+     * @throws Exception on invalid options or admission errors
      */
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
-        String id = submitApplication(specification);
-        LOG.info("Submitted Kubernetes application {}, waiting for its master", id);
-        try {
-            awaitDeployment(id, specification.getStartupTimeoutMillis());
-            return id;
-        } catch (Exception failure) {
-            try {
-                api.deleteApplication(id);
-            } catch (Exception cleanup) {
-                failure.addSuppressed(cleanup);
-            }
-            throw failure;
-        }
+        return submitApplication(specification);
     }
 
     /**
@@ -171,26 +158,6 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     public void cancelApplication(String applicationId) throws Exception {
         validateApplicationId(applicationId);
         api.deleteApplication(applicationId);
-    }
-
-    private void awaitDeployment(String applicationId, long timeoutMillis) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (true) {
-            ApplicationStatus status = getApplicationStatus(applicationId);
-            if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
-                return;
-            }
-            if (status.isTerminal()) {
-                throw new IllegalStateException(
-                        "Kubernetes application " + applicationId + " failed to start: " + status);
-            }
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0) {
-                throw new TimeoutException(
-                        "Timed out waiting for Kubernetes application master " + applicationId);
-            }
-            TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(200)));
-        }
     }
 
     /** Releases the SDK connection without canceling or deleting any application. */
