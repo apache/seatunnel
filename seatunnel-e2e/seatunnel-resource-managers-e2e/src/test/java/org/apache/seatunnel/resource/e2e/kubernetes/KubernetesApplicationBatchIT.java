@@ -57,7 +57,7 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                         "Runner cleanup must preserve the successful application result");
                 assertEquals(
                         1,
-                        batch().readNamespacedJob(application.getClusterId(), namespace(), null)
+                        batch.readNamespacedJob(application.getClusterId(), namespace, null)
                                 .getStatus()
                                 .getSucceeded());
                 Properties runtime = new Properties();
@@ -73,27 +73,23 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                 assertEquals(
                         Long.toString(specification.getJobId()),
                         runtime.getProperty(ApplicationOptions.JOB_ID.key()));
-                assertEquals(namespace(), runtime.getProperty(KubernetesOptions.NAMESPACE.key()));
+                assertEquals(namespace, runtime.getProperty(KubernetesOptions.NAMESPACE.key()));
                 assertEquals(
                         "Never", runtime.getProperty(KubernetesOptions.IMAGE_PULL_POLICY.key()));
                 assertFalse(runtime.containsKey(KubernetesOptions.KUBE_CONFIG.key()));
                 assertTrue(
                         missing(
                                 () ->
-                                        core().readNamespacedSecret(
-                                                        application.getClusterId(),
-                                                        namespace(),
-                                                        null)));
+                                        core.readNamespacedSecret(
+                                                application.getClusterId(), namespace, null)));
                 assertStatusFromApplicationCli(application.getClusterId());
                 assertTrue(
                         missing(
                                 () ->
-                                        core().readNamespacedConfigMap(
-                                                        application.getClusterId(),
-                                                        namespace(),
-                                                        null)));
+                                        core.readNamespacedConfigMap(
+                                                application.getClusterId(), namespace, null)));
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -112,7 +108,7 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                                 "The application must reach job parsing, not fail during runtime startup. Master logs:\n"
                                         + masterLogs);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }

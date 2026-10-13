@@ -20,7 +20,6 @@ package org.apache.seatunnel.resource.e2e.kubernetes;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
@@ -43,23 +42,34 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
     private static final String REFERENCE_SECRET = "seatunnel-application-e2e-ref-secret";
 
     /** Fixtures only the configuration scenarios need; the base environment stays generic. */
-    @BeforeAll
-    void createConfigurationFixtures() throws Exception {
-        core().createNamespacedSecret(
-                        namespace(),
-                        new V1Secret()
-                                .metadata(new V1ObjectMeta().name(REFERENCE_SECRET))
-                                .type("Opaque")
-                                .stringData(Collections.singletonMap("E2E_PARALLELISM", "1")),
-                        null,
-                        null,
-                        null,
-                        null);
+    @Override
+    protected void startScenarioFixtures() throws Exception {
+        core.createNamespacedSecret(
+                namespace,
+                new V1Secret()
+                        .metadata(new V1ObjectMeta().name(REFERENCE_SECRET))
+                        .type("Opaque")
+                        .stringData(Collections.singletonMap("E2E_PARALLELISM", "1")),
+                null,
+                null,
+                null,
+                null);
         // Valid environment-variable name proving envFrom values resolve job placeholders.
-        V1ConfigMap runtime = core().readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace(), null);
+        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
         runtime.getData().put("E2E_CM_ENV", "configmap-env");
-        core().replaceNamespacedConfigMap(
-                        RUNTIME_CONFIG_MAP, namespace(), runtime, null, null, null, null);
+        core.replaceNamespacedConfigMap(
+                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+    }
+
+    /** Restores the shared runtime ConfigMap and removes the class-scoped reference Secret. */
+    @Override
+    protected void stopScenarioFixtures() throws Exception {
+        V1ConfigMap runtime = core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null);
+        runtime.getData().remove("E2E_CM_ENV");
+        core.replaceNamespacedConfigMap(
+                RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
+        core.deleteNamespacedSecret(
+                REFERENCE_SECRET, namespace, null, null, null, null, null, null);
     }
 
     @Test
@@ -94,7 +104,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/jvm_options"));
                 V1Service service =
-                        core().readNamespacedService(application.getClusterId(), namespace(), null);
+                        core.readNamespacedService(application.getClusterId(), namespace, null);
                 assertEquals("None", service.getSpec().getClusterIP());
                 assertTrue(service.getSpec().getPublishNotReadyAddresses());
                 assertEquals(
@@ -161,17 +171,17 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                     .getCommand()
                                     .contains("@/opt/seatunnel/config/jvm_worker_options"));
                 }
-                V1Secret secret = core().readNamespacedSecret(createdSecret, namespace(), null);
+                V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
                 assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());
                 assertTrue(secret.getData().containsKey("E2E_JOB_MODE"));
                 V1ConfigMap generated =
-                        core().readNamespacedConfigMap(generatedConfigMap, namespace(), null);
+                        core.readNamespacedConfigMap(generatedConfigMap, namespace, null);
                 assertFalse(generated.getMetadata().getOwnerReferences().isEmpty());
                 assertEquals(
                         "source=kubernetes-configmap",
                         generated.getData().get("application-e2e.properties"));
                 V1ConfigMap generatedDefault =
-                        core().readNamespacedConfigMap(defaultConfigMap, namespace(), null);
+                        core.readNamespacedConfigMap(defaultConfigMap, namespace, null);
                 assertFalse(generatedDefault.getMetadata().getOwnerReferences().isEmpty());
                 assertEquals(
                         "source=default-name",
@@ -180,7 +190,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 // when job.mode, parallelism and the envFrom value are resolved on the master.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
             Awaitility.await()
@@ -190,27 +200,25 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                 assertTrue(
                                         missing(
                                                 () ->
-                                                        core().readNamespacedSecret(
-                                                                        createdSecret,
-                                                                        namespace(),
-                                                                        null)));
+                                                        core.readNamespacedSecret(
+                                                                createdSecret, namespace, null)));
                                 assertTrue(
                                         missing(
                                                 () ->
-                                                        core().readNamespacedConfigMap(
-                                                                        generatedConfigMap,
-                                                                        namespace(),
-                                                                        null)));
+                                                        core.readNamespacedConfigMap(
+                                                                generatedConfigMap,
+                                                                namespace,
+                                                                null)));
                                 assertTrue(
                                         missing(
                                                 () ->
-                                                        core().readNamespacedConfigMap(
-                                                                        defaultConfigMap,
-                                                                        namespace(),
-                                                                        null)));
+                                                        core.readNamespacedConfigMap(
+                                                                defaultConfigMap,
+                                                                namespace,
+                                                                null)));
                             });
             // The referenced ConfigMap is user-owned and must survive cancellation.
-            assertNotNull(core().readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace(), null));
+            assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }
     }
 
@@ -223,14 +231,14 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
                 assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
-                V1Secret secret = core().readNamespacedSecret(createdSecret, namespace(), null);
+                V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
                 assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());
                 assertTrue(secret.getData().containsKey("job.conf"));
                 // The submitted job.conf refers to a sink that does not exist, so the batch job
                 // can only succeed when the mounted job.conf replaced it before parsing.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
             Awaitility.await()
@@ -240,10 +248,10 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                     assertTrue(
                                             missing(
                                                     () ->
-                                                            core().readNamespacedSecret(
-                                                                            createdSecret,
-                                                                            namespace(),
-                                                                            null))));
+                                                            core.readNamespacedSecret(
+                                                                    createdSecret,
+                                                                    namespace,
+                                                                    null))));
         }
     }
 
@@ -257,14 +265,14 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 V1Pod master = masterPod(application);
                 assertTrue(mounted(master, "/opt/seatunnel/config/job.conf"));
                 V1ConfigMap configMap =
-                        core().readNamespacedConfigMap(createdConfigMap, namespace(), null);
+                        core.readNamespacedConfigMap(createdConfigMap, namespace, null);
                 assertFalse(configMap.getMetadata().getOwnerReferences().isEmpty());
                 assertTrue(configMap.getData().containsKey("job.conf"));
                 // The submitted job.conf refers to a sink that does not exist, so the batch job
                 // can only succeed when the mounted ConfigMap job.conf replaced it.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
             Awaitility.await()
@@ -274,10 +282,10 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                     assertTrue(
                                             missing(
                                                     () ->
-                                                            core().readNamespacedConfigMap(
-                                                                            createdConfigMap,
-                                                                            namespace(),
-                                                                            null))));
+                                                            core.readNamespacedConfigMap(
+                                                                    createdConfigMap,
+                                                                    namespace,
+                                                                    null))));
         }
     }
 
@@ -303,11 +311,11 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 }
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
-            assertNotNull(core().readNamespacedSecret(REFERENCE_SECRET, namespace(), null));
-            assertNotNull(core().readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace(), null));
+            assertNotNull(core.readNamespacedSecret(REFERENCE_SECRET, namespace, null));
+            assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }
     }
 }

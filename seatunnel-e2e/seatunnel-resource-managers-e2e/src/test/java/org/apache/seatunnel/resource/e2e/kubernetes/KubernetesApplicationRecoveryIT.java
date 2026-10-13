@@ -51,8 +51,8 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                         getResourcesFile("/kubernetes/checkpoints-pvc.yaml"),
                         V1PersistentVolumeClaim.class);
         String claim = checkpointVolume.getMetadata().getName();
-        core().createNamespacedPersistentVolumeClaim(
-                        namespace(), checkpointVolume, null, null, null, null);
+        core.createNamespacedPersistentVolumeClaim(
+                namespace, checkpointVolume, null, null, null, null);
         String marker = "APPLICATION_E2E_DATA";
         ApplicationSpecification firstSpecification = specification("checkpoint");
         try (KubernetesApplicationClient first =
@@ -70,20 +70,20 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                                 podLogs(first, masterPod(first).getMetadata().getName()),
                                 firstSpecification.getJobId());
                 awaitDurableCheckpoint(first, firstSpecification.getJobId(), completed + 2);
-                core().deleteNamespacedPod(
-                                worker, namespace(), null, null, 0, null, "Background", null);
+                core.deleteNamespacedPod(
+                        worker, namespace, null, null, 0, null, "Background", null);
                 awaitStatus(first, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(first);
             } catch (Exception | AssertionError failure) {
                 recordPodDiagnostics(first);
                 throw failure;
             } finally {
-                deployer().cancelApplication(first.getClusterId());
+                deployer.cancelApplication(first.getClusterId());
             }
             awaitAllResourcesRemoved(first);
         }
         V1PersistentVolumeClaim retained =
-                core().readNamespacedPersistentVolumeClaim(claim, namespace(), null);
+                core.readNamespacedPersistentVolumeClaim(claim, namespace, null);
         assertEquals("Bound", retained.getStatus().getPhase());
         assertTrue(
                 retained.getMetadata().getOwnerReferences() == null
@@ -113,13 +113,13 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 recordPodDiagnostics(restored);
                 throw failure;
             } finally {
-                deployer().cancelApplication(restored.getClusterId());
+                deployer.cancelApplication(restored.getClusterId());
             }
             awaitAllResourcesRemoved(restored);
         }
         assertEquals(
                 "Bound",
-                core().readNamespacedPersistentVolumeClaim(claim, namespace(), null)
+                core.readNamespacedPersistentVolumeClaim(claim, namespace, null)
                         .getStatus()
                         .getPhase());
     }
@@ -163,7 +163,7 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
 
     private static String checkpointFile(V1Pod master, long jobId) throws Exception {
         Process process =
-                new Exec(apiClient())
+                new Exec(apiClient)
                         .exec(
                                 master,
                                 new String[] {

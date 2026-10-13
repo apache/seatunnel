@@ -55,8 +55,8 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                     awaitJobRunning(first);
                     awaitJobRunning(second);
                     // Pod addresses are cluster-internal; retrieving a provider must not connect.
-                    assertNotNull(deployer().retrieve(first.getClusterId()));
-                    assertNotNull(deployer().retrieve(second.getClusterId()));
+                    assertNotNull(deployer.retrieve(first.getClusterId()));
+                    assertNotNull(deployer.retrieve(second.getClusterId()));
                     assertNotEquals(first.getClusterId(), second.getClusterId());
                     String firstMaster = masterPod(first).getStatus().getPodIP() + ":5801";
                     String secondMaster = masterPod(second).getStatus().getPodIP() + ":5801";
@@ -99,22 +99,22 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                     }
                     assertRuntimeConfigMapMounted(masterPod(first));
                     assertRuntimeConfigMapMounted(masterPod(second));
-                    deployer().cancelApplication(first.getClusterId());
+                    deployer.cancelApplication(first.getClusterId());
                     awaitAllResourcesRemoved(first);
                     assertEquals(
                             ApplicationStatus.UNKNOWN,
-                            deployer().getApplicationStatus(first.getClusterId()));
+                            deployer.getApplicationStatus(first.getClusterId()));
                     awaitAllResourcesRemoved(first);
                     assertEquals(
                             ApplicationStatus.RUNNING,
-                            deployer().getApplicationStatus(second.getClusterId()));
+                            deployer.getApplicationStatus(second.getClusterId()));
                     assertEquals(1, workers(second).size());
                 } finally {
-                    deployer().cancelApplication(second.getClusterId());
+                    deployer.cancelApplication(second.getClusterId());
                 }
                 awaitAllResourcesRemoved(second);
             } finally {
-                deployer().cancelApplication(first.getClusterId());
+                deployer.cancelApplication(first.getClusterId());
             }
             awaitAllResourcesRemoved(first);
         }
@@ -126,15 +126,15 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
             try {
                 awaitWorkersRunning(application, 2);
                 awaitJobRunning(application);
-                core().deleteNamespacedPod(
-                                workers(application).get(0).getMetadata().getName(),
-                                namespace(),
-                                null,
-                                null,
-                                0,
-                                null,
-                                "Background",
-                                null);
+                core.deleteNamespacedPod(
+                        workers(application).get(0).getMetadata().getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Background",
+                        null);
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersRemoved(application);
                 assertEquals(
@@ -142,7 +142,7 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                         application.getStatus(),
                         "Worker cleanup must preserve the original application failure");
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -159,7 +159,7 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersExited(application);
             } finally {
-                deployer().cancelApplication(application.getClusterId());
+                deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
         }
@@ -171,15 +171,14 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                 Yaml.loadAs(
                         getResourcesFile("/kubernetes/worker-quota.yaml"), V1ResourceQuota.class);
         String quota = workerQuota.getMetadata().getName();
-        core().createNamespacedResourceQuota(namespace(), workerQuota, null, null, null, null);
+        core.createNamespacedResourceQuota(namespace, workerQuota, null, null, null, null);
         try {
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .until(
                             () -> {
                                 V1ResourceQuota current =
-                                        core().readNamespacedResourceQuota(
-                                                        quota, namespace(), null);
+                                        core.readNamespacedResourceQuota(quota, namespace, null);
                                 return current.getStatus() != null
                                         && current.getStatus().getHard() != null;
                             });
@@ -189,13 +188,13 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
                 } finally {
-                    deployer().cancelApplication(application.getClusterId());
+                    deployer.cancelApplication(application.getClusterId());
                 }
                 awaitAllResourcesRemoved(application);
             }
         } finally {
-            core().deleteNamespacedResourceQuota(
-                            quota, namespace(), null, null, 0, null, "Background", null);
+            core.deleteNamespacedResourceQuota(
+                    quota, namespace, null, null, 0, null, "Background", null);
         }
     }
 
