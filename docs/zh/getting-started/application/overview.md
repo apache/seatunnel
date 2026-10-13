@@ -13,7 +13,7 @@ Application Mode 使用原生 Zeta Engine、Connector 和 checkpoint 机制，�
 flowchart LR
     client["提交客户端<br/>作业配置 + 部署配置"]
 
-    subgraph platform["YARN / Kubernetes"]
+    subgraph platform["资源管理器"]
         direction TB
         master["一个 Master"]
         workers["Worker 1 ... Worker N"]

@@ -10,7 +10,7 @@ Application Mode 为一个 SeaTunnel 作业创建一个独立的 Zeta 集群。�
 ```mermaid
 flowchart LR
   client["SeaTunnel Application CLI"]
-  platform["YARN / Kubernetes"]
+  platform["资源管理器"]
 
   subgraph app["一个 Application"]
     master["Application Master<br/>Zeta Master"]
@@ -77,7 +77,7 @@ resource-manager core 模块已删除。部署选项放在 engine-common 的 `co
 ```mermaid
 sequenceDiagram
     participant CLI
-    participant Platform as YARN / Kubernetes
+    participant Platform as 资源管理器
     participant Master
     participant Worker
     participant Engine as Zeta Engine

@@ -10,7 +10,7 @@ Application Mode creates an independent Zeta cluster for one SeaTunnel job. The 
 ```mermaid
 flowchart LR
   client["SeaTunnel Application CLI"]
-  platform["YARN / Kubernetes"]
+  platform["Resource Manager"]
 
   subgraph app["One application"]
     master["Application Master<br/>Zeta Master"]
@@ -77,7 +77,7 @@ There is no `ApplicationResult` response wrapper. Status queries return `Applica
 ```mermaid
 sequenceDiagram
     participant CLI
-    participant Platform as YARN / Kubernetes
+    participant Platform as Resource Manager
     participant Master
     participant Worker
     participant Engine as Zeta Engine

@@ -13,7 +13,7 @@ Application Mode uses the native Zeta Engine, connectors, and checkpoint mechani
 flowchart LR
     client["Submission client<br/>job config + deployment config"]
 
-    subgraph platform["YARN / Kubernetes"]
+    subgraph platform["Resource Manager"]
         direction TB
         master["One master"]
         workers["Worker 1 ... Worker N"]
