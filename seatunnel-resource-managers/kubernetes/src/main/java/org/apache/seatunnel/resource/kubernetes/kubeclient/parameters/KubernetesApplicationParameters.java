@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.parameters;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
@@ -25,13 +27,16 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 
 import lombok.Getter;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,6 +56,7 @@ import java.util.stream.Collectors;
 public final class KubernetesApplicationParameters {
     private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
+    private static final String SECRET_DATA_PREFIX = "kubernetes.secret.data.";
 
     private final ApplicationSpecification specification;
     private final String namespace;
@@ -60,6 +66,9 @@ public final class KubernetesApplicationParameters {
     private final String serviceAccount;
     private final String seatunnelHome;
     private final String configMap;
+    private final String applicationSecretRef;
+    private final String applicationSecretName;
+    private final Map<String, String> applicationSecretData;
     private final int retentionSeconds;
     private final String checkpointPvc;
     private final Map<String, String> masterLabels;
@@ -84,6 +93,10 @@ public final class KubernetesApplicationParameters {
                     "kubernetes.seatunnel-home must be an absolute path without ':'");
         }
         this.configMap = optionalNonBlank(options, KubernetesOptions.CONFIG_MAP);
+        this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
+        this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
+        this.applicationSecretData = secretData(rawOptions(options));
+        validateApplicationSecret();
         this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
         if (retentionSeconds < 1) {
             throw new IllegalArgumentException(
@@ -102,7 +115,7 @@ public final class KubernetesApplicationParameters {
      * Resolves platform settings before any Kubernetes resource is created.
      *
      * @param specification immutable application launch specification
-     * @param options platform deployment settings
+     * @param options platform deployment settings, including dynamic kubernetes.secret.data keys
      * @return parsed Kubernetes application settings
      * @throws IllegalArgumentException if an option is invalid or overrides an ownership label
      */
@@ -112,16 +125,60 @@ public final class KubernetesApplicationParameters {
     }
 
     /**
-     * Reads the master's application.properties mounted from its application Secret.
+     * Reads the master's localized application specification from a local file.
      *
      * <p>Common application fields are decoded by SeatunnelApplicationConfig; this class restores
      * the Kubernetes fields needed to create workers. Credentials come from the master's service
-     * account, not the submitter-local kubeconfig. Workers do not read this file.
+     * account, not the submitter-local kubeconfig.
+     *
+     * @param path localized application properties
+     * @return parsed Kubernetes application settings
+     * @throws IOException if the file cannot be read or decoded
      */
     public static KubernetesApplicationParameters read(Path path) throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
+        }
+        return read(properties, null);
+    }
+
+    /**
+     * Reads the master's Base64 encoded localized specification, optionally replacing the inline
+     * job configuration with a file mounted from a user-managed Secret.
+     *
+     * @param encodedSpecification value of {@link
+     *     org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants#SPECIFICATION_ENV}
+     * @param jobConfigOverride mounted job configuration file, or {@code null} to use the inline
+     *     one
+     * @return parsed Kubernetes application settings
+     * @throws IOException if the specification is missing, malformed or cannot be read
+     */
+    public static KubernetesApplicationParameters read(
+            String encodedSpecification, Path jobConfigOverride) throws IOException {
+        if (encodedSpecification == null || encodedSpecification.trim().isEmpty()) {
+            throw new IOException("Missing localized application specification");
+        }
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(encodedSpecification);
+        } catch (IllegalArgumentException failure) {
+            throw new IOException("Invalid localized application specification encoding", failure);
+        }
+        Properties properties = new Properties();
+        try (Reader reader =
+                new InputStreamReader(new ByteArrayInputStream(decoded), StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        }
+        return read(properties, jobConfigOverride);
+    }
+
+    private static KubernetesApplicationParameters read(
+            Properties properties, Path jobConfigOverride) throws IOException {
+        if (jobConfigOverride != null) {
+            properties.setProperty(
+                    SeatunnelApplicationConfig.JOB_CONFIG_KEY,
+                    new String(Files.readAllBytes(jobConfigOverride), StandardCharsets.UTF_8));
         }
         Map<String, Object> options = new HashMap<>();
         for (String key : properties.stringPropertyNames()) {
@@ -156,6 +213,15 @@ public final class KubernetesApplicationParameters {
         if (configMap != null) {
             properties.setProperty(KubernetesOptions.CONFIG_MAP.key(), configMap);
         }
+        if (applicationSecretRef != null) {
+            properties.setProperty(KubernetesOptions.SECRET_REF.key(), applicationSecretRef);
+        }
+        if (applicationSecretName != null) {
+            properties.setProperty(KubernetesOptions.SECRET_NAME.key(), applicationSecretName);
+        }
+        for (Map.Entry<String, String> entry : applicationSecretData.entrySet()) {
+            properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), entry.getValue());
+        }
         if (checkpointPvc != null) {
             properties.setProperty(KubernetesOptions.CHECKPOINT_PVC.key(), checkpointPvc);
         }
@@ -175,6 +241,71 @@ public final class KubernetesApplicationParameters {
     /** Returns the Kubernetes API spelling of the validated pull policy. */
     public String getImagePullPolicy() {
         return imagePullPolicy.value;
+    }
+
+    /** @return whether a Secret is mounted into the application Pods */
+    public boolean hasApplicationSecret() {
+        return applicationSecretRef != null || !applicationSecretData.isEmpty();
+    }
+
+    /**
+     * Resolves the mounted Secret name.
+     *
+     * @param applicationId generated application Job name used when no name is configured
+     * @return referenced Secret name or the configured/generated name of the created Secret
+     */
+    public String resolvedApplicationSecretName(String applicationId) {
+        if (applicationSecretRef != null) {
+            return applicationSecretRef;
+        }
+        return applicationSecretName == null ? applicationId : applicationSecretName;
+    }
+
+    private static Map<String, String> secretData(Map<String, String> options) {
+        Map<String, String> data = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : options.entrySet()) {
+            if (!entry.getKey().startsWith(SECRET_DATA_PREFIX)) {
+                continue;
+            }
+            String key = entry.getKey().substring(SECRET_DATA_PREFIX.length());
+            if (key.isEmpty() || !key.matches("[-._a-zA-Z0-9]+")) {
+                throw new IllegalArgumentException(
+                        entry.getKey() + " must use a valid Kubernetes Secret data key");
+            }
+            if (data.put(key, entry.getValue()) != null) {
+                throw new IllegalArgumentException(
+                        "kubernetes.secret.data contains duplicate key " + key);
+            }
+        }
+        return Collections.unmodifiableMap(data);
+    }
+
+    /**
+     * Flattens the resolved options so dynamic {@code kubernetes.secret.data.<KEY>} keys survive.
+     */
+    private static Map<String, String> rawOptions(ReadonlyConfig options) {
+        Map<String, String> raw = new HashMap<>();
+        for (Map.Entry<String, ConfigValue> entry : options.toConfig().entrySet()) {
+            Object value = entry.getValue().unwrapped();
+            if (value != null && !(value instanceof Map) && !(value instanceof List)) {
+                raw.put(entry.getKey(), String.valueOf(value));
+            }
+        }
+        return raw;
+    }
+
+    private void validateApplicationSecret() {
+        if (applicationSecretRef == null) {
+            if (applicationSecretName != null && applicationSecretData.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "kubernetes.secret.name requires kubernetes.secret.data entries");
+            }
+            return;
+        }
+        if (applicationSecretName != null || !applicationSecretData.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "kubernetes.secret-ref cannot be combined with kubernetes.secret");
+        }
     }
 
     private enum ImagePullPolicy {

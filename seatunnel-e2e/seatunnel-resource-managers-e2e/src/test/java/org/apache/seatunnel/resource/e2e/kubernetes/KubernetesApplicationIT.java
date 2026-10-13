@@ -33,6 +33,7 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.codehaus.plexus.util.FileUtils;
@@ -64,7 +65,6 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1ResourceQuota;
 import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
-import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
@@ -80,6 +80,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -105,7 +106,6 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationIT.class);
     private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
-    private static final String APPLICATION_SPECIFICATION_FILE = "application.properties";
     private static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
     private static final String K3S_IMAGE = "rancher/k3s:v1.31.6-k3s1";
     private String namespace;
@@ -255,18 +255,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         batch.readNamespacedJob(application.getClusterId(), namespace, null)
                                 .getStatus()
                                 .getSucceeded());
-                V1Secret applicationSecret =
-                        core.readNamespacedSecret(application.getClusterId(), namespace, null);
-                assertEquals(1, applicationSecret.getMetadata().getOwnerReferences().size());
-                assertEquals("Opaque", applicationSecret.getType());
-                assertTrue(applicationSecret.getData().containsKey(APPLICATION_SPECIFICATION_FILE));
                 Properties runtime = new Properties();
                 runtime.load(
                         new StringReader(
                                 new String(
-                                        applicationSecret
-                                                .getData()
-                                                .get(APPLICATION_SPECIFICATION_FILE),
+                                        Base64.getDecoder()
+                                                .decode(
+                                                        inlineSpecification(
+                                                                masterPod(application))),
                                         StandardCharsets.UTF_8)));
                 assertEquals("V1", runtime.getProperty("format.version"));
                 assertEquals(
@@ -276,6 +272,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 assertEquals(
                         "Never", runtime.getProperty(KubernetesOptions.IMAGE_PULL_POLICY.key()));
                 assertFalse(runtime.containsKey(KubernetesOptions.KUBE_CONFIG.key()));
+                assertTrue(
+                        missing(
+                                () ->
+                                        core.readNamespacedSecret(
+                                                application.getClusterId(), namespace, null)));
                 assertStatusFromApplicationCli(application.getClusterId());
                 assertTrue(
                         missing(
@@ -852,6 +853,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 mount ->
                                         "/opt/seatunnel/config".equals(mount.getMountPath())
                                                 && Boolean.TRUE.equals(mount.getReadOnly())));
+    }
+
+    private static String inlineSpecification(V1Pod master) {
+        return master.getSpec().getContainers().get(0).getEnv().stream()
+                .filter(env -> KubernetesConstants.SPECIFICATION_ENV.equals(env.getName()))
+                .map(env -> env.getValue())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing inline specification"));
     }
 
     private void awaitAllResourcesRemoved(KubernetesApplicationClient application) {

@@ -42,8 +42,14 @@ public final class KubernetesConstants {
     public static final String WORKER_ROLE = "worker";
     public static final String CONFIGURATION_ROLE = "configuration";
 
-    /** Mounted application file and stable pod volume names. */
-    public static final String SPECIFICATION_FILE = "application.properties";
+    /** Name of the reserved key whose content replaces the inline job configuration. */
+    public static final String JOB_CONFIG_FILE = "job.conf";
+
+    /** Directory where a configured application Secret is mounted read-only. */
+    public static final String APPLICATION_SECRET_DIRECTORY = "/etc/seatunnel-secrets/application";
+
+    /** Environment variable carrying the Base64 encoded localized application specification. */
+    public static final String SPECIFICATION_ENV = "SEATUNNEL_APPLICATION_SPECIFICATION";
 
     public static final String APPLICATION_VOLUME = "application";
     public static final String CONFIG_VOLUME = "seatunnel-config";
@@ -52,7 +58,6 @@ public final class KubernetesConstants {
     /** Main container identity, paths, and environment exposed to the application entrypoint. */
     public static final String CONTAINER_NAME = "seatunnel";
 
-    public static final String CONFIG_DIRECTORY = "/etc/seatunnel-application";
     public static final String CHECKPOINT_DIRECTORY = "/opt/seatunnel/checkpoints";
     public static final String MASTER_HOST_ENV = "SEATUNNEL_APPLICATION_MASTER_HOST";
     public static final String SEATUNNEL_HOME_ENV = "SEATUNNEL_HOME";

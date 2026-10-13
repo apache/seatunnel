@@ -23,20 +23,19 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
-import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1PodSpec;
-import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
-import io.kubernetes.client.openapi.models.V1Volume;
-import io.kubernetes.client.openapi.models.V1VolumeMount;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Mounts the credential-bearing application specification Secret on the master container.
+ * Mounts the configured application Secret read-only at {@link
+ * KubernetesConstants#APPLICATION_SECRET_DIRECTORY}.
  *
- * <p>The Secret is created after the owner Job so that it can carry the Job's owner reference.
+ * <p>{@code kubernetes.secret-ref} only references a Secret managed outside SeaTunnel. Otherwise
+ * the decorator creates the Secret from {@code kubernetes.secret.data} entries; a {@code job.conf}
+ * entry then replaces the inline job configuration on the master. Without either option no Secret
+ * is created, mounted or deleted.
  */
 public final class ApplicationSecretDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
@@ -50,29 +49,23 @@ public final class ApplicationSecretDecorator extends AbstractKubernetesStepDeco
 
     @Override
     public KubernetesJob decorateJob(KubernetesJob job) {
+        if (!parameters.hasApplicationSecret()) {
+            return job;
+        }
         V1PodSpec podSpec = job.getInternalResource().getSpec().getTemplate().getSpec();
-        podSpec.addVolumesItem(applicationVolume());
-        V1Container master = podSpec.getContainers().get(0);
-        master.addVolumeMountsItem(
-                new V1VolumeMount()
-                        .name(KubernetesConstants.APPLICATION_VOLUME)
-                        .mountPath(KubernetesConstants.CONFIG_DIRECTORY)
-                        .readOnly(true));
+        KubernetesResourceFactory.mountApplicationSecret(
+                podSpec, parameters.resolvedApplicationSecretName(applicationId));
         return job;
     }
 
     @Override
-    public List<KubernetesResource<?>> buildAccompanyingResources() throws IOException {
+    public List<KubernetesResource<?>> buildAccompanyingResources() {
+        if (parameters.getApplicationSecretData().isEmpty()) {
+            return Collections.emptyList();
+        }
         return Collections.singletonList(
-                KubernetesResourceFactory.secret(applicationId, parameters));
-    }
-
-    private V1Volume applicationVolume() {
-        return new V1Volume()
-                .name(KubernetesConstants.APPLICATION_VOLUME)
-                .secret(
-                        new V1SecretVolumeSource()
-                                .secretName(applicationId)
-                                .defaultMode(KubernetesConstants.APPLICATION_SECRET_MODE));
+                KubernetesResourceFactory.secret(
+                        parameters.resolvedApplicationSecretName(applicationId),
+                        parameters.getApplicationSecretData()));
     }
 }

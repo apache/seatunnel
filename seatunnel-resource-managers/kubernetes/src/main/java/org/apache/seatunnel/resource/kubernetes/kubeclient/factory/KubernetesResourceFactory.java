@@ -33,11 +33,13 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
+import io.kubernetes.client.openapi.models.V1Volume;
+import io.kubernetes.client.openapi.models.V1VolumeMount;
 
-import java.io.IOException;
-import java.io.StringWriter;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -51,9 +53,6 @@ import java.util.UUID;
 public final class KubernetesResourceFactory {
     /** Identifies master and worker pods within one application. */
     public static final String ROLE_LABEL = KubernetesConstants.ROLE_LABEL;
-
-    /** File name used to mount the serialized application specification into the master. */
-    static final String SPECIFICATION_FILE = KubernetesConstants.SPECIFICATION_FILE;
 
     private KubernetesResourceFactory() {}
 
@@ -163,26 +162,20 @@ public final class KubernetesResourceFactory {
     }
 
     /**
-     * Serializes the application into a Secret that is created after the owner Job.
+     * Builds a Secret from the user-configured {@code kubernetes.secret.data} entries.
      *
-     * @param id application Job name used as the Secret name
-     * @param parameters resolved application and Kubernetes runtime settings
-     * @return mounted configuration model with the submitter's local kubeconfig path removed
-     * @throws IOException if in-memory serialization fails
+     * @param name configured or generated Secret name
+     * @param data key/value pairs declared in the application configuration
+     * @return Secret model to create after the owner Job
      */
-    public static KubernetesSecret secret(String id, KubernetesApplicationParameters parameters)
-            throws IOException {
-        StringWriter serialized = new StringWriter();
-        parameters.write(serialized);
+    public static KubernetesSecret secret(String name, Map<String, String> data) {
         return new KubernetesSecret(
                 new V1Secret()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                         .kind(KubernetesConstants.SECRET_KIND)
                         .type(KubernetesConstants.OPAQUE_SECRET_TYPE)
-                        .metadata(metadata(id, KubernetesConstants.CONFIGURATION_ROLE))
-                        .stringData(
-                                Collections.singletonMap(
-                                        SPECIFICATION_FILE, serialized.toString())));
+                        .metadata(metadata(name, KubernetesConstants.CONFIGURATION_ROLE))
+                        .stringData(new LinkedHashMap<>(data)));
     }
 
     /**
@@ -218,12 +211,38 @@ public final class KubernetesResourceFactory {
                         .annotations(parameters.getWorkerAnnotations());
         V1PodSpec spec =
                 KubernetesPodFactory.worker(parameters, resources, clusterName, masterAddress);
+        if (parameters.hasApplicationSecret()) {
+            mountApplicationSecret(spec, parameters.resolvedApplicationSecretName(job.getName()));
+        }
         return new KubernetesPod(
                 new V1Pod()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)
                         .kind(KubernetesConstants.POD_KIND)
                         .metadata(metadata)
                         .spec(spec));
+    }
+
+    /**
+     * Mounts the configured application Secret read-only into one Pod specification.
+     *
+     * @param podSpec Pod specification to decorate
+     * @param secretName referenced Secret name or the generated/configured name of the created one
+     */
+    public static void mountApplicationSecret(V1PodSpec podSpec, String secretName) {
+        podSpec.addVolumesItem(
+                new V1Volume()
+                        .name(KubernetesConstants.APPLICATION_VOLUME)
+                        .secret(
+                                new V1SecretVolumeSource()
+                                        .secretName(secretName)
+                                        .defaultMode(KubernetesConstants.APPLICATION_SECRET_MODE)));
+        podSpec.getContainers()
+                .get(0)
+                .addVolumeMountsItem(
+                        new V1VolumeMount()
+                                .name(KubernetesConstants.APPLICATION_VOLUME)
+                                .mountPath(KubernetesConstants.APPLICATION_SECRET_DIRECTORY)
+                                .readOnly(true));
     }
 
     private static V1ObjectMeta metadata(String name, String role) {

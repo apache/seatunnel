@@ -217,7 +217,9 @@ class DefaultKubernetesClientTest {
                                                 })
                                         .build());
         KubernetesApplicationParameters parameters = parameters();
-        KubernetesSecret secret = KubernetesResourceFactory.secret("app", parameters);
+        KubernetesSecret secret =
+                KubernetesResourceFactory.secret(
+                        "app", Collections.singletonMap("PASSWORD", "value"));
         KubernetesJob job =
                 KubernetesResourceFactory.job(
                         "app", SeatunnelKubernetesApplicationCli.class.getName(), parameters);

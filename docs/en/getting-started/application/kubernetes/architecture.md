@@ -55,8 +55,8 @@ flowchart TB
 ## Resource creation order
 
 1. The submitter validates the user-owned runtime ConfigMap, then creates a suspended Job with `backoffLimit: 0`.
-2. After receiving the Job UID, it creates an owner-referenced Secret and headless Service.
-3. After the API confirms both dependent resources, it unsuspends the Job and returns the Job name without waiting for the master Pod. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port. Use `status` or Pod events to observe slow image pulls, admission or scheduling problems.
+2. After receiving the Job UID, it creates the headless Service and, when `kubernetes.secret.*` is configured, the owner-referenced application Secret.
+3. After the API confirms the dependent resources, it unsuspends the Job and returns the Job name without waiting for the master Pod. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port. Use `status` or Pod events to observe slow image pulls, admission or scheduling problems.
 4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. Each worker has a process liveness probe, and the master watches application-labelled Pod snapshots for deletion and terminal phases.
 5. Workers resolve the master through the headless Service, join the cluster, and register slots. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
 6. The master submits one Zeta job after every worker is ready.

@@ -23,9 +23,11 @@ import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
@@ -35,22 +37,26 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -188,15 +194,10 @@ class KubernetesResourceFactoryTest {
                         .getImagePullSecrets()
                         .get(1)
                         .getName());
-        KubernetesSecret secret = KubernetesResourceFactory.secret("app", parameters);
-        V1Secret configuration = secret.getInternalResource();
-        String localized =
-                configuration.getStringData().get(KubernetesResourceFactory.SPECIFICATION_FILE);
-        assertFalse(localized.contains("must-not-be-localized"));
-        Path localizedFile = temporary.resolve("application.properties");
-        Files.write(localizedFile, localized.getBytes(StandardCharsets.UTF_8));
+        String encodedSpecification = envValue(jobResource, KubernetesConstants.SPECIFICATION_ENV);
+        assertFalse(encodedSpecification.contains("must-not-be-localized"));
         KubernetesApplicationParameters restored =
-                KubernetesApplicationParameters.read(localizedFile);
+                KubernetesApplicationParameters.read(encodedSpecification, null);
         assertEquals(specification.getJobId(), restored.getSpecification().getJobId());
         assertEquals(specification.getJobConfig(), restored.getSpecification().getJobConfig());
         assertEquals(
@@ -212,21 +213,6 @@ class KubernetesResourceFactoryTest {
         assertEquals(parameters.getWorkerAnnotations(), restored.getWorkerAnnotations());
         assertEquals(parameters.getMasterNodeSelector(), restored.getMasterNodeSelector());
         assertEquals(parameters.getWorkerNodeSelector(), restored.getWorkerNodeSelector());
-        assertEquals("Opaque", configuration.getType());
-        assertFalse(
-                configuration
-                        .getStringData()
-                        .get(KubernetesResourceFactory.SPECIFICATION_FILE)
-                        .contains("submitter-kubeconfig"));
-        assertEquals(
-                0400,
-                volume(jobResource, KubernetesConstants.APPLICATION_VOLUME)
-                        .getSecret()
-                        .getDefaultMode());
-        assertEquals(
-                "/etc/seatunnel-application",
-                mount(jobResource, KubernetesConstants.APPLICATION_VOLUME).getMountPath());
-        assertTrue(mount(jobResource, KubernetesConstants.APPLICATION_VOLUME).getReadOnly());
         assertEquals(
                 "seatunnel-runtime",
                 volume(jobResource, KubernetesConstants.CONFIG_VOLUME).getConfigMap().getName());
@@ -335,6 +321,105 @@ class KubernetesResourceFactoryTest {
 
     private static ApplicationSpecification specification() {
         return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+    }
+
+    @Test
+    void mountsReferencedSecretWithoutCreatingResources() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secret");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        assertTrue(
+                application.getAccompanyingResources().stream()
+                        .noneMatch(KubernetesSecret.class::isInstance));
+        V1Job job = application.getApplicationJob().getInternalResource();
+        assertEquals(
+                "platform-secret",
+                volume(job, KubernetesConstants.APPLICATION_VOLUME).getSecret().getSecretName());
+        assertEquals(
+                "/etc/seatunnel-secrets/application",
+                mount(job, KubernetesConstants.APPLICATION_VOLUME).getMountPath());
+        assertTrue(mount(job, KubernetesConstants.APPLICATION_VOLUME).getReadOnly());
+    }
+
+    @Test
+    void createsConfiguredSecretDataAndMountsIt() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "top-secret");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        assertEquals(2, application.getAccompanyingResources().size());
+        KubernetesResource<?> configurationSecret =
+                application.getAccompanyingResources().stream()
+                        .filter(KubernetesSecret.class::isInstance)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing created Secret"));
+        V1Secret secret = ((KubernetesSecret) configurationSecret).getInternalResource();
+        assertEquals("job-secrets", secret.getMetadata().getName());
+        assertEquals("Opaque", secret.getType());
+        assertEquals("top-secret", secret.getStringData().get("MYSQL_PASSWORD"));
+        assertNull(secret.getMetadata().getOwnerReferences());
+        V1Job job = application.getApplicationJob().getInternalResource();
+        assertEquals(
+                "job-secrets",
+                volume(job, KubernetesConstants.APPLICATION_VOLUME).getSecret().getSecretName());
+    }
+
+    @Test
+    void rejectsConflictingApplicationSecretOptions() {
+        Map<String, String> conflicting = options();
+        conflicting.put(KubernetesOptions.SECRET_REF.key(), "platform-secret");
+        conflicting.put("kubernetes.secret.data.PASSWORD", "value");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(conflicting))));
+        Map<String, String> nameOnly = options();
+        nameOnly.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(nameOnly))));
+    }
+
+    @Test
+    void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        Path override = temporary.resolve("job.conf");
+        Files.write(override, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationParameters restored =
+                KubernetesApplicationParameters.read(encoded, override);
+        assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    private static String envValue(V1Job job, String name) {
+        for (V1EnvVar env : job.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv()) {
+            if (name.equals(env.getName())) {
+                return env.getValue();
+            }
+        }
+        throw new AssertionError("Missing environment variable " + name);
     }
 
     private static V1Volume volume(V1Job job, String name) {

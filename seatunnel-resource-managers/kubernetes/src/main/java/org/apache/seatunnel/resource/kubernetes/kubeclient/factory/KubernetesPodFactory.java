@@ -63,15 +63,7 @@ final class KubernetesPodFactory {
         ApplicationSpecification specification = parameters.getSpecification();
         int memory = specification.getMasterMemoryMb();
         V1Container container = container(parameters, memory, specification.getMasterCpuCores());
-        container.setCommand(
-                command(
-                        parameters,
-                        memory,
-                        mainClass,
-                        id,
-                        KubernetesConstants.CONFIG_DIRECTORY
-                                + "/"
-                                + KubernetesConstants.SPECIFICATION_FILE));
+        container.setCommand(command(parameters, memory, mainClass, id));
         container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification.getMasterPort(), specification);
         V1PodSpec pod = pod(parameters, container, true);

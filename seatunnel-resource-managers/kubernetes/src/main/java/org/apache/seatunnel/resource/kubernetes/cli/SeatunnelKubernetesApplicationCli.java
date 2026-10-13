@@ -38,6 +38,8 @@ import org.slf4j.LoggerFactory;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
@@ -51,7 +53,7 @@ public final class SeatunnelKubernetesApplicationCli {
     /**
      * Runs one job and maps its final outcome to the Kubernetes Job process exit code.
      *
-     * @param args application ID followed by the mounted specification path
+     * @param args application ID
      */
     public static void main(String[] args) {
         int exitCode = 0;
@@ -59,7 +61,9 @@ public final class SeatunnelKubernetesApplicationCli {
             String id = applicationId(args);
             LOG.info("Running Kubernetes application {}", id);
             KubernetesApplicationParameters parameters =
-                    KubernetesApplicationParameters.read(Paths.get(args[1]));
+                    KubernetesApplicationParameters.read(
+                            System.getenv(KubernetesConstants.SPECIFICATION_ENV),
+                            jobConfigOverride());
             ApplicationSpecification specification = parameters.getSpecification();
             LOG.debug("Loaded application specification {}", specification.getName());
             SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
@@ -78,14 +82,27 @@ public final class SeatunnelKubernetesApplicationCli {
     /**
      * Validates the Kubernetes master entrypoint arguments.
      *
-     * @param args application ID followed by the mounted specification path
+     * @param args application ID
      * @return the Kubernetes application ID
      */
     private static String applicationId(String[] args) {
-        if (args.length != 2) {
-            throw new IllegalArgumentException("Expected application id and specification path");
+        if (args.length != 1) {
+            throw new IllegalArgumentException("Expected application id");
         }
         return args[0];
+    }
+
+    /**
+     * Locates a job configuration mounted from the configured application Secret.
+     *
+     * @return the mounted {@code job.conf}, or {@code null} to use the inline configuration
+     */
+    private static Path jobConfigOverride() {
+        Path path =
+                Paths.get(
+                        KubernetesConstants.APPLICATION_SECRET_DIRECTORY,
+                        KubernetesConstants.JOB_CONFIG_FILE);
+        return Files.isRegularFile(path) ? path : null;
     }
 
     /**

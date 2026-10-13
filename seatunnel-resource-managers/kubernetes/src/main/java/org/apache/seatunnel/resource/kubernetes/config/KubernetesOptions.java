@@ -66,6 +66,18 @@ public final class KubernetesOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Existing ConfigMap mounted read-only at the SeaTunnel configuration directory in master and worker pods.");
+    public static final Option<String> SECRET_REF =
+            Options.key("kubernetes.secret-ref")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Existing Secret managed outside SeaTunnel. It is mounted read-only and never created or deleted; a job.conf key replaces the inline job configuration.");
+    public static final Option<String> SECRET_NAME =
+            Options.key("kubernetes.secret.name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Name of the Secret SeaTunnel creates for the configured kubernetes.secret.data entries; defaults to the application Job name.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

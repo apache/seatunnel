@@ -66,7 +66,9 @@ import java.util.UUID;
 public final class SeatunnelApplicationConfig {
     private static final String FORMAT_VERSION = "V1";
     private static final String VERSION_KEY = "format.version";
-    private static final String JOB_CONFIG_KEY = "job.config";
+
+    /** Properties key carrying the inline job configuration of a localized specification. */
+    public static final String JOB_CONFIG_KEY = "job.config";
 
     private SeatunnelApplicationConfig() {}
 

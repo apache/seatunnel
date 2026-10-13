@@ -16,6 +16,9 @@ title: Configuration
 | `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
 | `kubernetes.config-map` | Unset | Existing ConfigMap mounted read-only at `<seatunnel-home>/config` in both master and worker Pods. |
+| `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. A `job.conf` key replaces the inline job configuration. |
+| `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
+| `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
 | `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `/opt/seatunnel/checkpoints` in the master. |
@@ -52,7 +55,7 @@ Use `kubernetes.image-pull-secrets` for existing private-registry Secrets. The p
 
 Set `kubernetes.config-map` to the name of an existing ConfigMap containing the SeaTunnel runtime configuration, including `seatunnel.yaml` and `log4j2_client.properties`. The submitter verifies that the ConfigMap exists before it creates the application Job. Kubernetes then mounts it read-only at `<seatunnel-home>/config` in both the master and worker Pods. SeaTunnel treats this ConfigMap as user-owned and does not delete it when the application ends.
 
-The resolved job configuration is stored in a namespace-scoped Kubernetes Secret and mounted read-only only by the master. The Secret may contain connector credentials. Restrict Secret `get` and `list` permissions and enable Kubernetes encryption at rest when required; a Secret's base64 representation alone is not encryption. Prefer credential mechanisms supported by the connector, filesystem, or cluster.
+By default the localized application specification, including the resolved job configuration, is carried in the master container environment, so submission requires no permission to create Secrets. `kubernetes.secret-ref` adds a read-only reference to an existing Secret and `kubernetes.secret.data.*` lets SeaTunnel create and own one; a `job.conf` key in either Secret replaces the inline job configuration. Referenced Secrets are never modified or deleted, while created Secrets carry the Job owner reference and disappear with the application. Keep connector credentials out of the inline specification and use Secrets managed by your platform.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

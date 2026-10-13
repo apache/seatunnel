@@ -55,8 +55,8 @@ flowchart TB
 ## 资源创建顺序
 
 1. 提交器先校验用户管理的运行时 ConfigMap，再创建 `backoffLimit: 0` 的挂起 Job。
-2. 获得 Job UID 后，创建带 OwnerReference 的 Secret 和 Headless Service。
-3. Kubernetes API 确认两个依赖资源创建成功后，提交器解除 Job 挂起并返回 Job 名称，不等待 Master Pod 就绪。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口；镜像拉取慢、准入或调度问题通过 `status` 和 Pod 事件观察。
+2. 获得 Job UID 后，先创建 Headless Service；配置了 `kubernetes.secret.*` 时再创建带 OwnerReference 的 application Secret。
+3. Kubernetes API 确认依赖资源创建成功后，提交器解除 Job 挂起并返回 Job 名称，不等待 Master Pod 就绪。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口；镜像拉取慢、准入或调度问题通过 `status` 和 Pod 事件观察。
 4. Master 启动独立 Zeta 集群，通过 Kubernetes API 创建固定数量的 Worker Pod。每个 Worker 配置进程 liveness probe；Master 持续观察带 application label 的 Pod 快照，识别删除和终止状态。
 5. Worker 解析 Headless Service 指向的 Master 地址，加入集群并注册 slot。Pod phase 用于故障检测，Zeta 注册仍是 Worker 就绪和 slot 容量的判断依据。
 6. 所有 Worker 就绪后，Master 提交唯一的 Zeta 作业。
