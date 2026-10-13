@@ -75,12 +75,7 @@ Platform-specific preparation, permissions and configuration are described in th
 | Localized specification | The platform mechanism that delivers the specification to the master, such as mounted files or injected environment variables. |
 | Checkpoint | Engine-owned durable state in persistent storage; independent of the application lifecycle. |
 
-## Recommended reading order
+## Next steps
 
-| Phase | Document | Description |
-| --- | --- | --- |
-| Understand | This page | What Application Mode is, and when to use it. |
-| Run | [Command line](cli.md) | Submit, inspect, wait for, and cancel an application. |
-| Try it out | Platform guide | Environment preparation, first submission and status inspection. |
-| Configure | Platform guide | Platform options, credentials and runtime configuration. |
-| Operate | Platform guide | Cancellation, failure diagnosis and retention behavior. |
+The [command line](cli.md) reference documents submitting, inspecting, waiting for and cancelling an
+application; the platform guide covers the environment its provider needs.
