@@ -78,6 +78,12 @@ public final class KubernetesOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Name of the Secret SeaTunnel creates for the configured kubernetes.secret.data entries; defaults to the application Job name.");
+    public static final Option<String> ENV =
+            Options.key("kubernetes.env")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "Comma-separated environment entries injected into master and worker containers: NAME=value, NAME=secret:<name>/<key> or NAME=configmap:<name>/<key>.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

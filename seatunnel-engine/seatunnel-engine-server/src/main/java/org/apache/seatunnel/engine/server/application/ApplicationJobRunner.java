@@ -72,10 +72,13 @@ public final class ApplicationJobRunner {
             execution =
                     new ApplicationJobExecutionEnvironment(
                                     jobConfig,
+                                    // Resolve remaining placeholders against this Pod's
+                                    // environment, including values injected from Kubernetes.
                                     ConfigFactory.parseString(
-                                            specification.getJobConfig(),
-                                            ConfigParseOptions.defaults()
-                                                    .setSyntax(ConfigSyntax.JSON)),
+                                                    specification.getJobConfig(),
+                                                    ConfigParseOptions.defaults()
+                                                            .setSyntax(ConfigSyntax.CONF))
+                                            .resolve(),
                                     server,
                                     specification.getJobId(),
                                     specification.getRestoreJobId())

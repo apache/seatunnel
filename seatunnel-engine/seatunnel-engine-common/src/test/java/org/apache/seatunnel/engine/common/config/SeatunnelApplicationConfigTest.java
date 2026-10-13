@@ -19,11 +19,16 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.hazelcast.config.JoinConfig;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +39,28 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SeatunnelApplicationConfigTest {
+    @TempDir Path temporary;
+
+    @Test
+    void defersUnresolvableJobVariablesToTheRuntimeEnvironment() throws Exception {
+        Path jobConfig = temporary.resolve("job.conf");
+        Files.write(
+                jobConfig,
+                ("env {\n"
+                                + "  job.mode = BATCH\n"
+                                + "  parallelism = 2\n"
+                                + "}\n"
+                                + "source {\n"
+                                + "  parallelism = ${env.parallelism}\n"
+                                + "  password = ${RUNTIME_SECRET}\n"
+                                + "}")
+                        .getBytes(StandardCharsets.UTF_8));
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(jobConfig, new HashMap<>());
+        assertTrue(specification.getJobConfig().contains("parallelism"));
+        assertTrue(specification.getJobConfig().contains("${RUNTIME_SECRET}"));
+    }
+
     @Test
     void applicationRetentionPreservesNativeCheckpointSettings() {
         SeaTunnelConfig config = new SeaTunnelConfig();

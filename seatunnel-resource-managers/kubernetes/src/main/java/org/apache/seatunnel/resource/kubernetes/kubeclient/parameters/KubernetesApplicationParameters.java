@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 
 import lombok.Getter;
 
@@ -39,10 +40,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -69,6 +72,8 @@ public final class KubernetesApplicationParameters {
     private final String applicationSecretRef;
     private final String applicationSecretName;
     private final Map<String, String> applicationSecretData;
+    private final String environment;
+    private final List<KubernetesEnvironmentVariable> environmentVariables;
     private final int retentionSeconds;
     private final String checkpointPvc;
     private final Map<String, String> masterLabels;
@@ -97,6 +102,8 @@ public final class KubernetesApplicationParameters {
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
         this.applicationSecretData = secretData(rawOptions(options));
         validateApplicationSecret();
+        this.environment = options.get(KubernetesOptions.ENV);
+        this.environmentVariables = environmentVariables(environment);
         this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
         if (retentionSeconds < 1) {
             throw new IllegalArgumentException(
@@ -222,6 +229,7 @@ public final class KubernetesApplicationParameters {
         for (Map.Entry<String, String> entry : applicationSecretData.entrySet()) {
             properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), entry.getValue());
         }
+        properties.setProperty(KubernetesOptions.ENV.key(), environment);
         if (checkpointPvc != null) {
             properties.setProperty(KubernetesOptions.CHECKPOINT_PVC.key(), checkpointPvc);
         }
@@ -292,6 +300,32 @@ public final class KubernetesApplicationParameters {
             }
         }
         return raw;
+    }
+
+    private static List<KubernetesEnvironmentVariable> environmentVariables(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
+        Set<String> names = new HashSet<>();
+        for (String entry : value.split(",")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException("kubernetes.env must not contain empty entries");
+            }
+            KubernetesEnvironmentVariable variable = KubernetesEnvironmentVariable.parse(trimmed);
+            if (KubernetesConstants.SPECIFICATION_ENV.equals(variable.getName())) {
+                throw new IllegalArgumentException(
+                        "kubernetes.env must not override "
+                                + KubernetesConstants.SPECIFICATION_ENV);
+            }
+            if (!names.add(variable.getName())) {
+                throw new IllegalArgumentException(
+                        "kubernetes.env contains duplicate name " + variable.getName());
+            }
+            variables.add(variable);
+        }
+        return Collections.unmodifiableList(variables);
     }
 
     private void validateApplicationSecret() {

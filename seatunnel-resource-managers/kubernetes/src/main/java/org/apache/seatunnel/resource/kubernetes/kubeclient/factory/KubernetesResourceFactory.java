@@ -19,12 +19,16 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvironmentVariable;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.services.HeadlessClusterIPService;
 
+import io.kubernetes.client.openapi.models.V1ConfigMapKeySelector;
+import io.kubernetes.client.openapi.models.V1EnvVar;
+import io.kubernetes.client.openapi.models.V1EnvVarSource;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1JobSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -33,6 +37,7 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1SecretKeySelector;
 import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
@@ -243,6 +248,35 @@ public final class KubernetesResourceFactory {
                                 .name(KubernetesConstants.APPLICATION_VOLUME)
                                 .mountPath(KubernetesConstants.APPLICATION_SECRET_DIRECTORY)
                                 .readOnly(true));
+    }
+
+    /**
+     * Converts one declared environment entry into an SDK environment variable.
+     *
+     * @param variable parsed {@code kubernetes.env} entry
+     * @return literal value or a Secret/ConfigMap key reference
+     */
+    public static V1EnvVar environmentVariable(KubernetesEnvironmentVariable variable) {
+        V1EnvVar environment = new V1EnvVar().name(variable.getName());
+        if (variable.isSecret()) {
+            return environment.valueFrom(
+                    new V1EnvVarSource()
+                            .secretKeyRef(
+                                    new V1SecretKeySelector()
+                                            .name(variable.getSecretName())
+                                            .key(variable.getKey())
+                                            .optional(false)));
+        }
+        if (variable.isConfigMap()) {
+            return environment.valueFrom(
+                    new V1EnvVarSource()
+                            .configMapKeyRef(
+                                    new V1ConfigMapKeySelector()
+                                            .name(variable.getConfigMapName())
+                                            .key(variable.getKey())
+                                            .optional(false)));
+        }
+        return environment.value(variable.getLiteralValue());
     }
 
     private static V1ObjectMeta metadata(String name, String role) {

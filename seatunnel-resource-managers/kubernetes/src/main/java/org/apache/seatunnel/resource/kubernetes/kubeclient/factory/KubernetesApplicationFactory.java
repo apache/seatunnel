@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ApplicationSecretDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.InlineSpecificationDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
@@ -66,6 +67,7 @@ public final class KubernetesApplicationFactory {
             String applicationId, KubernetesApplicationParameters parameters) {
         return Arrays.asList(
                 new InlineSpecificationDecorator(parameters),
+                new EnvironmentDecorator(parameters),
                 new ApplicationSecretDecorator(applicationId, parameters),
                 new HeadlessServiceDecorator(applicationId, parameters));
     }

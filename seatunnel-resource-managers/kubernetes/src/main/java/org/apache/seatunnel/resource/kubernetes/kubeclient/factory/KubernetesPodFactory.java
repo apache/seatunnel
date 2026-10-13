@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvironmentVariable;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import io.kubernetes.client.custom.IntOrString;
@@ -117,6 +118,9 @@ final class KubernetesPodFactory {
             String masterAddress) {
         V1Container container =
                 container(parameters, resources.getMemoryMb(), resources.getCpuCores());
+        for (KubernetesEnvironmentVariable variable : parameters.getEnvironmentVariables()) {
+            container.addEnvItem(KubernetesResourceFactory.environmentVariable(variable));
+        }
         container.setCommand(
                 command(
                         parameters,

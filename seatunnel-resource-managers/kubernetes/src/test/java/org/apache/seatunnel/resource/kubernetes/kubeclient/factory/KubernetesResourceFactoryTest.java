@@ -395,6 +395,72 @@ class KubernetesResourceFactoryTest {
     }
 
     @Test
+    void injectsDeclaredEnvironmentVariablesIntoMasterAndWorkerPods() throws Exception {
+        Map<String, String> options = options();
+        options.put(
+                KubernetesOptions.ENV.key(),
+                "LITERAL=value,FROM_SECRET=secret:db-secret/password,FROM_CONFIG=configmap:runtime-cm/path");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        KubernetesJob applicationJob = application.getApplicationJob();
+        V1Job job = applicationJob.getInternalResource();
+        List<V1EnvVar> masterEnvironment =
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
+        assertEquals("value", env(masterEnvironment, "LITERAL").getValue());
+        assertEquals(
+                "db-secret",
+                env(masterEnvironment, "FROM_SECRET").getValueFrom().getSecretKeyRef().getName());
+        assertEquals(
+                "password",
+                env(masterEnvironment, "FROM_SECRET").getValueFrom().getSecretKeyRef().getKey());
+        assertEquals(
+                "runtime-cm",
+                env(masterEnvironment, "FROM_CONFIG")
+                        .getValueFrom()
+                        .getConfigMapKeyRef()
+                        .getName());
+        assertEquals(
+                "path",
+                env(masterEnvironment, "FROM_CONFIG").getValueFrom().getConfigMapKeyRef().getKey());
+        V1Pod worker =
+                KubernetesResourceFactory.worker(
+                                applicationJob,
+                                "app-worker-0",
+                                parameters,
+                                specification().getWorkerSpecification(),
+                                "cluster",
+                                "master:5801")
+                        .getInternalResource();
+        List<V1EnvVar> workerEnvironment = worker.getSpec().getContainers().get(0).getEnv();
+        assertEquals(4, workerEnvironment.size());
+        assertEquals(
+                "db-secret",
+                env(workerEnvironment, "FROM_SECRET").getValueFrom().getSecretKeyRef().getName());
+    }
+
+    @Test
+    void rejectsInvalidEnvironmentVariableEntries() {
+        Map<String, String> reserved = options();
+        reserved.put(KubernetesOptions.ENV.key(), "SEATUNNEL_APPLICATION_SPECIFICATION=value");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(reserved))));
+        Map<String, String> malformed = options();
+        malformed.put(KubernetesOptions.ENV.key(), "MISSING_SEPARATOR");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(malformed))));
+    }
+
+    @Test
     void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
@@ -420,6 +486,13 @@ class KubernetesResourceFactoryTest {
             }
         }
         throw new AssertionError("Missing environment variable " + name);
+    }
+
+    private static V1EnvVar env(List<V1EnvVar> variables, String name) {
+        return variables.stream()
+                .filter(variable -> name.equals(variable.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing environment variable " + name));
     }
 
     private static V1Volume volume(V1Job job, String name) {

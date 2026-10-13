@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
@@ -111,6 +112,10 @@ public final class SeatunnelApplicationConfig {
      * deployment overrides must not alter source/transform/sink configuration. Resolved JSON is
      * carried to the master, so the original job path is not needed there.
      *
+     * <p>Variables that the submitter environment cannot resolve stay unresolved in the returned
+     * payload so the runtime Pod environment can resolve them, for example from a Kubernetes {@code
+     * secretKeyRef}.
+     *
      * @param jobConfig submitter-local HOCON job file, regardless of filename suffix
      * @param options merged deployment options from {@link #load(Path, Map)} or an embedding caller
      * @return immutable, platform-independent application specification
@@ -118,7 +123,7 @@ public final class SeatunnelApplicationConfig {
     public static ApplicationSpecification parse(Path jobConfig, Map<String, String> options) {
         String resolvedJob =
                 ConfigFactory.parseFile(jobConfig.toFile(), hoconParseOptions())
-                        .resolve()
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .root()
                         .render(ConfigRenderOptions.concise());
         return parse(resolvedJob, options);

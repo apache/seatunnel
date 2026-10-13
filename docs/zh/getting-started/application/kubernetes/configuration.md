@@ -19,6 +19,7 @@ title: 配置参考
 | `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；其中 `job.conf` 键会替换内联的作业配置。 |
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
 | `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
+| `kubernetes.env` | 空 | 注入 Master 和 Worker 容器的环境变量条目，逗号分隔：`NAME=value`、`NAME=secret:<name>/<key>` 或 `NAME=configmap:<name>/<key>`。 |
 | `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
 | `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `/opt/seatunnel/checkpoints`。 |
@@ -56,6 +57,8 @@ title: 配置参考
 通过 `kubernetes.config-map` 指定包含 SeaTunnel 运行时配置的已有 ConfigMap，其中应包含 `seatunnel.yaml`、`log4j2_client.properties` 等配置文件。提交端会在创建 application Job 前确认该 ConfigMap 已存在；Kubernetes 随后将其以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。该 ConfigMap 由用户管理，application 结束时 SeaTunnel 不会删除它。
 
 默认情况下，本地化后的 application 配置（含作业配置）通过 Master 容器的环境变量传递，因此提交不需要创建 Secret 的权限。`kubernetes.secret-ref` 只读引用平台管理的已有 Secret，`kubernetes.secret.data.*` 则由 SeaTunnel 创建并持有 Secret；两种方式中若包含 `job.conf` 键，会替换内联的作业配置。引用型 Secret 不会被修改或删除，创建型 Secret 带 Job ownerReference，随 application 一起清理。请把 Connector 凭据放在平台管理的 Secret 中，不要内联到本地化配置。
+
+提交机能解析的变量会在提交前完成替换；剩余的 `${VAR}` 占位符保留在作业配置中，由 Master 在 Pod 内使用环境变量解析，包括通过 `kubernetes.env` 的 `secretKeyRef`、`configMapKeyRef` 注入的值。任何位置都不存在的占位符会在 Master 启动时报告，而不是提交时立即失败。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 
