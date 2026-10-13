@@ -16,7 +16,7 @@ title: Configuration
 | `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
 | `kubernetes.config-map` | Unset | Existing ConfigMap mounted read-only at `<seatunnel-home>/config` in both master and worker Pods. |
-| `kubernetes.configmap.<entry>` | Unset | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. |
+| `kubernetes.configmap.<entry>` | Unset | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. An optional `name` overrides the default `<application-id>-<entry>` so other options can reference it. |
 | `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. A `job.conf` key replaces the inline job configuration. |
 | `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
 | `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
@@ -106,6 +106,7 @@ Let SeaTunnel create a ConfigMap for the application by declaring `data` entries
 
 ```hocon
 kubernetes.configmap.runtime {
+  name = seatunnel-application-runtime
   data {
     seatunnel.yaml = "engine { ... }"
   }
@@ -115,7 +116,7 @@ kubernetes.configmap.runtime {
 }
 ```
 
-Both forms declare a full container path for every mounted key in `mount`; SeaTunnel never assumes a configuration directory.
+Both forms declare a full container path for every mounted key in `mount`; SeaTunnel never assumes a configuration directory. When `name` is set, other options can reference the created ConfigMap, for example `kubernetes.env = "RUNTIME=configmap:seatunnel-application-runtime/seatunnel.yaml"`.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

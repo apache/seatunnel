@@ -16,7 +16,7 @@ title: 配置参考
 | `kubernetes.service-account` | `default` | Master 使用的已有 ServiceAccount。 |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
 | `kubernetes.config-map` | 未设置 | 已有 ConfigMap，以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。 |
-| `kubernetes.configmap.<entry>` | 未设置 | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。 |
+| `kubernetes.configmap.<entry>` | 未设置 | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。可选 `name` 覆盖默认的 `<application-id>-<entry>`，便于其他配置按名字引用。 |
 | `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；其中 `job.conf` 键会替换内联的作业配置。 |
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
 | `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
@@ -106,6 +106,7 @@ kubernetes.configmap.shared {
 
 ```hocon
 kubernetes.configmap.runtime {
+  name = seatunnel-application-runtime
   data {
     seatunnel.yaml = "engine { ... }"
   }
@@ -115,7 +116,7 @@ kubernetes.configmap.runtime {
 }
 ```
 
-两种模式都必须在 `mount` 中为每个挂载的 key 声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
+两种模式都必须在 `mount` 中为每个挂载的 key 声明完整的容器内路径，SeaTunnel 不假设任何配置目录。设置了 `name` 后，其他配置可以按名字引用该 ConfigMap，例如 `kubernetes.env = "RUNTIME=configmap:seatunnel-application-runtime/seatunnel.yaml"`。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 

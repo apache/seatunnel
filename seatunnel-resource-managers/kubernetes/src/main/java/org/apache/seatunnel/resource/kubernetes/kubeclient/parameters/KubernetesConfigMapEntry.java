@@ -35,16 +35,19 @@ import java.util.Objects;
 public final class KubernetesConfigMapEntry {
     private final String entryName;
     private final String reference;
+    private final String name;
     private final Map<String, String> data;
     private final Map<String, String> mountPaths;
 
     private KubernetesConfigMapEntry(
             String entryName,
             String reference,
+            String name,
             Map<String, String> data,
             Map<String, String> mountPaths) {
         this.entryName = Objects.requireNonNull(entryName, "entryName");
         this.reference = reference;
+        this.name = name;
         this.data = Collections.unmodifiableMap(new LinkedHashMap<>(data));
         this.mountPaths = Collections.unmodifiableMap(new LinkedHashMap<>(mountPaths));
     }
@@ -53,13 +56,16 @@ public final class KubernetesConfigMapEntry {
     public static KubernetesConfigMapEntry reference(
             String entryName, String reference, Map<String, String> mountPaths) {
         return new KubernetesConfigMapEntry(
-                entryName, reference, Collections.emptyMap(), mountPaths);
+                entryName, reference, null, Collections.emptyMap(), mountPaths);
     }
 
     /** @return entry whose data entries SeaTunnel writes into a ConfigMap it creates and owns */
     public static KubernetesConfigMapEntry create(
-            String entryName, Map<String, String> data, Map<String, String> mountPaths) {
-        return new KubernetesConfigMapEntry(entryName, null, data, mountPaths);
+            String entryName,
+            String name,
+            Map<String, String> data,
+            Map<String, String> mountPaths) {
+        return new KubernetesConfigMapEntry(entryName, null, name, data, mountPaths);
     }
 
     /** @return whether this entry only references an existing ConfigMap */
@@ -72,5 +78,15 @@ public final class KubernetesConfigMapEntry {
      */
     public String mountPath(String key) {
         return mountPaths.get(key);
+    }
+
+    /**
+     * Resolves the name of the ConfigMap SeaTunnel creates.
+     *
+     * @param applicationId generated application Job name used when no name is configured
+     * @return configured name, or {@code <application-id>-<entry>}
+     */
+    public String createdName(String applicationId) {
+        return name == null ? applicationId + "-" + entryName : name;
     }
 }

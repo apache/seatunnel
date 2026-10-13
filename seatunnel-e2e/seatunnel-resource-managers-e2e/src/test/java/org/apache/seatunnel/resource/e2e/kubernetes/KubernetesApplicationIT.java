@@ -296,7 +296,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     void secretAndConfigMapConfigurationReachesTheJob() throws Exception {
         String createdSecret = "seatunnel-application-e2e-secret";
         try (KubernetesApplicationClient application = deployApplication("configuration")) {
-            String generatedConfigMap = application.getClusterId() + "-generated";
+            String generatedConfigMap = "seatunnel-application-e2e-generated";
             try {
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
@@ -305,6 +305,12 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         environment(master, "E2E_JOB_MODE")
                                 .getValueFrom()
                                 .getSecretKeyRef()
+                                .getName());
+                assertEquals(
+                        generatedConfigMap,
+                        environment(master, "E2E_CONFIG_MAP_VALUE")
+                                .getValueFrom()
+                                .getConfigMapKeyRef()
                                 .getName());
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));

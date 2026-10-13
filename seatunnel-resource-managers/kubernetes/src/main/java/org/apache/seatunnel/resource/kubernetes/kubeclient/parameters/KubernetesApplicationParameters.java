@@ -351,6 +351,7 @@ public final class KubernetesApplicationParameters {
 
     private static List<KubernetesConfigMapEntry> configMaps(Map<String, String> options) {
         Map<String, String> references = new LinkedHashMap<>();
+        Map<String, String> createdNames = new LinkedHashMap<>();
         Map<String, Map<String, String>> data = new LinkedHashMap<>();
         Map<String, Map<String, String>> mounts = new LinkedHashMap<>();
         for (Map.Entry<String, String> option : options.entrySet()) {
@@ -371,6 +372,10 @@ public final class KubernetesApplicationParameters {
             String path = remainder.substring(entrySeparator + 1);
             if ("ref".equals(path)) {
                 references.put(entry, option.getValue());
+                continue;
+            }
+            if ("name".equals(path)) {
+                createdNames.put(entry, option.getValue());
                 continue;
             }
             int sectionSeparator = path.indexOf('.');
@@ -396,11 +401,13 @@ public final class KubernetesApplicationParameters {
             }
         }
         LinkedHashSet<String> entries = new LinkedHashSet<>(references.keySet());
+        entries.addAll(createdNames.keySet());
         entries.addAll(data.keySet());
         entries.addAll(mounts.keySet());
         List<KubernetesConfigMapEntry> configMaps = new ArrayList<>(entries.size());
         for (String entry : entries) {
             String reference = references.get(entry);
+            String createdName = createdNames.get(entry);
             Map<String, String> dataEntries = data.getOrDefault(entry, Collections.emptyMap());
             Map<String, String> mountPaths = mounts.getOrDefault(entry, Collections.emptyMap());
             if (reference != null && !dataEntries.isEmpty()) {
@@ -409,7 +416,11 @@ public final class KubernetesApplicationParameters {
             }
             if (reference == null && dataEntries.isEmpty()) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX + entry + " requires ref or data entries");
+                        CONFIG_MAP_PREFIX
+                                + entry
+                                + (createdName == null
+                                        ? " requires ref or data entries"
+                                        : ".name requires data entries"));
             }
             if (reference != null && mountPaths.isEmpty()) {
                 throw new IllegalArgumentException(
@@ -421,9 +432,21 @@ public final class KubernetesApplicationParameters {
                                 + entry
                                 + " must declare a full mount path for every data entry");
             }
+            if (reference != null && createdName != null) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX + entry + " cannot combine name with ref");
+            }
+            if (createdName != null && !createdName.matches("[a-z0-9]([-a-z0-9.]*[a-z0-9])?")) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX
+                                + entry
+                                + ".name must be a lowercase DNS subdomain, got "
+                                + createdName);
+            }
             configMaps.add(
                     reference == null
-                            ? KubernetesConfigMapEntry.create(entry, dataEntries, mountPaths)
+                            ? KubernetesConfigMapEntry.create(
+                                    entry, createdName, dataEntries, mountPaths)
                             : KubernetesConfigMapEntry.reference(entry, reference, mountPaths));
         }
         return Collections.unmodifiableList(configMaps);
@@ -450,6 +473,9 @@ public final class KubernetesApplicationParameters {
             if (configMap.isReference()) {
                 properties.setProperty(prefix + ".ref", configMap.getReference());
             } else {
+                if (configMap.getName() != null) {
+                    properties.setProperty(prefix + ".name", configMap.getName());
+                }
                 for (Map.Entry<String, String> entry : configMap.getData().entrySet()) {
                     properties.setProperty(prefix + ".data." + entry.getKey(), entry.getValue());
                 }

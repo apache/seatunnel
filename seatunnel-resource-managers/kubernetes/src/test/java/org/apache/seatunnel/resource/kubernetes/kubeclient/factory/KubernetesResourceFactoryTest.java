@@ -569,6 +569,76 @@ class KubernetesResourceFactoryTest {
     }
 
     @Test
+    void createsConfigMapsWithAnExplicitName() throws Exception {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.generated.name", "seatunnel-generated-config");
+        options.put("kubernetes.configmap.generated.data.application.properties", "mode=batch");
+        options.put(
+                "kubernetes.configmap.generated.mount.application.properties",
+                "/opt/seatunnel/config/application.properties");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        KubernetesResource<?> configuration =
+                application.getAccompanyingResources().stream()
+                        .filter(KubernetesConfigMap.class::isInstance)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing created ConfigMap"));
+        assertEquals(
+                "seatunnel-generated-config",
+                ((KubernetesConfigMap) configuration)
+                        .getInternalResource()
+                        .getMetadata()
+                        .getName());
+        assertEquals(
+                "seatunnel-generated-config",
+                volume(
+                                application.getApplicationJob().getInternalResource(),
+                                KubernetesConstants.CONFIG_VOLUME + "-0")
+                        .getConfigMap()
+                        .getName());
+    }
+
+    @Test
+    void rejectsInvalidCreatedConfigMapNames() {
+        Map<String, String> namedReference = options();
+        namedReference.put("kubernetes.configmap.shared.name", "unused-name");
+        namedReference.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        namedReference.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(namedReference))));
+        Map<String, String> invalidName = options();
+        invalidName.put("kubernetes.configmap.generated.name", "Invalid_Name");
+        invalidName.put("kubernetes.configmap.generated.data.application.properties", "mode=batch");
+        invalidName.put(
+                "kubernetes.configmap.generated.mount.application.properties",
+                "/opt/seatunnel/config/application.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(invalidName))));
+        Map<String, String> nameWithoutData = options();
+        nameWithoutData.put("kubernetes.configmap.generated.name", "seatunnel-generated-config");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(nameWithoutData))));
+    }
+
+    @Test
     void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
         Path secretDirectory = temporary.resolve("secrets");
         Files.createDirectories(secretDirectory);

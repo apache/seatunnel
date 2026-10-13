@@ -59,7 +59,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
             if (!entry.isReference()) {
                 configMaps.add(
                         KubernetesResourceFactory.configMap(
-                                applicationId + "-" + entry.getEntryName(), entry.getData()));
+                                entry.createdName(applicationId), entry.getData()));
             }
         }
         return configMaps;

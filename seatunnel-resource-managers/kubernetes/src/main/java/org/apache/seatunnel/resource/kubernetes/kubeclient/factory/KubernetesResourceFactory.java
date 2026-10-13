@@ -221,9 +221,7 @@ public final class KubernetesResourceFactory {
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             String volumeName = KubernetesConstants.CONFIG_VOLUME + "-" + index++;
             String configMapName =
-                    entry.isReference()
-                            ? entry.getReference()
-                            : applicationId + "-" + entry.getEntryName();
+                    entry.isReference() ? entry.getReference() : entry.createdName(applicationId);
             podSpec.addVolumesItem(
                     new V1Volume()
                             .name(volumeName)
