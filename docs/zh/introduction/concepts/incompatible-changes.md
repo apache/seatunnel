@@ -91,7 +91,8 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 ### JDBC Connector
 
 - **行为变更：JDBC Source 使用全部数值/日期复合主键列分片**
-  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` source，仅适用于 MySQL、PostgreSQL、SQLite、SQL Server 和 Oracle 12c 及以上版本。
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` source，仅适用于 MySQL、PostgreSQL、SQLite、SQL Server 2012 及以上版本和 Oracle 12c 及以上版本。
+  - **前置条件**：SQL Server 复合分片要求数据库兼容级别为 110 或更高。连接器运行时会强制检查数据库主版本要求，但不会检查兼容级别。
   - **变更说明**：启用并发动态分片且未显式配置 `partition_column` 时，所有复合主键列均为数值或日期类型的表，改为按完整键元组分片，不再仅使用第一个受支持的主键列。包含 STRING 列的主键及其他方言保持单列分片行为。
   - **影响**：复合分片会逐个查询分片边界，因此分片边界、各分片的行分布和启动时间可能变化。读取的行保持不变，每行仍恰好读取一次。
   - **迁移指南**：将 `partition_column` 设置为单个主键列以保持之前的单列分片行为，或设置 `enable_concurrent_read = false` 跳过分片分析，以单个分片读取整张表。

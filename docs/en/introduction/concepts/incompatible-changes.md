@@ -148,7 +148,8 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
 ### JDBC Connector
 
 - **Behavior change: JDBC source splits composite numeric/date primary keys on all key columns**
-  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` source, only for MySQL, PostgreSQL, SQLite, SQL Server, and Oracle 12c or later.
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` source, only for MySQL, PostgreSQL, SQLite, SQL Server 2012 or later, and Oracle 12c or later.
+  - **Prerequisite**: SQL Server composite splitting requires database compatibility level 110 or later. The connector enforces the server major-version requirement at runtime, but does not inspect compatibility level.
   - **Description**: With concurrent dynamic splitting enabled and no explicit `partition_column`, tables whose composite primary-key columns are all numeric or date types now split on the full key tuple instead of the first supported key column. Keys containing STRING columns and other dialects retain the single-column behavior.
   - **Impact**: Chunk boundaries, row distribution across chunks, and startup time may change because composite splitting queries each chunk boundary. The rows read remain the same, with each row read exactly once.
   - **Migration Guide**: Set `partition_column` to a single primary-key column to retain the previous single-column splitting behavior, or set `enable_concurrent_read = false` to skip split analysis and read the table as one split.

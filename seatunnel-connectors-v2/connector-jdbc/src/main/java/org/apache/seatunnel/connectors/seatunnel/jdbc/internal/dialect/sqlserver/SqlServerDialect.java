@@ -303,8 +303,25 @@ public class SqlServerDialect implements JdbcDialect {
 
     @Override
     public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
-        // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
-        return true;
+        // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table); OFFSET/FETCH is
+        // available in SQL Server 2012 (major version 11) and later.
+        try {
+            int majorVersion = metaData.getDatabaseMajorVersion();
+            if (majorVersion < 11) {
+                log.warn(
+                        "SQL Server major version {} < 11, falling back to single-column split; "
+                                + "set partition_column to force a single split key",
+                        majorVersion);
+                return false;
+            }
+            return true;
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to read the SQL Server database version, falling back to "
+                            + "single-column split; set partition_column to force a single split key",
+                    e);
+            return false;
+        }
     }
 
     @Override

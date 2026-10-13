@@ -493,8 +493,8 @@ public class CompositeKeyChunkSplitterTest {
 
     @Test
     public void testVersionIndependentDialectsIgnoreMetadata() throws SQLException {
-        // MySQL, PostgreSQL, SQLite and SQL Server have no version-gated composite SQL; their
-        // opt-in must be unchanged regardless of the reported database version.
+        // MySQL, PostgreSQL and SQLite have no version-gated composite SQL; their opt-in must be
+        // unchanged regardless of the reported database version.
         JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
         Assertions.assertTrue(mysql.supportCompositeKeySplit(databaseMetaData(1)));
         Assertions.assertTrue(mysql.supportCompositeKeySplit(databaseMetaData(99)));
@@ -508,11 +508,28 @@ public class CompositeKeyChunkSplitterTest {
                 JdbcDialectLoader.load("jdbc:sqlite:/tmp/seatunnel_split_e2e.db", null, null);
         Assertions.assertTrue(sqlite.supportCompositeKeySplit(databaseMetaData(1)));
         Assertions.assertTrue(sqlite.supportCompositeKeySplit(databaseMetaData(99)));
+    }
 
+    @Test
+    public void testSqlServerCompositeSplitGatedOnDatabaseVersion() throws SQLException {
         JdbcDialect sqlserver =
                 JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);
-        Assertions.assertTrue(sqlserver.supportCompositeKeySplit(databaseMetaData(1)));
-        Assertions.assertTrue(sqlserver.supportCompositeKeySplit(databaseMetaData(99)));
+        Assertions.assertFalse(
+                sqlserver.supportCompositeKeySplit(databaseMetaData(10)),
+                "SQL Server 2008 must fall back to single-column split");
+        Assertions.assertTrue(
+                sqlserver.supportCompositeKeySplit(databaseMetaData(11)),
+                "SQL Server 2012 supports the composite boundary SQL");
+        Assertions.assertTrue(
+                sqlserver.supportCompositeKeySplit(databaseMetaData(16)),
+                "SQL Server 2022 supports the composite boundary SQL");
+
+        DatabaseMetaData unavailable = Mockito.mock(DatabaseMetaData.class);
+        Mockito.when(unavailable.getDatabaseMajorVersion())
+                .thenThrow(new SQLException("metadata unavailable"));
+        Assertions.assertFalse(
+                sqlserver.supportCompositeKeySplit(unavailable),
+                "Unavailable SQL Server metadata must fall back to single-column split");
     }
 
     @Test
