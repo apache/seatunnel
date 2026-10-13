@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.vitess.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
@@ -47,6 +48,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Covers factory-path validation, schema selection, and restore semantics for Vitess CDC. */
 class VitessSourceFactoryTest {
@@ -252,20 +254,36 @@ class VitessSourceFactoryTest {
                 exception.getMessage().contains("does not belong to keyspace 'test'"));
     }
 
-    /** The declarative rule must carry the schema metadata contract the source relies on. */
+    /**
+     * The declarative rule must carry the schema metadata and selector guards the source relies on,
+     * so that dropping one of them fails this test instead of silently losing the early rejection.
+     */
     @Test
-    void testOptionRuleIsDeclared() {
+    void testOptionRuleCarriesSchemaMetadataGuards() {
         OptionRule optionRule = factory.optionRule();
 
         Assertions.assertNotNull(optionRule);
+        List<String> constraints =
+                optionRule.getValueConstraints().stream()
+                        .map(Condition::toString)
+                        .collect(Collectors.toList());
+
         Assertions.assertTrue(
-                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.SCHEMA));
+                hasConstraint(constraints, "'schema' must declare"),
+                "missing root schema guard: " + constraints);
         Assertions.assertTrue(
-                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_CONFIGS));
+                hasConstraint(constraints, "'tables_configs' is not empty"),
+                "missing not-empty constraint: " + constraints);
+        Assertions.assertTrue(
+                hasConstraint(constraints, "'tables_configs' must contain a 'schema' block"),
+                "missing tables_configs guard: " + constraints);
+        Assertions.assertTrue(
+                hasConstraint(
+                        constraints,
+                        "'table-names' must not be used together with 'table-pattern'"),
+                "missing table-names guard: " + constraints);
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_NAMES));
-        Assertions.assertTrue(
-                optionRule.getOptionalOptions().contains(ConnectorCommonOptions.TABLE_PATTERN));
     }
 
     /** A root schema that lists its columns stays valid. */
@@ -342,6 +360,41 @@ class VitessSourceFactoryTest {
         Assertions.assertTrue(exception.getMessage().contains("metadata_table_id"));
     }
 
+    /** A tables_configs entry may point at the metadata table instead of listing its columns. */
+    @Test
+    void testRuleAcceptsTableConfigsEntryWithMetadataTableId() {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", "test.products");
+        schema.put("metadata_table_id", "test.products");
+        Map<String, Object> tableConfig = new HashMap<>();
+        tableConfig.put("schema", schema);
+
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", Collections.singletonList(tableConfig));
+
+        assertRuleAccepts(options);
+    }
+
+    /** The guard must name the failing entry, not just the first one. */
+    @Test
+    void testRuleRejectsLaterTableConfigsEntryWithoutSchemaMetadata() {
+        List<Map<String, Object>> tableConfigs =
+                new ArrayList<>(singleTableConfigs("test.products"));
+        Map<String, Object> incompleteSchema = new HashMap<>();
+        incompleteSchema.put("table", "test.customers");
+        Map<String, Object> incompleteTableConfig = new HashMap<>();
+        incompleteTableConfig.put("schema", incompleteSchema);
+        tableConfigs.add(incompleteTableConfig);
+
+        Map<String, Object> options = baseOptions(StartupMode.LATEST, null);
+        options.put("tables_configs", tableConfigs);
+
+        OptionValidationException exception = assertRuleRejects(options);
+
+        Assertions.assertTrue(exception.getMessage().contains("tables_configs[1].schema"));
+        Assertions.assertTrue(exception.getMessage().contains("metadata_table_id"));
+    }
+
     /** table-names and table-pattern are alternatives, never a pair. */
     @Test
     void testRuleRejectsTableNamesTogetherWithTablePattern() {
@@ -387,6 +440,10 @@ class VitessSourceFactoryTest {
                 assertRuleRejects(tableConfigsOptions)
                         .getMessage()
                         .contains(runtimeFailureMessage(tableConfigsOptions)));
+    }
+
+    private boolean hasConstraint(List<String> constraints, String expected) {
+        return constraints.stream().anyMatch(constraint -> constraint.contains(expected));
     }
 
     private void assertRuleAccepts(Map<String, Object> options) {
