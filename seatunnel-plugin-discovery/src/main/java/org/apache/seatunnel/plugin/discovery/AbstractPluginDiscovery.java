@@ -59,6 +59,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -466,7 +467,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
-        PluginType type = PluginType.valueOf(pluginType.toUpperCase());
+        PluginType type = PluginType.valueOf(pluginType.toUpperCase(Locale.ROOT));
         List<URL> pluginJarPaths;
         try {
             if (targetPluginFiles.length == 1) {
