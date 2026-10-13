@@ -48,25 +48,25 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 选项
 
-|         名称          |  类型  | 必需 | 默认值  |
-|-----------------------|--------|------|---------|
-| table_name            | string | 否   | 单表模式必填 |
-| table_list            | array  | 否   | 已废弃，请使用 `tables_configs` |
-| tables_configs        | array  | 否   | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
-| use_regex             | boolean| 否   | false   |
-| metastore_uri         | string | 否   | 单表模式必填 |
-| krb5_path             | string | 否   | /etc/krb5.conf |
-| kerberos_principal    | string | 否   | -       |
-| kerberos_keytab_path  | string | 否   | -       |
-| hdfs_site_path        | string | 否   | -       |
-| hive_site_path        | string | 否   | -       |
-| hive.hadoop.conf      | Map    | 否   | -       |
-| hive.hadoop.conf-path | string | 否   | -       |
-| remote_user           | string | 否   | -       |
-| read_partitions       | list   | 否   | -       |
-| read_columns          | list   | 否   | -       |
-| compress_codec        | string | 否   | none    |
-| common-options        |        | 否   | -       |
+|         名称          |  类型  | 必需 | 默认值  | 描述 |
+|-----------------------|--------|------|---------|------|
+| table_name            | string | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db1.table1`。当 `use_regex = true` 时，该字段使用 `数据库正则.表正则` 匹配多张表。 |
+| table_list            | array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `tables_configs`。仅为向后兼容保留，未来版本将移除。 |
+| tables_configs        | array  | 否   | -       | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
+| use_regex             | boolean| 否   | false   | 将 `table_name` 视为正则表达式以匹配多张表。在根级别以及 `table_list` / `tables_configs` 的每一项中均可使用。 |
+| metastore_uri         | string | 否   | 单表模式必填 | Hive metastore URI。多个以逗号分隔的值可启用 HA 故障转移，空白字符会被忽略。 |
+| krb5_path             | string | 否   | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 文件路径。 |
+| kerberos_principal    | string | 否   | -       | 访问 Hive Metastore / HDFS 的 Kerberos principal。 |
+| kerberos_keytab_path  | string | 否   | -       | 与 `kerberos_principal` 配套的 keytab 文件路径。 |
+| hdfs_site_path        | string | 否   | -       | `hdfs-site.xml` 的本地路径，用于加载 HDFS HA 配置。新作业不建议使用，请改用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
+| hive_site_path        | string | 否   | -       | `hive-site.xml` 的本地路径。 |
+| hive.hadoop.conf      | Map    | 否   | -       | 内联的 Hadoop 配置项（等价于 `core-site.xml` / `hdfs-site.xml` / `hive-site.xml` 中的条目）。 |
+| hive.hadoop.conf-path | string | 否   | -       | 包含 `core-site.xml`、`hdfs-site.xml` 和 `hive-site.xml` 的目录。 |
+| remote_user           | string | 否   | -       | 未启用 Kerberos 时连接 HDFS / Hive 存储使用的 Hadoop 远程用户名。 |
+| read_partitions       | list   | 否   | -       | 限制读取的分区子集。所有条目的目录层级深度必须一致。 |
+| read_columns          | list   | 否   | -       | 列投影列表。仅读取列出的字段。 |
+| compress_codec        | string | 否   | none    | text / CSV / JSON 输出的压缩编解码器，支持 `lzo` 和 `none`。Parquet / ORC 会自动识别压缩。 |
+| common-options        |        | 否   | -       | Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。 |
 
 ### table_name [string]
 
