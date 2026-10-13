@@ -81,6 +81,45 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
         return claimingMastership;
     }
 
+    /**
+     * Re-declared from {@link com.hazelcast.internal.cluster.Joiner} to downgrade Hazelcast's INFO
+     * "added to the blacklist" log to FINE only for the noisy case: a lite member temporarily
+     * blacklisting a candidate during the retry loop (it blacklists/unblacklists every candidate
+     * each cycle). Non-lite members and permanent entries keep Hazelcast's INFO so operators still
+     * see those signals; the one-shot state log in {@link #logRetryState} already summarizes the
+     * lite-member retry.
+     */
+    @Override
+    public void blacklist(Address address, boolean permanent) {
+        if (node.isLiteMember() && !permanent) {
+            Boolean previous = blacklistedAddresses.putIfAbsent(address, permanent);
+            if (previous == null && logger.isFineEnabled()) {
+                logger.fine(address + " is added to the blacklist.");
+            }
+            return;
+        }
+        super.blacklist(address, permanent);
+    }
+
+    /**
+     * Re-declared from {@link com.hazelcast.internal.cluster.Joiner} to downgrade Hazelcast's INFO
+     * "removed from the blacklist" log to FINE for lite members. See {@link #blacklist(Address,
+     * boolean)}.
+     */
+    @Override
+    public boolean unblacklist(Address address) {
+        if (node.isLiteMember()) {
+            if (blacklistedAddresses.remove(address, Boolean.FALSE)) {
+                if (logger.isFineEnabled()) {
+                    logger.fine(address + " is removed from the blacklist.");
+                }
+                return true;
+            }
+            return false;
+        }
+        return super.unblacklist(address);
+    }
+
     private int getConnTimeoutSeconds() {
         return joinConfig.getTcpIpConfig().getConnectionTimeoutSeconds();
     }
@@ -146,6 +185,10 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
 
             long maxJoinMillis = getMaxJoinMillis();
             long startTime = Clock.currentTimeMillis();
+            // Tracks whether the retry state (no candidates / permanently blacklisted /
+            // temporarily blacklisted) has been logged once for this join attempt. Local to this
+            // method so that a re-join (for example after hot restart) logs again.
+            boolean retryStateLogged = false;
 
             while (shouldRetry() && (Clock.currentTimeMillis() - startTime < maxJoinMillis)) {
                 tryJoinAddresses(possibleAddresses);
@@ -155,11 +198,27 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
                 }
 
                 // update for seatunnel, lite member can not become master node
-                if (isAllBlacklisted(possibleAddresses) && !node.isLiteMember()) {
-                    logger.fine(
-                            "This node will assume master role since none of the possible members accepted join request.");
-                    clusterJoinManager.setThisMemberAsMaster();
-                    return;
+                if (isAllBlacklisted(possibleAddresses)) {
+                    if (node.isLiteMember()) {
+                        boolean clearedAny = retryTemporaryBlacklistedAddresses(possibleAddresses);
+                        if (!retryStateLogged) {
+                            retryStateLogged = true;
+                            logRetryState(possibleAddresses, clearedAny);
+                        }
+                        if (clearedAny && !clusterService.isJoined()) {
+                            // Reset any stale master address learned earlier so the next pass
+                            // re-asks all candidates instead of pinning to a dead master.
+                            clusterService.setMasterAddressToJoin(null);
+                        }
+                        // A lite member can never claim mastership, so skip the redundant claim
+                        // attempt and the master-address reset below.
+                        continue;
+                    } else {
+                        logger.fine(
+                                "This node will assume master role since none of the possible members accepted join request.");
+                        clusterJoinManager.setThisMemberAsMaster();
+                        return;
+                    }
                 }
 
                 if (tryClaimMastership(possibleAddresses)) {
@@ -170,6 +229,53 @@ public class LiteNodeDropOutTcpIpJoiner extends TcpIpJoiner {
             }
         } catch (Throwable t) {
             logger.severe(t);
+        }
+    }
+
+    /**
+     * Waits for one join retry interval and clears only the temporary blacklist entries so that the
+     * next {@link #tryJoinAddresses(Collection)} call retries them. Returns {@code true} if at
+     * least one temporary entry was cleared, {@code false} if there was nothing to clear (an empty
+     * candidate list, or every candidate is permanently blacklisted).
+     *
+     * <p>Permanently blacklisted addresses are intentionally left untouched: {@link
+     * #unblacklist(Address)} only removes temporary (non-permanent) entries.
+     */
+    private boolean retryTemporaryBlacklistedAddresses(Collection<Address> possibleAddresses) {
+        try {
+            clusterService.blockOnJoin(JOIN_RETRY_WAIT_TIME);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        boolean clearedAny = false;
+        for (Address address : possibleAddresses) {
+            if (unblacklist(address)) {
+                clearedAny = true;
+            }
+        }
+        return clearedAny;
+    }
+
+    /**
+     * Logs a single, accurate message describing why this lite member cannot join yet, based on
+     * whether the candidate list is empty, every candidate is permanently blacklisted, or there are
+     * temporarily blacklisted candidates that will keep being retried.
+     */
+    private void logRetryState(Collection<Address> possibleAddresses, boolean clearedAny) {
+        if (possibleAddresses.isEmpty()) {
+            logger.warning(
+                    "This lite member has no candidate master addresses to join; it will wait until "
+                            + "hazelcast.max.join.seconds elapses.");
+        } else if (!clearedAny) {
+            logger.warning(
+                    "All candidate master addresses are permanently blacklisted: "
+                            + possibleAddresses
+                            + "; this lite member cannot retry them.");
+        } else {
+            logger.info(
+                    "This lite member cannot assume the master role and all candidate master "
+                            + "addresses are temporarily blacklisted. It will keep retrying until a "
+                            + "master becomes reachable or hazelcast.max.join.seconds elapses.");
         }
     }
 
