@@ -61,30 +61,59 @@ title: 配置参考
 
 提交机能解析的变量会在提交前完成替换；剩余的 `${VAR}` 占位符保留在作业配置中，由 Master 在 Pod 内使用环境变量解析，包括通过 `kubernetes.env` 的 `secretKeyRef`、`configMapKeyRef` 注入的值。任何位置都不存在的占位符会在 Master 启动时报告，而不是提交时立即失败。
 
-用 `kubernetes.configmap` 可以从多个 ConfigMap 挂载运行时文件，而不用覆盖整个配置目录。每个命名条目要么引用已有 ConfigMap，要么声明由 SeaTunnel 创建的数据：
+### Application Secret
+
+引用平台创建并管理的 Secret；SeaTunnel 只读挂载，永不创建或删除：
 
 ```hocon
-kubernetes.configmap {
-  runtime {
+kubernetes.secret-ref = seatunnel-job-secret
+```
+
+也可以由 SeaTunnel 创建并持有 Secret。`data` 中的条目会挂载到 `/etc/seatunnel-secrets/application`；通过 `kubernetes.env` 注入为 Pod 环境变量后，作业配置里的 `${VAR}` 占位符即可在 Master 内解析：
+
+```hocon
+kubernetes {
+  secret {
+    name = seatunnel-job-secret
     data {
-      seatunnel.yaml = "engine { ... }"
-      log4j2_client.properties = "rootLogger.level=INFO"
-    }
-    mount {
-      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+      MYSQL_PASSWORD = ${MYSQL_PASSWORD}   # 在提交机解析
+      S3_SECRET_KEY = "s3-secret-key"
     }
   }
-  shared {
-    ref = platform-runtime
-    mount {
-      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-    }
+  env = "MYSQL_PASSWORD=secret:seatunnel-job-secret/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secret/S3_SECRET_KEY"
+}
+```
+
+`kubernetes.secret-ref` 与 `kubernetes.secret` 互斥；Secret 的 namespace 始终跟随 `kubernetes.namespace`；包含 `job.conf` 键时会替换内联的作业配置。
+
+### Application ConfigMap
+
+引用已有 ConfigMap 时，用 `mount` 声明要挂载的 key 及其完整路径，按 `subPath` 单文件挂载；引用型 ConfigMap 不会被修改或删除，挂载的 key 会在提交前校验：
+
+```hocon
+kubernetes.configmap.shared {
+  ref = platform-runtime
+  mount {
+    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
   }
 }
 ```
 
-创建型 ConfigMap 命名为 `<application-id>-<entry>`，带 Job ownerReference，随 application 一起清理；引用型 ConfigMap 不会被修改或删除，其挂载的 key 会在提交前校验。每个挂载的 key 都必须在 `mount` 中声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
+声明 `data` 时由 SeaTunnel 创建 ConfigMap。创建型 ConfigMap 命名为 `<application-id>-<entry>`，带 Job ownerReference，随 application 一起清理：
+
+```hocon
+kubernetes.configmap.runtime {
+  data {
+    seatunnel.yaml = "engine { ... }"
+  }
+  mount {
+    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+  }
+}
+```
+
+两种模式都必须在 `mount` 中为每个挂载的 key 声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 
