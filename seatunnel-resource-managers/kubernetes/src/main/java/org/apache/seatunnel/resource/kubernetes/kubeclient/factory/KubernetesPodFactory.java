@@ -64,7 +64,14 @@ final class KubernetesPodFactory {
         ApplicationSpecification specification = parameters.getSpecification();
         int memory = specification.getMasterMemoryMb();
         V1Container container = container(parameters, memory, specification.getMasterCpuCores());
-        container.setCommand(command(parameters, memory, mainClass, id));
+        container.setCommand(
+                command(
+                        parameters,
+                        memory,
+                        parameters.getMasterHazelcastConfig(),
+                        parameters.getMasterJvmOptions(),
+                        mainClass,
+                        id));
         container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification.getMasterPort(), specification);
         V1PodSpec pod = pod(parameters, container, true);
@@ -125,6 +132,8 @@ final class KubernetesPodFactory {
                 command(
                         parameters,
                         resources.getMemoryMb(),
+                        parameters.getWorkerHazelcastConfig(),
+                        parameters.getWorkerJvmOptions(),
                         SeatunnelKubernetesApplicationWorker.class.getName(),
                         clusterName,
                         masterAddress,
@@ -199,18 +208,30 @@ final class KubernetesPodFactory {
     }
 
     private static List<String> command(
-            KubernetesApplicationParameters parameters, int memory, String main, String... args) {
+            KubernetesApplicationParameters parameters,
+            int memory,
+            String hazelcastConfig,
+            String jvmOptionsFile,
+            String main,
+            String... args) {
         String home = parameters.getSeatunnelHome();
         List<String> command = new ArrayList<>();
         command.add(KubernetesConstants.JAVA_COMMAND);
         command.add("-Xmx" + heapMb(memory) + "m");
         command.add("-XX:+ExitOnOutOfMemoryError");
+        command.addAll(KubernetesConstants.MANDATORY_JVM_MODULE_FLAGS);
         command.add("-Dhazelcast.logging.type=log4j2");
         command.add("-Dseatunnel.logs.path=" + home + "/logs");
         command.add("-Dseatunnel.logs.file_name=seatunnel-application");
         command.add("-Dseatunnel.home=" + home);
         command.add("-Dseatunnel.config=" + home + KubernetesConstants.SEATUNNEL_CONFIG_FILE);
         command.add("-Dlog4j2.configurationFile=" + home + KubernetesConstants.LOG4J_CONFIG_FILE);
+        if (hazelcastConfig != null) {
+            command.add("-Dhazelcast.config=" + hazelcastConfig);
+        }
+        if (jvmOptionsFile != null) {
+            command.add("@" + jvmOptionsFile);
+        }
         command.add("-cp");
         command.add(classpath(home));
         command.add(main);

@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -73,6 +74,10 @@ public final class KubernetesApplicationParameters {
     private final String seatunnelHome;
     private final String checkpointDirectory;
     private final String secretDirectory;
+    private final String masterHazelcastConfig;
+    private final String workerHazelcastConfig;
+    private final String masterJvmOptions;
+    private final String workerJvmOptions;
     private final String configMap;
     private final String applicationSecretRef;
     private final String applicationSecretName;
@@ -101,6 +106,16 @@ public final class KubernetesApplicationParameters {
         this.seatunnelHome = absolutePath(options, KubernetesOptions.SEATUNNEL_HOME);
         this.checkpointDirectory = absolutePath(options, KubernetesOptions.CHECKPOINT_DIRECTORY);
         this.secretDirectory = absolutePath(options, KubernetesOptions.SECRET_DIRECTORY);
+        this.masterHazelcastConfig =
+                hazelcastConfigPath(
+                        options, KubernetesOptions.MASTER_HAZELCAST_CONFIG, seatunnelHome);
+        this.workerHazelcastConfig =
+                hazelcastConfigPath(
+                        options, KubernetesOptions.WORKER_HAZELCAST_CONFIG, seatunnelHome);
+        this.masterJvmOptions =
+                jvmOptionsFile(options, KubernetesOptions.MASTER_JVM_OPTIONS, seatunnelHome);
+        this.workerJvmOptions =
+                jvmOptionsFile(options, KubernetesOptions.WORKER_JVM_OPTIONS, seatunnelHome);
         this.configMap = optionalNonBlank(options, KubernetesOptions.CONFIG_MAP);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
@@ -235,6 +250,20 @@ public final class KubernetesApplicationParameters {
         properties.setProperty(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome);
         properties.setProperty(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), checkpointDirectory);
         properties.setProperty(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory);
+        if (masterHazelcastConfig != null) {
+            properties.setProperty(
+                    KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), masterHazelcastConfig);
+        }
+        if (workerHazelcastConfig != null) {
+            properties.setProperty(
+                    KubernetesOptions.WORKER_HAZELCAST_CONFIG.key(), workerHazelcastConfig);
+        }
+        if (masterJvmOptions != null) {
+            properties.setProperty(KubernetesOptions.MASTER_JVM_OPTIONS.key(), masterJvmOptions);
+        }
+        if (workerJvmOptions != null) {
+            properties.setProperty(KubernetesOptions.WORKER_JVM_OPTIONS.key(), workerJvmOptions);
+        }
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
         if (configMap != null) {
@@ -543,6 +572,72 @@ public final class KubernetesApplicationParameters {
                     option.key() + " must be an absolute path without ':'");
         }
         return value;
+    }
+
+    /**
+     * Resolves one Hazelcast member configuration file.
+     *
+     * @param options resolved deployment settings
+     * @param option role-specific option
+     * @param seatunnelHome distribution home used for relative file names
+     * @return absolute container path, or {@code null} to keep the built-in configuration
+     */
+    private static String hazelcastConfigPath(
+            ReadonlyConfig options, Option<String> option, String seatunnelHome) {
+        String value = optionalNonBlank(options, option);
+        if (value == null) {
+            return null;
+        }
+        String path;
+        if (value.startsWith("/")) {
+            if (value.contains(":")) {
+                throw new IllegalArgumentException(option.key() + " must not contain ':'");
+            }
+            path = value;
+        } else {
+            if (!value.matches("[A-Za-z0-9._-]+")) {
+                throw new IllegalArgumentException(
+                        option.key()
+                                + " must be a file name under <seatunnel-home>/config or an absolute path");
+            }
+            path = seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/" + value;
+        }
+        String lowerCase = path.toLowerCase(Locale.ROOT);
+        if (!(lowerCase.endsWith(".yaml")
+                || lowerCase.endsWith(".yml")
+                || lowerCase.endsWith(".xml"))) {
+            throw new IllegalArgumentException(
+                    option.key() + " must reference a .yaml, .yml or .xml file");
+        }
+        return path;
+    }
+
+    /**
+     * Resolves one JVM options file applied through the Java {@code @argfile} syntax.
+     *
+     * @param options resolved deployment settings
+     * @param option role-specific option
+     * @param seatunnelHome distribution home used for relative file names
+     * @return absolute container path, or {@code null} when disabled
+     */
+    private static String jvmOptionsFile(
+            ReadonlyConfig options, Option<String> option, String seatunnelHome) {
+        String value = requireNonBlank(options, option);
+        if ("none".equalsIgnoreCase(value)) {
+            return null;
+        }
+        if (value.startsWith("/")) {
+            if (value.contains(":")) {
+                throw new IllegalArgumentException(option.key() + " must not contain ':'");
+            }
+            return value;
+        }
+        if (!value.matches("[A-Za-z0-9._-]+")) {
+            throw new IllegalArgumentException(
+                    option.key()
+                            + " must be a file name under <seatunnel-home>/config or an absolute path");
+        }
+        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/" + value;
     }
 
     private static String optionalNonBlank(ReadonlyConfig options, Option<String> option) {

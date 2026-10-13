@@ -97,6 +97,30 @@ public final class KubernetesOptions {
                     .defaultValue(KubernetesConstants.CHECKPOINT_DIRECTORY)
                     .withDescription(
                             "Absolute container path where the existing checkpoint PVC is mounted on the master.");
+    public static final Option<String> MASTER_HAZELCAST_CONFIG =
+            Options.key("kubernetes.master.hazelcast-config")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Hazelcast member configuration file for the master, either a file name under <seatunnel-home>/config or an absolute .yaml/.yml/.xml path; unset keeps the built-in configuration.");
+    public static final Option<String> WORKER_HAZELCAST_CONFIG =
+            Options.key("kubernetes.worker.hazelcast-config")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Hazelcast member configuration file for workers, either a file name under <seatunnel-home>/config or an absolute .yaml/.yml/.xml path; unset keeps the built-in configuration.");
+    public static final Option<String> MASTER_JVM_OPTIONS =
+            Options.key("kubernetes.master.jvm-options-file")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.MASTER_JVM_OPTIONS_FILE)
+                    .withDescription(
+                            "JVM options file for the master: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to 'none' to disable.");
+    public static final Option<String> WORKER_JVM_OPTIONS =
+            Options.key("kubernetes.worker.jvm-options-file")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.WORKER_JVM_OPTIONS_FILE)
+                    .withDescription(
+                            "JVM options file for workers: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to 'none' to disable.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

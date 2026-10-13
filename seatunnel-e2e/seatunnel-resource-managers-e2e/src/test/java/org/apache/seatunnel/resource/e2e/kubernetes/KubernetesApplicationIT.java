@@ -188,6 +188,16 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         Files.readAllBytes(
                                 Paths.get(PROJECT_ROOT_PATH, "config", "log4j2_client.properties")),
                         StandardCharsets.UTF_8));
+        runtimeConfiguration.put(
+                "hazelcast-master.yaml",
+                "hazelcast:\n  properties:\n    hazelcast.logging.type: log4j2\n");
+        runtimeConfiguration.put(
+                "hazelcast-worker.yaml",
+                "hazelcast:\n  properties:\n    hazelcast.logging.type: log4j2\n");
+        runtimeConfiguration.put(
+                "jvm_master_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
+        runtimeConfiguration.put(
+                "jvm_worker_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
         core.createNamespacedConfigMap(
                 namespace,
                 new V1ConfigMap()
@@ -315,10 +325,42 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
                 assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
+                                .contains(
+                                        "-Dhazelcast.config=/opt/seatunnel/config/hazelcast-master.yaml"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
+                                .contains("@/opt/seatunnel/config/jvm_master_options"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
+                                .contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
                 for (V1Pod worker : workers(application)) {
                     assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
                     assertTrue(mounted(worker, "/opt/seatunnel/config/seatunnel.yaml"));
                     assertTrue(mounted(worker, "/var/run/seatunnel/secrets"));
+                    assertTrue(
+                            worker.getSpec()
+                                    .getContainers()
+                                    .get(0)
+                                    .getCommand()
+                                    .contains(
+                                            "-Dhazelcast.config=/opt/seatunnel/config/hazelcast-worker.yaml"));
+                    assertTrue(
+                            worker.getSpec()
+                                    .getContainers()
+                                    .get(0)
+                                    .getCommand()
+                                    .contains("@/opt/seatunnel/config/jvm_worker_options"));
                 }
                 V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
                 assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());

@@ -26,6 +26,8 @@ title: 配置参考
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
 | `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
+| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `none` 可跳过。 |
+| `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
 | `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.worker.labels` | 空 | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.master.annotations` | 空 | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
@@ -155,6 +157,26 @@ kubernetes {
   校验会降级为告警，Pod 仍通过自己的 ServiceAccount 挂载。
 - 旧的 `kubernetes.config-map` 仍可用于把单个 ConfigMap 整体挂载到 `<seatunnel-home>/config`；
   `kubernetes.configmap` 是按文件挂载的替代方案。
+
+### JVM options
+
+Application mode 会把发行版的 JVM 参数文件通过 Java `@argfile` 语法传给 JVM：Master 容器使用
+`jvm_master_options`，Worker 容器使用 `jvm_worker_options`。用 `kubernetes.configmap` 挂载替换文件后
+即可生效，不需要其他改动：
+
+```hocon
+kubernetes.configmap.jvm-options {
+  ref = platform-jvm-options
+  mount {
+    jvm_master_options = /opt/seatunnel/config/jvm_master_options
+    jvm_worker_options = /opt/seatunnel/config/jvm_worker_options
+  }
+}
+```
+
+也可以通过 `kubernetes.master.jvm-options-file` / `kubernetes.worker.jvm-options-file` 指向绝对路径，
+或设为 `none` 跳过文件。Hazelcast 和 Kerberos 配置重载所需的 Java 11+ 强制模块参数
+（`--add-opens` / `--add-exports`）始终会被追加，挂载的文件只做追加或覆盖。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 

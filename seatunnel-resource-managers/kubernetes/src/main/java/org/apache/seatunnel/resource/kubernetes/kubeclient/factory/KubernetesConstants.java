@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 /** Stable Kubernetes names and field values shared by application resource factories. */
 public final class KubernetesConstants {
     /** API group versions used by core and batch resources. */
@@ -45,6 +49,25 @@ public final class KubernetesConstants {
 
     /** Name of the reserved key whose content replaces the inline job configuration. */
     public static final String JOB_CONFIG_FILE = "job.conf";
+
+    /** Distribution files whose JVM options are applied through the Java argument-file syntax. */
+    public static final String MASTER_JVM_OPTIONS_FILE = "jvm_master_options";
+
+    public static final String WORKER_JVM_OPTIONS_FILE = "jvm_worker_options";
+
+    /**
+     * Mandatory JDK module flags for Java 11+, mirroring the cluster launcher scripts. Hazelcast
+     * and the Kerberos configuration reload need this reflective access.
+     */
+    public static final List<String> MANDATORY_JVM_MODULE_FLAGS =
+            Collections.unmodifiableList(
+                    Arrays.asList(
+                            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                            "--add-opens=java.base/java.net=ALL-UNNAMED",
+                            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                            "--add-opens=java.base/java.util=ALL-UNNAMED",
+                            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                            "--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"));
 
     /** Default directory where a configured application Secret is mounted read-only. */
     public static final String APPLICATION_SECRET_DIRECTORY = "/etc/seatunnel-secrets/application";

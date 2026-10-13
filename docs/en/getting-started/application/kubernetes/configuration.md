@@ -26,6 +26,8 @@ title: Configuration
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
+| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `none` disables it. |
+| `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
 | `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.worker.labels` | Empty | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.master.annotations` | Empty | Master Pod annotations as comma-separated `key:value` pairs. |
@@ -162,6 +164,28 @@ kubernetes {
   skipped with a warning and the Pod still mounts it through its own service account.
 - `kubernetes.config-map` remains available for mounting one ConfigMap over the whole
   `<seatunnel-home>/config` directory; `kubernetes.configmap` is the per-file alternative.
+
+### JVM options
+
+Application mode passes the distribution JVM option files to the JVM through the Java `@argfile`
+syntax: `jvm_master_options` in the master container and `jvm_worker_options` in worker
+containers. Mount replacements through `kubernetes.configmap` and they take effect without any
+other change:
+
+```hocon
+kubernetes.configmap.jvm-options {
+  ref = platform-jvm-options
+  mount {
+    jvm_master_options = /opt/seatunnel/config/jvm_master_options
+    jvm_worker_options = /opt/seatunnel/config/jvm_worker_options
+  }
+}
+```
+
+Set `kubernetes.master.jvm-options-file` or `kubernetes.worker.jvm-options-file` to an absolute
+path for a different location, or to `none` to skip the file. The mandatory Java 11+ module flags
+(`--add-opens` / `--add-exports`) used by Hazelcast and the Kerberos configuration reload are
+always appended, so a mounted file only adds or overrides options.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

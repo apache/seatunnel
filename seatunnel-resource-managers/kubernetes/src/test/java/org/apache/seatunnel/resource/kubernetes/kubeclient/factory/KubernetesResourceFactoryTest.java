@@ -736,6 +736,147 @@ class KubernetesResourceFactoryTest {
                 command.get(command.indexOf("-cp") + 1));
     }
 
+    @Test
+    void addsRoleSpecificHazelcastConfiguration() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), "hazelcast-master.yaml");
+        options.put(
+                KubernetesOptions.WORKER_HAZELCAST_CONFIG.key(),
+                "/etc/seatunnel/hazelcast-worker.yaml");
+        ApplicationSpecification specification = specification();
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        assertTrue(
+                job.getInternalResource()
+                        .getSpec()
+                        .getTemplate()
+                        .getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains(
+                                "-Dhazelcast.config=/opt/seatunnel/config/hazelcast-master.yaml"));
+        V1Pod worker =
+                KubernetesResourceFactory.worker(
+                                job,
+                                "app-worker-0",
+                                parameters,
+                                specification.getWorkerSpecification(),
+                                "cluster",
+                                "master:5801")
+                        .getInternalResource();
+        assertTrue(
+                worker.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains("-Dhazelcast.config=/etc/seatunnel/hazelcast-worker.yaml"));
+    }
+
+    @Test
+    void rejectsInvalidHazelcastConfigurationFiles() {
+        Map<String, String> invalidSuffix = options();
+        invalidSuffix.put(KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), "hazelcast.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(invalidSuffix))));
+        Map<String, String> traversal = options();
+        traversal.put(KubernetesOptions.WORKER_HAZELCAST_CONFIG.key(), "../hazelcast-worker.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
+    }
+
+    @Test
+    void appliesJvmOptionsFilesAndMandatoryModuleFlags() {
+        ApplicationSpecification specification = specification();
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
+        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        List<String> masterCommand =
+                job.getInternalResource()
+                        .getSpec()
+                        .getTemplate()
+                        .getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand();
+        assertTrue(masterCommand.contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
+        assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_master_options"));
+        V1Pod worker =
+                KubernetesResourceFactory.worker(
+                                job,
+                                "app-worker-0",
+                                parameters,
+                                specification.getWorkerSpecification(),
+                                "cluster",
+                                "master:5801")
+                        .getInternalResource();
+        assertTrue(
+                worker.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains("@/opt/seatunnel/config/jvm_worker_options"));
+
+        Map<String, String> overrides = options();
+        overrides.put(KubernetesOptions.MASTER_JVM_OPTIONS.key(), "/etc/seatunnel/custom.options");
+        overrides.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "none");
+        KubernetesApplicationParameters overridden =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(overrides)));
+        KubernetesJob overriddenJob = KubernetesResourceFactory.job("app", mainClass, overridden);
+        assertTrue(
+                overriddenJob
+                        .getInternalResource()
+                        .getSpec()
+                        .getTemplate()
+                        .getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains("@/etc/seatunnel/custom.options"));
+        V1Pod overriddenWorker =
+                KubernetesResourceFactory.worker(
+                                overriddenJob,
+                                "app-worker-0",
+                                overridden,
+                                specification.getWorkerSpecification(),
+                                "cluster",
+                                "master:5801")
+                        .getInternalResource();
+        assertTrue(
+                overriddenWorker.getSpec().getContainers().get(0).getCommand().stream()
+                        .noneMatch(argument -> argument.startsWith("@")));
+    }
+
+    @Test
+    void rejectsInvalidJvmOptionsFiles() {
+        Map<String, String> traversal = options();
+        traversal.put(KubernetesOptions.MASTER_JVM_OPTIONS.key(), "../jvm_options");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
+        Map<String, String> absoluteWithColon = options();
+        absoluteWithColon.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "/etc/seatunnel/a:b");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(absoluteWithColon))));
+    }
+
     private static String envValue(V1Job job, String name) {
         for (V1EnvVar env : job.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv()) {
             if (name.equals(env.getName())) {
