@@ -65,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -877,6 +878,7 @@ public class CheckpointCoordinatorFailoverIT {
         HazelcastInstanceImpl masterNode2 = null;
         SeaTunnelClient engineClient = null;
         ExecutorService savepointCaller = Executors.newSingleThreadExecutor();
+        AtomicBoolean masterShutdownStarted = new AtomicBoolean();
 
         SeaTunnelConfig config1 = ConfigProvider.locateAndGetSeaTunnelConfig();
         config1.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
@@ -942,6 +944,10 @@ public class CheckpointCoordinatorFailoverIT {
                                 try {
                                     finalEngineClient.savePointJob(jobId);
                                 } catch (Exception e) {
+                                    if (!masterShutdownStarted.get()) {
+                                        throw new IllegalStateException(
+                                                "savePointJob failed before master failover", e);
+                                    }
                                     // Expected: killing masterNode1 below breaks whatever RPC
                                     // this call is blocked on. Whether the job still reaches
                                     // SAVEPOINT_DONE afterward is verified independently below,
@@ -959,12 +965,24 @@ public class CheckpointCoordinatorFailoverIT {
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(10, TimeUnit.MILLISECONDS)
+                    .ignoreExceptions()
                     .until(
-                            () ->
-                                    isSavepointGenuinelyMidShutdown(
-                                            finalMaster1ForPoll,
-                                            jobId,
-                                            SAVEPOINT_TEST_PIPELINE_ID));
+                            () -> {
+                                if (savepointCall.isDone()) {
+                                    try {
+                                        savepointCall.get();
+                                        Assertions.fail(
+                                                "savePointJob completed before master failover");
+                                    } catch (AssertionError e) {
+                                        throw e;
+                                    } catch (Exception e) {
+                                        throw new AssertionError(
+                                                "savePointJob failed before master failover", e);
+                                    }
+                                }
+                                return isSavepointGenuinelyMidShutdown(
+                                        finalMaster1ForPoll, jobId, SAVEPOINT_TEST_PIPELINE_ID);
+                            });
 
             log.info(
                     "Observed job {} DOING_SAVEPOINT with an unacknowledged savepoint checkpoint"
@@ -972,6 +990,14 @@ public class CheckpointCoordinatorFailoverIT {
                             + " masterNode1.",
                     jobId);
 
+            Assertions.assertFalse(
+                    savepointCall.isDone(),
+                    "savePointJob must still be pending immediately before master shutdown");
+            Assertions.assertTrue(
+                    isSavepointGenuinelyMidShutdown(
+                            finalMaster1ForPoll, jobId, SAVEPOINT_TEST_PIPELINE_ID),
+                    "savepoint checkpoint completed on the old master before shutdown");
+            masterShutdownStarted.set(true);
             masterNode1.shutdown();
             masterNode1 = null;
 
