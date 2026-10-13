@@ -75,7 +75,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      *
      * <p>Image pull, admission and scheduling therefore cannot fail the submission; callers observe
      * the runtime outcome through {@link #getApplicationStatus(String)} or {@link
-     * #retrieve(Object)}. Only resources created by this invocation are compensated when creation
+     * #retrieve(String)}. Only resources created by this invocation are compensated when creation
      * fails.
      *
      * @param specification resolved job content and fixed resource requirements
