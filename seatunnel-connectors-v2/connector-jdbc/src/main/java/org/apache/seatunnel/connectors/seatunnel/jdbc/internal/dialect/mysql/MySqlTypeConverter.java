@@ -113,15 +113,16 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     private static final String UNSIGNED_SUFFIX = " UNSIGNED";
 
     /**
-     * Base names of the numeric types that accept the {@code UNSIGNED} attribute, derived from the
-     * {@code *_UNSIGNED} type names declared above instead of being re-typed. Deriving the set
-     * keeps the catalog guard in step with this converter, which is what widens {@code INT
-     * UNSIGNED} and friends: a type added to one side but forgotten by the other would silently
-     * drop the attribute.
+     * Base names of the numeric types that accept the {@code UNSIGNED} attribute. The members are
+     * computed from the {@code *_UNSIGNED} type names listed below by stripping {@link
+     * #UNSIGNED_SUFFIX}, so the set itself is never re-typed by hand and cannot disagree with those
+     * names about spelling or case. Adding a numeric type still means declaring its {@code
+     * *_UNSIGNED} constant and listing it below; {@code MySqlTypeConverterTest} reflects over the
+     * constants and fails when the two fall out of step, so the entry cannot be forgotten silently.
      *
-     * <p>The derivation is from those constants and not from MySQL's own rules, which is why {@code
-     * BIT} and {@code YEAR} are members. They are declared above for parity with the MySQL type
-     * list even though MySQL does not accept {@code UNSIGNED} on them, and {@code
+     * <p>The membership follows those constants and not MySQL's own rules, which is why {@code BIT}
+     * and {@code YEAR} are members. They are declared for parity with the MySQL type list even
+     * though MySQL does not accept {@code UNSIGNED} on them, and {@code
      * OceanBaseMySqlTypeConverter} has no {@code *_UNSIGNED} case for either. Keeping the superset
      * is the safe choice: the guard only answers "is this column unsigned", and narrowing it per
      * dialect would silently drop the attribute for the shared numeric types.
