@@ -99,13 +99,17 @@ public final class KubernetesEnvironmentVariable {
                 || separator == reference.length() - 1
                 || reference.indexOf('/', separator + 1) >= 0) {
             throw new IllegalArgumentException(
-                    "kubernetes.env." + name + " references must use the form name/key");
+                    KubernetesConstants.ENV_PREFIX
+                            + name
+                            + " references must use the form name/key");
         }
         String resourceName = reference.substring(0, separator).trim();
         String key = reference.substring(separator + 1).trim();
         if (resourceName.isEmpty() || key.isEmpty()) {
             throw new IllegalArgumentException(
-                    "kubernetes.env." + name + " references must use the form name/key");
+                    KubernetesConstants.ENV_PREFIX
+                            + name
+                            + " references must use the form name/key");
         }
         return secret
                 ? new KubernetesEnvironmentVariable(name, null, resourceName, null, key)

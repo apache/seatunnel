@@ -53,23 +53,35 @@ public final class KubernetesConstants {
     /** Prefix shared by every deployment option, for example {@code kubernetes.image}. */
     public static final String OPTION_PREFIX = "kubernetes.";
 
-    /**
-     * Prefix of the created Secret's data entries, for example {@code kubernetes.secret.data.KEY}.
-     */
-    public static final String SECRET_DATA_PREFIX = OPTION_PREFIX + "secret.data.";
+    /** Option name of the created Secret, used in messages as well as in keys. */
+    public static final String SECRET_OPTION = OPTION_PREFIX + "secret";
 
-    /** Prefix of the ConfigMap entries, for example {@code kubernetes.configmap.<entry>.ref}. */
-    public static final String CONFIG_MAP_PREFIX = OPTION_PREFIX + "configmap.";
+    /** Option name of the created Secret's data entries, for example {@code ...data.KEY}. */
+    public static final String SECRET_DATA_OPTION = SECRET_OPTION + ".data";
 
-    /** Prefix of one Pod environment variable, for example {@code kubernetes.env.NAME}. */
-    public static final String ENV_PREFIX = OPTION_PREFIX + "env.";
+    /** Prefix of the created Secret's data entries, for example {@code ...data.KEY}. */
+    public static final String SECRET_DATA_PREFIX = SECRET_DATA_OPTION + ".";
+
+    /** Option name of the ConfigMap entries, for example {@code kubernetes.configmap.<entry>}. */
+    public static final String CONFIG_MAP_OPTION = OPTION_PREFIX + "configmap";
+
+    /** Prefix of the ConfigMap entries, for example {@code ...configmap.<entry>.ref}. */
+    public static final String CONFIG_MAP_PREFIX = CONFIG_MAP_OPTION + ".";
+
+    /** Option name of one Pod environment variable, for example {@code kubernetes.env.NAME}. */
+    public static final String ENV_OPTION = OPTION_PREFIX + "env";
+
+    /** Prefix of one Pod environment variable, for example {@code ...env.NAME}. */
+    public static final String ENV_PREFIX = ENV_OPTION + ".";
 
     /** Prefix of the whole-object envFrom references. */
-    public static final String ENV_FROM_PREFIX = OPTION_PREFIX + "env-from.";
+    public static final String ENV_FROM_OPTION = OPTION_PREFIX + "env-from";
 
-    public static final String ENV_FROM_SECRET = ENV_FROM_PREFIX + "secret";
+    public static final String ENV_FROM_PREFIX = ENV_FROM_OPTION + ".";
 
-    public static final String ENV_FROM_CONFIGMAP = ENV_FROM_PREFIX + "configmap";
+    public static final String ENV_FROM_SECRET = ENV_FROM_OPTION + ".secret";
+
+    public static final String ENV_FROM_CONFIGMAP = ENV_FROM_OPTION + ".configmap";
 
     /** Value schemes of one {@code kubernetes.env.*} reference. */
     public static final String ENV_VALUE_SECRET_PREFIX = "secret:";

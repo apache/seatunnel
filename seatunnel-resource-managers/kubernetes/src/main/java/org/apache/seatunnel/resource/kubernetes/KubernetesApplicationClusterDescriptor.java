@@ -173,14 +173,15 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             }
             KubernetesConfigMap configMap =
                     getReadableConfigMap(
-                            entry.getReference(), "kubernetes.configmap." + entry.getEntryName());
+                            entry.getReference(),
+                            KubernetesConstants.CONFIG_MAP_PREFIX + entry.getEntryName());
             if (configMap == null) {
                 continue;
             }
             for (String key : entry.getMountPaths().keySet()) {
                 if (!containsKey(configMap, key)) {
                     throw new IllegalArgumentException(
-                            "kubernetes.configmap."
+                            KubernetesConstants.CONFIG_MAP_PREFIX
                                     + entry.getEntryName()
                                     + " mounts missing key "
                                     + key

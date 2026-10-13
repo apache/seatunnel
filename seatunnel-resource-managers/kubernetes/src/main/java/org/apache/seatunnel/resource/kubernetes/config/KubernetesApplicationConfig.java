@@ -419,7 +419,7 @@ public final class KubernetesApplicationConfig {
             }
             if (data.put(key, entry.getValue()) != null) {
                 throw new IllegalArgumentException(
-                        "kubernetes.secret.data contains duplicate key " + key);
+                        KubernetesConstants.SECRET_DATA_OPTION + " contains duplicate key " + key);
             }
         }
         return Collections.unmodifiableMap(data);
@@ -465,7 +465,7 @@ public final class KubernetesApplicationConfig {
             }
             if (!names.add(name)) {
                 throw new IllegalArgumentException(
-                        "kubernetes.env contains duplicate name " + name);
+                        KubernetesConstants.ENV_OPTION + " contains duplicate name " + name);
             }
             variables.add(KubernetesEnvironmentVariable.fromValue(name, option.getValue()));
         }
@@ -488,7 +488,10 @@ public final class KubernetesApplicationConfig {
                     && !key.equals(KubernetesConstants.ENV_FROM_CONFIGMAP)) {
                 throw new IllegalArgumentException(
                         key
-                                + " must use kubernetes.env-from.secret or kubernetes.env-from.configmap");
+                                + " must use "
+                                + KubernetesConstants.ENV_FROM_SECRET
+                                + " or "
+                                + KubernetesConstants.ENV_FROM_CONFIGMAP);
             }
         }
         return Collections.unmodifiableList(references);
@@ -496,7 +499,8 @@ public final class KubernetesApplicationConfig {
 
     private static String requireReferenceName(String value) {
         if (value.trim().isEmpty()) {
-            throw new IllegalArgumentException("kubernetes.env-from values must not be empty");
+            throw new IllegalArgumentException(
+                    KubernetesConstants.ENV_FROM_OPTION + " values must not be empty");
         }
         return value.trim();
     }
@@ -612,7 +616,10 @@ public final class KubernetesApplicationConfig {
 
     private static IllegalArgumentException invalidConfigMapEntry(String key) {
         return new IllegalArgumentException(
-                key + " must use kubernetes.configmap.<entry>.ref, .data.<key> or .mount.<key>");
+                key
+                        + " must use "
+                        + KubernetesConstants.CONFIG_MAP_PREFIX
+                        + "<entry>.ref, .data.<key> or .mount.<key>");
     }
 
     private static void putConfigMapValue(
@@ -653,13 +660,18 @@ public final class KubernetesApplicationConfig {
         if (applicationSecretRef == null) {
             if (applicationSecretName != null && applicationSecretData.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "kubernetes.secret.name requires kubernetes.secret.data entries");
+                        KubernetesConstants.SECRET_OPTION
+                                + ".name requires "
+                                + KubernetesConstants.SECRET_DATA_OPTION
+                                + " entries");
             }
             return;
         }
         if (applicationSecretName != null || !applicationSecretData.isEmpty()) {
             throw new IllegalArgumentException(
-                    "kubernetes.secret-ref cannot be combined with kubernetes.secret");
+                    KubernetesConstants.OPTION_PREFIX
+                            + "secret-ref cannot be combined with "
+                            + KubernetesConstants.SECRET_OPTION);
         }
     }
 
@@ -669,14 +681,17 @@ public final class KubernetesApplicationConfig {
             for (String path : entry.getMountPaths().values()) {
                 if (!mountPaths.add(path)) {
                     throw new IllegalArgumentException(
-                            "kubernetes.configmap entries mount multiple keys to " + path);
+                            KubernetesConstants.CONFIG_MAP_OPTION
+                                    + " entries mount multiple keys to "
+                                    + path);
                 }
                 for (String directory : Arrays.asList(secretDirectory, checkpointDirectory)) {
                     if (path.equals(directory)
                             || path.startsWith(directory + "/")
                             || directory.startsWith(path + "/")) {
                         throw new IllegalArgumentException(
-                                "kubernetes.configmap mount path "
+                                KubernetesConstants.CONFIG_MAP_OPTION
+                                        + " mount path "
                                         + path
                                         + " overlaps the reserved directory "
                                         + directory);
