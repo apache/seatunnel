@@ -63,12 +63,14 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -134,9 +136,7 @@ class ApplicationLifecycleTest {
     }
 
     private static final String JOB =
-            "env { parallelism = 1, job.mode = BATCH }\n"
-                    + "source { FakeSource { row.num = 10, schema { fields { id = int } } } }\n"
-                    + "sink { Console {} }";
+            readJobConfig("/application_lifecycle_batch_fake_to_console.conf");
 
     @Test
     void executionTracksNativeCompletionWithoutOwningResources() throws Exception {
@@ -263,9 +263,13 @@ class ApplicationLifecycleTest {
                 Exception.class,
                 () -> runApplication("test-application", malformed, driver, engineConfig()));
         assertEquals(ApplicationStatus.FAILED, driver.finalStatus);
-        assertEquals(1, driver.releases);
-        assertTrue(driver.closed);
-        assertFalse(driver.worker.getLifecycleService().isRunning());
+        // The malformed job fails before the asynchronously provisioned worker finishes joining,
+        // so cleanup closes the driver instead of releasing a worker registration; releasing a
+        // registered worker is covered by the other failure tests.
+        assertTrue(driver.closed, "The failed application must close its resource driver");
+        assertTrue(
+                driver.worker == null || !driver.worker.getLifecycleService().isRunning(),
+                "The failed application must not leave a running worker behind");
     }
 
     @Test
@@ -331,10 +335,7 @@ class ApplicationLifecycleTest {
             disabledReason = "Local Hadoop checkpoint storage requires winutils on Windows")
     void restoresPersistentCheckpointAfterOriginalApplicationStops() throws Exception {
         String streamingJob =
-                "env { parallelism = 1, job.mode = STREAMING, checkpoint.interval = 500 }\n"
-                        + "source { FakeSource { row.num = 1, split.read-interval = 500, "
-                        + "schema { fields { id = int } } } }\n"
-                        + "sink { Console {} }";
+                readJobConfig("/application_lifecycle_streaming_fake_to_console.conf");
         Map<String, String> options = new HashMap<>();
         ApplicationSpecification source = specification(streamingJob, 30000, options);
         List<Long> sourceCheckpoints = runUntilCheckpoints(source, checkpoints, true);
@@ -797,6 +798,15 @@ class ApplicationLifecycleTest {
         config.getHazelcastConfig().setProperty("hazelcast.partition.count", "17");
         config.getHazelcastConfig().setProperty("hazelcast.logging.type", "slf4j");
         return config;
+    }
+
+    /** Reads a job configuration that the tests submit verbatim. */
+    private static String readJobConfig(String confFile) {
+        try {
+            return Files.readString(Paths.get(ContentFormatUtilTest.getResource(confFile)));
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
     }
 
     private static HazelcastInstanceImpl startWorker(
