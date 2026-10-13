@@ -970,12 +970,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                         volume.getConfigMap() != null
                                                 && RUNTIME_CONFIG_MAP.equals(
                                                         volume.getConfigMap().getName())));
-        assertTrue(
-                pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
-                        .anyMatch(
-                                mount ->
-                                        "/opt/seatunnel/config".equals(mount.getMountPath())
-                                                && Boolean.TRUE.equals(mount.getReadOnly())));
+        assertTrue(mounted(pod, "/opt/seatunnel/config/seatunnel.yaml"));
+        assertTrue(mounted(pod, "/opt/seatunnel/config/log4j2_client.properties"));
     }
 
     private static String inlineSpecification(V1Pod master) {
