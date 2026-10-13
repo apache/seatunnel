@@ -202,6 +202,16 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                             Files.readAllBytes(Paths.get(PROJECT_ROOT_PATH, "config", name)),
                             StandardCharsets.UTF_8));
         }
+        core.createNamespacedSecret(
+                namespace,
+                new V1Secret()
+                        .metadata(new V1ObjectMeta().name("seatunnel-application-e2e-ref-secret"))
+                        .type("Opaque")
+                        .stringData(Collections.singletonMap("E2E_PARALLELISM", "1")),
+                null,
+                null,
+                null,
+                null);
         core.createNamespacedConfigMap(
                 namespace,
                 new V1ConfigMap()
@@ -434,6 +444,32 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 deployer.cancelApplication(application.getClusterId());
             }
             awaitAllResourcesRemoved(application);
+        }
+    }
+
+    @Test
+    void referencedSecretAndConfigMapAreMountedAndPreserved() throws Exception {
+        try (KubernetesApplicationClient application = deployApplication("configuration-ref")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                assertEquals(
+                        "seatunnel-application-e2e-ref-secret",
+                        environment(master, "E2E_PARALLELISM")
+                                .getValueFrom()
+                                .getSecretKeyRef()
+                                .getName());
+                assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
+                assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+            } finally {
+                deployer.cancelApplication(application.getClusterId());
+            }
+            awaitAllResourcesRemoved(application);
+            assertNotNull(
+                    core.readNamespacedSecret(
+                            "seatunnel-application-e2e-ref-secret", namespace, null));
+            assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }
     }
 
