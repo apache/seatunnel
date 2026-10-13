@@ -600,7 +600,7 @@ class JdbcSinkWriterTest {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to mock JDBC connection", e);
         }
-        when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
+        when(dialect.getInsertIntoStatement(anyString(), anyString(), Mockito.<TableSchema>any()))
                 .thenReturn("insert into test_table(id) values(?)");
 
         JdbcSinkWriter writer =
@@ -632,7 +632,7 @@ class JdbcSinkWriterTest {
                         .build();
 
         when(dialect.getJdbcConnectionProvider(connectionConfig)).thenReturn(connectionProvider);
-        when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
+        when(dialect.getInsertIntoStatement(anyString(), anyString(), Mockito.<TableSchema>any()))
                 .thenReturn("insert into test_table(id) values(?)");
 
         return new JdbcSinkWriter(
