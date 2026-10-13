@@ -149,9 +149,7 @@ kubernetes {
   job-config-file = job.conf
   configmap.job-conf {
     ref = platform-job-config
-    mount {
-      job.conf = /opt/seatunnel/config/job.conf
-    }
+    mount.job.conf = /opt/seatunnel/config/job.conf
   }
 }
 ```
@@ -201,10 +199,8 @@ Inject the created keys through `kubernetes.env`:
 kubernetes {
   secret {
     name = seatunnel-job-secrets
-    data {
-      MYSQL_PASSWORD = ${MYSQL_PASSWORD}   # resolved on the submitting host
-      S3_SECRET_KEY = "s3-secret-key"
-    }
+    data.MYSQL_PASSWORD = ${MYSQL_PASSWORD}   # resolved on the submitting host
+    data.S3_SECRET_KEY = "s3-secret-key"
   }
   env {
     MYSQL_PASSWORD = "secret:seatunnel-job-secrets/MYSQL_PASSWORD"
@@ -220,23 +216,21 @@ at `<seatunnel-home>/config`:
 kubernetes {
   secret {
     name = seatunnel-job-secrets
-    data {
-      job.conf = """
-        env {
-          job.mode = "BATCH"
-          parallelism = 2
+    data.job.conf = """
+      env {
+        job.mode = "BATCH"
+        parallelism = 2
+      }
+      source {
+        FakeSource {
+          row.num = 10
+          schema { fields { id = int } }
         }
-        source {
-          FakeSource {
-            row.num = 10
-            schema { fields { id = int } }
-          }
-        }
-        sink {
-          Console {}
-        }
-        """
-    }
+      }
+      sink {
+        Console {}
+      }
+      """
   }
   secret-directory = /etc/seatunnel-secrets/application
   job-config-file = /etc/seatunnel-secrets/application/job.conf
@@ -266,15 +260,11 @@ ConfigMaps at different paths:
 kubernetes.configmap {
   engine-config {
     ref = platform-engine-config
-    mount {
-      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-    }
+    mount.seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
   }
   logging-config {
     ref = platform-logging-config
-    mount {
-      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
-    }
+    mount.log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
   }
 }
 ```
@@ -287,72 +277,66 @@ the job file:
 ```hocon
 kubernetes {
   job-config-file = job.conf
-  configmap {
-    runtime {
-      name = seatunnel-runtime
-      data {
-        seatunnel.yaml = """
-          seatunnel:
-            engine:
-              classloader-cache-mode: true
-              checkpoint:
-                interval: 10000
-                timeout: 60000
-          """
-        hazelcast-master.yaml = """
-          hazelcast:
-            cluster-name: seatunnel
-            network:
-              port:
-                auto-increment: false
-                port: 5801
-          """
-        hazelcast-worker.yaml = """
-          hazelcast:
-            cluster-name: seatunnel
-            network:
-              port:
-                auto-increment: true
-                port: 5802
-          """
-        log4j2_client.properties = """
-          rootLogger.level = INFO
-          rootLogger.appenderRef.console.ref = console
-          appender.console.type = Console
-          appender.console.name = console
-          """
-        jvm_options = """
-          -XX:+UseG1GC
-          -XX:MaxMetaspaceSize=2g
-          """
-        job.conf = """
-          env {
-            job.mode = "BATCH"
-            parallelism = 2
-          }
-          source {
-            FakeSource {
-              plugin_output = "example"
-              row.num = 10
-              schema { fields { id = int } }
-            }
-          }
-          sink {
-            Console {
-              plugin_input = "example"
-            }
-          }
-          """
+  configmap.runtime {
+    name = seatunnel-runtime
+    data.seatunnel.yaml = """
+      seatunnel:
+        engine:
+          classloader-cache-mode: true
+          checkpoint:
+            interval: 10000
+            timeout: 60000
+      """
+    data.hazelcast-master.yaml = """
+      hazelcast:
+        cluster-name: seatunnel
+        network:
+          port:
+            auto-increment: false
+            port: 5801
+      """
+    data.hazelcast-worker.yaml = """
+      hazelcast:
+        cluster-name: seatunnel
+        network:
+          port:
+            auto-increment: true
+            port: 5802
+      """
+    data.log4j2_client.properties = """
+      rootLogger.level = INFO
+      rootLogger.appenderRef.console.ref = console
+      appender.console.type = Console
+      appender.console.name = console
+      """
+    data.jvm_options = """
+      -XX:+UseG1GC
+      -XX:MaxMetaspaceSize=2g
+      """
+    data.job.conf = """
+      env {
+        job.mode = "BATCH"
+        parallelism = 2
       }
-      mount {
-        seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-        hazelcast-master.yaml = /opt/seatunnel/config/hazelcast-master.yaml
-        hazelcast-worker.yaml = /opt/seatunnel/config/hazelcast-worker.yaml
-        log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
-        jvm_options = /opt/seatunnel/config/jvm_options
-        job.conf = /opt/seatunnel/config/job.conf
+      source {
+        FakeSource {
+          plugin_output = "example"
+          row.num = 10
+          schema { fields { id = int } }
+        }
       }
-    }
+      sink {
+        Console {
+          plugin_input = "example"
+        }
+      }
+      """
+    mount.seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    mount.hazelcast-master.yaml = /opt/seatunnel/config/hazelcast-master.yaml
+    mount.hazelcast-worker.yaml = /opt/seatunnel/config/hazelcast-worker.yaml
+    mount.log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    mount.jvm_options = /opt/seatunnel/config/jvm_options
+    mount.job.conf = /opt/seatunnel/config/job.conf
   }
   master.hazelcast-config = hazelcast-master.yaml
   worker.hazelcast-config = hazelcast-worker.yaml
@@ -416,10 +400,8 @@ they take effect without any other change:
 ```hocon
 kubernetes.configmap.jvm-options {
   ref = platform-jvm-options
-  mount {
-    jvm_master_options = /opt/seatunnel/config/jvm_master_options
-    jvm_worker_options = /opt/seatunnel/config/jvm_worker_options
-  }
+  mount.jvm_master_options = /opt/seatunnel/config/jvm_master_options
+  mount.jvm_worker_options = /opt/seatunnel/config/jvm_worker_options
 }
 ```
 
@@ -459,18 +441,14 @@ kubernetes {
   job-config-file = job.conf
 
   # Platform-managed runtime files; job.conf is selected explicitly above.
-  configmap {
-    runtime {
-      ref = platform-runtime-config
-      mount {
-        seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-        log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
-        hazelcast-master.yaml = /opt/seatunnel/config/hazelcast-master.yaml
-        hazelcast-worker.yaml = /opt/seatunnel/config/hazelcast-worker.yaml
-        jvm_options = /opt/seatunnel/config/jvm_options
-        job.conf = /opt/seatunnel/config/job.conf
-      }
-    }
+  configmap.runtime {
+    ref = platform-runtime-config
+    mount.seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    mount.log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    mount.hazelcast-master.yaml = /opt/seatunnel/config/hazelcast-master.yaml
+    mount.hazelcast-worker.yaml = /opt/seatunnel/config/hazelcast-worker.yaml
+    mount.jvm_options = /opt/seatunnel/config/jvm_options
+    mount.job.conf = /opt/seatunnel/config/job.conf
   }
 
   # Credentials stay in a Secret; the job references them with ${VAR}.
@@ -487,7 +465,7 @@ kubernetes {
 ```
 
 ```bash
-bin/seatunnel-application.sh submit --target kubernetes -c job.conf -a kubernetes.conf
+bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 ```
 
 ## Capacity planning

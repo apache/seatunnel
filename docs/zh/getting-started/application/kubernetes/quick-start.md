@@ -122,33 +122,27 @@ kubernetes {
   job-config-file = job.conf
   configmap.runtime {
     ref = "seatunnel-configuration"
-    mount {
-      seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-      log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-    }
+    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
   }
   configmap.job-conf {
-    data {
-      job.conf = """
-        env {
-          job.mode = "BATCH"
-          parallelism = 2
+    data.job.conf = """
+      env {
+        job.mode = "BATCH"
+        parallelism = 2
+      }
+      source {
+        FakeSource {
+          row.num = 10
+          split.num = 2
+          schema { fields { id = int, name = string } }
         }
-        source {
-          FakeSource {
-            row.num = 10
-            split.num = 2
-            schema { fields { id = int, name = string } }
-          }
-        }
-        sink {
-          Console {}
-        }
-      """
-    }
-    mount {
-      job.conf = "/opt/seatunnel/config/job.conf"
-    }
+      }
+      sink {
+        Console {}
+      }
+    """
+    mount.job.conf = "/opt/seatunnel/config/job.conf"
   }
 }
 ```
@@ -165,7 +159,7 @@ kubernetes {
 kubernetes {
   # 引用平台已有 Secret，或让 SeaTunnel 创建：
   secret-ref = "platform-job-secrets"
-  # secret { name = "example-job-secrets", data { MYSQL_PASSWORD = ${MYSQL_PASSWORD} } }
+  # secret { name = "example-job-secrets", data.MYSQL_PASSWORD = ${MYSQL_PASSWORD} }
   env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
 }
 ```

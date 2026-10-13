@@ -42,34 +42,31 @@ kubernetes {
   # creates for this application.
   job-config-file = job.conf
   configmap.job-conf {
-    data {
-      job.conf = """
-        env {
-          job.mode = "BATCH"
-          parallelism = 2
-        }
+    # data.<key> is the ConfigMap key, mount.<key> its absolute container path.
+    data.job.conf = """
+      env {
+        job.mode = "BATCH"
+        parallelism = 2
+      }
 
-        source {
-          FakeSource {
-            row.num = 10
-            split.num = 2
-            schema {
-              fields {
-                id = int
-                name = string
-              }
+      source {
+        FakeSource {
+          row.num = 10
+          split.num = 2
+          schema {
+            fields {
+              id = int
+              name = string
             }
           }
         }
+      }
 
-        sink {
-          Console {}
-        }
-      """
-    }
-    mount {
-      job.conf = /opt/seatunnel/config/job.conf
-    }
+      sink {
+        Console {}
+      }
+    """
+    mount.job.conf = /opt/seatunnel/config/job.conf
   }
   # Optional: tolerate tainted node pools. Entries are key[=value][:Effect] separated by ';'.
   # master.tolerations = "dedicated=seatunnel:NoSchedule"
