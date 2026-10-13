@@ -29,6 +29,7 @@ public final class KubernetesConstants {
 
     public static final String POD_KIND = "Pod";
     public static final String SECRET_KIND = "Secret";
+    public static final String CONFIG_MAP_KIND = "ConfigMap";
     public static final String SERVICE_KIND = "Service";
 
     /** Secret type used for the credential-bearing application specification. */

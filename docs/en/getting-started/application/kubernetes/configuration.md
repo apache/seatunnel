@@ -16,6 +16,7 @@ title: Configuration
 | `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
 | `kubernetes.config-map` | Unset | Existing ConfigMap mounted read-only at `<seatunnel-home>/config` in both master and worker Pods. |
+| `kubernetes.configmap.<entry>` | Unset | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. |
 | `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. A `job.conf` key replaces the inline job configuration. |
 | `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
 | `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
@@ -59,6 +60,31 @@ Set `kubernetes.config-map` to the name of an existing ConfigMap containing the 
 By default the localized application specification, including the resolved job configuration, is carried in the master container environment, so submission requires no permission to create Secrets. `kubernetes.secret-ref` adds a read-only reference to an existing Secret and `kubernetes.secret.data.*` lets SeaTunnel create and own one; a `job.conf` key in either Secret replaces the inline job configuration. Referenced Secrets are never modified or deleted, while created Secrets carry the Job owner reference and disappear with the application. Keep connector credentials out of the inline specification and use Secrets managed by your platform.
 
 Variables that the submitting host resolves are substituted before submission. Remaining `${VAR}` placeholders stay in the job configuration and are resolved on the master against the Pod environment, including values injected by `kubernetes.env` through `secretKeyRef` or `configMapKeyRef`. A placeholder that exists nowhere is reported when the master starts, not when the job is submitted.
+
+Use `kubernetes.configmap` to mount runtime files from different ConfigMaps without replacing the whole configuration directory. Each named entry either references an existing ConfigMap or declares data that SeaTunnel creates:
+
+```hocon
+kubernetes.configmap {
+  runtime {
+    data {
+      seatunnel.yaml = "engine { ... }"
+      log4j2_client.properties = "rootLogger.level=INFO"
+    }
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    }
+  }
+  shared {
+    ref = platform-runtime
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
+  }
+}
+```
+
+Created ConfigMaps are named `<application-id>-<entry>`, carry the Job owner reference and are removed with the application. Referenced ConfigMaps are never modified or deleted, and their mounted keys are validated before submission. Every mounted key declares its full container path in `mount`; SeaTunnel never assumes a configuration directory.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

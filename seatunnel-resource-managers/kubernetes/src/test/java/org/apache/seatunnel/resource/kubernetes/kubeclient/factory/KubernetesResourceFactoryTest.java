@@ -25,6 +25,7 @@ import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicati
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -461,6 +463,112 @@ class KubernetesResourceFactoryTest {
     }
 
     @Test
+    void createsConfiguredConfigMapsAndMountsThemThroughSubPaths() throws Exception {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.runtime.data.seatunnel.yaml", "engine:\n  job: {}\n");
+        options.put(
+                "kubernetes.configmap.runtime.data.log4j2_client.properties",
+                "rootLogger.level=INFO");
+        options.put(
+                "kubernetes.configmap.runtime.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(
+                "kubernetes.configmap.runtime.mount.log4j2_client.properties",
+                "/opt/seatunnel/config/log4j2_client.properties");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        KubernetesResource<?> configuration =
+                application.getAccompanyingResources().stream()
+                        .filter(KubernetesConfigMap.class::isInstance)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing created ConfigMap"));
+        V1ConfigMap configMap = ((KubernetesConfigMap) configuration).getInternalResource();
+        assertEquals("app-runtime", configMap.getMetadata().getName());
+        assertEquals("engine:\n  job: {}\n", configMap.getData().get("seatunnel.yaml"));
+        V1Job job = application.getApplicationJob().getInternalResource();
+        String volumeName = KubernetesConstants.CONFIG_VOLUME + "-0";
+        assertEquals("app-runtime", volume(job, volumeName).getConfigMap().getName());
+        assertEquals(
+                "/opt/seatunnel/config/seatunnel.yaml",
+                subPath(job, volumeName, "seatunnel.yaml").getMountPath());
+        assertEquals(
+                "/opt/seatunnel/config/log4j2_client.properties",
+                subPath(job, volumeName, "log4j2_client.properties").getMountPath());
+        assertTrue(subPath(job, volumeName, "seatunnel.yaml").getReadOnly());
+    }
+
+    @Test
+    void mountsReferencedConfigMapKeysWithOverrides() throws Exception {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        options.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        assertTrue(
+                application.getAccompanyingResources().stream()
+                        .noneMatch(KubernetesConfigMap.class::isInstance));
+        V1Job job = application.getApplicationJob().getInternalResource();
+        String volumeName = KubernetesConstants.CONFIG_VOLUME + "-0";
+        assertEquals("platform-runtime", volume(job, volumeName).getConfigMap().getName());
+        assertEquals(
+                "/opt/seatunnel/config/seatunnel.yaml",
+                subPath(job, volumeName, "seatunnel.yaml").getMountPath());
+    }
+
+    @Test
+    void rejectsInvalidConfigMapEntries() {
+        Map<String, String> conflicting = options();
+        conflicting.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        conflicting.put("kubernetes.configmap.shared.data.seatunnel.yaml", "content");
+        conflicting.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(conflicting))));
+        Map<String, String> referenceWithoutMount = options();
+        referenceWithoutMount.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(referenceWithoutMount))));
+        Map<String, String> unknownMount = options();
+        unknownMount.put("kubernetes.configmap.runtime.data.seatunnel.yaml", "content");
+        unknownMount.put(
+                "kubernetes.configmap.runtime.mount.other.yaml",
+                "/opt/seatunnel/config/other.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(unknownMount))));
+        Map<String, String> missingMount = options();
+        missingMount.put("kubernetes.configmap.runtime.data.seatunnel.yaml", "content");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(missingMount))));
+    }
+
+    @Test
     void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
@@ -512,6 +620,16 @@ class KubernetesResourceFactoryTest {
             }
         }
         throw new AssertionError("Missing volume mount " + name);
+    }
+
+    private static V1VolumeMount subPath(V1Job job, String volumeName, String key) {
+        for (V1VolumeMount mount :
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getVolumeMounts()) {
+            if (volumeName.equals(mount.getName()) && key.equals(mount.getSubPath())) {
+                return mount;
+            }
+        }
+        throw new AssertionError("Missing subPath mount " + volumeName + "/" + key);
     }
 
     private static Map<String, String> options() {

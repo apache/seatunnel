@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -60,6 +61,7 @@ public final class KubernetesApplicationParameters {
     private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
     private static final String SECRET_DATA_PREFIX = "kubernetes.secret.data.";
+    private static final String CONFIG_MAP_PREFIX = "kubernetes.configmap.";
 
     private final ApplicationSpecification specification;
     private final String namespace;
@@ -74,6 +76,7 @@ public final class KubernetesApplicationParameters {
     private final Map<String, String> applicationSecretData;
     private final String environment;
     private final List<KubernetesEnvironmentVariable> environmentVariables;
+    private final List<KubernetesConfigMapEntry> configMaps;
     private final int retentionSeconds;
     private final String checkpointPvc;
     private final Map<String, String> masterLabels;
@@ -104,6 +107,7 @@ public final class KubernetesApplicationParameters {
         validateApplicationSecret();
         this.environment = options.get(KubernetesOptions.ENV);
         this.environmentVariables = environmentVariables(environment);
+        this.configMaps = configMaps(rawOptions(options));
         this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
         if (retentionSeconds < 1) {
             throw new IllegalArgumentException(
@@ -230,6 +234,7 @@ public final class KubernetesApplicationParameters {
             properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), entry.getValue());
         }
         properties.setProperty(KubernetesOptions.ENV.key(), environment);
+        writeConfigMaps(properties);
         if (checkpointPvc != null) {
             properties.setProperty(KubernetesOptions.CHECKPOINT_PVC.key(), checkpointPvc);
         }
@@ -326,6 +331,117 @@ public final class KubernetesApplicationParameters {
             variables.add(variable);
         }
         return Collections.unmodifiableList(variables);
+    }
+
+    private static List<KubernetesConfigMapEntry> configMaps(Map<String, String> options) {
+        Map<String, String> references = new LinkedHashMap<>();
+        Map<String, Map<String, String>> data = new LinkedHashMap<>();
+        Map<String, Map<String, String>> mounts = new LinkedHashMap<>();
+        for (Map.Entry<String, String> option : options.entrySet()) {
+            String key = option.getKey();
+            if (!key.startsWith(CONFIG_MAP_PREFIX)) {
+                continue;
+            }
+            String remainder = key.substring(CONFIG_MAP_PREFIX.length());
+            int entrySeparator = remainder.indexOf('.');
+            if (entrySeparator <= 0 || entrySeparator == remainder.length() - 1) {
+                throw invalidConfigMapEntry(key);
+            }
+            String entry = remainder.substring(0, entrySeparator);
+            if (!entry.matches("[a-z0-9]([-a-z0-9]*[a-z0-9])?")) {
+                throw new IllegalArgumentException(
+                        key + ": ConfigMap entry names must be lowercase DNS labels, got " + entry);
+            }
+            String path = remainder.substring(entrySeparator + 1);
+            if ("ref".equals(path)) {
+                references.put(entry, option.getValue());
+                continue;
+            }
+            int sectionSeparator = path.indexOf('.');
+            if (sectionSeparator <= 0 || sectionSeparator == path.length() - 1) {
+                throw invalidConfigMapEntry(key);
+            }
+            String section = path.substring(0, sectionSeparator);
+            String item = path.substring(sectionSeparator + 1);
+            if (!item.matches("[-._a-zA-Z0-9]+")) {
+                throw new IllegalArgumentException(
+                        key + " must use a valid Kubernetes ConfigMap data key");
+            }
+            if ("data".equals(section)) {
+                putConfigMapValue(data, entry, item, option.getValue());
+            } else if ("mount".equals(section)) {
+                if (!option.getValue().startsWith("/") || option.getValue().contains(":")) {
+                    throw new IllegalArgumentException(
+                            key + " must be an absolute container path without ':'");
+                }
+                putConfigMapValue(mounts, entry, item, option.getValue());
+            } else {
+                throw invalidConfigMapEntry(key);
+            }
+        }
+        LinkedHashSet<String> entries = new LinkedHashSet<>(references.keySet());
+        entries.addAll(data.keySet());
+        entries.addAll(mounts.keySet());
+        List<KubernetesConfigMapEntry> configMaps = new ArrayList<>(entries.size());
+        for (String entry : entries) {
+            String reference = references.get(entry);
+            Map<String, String> dataEntries = data.getOrDefault(entry, Collections.emptyMap());
+            Map<String, String> mountPaths = mounts.getOrDefault(entry, Collections.emptyMap());
+            if (reference != null && !dataEntries.isEmpty()) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX + entry + " cannot combine ref with data entries");
+            }
+            if (reference == null && dataEntries.isEmpty()) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX + entry + " requires ref or data entries");
+            }
+            if (reference != null && mountPaths.isEmpty()) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX + entry + " references require mount entries");
+            }
+            if (reference == null && !mountPaths.keySet().equals(dataEntries.keySet())) {
+                throw new IllegalArgumentException(
+                        CONFIG_MAP_PREFIX
+                                + entry
+                                + " must declare a full mount path for every data entry");
+            }
+            configMaps.add(
+                    reference == null
+                            ? KubernetesConfigMapEntry.create(entry, dataEntries, mountPaths)
+                            : KubernetesConfigMapEntry.reference(entry, reference, mountPaths));
+        }
+        return Collections.unmodifiableList(configMaps);
+    }
+
+    private static IllegalArgumentException invalidConfigMapEntry(String key) {
+        return new IllegalArgumentException(
+                key + " must use kubernetes.configmap.<entry>.ref, .data.<key> or .mount.<key>");
+    }
+
+    private static void putConfigMapValue(
+            Map<String, Map<String, String>> values, String entry, String key, String value) {
+        Map<String, String> entryValues =
+                values.computeIfAbsent(entry, ignored -> new LinkedHashMap<>());
+        if (entryValues.put(key, value) != null) {
+            throw new IllegalArgumentException(
+                    CONFIG_MAP_PREFIX + entry + " contains duplicate key " + key);
+        }
+    }
+
+    private void writeConfigMaps(Properties properties) {
+        for (KubernetesConfigMapEntry configMap : configMaps) {
+            String prefix = CONFIG_MAP_PREFIX + configMap.getEntryName();
+            if (configMap.isReference()) {
+                properties.setProperty(prefix + ".ref", configMap.getReference());
+            } else {
+                for (Map.Entry<String, String> entry : configMap.getData().entrySet()) {
+                    properties.setProperty(prefix + ".data." + entry.getKey(), entry.getValue());
+                }
+            }
+            for (Map.Entry<String, String> mount : configMap.getMountPaths().entrySet()) {
+                properties.setProperty(prefix + ".mount." + mount.getKey(), mount.getValue());
+            }
+        }
     }
 
     private void validateApplicationSecret() {

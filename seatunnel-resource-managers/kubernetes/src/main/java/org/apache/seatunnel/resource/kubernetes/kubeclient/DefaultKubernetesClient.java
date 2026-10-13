@@ -35,6 +35,7 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -130,6 +131,12 @@ final class DefaultKubernetesClient implements KubernetesClient {
                 V1Service service = ((KubernetesService) resource).getInternalResource();
                 service.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
                 core.createNamespacedService(namespace, service, null, null, null, null);
+            } else if (resource instanceof KubernetesConfigMap) {
+                V1ConfigMap configMap = ((KubernetesConfigMap) resource).getInternalResource();
+                configMap
+                        .getMetadata()
+                        .setOwnerReferences(Collections.singletonList(ownerReference));
+                core.createNamespacedConfigMap(namespace, configMap, null, null, null, null);
             } else {
                 throw new IllegalArgumentException(
                         "Unsupported accompanying Kubernetes resource " + resource.getName());

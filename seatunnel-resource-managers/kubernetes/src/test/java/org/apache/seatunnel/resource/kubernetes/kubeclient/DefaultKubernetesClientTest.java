@@ -24,6 +24,7 @@ import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicati
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
@@ -40,6 +41,7 @@ import okhttp3.ResponseBody;
 import okio.Buffer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -220,15 +222,22 @@ class DefaultKubernetesClientTest {
         KubernetesSecret secret =
                 KubernetesResourceFactory.secret(
                         "app", Collections.singletonMap("PASSWORD", "value"));
+        KubernetesConfigMap configMap =
+                KubernetesResourceFactory.configMap(
+                        "app-runtime", Collections.singletonMap("seatunnel.yaml", "engine { }"));
         KubernetesJob job =
                 KubernetesResourceFactory.job(
                         "app", SeatunnelKubernetesApplicationCli.class.getName(), parameters);
         job.getInternalResource().getMetadata().setUid("owner-uid");
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             api.createAccompanyingResources(
-                    job, Collections.<KubernetesResource<?>>singletonList(secret));
+                    job, Arrays.<KubernetesResource<?>>asList(secret, configMap));
         }
-        assertEquals(Collections.singletonList("POST /api/v1/namespaces/test/secrets"), requests);
+        assertEquals(
+                Arrays.asList(
+                        "POST /api/v1/namespaces/test/secrets",
+                        "POST /api/v1/namespaces/test/configmaps"),
+                requests);
         assertTrue(postedBody.get().contains("\"uid\":\"owner-uid\""));
     }
 

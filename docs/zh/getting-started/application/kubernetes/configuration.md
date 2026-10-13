@@ -16,6 +16,7 @@ title: 配置参考
 | `kubernetes.service-account` | `default` | Master 使用的已有 ServiceAccount。 |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
 | `kubernetes.config-map` | 未设置 | 已有 ConfigMap，以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。 |
+| `kubernetes.configmap.<entry>` | 未设置 | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。 |
 | `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；其中 `job.conf` 键会替换内联的作业配置。 |
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
 | `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
@@ -59,6 +60,31 @@ title: 配置参考
 默认情况下，本地化后的 application 配置（含作业配置）通过 Master 容器的环境变量传递，因此提交不需要创建 Secret 的权限。`kubernetes.secret-ref` 只读引用平台管理的已有 Secret，`kubernetes.secret.data.*` 则由 SeaTunnel 创建并持有 Secret；两种方式中若包含 `job.conf` 键，会替换内联的作业配置。引用型 Secret 不会被修改或删除，创建型 Secret 带 Job ownerReference，随 application 一起清理。请把 Connector 凭据放在平台管理的 Secret 中，不要内联到本地化配置。
 
 提交机能解析的变量会在提交前完成替换；剩余的 `${VAR}` 占位符保留在作业配置中，由 Master 在 Pod 内使用环境变量解析，包括通过 `kubernetes.env` 的 `secretKeyRef`、`configMapKeyRef` 注入的值。任何位置都不存在的占位符会在 Master 启动时报告，而不是提交时立即失败。
+
+用 `kubernetes.configmap` 可以从多个 ConfigMap 挂载运行时文件，而不用覆盖整个配置目录。每个命名条目要么引用已有 ConfigMap，要么声明由 SeaTunnel 创建的数据：
+
+```hocon
+kubernetes.configmap {
+  runtime {
+    data {
+      seatunnel.yaml = "engine { ... }"
+      log4j2_client.properties = "rootLogger.level=INFO"
+    }
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    }
+  }
+  shared {
+    ref = platform-runtime
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
+  }
+}
+```
+
+创建型 ConfigMap 命名为 `<application-id>-<entry>`，带 Job ownerReference，随 application 一起清理；引用型 ConfigMap 不会被修改或删除，其挂载的 key 会在提交前校验。每个挂载的 key 都必须在 `mount` 中声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 

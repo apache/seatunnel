@@ -19,14 +19,18 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvironmentVariable;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.services.HeadlessClusterIPService;
 
+import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapKeySelector;
+import io.kubernetes.client.openapi.models.V1ConfigMapVolumeSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1EnvVarSource;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -47,6 +51,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -184,6 +189,63 @@ public final class KubernetesResourceFactory {
     }
 
     /**
+     * Builds a ConfigMap from one {@code kubernetes.configmap.<entry>.data} declaration.
+     *
+     * @param name created ConfigMap name
+     * @param data key/value entries declared in the application configuration
+     * @return ConfigMap model to create after the owner Job
+     */
+    public static KubernetesConfigMap configMap(String name, Map<String, String> data) {
+        return new KubernetesConfigMap(
+                new V1ConfigMap()
+                        .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                        .kind(KubernetesConstants.CONFIG_MAP_KIND)
+                        .metadata(metadata(name, KubernetesConstants.CONFIGURATION_ROLE))
+                        .data(new LinkedHashMap<>(data)));
+    }
+
+    /**
+     * Mounts every configured ConfigMap entry as read-only files through {@code subPath}.
+     *
+     * <p>Created entries are named {@code <application-id>-<entry>}; referenced entries keep their
+     * existing name. Every mounted key declares its full container path with a {@code mount} entry,
+     * so SeaTunnel never assumes a configuration directory.
+     *
+     * @param podSpec Pod specification to decorate
+     * @param parameters resolved application settings
+     * @param applicationId generated application Job name prefixed to created ConfigMaps
+     */
+    public static void mountConfigMaps(
+            V1PodSpec podSpec, KubernetesApplicationParameters parameters, String applicationId) {
+        int index = 0;
+        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+            String volumeName = KubernetesConstants.CONFIG_VOLUME + "-" + index++;
+            String configMapName =
+                    entry.isReference()
+                            ? entry.getReference()
+                            : applicationId + "-" + entry.getEntryName();
+            podSpec.addVolumesItem(
+                    new V1Volume()
+                            .name(volumeName)
+                            .configMap(new V1ConfigMapVolumeSource().name(configMapName)));
+            for (String key : mountedKeys(entry)) {
+                podSpec.getContainers()
+                        .get(0)
+                        .addVolumeMountsItem(
+                                new V1VolumeMount()
+                                        .name(volumeName)
+                                        .mountPath(entry.mountPath(key))
+                                        .subPath(key)
+                                        .readOnly(true));
+            }
+        }
+    }
+
+    private static Set<String> mountedKeys(KubernetesConfigMapEntry entry) {
+        return entry.isReference() ? entry.getMountPaths().keySet() : entry.getData().keySet();
+    }
+
+    /**
      * Builds the headless service created after the application's master Job.
      *
      * @param id application Job name used as the Service name
@@ -219,6 +281,7 @@ public final class KubernetesResourceFactory {
         if (parameters.hasApplicationSecret()) {
             mountApplicationSecret(spec, parameters.resolvedApplicationSecretName(job.getName()));
         }
+        mountConfigMaps(spec, parameters, job.getName());
         return new KubernetesPod(
                 new V1Pod()
                         .apiVersion(KubernetesConstants.CORE_API_VERSION)

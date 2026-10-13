@@ -37,6 +37,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
@@ -56,6 +57,7 @@ import com.hazelcast.cluster.MembershipEvent;
 import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -264,6 +266,28 @@ class KubernetesApplicationTest {
             assertThrows(IllegalArgumentException.class, () -> descriptor.retrieve(" "));
         }
         verify(api, never()).getJob(anyString());
+    }
+
+    @Test
+    void rejectsMissingReferencedConfigMapKeysBeforeCreatingResources() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getConfigMap("platform-runtime"))
+                .thenReturn(
+                        new KubernetesConfigMap(
+                                new V1ConfigMap()
+                                        .metadata(new V1ObjectMeta().name("platform-runtime"))
+                                        .data(Collections.singletonMap("other.yaml", "value"))));
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        options.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
     }
 
     @Test
