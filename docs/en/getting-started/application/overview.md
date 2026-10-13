@@ -5,10 +5,9 @@ title: Overview
 
 # About Application Mode
 
-Application Mode is the application deployment model proposed by STIP-41. One submission becomes one
-self-contained application: the resource platform starts a dedicated Zeta master and a fixed number
-of workers, the master runs exactly one job, and the platform reclaims every process when the
-application finishes.
+Application Mode deploys one self-contained SeaTunnel application per submission: the resource
+platform starts a dedicated Zeta master and a fixed number of workers, the master runs exactly one
+job, and the platform reclaims every process when the application finishes.
 
 Zeta itself owns worker registration, slot scheduling, task execution and checkpoints; the resource
 platform only provides and reclaims compute. That boundary is what lets the same job run on
@@ -38,25 +37,17 @@ dynamic worker scaling should not use the fixed worker set of Application Mode.
 
 ## One boundary layer for resource managers
 
-STIP-41 builds Application Mode on a single resource-manager boundary layer instead of implementing
-each platform's capabilities ad hoc. The engine side - application lifecycle, specification
-transport, worker management, checkpoints - stays platform independent; a resource manager driver
-only starts, observes and releases compute. Keeping every resource manager on that contract lets
-their capabilities be enhanced in parallel and keeps architecture technical debt bounded. With
-AI-assisted development, coding is no longer the bottleneck, so additional resource managers can be
-implemented without taking turns.
+Application Mode is built on a single resource-manager boundary layer instead of implementing each
+platform's capabilities ad hoc. The engine side - application lifecycle, specification transport,
+worker management, checkpoints - stays platform independent; a resource manager driver only starts,
+observes and releases compute. Keeping every resource manager on that contract lets their
+capabilities be enhanced in parallel and keeps architecture technical debt bounded. With AI-assisted
+development, coding is no longer the bottleneck, so additional resource managers can be implemented
+without taking turns.
 
 The Kubernetes resource manager is the first implementation of this contract; the shared command
 line, configuration model and documentation are platform-neutral, so later resource managers can
 plug into the same boundary.
-
-## Future directions
-
-- Orchestrator integration: let Airflow and DolphinScheduler submit and monitor Application Mode
-  jobs directly, so scheduled pipelines reuse their existing DAGs and operators.
-- PyPI distribution: ship a Python launcher that runs a native Zeta application from Python,
-  lowering the barrier for Python data engineers and making backfills and ad-hoc one-off jobs
-  easier.
 
 ## Cluster shape
 

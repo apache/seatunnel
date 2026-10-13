@@ -5,8 +5,8 @@ title: 概述
 
 # Application Mode 简介
 
-Application Mode 是 STIP-41 提出的应用部署模式。一次提交就是一套自包含的 application：资源平台
-启动专用的 Zeta Master 和固定数量的 Worker，Master 只运行一个作业，作业结束后平台回收全部进程。
+Application Mode 一次提交部署一套自包含的 application：资源平台启动专用的 Zeta Master 和固定数量
+的 Worker，Master 只运行一个作业，作业结束后平台回收全部进程。
 
 Worker 注册、slot 调度、任务执行和 checkpoint 仍由 Zeta 自己负责，资源平台只提供并回收计算资源。
 正是这层边界，让同一个作业文件无需改动就能跑在不同的资源平台上。
@@ -32,20 +32,13 @@ Application Mode 不是 standalone 或共享集群部署的替代品：大量小
 
 ## 资源管理器边界层
 
-STIP-41 把 Application Mode 构建在统一的资源管理器边界层上，而不是为每个平台单独堆功能。引擎侧
-（application 生命周期、规格传输、Worker 管理、checkpoint）保持平台无关；资源管理器 driver 只负责
-启动、观测和释放计算资源。所有资源管理器遵循同一份契约，能力可以并行增强，架构技术债保持可控。
-借助 AI 辅助开发，编码不再是瓶颈，后续增加资源管理器不必排队推进。
+Application Mode 构建在统一的资源管理器边界层上，而不是为每个平台单独堆功能。引擎侧（application
+生命周期、规格传输、Worker 管理、checkpoint）保持平台无关；资源管理器 driver 只负责启动、观测和
+释放计算资源。所有资源管理器遵循同一份契约，能力可以并行增强，架构技术债保持可控。借助 AI 辅助
+开发，编码不再是瓶颈，后续增加资源管理器不必排队推进。
 
 Kubernetes 资源管理器是该契约的第一个实现；共享的命令行、配置模型和文档都保持平台中立，后续资源
 管理器可以直接接入同一层边界。
-
-## 后续方向
-
-- 编排器集成：让 Airflow、DolphinScheduler 直接提交并监控 Application Mode 作业，调度管道复用
-  已有的 DAG 和 operator；
-- PyPI 分发：提供 Python 启动器，用 Python 直接运行原生 Zeta application，降低 Python 数据工程师
-  的上手门槛，便于数据回刷和日常一次性任务。
 
 ## 集群形态
 
