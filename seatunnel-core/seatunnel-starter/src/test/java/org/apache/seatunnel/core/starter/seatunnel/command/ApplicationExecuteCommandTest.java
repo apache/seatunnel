@@ -196,6 +196,35 @@ class ApplicationExecuteCommandTest {
     }
 
     @Test
+    void submitsWithoutAJobFileWhenTheProviderCarriesTheJob() throws Exception {
+        Path application = temporary.resolve("application.config");
+        Files.write(
+                application,
+                "kubernetes { job-config-file = \"/etc/seatunnel-secrets/application/job.conf\" }"
+                        .getBytes(StandardCharsets.UTF_8));
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        ApplicationClusterDescriptorFactory<String> factory =
+                mock(ApplicationClusterDescriptorFactory.class);
+        when(factory.create(any())).thenReturn(descriptor);
+        when(descriptor.deployApplication(any())).thenReturn("application_1");
+        try (MockedConstruction<ClusterClientServiceLoader> loaders =
+                mockConstruction(
+                        ClusterClientServiceLoader.class,
+                        (loader, context) ->
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
+                                        .thenReturn(factory))) {
+            parse("submit", "-t", "kubernetes", "-a", application.toString())
+                    .buildCommand()
+                    .execute();
+        }
+        ArgumentCaptor<ApplicationSpecification> specification =
+                ArgumentCaptor.forClass(ApplicationSpecification.class);
+        verify(descriptor).deployApplication(specification.capture());
+        assertEquals("", specification.getValue().getJobConfig());
+        verify(descriptor).close();
+    }
+
+    @Test
     void rejectsMissingOrMalformedFilesBeforeOpeningPlatformConnections() throws Exception {
         Path application = temporary.resolve("application.config");
         ApplicationCommandArgs missing =
@@ -348,7 +377,12 @@ class ApplicationExecuteCommandTest {
                         .contains("--wait is supported only with submit or status"));
 
         ApplicationCommandArgs submit = command(ApplicationOperation.SUBMIT, deploymentConfig);
-        assertThrows(IllegalArgumentException.class, submit::buildCommand);
+        assertTrue(submit.buildCommand() instanceof ApplicationExecuteCommand);
+        ApplicationCommandArgs submitWithMissingJob =
+                command(ApplicationOperation.SUBMIT, deploymentConfig);
+        submitWithMissingJob.setConfig(
+                deploymentConfig.getParent().resolve("missing-job.conf").toString());
+        assertThrows(IllegalArgumentException.class, submitWithMissingJob::buildCommand);
 
         ApplicationCommandArgs status = command(ApplicationOperation.STATUS, deploymentConfig);
         status.setId("application_1");

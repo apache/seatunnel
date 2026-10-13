@@ -32,7 +32,11 @@ import java.util.Objects;
 @Getter
 public final class ApplicationSpecification {
     private final String name;
-    /** Resolved job content; may contain credentials and must not be logged. */
+    /**
+     * Resolved job content; may contain credentials and must not be logged. Providers that can
+     * supply the job themselves, for example from a file mounted into the master, submit an empty
+     * value and validate their own job sources.
+     */
     private final String jobConfig;
 
     /** Native Zeta execution identity; distinct from the platform's application/container ID. */
@@ -67,8 +71,8 @@ public final class ApplicationSpecification {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Application name must not be empty");
         }
-        if (jobConfig == null || jobConfig.trim().isEmpty()) {
-            throw new IllegalArgumentException("Application job configuration must not be empty");
+        if (jobConfig == null) {
+            throw new IllegalArgumentException("Application job configuration must not be null");
         }
         if (jobId <= 0 || (restoreJobId != null && restoreJobId <= 0)) {
             throw new IllegalArgumentException("Application job IDs must be positive");

@@ -56,7 +56,8 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     @Parameter(
             names = {"-c", "--config"},
-            description = "SeaTunnel job configuration file (required for submit only)")
+            description =
+                    "SeaTunnel job configuration file (required for submit unless the provider supplies it, for example kubernetes.job-config-file)")
     private String config;
 
     @Parameter(names = "--job-id", description = "Optional native Zeta job ID for submit")
@@ -101,10 +102,9 @@ public class ApplicationCommandArgs extends CommandArgs {
             requireFile(applicationConfig, "--application-config");
         }
         if (operation == ApplicationOperation.SUBMIT) {
-            if (config == null) {
-                throw new IllegalArgumentException("submit requires --config");
+            if (config != null) {
+                requireFile(config, "--config");
             }
-            requireFile(config, "--config");
             if (id != null) {
                 throw new IllegalArgumentException("submit does not accept --id");
             }

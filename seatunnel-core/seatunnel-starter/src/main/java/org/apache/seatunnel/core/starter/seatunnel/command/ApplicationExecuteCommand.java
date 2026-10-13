@@ -135,9 +135,15 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
 
     private String submit(Map<String, String> options) throws Exception {
         // Only submit reads a job file. Status/cancel need platform connection settings only.
-        ApplicationSpecification specification =
-                SeatunnelApplicationConfig.parse(
-                        Paths.get(applicationCommandArgs.getConfig()), options);
+        // The platform may own the job instead, for example when kubernetes.job-config-file is
+        // configured; the provider rejects a submission that carries no job at all.
+        String jobConfig = applicationCommandArgs.getConfig();
+        ApplicationSpecification specification;
+        if (jobConfig == null) {
+            specification = SeatunnelApplicationConfig.parse("", options);
+        } else {
+            specification = SeatunnelApplicationConfig.parse(Paths.get(jobConfig), options);
+        }
         ApplicationClusterDeployer deployer =
                 new ApplicationClusterDeployer(
                         applicationCommandArgs.getTarget(), specification, options);

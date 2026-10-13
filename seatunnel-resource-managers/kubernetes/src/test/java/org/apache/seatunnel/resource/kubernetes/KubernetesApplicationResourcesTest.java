@@ -54,6 +54,7 @@ import io.kubernetes.client.openapi.models.V1Toleration;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -928,6 +929,57 @@ class KubernetesApplicationResourcesTest {
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
         KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
         assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void rejectsSubmissionsWithoutAnyJobConfiguration() {
+        Map<String, String> options = options();
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                SeatunnelApplicationConfig.parse("", options),
+                                ReadonlyConfig.fromMap(new HashMap<>(options))));
+    }
+
+    @Test
+    void acceptsSubmissionsThatRelyOnAMountedJobConfigFile() throws Exception {
+        Path jobConfigFile = temporary.resolve("mounted-job.conf");
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        ApplicationSpecification specification = SeatunnelApplicationConfig.parse("", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals("", parameters.getSpecification().getJobConfig());
+        assertEquals(jobConfigFile.toString(), parameters.getJobConfigFile());
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void failsWhenTheMountedJobConfigFileIsMissingAndNothingWasSubmitted() throws Exception {
+        Path jobConfigFile = temporary.resolve("missing-job.conf");
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        ApplicationSpecification specification = SeatunnelApplicationConfig.parse("", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        IOException failure =
+                assertThrows(IOException.class, () -> KubernetesApplicationConfig.read(encoded));
+        assertTrue(failure.getMessage().contains("carried no inline job configuration"));
     }
 
     @Test

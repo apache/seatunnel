@@ -125,6 +125,7 @@ public final class KubernetesApplicationConfig {
         this.seatunnelConfigFile = seatunnelConfigFile(options, seatunnelHome);
         this.log4jConfigFile = log4jConfigFile(options, seatunnelHome);
         this.jobConfigFile = resolveJobConfigFile(options, seatunnelHome);
+        requireJobConfiguration(specification.getJobConfig(), jobConfigFile);
         Map<String, String> rawOptions = rawOptions(options);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
@@ -195,6 +196,9 @@ public final class KubernetesApplicationConfig {
      * replaces the inline job configuration. By default that is {@code job.conf} inside the mounted
      * application Secret; a ConfigMap key mounted at an absolute path works the same way.
      *
+     * <p>When that file is missing, the inline job configuration is used (the submitter carries it
+     * as a fallback); a submission that carries no inline configuration fails here instead.
+     *
      * @param encodedSpecification value of {@link
      *     org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants#SPECIFICATION_ENV}
      * @return parsed Kubernetes application settings
@@ -203,6 +207,7 @@ public final class KubernetesApplicationConfig {
     public static KubernetesApplicationConfig read(String encodedSpecification) throws IOException {
         Properties properties = decode(encodedSpecification);
         ReadonlyConfig options = ReadonlyConfig.fromMap(kubernetesOptions(properties));
+        String inlineJobConfiguration = inlineJobConfiguration(properties);
         String jobConfigFile =
                 resolveJobConfigFile(options, options.get(KubernetesOptions.SEATUNNEL_HOME));
         if (jobConfigFile != null) {
@@ -211,6 +216,12 @@ public final class KubernetesApplicationConfig {
                 properties.setProperty(
                         SeatunnelApplicationConfig.JOB_CONFIG_KEY,
                         new String(Files.readAllBytes(mountedJobConfig), StandardCharsets.UTF_8));
+            } else if (inlineJobConfiguration.isEmpty()) {
+                throw new IOException(
+                        KubernetesOptions.JOB_CONFIG_FILE.key()
+                                + " "
+                                + jobConfigFile
+                                + " does not exist and the submission carried no inline job configuration");
             } else {
                 LOG.warn(
                         "Configured {} {} does not exist; using the inline job configuration",
@@ -219,6 +230,14 @@ public final class KubernetesApplicationConfig {
             }
         }
         return from(SeatunnelApplicationConfig.fromProperties(properties), options);
+    }
+
+    private static String inlineJobConfiguration(Properties properties) {
+        String inline = properties.getProperty(SeatunnelApplicationConfig.JOB_CONFIG_KEY);
+        if (inline == null) {
+            return "";
+        }
+        return inline.trim();
     }
 
     private static Properties decode(String encodedSpecification) throws IOException {
@@ -797,16 +816,15 @@ public final class KubernetesApplicationConfig {
     }
 
     /**
-     * Resolves the container path whose file replaces the inline job configuration.
-     *
-     * <p>Unset or empty keeps the submitted {@code -c} file: the option defaults to {@code null}
-     * and performs no replacement. A file name resolves under {@code <seatunnel-home>/config} (the
-     * ConfigMap-friendly form, no Secret permission needed) and an absolute path supports any
-     * mounted file, for example {@code job.conf} inside the application Secret directory.
+     * Resolves the container path whose file replaces the inline job configuration. A file name
+     * resolves under {@code <seatunnel-home>/config} (the ConfigMap-friendly form, no Secret
+     * permission needed); an absolute path supports any mounted file, for example {@code job.conf}
+     * inside the application Secret directory.
      *
      * @param options resolved deployment settings
      * @param seatunnelHome distribution home used for relative file names
-     * @return absolute job configuration path, or {@code null} when the replacement is disabled
+     * @return absolute job configuration path, or {@code null} when the submitter's content is used
+     *     as-is
      */
     private static String resolveJobConfigFile(ReadonlyConfig options, String seatunnelHome) {
         String value = options.get(KubernetesOptions.JOB_CONFIG_FILE);
@@ -826,6 +844,26 @@ public final class KubernetesApplicationConfig {
                             + " must be a file name under <seatunnel-home>/config or an absolute path");
         }
         return configDirectory(seatunnelHome) + value;
+    }
+
+    /**
+     * Requires a job configuration source: the content the submitter carried, or the file mounted
+     * through {@code kubernetes.job-config-file}. Providers validate this before creating the first
+     * resource so a submission without any job fails immediately.
+     *
+     * @param inlineJobConfiguration job content the submitter carried, possibly empty
+     * @param jobConfigFile resolved mounted file, or {@code null} when no replacement is configured
+     */
+    private static void requireJobConfiguration(
+            String inlineJobConfiguration, String jobConfigFile) {
+        boolean mountedFileConfigured = jobConfigFile != null;
+        boolean inlineContentSubmitted =
+                inlineJobConfiguration != null && !inlineJobConfiguration.trim().isEmpty();
+        if (!mountedFileConfigured && !inlineContentSubmitted) {
+            throw new IllegalArgumentException(
+                    "The submission carries no job configuration; pass -c or configure "
+                            + KubernetesOptions.JOB_CONFIG_FILE.key());
+        }
     }
 
     private static String configDirectory(String seatunnelHome) {

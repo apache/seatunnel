@@ -113,8 +113,11 @@ public final class KubernetesToleration {
             throw new IllegalArgumentException(
                     optionKey + " toleration " + text + " must declare a key");
         }
-        return new KubernetesToleration(
-                key, value.isEmpty() ? EXISTS_OPERATOR : EQUAL_OPERATOR, value, effect);
+        String operator = EQUAL_OPERATOR;
+        if (value.isEmpty()) {
+            operator = EXISTS_OPERATOR;
+        }
+        return new KubernetesToleration(key, operator, value, effect);
     }
 
     private String serialize() {
