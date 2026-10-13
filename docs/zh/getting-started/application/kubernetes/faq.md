@@ -15,7 +15,7 @@ bin/seatunnel-application.sh cancel --target kubernetes \
   --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
-`cancel` 删除 Job，并清理带 application 标签的 Pod、Service 以及由本应用创建的 Secret。取消不创建 savepoint。资源删除后再次查询返回 `UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
+`cancel` 删除 Job，并清理带 application 标签的 Pod、Service 以及由本应用创建的 Secret。取消不创建 savepoint，引用的 Secret/ConfigMap 不会被修改。资源删除后再次查询返回 `UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
 
 ## 查看资源和日志
 
@@ -41,6 +41,7 @@ Master 退出码形成 Job 的 `Complete` 或 `Failed` condition。结束后的 
 | --- | --- |
 | Master Pod 未运行 | image pull、准入策略、ResourceQuota、节点资源和 kubeconfig 权限 |
 | Worker 未注册 | Service、NetworkPolicy、Master 端口、ServiceAccount 权限和 Worker events |
+| Pod 内缺文件 | 引用的 ConfigMap/Secret 名称、key 与 `mount` 全路径必须一致；引用的 key 会在提交前校验。 |
 | 找不到 Connector | 镜像 `connectors/` 是否包含版本匹配的插件和驱动 |
 | Job 失败但原因不清晰 | Master 日志、所有 Worker 日志和 `kubectl describe job/pod` |
 | checkpoint 恢复失败 | 历史 Zeta job ID、PVC/远程存储可访问性、保留策略和配置一致性 |

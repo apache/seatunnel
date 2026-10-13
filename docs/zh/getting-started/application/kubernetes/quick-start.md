@@ -169,11 +169,3 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 
 `submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢或调度慢不会让提交失败；需要终态时用
 `status --wait`（或 `submit --wait`）。
-
-## 6. 排障与清理
-
-- Master Pod 一直 Pending：检查镜像拉取、准入策略、ResourceQuota 和节点容量，`kubectl describe pod`；
-- Worker 未注册：检查 Service 解析、ServiceAccount 的 Pod 权限、NetworkPolicy；
-- Pod 内缺文件：引用的 ConfigMap/Secret、key 和 `mount` 全路径都要一致，提交端会先校验引用的 key；
-- `cancel` 会删除 Job 及其拥有的全部资源；引用的 Secret/ConfigMap 不会被修改。完成的 Job 保留到
-  `kubernetes.finished-job-retention-seconds` 到期。

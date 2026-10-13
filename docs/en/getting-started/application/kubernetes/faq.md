@@ -15,7 +15,7 @@ bin/seatunnel-application.sh cancel --target kubernetes \
   --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
-Cancellation deletes the Job and labeled Pods, Service, and any Secret created for the application. It does not create a savepoint. Status returns `UNKNOWN` after deletion or Job TTL expiry.
+Cancellation deletes the Job and labeled Pods, Service, and any Secret created for the application. It does not create a savepoint, and referenced Secrets or ConfigMaps are never modified. Status returns `UNKNOWN` after deletion or Job TTL expiry.
 
 ## How do I inspect resources and logs?
 
@@ -41,6 +41,7 @@ If the master is forcibly terminated before cleanup, workers exit after losing t
 | --- | --- |
 | Master Pod never runs | Image pull, admission policy, ResourceQuota, node capacity, and submitter kubeconfig permissions |
 | Workers do not register | Service, NetworkPolicy, master port, ServiceAccount permissions, and worker events |
+| A file is missing in a Pod | The referenced ConfigMap/Secret name and key, and the full `mount` path, must match; referenced keys are validated before submission. |
 | Connector not found | Matching plugins and drivers under the image `connectors/` directory |
 | Job failure has no obvious cause | Master logs, every worker log, and `kubectl describe job/pod` |
 | Checkpoint recovery fails | Historical Zeta job ID, PVC or remote storage access, retention policy, and configuration consistency |

@@ -175,13 +175,3 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 
 `submit` returns as soon as the API accepted the started Job, so slow image pulls or scheduling
 never fail the command. Use `status --wait` (or `submit --wait`) when you need the terminal result.
-
-## 6. Troubleshoot and clean up
-
-- Master Pod pending: image pull, admission, ResourceQuota or node capacity; check
-  `kubectl describe pod`.
-- Workers never register: Service resolution, ServiceAccount Pod permissions, network policy.
-- Missing file in the Pod: the reference, the key and the full `mount` path must all match; the
-  submitter validates referenced keys before creating resources.
-- `cancel` deletes the Job and every resource it owns; referenced Secrets and ConfigMaps are never
-  modified. Finished Jobs are retained until `kubernetes.finished-job-retention-seconds` expires.
