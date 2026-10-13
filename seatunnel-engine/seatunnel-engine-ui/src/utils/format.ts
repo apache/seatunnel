@@ -35,4 +35,3 @@ export function formatPercentFromRatio(ratio: unknown, digits = 2): string {
   const formatted = percent.toFixed(digits).replace(/\.?0+$/, '')
   return `${formatted}%`
 }
-

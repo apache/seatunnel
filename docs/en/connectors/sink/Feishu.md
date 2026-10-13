@@ -47,7 +47,9 @@ Feishu webhook URLs and custom authentication headers are sensitive. Do not prin
 | DECIMAL                     | BigDecimal       |
 | BYTES                       | byte[]           |
 | STRING                      | String           |
-| TIME<br/>TIMESTAMP<br/>TIME | String           |
+| DATE                        | String           |
+| TIME                        | String           |
+| TIMESTAMP                   | String           |
 | ARRAY                       | JsonArray        |
 
 ## Sink Options
@@ -86,7 +88,7 @@ env {
 
 source {
   FakeSource {
-    row_num = 1
+    row.num = 1
     schema = {
       fields {
         name = string
@@ -140,6 +142,98 @@ Feishu {
 Feishu {
   url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
   multi_table_sink_replica = 2
+}
+```
+
+### Stream alerts to a Feishu bot
+
+For continuous alerting, run the sink in streaming mode and use `request_interval_ms`
+plus `array_mode = true` to batch multiple alerts into one webhook call. The
+example reads events from a Kafka topic and posts them as a single JSON array per
+batch.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Kafka {
+    plugin_output = "alerts"
+    bootstrap.servers = "kafka:9092"
+    topic = "service_alerts"
+    format = "json"
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+sink {
+  Feishu {
+    plugin_input = "alerts"
+    url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
+    array_mode = true
+    batch_size = 20
+    request_interval_ms = 1000
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 10000
+  }
+}
+```
+
+### Send a Feishu Rich Text Message
+
+Feishu bot webhooks expect a `msg_type` envelope such as `text`, `post`, or
+`interactive`. Use a `Transform` upstream to wrap each row before the Feishu
+sink sends it. The example below sends each row as a `text` envelope.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "raw"
+    row.num = 1
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+    rows = [
+      {
+        fields = [tyrantlucifer, 12]
+        kind = INSERT
+      }
+    ]
+  }
+}
+
+transform {
+  Sql {
+    plugin_input = "raw"
+    query = "SELECT 'text' AS msg_type, MAP('text', concat('User ', name, ' is ', cast(age as string), ' years old')) AS content FROM raw"
+  }
+}
+
+sink {
+  Feishu {
+    plugin_input = "Sql"
+    url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
+    headers {
+      Content-Type = "application/json"
+    }
+  }
 }
 ```
 

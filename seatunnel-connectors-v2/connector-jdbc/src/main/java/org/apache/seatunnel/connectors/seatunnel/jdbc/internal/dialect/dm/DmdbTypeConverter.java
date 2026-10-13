@@ -64,9 +64,9 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DM_CHAR = "CHAR";
 
     public static final String DM_CHARACTER = "CHARACTER";
-    public static final String DM_NCHAR = "NCHAR";
     public static final String DM_VARCHAR = "VARCHAR";
     public static final String DM_VARCHAR2 = "VARCHAR2";
+    public static final String DM_NCHAR = "NCHAR";
     public static final String DM_NVARCHAR = "NVARCHAR";
     public static final String DM_NVARCHAR2 = "NVARCHAR2";
     public static final String DM_LONGVARCHAR = "LONGVARCHAR";
@@ -199,19 +199,13 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
-            case DM_NCHAR:
-                // NCHAR is the fixed-length national character type, the counterpart of NVARCHAR.
-                // Keep the declared type name so it is not reported as CHAR.
-                builder.sourceType(String.format("%s(%s)", DM_NCHAR, typeDefine.getLength()));
-                builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
-                break;
             case DM_VARCHAR:
             case DM_VARCHAR2:
                 builder.sourceType(String.format("%s(%s)", DM_VARCHAR2, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
+            case DM_NCHAR:
             case DM_NVARCHAR:
             case DM_NVARCHAR2:
                 // NVARCHAR2 is the Oracle-compatible synonym of NVARCHAR in Dameng, keep the

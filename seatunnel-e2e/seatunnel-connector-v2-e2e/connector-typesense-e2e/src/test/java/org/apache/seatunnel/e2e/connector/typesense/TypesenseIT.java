@@ -88,6 +88,7 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(TYPESENSE_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT)
                         .withPrivilegedMode(true)
                         .withStartupAttempts(5)
                         .withCommand("--data-dir=/", "--api-key=xyz")
@@ -95,7 +96,6 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(TYPESENSE_DOCKER_IMAGE)));
-        typesenseServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(typesenseServer)).join();
         log.info("Typesense container started");
         Awaitility.given()
@@ -107,9 +107,11 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
     }
 
     private void initConnection() {
-        String host = typesenseServer.getContainerIpAddress();
         Map<String, Object> config = new HashMap<>();
-        config.put(TypesenseBaseOptions.HOSTS.key(), Lists.newArrayList(host + ":8108"));
+        config.put(
+                TypesenseBaseOptions.HOSTS.key(),
+                Lists.newArrayList(
+                        typesenseServer.getHost() + ":" + typesenseServer.getMappedPort(PORT)));
         config.put(TypesenseBaseOptions.APIKEY.key(), "xyz");
         config.put(TypesenseBaseOptions.PROTOCOL.key(), "http");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);

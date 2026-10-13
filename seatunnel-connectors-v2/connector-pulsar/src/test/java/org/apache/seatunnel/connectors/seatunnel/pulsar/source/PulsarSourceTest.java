@@ -19,21 +19,54 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class PulsarSourceTest {
+
+    @Test
+    void shouldDeserializeTextWithConfiguredFieldDelimiter() throws Exception {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.put("topic", "persistent://public/default/events");
+        config.put("format", "text");
+        config.put("field_delimiter", "|");
+
+        PulsarSource source =
+                new PulsarSource(ReadonlyConfig.fromMap(config), createTextCatalogTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        Assertions.assertTrue(deserializationSchema instanceof TextDeserializationSchema);
+        SeaTunnelRow row =
+                deserializationSchema.deserialize("1|Alice".getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals("Alice", row.getField(1));
+    }
 
     @Test
     void shouldExposeProducedCatalogTablesForTablesConfigs() {
@@ -200,6 +233,38 @@ class PulsarSourceTest {
         config.put("cursor.stop.mode", stopMode);
         config.put("cursor.reset.mode", "EARLIEST");
         return config;
+    }
+
+    private CatalogTable createTextCatalogTable() {
+        List<Column> columns = new ArrayList<>();
+        columns.add(
+                PhysicalColumn.builder()
+                        .name("id")
+                        .dataType(BasicType.INT_TYPE)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                PhysicalColumn.builder()
+                        .name("name")
+                        .dataType(BasicType.STRING_TYPE)
+                        .nullable(true)
+                        .build());
+        return CatalogTable.of(
+                TableIdentifier.of("default", "default", "pulsar_table"),
+                TableSchema.builder().columns(columns).build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "Pulsar text table");
+    }
+
+    @SuppressWarnings("unchecked")
+    private DeserializationSchema<SeaTunnelRow> getDeserializationSchema(PulsarSource source)
+            throws ReflectiveOperationException {
+        Field field = PulsarSource.class.getDeclaredField("consumerMetadataMap");
+        field.setAccessible(true);
+        Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap =
+                (Map<TablePath, PulsarConsumerMetadata>) field.get(source);
+        return consumerMetadataMap.values().iterator().next().getDeserializationSchema();
     }
 
     private Map<String, Object> createTableConfig(String tablePath, String topic) {

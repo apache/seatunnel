@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
 @AllArgsConstructor
+@EqualsAndHashCode(of = {"tableId", "splitId"})
 public class FakeSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -3321891887156360959L;
