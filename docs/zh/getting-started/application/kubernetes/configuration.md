@@ -20,7 +20,8 @@ title: 配置参考
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
 | `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
 | `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | application Secret 只读挂载的绝对路径；该目录中的 `job.conf` 会替换内联的作业配置。 |
-| `kubernetes.env` | 空 | 注入 Master 和 Worker 容器的环境变量条目，逗号分隔：`NAME=value`、`NAME=secret:<name>/<key>` 或 `NAME=configmap:<name>/<key>`。 |
+| `kubernetes.env.<NAME>` | 未设置 | 每个环境变量一行：字面值、`secret:<name>/<key>` 或 `configmap:<name>/<key>`。 |
+| `kubernetes.env-from.secret` / `kubernetes.env-from.configmap` | 未设置 | 已有 Secret/ConfigMap，其全部 key 注入为环境变量（等价 Kubernetes `envFrom`）。 |
 | `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
 | `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
@@ -84,7 +85,7 @@ application Secret 有两种互斥模式。两种模式都会把 Secret 只读�
 ```hocon
 kubernetes {
   secret-ref = platform-job-secrets
-  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
 }
 ```
 
@@ -100,7 +101,10 @@ kubernetes {
       S3_SECRET_KEY = "s3-secret-key"
     }
   }
-  env = "MYSQL_PASSWORD=secret:seatunnel-job-secrets/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secrets/S3_SECRET_KEY"
+  env {
+    MYSQL_PASSWORD = "secret:seatunnel-job-secrets/MYSQL_PASSWORD"
+    S3_SECRET_KEY = "secret:seatunnel-job-secrets/S3_SECRET_KEY"
+  }
 }
 ```
 
@@ -155,12 +159,16 @@ kubernetes {
       seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
     }
   }
-  env = "ENGINE_CONFIG=configmap:seatunnel-runtime-config/seatunnel.yaml"
+  # 设置了 `name` 后，该 ConfigMap 的全部 key 都会注入为环境变量
+  env-from.configmap = seatunnel-runtime-config
 }
 ```
 
 - 引用型 ConfigMap 不会被修改或删除，挂载的 key 会在提交前校验；如果提交身份没有读取权限，
   校验会降级为告警，Pod 仍通过自己的 ServiceAccount 挂载。
+- `kubernetes.env.<NAME>` 用 `configMapKeyRef` / `secretKeyRef` 注入单个 key
+  （`env.MY_VAR = "configmap:seatunnel-runtime-config/key"`），`kubernetes.env-from.configmap`
+  则一次性注入全部 key。两种方式都会进入 Pod 环境，供 Master 解析 `${VAR}` 占位符。
 - 每个 key 都通过 `subPath` 单独挂载，因此 ConfigMap 不会遮蔽镜像在同一目录下自带的其他文件。
 - `seatunnel.yaml` 由 `kubernetes.seatunnel-config-file` 指定（默认 `config/seatunnel.yaml`，相对
   `<seatunnel-home>`）；把替换文件挂到该路径即可修改引擎配置。

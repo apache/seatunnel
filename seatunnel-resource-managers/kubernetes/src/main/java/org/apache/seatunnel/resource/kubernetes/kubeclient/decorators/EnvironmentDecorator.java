@@ -17,19 +17,26 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvFromReference;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvironmentVariable;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
+import io.kubernetes.client.openapi.models.V1ConfigMapEnvSource;
+import io.kubernetes.client.openapi.models.V1ConfigMapKeySelector;
 import io.kubernetes.client.openapi.models.V1Container;
+import io.kubernetes.client.openapi.models.V1EnvFromSource;
+import io.kubernetes.client.openapi.models.V1EnvVar;
+import io.kubernetes.client.openapi.models.V1EnvVarSource;
+import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1SecretEnvSource;
+import io.kubernetes.client.openapi.models.V1SecretKeySelector;
 
 /**
- * Injects the configured {@code kubernetes.env} entries into the master container.
+ * Injects the configured {@code kubernetes.env} and {@code kubernetes.env-from} entries into every
+ * application container.
  *
- * <p>Worker containers receive the same entries when the master creates them. Kubernetes resolves
- * Secret and ConfigMap references, so placeholders in the job configuration are resolved inside the
- * Pod even when the submitting host cannot see those values.
+ * <p>Kubernetes resolves Secret and ConfigMap references, so placeholders in the job configuration
+ * are resolved inside the Pod even when the submitting host cannot see those values.
  */
 public final class EnvironmentDecorator extends AbstractKubernetesStepDecorator {
     private final KubernetesApplicationParameters parameters;
@@ -39,12 +46,46 @@ public final class EnvironmentDecorator extends AbstractKubernetesStepDecorator 
     }
 
     @Override
-    public KubernetesJob decorateJob(KubernetesJob job) {
-        V1Container master =
-                job.getInternalResource().getSpec().getTemplate().getSpec().getContainers().get(0);
+    public V1PodSpec decoratePod(V1PodSpec podSpec) {
+        V1Container container = podSpec.getContainers().get(0);
         for (KubernetesEnvironmentVariable variable : parameters.getEnvironmentVariables()) {
-            master.addEnvItem(KubernetesResourceFactory.environmentVariable(variable));
+            container.addEnvItem(environmentVariable(variable));
         }
-        return job;
+        parameters
+                .getEnvFromReferences()
+                .forEach(reference -> container.addEnvFromItem(envFrom(reference)));
+        return podSpec;
+    }
+
+    private static V1EnvVar environmentVariable(KubernetesEnvironmentVariable variable) {
+        V1EnvVar environment = new V1EnvVar().name(variable.getName());
+        if (variable.isSecret()) {
+            return environment.valueFrom(
+                    new V1EnvVarSource()
+                            .secretKeyRef(
+                                    new V1SecretKeySelector()
+                                            .name(variable.getSecretName())
+                                            .key(variable.getKey())
+                                            .optional(false)));
+        }
+        if (variable.isConfigMap()) {
+            return environment.valueFrom(
+                    new V1EnvVarSource()
+                            .configMapKeyRef(
+                                    new V1ConfigMapKeySelector()
+                                            .name(variable.getConfigMapName())
+                                            .key(variable.getKey())
+                                            .optional(false)));
+        }
+        return environment.value(variable.getLiteralValue());
+    }
+
+    private static V1EnvFromSource envFrom(KubernetesEnvFromReference reference) {
+        if (reference.getSource() == KubernetesEnvFromReference.Source.SECRET) {
+            return new V1EnvFromSource()
+                    .secretRef(new V1SecretEnvSource().name(reference.getName()).optional(false));
+        }
+        return new V1EnvFromSource()
+                .configMapRef(new V1ConfigMapEnvSource().name(reference.getName()).optional(false));
     }
 }

@@ -149,7 +149,7 @@ kubernetes {
   # 引用平台已有 Secret，或让 SeaTunnel 创建：
   secret-ref = "platform-job-secrets"
   # secret { name = "example-job-secrets", data { MYSQL_PASSWORD = ${MYSQL_PASSWORD} } }
-  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
 }
 ```
 

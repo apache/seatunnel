@@ -39,6 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -163,10 +164,10 @@ class KubernetesResourceFactoryTest {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesJob job =
+        KubernetesApplicationSpecification application =
                 KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob();
+                        "app", mainClass, parameters);
+        KubernetesJob job = application.getApplicationJob();
         V1Job jobResource = job.getInternalResource();
         jobResource.getMetadata().setUid("uid-1");
         assertTrue(
@@ -227,7 +228,12 @@ class KubernetesResourceFactoryTest {
                 mount(jobResource, runtimeVolume).getMountPath());
         assertEquals("seatunnel.yaml", mount(jobResource, runtimeVolume).getSubPath());
         assertTrue(mount(jobResource, runtimeVolume).getReadOnly());
-        KubernetesService service = KubernetesResourceFactory.service("app", parameters);
+        KubernetesService service =
+                (KubernetesService)
+                        application.getAccompanyingResources().stream()
+                                .filter(KubernetesService.class::isInstance)
+                                .findFirst()
+                                .orElseThrow(() -> new AssertionError("Missing Service"));
         assertEquals("None", service.getInternalResource().getSpec().getClusterIP());
         KubernetesPod workerPod =
                 KubernetesResourceFactory.worker(
@@ -404,9 +410,11 @@ class KubernetesResourceFactoryTest {
     @Test
     void injectsDeclaredEnvironmentVariablesIntoMasterAndWorkerPods() throws Exception {
         Map<String, String> options = options();
-        options.put(
-                KubernetesOptions.ENV.key(),
-                "LITERAL=value,FROM_SECRET=secret:db-secret/password,FROM_CONFIG=configmap:runtime-cm/path");
+        options.put("kubernetes.env.LITERAL", "value");
+        options.put("kubernetes.env.FROM_SECRET", "secret:db-secret/password");
+        options.put("kubernetes.env.FROM_CONFIG", "configmap:runtime-cm/path");
+        options.put("kubernetes.env-from.secret", "extra-secret");
+        options.put("kubernetes.env-from.configmap", "extra-config");
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
@@ -433,6 +441,10 @@ class KubernetesResourceFactoryTest {
         assertEquals(
                 "path",
                 env(masterEnvironment, "FROM_CONFIG").getValueFrom().getConfigMapKeyRef().getKey());
+        List<V1EnvFromSource> masterEnvFrom =
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getEnvFrom();
+        assertEquals("extra-secret", masterEnvFrom.get(0).getSecretRef().getName());
+        assertEquals("extra-config", masterEnvFrom.get(1).getConfigMapRef().getName());
         V1Pod worker =
                 KubernetesResourceFactory.worker(
                                 applicationJob,
@@ -447,24 +459,167 @@ class KubernetesResourceFactoryTest {
         assertEquals(
                 "db-secret",
                 env(workerEnvironment, "FROM_SECRET").getValueFrom().getSecretKeyRef().getName());
+        assertEquals(2, worker.getSpec().getContainers().get(0).getEnvFrom().size());
+        assertEquals(
+                "extra-secret",
+                worker.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getEnvFrom()
+                        .get(0)
+                        .getSecretRef()
+                        .getName());
+    }
+
+    @Test
+    void keepsCredentialValuesOutOfTheLocalizedSpecification() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
+        options.put("kubernetes.secret.data.PASSWORD", "super-secret-password");
+        options.put(
+                "kubernetes.configmap.runtime.data.seatunnel.yaml",
+                "engine:\n  checkpoint:\n    interval: 10000\n");
+        options.put(
+                "kubernetes.configmap.runtime.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        String localized =
+                new String(
+                        Base64.getDecoder()
+                                .decode(
+                                        envValue(
+                                                application
+                                                        .getApplicationJob()
+                                                        .getInternalResource(),
+                                                KubernetesConstants.SPECIFICATION_ENV)),
+                        StandardCharsets.UTF_8);
+        assertTrue(localized.contains("kubernetes.secret.data.PASSWORD="));
+        assertTrue(localized.contains("kubernetes.configmap.runtime.data.seatunnel.yaml="));
+        assertFalse(localized.contains("super-secret-password"));
+        assertFalse(localized.contains("interval: 10000"));
+    }
+
+    @Test
+    void keepsTheLocalizedSpecificationOffWorkerPods() throws Exception {
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        KubernetesJob applicationJob =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                                "app", mainClass, parameters)
+                        .getApplicationJob();
+        V1Pod worker =
+                KubernetesResourceFactory.worker(
+                                applicationJob,
+                                "app-worker-0",
+                                parameters,
+                                specification().getWorkerSpecification(),
+                                "cluster",
+                                "master:5801")
+                        .getInternalResource();
+        assertTrue(
+                worker.getSpec().getContainers().get(0).getEnv().stream()
+                        .noneMatch(
+                                variable ->
+                                        KubernetesConstants.SPECIFICATION_ENV.equals(
+                                                variable.getName())));
+        assertTrue(
+                applicationJob.getInternalResource().getSpec().getTemplate().getSpec()
+                        .getContainers().get(0).getEnv().stream()
+                        .anyMatch(
+                                variable ->
+                                        KubernetesConstants.SPECIFICATION_ENV.equals(
+                                                variable.getName())));
+    }
+
+    @Test
+    void rejectsConfigMapMountsThatCollideWithReservedPaths() {
+        Map<String, String> insideSecretDirectory = options();
+        insideSecretDirectory.put("kubernetes.configmap.runtime.data.job.conf", "content");
+        insideSecretDirectory.put(
+                "kubernetes.configmap.runtime.mount.job.conf",
+                KubernetesConstants.APPLICATION_SECRET_DIRECTORY + "/job.conf");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(insideSecretDirectory))));
+        Map<String, String> aboveSecretDirectory = options();
+        aboveSecretDirectory.put("kubernetes.configmap.runtime.data.other", "content");
+        aboveSecretDirectory.put(
+                "kubernetes.configmap.runtime.mount.other", "/etc/seatunnel-secrets");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(aboveSecretDirectory))));
+        Map<String, String> checkpointDirectory = options();
+        checkpointDirectory.put("kubernetes.configmap.runtime.data.other", "content");
+        checkpointDirectory.put(
+                "kubernetes.configmap.runtime.mount.other",
+                KubernetesOptions.CHECKPOINT_DIRECTORY.defaultValue());
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(checkpointDirectory))));
+        Map<String, String> samePathTwice = options();
+        samePathTwice.put("kubernetes.configmap.first.data.a.properties", "one");
+        samePathTwice.put(
+                "kubernetes.configmap.first.mount.a.properties",
+                "/opt/seatunnel/config/application.properties");
+        samePathTwice.put("kubernetes.configmap.second.data.b.properties", "two");
+        samePathTwice.put(
+                "kubernetes.configmap.second.mount.b.properties",
+                "/opt/seatunnel/config/application.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(samePathTwice))));
     }
 
     @Test
     void rejectsInvalidEnvironmentVariableEntries() {
         Map<String, String> reserved = options();
-        reserved.put(KubernetesOptions.ENV.key(), "SEATUNNEL_APPLICATION_SPECIFICATION=value");
+        reserved.put("kubernetes.env.SEATUNNEL_APPLICATION_SPECIFICATION", "value");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         KubernetesApplicationParameters.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(reserved))));
         Map<String, String> malformed = options();
-        malformed.put(KubernetesOptions.ENV.key(), "MISSING_SEPARATOR");
+        malformed.put("kubernetes.env.BAD_NAME!", "value");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         KubernetesApplicationParameters.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(malformed))));
+        Map<String, String> badReference = options();
+        badReference.put("kubernetes.env.FROM_SECRET", "secret:missing-key");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(badReference))));
+        Map<String, String> badEnvFrom = options();
+        badEnvFrom.put("kubernetes.env-from.other", "value");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(badEnvFrom))));
     }
 
     @Test

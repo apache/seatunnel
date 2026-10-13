@@ -20,26 +20,40 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
+import io.kubernetes.client.openapi.models.V1PodSpec;
+
 import java.io.IOException;
 import java.util.List;
 
 /**
  * One composable feature of an application deployment.
  *
- * <p>A decorator may transform the owner Job's pod template, contribute accompanying Kubernetes
- * resources that must exist next to the Job, or both. Decorators are applied in list order.
- * Accompanying resources are created after the owner Job and always receive its server-assigned
- * owner reference, so deleting the Job removes exactly the resources created for this application.
+ * <p>A decorator may transform Pod specifications, contribute accompanying Kubernetes resources
+ * that must exist next to the Job, or both. Decorators are applied in list order. Accompanying
+ * resources are created after the owner Job and always receive its server-assigned owner reference,
+ * so deleting the Job removes exactly the resources created for this application.
+ *
+ * <p>The owning factory composes one ordered chain per role and reuses shared decorators in both: a
+ * decorator never branches on the Pod role, it is simply either part of a chain or not. The master
+ * chain also carries the features that contribute accompanying resources.
  */
 public interface KubernetesStepDecorator {
 
     /**
-     * Applies this feature's pod changes to the owner Job.
+     * Applies this feature to the owner Job, including its master Pod template.
      *
      * @param job owner Job being built
      * @return the Job containing this feature's changes
      */
     KubernetesJob decorateJob(KubernetesJob job);
+
+    /**
+     * Applies this feature to one Pod specification.
+     *
+     * @param podSpec Pod specification being assembled
+     * @return the Pod specification containing this feature's changes
+     */
+    V1PodSpec decoratePod(V1PodSpec podSpec);
 
     /**
      * Builds resources that support this feature and must exist next to the owner Job.

@@ -33,6 +33,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesW
 import org.junit.jupiter.api.Test;
 
 import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1Secret;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
@@ -220,11 +223,19 @@ class DefaultKubernetesClientTest {
                                         .build());
         KubernetesApplicationParameters parameters = parameters();
         KubernetesSecret secret =
-                KubernetesResourceFactory.secret(
-                        "app", Collections.singletonMap("PASSWORD", "value"));
+                new KubernetesSecret(
+                        new V1Secret()
+                                .apiVersion("v1")
+                                .kind("Secret")
+                                .metadata(new V1ObjectMeta().name("app"))
+                                .stringData(Collections.singletonMap("PASSWORD", "value")));
         KubernetesConfigMap configMap =
-                KubernetesResourceFactory.configMap(
-                        "app-runtime", Collections.singletonMap("seatunnel.yaml", "engine { }"));
+                new KubernetesConfigMap(
+                        new V1ConfigMap()
+                                .apiVersion("v1")
+                                .kind("ConfigMap")
+                                .metadata(new V1ObjectMeta().name("app-runtime"))
+                                .data(Collections.singletonMap("seatunnel.yaml", "engine { }")));
         KubernetesJob job =
                 KubernetesResourceFactory.job(
                         "app", SeatunnelKubernetesApplicationCli.class.getName(), parameters);

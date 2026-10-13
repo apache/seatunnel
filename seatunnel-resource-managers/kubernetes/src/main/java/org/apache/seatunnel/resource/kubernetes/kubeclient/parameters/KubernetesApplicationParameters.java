@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.parameters;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
@@ -85,8 +83,8 @@ public final class KubernetesApplicationParameters {
     private final String applicationSecretRef;
     private final String applicationSecretName;
     private final Map<String, String> applicationSecretData;
-    private final String environment;
     private final List<KubernetesEnvironmentVariable> environmentVariables;
+    private final List<KubernetesEnvFromReference> envFromReferences;
     private final List<KubernetesConfigMapEntry> configMaps;
     private final int retentionSeconds;
     private final String checkpointPvc;
@@ -122,13 +120,14 @@ public final class KubernetesApplicationParameters {
         this.jvmOptions = jvmOptionsFile(options, KubernetesOptions.JVM_OPTIONS, seatunnelHome);
         this.seatunnelConfigFile = seatunnelConfigFile(options, seatunnelHome);
         this.log4jConfigFile = log4jConfigFile(options, seatunnelHome);
+        Map<String, String> rawOptions = rawOptions(options);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
-        this.applicationSecretData = secretData(rawOptions(options));
+        this.applicationSecretData = secretData(rawOptions);
         validateApplicationSecret();
-        this.environment = options.get(KubernetesOptions.ENV);
-        this.environmentVariables = environmentVariables(environment);
-        this.configMaps = configMaps(rawOptions(options));
+        this.environmentVariables = environmentVariables(rawOptions);
+        this.envFromReferences = envFromReferences(rawOptions);
+        this.configMaps = configMaps(rawOptions);
         validateConfigMapMounts();
         this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
         if (retentionSeconds < 1) {
@@ -290,7 +289,17 @@ public final class KubernetesApplicationParameters {
             // The master only needs the key set; values must stay on the submitting client.
             properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), "");
         }
-        properties.setProperty(KubernetesOptions.ENV.key(), environment);
+        for (KubernetesEnvironmentVariable variable : environmentVariables) {
+            properties.setProperty(ENV_PREFIX + variable.getName(), variable.serializeValue());
+        }
+        for (KubernetesEnvFromReference reference : envFromReferences) {
+            properties.setProperty(
+                    ENV_FROM_PREFIX
+                            + (reference.getSource() == KubernetesEnvFromReference.Source.SECRET
+                                    ? "secret"
+                                    : "configmap"),
+                    reference.getName());
+        }
         writeConfigMaps(properties);
         if (checkpointPvc != null) {
             properties.setProperty(KubernetesOptions.CHECKPOINT_PVC.key(), checkpointPvc);
@@ -352,11 +361,15 @@ public final class KubernetesApplicationParameters {
 
     /**
      * Flattens the resolved options so dynamic {@code kubernetes.secret.data.<KEY>} keys survive.
+     *
+     * <p>The source map is read directly: round-tripping through HOCON would quote keys that
+     * contain characters outside the HOCON path alphabet (for example {@code BAD_NAME!}), which
+     * would both hide them from the dynamic prefixes and skip their validation.
      */
     private static Map<String, String> rawOptions(ReadonlyConfig options) {
         Map<String, String> raw = new HashMap<>();
-        for (Map.Entry<String, ConfigValue> entry : options.toConfig().entrySet()) {
-            Object value = entry.getValue().unwrapped();
+        for (Map.Entry<String, Object> entry : options.getSourceMap().entrySet()) {
+            Object value = entry.getValue();
             if (value != null && !(value instanceof Map) && !(value instanceof List)) {
                 raw.put(entry.getKey(), String.valueOf(value));
             }
@@ -364,30 +377,66 @@ public final class KubernetesApplicationParameters {
         return raw;
     }
 
-    private static List<KubernetesEnvironmentVariable> environmentVariables(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
+    private static final String ENV_PREFIX = "kubernetes.env.";
+    private static final String ENV_FROM_PREFIX = "kubernetes.env-from.";
+    private static final String ENV_NAME_PATTERN = "[A-Za-z_][A-Za-z0-9_]*";
+
+    private static List<KubernetesEnvironmentVariable> environmentVariables(
+            Map<String, String> options) {
         List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
         Set<String> names = new HashSet<>();
-        for (String entry : value.split(",")) {
-            String trimmed = entry.trim();
-            if (trimmed.isEmpty()) {
-                throw new IllegalArgumentException("kubernetes.env must not contain empty entries");
+        for (Map.Entry<String, String> option : options.entrySet()) {
+            if (!option.getKey().startsWith(ENV_PREFIX)) {
+                continue;
             }
-            KubernetesEnvironmentVariable variable = KubernetesEnvironmentVariable.parse(trimmed);
-            if (KubernetesConstants.SPECIFICATION_ENV.equals(variable.getName())) {
+            String name = option.getKey().substring(ENV_PREFIX.length());
+            if (!name.matches(ENV_NAME_PATTERN)) {
                 throw new IllegalArgumentException(
-                        "kubernetes.env must not override "
+                        option.getKey() + " must use a valid environment variable name");
+            }
+            if (KubernetesConstants.SPECIFICATION_ENV.equals(name)) {
+                throw new IllegalArgumentException(
+                        ENV_PREFIX
+                                + name
+                                + " must not override "
                                 + KubernetesConstants.SPECIFICATION_ENV);
             }
-            if (!names.add(variable.getName())) {
+            if (!names.add(name)) {
                 throw new IllegalArgumentException(
-                        "kubernetes.env contains duplicate name " + variable.getName());
+                        "kubernetes.env contains duplicate name " + name);
             }
-            variables.add(variable);
+            variables.add(KubernetesEnvironmentVariable.fromValue(name, option.getValue()));
         }
         return Collections.unmodifiableList(variables);
+    }
+
+    private static List<KubernetesEnvFromReference> envFromReferences(Map<String, String> options) {
+        List<KubernetesEnvFromReference> references = new ArrayList<>(2);
+        String secret = options.get(ENV_FROM_PREFIX + "secret");
+        String configMap = options.get(ENV_FROM_PREFIX + "configmap");
+        if (secret != null) {
+            references.add(KubernetesEnvFromReference.secret(requireReferenceName(secret)));
+        }
+        if (configMap != null) {
+            references.add(KubernetesEnvFromReference.configMap(requireReferenceName(configMap)));
+        }
+        for (String key : options.keySet()) {
+            if (key.startsWith(ENV_FROM_PREFIX)
+                    && !key.equals(ENV_FROM_PREFIX + "secret")
+                    && !key.equals(ENV_FROM_PREFIX + "configmap")) {
+                throw new IllegalArgumentException(
+                        key
+                                + " must use kubernetes.env-from.secret or kubernetes.env-from.configmap");
+            }
+        }
+        return Collections.unmodifiableList(references);
+    }
+
+    private static String requireReferenceName(String value) {
+        if (value.trim().isEmpty()) {
+            throw new IllegalArgumentException("kubernetes.env-from values must not be empty");
+        }
+        return value.trim();
     }
 
     private static List<KubernetesConfigMapEntry> configMaps(Map<String, String> options) {

@@ -19,10 +19,10 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
+import io.kubernetes.client.openapi.models.V1PodSpec;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -36,7 +36,8 @@ import java.util.Base64;
  *
  * <p>The value is a Base64 encoded properties document, so submission never requires the permission
  * to create a Secret. A mounted {@code job.conf} from the configured application Secret replaces
- * the inline job configuration on the master.
+ * the inline job configuration on the master. Only the master reads this specification, so this
+ * decorator is part of the master chain and absent from the worker chain.
  */
 public final class InlineSpecificationDecorator extends AbstractKubernetesStepDecorator {
     /** Linux limits one environment string to 128 KiB; leave room for the launcher overhead. */
@@ -49,12 +50,11 @@ public final class InlineSpecificationDecorator extends AbstractKubernetesStepDe
     }
 
     @Override
-    public KubernetesJob decorateJob(KubernetesJob job) {
-        V1Container master =
-                job.getInternalResource().getSpec().getTemplate().getSpec().getContainers().get(0);
+    public V1PodSpec decoratePod(V1PodSpec podSpec) {
+        V1Container master = podSpec.getContainers().get(0);
         master.addEnvItem(
                 new V1EnvVar().name(KubernetesConstants.SPECIFICATION_ENV).value(encode()));
-        return job;
+        return podSpec;
     }
 
     private String encode() {

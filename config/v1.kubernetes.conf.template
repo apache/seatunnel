@@ -37,4 +37,9 @@ kubernetes {
       }
     }
   }
+  # Single environment variable injected as a secretKeyRef; use ${MYSQL_PASSWORD} in the job
+  # configuration and let the master resolve it from the Pod environment.
+  env.MYSQL_PASSWORD = "secret:seatunnel-job-secrets/password"
+  # Or inject every key of an existing Secret/ConfigMap at once (Kubernetes envFrom).
+  # env-from.secret = "seatunnel-job-secrets"
 }

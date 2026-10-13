@@ -20,7 +20,8 @@ title: Configuration
 | `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
 | `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
 | `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | Absolute directory where the configured application Secret is mounted read-only; a `job.conf` key there replaces the inline job configuration. |
-| `kubernetes.env` | Empty | Comma-separated entries injected into master and worker containers: `NAME=value`, `NAME=secret:<name>/<key>` or `NAME=configmap:<name>/<key>`. |
+| `kubernetes.env.<NAME>` | Unset | One environment variable per name: a literal value, `secret:<name>/<key>` or `configmap:<name>/<key>`. |
+| `kubernetes.env-from.secret` / `kubernetes.env-from.configmap` | Unset | Existing Secret/ConfigMap whose keys are all injected as environment variables (Kubernetes `envFrom`). |
 | `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
@@ -84,7 +85,7 @@ variables when the job configuration uses `${VAR}` placeholders:
 ```hocon
 kubernetes {
   secret-ref = platform-job-secrets
-  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
 }
 ```
 
@@ -101,7 +102,10 @@ kubernetes {
       S3_SECRET_KEY = "s3-secret-key"
     }
   }
-  env = "MYSQL_PASSWORD=secret:seatunnel-job-secrets/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secrets/S3_SECRET_KEY"
+  env {
+    MYSQL_PASSWORD = "secret:seatunnel-job-secrets/MYSQL_PASSWORD"
+    S3_SECRET_KEY = "secret:seatunnel-job-secrets/S3_SECRET_KEY"
+  }
 }
 ```
 
@@ -161,13 +165,18 @@ kubernetes {
       seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
     }
   }
-  env = "ENGINE_CONFIG=configmap:seatunnel-runtime-config/seatunnel.yaml"
+  # Every key of the created ConfigMap becomes an environment variable once `name` is set.
+  env-from.configmap = seatunnel-runtime-config
 }
 ```
 
 - Referenced ConfigMaps are never modified or deleted; their mounted keys are validated before
   submission. When the submitting identity cannot read a referenced ConfigMap, validation is
   skipped with a warning and the Pod still mounts it through its own service account.
+- `kubernetes.env.<NAME>` injects individual keys as `configMapKeyRef` or `secretKeyRef`
+  (`env.MY_VAR = "configmap:seatunnel-runtime-config/key"`), while `kubernetes.env-from.configmap`
+  injects every key at once. Both forms reach the Pod environment that the master uses to resolve
+  `${VAR}` placeholders.
 - Every key is mounted individually through `subPath`, so a ConfigMap never hides the other files
   the image ships in the same directory.
 - `seatunnel.yaml` is loaded from `kubernetes.seatunnel-config-file` (default

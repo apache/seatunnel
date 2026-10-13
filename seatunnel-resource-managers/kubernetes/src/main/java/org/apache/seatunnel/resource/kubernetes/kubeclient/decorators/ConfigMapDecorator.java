@@ -17,19 +17,27 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ConfigMapVolumeSource;
 import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Volume;
+import io.kubernetes.client.openapi.models.V1VolumeMount;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Mounts the configured {@code kubernetes.configmap} entries as read-only files.
+ * Mounts the configured {@code kubernetes.configmap} entries as read-only files in every
+ * application Pod.
  *
  * <p>Referenced ConfigMaps are never created or deleted. Entries that declare {@code data} are
  * created as ConfigMaps owned by the application Job, so cancelling the application removes them.
@@ -46,10 +54,26 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public KubernetesJob decorateJob(KubernetesJob job) {
-        V1PodSpec podSpec = job.getInternalResource().getSpec().getTemplate().getSpec();
-        KubernetesResourceFactory.mountConfigMaps(podSpec, parameters, applicationId);
-        return job;
+    public V1PodSpec decoratePod(V1PodSpec podSpec) {
+        int index = 0;
+        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+            String volumeName = KubernetesConstants.CONFIG_VOLUME + "-" + index++;
+            podSpec.addVolumesItem(
+                    new V1Volume()
+                            .name(volumeName)
+                            .configMap(new V1ConfigMapVolumeSource().name(resolvedName(entry))));
+            for (String key : mountedKeys(entry)) {
+                podSpec.getContainers()
+                        .get(0)
+                        .addVolumeMountsItem(
+                                new V1VolumeMount()
+                                        .name(volumeName)
+                                        .mountPath(entry.mountPath(key))
+                                        .subPath(key)
+                                        .readOnly(true));
+            }
+        }
+        return podSpec;
     }
 
     @Override
@@ -58,10 +82,29 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {
                 configMaps.add(
-                        KubernetesResourceFactory.configMap(
-                                entry.createdName(applicationId), entry.getData()));
+                        new KubernetesConfigMap(
+                                new V1ConfigMap()
+                                        .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                                        .kind(KubernetesConstants.CONFIG_MAP_KIND)
+                                        .metadata(
+                                                KubernetesResourceFactory.metadata(
+                                                        resolvedName(entry),
+                                                        KubernetesConstants.CONFIGURATION_ROLE))
+                                        .data(new LinkedHashMap<>(entry.getData()))));
             }
         }
         return configMaps;
+    }
+
+    /**
+     * Resolves the ConfigMap name, and mounts every declared key through {@code subPath} so entries
+     * never overwrite each other or the image's own configuration files.
+     */
+    private String resolvedName(KubernetesConfigMapEntry entry) {
+        return entry.isReference() ? entry.getReference() : entry.createdName(applicationId);
+    }
+
+    private static Set<String> mountedKeys(KubernetesConfigMapEntry entry) {
+        return entry.isReference() ? entry.getMountPaths().keySet() : entry.getData().keySet();
     }
 }

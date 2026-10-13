@@ -28,6 +28,8 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.Kubernetes
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
+import io.kubernetes.client.openapi.models.V1PodSpec;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,8 +38,10 @@ import java.util.List;
 /**
  * Builds the complete application composition on the client side.
  *
- * <p>Decorators are applied in order: each one may decorate the owner Job and contribute
- * accompanying resources. This factory makes no API calls.
+ * <p>Decorators are applied in order: each one may decorate Pod specifications and contribute
+ * accompanying resources. Role differences live here, in the composition: the master chain adds the
+ * features only the master has, while the worker chain reuses the shared Pod features. No decorator
+ * branches on its role. This factory makes no API calls.
  */
 public final class KubernetesApplicationFactory {
 
@@ -57,20 +61,59 @@ public final class KubernetesApplicationFactory {
             throws IOException {
         KubernetesJob job = KubernetesResourceFactory.job(applicationId, mainClass, parameters);
         List<KubernetesResource<?>> accompanyingResources = new ArrayList<>();
-        for (KubernetesStepDecorator decorator : decorators(applicationId, parameters)) {
+        for (KubernetesStepDecorator decorator : masterDecorators(applicationId, parameters)) {
             job = decorator.decorateJob(job);
             accompanyingResources.addAll(decorator.buildAccompanyingResources());
         }
         return new KubernetesApplicationSpecification(job, accompanyingResources);
     }
 
-    private static List<KubernetesStepDecorator> decorators(
+    /**
+     * Applies the worker decorator chain to one worker Pod specification.
+     *
+     * <p>The chain contains exactly the features shared with the master, so worker Pods cannot
+     * drift away from the master's mounts, environment and runtime configuration. Workers are
+     * created by the application master through the resource manager, so this method runs
+     * in-cluster with the same parameters the master restored from the localized specification.
+     *
+     * @param podSpec worker Pod specification being assembled
+     * @param applicationId generated application Job name that owns the worker
+     * @param parameters resolved application and Kubernetes settings
+     * @return the decorated Pod specification
+     */
+    public static V1PodSpec decorateWorker(
+            V1PodSpec podSpec, String applicationId, KubernetesApplicationParameters parameters) {
+        V1PodSpec decorated = podSpec;
+        for (KubernetesStepDecorator decorator : workerDecorators(applicationId, parameters)) {
+            decorated = decorator.decoratePod(decorated);
+        }
+        return decorated;
+    }
+
+    /**
+     * Composes the chain applied to the owner Job's master Pod and to the accompanying resources.
+     */
+    private static List<KubernetesStepDecorator> masterDecorators(
+            String applicationId, KubernetesApplicationParameters parameters) {
+        List<KubernetesStepDecorator> decorators = new ArrayList<>();
+        decorators.add(new InlineSpecificationDecorator(parameters));
+        decorators.addAll(sharedPodDecorators(applicationId, parameters));
+        decorators.add(new HeadlessServiceDecorator(applicationId, parameters));
+        return decorators;
+    }
+
+    /** Composes the chain applied to every worker Pod created by the master. */
+    private static List<KubernetesStepDecorator> workerDecorators(
+            String applicationId, KubernetesApplicationParameters parameters) {
+        return sharedPodDecorators(applicationId, parameters);
+    }
+
+    /** Pod features that the master and every worker need to run the same job. */
+    private static List<KubernetesStepDecorator> sharedPodDecorators(
             String applicationId, KubernetesApplicationParameters parameters) {
         return Arrays.asList(
-                new InlineSpecificationDecorator(parameters),
                 new EnvironmentDecorator(parameters),
                 new SecretDecorator(applicationId, parameters),
-                new ConfigMapDecorator(applicationId, parameters),
-                new HeadlessServiceDecorator(applicationId, parameters));
+                new ConfigMapDecorator(applicationId, parameters));
     }
 }

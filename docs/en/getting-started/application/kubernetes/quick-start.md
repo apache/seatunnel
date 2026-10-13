@@ -154,7 +154,7 @@ kubernetes {
   # Reference a Secret managed by your platform, or let SeaTunnel create one:
   secret-ref = "platform-job-secrets"
   # secret { name = "example-job-secrets", data { MYSQL_PASSWORD = ${MYSQL_PASSWORD} } }
-  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
 }
 ```
 

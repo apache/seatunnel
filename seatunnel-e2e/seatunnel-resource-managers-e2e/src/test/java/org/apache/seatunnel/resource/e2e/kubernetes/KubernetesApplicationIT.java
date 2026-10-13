@@ -459,8 +459,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .getValueFrom()
                                 .getSecretKeyRef()
                                 .getName());
+                assertTrue(envFromSecret(master, "seatunnel-application-e2e-ref-secret"));
                 assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                // Workers are created by the master in-cluster and reuse the same pod
+                // decorator chain, so the envFrom reference must reach them too.
+                for (V1Pod worker : workers(application)) {
+                    assertTrue(envFromSecret(worker, "seatunnel-application-e2e-ref-secret"));
+                }
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
                 deployer.cancelApplication(application.getClusterId());
@@ -1028,6 +1034,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 .filter(env -> name.equals(env.getName()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing environment variable " + name));
+    }
+
+    private static boolean envFromSecret(V1Pod pod, String secretName) {
+        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
+                .anyMatch(
+                        source ->
+                                source.getSecretRef() != null
+                                        && secretName.equals(source.getSecretRef().getName()));
     }
 
     private static boolean mounted(V1Pod pod, String path) {

@@ -17,18 +17,25 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 
 import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1SecretVolumeSource;
+import io.kubernetes.client.openapi.models.V1Volume;
+import io.kubernetes.client.openapi.models.V1VolumeMount;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Mounts the configured application Secret read-only at {@code kubernetes.secret-directory}.
+ * Mounts the configured application Secret read-only at {@code kubernetes.secret-directory} in
+ * every application Pod.
  *
  * <p>{@code kubernetes.secret-ref} only references a Secret managed outside SeaTunnel. Otherwise
  * the decorator creates the Secret from {@code kubernetes.secret.data} entries; a {@code job.conf}
@@ -45,16 +52,12 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public KubernetesJob decorateJob(KubernetesJob job) {
+    public V1PodSpec decoratePod(V1PodSpec podSpec) {
         if (!parameters.hasApplicationSecret()) {
-            return job;
+            return podSpec;
         }
-        V1PodSpec podSpec = job.getInternalResource().getSpec().getTemplate().getSpec();
-        KubernetesResourceFactory.mountApplicationSecret(
-                podSpec,
-                parameters.resolvedApplicationSecretName(applicationId),
-                parameters.getSecretDirectory());
-        return job;
+        mount(podSpec, parameters.resolvedApplicationSecretName(applicationId));
+        return podSpec;
     }
 
     @Override
@@ -63,8 +66,41 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
             return Collections.emptyList();
         }
         return Collections.singletonList(
-                KubernetesResourceFactory.secret(
-                        parameters.resolvedApplicationSecretName(applicationId),
-                        parameters.getApplicationSecretData()));
+                new KubernetesSecret(
+                        new V1Secret()
+                                .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                                .kind(KubernetesConstants.SECRET_KIND)
+                                .type(KubernetesConstants.OPAQUE_SECRET_TYPE)
+                                .metadata(
+                                        KubernetesResourceFactory.metadata(
+                                                parameters.resolvedApplicationSecretName(
+                                                        applicationId),
+                                                KubernetesConstants.CONFIGURATION_ROLE))
+                                .stringData(
+                                        new LinkedHashMap<>(
+                                                parameters.getApplicationSecretData()))));
+    }
+
+    /**
+     * Mounts the application Secret read-only into one Pod specification.
+     *
+     * @param podSpec Pod specification to decorate
+     * @param secretName referenced Secret name or the name of the application-owned one
+     */
+    private void mount(V1PodSpec podSpec, String secretName) {
+        podSpec.addVolumesItem(
+                new V1Volume()
+                        .name(KubernetesConstants.APPLICATION_VOLUME)
+                        .secret(
+                                new V1SecretVolumeSource()
+                                        .secretName(secretName)
+                                        .defaultMode(KubernetesConstants.APPLICATION_SECRET_MODE)));
+        podSpec.getContainers()
+                .get(0)
+                .addVolumeMountsItem(
+                        new V1VolumeMount()
+                                .name(KubernetesConstants.APPLICATION_VOLUME)
+                                .mountPath(parameters.getSecretDirectory())
+                                .readOnly(true));
     }
 }

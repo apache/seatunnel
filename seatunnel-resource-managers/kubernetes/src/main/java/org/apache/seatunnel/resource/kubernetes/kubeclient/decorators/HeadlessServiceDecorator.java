@@ -17,14 +17,23 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.services.HeadlessClusterIPService;
+
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import java.util.Collections;
 import java.util.List;
 
-/** Adds the headless Service used for master discovery to the application resources. */
+/**
+ * Adds the headless Service used for master discovery to the application resources.
+ *
+ * <p>The Service selects exactly the master Pod of this application, and publishes not-ready
+ * addresses so workers can join while the master is still starting.
+ */
 public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
     private final KubernetesApplicationParameters parameters;
@@ -37,7 +46,13 @@ public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecora
 
     @Override
     public List<KubernetesResource<?>> buildAccompanyingResources() {
+        V1ObjectMeta metadata =
+                KubernetesResourceFactory.metadata(applicationId, KubernetesConstants.MASTER_ROLE);
         return Collections.singletonList(
-                KubernetesResourceFactory.service(applicationId, parameters));
+                new HeadlessClusterIPService(
+                        metadata,
+                        metadata.getLabels(),
+                        KubernetesConstants.HAZELCAST_PORT_NAME,
+                        parameters.getSpecification().getMasterPort()));
     }
 }
