@@ -65,7 +65,7 @@ title: 配置参考
 
 默认情况下，本地化后的 application 配置（含作业配置）通过 Master 容器的环境变量传递，因此提交不需要创建 Secret 的权限。`kubernetes.secret-ref` 只读引用平台管理的已有 Secret，`kubernetes.secret.data.*` 则由 SeaTunnel 创建并持有 Secret；两种方式中若包含 `job.conf` 键，会替换内联的作业配置。引用型 Secret 不会被修改或删除，创建型 Secret 带 Job ownerReference，随 application 一起清理。请把 Connector 凭据放在平台管理的 Secret 中，不要内联到本地化配置。
 
-提交机能解析的变量会在提交前完成替换；剩余的 `${VAR}` 占位符保留在作业配置中，由 Master 在 Pod 内使用环境变量解析，包括通过 `kubernetes.env` 的 `secretKeyRef`、`configMapKeyRef` 注入的值。任何位置都不存在的占位符会在 Master 启动时报告，而不是提交时立即失败。
+作业配置会原样带到 Master，所有 `${VAR}` 占位符都在 Master 内结合 Pod 环境解析，包括通过 `kubernetes.env` 的 `secretKeyRef`、`configMapKeyRef` 注入的值。提交端不再替换作业变量；任何环境都不存在的占位符会在 Master 解析作业时报错，而不是提交时。请把凭据从作业文件中移出，用 `${VAR}` 注入。
 
 ### Application Secret
 

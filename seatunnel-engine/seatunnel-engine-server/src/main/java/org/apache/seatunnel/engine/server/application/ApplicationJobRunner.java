@@ -68,7 +68,6 @@ public final class ApplicationJobRunner {
         JobResult result = null;
         Exception failure = null;
         try {
-            resources.awaitWorkerRegistration();
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(specification.getName());
             // Resolve remaining placeholders against this Pod's environment, including values
@@ -80,6 +79,7 @@ public final class ApplicationJobRunner {
                                             ConfigParseOptions.defaults()
                                                     .setSyntax(ConfigSyntax.CONF))
                                     .resolve());
+            resources.awaitWorkerRegistration();
             execution =
                     new ApplicationJobExecutionEnvironment(
                                     jobConfig,

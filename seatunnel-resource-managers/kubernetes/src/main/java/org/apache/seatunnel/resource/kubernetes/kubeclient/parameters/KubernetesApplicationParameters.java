@@ -128,6 +128,7 @@ public final class KubernetesApplicationParameters {
         this.environment = options.get(KubernetesOptions.ENV);
         this.environmentVariables = environmentVariables(environment);
         this.configMaps = configMaps(rawOptions(options));
+        validateConfigMapMounts();
         this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
         if (retentionSeconds < 1) {
             throw new IllegalArgumentException(
@@ -285,7 +286,8 @@ public final class KubernetesApplicationParameters {
             properties.setProperty(KubernetesOptions.SECRET_NAME.key(), applicationSecretName);
         }
         for (Map.Entry<String, String> entry : applicationSecretData.entrySet()) {
-            properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), entry.getValue());
+            // The master only needs the key set; values must stay on the submitting client.
+            properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), "");
         }
         properties.setProperty(KubernetesOptions.ENV.key(), environment);
         writeConfigMaps(properties);
@@ -515,7 +517,8 @@ public final class KubernetesApplicationParameters {
                     properties.setProperty(prefix + ".name", configMap.getName());
                 }
                 for (Map.Entry<String, String> entry : configMap.getData().entrySet()) {
-                    properties.setProperty(prefix + ".data." + entry.getKey(), entry.getValue());
+                    // The master only needs the key set; values are used client-side only.
+                    properties.setProperty(prefix + ".data." + entry.getKey(), "");
                 }
             }
             for (Map.Entry<String, String> mount : configMap.getMountPaths().entrySet()) {
@@ -535,6 +538,18 @@ public final class KubernetesApplicationParameters {
         if (applicationSecretName != null || !applicationSecretData.isEmpty()) {
             throw new IllegalArgumentException(
                     "kubernetes.secret-ref cannot be combined with kubernetes.secret");
+        }
+    }
+
+    private void validateConfigMapMounts() {
+        Set<String> mountPaths = new HashSet<>();
+        for (KubernetesConfigMapEntry entry : configMaps) {
+            for (String path : entry.getMountPaths().values()) {
+                if (!mountPaths.add(path)) {
+                    throw new IllegalArgumentException(
+                            "kubernetes.configmap entries mount multiple keys to " + path);
+                }
+            }
         }
     }
 

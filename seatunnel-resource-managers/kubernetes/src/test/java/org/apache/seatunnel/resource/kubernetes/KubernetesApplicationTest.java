@@ -271,14 +271,13 @@ class KubernetesApplicationTest {
     @Test
     void continuesWhenUserManagedConfigMapsCannotBeRead() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        when(api.getConfigMap("seatunnel-runtime")).thenThrow(new ApiException(403, "forbidden"));
         when(api.getConfigMap("platform-runtime")).thenThrow(new ApiException(403, "forbidden"));
         when(api.createJob(any())).thenReturn(job());
         Map<String, String> options = options();
         options.put("kubernetes.configmap.shared.ref", "platform-runtime");
         options.put(
                 "kubernetes.configmap.shared.mount.seatunnel.yaml",
-                "/opt/seatunnel/config/seatunnel.yaml");
+                "/opt/seatunnel/config/shared.yaml");
         try (KubernetesApplicationClusterDescriptor descriptor =
                 new KubernetesApplicationClusterDescriptor(api, options)) {
             String applicationId = descriptor.deployApplication(specification());
@@ -295,7 +294,7 @@ class KubernetesApplicationTest {
         options.put("kubernetes.configmap.shared.ref", "platform-runtime");
         options.put(
                 "kubernetes.configmap.shared.mount.seatunnel.yaml",
-                "/opt/seatunnel/config/seatunnel.yaml");
+                "/opt/seatunnel/config/shared.yaml");
         assertThrows(
                 ApiException.class,
                 () ->
@@ -317,7 +316,7 @@ class KubernetesApplicationTest {
         options.put("kubernetes.configmap.shared.ref", "platform-runtime");
         options.put(
                 "kubernetes.configmap.shared.mount.seatunnel.yaml",
-                "/opt/seatunnel/config/seatunnel.yaml");
+                "/opt/seatunnel/config/shared.yaml");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -341,7 +340,6 @@ class KubernetesApplicationTest {
         String applicationId = descriptor.deployApplication(specification());
         assertTrue(nativeClients.constructed().isEmpty());
         InOrder order = inOrder(api);
-        order.verify(api).getConfigMap("seatunnel-runtime");
         order.verify(api).createJob(any());
         order.verify(api).createAccompanyingResources(any(), any());
         order.verify(api).startJob(applicationId);

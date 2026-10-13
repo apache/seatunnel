@@ -65,7 +65,7 @@ Use `kubernetes.configmap.<entry>` to place runtime configuration files such as 
 
 By default the localized application specification, including the resolved job configuration, is carried in the master container environment, so submission requires no permission to create Secrets. `kubernetes.secret-ref` adds a read-only reference to an existing Secret and `kubernetes.secret.data.*` lets SeaTunnel create and own one; a `job.conf` key in either Secret replaces the inline job configuration. Referenced Secrets are never modified or deleted, while created Secrets carry the Job owner reference and disappear with the application. Keep connector credentials out of the inline specification and use Secrets managed by your platform.
 
-Variables that the submitting host resolves are substituted before submission. Remaining `${VAR}` placeholders stay in the job configuration and are resolved on the master against the Pod environment, including values injected by `kubernetes.env` through `secretKeyRef` or `configMapKeyRef`. A placeholder that exists nowhere is reported when the master starts, not when the job is submitted.
+The job configuration is carried to the master verbatim; every `${VAR}` placeholder is resolved on the master against the Pod environment, including values injected by `kubernetes.env` through `secretKeyRef` or `configMapKeyRef`. The submitting host no longer substitutes job variables, and a placeholder that exists nowhere is reported when the master resolves the job, not when the job is submitted. Keep credentials out of the job file and inject them with `${VAR}`.
 
 ### Application Secret
 

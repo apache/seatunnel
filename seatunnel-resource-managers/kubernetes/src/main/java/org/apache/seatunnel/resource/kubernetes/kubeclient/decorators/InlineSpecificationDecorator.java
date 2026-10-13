@@ -39,6 +39,9 @@ import java.util.Base64;
  * the inline job configuration on the master.
  */
 public final class InlineSpecificationDecorator extends AbstractKubernetesStepDecorator {
+    /** Linux limits one environment string to 128 KiB; leave room for the launcher overhead. */
+    private static final int MAX_SPECIFICATION_LENGTH = 96 * 1024;
+
     private final KubernetesApplicationParameters parameters;
 
     public InlineSpecificationDecorator(KubernetesApplicationParameters parameters) {
@@ -58,8 +61,18 @@ public final class InlineSpecificationDecorator extends AbstractKubernetesStepDe
         try {
             StringWriter writer = new StringWriter();
             parameters.write(writer);
-            return Base64.getEncoder()
-                    .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+            String encoded =
+                    Base64.getEncoder()
+                            .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+            if (encoded.length() > MAX_SPECIFICATION_LENGTH) {
+                throw new IllegalStateException(
+                        "Localized application specification is too large for the Kubernetes env transport ("
+                                + encoded.length()
+                                + " characters, limit "
+                                + MAX_SPECIFICATION_LENGTH
+                                + "); move the job configuration into job.conf or reduce inline options");
+            }
+            return encoded;
         } catch (IOException failure) {
             throw new UncheckedIOException(
                     "Could not serialize the localized application specification", failure);
