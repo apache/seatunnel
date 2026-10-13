@@ -19,14 +19,14 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.resources;
 
 import io.kubernetes.client.openapi.models.V1Service;
 
-/** Base wrapper for a Kubernetes Service used by application networking. */
-public abstract class KubernetesService extends KubernetesResource<V1Service> {
+/** Wrapper for a Kubernetes Service used by application networking. */
+public final class KubernetesService extends KubernetesResource<V1Service> {
     /**
      * Wraps one Kubernetes Service model.
      *
      * @param service Service intended for the Kubernetes API
      */
-    protected KubernetesService(V1Service service) {
+    public KubernetesService(V1Service service) {
         super(service.getMetadata().getName(), service);
     }
 }

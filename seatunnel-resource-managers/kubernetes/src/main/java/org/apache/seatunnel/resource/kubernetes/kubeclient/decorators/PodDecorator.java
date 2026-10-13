@@ -18,9 +18,9 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
@@ -33,7 +33,7 @@ import io.kubernetes.client.openapi.models.V1Probe;
 import java.util.Arrays;
 
 /**
- * Creates one worker Pod resource and hands it to the rest of the worker chain.
+ * Creates one worker Pod resource and hands it to the rest of the worker decorator list.
  *
  * <p>Workers are created by the application master, not by the submitter. This step builds the Pod
  * skeleton, including its identity, owner reference, container, command and probes; every later
@@ -49,7 +49,7 @@ public final class PodDecorator extends AbstractWorkloadDecorator {
     public PodDecorator(
             KubernetesJob owner,
             String name,
-            KubernetesApplicationParameters parameters,
+            KubernetesApplicationConfig parameters,
             WorkerSpecification resources,
             String clusterName,
             String masterAddress) {
@@ -64,7 +64,7 @@ public final class PodDecorator extends AbstractWorkloadDecorator {
     @Override
     public V1Pod decoratePod(V1Pod pod) {
         if (pod != null) {
-            throw new IllegalStateException("The Pod step must start the worker decorator chain");
+            throw new IllegalStateException("The Pod step must start the worker decorator list");
         }
         return new V1Pod()
                 .apiVersion(KubernetesConstants.CORE_API_VERSION)

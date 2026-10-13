@@ -25,10 +25,10 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
@@ -41,7 +41,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.models.V1Container;
+import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 
@@ -108,7 +111,7 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
@@ -136,14 +139,17 @@ class KubernetesResourceManagerDriverTest {
                             .get(0)
                             .getCommand()
                             .contains("10.0.0.1:5801"));
-            assertEquals(
-                    "uid-1",
+            V1OwnerReference owner =
                     created.getValue()
                             .getInternalResource()
                             .getMetadata()
                             .getOwnerReferences()
-                            .get(0)
-                            .getUid());
+                            .get(0);
+            assertEquals("uid-1", owner.getUid());
+            assertEquals("Job", owner.getKind());
+            assertEquals("app", owner.getName());
+            assertEquals(Boolean.FALSE, owner.getController());
+            assertEquals(Boolean.FALSE, owner.getBlockOwnerDeletion());
             assertNull(driver.releaseWorker(worker).get());
             assertNull(driver.releaseWorker(worker).get());
             driver.releaseWorker(new KubernetesWorkerNode(new ResourceID("other-worker"))).get();
@@ -172,7 +178,7 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
@@ -216,7 +222,7 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
@@ -249,7 +255,7 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
@@ -301,7 +307,7 @@ class KubernetesResourceManagerDriverTest {
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app");
@@ -356,7 +362,7 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
@@ -395,7 +401,7 @@ class KubernetesResourceManagerDriverTest {
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
                         "app",
                         "isolated-app")) {
@@ -420,6 +426,84 @@ class KubernetesResourceManagerDriverTest {
         return SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
     }
 
+    @Test
+    void createsWorkerPodsWithTheSharedConfiguration() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "top-secret");
+        options.put(KubernetesOptions.SECRET_DIRECTORY.key(), "/var/run/seatunnel/secrets");
+        options.put("kubernetes.configmap.runtime.ref", "worker-config");
+        options.put(
+                "kubernetes.configmap.runtime.mount.application.properties",
+                "/opt/seatunnel/config/application.properties");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:job-secrets/MYSQL_PASSWORD");
+        options.put("kubernetes.env-from.configmap", "worker-config");
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getJob("app")).thenReturn(job());
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options))),
+                        "app",
+                        "isolated-app")) {
+            driver.initialize(
+                    mock(ResourceEventHandler.class),
+                    mainThreadExecutor,
+                    ioExecutor,
+                    () -> "10.0.0.1:5801");
+            driver.requestWorker(specification().getWorkerSpecification()).get(5, TimeUnit.SECONDS);
+        }
+        ArgumentCaptor<KubernetesPod> created = ArgumentCaptor.forClass(KubernetesPod.class);
+        verify(api).createPod(created.capture());
+        V1Pod pod = created.getValue().getInternalResource();
+        V1Container container = pod.getSpec().getContainers().get(0);
+        V1EnvVar password =
+                container.getEnv().stream()
+                        .filter(env -> "MYSQL_PASSWORD".equals(env.getName()))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing MYSQL_PASSWORD"));
+        assertEquals("job-secrets", password.getValueFrom().getSecretKeyRef().getName());
+        assertEquals("MYSQL_PASSWORD", password.getValueFrom().getSecretKeyRef().getKey());
+        assertTrue(
+                container.getEnvFrom().stream()
+                        .anyMatch(
+                                source ->
+                                        source.getConfigMapRef() != null
+                                                && "worker-config"
+                                                        .equals(
+                                                                source.getConfigMapRef()
+                                                                        .getName())));
+        assertTrue(
+                container.getEnv().stream()
+                        .noneMatch(
+                                env ->
+                                        KubernetesConstants.SPECIFICATION_ENV.equals(
+                                                env.getName())));
+        assertTrue(
+                pod.getSpec().getVolumes().stream()
+                        .anyMatch(
+                                volume ->
+                                        volume.getSecret() != null
+                                                && "job-secrets"
+                                                        .equals(
+                                                                volume.getSecret()
+                                                                        .getSecretName())));
+        assertTrue(
+                container.getVolumeMounts().stream()
+                        .anyMatch(
+                                mount ->
+                                        "/var/run/seatunnel/secrets".equals(mount.getMountPath())));
+        assertTrue(
+                container.getVolumeMounts().stream()
+                        .anyMatch(
+                                mount ->
+                                        "/opt/seatunnel/config/application.properties"
+                                                        .equals(mount.getMountPath())
+                                                && "application.properties"
+                                                        .equals(mount.getSubPath())));
+    }
+
     private static Map<String, String> options() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
@@ -430,13 +514,14 @@ class KubernetesResourceManagerDriverTest {
 
     private static KubernetesJob job() {
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app",
-                                SeatunnelKubernetesApplicationCli.class.getName(),
-                                KubernetesApplicationParameters.from(
-                                        specification(),
-                                        ReadonlyConfig.fromMap(new HashMap<>(options()))))
-                        .getApplicationJob();
+                (KubernetesJob)
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app",
+                                        SeatunnelKubernetesApplicationCli.class.getName(),
+                                        KubernetesApplicationConfig.from(
+                                                specification(),
+                                                ReadonlyConfig.fromMap(new HashMap<>(options()))))
+                                .get(0);
         job.getInternalResource().getMetadata().setUid("uid-1");
         return job;
     }

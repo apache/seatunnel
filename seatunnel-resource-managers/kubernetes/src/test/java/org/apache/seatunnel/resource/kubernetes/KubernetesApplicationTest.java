@@ -32,12 +32,11 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -493,11 +492,16 @@ class KubernetesApplicationTest {
                 Arrays.asList(
                         "Mixed_Name",
                         "---",
+                        "",
+                        "???",
                         "an-application-with-a-name-that-is-longer-than-the-kubernetes-resource-name-limit")) {
             String id = KubernetesResourceIdentity.newId(name);
             assertTrue(id.matches("[a-z0-9]([a-z0-9-]*[a-z0-9])?"));
             assertTrue(id.length() < 50);
         }
+        // Names without any usable characters still produce a stable, usable prefix.
+        assertTrue(KubernetesResourceIdentity.newId("").startsWith("seatunnel-"));
+        assertTrue(KubernetesResourceIdentity.newId("???").startsWith("seatunnel-"));
     }
 
     private static ApplicationSpecification specification() {
@@ -522,13 +526,14 @@ class KubernetesApplicationTest {
 
     private static KubernetesJob job(V1JobStatus status) {
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app",
-                                SeatunnelKubernetesApplicationCli.class.getName(),
-                                KubernetesApplicationParameters.from(
-                                        specification(),
-                                        ReadonlyConfig.fromMap(new HashMap<>(options()))))
-                        .getApplicationJob();
+                (KubernetesJob)
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app",
+                                        SeatunnelKubernetesApplicationCli.class.getName(),
+                                        KubernetesApplicationConfig.from(
+                                                specification(),
+                                                ReadonlyConfig.fromMap(new HashMap<>(options()))))
+                                .get(0);
         job.getInternalResource().getMetadata().setUid("uid-1");
         job.getInternalResource().setStatus(status);
         return job;

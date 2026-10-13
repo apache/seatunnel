@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
@@ -31,21 +31,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * Carries the localized application specification, including the inline job configuration, in the
- * master container environment.
+ * Injects the localized application specification into the master container environment.
  *
- * <p>The value is a Base64 encoded properties document, so submission never requires the permission
- * to create a Secret. A mounted {@code job.conf} from the configured application Secret replaces
- * the inline job configuration on the master. Only the master reads this specification, so this
- * decorator is part of the master chain and absent from the worker chain.
+ * <p>The specification, including the inline job configuration, is Base64 encoded in the {@link
+ * KubernetesConstants#SPECIFICATION_ENV} environment variable, so submission never requires the
+ * permission to create a Secret. A mounted {@code job.conf} from the configured application Secret
+ * replaces the inline job configuration on the master. Only the master reads this specification, so
+ * this decorator is part of the master decorator list and absent from the worker list.
  */
-public final class InlineSpecificationDecorator extends AbstractKubernetesStepDecorator {
+public final class SpecificationEnvDecorator extends AbstractKubernetesStepDecorator {
     /** Linux limits one environment string to 128 KiB; leave room for the launcher overhead. */
     private static final int MAX_SPECIFICATION_LENGTH = 96 * 1024;
 
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
 
-    public InlineSpecificationDecorator(KubernetesApplicationParameters parameters) {
+    public SpecificationEnvDecorator(KubernetesApplicationConfig parameters) {
         this.parameters = parameters;
     }
 

@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvFromReference;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesEnvironmentVariable;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvFromReference;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvironmentVariable;
 
 import io.kubernetes.client.openapi.models.V1ConfigMapEnvSource;
 import io.kubernetes.client.openapi.models.V1ConfigMapKeySelector;
@@ -39,9 +39,9 @@ import io.kubernetes.client.openapi.models.V1SecretKeySelector;
  * are resolved inside the Pod even when the submitting host cannot see those values.
  */
 public final class EnvironmentDecorator extends AbstractKubernetesStepDecorator {
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
 
-    public EnvironmentDecorator(KubernetesApplicationParameters parameters) {
+    public EnvironmentDecorator(KubernetesApplicationConfig parameters) {
         this.parameters = parameters;
     }
 

@@ -23,11 +23,15 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.PodDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
@@ -35,6 +39,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesW
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.kubernetes.client.openapi.models.V1Pod;
+
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -59,7 +66,7 @@ public final class KubernetesResourceManagerDriver
     private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
 
     private final KubernetesClient api;
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
     private final String applicationId;
     private final String clusterName;
     /**
@@ -112,7 +119,7 @@ public final class KubernetesResourceManagerDriver
      */
     public KubernetesResourceManagerDriver(
             KubernetesClient api,
-            KubernetesApplicationParameters parameters,
+            KubernetesApplicationConfig parameters,
             String applicationId,
             String clusterName) {
         this.api = api;
@@ -209,9 +216,7 @@ public final class KubernetesResourceManagerDriver
             return;
         }
         try {
-            api.createPod(
-                    KubernetesApplicationFactory.buildWorkerPod(
-                            job, name, parameters, resources, clusterName, masterAddress.get()));
+            api.createPod(assembleWorkerPod(name, resources));
             LOG.debug("Created worker pod {}", name);
             if (running.get() && future.complete(worker)) {
                 pending.remove(name);
@@ -224,6 +229,31 @@ public final class KubernetesResourceManagerDriver
         } catch (Exception e) {
             future.completeExceptionally(e);
         }
+    }
+
+    /**
+     * Assembles one worker Pod through the ordered decorator list.
+     *
+     * <p>The first step creates the Pod and every later step adds the features shared with the
+     * master, so worker and master Pods cannot drift apart.
+     *
+     * @param name generated worker Pod name
+     * @param resources per-worker resource and slot settings
+     * @return worker Pod ready to create
+     */
+    KubernetesPod assembleWorkerPod(String name, WorkerSpecification resources) {
+        List<KubernetesStepDecorator> decorators =
+                Arrays.asList(
+                        new PodDecorator(
+                                job, name, parameters, resources, clusterName, masterAddress.get()),
+                        new EnvironmentDecorator(parameters),
+                        new SecretDecorator(job.getName(), parameters),
+                        new ConfigMapDecorator(job.getName(), parameters));
+        V1Pod pod = null;
+        for (KubernetesStepDecorator decorator : decorators) {
+            pod = decorator.decoratePod(pod);
+        }
+        return new KubernetesPod(pod);
     }
 
     /**

@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.services.HeadlessClusterIPService;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 
+import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V1ServicePort;
+import io.kubernetes.client.openapi.models.V1ServiceSpec;
 
 import java.util.Collections;
 import java.util.List;
@@ -36,10 +40,9 @@ import java.util.List;
  */
 public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
 
-    public HeadlessServiceDecorator(
-            String applicationId, KubernetesApplicationParameters parameters) {
+    public HeadlessServiceDecorator(String applicationId, KubernetesApplicationConfig parameters) {
         this.applicationId = applicationId;
         this.parameters = parameters;
     }
@@ -47,12 +50,27 @@ public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecora
     @Override
     public List<KubernetesResource<?>> buildAccompanyingResources() {
         V1ObjectMeta metadata =
-                KubernetesResourceIdentity.metadata(applicationId, KubernetesConstants.MASTER_ROLE);
+                KubernetesResourceIdentity.metadata(
+                        applicationId, applicationId, KubernetesConstants.MASTER_ROLE);
+        int port = parameters.getSpecification().getMasterPort();
         return Collections.singletonList(
-                new HeadlessClusterIPService(
-                        metadata,
-                        metadata.getLabels(),
-                        KubernetesConstants.HAZELCAST_PORT_NAME,
-                        parameters.getSpecification().getMasterPort()));
+                new KubernetesService(
+                        new V1Service()
+                                .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                                .kind(KubernetesConstants.SERVICE_KIND)
+                                .metadata(metadata)
+                                .spec(
+                                        new V1ServiceSpec()
+                                                .clusterIP(KubernetesConstants.HEADLESS_CLUSTER_IP)
+                                                .publishNotReadyAddresses(true)
+                                                .selector(metadata.getLabels())
+                                                .addPortsItem(
+                                                        new V1ServicePort()
+                                                                .name(
+                                                                        KubernetesConstants
+                                                                                .HAZELCAST_PORT_NAME)
+                                                                .port(port)
+                                                                .targetPort(
+                                                                        new IntOrString(port))))));
     }
 }

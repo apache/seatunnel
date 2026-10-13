@@ -19,7 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 /** Options for isolated, fixed-size Kubernetes applications. */
 public final class KubernetesOptions {
@@ -85,6 +85,12 @@ public final class KubernetesOptions {
                     .defaultValue(KubernetesConstants.CHECKPOINT_DIRECTORY)
                     .withDescription(
                             "Absolute container path where the existing checkpoint PVC is mounted on the master.");
+    public static final Option<String> JOB_CONFIG_FILE =
+            Options.key("kubernetes.job-config-file")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional job configuration file that replaces the inline job configuration before parsing: a file name under <seatunnel-home>/config (ConfigMap-friendly) or an absolute path such as <secret-directory>/job.conf; unset keeps the submitted -c file.");
     public static final Option<String> MASTER_HAZELCAST_CONFIG =
             Options.key("kubernetes.master.hazelcast-config")
                     .stringType()

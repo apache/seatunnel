@@ -18,9 +18,9 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
 import io.kubernetes.client.custom.IntOrString;
@@ -43,8 +43,8 @@ import io.kubernetes.client.openapi.models.V1VolumeMount;
  * Creates the application's owner Job, including the complete master Pod template: container, JVM
  * command, pod-address environment, probes and the optional checkpoint claim.
  *
- * <p>This step starts the master chain: it creates the resource every later step decorates and
- * rejects a Job passed in by an earlier step. The returned Job is suspended, so the client can
+ * <p>This step starts the master list: it creates the resource every later step decorates and
+ * rejects a Job passed in by an earlier step. The created Job is suspended, so the client can
  * create the accompanying resources before the master starts; the retention period removes the Job
  * after its terminal state.
  */
@@ -53,7 +53,7 @@ public final class JobDecorator extends AbstractWorkloadDecorator {
     private final String mainClass;
 
     public JobDecorator(
-            String applicationId, String mainClass, KubernetesApplicationParameters parameters) {
+            String applicationId, String mainClass, KubernetesApplicationConfig parameters) {
         super(parameters);
         this.applicationId = applicationId;
         this.mainClass = mainClass;
@@ -62,7 +62,7 @@ public final class JobDecorator extends AbstractWorkloadDecorator {
     @Override
     public KubernetesJob decorateJob(KubernetesJob job) {
         if (job != null) {
-            throw new IllegalStateException("The Job step must start the master decorator chain");
+            throw new IllegalStateException("The Job step must start the master decorator list");
         }
         V1PodSpec masterSpec = masterPod();
         V1ObjectMeta masterMetadata =
@@ -82,7 +82,8 @@ public final class JobDecorator extends AbstractWorkloadDecorator {
                         .ttlSecondsAfterFinished(parameters.getRetentionSeconds())
                         .template(template);
         V1ObjectMeta metadata =
-                KubernetesResourceIdentity.metadata(applicationId, KubernetesConstants.MASTER_ROLE);
+                KubernetesResourceIdentity.metadata(
+                        applicationId, applicationId, KubernetesConstants.MASTER_ROLE);
         return new KubernetesJob(
                 new V1Job()
                         .apiVersion(KubernetesConstants.BATCH_API_VERSION)

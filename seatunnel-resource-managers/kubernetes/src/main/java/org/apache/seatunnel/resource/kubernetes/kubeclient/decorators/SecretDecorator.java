@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 
@@ -45,9 +45,9 @@ import java.util.List;
  */
 public final class SecretDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
 
-    public SecretDecorator(String applicationId, KubernetesApplicationParameters parameters) {
+    public SecretDecorator(String applicationId, KubernetesApplicationConfig parameters) {
         this.applicationId = applicationId;
         this.parameters = parameters;
     }
@@ -74,6 +74,7 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
                                 .type(KubernetesConstants.OPAQUE_SECRET_TYPE)
                                 .metadata(
                                         KubernetesResourceIdentity.metadata(
+                                                applicationId,
                                                 parameters.resolvedApplicationSecretName(
                                                         applicationId),
                                                 KubernetesConstants.CONFIGURATION_ROLE))

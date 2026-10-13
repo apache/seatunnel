@@ -27,21 +27,25 @@ import java.util.List;
 /**
  * One composable feature of an application deployment.
  *
- * <p>A decorator may transform Pod specifications, contribute accompanying Kubernetes resources
- * that must exist next to the Job, or both. Decorators are applied in list order. Accompanying
- * resources are created after the owner Job and always receive its server-assigned owner reference,
- * so deleting the Job removes exactly the resources created for this application.
+ * <p>A decorator may create or transform the owner Job with its master Pod, transform a worker Pod,
+ * contribute accompanying Kubernetes resources that must exist next to the Job, or combine these.
+ * The assembling caller applies decorators in list order. Accompanying resources are created after
+ * the owner Job and always receive its server-assigned owner reference, so deleting the Job removes
+ * exactly the resources created for this deployment.
  *
- * <p>The owning factory composes one ordered chain per role and reuses shared decorators in both: a
- * decorator never branches on the Pod role, it is simply either part of a chain or not. The master
- * chain also carries the features that contribute accompanying resources.
+ * <p>The caller composes one ordered list per role and reuses shared decorators in both: a
+ * decorator never branches on the Pod role, it is simply either part of a list or not. The list
+ * applied to the owner Job also carries the features that contribute accompanying resources.
  */
 public interface KubernetesStepDecorator {
 
     /**
-     * Applies this feature to the owner Job, including its master Pod template.
+     * Applies this feature to the owner Job, including its master Pod.
      *
-     * @param job owner Job being built
+     * <p>The first step of the list creates the Job; a feature step that needs the Job rejects a
+     * {@code null} input.
+     *
+     * @param job owner Job, or {@code null} for the step that creates it
      * @return the Job containing this feature's changes
      */
     KubernetesJob decorateJob(KubernetesJob job);
@@ -56,6 +60,9 @@ public interface KubernetesStepDecorator {
 
     /**
      * Builds resources that support this feature and must exist next to the owner Job.
+     *
+     * <p>The caller that assembles the decorator list appends the returned resources to the
+     * application resources, in creation order.
      *
      * @return accompanying resources without owner references
      */

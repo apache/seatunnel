@@ -17,25 +17,22 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
-import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import org.junit.jupiter.api.Test;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V1ServiceSpec;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
@@ -46,9 +43,7 @@ import okio.Buffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -221,7 +216,6 @@ class DefaultKubernetesClientTest {
                                                             .build();
                                                 })
                                         .build());
-        KubernetesApplicationParameters parameters = parameters();
         KubernetesSecret secret =
                 new KubernetesSecret(
                         new V1Secret()
@@ -237,20 +231,28 @@ class DefaultKubernetesClientTest {
                                 .metadata(new V1ObjectMeta().name("app-runtime"))
                                 .data(Collections.singletonMap("seatunnel.yaml", "engine { }")));
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app",
-                                SeatunnelKubernetesApplicationCli.class.getName(),
-                                parameters)
-                        .getApplicationJob();
+                new KubernetesJob(
+                        new V1Job()
+                                .apiVersion("batch/v1")
+                                .kind("Job")
+                                .metadata(new V1ObjectMeta().name("app")));
+        KubernetesService service =
+                new KubernetesService(
+                        new V1Service()
+                                .apiVersion("v1")
+                                .kind("Service")
+                                .metadata(new V1ObjectMeta().name("app-master"))
+                                .spec(new V1ServiceSpec().clusterIP("None")));
         job.getInternalResource().getMetadata().setUid("owner-uid");
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             api.createAccompanyingResources(
-                    job, Arrays.<KubernetesResource<?>>asList(secret, configMap));
+                    job, Arrays.<KubernetesResource<?>>asList(secret, configMap, service));
         }
         assertEquals(
                 Arrays.asList(
                         "POST /api/v1/namespaces/test/secrets",
-                        "POST /api/v1/namespaces/test/configmaps"),
+                        "POST /api/v1/namespaces/test/configmaps",
+                        "POST /api/v1/namespaces/test/services"),
                 requests);
         assertTrue(postedBody.get().contains("\"uid\":\"owner-uid\""));
     }
@@ -300,14 +302,5 @@ class DefaultKubernetesClientTest {
                                         request.contains("/secrets")
                                                 || request.contains("/services")),
                 requests.toString());
-    }
-
-    private static KubernetesApplicationParameters parameters() {
-        Map<String, String> options = new HashMap<>();
-        options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
-        ApplicationSpecification specification =
-                SeatunnelApplicationConfig.parse("env {}", options);
-        return KubernetesApplicationParameters.from(
-                specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
     }
 }

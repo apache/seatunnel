@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
@@ -47,9 +47,9 @@ import java.util.Set;
  */
 public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
-    private final KubernetesApplicationParameters parameters;
+    private final KubernetesApplicationConfig parameters;
 
-    public ConfigMapDecorator(String applicationId, KubernetesApplicationParameters parameters) {
+    public ConfigMapDecorator(String applicationId, KubernetesApplicationConfig parameters) {
         this.applicationId = applicationId;
         this.parameters = parameters;
     }
@@ -90,6 +90,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
                                         .kind(KubernetesConstants.CONFIG_MAP_KIND)
                                         .metadata(
                                                 KubernetesResourceIdentity.metadata(
+                                                        applicationId,
                                                         resolvedName(entry),
                                                         KubernetesConstants.CONFIGURATION_ROLE))
                                         .data(new LinkedHashMap<>(entry.getData()))));

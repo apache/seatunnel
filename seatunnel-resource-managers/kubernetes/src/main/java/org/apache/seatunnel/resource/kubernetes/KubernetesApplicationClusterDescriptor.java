@@ -28,16 +28,22 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesConfigMapEntry;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.JobDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SpecificationEnvDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +51,11 @@ import org.slf4j.LoggerFactory;
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.ApiException;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -84,20 +93,17 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(specification, options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(specification, options);
         String id = KubernetesResourceIdentity.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
         validateUserManagedResources(parameters);
-        KubernetesApplicationSpecification applicationSpecification =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                        id, mainClass, parameters);
+        List<KubernetesResource<?>> application = assembleApplication(id, mainClass, parameters);
         KubernetesJob job = null;
         try {
             LOG.debug("Creating owner Job {} and its accompanying resources", id);
-            job = api.createJob(applicationSpecification.getApplicationJob());
-            api.createAccompanyingResources(
-                    job, applicationSpecification.getAccompanyingResources());
+            job = api.createJob((KubernetesJob) application.remove(0));
+            api.createAccompanyingResources(job, application);
             LOG.debug("Starting Job {}", id);
             api.startJob(job.getName());
             return job.getName();
@@ -116,6 +122,39 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     }
 
     /**
+     * Assembles the application's resources through the ordered decorator list.
+     *
+     * <p>The first step creates the suspended owner Job and every later step decorates it or
+     * contributes an accompanying resource. The owner Job is returned first because the caller must
+     * create it before the resources that carry its owner reference.
+     *
+     * @param id generated application Job name
+     * @param mainClass master entrypoint class
+     * @param parameters resolved application and Kubernetes settings
+     * @return the application's resources in creation order: the owner Job first, then its
+     *     accompanying resources
+     */
+    static List<KubernetesResource<?>> assembleApplication(
+            String id, String mainClass, KubernetesApplicationConfig parameters) {
+        List<KubernetesStepDecorator> decorators =
+                Arrays.asList(
+                        new JobDecorator(id, mainClass, parameters),
+                        new SpecificationEnvDecorator(parameters),
+                        new EnvironmentDecorator(parameters),
+                        new SecretDecorator(id, parameters),
+                        new ConfigMapDecorator(id, parameters),
+                        new HeadlessServiceDecorator(id, parameters));
+        KubernetesJob job = null;
+        List<KubernetesResource<?>> resources = new ArrayList<>();
+        for (KubernetesStepDecorator decorator : decorators) {
+            job = decorator.decorateJob(job);
+            resources.addAll(decorator.buildAccompanyingResources());
+        }
+        resources.add(0, job);
+        return resources;
+    }
+
+    /**
      * Verifies user-managed ConfigMaps before the first application resource is created.
      *
      * <p>Every {@code kubernetes.configmap.<entry>} reference declares which keys it mounts, so
@@ -125,7 +164,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      * @param parameters resolved application settings
      * @throws Exception if a referenced ConfigMap or one of its mounted keys is missing
      */
-    private void validateUserManagedResources(KubernetesApplicationParameters parameters)
+    private void validateUserManagedResources(KubernetesApplicationConfig parameters)
             throws Exception {
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.parameters;
+package org.apache.seatunnel.resource.kubernetes.config;
 
 import lombok.Getter;
 

@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
+package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/** Stable Kubernetes names and field values shared by application resource factories. */
+/**
+ * Stable Kubernetes names and field values shared by the application client, the resource manager
+ * and the decorator chain.
+ */
 public final class KubernetesConstants {
     /** API group versions used by core and batch resources. */
     public static final String CORE_API_VERSION = "v1";
@@ -116,6 +119,9 @@ public final class KubernetesConstants {
 
     public static final String POD_IP_FIELD_PATH = "status.podIP";
     public static final String HAZELCAST_PORT_NAME = "hazelcast";
+    /** Cluster IP of a headless Service: Kubernetes publishes the Pod addresses directly. */
+    public static final String HEADLESS_CLUSTER_IP = "None";
+
     public static final int APPLICATION_SECRET_MODE = 0400;
     public static final long TERMINATION_GRACE_PERIOD_SECONDS = 120L;
 

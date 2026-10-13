@@ -33,7 +33,7 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.codehaus.plexus.util.FileUtils;
@@ -67,6 +67,7 @@ import io.kubernetes.client.openapi.models.V1ResourceQuota;
 import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1Service;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.Yaml;
@@ -188,6 +189,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         Files.readAllBytes(
                                 Paths.get(PROJECT_ROOT_PATH, "config", "log4j2_client.properties")),
                         StandardCharsets.UTF_8));
+        // Valid environment-variable name proving envFrom values resolve job placeholders.
+        runtimeConfiguration.put("E2E_CM_ENV", "configmap-env");
         // No hardcoded runtime files: take them from the distribution configuration.
         for (String name :
                 Arrays.asList(
@@ -321,6 +324,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         String createdSecret = "seatunnel-application-e2e-secret";
         try (KubernetesApplicationClient application = deployApplication("configuration")) {
             String generatedConfigMap = "seatunnel-application-e2e-generated";
+            String defaultConfigMap = application.getClusterId() + "-generated-default";
             try {
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
@@ -336,10 +340,24 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .getValueFrom()
                                 .getConfigMapKeyRef()
                                 .getName());
+                assertEquals("literal-value", environment(master, "E2E_LITERAL").getValue());
+                assertTrue(envFromConfigMap(master, RUNTIME_CONFIG_MAP));
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
+                assertTrue(
+                        mounted(
+                                master,
+                                "/opt/seatunnel/config/application-e2e-default.properties"));
                 assertTrue(mounted(master, "/opt/seatunnel/custom/seatunnel.yaml"));
                 assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/jvm_options"));
+                V1Service service =
+                        core.readNamespacedService(application.getClusterId(), namespace, null);
+                assertEquals("None", service.getSpec().getClusterIP());
+                assertTrue(service.getSpec().getPublishNotReadyAddresses());
+                assertEquals(
+                        application.getClusterId(),
+                        service.getSpec().getSelector().get(APPLICATION_LABEL));
+                assertEquals("master", service.getSpec().getSelector().get(ROLE_LABEL));
                 assertTrue(
                         master.getSpec()
                                 .getContainers()
@@ -374,8 +392,18 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
                 for (V1Pod worker : workers(application)) {
                     assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
+                    assertTrue(
+                            mounted(
+                                    worker,
+                                    "/opt/seatunnel/config/application-e2e-default.properties"));
                     assertTrue(mounted(worker, "/opt/seatunnel/custom/seatunnel.yaml"));
                     assertTrue(mounted(worker, "/var/run/seatunnel/secrets"));
+                    assertEquals(
+                            createdSecret,
+                            environment(worker, "E2E_JOB_MODE")
+                                    .getValueFrom()
+                                    .getSecretKeyRef()
+                                    .getName());
                     assertTrue(
                             worker.getSpec()
                                     .getContainers()
@@ -399,8 +427,14 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 assertEquals(
                         "source=kubernetes-configmap",
                         generated.getData().get("application-e2e.properties"));
+                V1ConfigMap generatedDefault =
+                        core.readNamespacedConfigMap(defaultConfigMap, namespace, null);
+                assertFalse(generatedDefault.getMetadata().getOwnerReferences().isEmpty());
+                assertEquals(
+                        "source=default-name",
+                        generatedDefault.getData().get("application-e2e-default.properties"));
                 // Substitution is resolved from the Pod environment; the batch job only succeeds
-                // when job.mode and parallelism are resolved on the master.
+                // when job.mode, parallelism and the envFrom value are resolved on the master.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
                 deployer.cancelApplication(application.getClusterId());
@@ -422,9 +456,83 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                                                 generatedConfigMap,
                                                                 namespace,
                                                                 null)));
+                                assertTrue(
+                                        missing(
+                                                () ->
+                                                        core.readNamespacedConfigMap(
+                                                                defaultConfigMap,
+                                                                namespace,
+                                                                null)));
                             });
             // The referenced ConfigMap is user-owned and must survive cancellation.
             assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
+        }
+    }
+
+    @Test
+    void mountedJobConfigurationReplacesTheSubmittedOne() throws Exception {
+        String createdSecret = "seatunnel-application-e2e-job-conf";
+        try (KubernetesApplicationClient application =
+                deployApplication("configuration-job-conf")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                assertTrue(mounted(master, "/etc/seatunnel-secrets/application"));
+                V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
+                assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());
+                assertTrue(secret.getData().containsKey("job.conf"));
+                // The submitted job.conf refers to a sink that does not exist, so the batch job
+                // can only succeed when the mounted job.conf replaced it before parsing.
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+            } finally {
+                deployer.cancelApplication(application.getClusterId());
+            }
+            awaitAllResourcesRemoved(application);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    assertTrue(
+                                            missing(
+                                                    () ->
+                                                            core.readNamespacedSecret(
+                                                                    createdSecret,
+                                                                    namespace,
+                                                                    null))));
+        }
+    }
+
+    @Test
+    void configMapJobConfigurationReplacesTheSubmittedOne() throws Exception {
+        String createdConfigMap = "seatunnel-application-e2e-job-conf";
+        try (KubernetesApplicationClient application =
+                deployApplication("configuration-job-conf-configmap")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                assertTrue(mounted(master, "/opt/seatunnel/config/job.conf"));
+                V1ConfigMap configMap =
+                        core.readNamespacedConfigMap(createdConfigMap, namespace, null);
+                assertFalse(configMap.getMetadata().getOwnerReferences().isEmpty());
+                assertTrue(configMap.getData().containsKey("job.conf"));
+                // The submitted job.conf refers to a sink that does not exist, so the batch job
+                // can only succeed when the mounted ConfigMap job.conf replaced it.
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+            } finally {
+                deployer.cancelApplication(application.getClusterId());
+            }
+            awaitAllResourcesRemoved(application);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    assertTrue(
+                                            missing(
+                                                    () ->
+                                                            core.readNamespacedConfigMap(
+                                                                    createdConfigMap,
+                                                                    namespace,
+                                                                    null))));
         }
     }
 
@@ -1042,6 +1150,15 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         source ->
                                 source.getSecretRef() != null
                                         && secretName.equals(source.getSecretRef().getName()));
+    }
+
+    private static boolean envFromConfigMap(V1Pod pod, String configMapName) {
+        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
+                .anyMatch(
+                        source ->
+                                source.getConfigMapRef() != null
+                                        && configMapName.equals(
+                                                source.getConfigMapRef().getName()));
     }
 
     private static boolean mounted(V1Pod pod, String path) {

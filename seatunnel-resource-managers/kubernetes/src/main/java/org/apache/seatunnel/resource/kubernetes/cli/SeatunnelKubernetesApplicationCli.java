@@ -28,10 +28,10 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.KubernetesResourceManagerDriver;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,8 +57,8 @@ public final class SeatunnelKubernetesApplicationCli {
         try {
             String id = applicationId(args);
             LOG.info("Running Kubernetes application {}", id);
-            KubernetesApplicationParameters parameters =
-                    KubernetesApplicationParameters.read(
+            KubernetesApplicationConfig parameters =
+                    KubernetesApplicationConfig.read(
                             System.getenv(KubernetesConstants.SPECIFICATION_ENV));
             ApplicationSpecification specification = parameters.getSpecification();
             LOG.debug("Loaded application specification {}", specification.getName());
@@ -138,7 +138,7 @@ public final class SeatunnelKubernetesApplicationCli {
      * @return driver that owns the in-cluster SDK connection
      */
     private static KubernetesResourceManagerDriver createDriver(
-            KubernetesApplicationParameters parameters, String id, String clusterName)
+            KubernetesApplicationConfig parameters, String id, String clusterName)
             throws Exception {
         return new KubernetesResourceManagerDriver(
                 KubernetesClientFactory.create(

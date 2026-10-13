@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.parameters;
+package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import lombok.Getter;
 
@@ -51,16 +53,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Validated, strongly typed Kubernetes parameters for one application.
+ * Validated, strongly typed Kubernetes configuration for one application.
  *
  * <p>{@link KubernetesOptions} declares the public configuration contract. This class parses
- * composite values and enforces relationships between options. Resource factories consume the
+ * composite values and enforces relationships between options. The decorator steps consume the
  * resolved values and contain no configuration parsing logic.
  */
 @Getter
-public final class KubernetesApplicationParameters {
-    private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
-    private static final String ROLE_LABEL = "seatunnel.apache.org/role";
+public final class KubernetesApplicationConfig {
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
     private static final String SECRET_DATA_PREFIX = "kubernetes.secret.data.";
     private static final String CONFIG_MAP_PREFIX = "kubernetes.configmap.";
 
@@ -80,6 +81,7 @@ public final class KubernetesApplicationParameters {
     private final String jvmOptions;
     private final String seatunnelConfigFile;
     private final String log4jConfigFile;
+    private final String jobConfigFile;
     private final String applicationSecretRef;
     private final String applicationSecretName;
     private final Map<String, String> applicationSecretData;
@@ -95,7 +97,7 @@ public final class KubernetesApplicationParameters {
     private final Map<String, String> masterNodeSelector;
     private final Map<String, String> workerNodeSelector;
 
-    private KubernetesApplicationParameters(
+    private KubernetesApplicationConfig(
             ApplicationSpecification specification, ReadonlyConfig options) {
         this.specification = specification;
         this.namespace = requireNonBlank(options, KubernetesOptions.NAMESPACE);
@@ -120,6 +122,7 @@ public final class KubernetesApplicationParameters {
         this.jvmOptions = jvmOptionsFile(options, KubernetesOptions.JVM_OPTIONS, seatunnelHome);
         this.seatunnelConfigFile = seatunnelConfigFile(options, seatunnelHome);
         this.log4jConfigFile = log4jConfigFile(options, seatunnelHome);
+        this.jobConfigFile = resolveJobConfigFile(options, seatunnelHome);
         Map<String, String> rawOptions = rawOptions(options);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
@@ -151,9 +154,9 @@ public final class KubernetesApplicationParameters {
      * @return parsed Kubernetes application settings
      * @throws IllegalArgumentException if an option is invalid or overrides an ownership label
      */
-    public static KubernetesApplicationParameters from(
+    public static KubernetesApplicationConfig from(
             ApplicationSpecification specification, ReadonlyConfig options) {
-        return new KubernetesApplicationParameters(specification, options);
+        return new KubernetesApplicationConfig(specification, options);
     }
 
     /**
@@ -167,7 +170,7 @@ public final class KubernetesApplicationParameters {
      * @return parsed Kubernetes application settings
      * @throws IOException if the file cannot be read or decoded
      */
-    public static KubernetesApplicationParameters read(Path path) throws IOException {
+    public static KubernetesApplicationConfig read(Path path) throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
@@ -178,26 +181,32 @@ public final class KubernetesApplicationParameters {
     /**
      * Reads the master's Base64 encoded localized specification.
      *
-     * <p>When the configured application Secret contains {@code job.conf} in {@code
-     * kubernetes.secret-directory}, it replaces the inline job configuration.
+     * <p>When the file resolved from {@code kubernetes.job-config-file} exists in the Pod, it
+     * replaces the inline job configuration. By default that is {@code job.conf} inside the mounted
+     * application Secret; a ConfigMap key mounted at an absolute path works the same way.
      *
      * @param encodedSpecification value of {@link
-     *     org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants#SPECIFICATION_ENV}
+     *     org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants#SPECIFICATION_ENV}
      * @return parsed Kubernetes application settings
      * @throws IOException if the specification is missing, malformed or cannot be read
      */
-    public static KubernetesApplicationParameters read(String encodedSpecification)
-            throws IOException {
+    public static KubernetesApplicationConfig read(String encodedSpecification) throws IOException {
         Properties properties = decode(encodedSpecification);
         ReadonlyConfig options = ReadonlyConfig.fromMap(kubernetesOptions(properties));
-        Path mountedJobConfig =
-                Paths.get(
-                        options.get(KubernetesOptions.SECRET_DIRECTORY),
-                        KubernetesConstants.JOB_CONFIG_FILE);
-        if (Files.isRegularFile(mountedJobConfig)) {
-            properties.setProperty(
-                    SeatunnelApplicationConfig.JOB_CONFIG_KEY,
-                    new String(Files.readAllBytes(mountedJobConfig), StandardCharsets.UTF_8));
+        String jobConfigFile =
+                resolveJobConfigFile(options, options.get(KubernetesOptions.SEATUNNEL_HOME));
+        if (jobConfigFile != null) {
+            Path mountedJobConfig = Paths.get(jobConfigFile);
+            if (Files.isRegularFile(mountedJobConfig)) {
+                properties.setProperty(
+                        SeatunnelApplicationConfig.JOB_CONFIG_KEY,
+                        new String(Files.readAllBytes(mountedJobConfig), StandardCharsets.UTF_8));
+            } else {
+                LOG.warn(
+                        "Configured {} {} does not exist; using the inline job configuration",
+                        KubernetesOptions.JOB_CONFIG_FILE.key(),
+                        jobConfigFile);
+            }
         }
         return from(SeatunnelApplicationConfig.fromProperties(properties), options);
     }
@@ -220,7 +229,7 @@ public final class KubernetesApplicationParameters {
         return properties;
     }
 
-    private static KubernetesApplicationParameters read(Properties properties) throws IOException {
+    private static KubernetesApplicationConfig read(Properties properties) throws IOException {
         return from(
                 SeatunnelApplicationConfig.fromProperties(properties),
                 ReadonlyConfig.fromMap(kubernetesOptions(properties)));
@@ -240,9 +249,9 @@ public final class KubernetesApplicationParameters {
      * Writes only resolved runtime settings, never the submitter's kubeconfig or arbitrary
      * overrides.
      *
-     * <p>The resource factory stores this content in the application-owned Secret and mounts it
-     * read-only on the master. Common fields and the generated job ID come from the specification;
-     * the explicit fields below are the Kubernetes settings needed after submission.
+     * <p>The master reads this content from its container environment to recreate the settings it
+     * needs when it creates workers. Common fields and the generated job ID come from the
+     * specification; the explicit fields below are the Kubernetes settings needed after submission.
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
@@ -255,6 +264,9 @@ public final class KubernetesApplicationParameters {
         properties.setProperty(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome);
         properties.setProperty(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), checkpointDirectory);
         properties.setProperty(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory);
+        if (jobConfigFile != null) {
+            properties.setProperty(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile);
+        }
         if (masterHazelcastConfig != null) {
             properties.setProperty(
                     KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), masterHazelcastConfig);
@@ -769,6 +781,42 @@ public final class KubernetesApplicationParameters {
     }
 
     /**
+     * Resolves the container path whose file replaces the inline job configuration.
+     *
+     * <p>Unset or empty keeps the submitted {@code -c} file: the option defaults to {@code null}
+     * and performs no replacement. A file name resolves under {@code <seatunnel-home>/config} (the
+     * ConfigMap-friendly form, no Secret permission needed) and an absolute path supports any
+     * mounted file, for example {@code job.conf} inside the application Secret directory.
+     *
+     * @param options resolved deployment settings
+     * @param seatunnelHome distribution home used for relative file names
+     * @return absolute job configuration path, or {@code null} when the replacement is disabled
+     */
+    private static String resolveJobConfigFile(ReadonlyConfig options, String seatunnelHome) {
+        String value = options.get(KubernetesOptions.JOB_CONFIG_FILE);
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        if (value.startsWith("/")) {
+            if (value.contains(":")) {
+                throw new IllegalArgumentException(
+                        KubernetesOptions.JOB_CONFIG_FILE.key() + " must not contain ':'");
+            }
+            return value;
+        }
+        if (!value.matches("[A-Za-z0-9._-]+")) {
+            throw new IllegalArgumentException(
+                    KubernetesOptions.JOB_CONFIG_FILE.key()
+                            + " must be a file name under <seatunnel-home>/config or an absolute path");
+        }
+        return configDirectory(seatunnelHome) + value;
+    }
+
+    private static String configDirectory(String seatunnelHome) {
+        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/";
+    }
+
+    /**
      * Resolves the Log4j2 configuration file passed as {@code -Dlog4j2.configurationFile}.
      *
      * @param options resolved deployment settings
@@ -843,7 +891,8 @@ public final class KubernetesApplicationParameters {
 
     private static Map<String, String> labels(ReadonlyConfig options, Option<String> option) {
         Map<String, String> labels = pairs(options, option);
-        if (labels.containsKey(APPLICATION_LABEL) || labels.containsKey(ROLE_LABEL)) {
+        if (labels.containsKey(KubernetesConstants.APPLICATION_LABEL)
+                || labels.containsKey(KubernetesConstants.ROLE_LABEL)) {
             throw new IllegalArgumentException(
                     option.key() + " must not override SeaTunnel ownership labels");
         }

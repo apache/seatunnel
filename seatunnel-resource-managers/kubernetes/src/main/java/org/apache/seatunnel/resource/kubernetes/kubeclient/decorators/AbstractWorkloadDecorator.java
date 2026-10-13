@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import io.kubernetes.client.custom.Quantity;
 import io.kubernetes.client.openapi.models.V1Container;
@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Shared assembly for the chain steps that create the application's workload resources.
+ * Shared assembly for the decorator steps that create the application's workload resources.
  *
  * <p>{@link JobDecorator} creates the owner Job with its master Pod template and {@link
  * PodDecorator} creates the worker Pods; both extend this class so the container skeleton, the JVM
@@ -44,9 +44,9 @@ import java.util.Map;
  */
 public abstract class AbstractWorkloadDecorator extends AbstractKubernetesStepDecorator {
 
-    protected final KubernetesApplicationParameters parameters;
+    protected final KubernetesApplicationConfig parameters;
 
-    protected AbstractWorkloadDecorator(KubernetesApplicationParameters parameters) {
+    protected AbstractWorkloadDecorator(KubernetesApplicationConfig parameters) {
         this.parameters = parameters;
     }
 

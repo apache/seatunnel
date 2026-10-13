@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
+package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
@@ -29,23 +29,24 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Names, labels, selectors and ownership metadata shared by the application decorators.
+ * Identity contract of one SeaTunnel deployment: how its Kubernetes resources are named, labelled,
+ * selected and owned.
  *
- * <p>Resources themselves are created by the decorator chain; this class only describes how they
- * are named and identified, so the client, the resource manager and every decorator agree on the
- * labels used for discovery and cleanup.
+ * <p>A deployment is the owner of a set of resources; application mode is one today, a session
+ * cluster can reuse the same contract later. The id generated here becomes the workload name and
+ * the value of the ownership label every owned resource carries. The client, the in-cluster
+ * resource manager and the decorator chain all derive their selectors and metadata from this
+ * contract, so discovery and cleanup cannot drift apart.
  */
 public final class KubernetesResourceIdentity {
-    /** Identifies master and worker pods within one application. */
-    public static final String ROLE_LABEL = KubernetesConstants.ROLE_LABEL;
 
     private KubernetesResourceIdentity() {}
 
     /**
-     * Generates a fresh DNS-compatible Job name with room for generated pod suffixes.
+     * Generates a fresh DNS-compatible id with room for generated pod suffixes.
      *
-     * @param name application display name used as a sanitized prefix
-     * @return a unique application identifier suitable for Kubernetes resource names
+     * @param name display name used as a sanitized prefix
+     * @return a unique id suitable for Kubernetes resource names
      */
     public static String newId(String name) {
         String prefix =
@@ -60,59 +61,62 @@ public final class KubernetesResourceIdentity {
     }
 
     /**
-     * Selects resources belonging to one application regardless of their role.
+     * Selects every resource of one deployment regardless of its role.
      *
-     * @param id generated application Job name
-     * @return equality selector for the application's ownership label
+     * @param id generated deployment id
+     * @return equality selector for the ownership label
      */
     public static String selector(String id) {
         return KubernetesConstants.APPLICATION_LABEL + "=" + id;
     }
 
     /**
-     * Selects resources belonging to an application and specifies their role.
+     * Selects the resources of one deployment that have the given role.
      *
-     * @param id generated application Job name
+     * @param id generated deployment id
      * @param role role
-     * @return equality selector for the application's ownership label and role
+     * @return equality selector for the ownership label and role
      */
     public static String selector(String id, String role) {
-        return selector(id) + "," + ROLE_LABEL + "=" + role;
+        return selector(id) + "," + KubernetesConstants.ROLE_LABEL + "=" + role;
     }
 
     /**
-     * Builds the ownership metadata of an application-owned accompanying resource.
+     * Builds the ownership metadata of one accompanying resource of this deployment.
      *
      * <p>The owner reference is added centrally when the resource is created, because only the API
      * server knows the Job UID.
      *
+     * @param ownerId generated deployment id used as the ownership label value
      * @param name resource name
      * @param role role label distinguishing configuration objects from Pods
      * @return metadata carrying SeaTunnel's ownership labels
      */
-    public static V1ObjectMeta metadata(String name, String role) {
-        return new V1ObjectMeta().name(name).labels(ownershipLabels(name, role));
+    public static V1ObjectMeta metadata(String ownerId, String name, String role) {
+        return new V1ObjectMeta().name(name).labels(ownershipLabels(ownerId, role));
     }
 
     /**
      * Builds the metadata of the master Pod template inside the owner Job.
      *
-     * @param id generated application Job name
+     * @param ownerId generated deployment id
      * @param role role label of the Pod
      * @param customLabels user-configured labels
      * @param annotations user-configured annotations
      * @return Pod metadata without an owner reference, because the Job owns its template
      */
     public static V1ObjectMeta podMetadata(
-            String id,
+            String ownerId,
             String role,
             Map<String, String> customLabels,
             Map<String, String> annotations) {
-        return new V1ObjectMeta().labels(labels(id, role, customLabels)).annotations(annotations);
+        return new V1ObjectMeta()
+                .labels(labels(ownerId, role, customLabels))
+                .annotations(annotations);
     }
 
     /**
-     * Builds the metadata of a Pod owned by the application Job.
+     * Builds the metadata of a Pod owned by the deployment's Job.
      *
      * @param owner owner Job; its server-assigned UID is required
      * @param name Pod name
@@ -136,7 +140,7 @@ public final class KubernetesResourceIdentity {
             String id, String role, Map<String, String> customLabels) {
         Map<String, String> result = new HashMap<>();
         result.put(KubernetesConstants.APPLICATION_LABEL, id);
-        result.put(ROLE_LABEL, role);
+        result.put(KubernetesConstants.ROLE_LABEL, role);
         result.putAll(customLabels);
         return result;
     }

@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
+package org.apache.seatunnel.resource.kubernetes;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -44,6 +48,8 @@ import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V1ServicePort;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 
@@ -56,14 +62,17 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-class KubernetesApplicationFactoryTest {
+class KubernetesApplicationResourcesTest {
 
     @TempDir Path temporary;
 
@@ -74,15 +83,15 @@ class KubernetesApplicationFactoryTest {
     void preservesKubernetesImagePullPolicies(String policy) {
         Map<String, String> options = options();
         options.put(KubernetesOptions.IMAGE_PULL_POLICY.key(), policy);
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
         assertEquals(policy, parameters.getImagePullPolicy());
         assertEquals(
                 policy,
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob()
+                applicationJob(
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters))
                         .getInternalResource()
                         .getSpec()
                         .getTemplate()
@@ -100,7 +109,7 @@ class KubernetesApplicationFactoryTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification(),
                                         ReadonlyConfig.fromMap(new HashMap<>(options))));
         assertTrue(failure.getMessage().contains("kubernetes.image-pull-policy"));
@@ -112,13 +121,13 @@ class KubernetesApplicationFactoryTest {
         options.put(KubernetesOptions.CHECKPOINT_PVC.key(), "existing-checkpoints");
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env {}", options);
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "application", mainClass, parameters)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "application", mainClass, parameters));
         V1Job jobResource = job.getInternalResource();
         assertEquals(
                 "existing-checkpoints",
@@ -130,7 +139,7 @@ class KubernetesApplicationFactoryTest {
                 mount(jobResource, KubernetesConstants.CHECKPOINT_VOLUME).getMountPath());
         jobResource.getMetadata().setUid("owner-uid");
         V1Pod worker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 job,
                                 "worker",
                                 parameters,
@@ -163,13 +172,13 @@ class KubernetesApplicationFactoryTest {
         options.put("submitter.private-setting", "must-not-be-localized");
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env {}", options);
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
-        KubernetesJob job = application.getApplicationJob();
+        KubernetesJob job = applicationJob(application);
         V1Job jobResource = job.getInternalResource();
         jobResource.getMetadata().setUid("uid-1");
         assertTrue(
@@ -204,8 +213,8 @@ class KubernetesApplicationFactoryTest {
                         .getName());
         String encodedSpecification = envValue(jobResource, KubernetesConstants.SPECIFICATION_ENV);
         assertFalse(encodedSpecification.contains("must-not-be-localized"));
-        KubernetesApplicationParameters restored =
-                KubernetesApplicationParameters.read(encodedSpecification);
+        KubernetesApplicationConfig restored =
+                KubernetesApplicationConfig.read(encodedSpecification);
         assertEquals(specification.getJobId(), restored.getSpecification().getJobId());
         assertEquals(specification.getJobConfig(), restored.getSpecification().getJobConfig());
         assertEquals(
@@ -232,13 +241,13 @@ class KubernetesApplicationFactoryTest {
         assertTrue(mount(jobResource, runtimeVolume).getReadOnly());
         KubernetesService service =
                 (KubernetesService)
-                        application.getAccompanyingResources().stream()
+                        accompanyingResources(application).stream()
                                 .filter(KubernetesService.class::isInstance)
                                 .findFirst()
                                 .orElseThrow(() -> new AssertionError("Missing Service"));
         assertEquals("None", service.getInternalResource().getSpec().getClusterIP());
         KubernetesPod workerPod =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                         job,
                         "app-worker-0",
                         parameters,
@@ -290,8 +299,7 @@ class KubernetesApplicationFactoryTest {
         assertTrue(
                 worker.getSpec().getContainers().get(0).getCommand().contains("isolated-cluster"));
         assertEquals(
-                "worker",
-                worker.getMetadata().getLabels().get(KubernetesResourceIdentity.ROLE_LABEL));
+                "worker", worker.getMetadata().getLabels().get(KubernetesConstants.ROLE_LABEL));
         assertTrue(
                 jobResource
                         .getSpec()
@@ -342,16 +350,16 @@ class KubernetesApplicationFactoryTest {
     void mountsReferencedSecretWithoutCreatingResources() throws Exception {
         Map<String, String> options = options();
         options.put(KubernetesOptions.SECRET_REF.key(), "platform-secret");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
         assertTrue(
-                application.getAccompanyingResources().stream()
+                accompanyingResources(application).stream()
                         .noneMatch(KubernetesSecret.class::isInstance));
-        V1Job job = application.getApplicationJob().getInternalResource();
+        V1Job job = applicationJob(application).getInternalResource();
         assertEquals(
                 "platform-secret",
                 volume(job, KubernetesConstants.APPLICATION_VOLUME).getSecret().getSecretName());
@@ -366,24 +374,26 @@ class KubernetesApplicationFactoryTest {
         Map<String, String> options = options();
         options.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
         options.put("kubernetes.secret.data.MYSQL_PASSWORD", "top-secret");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
-        assertEquals(2, application.getAccompanyingResources().size());
+        assertEquals(2, accompanyingResources(application).size());
         KubernetesResource<?> configurationSecret =
-                application.getAccompanyingResources().stream()
+                accompanyingResources(application).stream()
                         .filter(KubernetesSecret.class::isInstance)
                         .findFirst()
                         .orElseThrow(() -> new AssertionError("Missing created Secret"));
         V1Secret secret = ((KubernetesSecret) configurationSecret).getInternalResource();
         assertEquals("job-secrets", secret.getMetadata().getName());
+        assertEquals(
+                "app", secret.getMetadata().getLabels().get(KubernetesConstants.APPLICATION_LABEL));
         assertEquals("Opaque", secret.getType());
         assertEquals("top-secret", secret.getStringData().get("MYSQL_PASSWORD"));
         assertNull(secret.getMetadata().getOwnerReferences());
-        V1Job job = application.getApplicationJob().getInternalResource();
+        V1Job job = applicationJob(application).getInternalResource();
         assertEquals(
                 "job-secrets",
                 volume(job, KubernetesConstants.APPLICATION_VOLUME).getSecret().getSecretName());
@@ -397,7 +407,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(conflicting))));
         Map<String, String> nameOnly = options();
@@ -405,7 +415,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(nameOnly))));
     }
 
@@ -417,13 +427,13 @@ class KubernetesApplicationFactoryTest {
         options.put("kubernetes.env.FROM_CONFIG", "configmap:runtime-cm/path");
         options.put("kubernetes.env-from.secret", "extra-secret");
         options.put("kubernetes.env-from.configmap", "extra-config");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
-        KubernetesJob applicationJob = application.getApplicationJob();
+        KubernetesJob applicationJob = applicationJob(application);
         V1Job job = applicationJob.getInternalResource();
         List<V1EnvVar> masterEnvironment =
                 job.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
@@ -448,7 +458,7 @@ class KubernetesApplicationFactoryTest {
         assertEquals("extra-secret", masterEnvFrom.get(0).getSecretRef().getName());
         assertEquals("extra-config", masterEnvFrom.get(1).getConfigMapRef().getName());
         V1Pod worker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 applicationJob,
                                 "app-worker-0",
                                 parameters,
@@ -484,20 +494,18 @@ class KubernetesApplicationFactoryTest {
         options.put(
                 "kubernetes.configmap.runtime.mount.seatunnel.yaml",
                 "/opt/seatunnel/config/seatunnel.yaml");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
         String localized =
                 new String(
                         Base64.getDecoder()
                                 .decode(
                                         envValue(
-                                                application
-                                                        .getApplicationJob()
-                                                        .getInternalResource(),
+                                                applicationJob(application).getInternalResource(),
                                                 KubernetesConstants.SPECIFICATION_ENV)),
                         StandardCharsets.UTF_8);
         assertTrue(localized.contains("kubernetes.secret.data.PASSWORD="));
@@ -508,15 +516,15 @@ class KubernetesApplicationFactoryTest {
 
     @Test
     void keepsTheLocalizedSpecificationOffWorkerPods() throws Exception {
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
         KubernetesJob applicationJob =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, parameters));
         V1Pod worker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 applicationJob,
                                 "app-worker-0",
                                 parameters,
@@ -549,7 +557,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(insideSecretDirectory))));
         Map<String, String> aboveSecretDirectory = options();
@@ -559,7 +567,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(aboveSecretDirectory))));
         Map<String, String> checkpointDirectory = options();
@@ -570,7 +578,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(checkpointDirectory))));
         Map<String, String> samePathTwice = options();
@@ -585,7 +593,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(samePathTwice))));
     }
@@ -597,21 +605,21 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(reserved))));
         Map<String, String> malformed = options();
         malformed.put("kubernetes.env.BAD_NAME!", "value");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(malformed))));
         Map<String, String> badReference = options();
         badReference.put("kubernetes.env.FROM_SECRET", "secret:missing-key");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(badReference))));
         Map<String, String> badEnvFrom = options();
@@ -619,9 +627,17 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(badEnvFrom))));
+        Map<String, String> emptyEnvFrom = options();
+        emptyEnvFrom.put("kubernetes.env-from.secret", "");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(emptyEnvFrom))));
     }
 
     @Test
@@ -637,21 +653,21 @@ class KubernetesApplicationFactoryTest {
         options.put(
                 "kubernetes.configmap.runtime.mount.log4j2_client.properties",
                 "/opt/seatunnel/config/log4j2_client.properties");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
         KubernetesResource<?> configuration =
-                application.getAccompanyingResources().stream()
+                accompanyingResources(application).stream()
                         .filter(KubernetesConfigMap.class::isInstance)
                         .findFirst()
                         .orElseThrow(() -> new AssertionError("Missing created ConfigMap"));
         V1ConfigMap configMap = ((KubernetesConfigMap) configuration).getInternalResource();
         assertEquals("app-runtime", configMap.getMetadata().getName());
         assertEquals("engine:\n  job: {}\n", configMap.getData().get("seatunnel.yaml"));
-        V1Job job = application.getApplicationJob().getInternalResource();
+        V1Job job = applicationJob(application).getInternalResource();
         String volumeName = KubernetesConstants.CONFIG_VOLUME + "-0";
         assertEquals("app-runtime", volume(job, volumeName).getConfigMap().getName());
         assertEquals(
@@ -670,16 +686,16 @@ class KubernetesApplicationFactoryTest {
         options.put(
                 "kubernetes.configmap.shared.mount.seatunnel.yaml",
                 "/opt/seatunnel/config/seatunnel.yaml");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
         assertTrue(
-                application.getAccompanyingResources().stream()
+                accompanyingResources(application).stream()
                         .noneMatch(KubernetesConfigMap.class::isInstance));
-        V1Job job = application.getApplicationJob().getInternalResource();
+        V1Job job = applicationJob(application).getInternalResource();
         String volumeName = KubernetesConstants.CONFIG_VOLUME + "-0";
         assertEquals("platform-runtime", volume(job, volumeName).getConfigMap().getName());
         assertEquals(
@@ -698,7 +714,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(conflicting))));
         Map<String, String> referenceWithoutMount = options();
@@ -706,7 +722,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(referenceWithoutMount))));
         Map<String, String> unknownMount = options();
@@ -717,7 +733,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(unknownMount))));
         Map<String, String> missingMount = options();
@@ -725,7 +741,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(missingMount))));
     }
@@ -738,14 +754,14 @@ class KubernetesApplicationFactoryTest {
         options.put(
                 "kubernetes.configmap.generated.mount.application.properties",
                 "/opt/seatunnel/config/application.properties");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
         KubernetesResource<?> configuration =
-                application.getAccompanyingResources().stream()
+                accompanyingResources(application).stream()
                         .filter(KubernetesConfigMap.class::isInstance)
                         .findFirst()
                         .orElseThrow(() -> new AssertionError("Missing created ConfigMap"));
@@ -756,9 +772,16 @@ class KubernetesApplicationFactoryTest {
                         .getMetadata()
                         .getName());
         assertEquals(
+                "app",
+                ((KubernetesConfigMap) configuration)
+                        .getInternalResource()
+                        .getMetadata()
+                        .getLabels()
+                        .get(KubernetesConstants.APPLICATION_LABEL));
+        assertEquals(
                 "seatunnel-generated-config",
                 volume(
-                                application.getApplicationJob().getInternalResource(),
+                                applicationJob(application).getInternalResource(),
                                 KubernetesConstants.CONFIG_VOLUME + "-0")
                         .getConfigMap()
                         .getName());
@@ -775,7 +798,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(namedReference))));
         Map<String, String> invalidName = options();
@@ -787,7 +810,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(invalidName))));
         Map<String, String> nameWithoutData = options();
@@ -795,32 +818,159 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(nameWithoutData))));
     }
 
     @Test
-    void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
-        Path secretDirectory = temporary.resolve("secrets");
-        Files.createDirectories(secretDirectory);
-        Files.write(
-                secretDirectory.resolve("job.conf"),
-                "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+    void keepsTheSubmittedJobConfigurationWithoutAConfiguredJobConfigFile() throws Exception {
+        Path seatunnelHome = temporary.resolve("seatunnel-home");
+        Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
+        Files.createDirectories(jobConfigFile.getParent());
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
         Map<String, String> options = options();
-        options.put(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory.toString());
+        options.put(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome.toString());
         ApplicationSpecification specification =
                 SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        // The option defaults to null: without an explicit kubernetes.job-config-file the mounted
+        // file is ignored and nothing is localized.
+        assertFalse(writer.toString().contains(KubernetesOptions.JOB_CONFIG_FILE.key()));
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        assertEquals("env { job.mode = BATCH }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void replacesInlineJobConfigurationWithAMountedSecretFile() throws Exception {
+        Path secretDirectory = temporary.resolve("secrets");
+        Path jobConfigFile = secretDirectory.resolve("job.conf");
+        Files.createDirectories(secretDirectory);
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory.toString());
+        // A Secret-provided job file is selected explicitly.
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
         StringWriter writer = new StringWriter();
         parameters.write(writer);
         String encoded =
                 Base64.getEncoder()
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
-        KubernetesApplicationParameters restored = KubernetesApplicationParameters.read(encoded);
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
         assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void resolvesJobConfigFileNamesUnderTheConfigDirectory() throws Exception {
+        Path seatunnelHome = temporary.resolve("seatunnel-home");
+        Path jobConfigFile = seatunnelHome.resolve("config").resolve("custom-job.conf");
+        Files.createDirectories(jobConfigFile.getParent());
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome.toString());
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), "custom-job.conf");
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void replacesInlineJobConfigurationWithAFileFromAConfigMap() throws Exception {
+        Path jobConfigFile = temporary.resolve("config").resolve("job.conf");
+        Files.createDirectories(jobConfigFile.getParent());
+        Files.write(
+                jobConfigFile,
+                "env { job.mode = STREAMING, parallelism = ${E2E_PARALLELISM} }"
+                        .getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        options.put("kubernetes.configmap.job-conf.name", "seatunnel-job-conf");
+        options.put(
+                "kubernetes.configmap.job-conf.data.job.conf",
+                "env { job.mode = STREAMING, parallelism = ${E2E_PARALLELISM} }");
+        options.put("kubernetes.configmap.job-conf.mount.job.conf", jobConfigFile.toString());
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        // The master reads the mounted file instead of the inline configuration.
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        // The file content replaces the inline job verbatim; the master resolves the placeholder
+        // against the Pod environment when it parses the job.
+        assertEquals(
+                "env { job.mode = STREAMING, parallelism = ${E2E_PARALLELISM} }",
+                restored.getSpecification().getJobConfig());
+        // The created ConfigMap is mounted as one subPath file at that exact container path.
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app", mainClass, parameters);
+        V1Job job = applicationJob(application).getInternalResource();
+        V1Volume volume = configMapVolume(job, "seatunnel-job-conf");
+        assertEquals(
+                jobConfigFile.toString(),
+                subPath(job, volume.getName(), "job.conf").getMountPath());
+        assertEquals("job.conf", subPath(job, volume.getName(), "job.conf").getSubPath());
+    }
+
+    @Test
+    void keepsTheSubmittedJobConfigurationWhenTheOptionIsEmpty() throws Exception {
+        Path seatunnelHome = temporary.resolve("seatunnel-home");
+        Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
+        Files.createDirectories(jobConfigFile.getParent());
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome.toString());
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), "");
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        assertEquals("env { job.mode = BATCH }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void rejectsRelativeJobConfigFiles() {
+        Map<String, String> relative = options();
+        relative.put(KubernetesOptions.JOB_CONFIG_FILE.key(), "config/job.conf");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(relative))));
     }
 
     @Test
@@ -830,13 +980,13 @@ class KubernetesApplicationFactoryTest {
         options.put(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), "/var/run/seatunnel/checkpoints");
         options.put(KubernetesOptions.CHECKPOINT_PVC.key(), "existing-checkpoints");
         options.put(KubernetesOptions.SECRET_REF.key(), "platform-secret");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
-        KubernetesApplicationSpecification application =
-                KubernetesApplicationFactory.buildApplicationSpecification(
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
                         "app", mainClass, parameters);
-        V1Job job = application.getApplicationJob().getInternalResource();
+        V1Job job = applicationJob(application).getInternalResource();
         assertEquals(
                 "/var/run/seatunnel/secrets",
                 mount(job, KubernetesConstants.APPLICATION_VOLUME).getMountPath());
@@ -848,7 +998,7 @@ class KubernetesApplicationFactoryTest {
         String encoded =
                 Base64.getEncoder()
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
-        KubernetesApplicationParameters restored = KubernetesApplicationParameters.read(encoded);
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
         assertEquals("/var/run/seatunnel/secrets", restored.getSecretDirectory());
         assertEquals("/var/run/seatunnel/checkpoints", restored.getCheckpointDirectory());
     }
@@ -860,7 +1010,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(relativeSecret))));
         Map<String, String> relativeCheckpoint = options();
@@ -868,7 +1018,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(relativeCheckpoint))));
     }
@@ -877,13 +1027,13 @@ class KubernetesApplicationFactoryTest {
     void buildsClasspathFromTheConfiguredSeatunnelHome() {
         Map<String, String> options = options();
         options.put(KubernetesOptions.SEATUNNEL_HOME.key(), "/custom/seatunnel");
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, parameters));
         List<String> command =
                 job.getInternalResource()
                         .getSpec()
@@ -902,20 +1052,20 @@ class KubernetesApplicationFactoryTest {
     }
 
     @Test
-    void addsRoleSpecificHazelcastConfiguration() {
+    void addsRoleSpecificHazelcastConfiguration() throws Exception {
         Map<String, String> options = options();
         options.put(KubernetesOptions.MASTER_HAZELCAST_CONFIG.key(), "hazelcast-master.yaml");
         options.put(
                 KubernetesOptions.WORKER_HAZELCAST_CONFIG.key(),
                 "/etc/seatunnel/hazelcast-worker.yaml");
         ApplicationSpecification specification = specification();
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, parameters));
         assertTrue(
                 job.getInternalResource()
                         .getSpec()
@@ -927,7 +1077,7 @@ class KubernetesApplicationFactoryTest {
                         .contains(
                                 "-Dhazelcast.config=/opt/seatunnel/config/hazelcast-master.yaml"));
         V1Pod worker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 job,
                                 "app-worker-0",
                                 parameters,
@@ -950,7 +1100,7 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(invalidSuffix))));
         Map<String, String> traversal = options();
@@ -958,20 +1108,20 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
     }
 
     @Test
-    void appliesJvmOptionsFilesAndMandatoryModuleFlags() {
+    void appliesJvmOptionsFilesAndMandatoryModuleFlags() throws Exception {
         ApplicationSpecification specification = specification();
-        KubernetesApplicationParameters parameters =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
         KubernetesJob job =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, parameters)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, parameters));
         List<String> masterCommand =
                 job.getInternalResource()
                         .getSpec()
@@ -984,7 +1134,7 @@ class KubernetesApplicationFactoryTest {
         assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_options"));
         assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_master_options"));
         V1Pod worker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 job,
                                 "app-worker-0",
                                 parameters,
@@ -1008,13 +1158,13 @@ class KubernetesApplicationFactoryTest {
         Map<String, String> overrides = options();
         overrides.put(KubernetesOptions.MASTER_JVM_OPTIONS.key(), "/etc/seatunnel/custom.options");
         overrides.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "none");
-        KubernetesApplicationParameters overridden =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig overridden =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(overrides)));
         KubernetesJob overriddenJob =
-                KubernetesApplicationFactory.buildApplicationSpecification(
-                                "app", mainClass, overridden)
-                        .getApplicationJob();
+                applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, overridden));
         assertTrue(
                 overriddenJob
                         .getInternalResource()
@@ -1026,7 +1176,7 @@ class KubernetesApplicationFactoryTest {
                         .getCommand()
                         .contains("@/etc/seatunnel/custom.options"));
         V1Pod overriddenWorker =
-                KubernetesApplicationFactory.buildWorkerPod(
+                workerPod(
                                 overriddenJob,
                                 "app-worker-0",
                                 overridden,
@@ -1047,8 +1197,8 @@ class KubernetesApplicationFactoryTest {
 
         Map<String, String> disabledCommon = options();
         disabledCommon.put(KubernetesOptions.JVM_OPTIONS.key(), "none");
-        KubernetesApplicationParameters commonDisabled =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig commonDisabled =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(disabledCommon)));
         assertTrue(
                 masterCommand(commonDisabled)
@@ -1065,14 +1215,14 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
         Map<String, String> absoluteWithColon = options();
         absoluteWithColon.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "/etc/seatunnel/a:b");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(absoluteWithColon))));
     }
@@ -1080,8 +1230,8 @@ class KubernetesApplicationFactoryTest {
     @Test
     void configuresTheSeatunnelConfigFile() {
         ApplicationSpecification specification = specification();
-        KubernetesApplicationParameters defaults =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig defaults =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
         assertTrue(
                 masterCommand(defaults)
@@ -1091,7 +1241,7 @@ class KubernetesApplicationFactoryTest {
         relative.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "custom/engine.yaml");
         assertTrue(
                 masterCommand(
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(relative))))
                         .contains("-Dseatunnel.config=/opt/seatunnel/custom/engine.yaml"));
@@ -1100,7 +1250,7 @@ class KubernetesApplicationFactoryTest {
         absolute.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "/etc/seatunnel/engine.yaml");
         assertTrue(
                 masterCommand(
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(absolute))))
                         .contains("-Dseatunnel.config=/etc/seatunnel/engine.yaml"));
@@ -1109,7 +1259,7 @@ class KubernetesApplicationFactoryTest {
         disabled.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "none");
         assertTrue(
                 masterCommand(
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(disabled))))
                         .stream()
@@ -1123,14 +1273,14 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
         Map<String, String> wrongSuffix = options();
         wrongSuffix.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "config/engine.properties");
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(wrongSuffix))));
     }
@@ -1138,8 +1288,8 @@ class KubernetesApplicationFactoryTest {
     @Test
     void configuresTheLog4jConfigFile() {
         ApplicationSpecification specification = specification();
-        KubernetesApplicationParameters defaults =
-                KubernetesApplicationParameters.from(
+        KubernetesApplicationConfig defaults =
+                KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
         assertTrue(
                 masterCommand(defaults)
@@ -1150,7 +1300,7 @@ class KubernetesApplicationFactoryTest {
         serverConfig.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "log4j2.properties");
         assertTrue(
                 masterCommand(
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(serverConfig))))
                         .contains(
@@ -1160,7 +1310,7 @@ class KubernetesApplicationFactoryTest {
         disabled.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "none");
         assertTrue(
                 masterCommand(
-                                KubernetesApplicationParameters.from(
+                                KubernetesApplicationConfig.from(
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(disabled))))
                         .stream()
@@ -1171,14 +1321,136 @@ class KubernetesApplicationFactoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        KubernetesApplicationParameters.from(
+                        KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(invalid))));
     }
 
-    private static List<String> masterCommand(KubernetesApplicationParameters parameters) {
-        return KubernetesApplicationFactory.buildApplicationSpecification(
-                        "app", mainClass, parameters)
-                .getApplicationJob()
+    @Test
+    void buildsApplicationSelectorsFromTheOwnershipLabels() {
+        assertEquals(
+                KubernetesConstants.APPLICATION_LABEL + "=app",
+                KubernetesResourceIdentity.selector("app"));
+        assertEquals(
+                KubernetesConstants.APPLICATION_LABEL
+                        + "=app,"
+                        + KubernetesConstants.ROLE_LABEL
+                        + "=worker",
+                KubernetesResourceIdentity.selector("app", KubernetesConstants.WORKER_ROLE));
+    }
+
+    @Test
+    void mountsMultipleConfigMapsThroughSubPathsWithoutOverwritingEachOther() throws Exception {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.first.ref", "platform-first");
+        options.put(
+                "kubernetes.configmap.first.mount.first.properties",
+                "/opt/seatunnel/config/first.properties");
+        options.put("kubernetes.configmap.second.name", "seatunnel-second");
+        options.put("kubernetes.configmap.second.data.second.properties", "mode=batch");
+        options.put(
+                "kubernetes.configmap.second.mount.second.properties",
+                "/opt/seatunnel/config/second.properties");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app", mainClass, parameters);
+        V1Job job = applicationJob(application).getInternalResource();
+        V1Volume referenced = configMapVolume(job, "platform-first");
+        V1Volume created = configMapVolume(job, "seatunnel-second");
+        assertEquals(
+                "/opt/seatunnel/config/first.properties",
+                subPath(job, referenced.getName(), "first.properties").getMountPath());
+        assertEquals(
+                "/opt/seatunnel/config/second.properties",
+                subPath(job, created.getName(), "second.properties").getMountPath());
+        KubernetesConfigMap createdModel =
+                (KubernetesConfigMap)
+                        accompanyingResources(application).stream()
+                                .filter(KubernetesConfigMap.class::isInstance)
+                                .findFirst()
+                                .orElseThrow(() -> new AssertionError("Missing created ConfigMap"));
+        assertEquals(
+                "app",
+                createdModel
+                        .getInternalResource()
+                        .getMetadata()
+                        .getLabels()
+                        .get(KubernetesConstants.APPLICATION_LABEL));
+    }
+
+    @Test
+    void assembleApplicationReturnsTheOwnerJobBeforeItsDependencies() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "job-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "top-secret");
+        options.put("kubernetes.configmap.runtime.data.seatunnel.yaml", "engine: {}\n");
+        options.put(
+                "kubernetes.configmap.runtime.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app", mainClass, parameters);
+        // Owner Job first, exactly once, followed only by its dependencies.
+        assertTrue(application.get(0) instanceof KubernetesJob);
+        assertEquals(1, application.stream().filter(KubernetesJob.class::isInstance).count());
+        assertTrue(
+                accompanyingResources(application).stream()
+                        .noneMatch(KubernetesJob.class::isInstance));
+        assertEquals(1, application.stream().filter(KubernetesSecret.class::isInstance).count());
+        assertEquals(1, application.stream().filter(KubernetesConfigMap.class::isInstance).count());
+        assertEquals(1, application.stream().filter(KubernetesService.class::isInstance).count());
+        // The caller owns the list and consumes the owner before creating the dependencies.
+        KubernetesJob owner = (KubernetesJob) application.remove(0);
+        assertEquals("app", owner.getName());
+        assertEquals(3, application.size());
+    }
+
+    @Test
+    void buildsHeadlessServiceForTheMasterPort() throws Exception {
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app", mainClass, parameters);
+        KubernetesService service =
+                (KubernetesService)
+                        accompanyingResources(application).stream()
+                                .filter(KubernetesService.class::isInstance)
+                                .findFirst()
+                                .orElseThrow(() -> new AssertionError("Missing Service"));
+        V1Service model = service.getInternalResource();
+        assertEquals(KubernetesConstants.SERVICE_KIND, model.getKind());
+        assertEquals("app", model.getMetadata().getName());
+        assertEquals(
+                "app", model.getMetadata().getLabels().get(KubernetesConstants.APPLICATION_LABEL));
+        assertEquals(
+                KubernetesConstants.MASTER_ROLE,
+                model.getMetadata().getLabels().get(KubernetesConstants.ROLE_LABEL));
+        // Headless: Kubernetes publishes the master Pod address directly, even before readiness.
+        assertEquals(KubernetesConstants.HEADLESS_CLUSTER_IP, model.getSpec().getClusterIP());
+        assertTrue(model.getSpec().getPublishNotReadyAddresses());
+        assertEquals(
+                "app", model.getSpec().getSelector().get(KubernetesConstants.APPLICATION_LABEL));
+        assertEquals(
+                KubernetesConstants.MASTER_ROLE,
+                model.getSpec().getSelector().get(KubernetesConstants.ROLE_LABEL));
+        int masterPort = specification().getMasterPort();
+        V1ServicePort port = model.getSpec().getPorts().get(0);
+        assertEquals(KubernetesConstants.HAZELCAST_PORT_NAME, port.getName());
+        assertEquals(masterPort, port.getPort());
+        assertEquals(masterPort, port.getTargetPort().getIntValue());
+    }
+
+    private static List<String> masterCommand(KubernetesApplicationConfig parameters) {
+        return applicationJob(
+                        KubernetesApplicationClusterDescriptor.assembleApplication(
+                                "app", mainClass, parameters))
                 .getInternalResource()
                 .getSpec()
                 .getTemplate()
@@ -1213,6 +1485,16 @@ class KubernetesApplicationFactoryTest {
         throw new AssertionError("Missing volume " + name);
     }
 
+    private static V1Volume configMapVolume(V1Job job, String configMapName) {
+        return job.getSpec().getTemplate().getSpec().getVolumes().stream()
+                .filter(
+                        volume ->
+                                volume.getConfigMap() != null
+                                        && configMapName.equals(volume.getConfigMap().getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing ConfigMap volume " + configMapName));
+    }
+
     private static V1VolumeMount mount(V1Job job, String name) {
         for (V1VolumeMount mount :
                 job.getSpec().getTemplate().getSpec().getContainers().get(0).getVolumeMounts()) {
@@ -1231,6 +1513,41 @@ class KubernetesApplicationFactoryTest {
             }
         }
         throw new AssertionError("Missing subPath mount " + volumeName + "/" + key);
+    }
+
+    /** The assembled resource list carries the owner Job first, then its accompanying resources. */
+    private static KubernetesJob applicationJob(List<KubernetesResource<?>> application) {
+        return (KubernetesJob) application.get(0);
+    }
+
+    private static List<KubernetesResource<?>> accompanyingResources(
+            List<KubernetesResource<?>> application) {
+        return application.subList(1, application.size());
+    }
+
+    /**
+     * Worker Pods are assembled by the resource manager driver from the application it belongs to,
+     * so the test initializes a driver for the same identity before asking for one.
+     */
+    private static KubernetesPod workerPod(
+            KubernetesJob job,
+            String name,
+            KubernetesApplicationConfig parameters,
+            WorkerSpecification resources,
+            String clusterName,
+            String masterAddress)
+            throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getJob(job.getName())).thenReturn(job);
+        try (KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(api, parameters, job.getName(), clusterName)) {
+            driver.initialize(
+                    mock(ResourceEventHandler.class),
+                    mock(ScheduledExecutorService.class),
+                    Runnable::run,
+                    () -> masterAddress);
+            return driver.assembleWorkerPod(name, resources);
+        }
     }
 
     private static Map<String, String> options() {
