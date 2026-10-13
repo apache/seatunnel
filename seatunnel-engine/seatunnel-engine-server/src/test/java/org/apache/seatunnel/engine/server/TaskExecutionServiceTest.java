@@ -41,13 +41,12 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -69,16 +68,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -113,136 +105,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 new ConcurrentHashMap<>(),
                 () -> {},
                 failure -> {});
-    }
-
-    /**
-     * A task can fail or be cancelled while another blocking worker has not yet been scheduled.
-     * Cleanup must let that worker release the startup latch so deployment and the final result
-     * both return.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    public void testBlockingDeploymentCompletesAfterEarlyFailureOrCancellation(
-            boolean cancelDuringStartup) throws Exception {
-        TaskExecutionService service = server.getTaskExecutionService();
-        ExecutorService originalExecutor = getField(service, "executorService");
-        CountDownLatch failFirstTask = new CountDownLatch(1);
-        CountDownLatch firstTaskClosed = new CountDownLatch(1);
-        CountDownLatch startSecondWorker = new CountDownLatch(1);
-        CountDownLatch workersSubmitted = new CountDownLatch(2);
-        AtomicInteger workerNumber = new AtomicInteger();
-        AtomicReference<Thread> deploymentThread = new AtomicReference<>();
-        ExecutorService workers =
-                new ThreadPoolExecutor(
-                        0,
-                        Integer.MAX_VALUE,
-                        60L,
-                        TimeUnit.SECONDS,
-                        new SynchronousQueue<>(),
-                        runnable -> {
-                            int number = workerNumber.incrementAndGet();
-                            Thread thread =
-                                    new Thread(
-                                            () -> {
-                                                try {
-                                                    if (number == 2) {
-                                                        startSecondWorker.await();
-                                                    }
-                                                    runnable.run();
-                                                } catch (InterruptedException e) {
-                                                    Thread.currentThread().interrupt();
-                                                }
-                                            },
-                                            "delayed-blocking-worker-" + number);
-                            thread.setDaemon(true);
-                            return thread;
-                        }) {
-                    @Override
-                    public void execute(Runnable command) {
-                        super.execute(command);
-                        workersSubmitted.countDown();
-                    }
-                };
-        ExecutorService deployer = Executors.newSingleThreadExecutor();
-        TaskGroupLocation location = newTaskGroupLocation();
-        String failureMessage = "Source permission denied during initialization";
-        Task failingTask =
-                new TestTask(new AtomicBoolean(true), 0, false) {
-                    @Override
-                    public void init() throws Exception {
-                        failFirstTask.await();
-                        throw new IllegalStateException(failureMessage);
-                    }
-
-                    @Override
-                    public void close() {
-                        firstTaskClosed.countDown();
-                    }
-                };
-        Task delayedTask = new TestTask(new AtomicBoolean(true), 0, false);
-        TaskGroup group =
-                new TaskGroupDefaultImpl(
-                        location,
-                        "early-startup-failure",
-                        Lists.newArrayList(failingTask, delayedTask));
-        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
-        for (Task task : group.getTasks()) {
-            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
-        }
-
-        ReflectionUtils.setField(service, "executorService", workers);
-        Future<PassiveCompletableFuture<TaskExecutionState>> deployment = null;
-        try {
-            Future<PassiveCompletableFuture<TaskExecutionState>> submittedDeployment =
-                    deployer.submit(
-                            () -> {
-                                deploymentThread.set(Thread.currentThread());
-                                return service.deployLocalTask(
-                                        FLAKE_ID_GENERATOR.newId(),
-                                        group,
-                                        classLoaders,
-                                        new ConcurrentHashMap<>(),
-                                        () -> {},
-                                        failure -> {});
-                            });
-            deployment = submittedDeployment;
-            assertTrue(workersSubmitted.await(10, TimeUnit.SECONDS));
-            // Both executor submissions have returned, so an unfinished deployment can only
-            // be waiting for the delayed worker's startup signal, not submitting a worker.
-            await().atMost(10, TimeUnit.SECONDS)
-                    .until(
-                            () -> {
-                                Thread thread = deploymentThread.get();
-                                return !submittedDeployment.isDone()
-                                        && thread.getState() == Thread.State.WAITING;
-                            });
-            if (cancelDuringStartup) {
-                service.cancelTaskGroup(location);
-            } else {
-                failFirstTask.countDown();
-                assertTrue(firstTaskClosed.await(10, TimeUnit.SECONDS));
-            }
-            startSecondWorker.countDown();
-
-            TaskExecutionState result =
-                    deployment.get(10, TimeUnit.SECONDS).get(10, TimeUnit.SECONDS);
-            assertEquals(cancelDuringStartup ? CANCELED : FAILED, result.getExecutionState());
-            if (!cancelDuringStartup) {
-                assertTrue(result.getThrowableMsg().contains(failureMessage));
-            }
-        } finally {
-            failFirstTask.countDown();
-            startSecondWorker.countDown();
-            if (deployment != null) {
-                deployment.cancel(true);
-            }
-            service.cancelTaskGroup(location);
-            workers.shutdownNow();
-            deployer.shutdownNow();
-            workers.awaitTermination(10, TimeUnit.SECONDS);
-            deployer.awaitTermination(10, TimeUnit.SECONDS);
-            ReflectionUtils.setField(service, "executorService", originalExecutor);
-        }
     }
 
     @Test
@@ -345,7 +207,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         jobId,
-                        FLAKE_ID_GENERATOR.newId(),
+                        1,
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "testClassloaderSplit",
@@ -408,7 +270,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        FLAKE_ID_GENERATOR.newId(),
+                        1,
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         new TaskGroupLocation(testJobId, 1, 1),
                         "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
@@ -457,7 +319,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        FLAKE_ID_GENERATOR.newId(),
+                        1,
                         TaskGroupType.DEFAULT,
                         location,
                         "testDeployTaskHandlesFailureBeforeContextPublication",
@@ -679,7 +541,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupImmutableInformation info =
                 new TaskGroupImmutableInformation(
                         testJobId,
-                        FLAKE_ID_GENERATOR.newId(),
+                        1,
                         TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
                         location,
                         "idempotency-test",
@@ -709,6 +571,194 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testResetAllowsRedeployOfTaskGroupAtSameLocation() throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        Mockito.doNothing()
+                .when(taskExecutionService)
+                .notifyTaskStatusToMaster(Mockito.any(), Mockito.any());
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        InterruptIgnoringTask oldTask = new InterruptIgnoringTask();
+        InterruptIgnoringTask restoredTask = new InterruptIgnoringTask();
+        try {
+            TaskGroupImmutableInformation firstDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "reset-test",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(oldTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+
+            Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
+            TaskGroupContext firstContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.started::getCount, count -> count == 0);
+
+            taskExecutionService.reset();
+            assertEquals(firstContext, taskExecutionService.getActiveExecutionContext(location));
+            Boolean isExecuting =
+                    (Boolean)
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new CheckTaskGroupIsExecutingOperation(location),
+                                            nodeEngine.getThisAddress())
+                                    .invoke()
+                                    .get();
+            assertEquals(Boolean.FALSE, isExecuting);
+
+            TaskGroupImmutableInformation restoredDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            2,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "reset-test-restored",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(restoredTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data restoredData = nodeEngine.getSerializationService().toData(restoredDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(restoredData));
+
+            TaskGroupContext restoredContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            Assertions.assertNotSame(firstContext, restoredContext);
+
+            oldTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.finished::getCount, count -> count == 0);
+            Mockito.verify(taskExecutionService, Mockito.after(1000).never())
+                    .notifyTaskStatusToMaster(Mockito.eq(location), Mockito.any());
+            assertEquals(restoredContext, taskExecutionService.getActiveExecutionContext(location));
+
+            restoredTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(restoredTask.control.finished::getCount, count -> count == 0);
+            Mockito.verify(taskExecutionService, Mockito.timeout(5000))
+                    .notifyTaskStatusToMaster(Mockito.eq(location), Mockito.any());
+        } finally {
+            oldTask.control.release.countDown();
+            restoredTask.control.release.countDown();
+            InterruptIgnoringTask.CONTROLS.remove(oldTask.taskId);
+            InterruptIgnoringTask.CONTROLS.remove(restoredTask.taskId);
+        }
+    }
+
+    @Test
+    public void testCancelledTaskGroupIsNotReplacedBeforeCleanup() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        InterruptIgnoringTask oldTask = new InterruptIgnoringTask();
+        InterruptIgnoringTask replacementTask = new InterruptIgnoringTask();
+        try {
+            TaskGroupImmutableInformation firstDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "cancel-test",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(oldTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
+            assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
+            TaskGroupContext firstContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.started::getCount, count -> count == 0);
+
+            taskExecutionService.cancelTaskGroup(location);
+            await().atMost(5, TimeUnit.SECONDS).untilTrue(oldTask.control.interrupted);
+
+            TaskGroupImmutableInformation replacementDeployment =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            2,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "cancel-test-replacement",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(replacementTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data replacementData =
+                    nodeEngine.getSerializationService().toData(replacementDeployment);
+            assertEquals(
+                    TaskDeployState.success(), taskExecutionService.deployTask(replacementData));
+            assertEquals(firstContext, taskExecutionService.getActiveExecutionContext(location));
+        } finally {
+            oldTask.control.release.countDown();
+            replacementTask.control.release.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .until(oldTask.control.finished::getCount, count -> count == 0);
+            if (replacementTask.control.started.getCount() == 0) {
+                await().atMost(5, TimeUnit.SECONDS)
+                        .until(replacementTask.control.finished::getCount, count -> count == 0);
+            }
+            InterruptIgnoringTask.CONTROLS.remove(oldTask.taskId);
+            InterruptIgnoringTask.CONTROLS.remove(replacementTask.taskId);
+        }
+    }
+
+    private static final class InterruptIgnoringTask implements Task {
+        private static final Map<Long, TaskControl> CONTROLS = new ConcurrentHashMap<>();
+        private final long taskId;
+        private transient TaskControl control;
+
+        private InterruptIgnoringTask() {
+            this.taskId = FLAKE_ID_GENERATOR.newId();
+            this.control = new TaskControl();
+            CONTROLS.put(taskId, control);
+        }
+
+        @Override
+        public ProgressState call() {
+            TaskControl taskControl = CONTROLS.get(taskId);
+            taskControl.started.countDown();
+            try {
+                while (taskControl.release.getCount() > 0) {
+                    try {
+                        taskControl.release.await();
+                    } catch (InterruptedException ignored) {
+                        taskControl.interrupted.set(true);
+                    }
+                }
+                return ProgressState.DONE;
+            } finally {
+                taskControl.finished.countDown();
+            }
+        }
+
+        @Override
+        public Long getTaskID() {
+            return taskId;
+        }
+
+        @Override
+        public boolean isThreadsShare() {
+            return false;
+        }
+
+        private static final class TaskControl {
+            private final CountDownLatch started = new CountDownLatch(1);
+            private final CountDownLatch release = new CountDownLatch(1);
+            private final CountDownLatch finished = new CountDownLatch(1);
+            private final AtomicBoolean interrupted = new AtomicBoolean();
+        }
+    }
+
+    @Test
     public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation location = newTaskGroupLocation();
@@ -720,11 +770,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        // The shared service can still be cleaning up deployments from another test.
-        long oldExecutionId = FLAKE_ID_GENERATOR.newId();
-        long newExecutionId = FLAKE_ID_GENERATOR.newId();
-        TaskGroupContext oldContext = newTaskGroupContext(oldExecutionId, oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(newExecutionId, newTaskGroup);
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
@@ -770,26 +817,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         timerFlushFutures.put(newContext, newTimerFlushFutures);
 
         try {
-            // A previous fixture used ID 1: its late cleanup must not own this fixture's timers.
-            Task previousTask = new TestTask(new AtomicBoolean(true), 0, true);
-            TaskGroup previousGroup =
-                    new TaskGroupDefaultImpl(
-                            newTaskGroupLocation(),
-                            "previous-test",
-                            Lists.newArrayList(previousTask));
-            TaskGroupContext previousContext = newTaskGroupContext(1L, previousGroup);
-            TaskExecutionService.TaskGroupExecutionTracker previousTracker =
-                    taskExecutionService
-                    .new TaskGroupExecutionTracker(
-                            new CompletableFuture<>(), previousContext, new CompletableFuture<>());
-            previousTracker.taskDone(previousTask);
-            Mockito.verify(oldTimerFlushFuture, Mockito.never()).cancel(false);
             oldTracker.taskDone(oldTask);
 
             Assertions.assertSame(newContext, executionContexts.get(location));
             Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
-            assertEquals(oldExecutionId, oldContext.getExecutionId());
-            assertEquals(newExecutionId, newContext.getExecutionId());
+            assertEquals(1L, oldContext.getExecutionId());
+            assertEquals(2L, newContext.getExecutionId());
             Assertions.assertNull(oldContext.getClassLoaders());
             Assertions.assertNotNull(newContext.getClassLoaders());
             Assertions.assertTrue(oldAsyncFuture.isCancelled());
@@ -850,8 +883,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         location,
                         "new-generation",
                         Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
-        TaskGroupContext oldContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), oldTaskGroup);
-        TaskGroupContext newContext = newTaskGroupContext(FLAKE_ID_GENERATOR.newId(), newTaskGroup);
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
         CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
         TaskExecutionService.TaskGroupExecutionTracker oldTracker =

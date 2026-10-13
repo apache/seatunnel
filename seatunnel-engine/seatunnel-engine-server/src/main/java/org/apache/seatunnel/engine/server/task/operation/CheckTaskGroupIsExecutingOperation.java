@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -44,9 +45,12 @@ public class CheckTaskGroupIsExecutingOperation extends TracingOperation
     public void runInternal() {
         SeaTunnelServer server = getService();
         try {
-            response =
-                    server.getTaskExecutionService().getActiveExecutionContext(taskGroupLocation)
-                            != null;
+            TaskGroupContext context =
+                    server.getTaskExecutionService().getActiveExecutionContext(taskGroupLocation);
+            // A reset context is already being discarded by the worker. Report it as absent so a
+            // master-side cancel can complete without waiting for its intentionally suppressed
+            // terminal notification.
+            response = context != null && !context.isResetRequested();
         } catch (TaskGroupContextNotFoundException e) {
             response = false;
         }
