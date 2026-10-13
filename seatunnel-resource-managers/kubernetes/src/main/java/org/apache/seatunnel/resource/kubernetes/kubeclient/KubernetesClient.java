@@ -35,6 +35,7 @@ import java.util.function.Consumer;
  * models so submission and worker lifecycle code remain independent of the client library.
  */
 public interface KubernetesClient extends AutoCloseable {
+
     /** Reads an existing ConfigMap before Pods reference it for runtime configuration. */
     KubernetesConfigMap getConfigMap(String name) throws ApiException;
 
