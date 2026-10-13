@@ -200,6 +200,12 @@ transform {
 - 类型变更会在事件到达时针对 select 列表以及 `WHERE` 中的比较（例如 `c > 0`）进行检查；仅出现在函数调用、UDF 或 lateral view 参数内部的类型变更不会在事件到达时被发现，会像以前一样在处理数据行时失败。
 - 位于 SQL transform 之前的 transform 转发的事件必须能描述其自身输出。列顺序以上游产出的表为准：像 Metadata、RowKindExtractor 这类把自身追加的列放在最后的 transform 是可以接受的，新增列会被放在这些列之前。如果上游产出的表结构不包含事件所描述的列，作业会以 `TRANSFORM_COMMON-09` 失败，而不是写入错位的数据行。
 
+## 集合表达式
+
+ARRAY 和 MAP 的参数支持一元 `+`/`-` 和括号。例如，`ARRAY(-1, +2, (3))` 生成 `[-1, 2, 3]`，`MAP('negative', (-1))` 生成值为 `-1` 的映射。
+
+带符号的集合表达式保留数值元素类型，并传递 NULL 操作数。TINYINT 数组现在使用 `ARRAY<TINYINT>`，替代此前错误的 `ARRAY<STRING>` 模式。
+
 ## 更新日志
 
 - 支持模式演进（DDL）事件
