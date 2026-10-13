@@ -17,50 +17,20 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
-
-import io.kubernetes.client.openapi.models.V1Pod;
-import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 
 import java.util.Collections;
 import java.util.List;
 
-/** No-op defaults and the master Pod routing shared by step decorators. */
-public abstract class AbstractKubernetesStepDecorator implements KubernetesStepDecorator {
-
-    /**
-     * Routes the owner Job's master Pod through {@link #decoratePod(V1Pod)}.
-     *
-     * @param job owner Job being built
-     * @return the Job whose master template contains this feature's changes
-     */
-    @Override
-    public KubernetesJob decorateJob(KubernetesJob job) {
-        if (job == null) {
-            throw new IllegalStateException(
-                    getClass().getSimpleName()
-                            + " must follow the step that creates the application Job");
-        }
-        V1PodTemplateSpec template = job.getInternalResource().getSpec().getTemplate();
-        V1Pod decorated =
-                decoratePod(new V1Pod().metadata(template.getMetadata()).spec(template.getSpec()));
-        template.setMetadata(decorated.getMetadata());
-        template.setSpec(decorated.getSpec());
-        return job;
-    }
+/**
+ * Base for step decorators that contribute no accompanying resources.
+ *
+ * @param <T> resource this step decorates
+ */
+public abstract class AbstractKubernetesStepDecorator<T> implements KubernetesStepDecorator<T> {
 
     @Override
-    public V1Pod decoratePod(V1Pod pod) {
-        if (pod == null) {
-            throw new IllegalStateException(
-                    getClass().getSimpleName() + " must follow the step that creates the Pod");
-        }
-        return pod;
-    }
-
-    @Override
-    public List<KubernetesResource<?>> buildAccompanyingResources() {
+    public List<KubernetesResource<?>> build() {
         return Collections.emptyList();
     }
 }

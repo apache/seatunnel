@@ -39,7 +39,7 @@ import java.util.Arrays;
  * skeleton, including its identity, owner reference, container, command and probes; every later
  * step adds the features shared with the master, so worker and master Pods cannot drift apart.
  */
-public final class PodDecorator extends AbstractWorkloadDecorator {
+public final class PodDecorator extends AbstractWorkloadDecorator<V1Pod> {
     private final KubernetesJob owner;
     private final String name;
     private final WorkerSpecification resources;
@@ -62,7 +62,7 @@ public final class PodDecorator extends AbstractWorkloadDecorator {
     }
 
     @Override
-    public V1Pod decoratePod(V1Pod pod) {
+    public V1Pod decorate(V1Pod pod) {
         if (pod != null) {
             throw new IllegalStateException("The Pod step must start the worker decorator list");
         }

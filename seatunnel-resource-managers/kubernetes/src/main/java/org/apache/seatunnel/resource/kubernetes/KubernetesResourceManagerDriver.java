@@ -242,7 +242,7 @@ public final class KubernetesResourceManagerDriver
      * @return worker Pod ready to create
      */
     KubernetesPod assembleWorkerPod(String name, WorkerSpecification resources) {
-        List<KubernetesStepDecorator> decorators =
+        List<KubernetesStepDecorator<V1Pod>> decorators =
                 Arrays.asList(
                         new PodDecorator(
                                 job, name, parameters, resources, clusterName, masterAddress.get()),
@@ -250,8 +250,8 @@ public final class KubernetesResourceManagerDriver
                         new SecretDecorator(job.getName(), parameters),
                         new ConfigMapDecorator(job.getName(), parameters));
         V1Pod pod = null;
-        for (KubernetesStepDecorator decorator : decorators) {
-            pod = decorator.decoratePod(pod);
+        for (KubernetesStepDecorator<V1Pod> decorator : decorators) {
+            pod = decorator.decorate(pod);
         }
         return new KubernetesPod(pod);
     }

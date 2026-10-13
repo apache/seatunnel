@@ -42,7 +42,7 @@ import java.util.Map;
  * command, the resource requirements and the Pod spec stay identical across roles. Role-specific
  * parts stay in the owning step: the master probes and checkpoint claim, the worker process probe.
  */
-public abstract class AbstractWorkloadDecorator extends AbstractKubernetesStepDecorator {
+public abstract class AbstractWorkloadDecorator<T> extends AbstractKubernetesStepDecorator<T> {
 
     protected final KubernetesApplicationConfig parameters;
 

@@ -38,6 +38,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.Environmen
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.JobDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.MasterPodDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SpecificationEnvDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
@@ -124,9 +125,10 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     /**
      * Assembles the application's resources through the ordered decorator list.
      *
-     * <p>The first step creates the suspended owner Job and every later step decorates it or
-     * contributes an accompanying resource. The owner Job is returned first because the caller must
-     * create it before the resources that carry its owner reference.
+     * <p>The first step creates the suspended owner Job, the master Pod step runs the shared Pod
+     * decorator chain over its template, and every later step decorates the Job or contributes an
+     * accompanying resource. The owner Job is returned first because the caller must create it
+     * before the resources that carry its owner reference.
      *
      * @param id generated application Job name
      * @param mainClass master entrypoint class
@@ -136,19 +138,21 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     static List<KubernetesResource<?>> assembleApplication(
             String id, String mainClass, KubernetesApplicationConfig parameters) {
-        List<KubernetesStepDecorator> decorators =
+        List<KubernetesStepDecorator<KubernetesJob>> decorators =
                 Arrays.asList(
                         new JobDecorator(id, mainClass, parameters),
-                        new SpecificationEnvDecorator(parameters),
-                        new EnvironmentDecorator(parameters),
-                        new SecretDecorator(id, parameters),
-                        new ConfigMapDecorator(id, parameters),
+                        new MasterPodDecorator(
+                                Arrays.asList(
+                                        new SpecificationEnvDecorator(parameters),
+                                        new EnvironmentDecorator(parameters),
+                                        new SecretDecorator(id, parameters),
+                                        new ConfigMapDecorator(id, parameters))),
                         new HeadlessServiceDecorator(id, parameters));
         KubernetesJob job = null;
         List<KubernetesResource<?>> resources = new ArrayList<>();
-        for (KubernetesStepDecorator decorator : decorators) {
-            job = decorator.decorateJob(job);
-            resources.addAll(decorator.buildAccompanyingResources());
+        for (KubernetesStepDecorator<KubernetesJob> decorator : decorators) {
+            job = decorator.decorate(job);
+            resources.addAll(decorator.build());
         }
         resources.add(0, job);
         return resources;

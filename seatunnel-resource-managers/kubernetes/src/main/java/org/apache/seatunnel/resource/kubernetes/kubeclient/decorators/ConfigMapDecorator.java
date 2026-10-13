@@ -45,7 +45,7 @@ import java.util.Set;
  * Every mounted key declares its full container path through {@code mount} and is mounted through
  * {@code subPath}, so entries never overwrite each other.
  */
-public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
+public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator<V1Pod> {
     private final String applicationId;
     private final KubernetesApplicationConfig parameters;
 
@@ -55,7 +55,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public V1Pod decoratePod(V1Pod pod) {
+    public V1Pod decorate(V1Pod pod) {
         V1PodSpec podSpec = pod.getSpec();
         int index = 0;
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
@@ -79,7 +79,7 @@ public final class ConfigMapDecorator extends AbstractKubernetesStepDecorator {
     }
 
     @Override
-    public List<KubernetesResource<?>> buildAccompanyingResources() {
+    public List<KubernetesResource<?>> build() {
         List<KubernetesResource<?>> configMaps = new ArrayList<>();
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {
