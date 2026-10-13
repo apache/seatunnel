@@ -500,6 +500,50 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
+    void restoresCheckpointRetentionForCurrentSavepointJob() throws Exception {
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(2);
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(storageConfig);
+
+        CheckpointStorage checkpointStorage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(checkpointStorage.getCheckpointsByJobIdAndPipelineId("1", "1"))
+                .thenReturn(
+                        Arrays.asList(
+                                PipelineState.builder().checkpointId(1L).build(),
+                                PipelineState.builder().checkpointId(2L).build(),
+                                PipelineState.builder().checkpointId(3L).build()));
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            new CheckpointCoordinator(
+                    Mockito.mock(CheckpointManager.class),
+                    checkpointStorage,
+                    checkpointConfig,
+                    1L,
+                    CheckpointPlan.builder().pipelineId(1).build(),
+                    Mockito.mock(CheckpointIDCounter.class),
+                    PipelineState.builder()
+                            .jobId("1")
+                            .pipelineId(1)
+                            .checkpointId(3L)
+                            .states(
+                                    new ProtoStuffSerializer()
+                                            .serialize(createCompletedCheckpoint(3L)))
+                            .build(),
+                    executorService,
+                    Mockito.mock(IMap.class),
+                    true,
+                    null);
+
+            Mockito.verify(checkpointStorage).getCheckpointsByJobIdAndPipelineId("1", "1");
+            Mockito.verify(checkpointStorage)
+                    .deleteCheckpoint("1", "1", Collections.singletonList("1"));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
     void retriesCheckpointRetentionCleanupAfterDeleteFailure() throws Exception {
         CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
         storageConfig.setMaxRetainedCheckpoints(2);
