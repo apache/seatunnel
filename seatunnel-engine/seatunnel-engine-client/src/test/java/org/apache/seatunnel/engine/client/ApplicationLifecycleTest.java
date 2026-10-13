@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -774,12 +773,7 @@ class ApplicationLifecycleTest {
         options.put("application.startup-timeout-millis", Long.toString(timeout));
         options.putAll(additionalOptions);
         options.put(ApplicationOptions.NAME.key(), "application-test");
-        return SeatunnelApplicationConfig.parse(
-                ConfigFactory.parseString(config)
-                        .resolve()
-                        .root()
-                        .render(ConfigRenderOptions.concise()),
-                options);
+        return SeatunnelApplicationConfig.parse(config, options);
     }
 
     private static SeaTunnelConfig engineConfig() {

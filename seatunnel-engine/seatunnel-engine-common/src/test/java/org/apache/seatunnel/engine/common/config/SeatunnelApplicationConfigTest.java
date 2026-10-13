@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
@@ -59,6 +61,43 @@ class SeatunnelApplicationConfigTest {
                 SeatunnelApplicationConfig.parse(jobConfig, new HashMap<>());
         assertTrue(specification.getJobConfig().contains("parallelism"));
         assertTrue(specification.getJobConfig().contains("${RUNTIME_SECRET}"));
+    }
+
+    /**
+     * Normalizing the job here is what made the master expand the plugin blocks a second time and
+     * lose every plugin key.
+     */
+    @Test
+    void carriesTheJobFileVerbatim() throws Exception {
+        String job =
+                "env {\n"
+                        + "  job.mode = BATCH\n"
+                        + "}\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fake\"\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "sink {\n"
+                        + "  Console {\n"
+                        + "    plugin_input = \"fake\"\n"
+                        + "  }\n"
+                        + "}";
+        Path jobConfig = temporary.resolve("job.conf");
+        Files.write(jobConfig, job.getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                job, SeatunnelApplicationConfig.parse(jobConfig, new HashMap<>()).getJobConfig());
+    }
+
+    @Test
+    void unparsableJobFileIsRejectedAtSubmission() throws Exception {
+        Path jobConfig = temporary.resolve("job.conf");
+        Files.write(jobConfig, "not valid {".getBytes(StandardCharsets.UTF_8));
+
+        assertThrows(
+                ConfigException.class,
+                () -> SeatunnelApplicationConfig.parse(jobConfig, new HashMap<>()));
     }
 
     @Test

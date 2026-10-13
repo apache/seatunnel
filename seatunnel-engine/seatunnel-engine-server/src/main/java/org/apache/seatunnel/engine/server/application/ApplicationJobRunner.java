@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.application;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
@@ -69,16 +71,19 @@ public final class ApplicationJobRunner {
             resources.awaitWorkerRegistration();
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(specification.getName());
+            // Resolve remaining placeholders against this Pod's environment, including values
+            // injected from Kubernetes.
+            Config job =
+                    ConfigShadeUtils.decryptConfig(
+                            ConfigFactory.parseString(
+                                            specification.getJobConfig(),
+                                            ConfigParseOptions.defaults()
+                                                    .setSyntax(ConfigSyntax.CONF))
+                                    .resolve());
             execution =
                     new ApplicationJobExecutionEnvironment(
                                     jobConfig,
-                                    // Resolve remaining placeholders against this Pod's
-                                    // environment, including values injected from Kubernetes.
-                                    ConfigFactory.parseString(
-                                                    specification.getJobConfig(),
-                                                    ConfigParseOptions.defaults()
-                                                            .setSyntax(ConfigSyntax.CONF))
-                                            .resolve(),
+                                    job,
                                     server,
                                     specification.getJobId(),
                                     specification.getRestoreJobId())
