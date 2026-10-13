@@ -65,58 +65,103 @@ Variables that the submitting host resolves are substituted before submission. R
 
 ### Application Secret
 
-Reference a Secret that your platform creates and manages. SeaTunnel mounts it read-only and never creates or deletes it:
+An application Secret has two mutually exclusive modes. Both mount the Secret read-only at
+`kubernetes.secret-directory` (default `/etc/seatunnel-secrets/application`) in the master and
+worker Pods, and a `job.conf` key in the Secret replaces the inline job configuration.
+
+| Mode | Configuration | Lifecycle |
+| --- | --- | --- |
+| Reference | `kubernetes.secret-ref` | Created and managed by your platform; SeaTunnel never creates or deletes it. |
+| Create | `kubernetes.secret.name` / `kubernetes.secret.data.*` | Created and owned by SeaTunnel; carries the Job owner reference and is removed with the application. |
+
+**Reference an existing Secret.** SeaTunnel only mounts it. Inject its keys as Pod environment
+variables when the job configuration uses `${VAR}` placeholders:
 
 ```hocon
-kubernetes.secret-ref = seatunnel-job-secret
+kubernetes {
+  secret-ref = platform-job-secrets
+  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+}
 ```
 
-Let SeaTunnel create and own the Secret instead. `data` entries are mounted under `kubernetes.secret-directory` (default `/etc/seatunnel-secrets/application`); inject them as Pod environment variables so `${VAR}` placeholders in the job configuration resolve on the master:
+**Let SeaTunnel create the Secret.** `data` entries are resolved on the submitting host and written
+into an Opaque Secret, whose default name is the application ID and can be overridden with `name`.
+Inject the created keys through `kubernetes.env`:
 
 ```hocon
 kubernetes {
   secret {
-    name = seatunnel-job-secret
+    name = seatunnel-job-secrets
     data {
       MYSQL_PASSWORD = ${MYSQL_PASSWORD}   # resolved on the submitting host
       S3_SECRET_KEY = "s3-secret-key"
     }
   }
-  env = "MYSQL_PASSWORD=secret:seatunnel-job-secret/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secret/S3_SECRET_KEY"
+  env = "MYSQL_PASSWORD=secret:seatunnel-job-secrets/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secrets/S3_SECRET_KEY"
 }
 ```
 
-`kubernetes.secret-ref` and `kubernetes.secret` are mutually exclusive, the Secret namespace always follows `kubernetes.namespace`, and a `job.conf` key replaces the inline job configuration.
+- Configure exactly one mode. Leaving both unset creates and references nothing, and is not an
+  error.
+- The Secret namespace always follows `kubernetes.namespace`.
+- Placeholders that the submitting host cannot resolve stay in the job configuration and are
+  resolved on the master from the injected environment.
 
 ### Application ConfigMap
 
-Mount selected keys of an existing ConfigMap through `subPath`. Referenced ConfigMaps are never modified or deleted, and the mounted keys are validated before submission:
+Every `kubernetes.configmap.<entry>` entry mounts one or more files through `subPath` in both the
+master and worker Pods. Each mounted key must declare its full container path in `mount`, so
+SeaTunnel never assumes a configuration directory.
+
+| Mode | Configuration | Lifecycle |
+| --- | --- | --- |
+| Reference | `ref` + `mount` | Created and managed by your platform; SeaTunnel only mounts it and validates the referenced keys before submission. |
+| Create | `name` (optional) + `data` + `mount` | Created and owned by SeaTunnel as `name` or `<application-id>-<entry>`; carries the Job owner reference and is removed with the application. |
+
+**Mount files from existing ConfigMaps.** Use one entry per ConfigMap to mount files from different
+ConfigMaps at different paths:
 
 ```hocon
-kubernetes.configmap.shared {
-  ref = platform-runtime
-  mount {
-    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-    log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+kubernetes.configmap {
+  engine-config {
+    ref = platform-engine-config
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
+  }
+  logging-config {
+    ref = platform-logging-config
+    mount {
+      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    }
   }
 }
 ```
 
-Let SeaTunnel create a ConfigMap for the application by declaring `data` entries. Created ConfigMaps are named `<application-id>-<entry>`, carry the Job owner reference and are removed with the application:
+**Let SeaTunnel create a ConfigMap.** Set `name` when another option must reference the created
+ConfigMap, for example an environment variable using `configMapKeyRef`; without `name` the
+ConfigMap is named `<application-id>-<entry>`:
 
 ```hocon
-kubernetes.configmap.runtime {
-  name = seatunnel-application-runtime
-  data {
-    seatunnel.yaml = "engine { ... }"
+kubernetes {
+  configmap.runtime {
+    name = seatunnel-runtime-config
+    data {
+      seatunnel.yaml = "engine { ... }"
+    }
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
   }
-  mount {
-    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-  }
+  env = "ENGINE_CONFIG=configmap:seatunnel-runtime-config/seatunnel.yaml"
 }
 ```
 
-Both forms declare a full container path for every mounted key in `mount`; SeaTunnel never assumes a configuration directory. When `name` is set, other options can reference the created ConfigMap, for example `kubernetes.env = "RUNTIME=configmap:seatunnel-application-runtime/seatunnel.yaml"`.
+- Referenced ConfigMaps are never modified or deleted; their mounted keys are validated before
+  submission. When the submitting identity cannot read a referenced ConfigMap, validation is
+  skipped with a warning and the Pod still mounts it through its own service account.
+- `kubernetes.config-map` remains available for mounting one ConfigMap over the whole
+  `<seatunnel-home>/config` directory; `kubernetes.configmap` is the per-file alternative.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

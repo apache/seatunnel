@@ -65,58 +65,96 @@ title: 配置参考
 
 ### Application Secret
 
-引用平台创建并管理的 Secret；SeaTunnel 只读挂载，永不创建或删除：
+application Secret 有两种互斥模式。两种模式都会把 Secret 只读挂载到 Master 和 Worker Pod 的
+`kubernetes.secret-directory`（默认 `/etc/seatunnel-secrets/application`）；Secret 里如果包含
+`job.conf`，会替换内联的作业配置。
+
+| 模式 | 配置 | 生命周期 |
+| --- | --- | --- |
+| 引用 | `kubernetes.secret-ref` | 由平台创建和管理；SeaTunnel 永不创建或删除 |
+| 创建 | `kubernetes.secret.name` / `kubernetes.secret.data.*` | 由 SeaTunnel 创建并持有；带 Job ownerReference，随 application 一起删除 |
+
+**引用已有 Secret**：SeaTunnel 只挂载、不修改。作业配置里使用 `${VAR}` 时，通过
+`kubernetes.env` 把 key 注入为 Pod 环境变量：
 
 ```hocon
-kubernetes.secret-ref = seatunnel-job-secret
+kubernetes {
+  secret-ref = platform-job-secrets
+  env = "MYSQL_PASSWORD=secret:platform-job-secrets/password"
+}
 ```
 
-也可以由 SeaTunnel 创建并持有 Secret。`data` 中的条目会挂载到 `kubernetes.secret-directory`（默认 `/etc/seatunnel-secrets/application`）；通过 `kubernetes.env` 注入为 Pod 环境变量后，作业配置里的 `${VAR}` 占位符即可在 Master 内解析：
+**由 SeaTunnel 创建 Secret**：`data` 在提交机解析后写入 Opaque Secret，默认名称为 application
+ID，可用 `name` 覆盖；创建出的 key 通过 `kubernetes.env` 注入：
 
 ```hocon
 kubernetes {
   secret {
-    name = seatunnel-job-secret
+    name = seatunnel-job-secrets
     data {
       MYSQL_PASSWORD = ${MYSQL_PASSWORD}   # 在提交机解析
       S3_SECRET_KEY = "s3-secret-key"
     }
   }
-  env = "MYSQL_PASSWORD=secret:seatunnel-job-secret/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secret/S3_SECRET_KEY"
+  env = "MYSQL_PASSWORD=secret:seatunnel-job-secrets/MYSQL_PASSWORD,S3_SECRET_KEY=secret:seatunnel-job-secrets/S3_SECRET_KEY"
 }
 ```
 
-`kubernetes.secret-ref` 与 `kubernetes.secret` 互斥；Secret 的 namespace 始终跟随 `kubernetes.namespace`；包含 `job.conf` 键时会替换内联的作业配置。
+- 两种模式只能配置一种；都不配置时不创建、不引用，也不会报错。
+- Secret 的 namespace 始终跟随 `kubernetes.namespace`。
+- 提交机解析不了的 `${VAR}` 会保留在作业配置中，由 Master 从注入的环境变量里解析。
 
 ### Application ConfigMap
 
-引用已有 ConfigMap 时，用 `mount` 声明要挂载的 key 及其完整路径，按 `subPath` 单文件挂载；引用型 ConfigMap 不会被修改或删除，挂载的 key 会在提交前校验：
+每个 `kubernetes.configmap.<entry>` 条目都会在 Master 和 Worker Pod 中按 `subPath` 挂载一个或
+多个文件。每个挂载的 key 都必须在 `mount` 中声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
+
+| 模式 | 配置 | 生命周期 |
+| --- | --- | --- |
+| 引用 | `ref` + `mount` | 由平台创建和管理；SeaTunnel 只挂载，并在提交前校验引用的 key |
+| 创建 | `name`（可选）+ `data` + `mount` | SeaTunnel 按 `name` 或 `<application-id>-<entry>` 创建并持有；带 Job ownerReference，随 application 一起删除 |
+
+**挂载已有 ConfigMap 的文件**：每个 ConfigMap 一个条目，就可以把不同 ConfigMap 的文件挂到不同路径：
 
 ```hocon
-kubernetes.configmap.shared {
-  ref = platform-runtime
-  mount {
-    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-    log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+kubernetes.configmap {
+  engine-config {
+    ref = platform-engine-config
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
+  }
+  logging-config {
+    ref = platform-logging-config
+    mount {
+      log4j2_client.properties = /opt/seatunnel/config/log4j2_client.properties
+    }
   }
 }
 ```
 
-声明 `data` 时由 SeaTunnel 创建 ConfigMap。创建型 ConfigMap 命名为 `<application-id>-<entry>`，带 Job ownerReference，随 application 一起清理：
+**由 SeaTunnel 创建 ConfigMap**：如果其他配置需要引用它（例如 `configMapKeyRef` 环境变量），
+必须显式设置 `name`；不设置时名字为 `<application-id>-<entry>`：
 
 ```hocon
-kubernetes.configmap.runtime {
-  name = seatunnel-application-runtime
-  data {
-    seatunnel.yaml = "engine { ... }"
+kubernetes {
+  configmap.runtime {
+    name = seatunnel-runtime-config
+    data {
+      seatunnel.yaml = "engine { ... }"
+    }
+    mount {
+      seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
+    }
   }
-  mount {
-    seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
-  }
+  env = "ENGINE_CONFIG=configmap:seatunnel-runtime-config/seatunnel.yaml"
 }
 ```
 
-两种模式都必须在 `mount` 中为每个挂载的 key 声明完整的容器内路径，SeaTunnel 不假设任何配置目录。设置了 `name` 后，其他配置可以按名字引用该 ConfigMap，例如 `kubernetes.env = "RUNTIME=configmap:seatunnel-application-runtime/seatunnel.yaml"`。
+- 引用型 ConfigMap 不会被修改或删除，挂载的 key 会在提交前校验；如果提交身份没有读取权限，
+  校验会降级为告警，Pod 仍通过自己的 ServiceAccount 挂载。
+- 旧的 `kubernetes.config-map` 仍可用于把单个 ConfigMap 整体挂载到 `<seatunnel-home>/config`；
+  `kubernetes.configmap` 是按文件挂载的替代方案。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 
