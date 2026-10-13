@@ -1470,9 +1470,16 @@ public class CheckpointCoordinator {
         synchronized (restoreProgressLock) {
             // Claim progress after storage, atomically with timeout failure, before notifying
             // tasks.
-            if (completionFuture != checkpointCoordinatorFuture
-                    || completionFuture.isDone()
-                    || shutdown) {
+            if (completionFuture.isDone() || shutdown) {
+                LOG.info(
+                        "Skip publishing stored checkpoint completion because its coordinator "
+                                + "lifecycle has already ended, job id: {}, pipeline id: {}, "
+                                + "checkpoint id: {}, completion future done: {}, shutdown: {}",
+                        completedCheckpoint.getJobId(),
+                        completedCheckpoint.getPipelineId(),
+                        completedCheckpoint.getCheckpointId(),
+                        completionFuture.isDone(),
+                        shutdown);
                 return;
             }
             markPostRestoreCheckpointProgress(completedCheckpoint);
@@ -1748,18 +1755,24 @@ public class CheckpointCoordinator {
                     || firstPostRestoreCheckpointCompletedTimestamp.get() > 0) {
                 return false;
             }
-            restoreStalledTimestamp.compareAndSet(0, stalledAt);
-            restoreProgressStalled.set(true);
-            restoreProgressTracking.set(false);
             CheckpointException error =
                     new CheckpointException(
                             CheckpointCloseReason.RESTORE_PROGRESS_TIMEOUT,
                             new SeaTunnelException(diagnosis));
-            errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(error));
-            persistStatus(CheckpointCoordinatorStatus.FAILED);
-            checkpointCoordinatorFuture.complete(
+            String errorMessage = errorByPhysicalVertex.get();
+            if (errorMessage == null) {
+                errorMessage = ExceptionUtils.getMessage(error);
+            }
+            if (!checkpointCoordinatorFuture.complete(
                     new CheckpointCoordinatorState(
-                            CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
+                            CheckpointCoordinatorStatus.FAILED, errorMessage))) {
+                return false;
+            }
+            restoreStalledTimestamp.compareAndSet(0, stalledAt);
+            restoreProgressStalled.set(true);
+            restoreProgressTracking.set(false);
+            errorByPhysicalVertex.compareAndSet(null, errorMessage);
+            persistStatus(CheckpointCoordinatorStatus.FAILED);
             LOG.error(diagnosis, error);
             return true;
         }

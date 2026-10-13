@@ -61,6 +61,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -326,6 +327,71 @@ class CheckpointRestoreProgressConcurrencyTest {
     @Test
     void warningDuringCheckpointStorageStillAllowsSuccess() throws Exception {
         completeCheckpointWhileTimeoutRuns(false);
+    }
+
+    @Test
+    void restoreDuringCheckpointStorageStillPublishesCompletion() throws Exception {
+        CountDownLatch storing = new CountDownLatch(1);
+        CountDownLatch releaseStorage = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            storing.countDown();
+                            assertTrue(releaseStorage.await(5, TimeUnit.SECONDS));
+                            return null;
+                        })
+                .when(storage)
+                .storeCheckPoint(any());
+        long now = System.currentTimeMillis();
+        CompletedCheckpoint checkpoint =
+                new CompletedCheckpoint(
+                        1L,
+                        1,
+                        7L,
+                        now,
+                        CheckpointType.SAVEPOINT_TYPE,
+                        now,
+                        Collections.emptyMap(),
+                        Collections.emptyMap());
+        CompletableFuture<CheckpointCoordinatorState> completionFuture = coordinatorFuture();
+        Future<?> completion =
+                executor.submit(() -> coordinator.completePendingCheckpoint(checkpoint));
+        try {
+            assertTrue(storing.await(5, TimeUnit.SECONDS));
+            coordinator.restoreCoordinator(false);
+            assertNotSame(completionFuture, coordinatorFuture());
+        } finally {
+            releaseStorage.countDown();
+        }
+        completion.get(5, TimeUnit.SECONDS);
+
+        verify(manager, times(1)).sendOperationToMemberNode(any());
+        assertEquals(CheckpointCoordinatorStatus.SUSPEND, states.get("checkpoint_state_1_1"));
+        assertEquals(
+                CheckpointCoordinatorStatus.SUSPEND,
+                coordinatorFuture().join().getCheckpointCoordinatorStatus());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void losingFailFastRaceDoesNotPersistFailedStatus() {
+        CompletableFuture<CheckpointCoordinatorState> losingFuture = mock(CompletableFuture.class);
+        ReflectionUtils.setField(coordinator, "checkpointCoordinatorFuture", losingFuture);
+        long generation =
+                (Long) ReflectionUtils.getField(coordinator, "restoreProgressGeneration").get();
+
+        boolean failed =
+                (Boolean)
+                        ReflectionUtils.invoke(
+                                coordinator,
+                                "failRestoreProgressIfCurrent",
+                                new Class<?>[] {long.class, String.class, long.class},
+                                new Object[] {generation, "concurrent terminal transition", 123L});
+
+        assertFalse(failed);
+        assertEquals(CheckpointCoordinatorStatus.RUNNING, states.get("checkpoint_state_1_1"));
+        assertTrue(coordinator.getRestoreProgressTracking().get());
+        assertFalse(coordinator.getRestoreProgressStalled().get());
+        assertEquals(0, coordinator.getRestoreStalledTimestamp().get());
     }
 
     @Test
