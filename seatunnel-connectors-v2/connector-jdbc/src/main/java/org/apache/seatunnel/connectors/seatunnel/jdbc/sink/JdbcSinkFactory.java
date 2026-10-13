@@ -68,6 +68,11 @@ import java.util.stream.Collectors;
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
+    public boolean supportsNewlyCreatedTable() {
+        return true;
+    }
+
+    @Override
     public String factoryIdentifier() {
         return "Jdbc";
     }

@@ -113,6 +113,31 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
         Assertions.assertTrue(collector.getSchemaEvents().get(0) instanceof CreateTableEvent);
     }
 
+    /** Verifies that an unsafe runtime identifier skips only that table instead of the CDC task. */
+    @Test
+    public void testInvalidRuntimeIdentifierDoesNotFailDeserialization() throws Exception {
+        EmptyCollector collector = new EmptyCollector();
+        SeaTunnelRowDebeziumDeserializeSchema schema =
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setTables(
+                                new ArrayList<>(
+                                        Collections.singletonList(
+                                                catalogTable("db1", "old_table"))))
+                        .setScanBinlogNewlyAddedTableEnabled(true)
+                        .setTableChangeCatalogTableConverter(
+                                tableChange -> {
+                                    throw new IllegalArgumentException("unsafe identifier");
+                                })
+                        .build();
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        schema.deserialize(
+                                schemaChangeRecord(TableId.parse("db1.unsafe-table")), collector));
+        Assertions.assertEquals(1, schema.getProducedType().size());
+        Assertions.assertTrue(collector.getSchemaEvents().isEmpty());
+    }
+
     /**
      * Builds a MySQL schema change record that contains the Debezium tableChanges payload.
      *

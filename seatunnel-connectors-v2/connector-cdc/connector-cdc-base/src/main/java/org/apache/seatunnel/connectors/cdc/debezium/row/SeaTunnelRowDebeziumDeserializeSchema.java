@@ -141,8 +141,16 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     if (tableChange.getType() != TableChanges.TableChangeType.CREATE) {
                         return;
                     }
-                    CatalogTable catalogTable =
-                            tableChangeCatalogTableConverter.convert(tableChange);
+                    CatalogTable catalogTable;
+                    try {
+                        catalogTable = tableChangeCatalogTableConverter.convert(tableChange);
+                    } catch (IllegalArgumentException e) {
+                        log.warn(
+                                "Skip newly added CDC table {} because its identifier cannot be used safely",
+                                tableChange.getId(),
+                                e);
+                        return;
+                    }
                     if (catalogTable == null) {
                         return;
                     }

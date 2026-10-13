@@ -45,6 +45,11 @@ class JdbcSinkFactoryTest {
     private final JdbcSinkFactory factory = new JdbcSinkFactory();
     private final OptionRule rule = factory.optionRule();
 
+    @Test
+    void testSupportsNewlyCreatedTable() {
+        Assertions.assertTrue(factory.supportsNewlyCreatedTable());
+    }
+
     private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
     }

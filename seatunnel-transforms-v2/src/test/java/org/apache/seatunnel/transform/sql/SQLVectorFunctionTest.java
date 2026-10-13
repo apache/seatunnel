@@ -75,6 +75,41 @@ public class SQLVectorFunctionTest {
     }
 
     @Test
+    public void testRepeatedVectorExpressionsAndPassThrough() {
+        SQLTransform transform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(
+                                        "query",
+                                        "SELECT vector_field, VECTOR_DIMS(vector_field) AS dims, "
+                                                + "VECTOR_DIMS(vector_field) AS dims_again, "
+                                                + "COSINE_DISTANCE(vector_field, vector_field) AS distance, "
+                                                + "VECTOR_NORM(vector_field) AS norm FROM dual")),
+                        catalogTable);
+        Assertions.assertArrayEquals(
+                new SeaTunnelDataType[] {
+                    VectorType.VECTOR_FLOAT_TYPE,
+                    BasicType.INT_TYPE,
+                    BasicType.INT_TYPE,
+                    BasicType.DOUBLE_TYPE,
+                    BasicType.DOUBLE_TYPE
+                },
+                transform.transformTableSchema().toPhysicalRowDataType().getFieldTypes());
+        ByteBuffer buffer = VectorUtils.toByteBuffer(new Float[] {3.0f, 4.0f});
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, buffer, null});
+        for (int i = 0; i < 2; i++) {
+            SeaTunnelRow output = transform.transformRow(input).get(0);
+            Assertions.assertSame(buffer, output.getField(0));
+            Assertions.assertEquals(2, output.getField(1));
+            Assertions.assertEquals(2, output.getField(2));
+            Assertions.assertEquals(0.0, output.getField(3));
+            Assertions.assertEquals(5.0, output.getField(4));
+            Assertions.assertEquals(0, buffer.position());
+        }
+        Assertions.assertArrayEquals(new Float[] {3.0f, 4.0f}, VectorUtils.toFloatArray(buffer));
+    }
+
+    @Test
     public void testVectorTruncate() {
         ReadonlyConfig config =
                 ReadonlyConfig.fromMap(

@@ -48,6 +48,10 @@ JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余�
 
 使用自动生成 SQL 时，如果目标端需要 Upsert、Update 或 Delete，请配置 `primary_keys`。未配置时，SeaTunnel 会尝试从上游 Catalog 元数据继承主键，再尝试第一个唯一键；仍然没有可用键时，会退化为普通 INSERT。
 
+### MySQL CDC 运行期新表
+
+JDBC Sink 支持 MySQL CDC 任务启动后才发现的表。在 MySQL CDC Source 中启用 `scan.binlog.newly-added-table.enabled`，并使用自动生成 SQL（`generate_sink_sql = true`），JDBC Sink 就能为新表创建 writer；当 SaveMode 允许时，还会创建目标表。该链路从源表的 `CREATE TABLE` binlog 位置开始，不会补读更早的数据。请使用至少一次语义；JDBC 精确一次模式不支持运行期建表。
+
 ## 快速入门：PostgreSQL
 
 下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份配置和预期结果已经在 PostgreSQL 14 中验证，包括示例数据写入和最终数据库值。
@@ -151,6 +155,7 @@ driver = "org.mariadb.jdbc.Driver"
 Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA。具体要求见 [Exactly-once 前置条件](#exactly-once-前置条件)。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)（仅 Zeta 引擎）
 
 ## Options

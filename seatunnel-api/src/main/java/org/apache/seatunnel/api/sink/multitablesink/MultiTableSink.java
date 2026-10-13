@@ -100,6 +100,16 @@ public class MultiTableSink
                         throws IOException {
                     return restoreRuntimeSinkWriter(catalogTable, context, states);
                 }
+
+                @Override
+                public boolean supportsNewlyCreatedTable() throws IOException {
+                    return discoverRuntimeTableSinkFactory().supportsNewlyCreatedTable();
+                }
+
+                @Override
+                public String sinkType() {
+                    return options.get(ConnectorCommonOptions.PLUGIN_NAME);
+                }
             };
 
     /**
@@ -366,11 +376,14 @@ public class MultiTableSink
             CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
             throws IOException {
         try {
-            String factoryIdentifier = options.get(ConnectorCommonOptions.PLUGIN_NAME);
             ClassLoader runtimeClassLoader = Thread.currentThread().getContextClassLoader();
-            TableSinkFactory<?, ?, ?, ?> tableSinkFactory =
-                    FactoryUtil.discoverFactory(
-                            runtimeClassLoader, TableSinkFactory.class, factoryIdentifier);
+            TableSinkFactory<?, ?, ?, ?> tableSinkFactory = discoverRuntimeTableSinkFactory();
+            if (!tableSinkFactory.supportsNewlyCreatedTable()) {
+                throw new IOException(
+                        String.format(
+                                "Sink %s does not support runtime newly created table %s",
+                                tableSinkFactory.factoryIdentifier(), catalogTable.getTablePath()));
+            }
             TableSinkFactoryContext factoryContext =
                     TableSinkFactoryContext.replacePlaceholderAndCreate(
                             catalogTable,
@@ -390,6 +403,19 @@ public class MultiTableSink
             throw new IOException(
                     "Failed to create sink writer for runtime table " + catalogTable.getTablePath(),
                     error);
+        }
+    }
+
+    /** Resolves the configured sink factory without creating a sink or writer. */
+    private TableSinkFactory<?, ?, ?, ?> discoverRuntimeTableSinkFactory() throws IOException {
+        String factoryIdentifier = options.get(ConnectorCommonOptions.PLUGIN_NAME);
+        try {
+            return FactoryUtil.discoverFactory(
+                    Thread.currentThread().getContextClassLoader(),
+                    TableSinkFactory.class,
+                    factoryIdentifier);
+        } catch (Throwable error) {
+            throw new IOException("Failed to discover sink factory " + factoryIdentifier, error);
         }
     }
 

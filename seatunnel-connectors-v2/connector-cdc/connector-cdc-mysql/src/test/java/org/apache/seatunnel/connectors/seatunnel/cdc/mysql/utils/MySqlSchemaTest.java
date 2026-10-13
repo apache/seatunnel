@@ -64,6 +64,25 @@ public class MySqlSchemaTest {
                 () -> MySqlCatalogTableUtils.toRuntimeCatalogTable(unsafeTable, null));
     }
 
+    /** Ensures legal MySQL identifiers that begin with a digit remain supported. */
+    @Test
+    public void testRuntimeCatalogTableAllowsDigitLeadingIdentifier() {
+        Table digitLeadingTable = Table.editor().tableId(TableId.parse("db1.2024_orders")).create();
+
+        Assertions.assertDoesNotThrow(
+                () -> MySqlCatalogTableUtils.toRuntimeCatalogTable(digitLeadingTable, null));
+    }
+
+    /** Ensures all-numeric identifiers remain rejected because they require quoting in MySQL. */
+    @Test
+    public void testRuntimeCatalogTableRejectsAllNumericIdentifier() {
+        Table numericTable = Table.editor().tableId(TableId.parse("db1.2024")).create();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MySqlCatalogTableUtils.toRuntimeCatalogTable(numericTable, null));
+    }
+
     @Test
     public void testReadSchemaFallbackDescTable() {
         MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();

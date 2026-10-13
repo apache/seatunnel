@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.HashUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -496,7 +497,7 @@ public class MultiTableSinkWriter
      * Keeps the schema-change path on the legacy source-table contract so unrelated table events
      * can still return immediately without waking queue workers.
      */
-    private boolean hasSourceMatchedWriter(SchemaChangeEvent event) {
+    private boolean hasSourceMatchedWriter(SchemaChangeEvent event) throws IOException {
         String tableId = event.tablePath().getFullName();
         if (event instanceof CreateTableEvent) {
             // Runtime table creation is driven by the configured factory and the writer templates,
@@ -504,6 +505,12 @@ public class MultiTableSinkWriter
             // startup map, so gating only on it would drop the CreateTableEvent for the very first
             // runtime table and leave it permanently unregistered.
             if (runtimeSinkWriterFactory != null) {
+                if (!runtimeSinkWriterFactory.supportsNewlyCreatedTable()) {
+                    throw new IOException(
+                            String.format(
+                                    "Sink %s does not support runtime newly created table %s",
+                                    runtimeSinkWriterFactory.sinkType(), tableId));
+                }
                 return true;
             }
             return sinkWriters.values().stream()
@@ -840,9 +847,9 @@ public class MultiTableSinkWriter
      *
      * <ul>
      *   <li>If the table's primary key information is present and the primary key field value is
-     *       non-null, the row is routed by {@code (primaryKeyValue.hashCode() & Integer.MAX_VALUE)
-     *       % queueSize}, guaranteeing that rows with the same primary key always go to the same
-     *       queue for ordered delivery.
+     *       non-null, the row is routed by {@link HashUtils#bucketIndex(int, int)} over {@code
+     *       primaryKeyValue.hashCode()} and the queue count, guaranteeing that rows with the same
+     *       primary key always go to the same queue for ordered delivery.
      *   <li>If the table's primary key information is present but the actual field value is {@code
      *       null}, the row is routed to queue 0.
      *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
@@ -893,10 +900,7 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE) is
-                // still Integer.MIN_VALUE, which would yield a negative queue index whenever the
-                // queue count is not a power of two.
-                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
+                index = HashUtils.bucketIndex(object.hashCode(), blockingQueues.size());
             }
             offerRowElement(index, element);
         }
@@ -1552,6 +1556,21 @@ public class MultiTableSinkWriter
                 CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
                 throws IOException {
             return create(catalogTable, context);
+        }
+
+        /**
+         * Whether the resolved sink factory supports tables discovered after job submission.
+         *
+         * <p>The default keeps explicit in-process factories source-compatible. Production
+         * factories must override this method with a connector capability check.
+         */
+        default boolean supportsNewlyCreatedTable() throws IOException {
+            return true;
+        }
+
+        /** Describes the resolved sink in capability errors. */
+        default String sinkType() {
+            return "in-process runtime sink factory";
         }
     }
 

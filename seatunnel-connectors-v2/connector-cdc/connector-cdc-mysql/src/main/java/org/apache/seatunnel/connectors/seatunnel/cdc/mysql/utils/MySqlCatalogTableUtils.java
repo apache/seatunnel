@@ -42,7 +42,8 @@ import java.util.stream.Collectors;
 public class MySqlCatalogTableUtils {
 
     /** Names that can be safely propagated from source-side DDL to downstream JDBC identifiers. */
-    private static final Pattern SAFE_IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_$]*");
+    private static final Pattern SAFE_IDENTIFIER =
+            Pattern.compile("[A-Za-z0-9_$]*[A-Za-z_$][A-Za-z0-9_$]*");
 
     /**
      * Converts a Debezium MySQL table change into a SeaTunnel {@link CatalogTable}. It is used when
