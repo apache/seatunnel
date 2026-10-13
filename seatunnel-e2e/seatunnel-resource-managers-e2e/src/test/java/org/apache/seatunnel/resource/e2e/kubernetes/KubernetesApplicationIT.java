@@ -198,6 +198,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 "jvm_master_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
         runtimeConfiguration.put(
                 "jvm_worker_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
+        runtimeConfiguration.put("jvm_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
         core.createNamespacedConfigMap(
                 namespace,
                 new V1ConfigMap()
@@ -325,6 +326,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
                 assertTrue(mounted(master, "/opt/seatunnel/custom/seatunnel.yaml"));
                 assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
+                assertTrue(mounted(master, "/opt/seatunnel/config/jvm_options"));
                 assertTrue(
                         master.getSpec()
                                 .getContainers()
