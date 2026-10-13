@@ -30,6 +30,7 @@ import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicati
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
@@ -49,7 +50,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
-import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.util.ArrayList;
@@ -207,7 +207,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     private KubernetesConfigMap getReadableConfigMap(String name, String option) throws Exception {
         try {
             return api.getConfigMap(name);
-        } catch (ApiException failure) {
+        } catch (KubernetesClientException failure) {
             if (failure.getCode() == 403) {
                 LOG.warn(
                         "No permission to verify {} ConfigMap {}; continuing without validation",
@@ -228,28 +228,26 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
 
     /** @return whether a failed request may still have been applied by the API server */
     private static boolean ambiguousOutcome(Exception failure) {
-        if (!(failure instanceof ApiException)) {
+        if (!(failure instanceof KubernetesClientException)) {
             return false;
         }
-        int code = ((ApiException) failure).getCode();
+        int code = ((KubernetesClientException) failure).getCode();
         return code == 0 || code >= 500;
     }
 
     private static Exception describe(String id, Exception failure) {
-        if (!(failure instanceof ApiException)) {
+        if (!(failure instanceof KubernetesClientException)) {
             return failure;
         }
-        ApiException apiFailure = (ApiException) failure;
-        return new ApiException(
+        KubernetesClientException clientFailure = (KubernetesClientException) failure;
+        return new KubernetesClientException(
+                clientFailure.getCode(),
                 "Kubernetes application deployment failed for "
                         + id
                         + " (HTTP "
-                        + apiFailure.getCode()
+                        + clientFailure.getCode()
                         + ")",
-                apiFailure,
-                apiFailure.getCode(),
-                apiFailure.getResponseHeaders(),
-                apiFailure.getResponseBody());
+                clientFailure);
     }
 
     private String awaitMaster(String id, long timeoutMillis) throws Exception {

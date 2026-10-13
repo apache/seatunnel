@@ -9,7 +9,7 @@ seatunnel-resource-managers/
 ├── pom.xml                       # Parent and aggregator; inherits the repository root
 └── kubernetes/                   # Maven artifact: seatunnel-resource-manager-kubernetes
     ├── pom.xml
-    └── src/                      # Entrypoint plus config/, cli/, kubeclient/ and worker/
+    └── src/                      # Entrypoint plus config/, cli/, exception/, kubeclient/ and worker/
 ```
 
 There is no resource-manager `core` module. Shared `ApplicationSpecification` and `WorkerSpecification` live in engine-common under `org.apache.seatunnel.engine.common.config.spec`; `ApplicationOptions` lives in `engine.common.config.server` and `SeatunnelApplicationConfig` in `engine.common.config`. `ApplicationJarPathResolver` lives in engine-core. These modules do not depend on platform SDKs.

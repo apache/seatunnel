@@ -85,6 +85,24 @@
                             <exclude>commons-logging:*</exclude>
                         </excludes>
                     </artifactSet>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <!-- Keep the signature excludes inherited from the root POM. -->
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <!-- Multi-release copies are not relocated, and the jar is not marked
+                                     Multi-Release, so the JVM ignores them anyway. -->
+                                <exclude>META-INF/versions/**</exclude>
+                                <!-- Kotlin module metadata still names the unrelocated packages. -->
+                                <exclude>META-INF/*.kotlin_module</exclude>
+                                <!-- Bundled protobuf descriptors name the unrelocated package. -->
+                                <exclude>google/protobuf/*.proto</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
                     <relocations>
                         <relocation>
                             <pattern>io.kubernetes</pattern>
@@ -127,6 +145,10 @@
                             <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.io.prometheus</shadedPattern>
                         </relocation>
                         <relocation>
+                            <pattern>io.swagger</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.io.swagger</shadedPattern>
+                        </relocation>
+                        <relocation>
                             <pattern>org.apache.commons</pattern>
                             <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.apache.commons</shadedPattern>
                         </relocation>
@@ -149,6 +171,10 @@
                         <relocation>
                             <pattern>org.jetbrains</pattern>
                             <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.jetbrains</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>javax.annotation</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.javax.annotation</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>

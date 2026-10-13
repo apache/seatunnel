@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
-
-import io.kubernetes.client.openapi.ApiException;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -32,15 +31,25 @@ import java.util.function.Consumer;
  * Namespace-scoped operations required by native SeaTunnel application mode.
  *
  * <p>The interface deliberately exposes SeaTunnel Kubernetes resource wrappers instead of SDK
- * models so submission and worker lifecycle code remain independent of the client library.
+ * models so submission and worker lifecycle code remain independent of the client library. Failures
+ * are reported as {@link KubernetesClientException}, which keeps the relocated client library out
+ * of the API of the shaded artifact.
  */
 public interface KubernetesClient extends AutoCloseable {
 
-    /** Reads an existing ConfigMap before Pods reference it for runtime configuration. */
-    KubernetesConfigMap getConfigMap(String name) throws ApiException;
+    /**
+     * Reads an existing ConfigMap before Pods reference it for runtime configuration.
+     *
+     * @throws KubernetesClientException if the ConfigMap is absent or the request fails
+     */
+    KubernetesConfigMap getConfigMap(String name);
 
-    /** Creates the suspended owner Job and returns its server-assigned metadata. */
-    KubernetesJob createJob(KubernetesJob job) throws ApiException;
+    /**
+     * Creates the suspended owner Job and returns its server-assigned metadata.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    KubernetesJob createJob(KubernetesJob job);
 
     /**
      * Creates resources that accompany the already-created owner Job.
@@ -50,22 +59,37 @@ public interface KubernetesClient extends AutoCloseable {
      *
      * @param owner created Job supplying the owner reference
      * @param resources accompanying resources in creation order
-     * @throws ApiException if any resource cannot be created
+     * @throws KubernetesClientException if any resource cannot be created
      */
-    void createAccompanyingResources(KubernetesJob owner, List<KubernetesResource<?>> resources)
-            throws ApiException;
+    void createAccompanyingResources(KubernetesJob owner, List<KubernetesResource<?>> resources);
 
-    /** Reads the durable owner Job for one application. */
-    KubernetesJob getJob(String name) throws ApiException;
+    /**
+     * Reads the durable owner Job for one application.
+     *
+     * @throws KubernetesClientException if the Job is absent or the API request fails
+     */
+    KubernetesJob getJob(String name);
 
-    /** Starts a previously suspended owner Job without replacing concurrent controller fields. */
-    void startJob(String name) throws ApiException;
+    /**
+     * Starts a previously suspended owner Job without replacing concurrent controller fields.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    void startJob(String name);
 
-    /** Creates one worker Pod owned by the application Job. */
-    void createPod(KubernetesPod pod) throws ApiException;
+    /**
+     * Creates one worker Pod owned by the application Job.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    void createPod(KubernetesPod pod);
 
-    /** Returns Pods matching a namespace-local label selector. */
-    List<KubernetesPod> listPods(String selector) throws ApiException;
+    /**
+     * Returns Pods matching a namespace-local label selector.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    List<KubernetesPod> listPods(String selector);
 
     /**
      * Observes matching Pods and emits complete snapshots at a bounded interval.
@@ -82,14 +106,26 @@ public interface KubernetesClient extends AutoCloseable {
             Consumer<List<KubernetesPod>> listener,
             Consumer<Exception> errorHandler);
 
-    /** Deletes one worker Pod and accepts an already absent Pod. */
-    void deletePod(String name) throws ApiException;
+    /**
+     * Deletes one worker Pod and accepts an already absent Pod.
+     *
+     * @throws KubernetesClientException if deletion fails for any reason other than absence
+     */
+    void deletePod(String name);
 
-    /** Deletes the owner Job so Kubernetes also removes the resources it owns. */
-    void deleteApplication(String id) throws ApiException;
+    /**
+     * Deletes the owner Job so Kubernetes also removes the resources it owns.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    void deleteApplication(String id);
 
-    /** Deletes all worker Pods while preserving the application master. */
-    void deleteWorkers(String id) throws ApiException;
+    /**
+     * Deletes all worker Pods while preserving the application master.
+     *
+     * @throws KubernetesClientException if the API request fails
+     */
+    void deleteWorkers(String id);
 
     /** Releases client transport resources without deleting Kubernetes objects. */
     @Override

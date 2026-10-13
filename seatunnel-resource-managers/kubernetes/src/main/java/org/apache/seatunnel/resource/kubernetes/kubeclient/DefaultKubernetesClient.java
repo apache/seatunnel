@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -72,15 +73,23 @@ final class DefaultKubernetesClient implements KubernetesClient {
     }
 
     @Override
-    public KubernetesConfigMap getConfigMap(String name) throws ApiException {
-        return new KubernetesConfigMap(core.readNamespacedConfigMap(name, namespace, null));
+    public KubernetesConfigMap getConfigMap(String name) {
+        try {
+            return new KubernetesConfigMap(core.readNamespacedConfigMap(name, namespace, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
     }
 
     @Override
-    public KubernetesJob createJob(KubernetesJob job) throws ApiException {
-        return new KubernetesJob(
-                batch.createNamespacedJob(
-                        namespace, job.getInternalResource(), null, null, null, null));
+    public KubernetesJob createJob(KubernetesJob job) {
+        try {
+            return new KubernetesJob(
+                    batch.createNamespacedJob(
+                            namespace, job.getInternalResource(), null, null, null, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
     }
 
     /**
@@ -88,25 +97,34 @@ final class DefaultKubernetesClient implements KubernetesClient {
      *
      * @param name application Job name in this connection's namespace
      * @return current Job object, including server-assigned ownership metadata
-     * @throws ApiException if the Job is absent or the API request fails
+     * @throws KubernetesClientException if the Job is absent or the API request fails
      */
     @Override
-    public KubernetesJob getJob(String name) throws ApiException {
-        return new KubernetesJob(batch.readNamespacedJob(name, namespace, null));
+    public KubernetesJob getJob(String name) {
+        try {
+            return new KubernetesJob(batch.readNamespacedJob(name, namespace, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
     }
 
     /** Starts only the suspended Job field without overwriting concurrent controller updates. */
     @Override
-    public void startJob(String name) throws ApiException {
-        batch.patchNamespacedJob(
-                name,
-                namespace,
-                new V1Patch("[{\"op\":\"replace\",\"path\":\"/spec/suspend\",\"value\":false}]"),
-                null,
-                null,
-                null,
-                null,
-                null);
+    public void startJob(String name) {
+        try {
+            batch.patchNamespacedJob(
+                    name,
+                    namespace,
+                    new V1Patch(
+                            "[{\"op\":\"replace\",\"path\":\"/spec/suspend\",\"value\":false}]"),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
     }
 
     /**
@@ -118,27 +136,33 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void createAccompanyingResources(
-            KubernetesJob owner, List<KubernetesResource<?>> resources) throws ApiException {
-        V1OwnerReference ownerReference = ownerReference(owner);
-        for (KubernetesResource<?> resource : resources) {
-            if (resource instanceof KubernetesSecret) {
-                V1Secret secret = ((KubernetesSecret) resource).getInternalResource();
-                secret.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
-                core.createNamespacedSecret(namespace, secret, null, null, null, null);
-            } else if (resource instanceof KubernetesService) {
-                V1Service service = ((KubernetesService) resource).getInternalResource();
-                service.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
-                core.createNamespacedService(namespace, service, null, null, null, null);
-            } else if (resource instanceof KubernetesConfigMap) {
-                V1ConfigMap configMap = ((KubernetesConfigMap) resource).getInternalResource();
-                configMap
-                        .getMetadata()
-                        .setOwnerReferences(Collections.singletonList(ownerReference));
-                core.createNamespacedConfigMap(namespace, configMap, null, null, null, null);
-            } else {
-                throw new IllegalArgumentException(
-                        "Unsupported accompanying Kubernetes resource " + resource.getName());
+            KubernetesJob owner, List<KubernetesResource<?>> resources) {
+        try {
+            V1OwnerReference ownerReference = ownerReference(owner);
+            for (KubernetesResource<?> resource : resources) {
+                if (resource instanceof KubernetesSecret) {
+                    V1Secret secret = ((KubernetesSecret) resource).getInternalResource();
+                    secret.getMetadata()
+                            .setOwnerReferences(Collections.singletonList(ownerReference));
+                    core.createNamespacedSecret(namespace, secret, null, null, null, null);
+                } else if (resource instanceof KubernetesService) {
+                    V1Service service = ((KubernetesService) resource).getInternalResource();
+                    service.getMetadata()
+                            .setOwnerReferences(Collections.singletonList(ownerReference));
+                    core.createNamespacedService(namespace, service, null, null, null, null);
+                } else if (resource instanceof KubernetesConfigMap) {
+                    V1ConfigMap configMap = ((KubernetesConfigMap) resource).getInternalResource();
+                    configMap
+                            .getMetadata()
+                            .setOwnerReferences(Collections.singletonList(ownerReference));
+                    core.createNamespacedConfigMap(namespace, configMap, null, null, null, null);
+                } else {
+                    throw new IllegalArgumentException(
+                            "Unsupported accompanying Kubernetes resource " + resource.getName());
+                }
             }
+        } catch (ApiException failure) {
+            throw wrap(failure);
         }
     }
 
@@ -146,12 +170,16 @@ final class DefaultKubernetesClient implements KubernetesClient {
      * Requests a worker pod whose owner reference is supplied by the caller.
      *
      * @param pod desired pod metadata and container specification
-     * @throws ApiException on admission or transport failure; an ambiguous request may have created
-     *     the pod and the caller remains responsible for compensating cleanup
+     * @throws KubernetesClientException on admission or transport failure; an ambiguous request may
+     *     have created the pod and the caller remains responsible for compensating cleanup
      */
     @Override
-    public void createPod(KubernetesPod pod) throws ApiException {
-        core.createNamespacedPod(namespace, pod.getInternalResource(), null, null, null, null);
+    public void createPod(KubernetesPod pod) {
+        try {
+            core.createNamespacedPod(namespace, pod.getInternalResource(), null, null, null, null);
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
     }
 
     /**
@@ -159,19 +187,23 @@ final class DefaultKubernetesClient implements KubernetesClient {
      *
      * @param selector Kubernetes label selector restricted to this connection's namespace
      * @return current matching pods; a missing pod is not synthesized
-     * @throws ApiException if the API request fails
+     * @throws KubernetesClientException if the API request fails
      */
     @Override
-    public List<KubernetesPod> listPods(String selector) throws ApiException {
-        List<KubernetesPod> pods = new ArrayList<>();
-        for (V1Pod pod :
-                core.listNamespacedPod(
-                                namespace, null, null, null, null, selector, null, null, null, null,
-                                null, null)
-                        .getItems()) {
-            pods.add(new KubernetesPod(pod));
+    public List<KubernetesPod> listPods(String selector) {
+        try {
+            List<KubernetesPod> pods = new ArrayList<>();
+            for (V1Pod pod :
+                    core.listNamespacedPod(
+                                    namespace, null, null, null, null, selector, null, null, null,
+                                    null, null, null)
+                            .getItems()) {
+                pods.add(new KubernetesPod(pod));
+            }
+            return pods;
+        } catch (ApiException failure) {
+            throw wrap(failure);
         }
-        return pods;
     }
 
     @Override
@@ -285,8 +317,8 @@ final class DefaultKubernetesClient implements KubernetesClient {
     }
 
     private static boolean isNonRetryable(Exception failure) {
-        if (failure instanceof ApiException) {
-            int code = ((ApiException) failure).getCode();
+        if (failure instanceof KubernetesClientException) {
+            int code = ((KubernetesClientException) failure).getCode();
             return code == 401 || code == 403 || code == 404;
         }
         return false;
@@ -296,10 +328,10 @@ final class DefaultKubernetesClient implements KubernetesClient {
      * Requests immediate deletion of one worker, accepting an already absent pod.
      *
      * @param name worker pod name in this connection's namespace
-     * @throws ApiException if deletion fails for any reason other than an absent pod
+     * @throws KubernetesClientException if deletion fails for any reason other than an absent pod
      */
     @Override
-    public void deletePod(String name) throws ApiException {
+    public void deletePod(String name) {
         try {
             core.deleteNamespacedPod(name, namespace, null, null, 0, null, "Background", null);
         } catch (ApiException failure) {
@@ -312,18 +344,18 @@ final class DefaultKubernetesClient implements KubernetesClient {
      * Service created for this application, then removes any remaining labeled Pods.
      */
     @Override
-    public void deleteApplication(String id) throws ApiException {
-        ApiException failure = null;
+    public void deleteApplication(String id) {
+        KubernetesClientException failure = null;
         try {
             batch.deleteNamespacedJob(id, namespace, null, null, 0, null, "Foreground", null);
         } catch (ApiException e) {
             if (e.getCode() != 404) {
-                failure = e;
+                failure = wrap(e);
             }
         }
         try {
             deletePods(KubernetesResourceIdentity.selector(id));
-        } catch (ApiException e) {
+        } catch (KubernetesClientException e) {
             if (failure == null) {
                 failure = e;
             } else {
@@ -350,14 +382,15 @@ final class DefaultKubernetesClient implements KubernetesClient {
      * Deletes all worker pods for an application while preserving its Job and master pod.
      *
      * @param id application Job name used by the worker ownership labels
-     * @throws ApiException if collection deletion fails for a reason other than absence
+     * @throws KubernetesClientException if collection deletion fails for a reason other than
+     *     absence
      */
     @Override
-    public void deleteWorkers(String id) throws ApiException {
+    public void deleteWorkers(String id) {
         deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE));
     }
 
-    private void deletePods(String selector) throws ApiException {
+    private void deletePods(String selector) {
         try {
             core.deleteCollectionNamespacedPod(
                     namespace,
@@ -380,9 +413,19 @@ final class DefaultKubernetesClient implements KubernetesClient {
         }
     }
 
-    private static void rethrowUnlessMissing(ApiException failure) throws ApiException {
+    /** Returns one SDK failure as the provider's own exception type. */
+    private static KubernetesClientException wrap(ApiException failure) {
+        String detail = failure.getMessage();
+        String message =
+                detail == null || detail.isEmpty()
+                        ? "Kubernetes API request failed (HTTP " + failure.getCode() + ")"
+                        : detail;
+        return new KubernetesClientException(failure.getCode(), message, failure);
+    }
+
+    private static void rethrowUnlessMissing(ApiException failure) {
         if (failure.getCode() != 404) {
-            throw failure;
+            throw wrap(failure);
         }
     }
 

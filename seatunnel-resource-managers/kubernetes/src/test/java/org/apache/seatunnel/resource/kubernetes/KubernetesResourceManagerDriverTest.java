@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -40,7 +41,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
-import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -231,15 +231,19 @@ class KubernetesResourceManagerDriverTest {
                 mainThreadExecutor,
                 ioExecutor,
                 () -> "10.0.0.1:5801");
-        doThrow(new ApiException(0, "connection interrupted")).when(api).createPod(any());
+        doThrow(new KubernetesClientException(0, "connection interrupted"))
+                .when(api)
+                .createPod(any());
         assertThrows(
                 Exception.class,
                 () -> driver.requestWorker(specification().getWorkerSpecification()).get());
         assertThrows(
                 Exception.class,
                 () -> driver.requestWorker(specification().getWorkerSpecification()).get());
-        doThrow(new ApiException(500, "deletion failed")).when(api).deleteWorkers("app");
-        assertThrows(ApiException.class, driver::close);
+        doThrow(new KubernetesClientException(500, "deletion failed"))
+                .when(api)
+                .deleteWorkers("app");
+        assertThrows(KubernetesClientException.class, driver::close);
         verify(api).deleteWorkers("app");
         verify(api).close();
     }
@@ -249,7 +253,7 @@ class KubernetesResourceManagerDriverTest {
         KubernetesClient api = mock(KubernetesClient.class);
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
-        ApiException failure = new ApiException(500, "watch failed");
+        KubernetesClientException failure = new KubernetesClientException(500, "watch failed");
         when(api.listPods(anyString())).thenThrow(failure);
         doNothing().when(mainThreadExecutor).execute(any());
         try (KubernetesResourceManagerDriver driver =

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
@@ -26,8 +27,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.openapi.ApiException;
 
 import java.util.List;
 
@@ -83,7 +82,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
                 }
             }
             return state;
-        } catch (ApiException e) {
+        } catch (KubernetesClientException e) {
             if (e.getCode() != 404) {
                 throw e;
             }

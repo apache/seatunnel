@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesW
 import org.junit.jupiter.api.Test;
 
 import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -52,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultKubernetesClientTest {
@@ -302,5 +305,33 @@ class DefaultKubernetesClientTest {
                                         request.contains("/secrets")
                                                 || request.contains("/services")),
                 requests.toString());
+    }
+
+    @Test
+    void reportsSdkFailuresAsTheProviderException() {
+        ApiClient client =
+                new ApiClient()
+                        .setHttpClient(
+                                new OkHttpClient.Builder()
+                                        .addInterceptor(
+                                                chain ->
+                                                        new Response.Builder()
+                                                                .request(chain.request())
+                                                                .protocol(Protocol.HTTP_1_1)
+                                                                .code(403)
+                                                                .message("Forbidden")
+                                                                .body(
+                                                                        ResponseBody.create(
+                                                                                "{\"message\":\"denied\"}",
+                                                                                MediaType.get(
+                                                                                        "application/json")))
+                                                                .build())
+                                        .build());
+        try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
+            KubernetesClientException failure =
+                    assertThrows(KubernetesClientException.class, () -> api.deletePod("worker"));
+            assertEquals(403, failure.getCode());
+            assertTrue(failure.getCause() instanceof ApiException, failure.toString());
+        }
     }
 }

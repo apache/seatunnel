@@ -34,6 +34,7 @@ import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicati
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
@@ -56,7 +57,6 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.MembershipEvent;
 import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobStatus;
@@ -271,7 +271,8 @@ class KubernetesApplicationTest {
     @Test
     void continuesWhenUserManagedConfigMapsCannotBeRead() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        when(api.getConfigMap("platform-runtime")).thenThrow(new ApiException(403, "forbidden"));
+        when(api.getConfigMap("platform-runtime"))
+                .thenThrow(new KubernetesClientException(403, "forbidden"));
         when(api.createJob(any())).thenReturn(job());
         Map<String, String> options = options();
         options.put("kubernetes.configmap.shared.ref", "platform-runtime");
@@ -289,14 +290,15 @@ class KubernetesApplicationTest {
     @Test
     void failsBeforeCreatingResourcesWhenReferencedConfigMapIsMissing() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        when(api.getConfigMap("platform-runtime")).thenThrow(new ApiException(404, "not found"));
+        when(api.getConfigMap("platform-runtime"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
         Map<String, String> options = options();
         options.put("kubernetes.configmap.shared.ref", "platform-runtime");
         options.put(
                 "kubernetes.configmap.shared.mount.seatunnel.yaml",
                 "/opt/seatunnel/config/shared.yaml");
         assertThrows(
-                ApiException.class,
+                KubernetesClientException.class,
                 () ->
                         new KubernetesApplicationClusterDescriptor(api, options)
                                 .deployApplication(specification()));
@@ -369,11 +371,11 @@ class KubernetesApplicationTest {
     void compensatesCreatedResourcesWhenAccompanyingResourcesFail() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any())).thenReturn(job());
-        doThrow(new ApiException(403, "denied"))
+        doThrow(new KubernetesClientException(403, "denied"))
                 .when(api)
                 .createAccompanyingResources(any(), any());
         assertThrows(
-                ApiException.class,
+                KubernetesClientException.class,
                 () ->
                         new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification()));
@@ -383,9 +385,10 @@ class KubernetesApplicationTest {
     @Test
     void compensatesAmbiguousJobCreationRequests() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        when(api.createJob(any())).thenThrow(new ApiException(0, "connection interrupted"));
+        when(api.createJob(any()))
+                .thenThrow(new KubernetesClientException(0, "connection interrupted"));
         assertThrows(
-                ApiException.class,
+                KubernetesClientException.class,
                 () ->
                         new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification()));
@@ -397,11 +400,11 @@ class KubernetesApplicationTest {
     void compensatesAmbiguousAccompanyingResourceRequests() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any())).thenReturn(job());
-        doThrow(new ApiException(0, "connection interrupted"))
+        doThrow(new KubernetesClientException(0, "connection interrupted"))
                 .when(api)
                 .createAccompanyingResources(any(), any());
         assertThrows(
-                ApiException.class,
+                KubernetesClientException.class,
                 () ->
                         new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification()));
@@ -411,9 +414,9 @@ class KubernetesApplicationTest {
     @Test
     void doesNotCompensateResourcesThisSubmissionDidNotCreate() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
-        when(api.createJob(any())).thenThrow(new ApiException(409, "already exists"));
+        when(api.createJob(any())).thenThrow(new KubernetesClientException(409, "already exists"));
         assertThrows(
-                ApiException.class,
+                KubernetesClientException.class,
                 () ->
                         new KubernetesApplicationClusterDescriptor(api, options())
                                 .deployApplication(specification()));
@@ -445,7 +448,7 @@ class KubernetesApplicationTest {
                                                         .reason("BackoffLimitExceeded"))));
         assertEquals(ApplicationStatus.FAILED, client.getStatus());
         assertEquals("BackoffLimitExceeded", api.getJob("app").getFailureReason());
-        when(api.getJob("app")).thenThrow(new ApiException(404, "gone"));
+        when(api.getJob("app")).thenThrow(new KubernetesClientException(404, "gone"));
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         client.cancel();
         assertEquals(ApplicationStatus.CANCELED, client.getStatus());
@@ -469,7 +472,7 @@ class KubernetesApplicationTest {
             assertThrows(IllegalStateException.class, () -> descriptor.retrieve("finished"));
             descriptor.cancelApplication("finished");
             verify(api).deleteApplication("finished");
-            when(api.getJob("finished")).thenThrow(new ApiException(404, "gone"));
+            when(api.getJob("finished")).thenThrow(new KubernetesClientException(404, "gone"));
             assertEquals(ApplicationStatus.UNKNOWN, descriptor.getApplicationStatus("finished"));
             assertTrue(nativeClients.constructed().isEmpty());
             verify(api, never()).listPods(anyString());
