@@ -18,6 +18,9 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -44,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,11 +59,13 @@ import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_TYPE;
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_TIME_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DebeziumJsonSerDeSchemaTest {
     private static final String FORMAT = "Debezium";
@@ -131,6 +137,42 @@ public class DebeziumJsonSerDeSchemaTest {
         assertEquals(RowKind.INSERT, collector.getList().get(0).getRowKind());
         assertEquals(101, collector.getList().get(0).getField(0));
         assertEquals("scooter", collector.getList().get(0).getField(1));
+    }
+
+    @Test
+    public void testSerializationSourceCacheAndEventTimeReset() throws Exception {
+        DebeziumJsonSerializationSchema serializationSchema =
+                new DebeziumJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
+        ObjectMapper mapper = new ObjectMapper();
+
+        // The cached source block must be refreshed when the table id changes.
+        SeaTunnelRow firstTableRow = new SeaTunnelRow(new Object[] {1, "scooter", "desc", 3.14f});
+        firstTableRow.setTableId("db1.sch1.t1");
+        JsonNode firstNode = mapper.readTree(serializationSchema.serialize(firstTableRow));
+        assertEquals("db1", firstNode.get("source").get("database").asText());
+        assertEquals("sch1", firstNode.get("source").get("schema").asText());
+        assertEquals("t1", firstNode.get("source").get("table").asText());
+
+        SeaTunnelRow secondTableRow = new SeaTunnelRow(new Object[] {2, "car", "desc2", 8.1f});
+        secondTableRow.setTableId("db2.sch2.t2");
+        JsonNode secondNode = mapper.readTree(serializationSchema.serialize(secondTableRow));
+        assertEquals("db2", secondNode.get("source").get("database").asText());
+        assertEquals("sch2", secondNode.get("source").get("schema").asText());
+        assertEquals("t2", secondNode.get("source").get("table").asText());
+
+        // A DELETE without an event time must not reuse the previous row's ts_ms.
+        SeaTunnelRow insertRow = new SeaTunnelRow(new Object[] {3, "hammer", "desc3", 0.75f});
+        insertRow.setRowKind(RowKind.INSERT);
+        insertRow.setTableId("db1.sch1.t1");
+        insertRow.setOptions(Collections.singletonMap(EVENT_TIME.getName(), 1589355606100L));
+        JsonNode insertNode = mapper.readTree(serializationSchema.serialize(insertRow));
+        assertEquals(1589355606100L, insertNode.get("ts_ms").asLong());
+
+        SeaTunnelRow deleteRow = new SeaTunnelRow(new Object[] {3, "hammer", "desc3", 0.75f});
+        deleteRow.setRowKind(RowKind.DELETE);
+        deleteRow.setTableId("db1.sch1.t1");
+        JsonNode deleteNode = mapper.readTree(serializationSchema.serialize(deleteRow));
+        assertTrue(deleteNode.get("ts_ms").isNull());
     }
 
     @Test
