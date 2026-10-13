@@ -18,12 +18,12 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ApplicationSecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.InlineSpecificationDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
@@ -69,7 +69,7 @@ public final class KubernetesApplicationFactory {
         return Arrays.asList(
                 new InlineSpecificationDecorator(parameters),
                 new EnvironmentDecorator(parameters),
-                new ApplicationSecretDecorator(applicationId, parameters),
+                new SecretDecorator(applicationId, parameters),
                 new ConfigMapDecorator(applicationId, parameters),
                 new HeadlessServiceDecorator(applicationId, parameters));
     }

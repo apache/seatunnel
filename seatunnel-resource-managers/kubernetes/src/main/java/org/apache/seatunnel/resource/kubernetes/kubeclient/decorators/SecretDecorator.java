@@ -37,12 +37,11 @@ import java.util.List;
  * entry then replaces the inline job configuration on the master. Without either option no Secret
  * is created, mounted or deleted.
  */
-public final class ApplicationSecretDecorator extends AbstractKubernetesStepDecorator {
+public final class SecretDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
     private final KubernetesApplicationParameters parameters;
 
-    public ApplicationSecretDecorator(
-            String applicationId, KubernetesApplicationParameters parameters) {
+    public SecretDecorator(String applicationId, KubernetesApplicationParameters parameters) {
         this.applicationId = applicationId;
         this.parameters = parameters;
     }
