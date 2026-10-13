@@ -13,7 +13,7 @@ Zeta itself owns worker registration, slot scheduling, task execution and checkp
 platform only provides and reclaims compute. That boundary is what lets the same job run on
 different platforms without changing the job file.
 
-## Business scenarios
+## What problem it solves
 
 ### One-off batch jobs
 
@@ -34,20 +34,6 @@ Application Mode is not a replacement for standalone or shared-cluster deploymen
 that should share one long-running cluster still belong to cluster mode, and a job that needs
 dynamic worker scaling should not use the fixed worker set of Application Mode.
 :::
-
-## One boundary layer for resource managers
-
-Application Mode is built on a single resource-manager boundary layer instead of implementing each
-platform's capabilities ad hoc. The engine side - application lifecycle, specification transport,
-worker management, checkpoints - stays platform independent; a resource manager driver only starts,
-observes and releases compute. Keeping every resource manager on that contract lets their
-capabilities be enhanced in parallel and keeps architecture technical debt bounded. With AI-assisted
-development, coding is no longer the bottleneck, so additional resource managers can be implemented
-without taking turns.
-
-The Kubernetes resource manager is the first implementation of this contract; the shared command
-line, configuration model and documentation are platform-neutral, so later resource managers can
-plug into the same boundary.
 
 ## Cluster shape
 
