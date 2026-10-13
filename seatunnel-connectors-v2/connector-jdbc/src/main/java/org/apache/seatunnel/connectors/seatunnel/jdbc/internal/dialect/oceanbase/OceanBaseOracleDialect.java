@@ -40,6 +40,12 @@ public class OceanBaseOracleDialect extends OracleDialect {
      * OceanBase Oracle mode can buffer a large sampled result set in memory, so split planning must
      * use bounded chunk queries instead of sampling.
      */
+    /** Composite splitting is not validated for OceanBase Oracle mode. */
+    @Override
+    public boolean supportCompositeKeySplit(java.sql.DatabaseMetaData metaData) {
+        return false;
+    }
+
     @Override
     public boolean supportsSamplingSharding() {
         return false;

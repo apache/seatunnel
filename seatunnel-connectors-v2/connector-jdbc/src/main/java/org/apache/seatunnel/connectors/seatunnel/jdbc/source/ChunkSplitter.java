@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -291,7 +292,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
         String baseQuery =
                 StringUtils.isNotBlank(table.getQuery())
-                        ? table.getQuery()
+                        ? normalizeQuery(table.getQuery())
                         : String.format(
                                 "SELECT * FROM %s",
                                 jdbcDialect.tableIdentifier(table.getTablePath()));
@@ -299,6 +300,19 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 SqlWhereConditionHelper.applyWhereConditionWithWrap(
                         baseQuery, config.getWhereConditionClause(), true);
         return table.withQuery(effectiveQuery);
+    }
+
+    /**
+     * Returns the source relation used by split metadata queries. A filtered table query is wrapped
+     * as a derived table so that every dialect, including Oracle, uses the portable alias form
+     * without {@code AS}.
+     */
+    protected String tableFromClause(JdbcSourceTable table) {
+        String query = normalizeQuery(table.getQuery());
+        if (StringUtils.isBlank(query)) {
+            return jdbcDialect.tableIdentifier(table.getTablePath());
+        }
+        return "(" + query + ") st";
     }
 
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
@@ -425,13 +439,18 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             // All key columns must also be splittable (Comparable) types - a composite PK
             // containing e.g. BINARY/VARBINARY would otherwise fail compareArrays with a
             // ClassCastException, so such keys also fall back to the single-column path.
+            // The isUseDynamicSplitter() gate above guarantees the FixedChunkSplitter never
+            // receives a multi-column key; FixedChunkSplitter#createSplits additionally rejects
+            // one defensively.
             if (pkColumnNames.size() > 1
                     && config.isUseDynamicSplitter()
                     && supportCompositeKeySplit()) {
                 List<Column> pkColumns = new ArrayList<>();
                 for (String pkField : pkColumnNames) {
                     Column column = columnMap.get(pkField);
-                    if (column != null && isSupportSplitColumn(column)) {
+                    if (column != null
+                            && isSupportSplitColumn(column)
+                            && !SqlType.STRING.equals(column.getDataType().getSqlType())) {
                         pkColumns.add(column);
                     }
                 }
@@ -505,7 +524,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
     }
 
-    private String normalizeQuery(String query) {
+    protected String normalizeQuery(String query) {
         if (StringUtils.isEmpty(query)) {
             return query;
         }

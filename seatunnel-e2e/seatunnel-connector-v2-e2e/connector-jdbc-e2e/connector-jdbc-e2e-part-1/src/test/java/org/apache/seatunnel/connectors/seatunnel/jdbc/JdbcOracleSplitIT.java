@@ -95,9 +95,6 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-        oracleContainer.setPortBindings(
-                java.util.Collections.singletonList(
-                        String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         Startables.deepStart(Stream.of(oracleContainer)).join();
         Class.forName("oracle.jdbc.OracleDriver");
         given().ignoreExceptions()
@@ -105,7 +102,13 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(5, TimeUnit.MINUTES)
-                .untilAsserted(this::initializeTable);
+                .untilAsserted(
+                        () -> {
+                            try (Connection connection = getJdbcConnection()) {
+                                Assertions.assertTrue(connection.isValid(5));
+                            }
+                        });
+        initializeTable();
     }
 
     private void initializeTable() throws SQLException {
@@ -144,7 +147,9 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
     }
 
     private String getJdbcUrl() {
-        return String.format("jdbc:oracle:thin:@localhost:%s/%s", ORACLE_PORT, SCHEMA);
+        return String.format(
+                "jdbc:oracle:thin:@%s:%s/%s",
+                oracleContainer.getHost(), oracleContainer.getMappedPort(ORACLE_PORT), SCHEMA);
     }
 
     @Test

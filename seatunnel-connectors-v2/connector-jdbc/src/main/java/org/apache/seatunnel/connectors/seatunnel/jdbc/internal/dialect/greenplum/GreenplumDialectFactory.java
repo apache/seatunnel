@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 import com.google.auto.service.AutoService;
 import lombok.NonNull;
 
+import java.sql.DatabaseMetaData;
+
 @AutoService(JdbcDialectFactory.class)
 public class GreenplumDialectFactory implements JdbcDialectFactory {
 
@@ -41,6 +43,14 @@ public class GreenplumDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
-        return new PostgresDialect();
+        return new GreenplumDialect();
+    }
+
+    private static class GreenplumDialect extends PostgresDialect {
+        @Override
+        public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+            // Composite splitting has not been validated for this dialect by official E2E.
+            return false;
+        }
     }
 }

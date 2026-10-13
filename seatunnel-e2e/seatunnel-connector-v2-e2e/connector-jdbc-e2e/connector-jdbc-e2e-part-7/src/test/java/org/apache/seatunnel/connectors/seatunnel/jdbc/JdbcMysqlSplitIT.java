@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -820,11 +821,111 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testCompositeKeyWithStringColumn() throws Exception {
-        // Composite PK mixing a numeric column with a STRING column must walk tuple-ordered
-        // boundaries correctly (String.compareTo semantics match MySQL VARCHAR collation for
-        // ASCII data) and read every row exactly once.
+    public void testCompositeKeySplitUsesWhereConditionForBoundariesAndReads() throws Exception {
+        String compositeTable = "composite_filtered_split_test";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + "."
+                            + compositeTable
+                            + " (order_id BIGINT NOT NULL, line_no INT NOT NULL, payload VARCHAR(20), "
+                            + "PRIMARY KEY (order_id, line_no))");
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, line_no, payload) VALUES (?, ?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setInt(2, i / 3);
+                ps.setString(3, "p" + i);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + compositeTable);
+        configMap.put("split.size", "10");
+        configMap.put("where_condition", "payload LIKE 'p1%'");
+
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, compositeTable);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePath);
+        JdbcSourceTable sourceTable =
+                JdbcSourceTable.builder().tablePath(tablePath).catalogTable(table).build();
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+        JdbcSourceSplit[] splits =
+                splitter.generateSplits(sourceTable).toArray(new JdbcSourceSplit[0]);
+        Assertions.assertTrue(splits.length > 1, "Filtered rows should still be split");
+        Assertions.assertEquals("order_id,line_no", splits[0].getSplitKeyName());
+
+        Set<String> expectedKeys = new HashSet<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT order_id, line_no FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " WHERE payload LIKE 'p1%' ORDER BY order_id, line_no")) {
+            while (rs.next()) {
+                expectedKeys.add(rs.getLong(1) + "|" + rs.getInt(2));
+            }
+        }
+        Assertions.assertTrue(expectedKeys.size() > 10);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT order_id, line_no FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " WHERE payload LIKE 'p1%' ORDER BY order_id, line_no LIMIT 10")) {
+            Object[] expectedFirstBoundary = null;
+            while (rs.next()) {
+                expectedFirstBoundary = new Object[] {rs.getLong(1), rs.getInt(2)};
+            }
+            Assertions.assertNotNull(expectedFirstBoundary);
+            Assertions.assertArrayEquals(expectedFirstBoundary, (Object[]) splits[0].getSplitEnd());
+        }
+
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement ps =
+                            splitter.generateSplitStatement(split, table.getTableSchema());
+                    ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    readCount++;
+                    readKeys.add(rs.getLong("order_id") + "|" + rs.getInt("line_no"));
+                }
+            }
+        }
+        Assertions.assertEquals(expectedKeys.size(), readCount);
+        Assertions.assertEquals(expectedKeys, readKeys);
+        mySqlCatalog.close();
+    }
+
+    @Test
+    public void testCompositeKeyWithStringColumnFallsBackToSingleColumn() throws Exception {
         String compositeTable = "composite_string_test";
+        Set<String> expectedKeys = new HashSet<>();
+        String[] tags = {"tag", "TAG", "éclair", "Éclair", "中,文", "Ωmega"};
         try (Connection connection = getJdbcConnection();
                 PreparedStatement ps =
                         connection.prepareStatement(
@@ -832,7 +933,8 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                         + MYSQL_DATABASE
                                         + "."
                                         + compositeTable
-                                        + " (order_id BIGINT NOT NULL, tag VARCHAR(32) NOT NULL, "
+                                        + " (order_id BIGINT NOT NULL, tag VARCHAR(32) "
+                                        + "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL, "
                                         + "PRIMARY KEY (order_id, tag))")) {
             ps.execute();
         }
@@ -845,11 +947,24 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                         + compositeTable
                                         + " (order_id, tag) VALUES (?, ?)")) {
             for (int i = 0; i < 300; i++) {
+                String tag = tags[i % tags.length] + String.format("%03d", i);
                 ps.setLong(1, i % 3);
-                ps.setString(2, String.format("tag%03d", i));
+                ps.setString(2, tag);
+                expectedKeys.add((i % 3) + "|" + tag);
                 ps.addBatch();
             }
             ps.executeBatch();
+        }
+
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT STRCMP(_utf8mb4'Z' COLLATE utf8mb4_general_ci, "
+                                        + "_utf8mb4'a' COLLATE utf8mb4_general_ci)")) {
+            Assertions.assertTrue(result.next());
+            Assertions.assertTrue(result.getInt(1) > 0);
+            Assertions.assertTrue("Z".compareTo("a") < 0);
         }
 
         Map<String, Object> configMap = new HashMap<>();
@@ -871,14 +986,14 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
         Collection<JdbcSourceSplit> jdbcSourceSplits = splitter.generateSplits(jdbcSourceTable);
 
-        Assertions.assertTrue(
-                jdbcSourceSplits.size() > 1,
-                "Composite key should split into multiple chunks, got " + jdbcSourceSplits.size());
+        Assertions.assertFalse(jdbcSourceSplits.isEmpty());
         JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
-        Assertions.assertEquals(
-                "order_id,tag",
-                splitArray[0].getSplitKeyName(),
-                "Composite key must include the STRING column");
+        for (JdbcSourceSplit split : splitArray) {
+            Assertions.assertEquals("order_id", split.getSplitKeyName());
+            Assertions.assertEquals(BasicType.LONG_TYPE, split.getSplitKeyType());
+            Assertions.assertFalse(split.getSplitStart() instanceof Object[]);
+            Assertions.assertFalse(split.getSplitEnd() instanceof Object[]);
+        }
 
         // Data-correctness: reading through every split must reconstruct the source table exactly
         // once - 300 rows, no missing and no duplicate (order_id, tag) keys.
@@ -899,6 +1014,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(300, readCount, "All 300 rows must be read through the splits");
         Assertions.assertEquals(
                 300, readKeys.size(), "No (order_id, tag) key may be duplicated or missing");
+        Assertions.assertEquals(expectedKeys, readKeys);
         mySqlCatalog.close();
     }
 

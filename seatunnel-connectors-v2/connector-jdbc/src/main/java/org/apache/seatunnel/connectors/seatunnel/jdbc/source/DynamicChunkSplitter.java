@@ -49,7 +49,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -164,7 +163,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             chunkStart = chunkEnd;
             chunkEnd =
                     queryNextChunkMaxComposite(table, columns, config.getSplitSize(), chunkStart);
-            if (chunkEnd != null && Arrays.equals(chunkStart, chunkEnd)) {
+            if (chunkEnd != null && compareArrays(chunkStart, chunkEnd) == 0) {
                 // we don't allow equal chunk start and end,
                 // should query the next one larger than chunkEnd
                 chunkEnd = queryMinComposite(table, columns, chunkEnd);
@@ -216,13 +215,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             orderDesc.append(quoted).append(" DESC");
         }
 
-        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
-        // returns empty (single split) or a single-column key before ever reaching the composite
-        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
         // Rows with a NULL key component are excluded from boundary computation (they cannot be
         // tuple-compared); the read predicate of the first chunk captures them instead, so no
-        // row is lost (see buildCompositeCondition).
-        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        // row is lost (see buildCompositeCondition). Apply the read filter to this metadata
+        // relation as well, otherwise boundaries describe rows that will never be read.
+        table = applyWhereCondition(table);
+        String fromClause = tableFromClause(table);
 
         String notNull = buildNotNullKeyCondition(columns);
         String minQuery =
@@ -303,10 +301,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         // the first chunk's read predicate instead (see buildCompositeCondition).
         where.append(" AND ").append(buildNotNullKeyCondition(columns));
 
-        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
-        // returns empty (single split) or a single-column key before ever reaching the composite
-        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
-        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        table = applyWhereCondition(table);
+        String fromClause = tableFromClause(table);
 
         String sql =
                 "SELECT "
@@ -367,10 +363,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             orderBy.append(quoted);
         }
 
-        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
-        // returns empty (single split) or a single-column key before ever reaching the composite
-        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
-        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        table = applyWhereCondition(table);
+        String fromClause = tableFromClause(table);
 
         // Expanded OR/AND form of (col1, col2, ...) > (?, ?, ...) without row-value-constructor
         // syntax (portable across dialects, e.g. SQL Server). Rows with a NULL key component are
