@@ -82,7 +82,8 @@ public class DorisCommitterTest {
                         () ->
                                 committer.commit(
                                         Collections.singletonList(
-                                                new DorisCommitInfo("fe1:8030", "test_db", 11L))));
+                                                new DorisCommitInfo(
+                                                        "fe1:8030", "test_db", 11L, "test_job"))));
 
         Assertions.assertTrue(exception.getMessage().contains("307 Temporary Redirect"));
         Assertions.assertTrue(
@@ -102,7 +103,10 @@ public class DorisCommitterTest {
         HttpServer redirectServer = createRedirectServer(location);
         DorisCommitInfo commitInfo =
                 new DorisCommitInfo(
-                        "127.0.0.1:" + redirectServer.getAddress().getPort(), "test_db", 11L);
+                        "127.0.0.1:" + redirectServer.getAddress().getPort(),
+                        "test_db",
+                        11L,
+                        "test_job");
         try (CloseableHttpClient httpClient = new HttpUtil().getHttpClient()) {
             DorisCommitter committer =
                     new DorisCommitter(createRuntimeConfig(commitInfo.getHostPort()), httpClient);
@@ -128,7 +132,9 @@ public class DorisCommitterTest {
                 .thenReturn(response);
 
         DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
-        committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 11L)));
+        committer.abort(
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 11L, "test_job")));
 
         verify(httpClient, times(1)).execute(any(HttpUriRequest.class), any(HttpContext.class));
     }
@@ -144,7 +150,8 @@ public class DorisCommitterTest {
         DorisCommitter committer =
                 new DorisCommitter(createMultiFrontendConfig(true, true), httpClient);
         committer.commit(
-                Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 12L)));
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 12L, "test_job")));
 
         ArgumentCaptor<HttpPut> requestCaptor = ArgumentCaptor.forClass(HttpPut.class);
         verify(httpClient, times(2)).execute(requestCaptor.capture(), any(HttpContext.class));
@@ -167,7 +174,9 @@ public class DorisCommitterTest {
 
         DorisCommitter committer =
                 new DorisCommitter(createMultiFrontendConfig(true, true), httpClient);
-        committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 12L)));
+        committer.abort(
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 12L, "test_job")));
 
         ArgumentCaptor<HttpPut> requestCaptor = ArgumentCaptor.forClass(HttpPut.class);
         verify(httpClient, times(2)).execute(requestCaptor.capture(), any(HttpContext.class));
@@ -197,7 +206,8 @@ public class DorisCommitterTest {
                 () ->
                         committer.commit(
                                 Collections.singletonList(
-                                        new DorisCommitInfo("fe1:8030", "test_db", 21L))));
+                                        new DorisCommitInfo(
+                                                "fe1:8030", "test_db", 21L, "test_job"))));
         Assertions.assertEquals(Arrays.asList(1, 2), sleepRetries);
     }
 
@@ -218,7 +228,8 @@ public class DorisCommitterTest {
                 () ->
                         committer.abort(
                                 Collections.singletonList(
-                                        new DorisCommitInfo("fe1:8030", "test_db", 22L))));
+                                        new DorisCommitInfo(
+                                                "fe1:8030", "test_db", 22L, "test_job"))));
         Assertions.assertEquals(Arrays.asList(1, 2), sleepRetries);
     }
 
@@ -234,7 +245,8 @@ public class DorisCommitterTest {
 
         DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
         committer.commit(
-                Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 23L)));
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 23L, "test_job")));
 
         verify(failedResponse, times(1)).close();
         verify(successResponse, times(1)).close();
@@ -251,7 +263,9 @@ public class DorisCommitterTest {
                 .thenReturn(successResponse);
 
         DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
-        committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 24L)));
+        committer.abort(
+                Collections.singletonList(
+                        new DorisCommitInfo("fe1:8030", "test_db", 24L, "test_job")));
 
         verify(failedResponse, times(1)).close();
         verify(successResponse, times(1)).close();
