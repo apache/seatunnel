@@ -12,21 +12,38 @@ application 结果映射为平台状态。
 ## 运行拓扑
 
 ```mermaid
-flowchart LR
-    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["资源管理器"]
-    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
-    manager --> worker1["Zeta Worker 1"]
-    manager --> workerN["Zeta Worker N"]
-    worker1 <-->|Hazelcast TCP| master
-    workerN <-->|Hazelcast TCP| master
-    master --> storage[("持久化 checkpoint 存储")]
+flowchart TB
+    cli["SeaTunnel Application CLI"]
+    manager["资源管理器<br/>平台 API"]
+    image["Application 运行时镜像"]
+    storage[("持久化 checkpoint 存储")]
+
+    subgraph app["一个 application"]
+        spec["本地化配置<br/>配置文件 / 环境变量"]
+        master["Application Master<br/>Zeta Master"]
+        worker1["Zeta Worker 1"]
+        workerN["Zeta Worker N"]
+    end
+
+    cli -->|submit / status / cancel| manager
+    manager -->|create owner application| master
+    spec -. delivered read-only .-> master
+    manager -->|create fixed workers| worker1
+    manager -->|create fixed workers| workerN
+    image -. same immutable runtime .-> master
+    image -. same immutable runtime .-> worker1
+    image -. same immutable runtime .-> workerN
+    worker1 -->|Hazelcast TCP| master
+    workerN -->|Hazelcast TCP| master
+    master -->|result / release workers| manager
+    master --> storage
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
     class cli,manager layerCyan;
-    class master,worker1,workerN layerBlue;
-    class storage layerPurple;
+    class app,master,worker1,workerN layerBlue;
+    class spec,image,storage layerPurple;
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
