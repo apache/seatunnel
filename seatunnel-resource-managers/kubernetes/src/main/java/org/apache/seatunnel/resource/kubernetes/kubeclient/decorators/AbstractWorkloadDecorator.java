@@ -35,18 +35,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Shared assembly of application Pods for the chain steps that create them.
+ * Shared assembly for the chain steps that create the application's workload resources.
  *
- * <p>The step that owns a Pod builds the container, command and probes itself through these
- * helpers, so Pod assembly lives with the chain instead of a factory. Only the parts master and
- * worker Pods must agree on are shared here: the container skeleton, the JVM command and the
- * resource requirements.
+ * <p>{@link JobDecorator} creates the owner Job with its master Pod template and {@link
+ * PodDecorator} creates the worker Pods; both extend this class so the container skeleton, the JVM
+ * command, the resource requirements and the Pod spec stay identical across roles. Role-specific
+ * parts stay in the owning step: the master probes and checkpoint claim, the worker process probe.
  */
-public abstract class AbstractPodDecorator extends AbstractKubernetesStepDecorator {
+public abstract class AbstractWorkloadDecorator extends AbstractKubernetesStepDecorator {
 
     protected final KubernetesApplicationParameters parameters;
 
-    protected AbstractPodDecorator(KubernetesApplicationParameters parameters) {
+    protected AbstractWorkloadDecorator(KubernetesApplicationParameters parameters) {
         this.parameters = parameters;
     }
 

@@ -19,14 +19,14 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ApplicationJobDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.InlineSpecificationDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.JobDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.PodDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.WorkerPodDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -110,7 +110,7 @@ public final class KubernetesApplicationFactory {
     private static List<KubernetesStepDecorator> masterDecorators(
             String applicationId, String mainClass, KubernetesApplicationParameters parameters) {
         List<KubernetesStepDecorator> decorators = new ArrayList<>();
-        decorators.add(new ApplicationJobDecorator(applicationId, mainClass, parameters));
+        decorators.add(new JobDecorator(applicationId, mainClass, parameters));
         decorators.add(new InlineSpecificationDecorator(parameters));
         decorators.addAll(sharedPodDecorators(applicationId, parameters));
         decorators.add(new HeadlessServiceDecorator(applicationId, parameters));
@@ -127,8 +127,7 @@ public final class KubernetesApplicationFactory {
             String masterAddress) {
         List<KubernetesStepDecorator> decorators = new ArrayList<>();
         decorators.add(
-                new WorkerPodDecorator(
-                        owner, name, parameters, resources, clusterName, masterAddress));
+                new PodDecorator(owner, name, parameters, resources, clusterName, masterAddress));
         decorators.addAll(sharedPodDecorators(owner.getName(), parameters));
         return decorators;
     }

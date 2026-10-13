@@ -48,11 +48,11 @@ import io.kubernetes.client.openapi.models.V1VolumeMount;
  * create the accompanying resources before the master starts; the retention period removes the Job
  * after its terminal state.
  */
-public final class ApplicationJobDecorator extends AbstractPodDecorator {
+public final class JobDecorator extends AbstractWorkloadDecorator {
     private final String applicationId;
     private final String mainClass;
 
-    public ApplicationJobDecorator(
+    public JobDecorator(
             String applicationId, String mainClass, KubernetesApplicationParameters parameters) {
         super(parameters);
         this.applicationId = applicationId;
@@ -62,8 +62,7 @@ public final class ApplicationJobDecorator extends AbstractPodDecorator {
     @Override
     public KubernetesJob decorateJob(KubernetesJob job) {
         if (job != null) {
-            throw new IllegalStateException(
-                    "The application Job step must start the master decorator chain");
+            throw new IllegalStateException("The Job step must start the master decorator chain");
         }
         V1PodSpec masterSpec = masterPod();
         V1ObjectMeta masterMetadata =

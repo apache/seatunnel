@@ -33,20 +33,20 @@ import io.kubernetes.client.openapi.models.V1Probe;
 import java.util.Arrays;
 
 /**
- * Creates one worker Pod and hands it to the rest of the worker chain.
+ * Creates one worker Pod resource and hands it to the rest of the worker chain.
  *
  * <p>Workers are created by the application master, not by the submitter. This step builds the Pod
  * skeleton, including its identity, owner reference, container, command and probes; every later
  * step adds the features shared with the master, so worker and master Pods cannot drift apart.
  */
-public final class WorkerPodDecorator extends AbstractPodDecorator {
+public final class PodDecorator extends AbstractWorkloadDecorator {
     private final KubernetesJob owner;
     private final String name;
     private final WorkerSpecification resources;
     private final String clusterName;
     private final String masterAddress;
 
-    public WorkerPodDecorator(
+    public PodDecorator(
             KubernetesJob owner,
             String name,
             KubernetesApplicationParameters parameters,
@@ -64,8 +64,7 @@ public final class WorkerPodDecorator extends AbstractPodDecorator {
     @Override
     public V1Pod decoratePod(V1Pod pod) {
         if (pod != null) {
-            throw new IllegalStateException(
-                    "The worker Pod step must start the worker decorator chain");
+            throw new IllegalStateException("The Pod step must start the worker decorator chain");
         }
         return new V1Pod()
                 .apiVersion(KubernetesConstants.CORE_API_VERSION)
