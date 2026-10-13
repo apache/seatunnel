@@ -28,16 +28,14 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Reader that re-implements executeRequest to retry HTTP 429 and 5xx with exponential backoff
  * before handing the response to the base reader.
  */
+@Slf4j
 public class AsanaSourceReader extends HttpSourceReader {
-
-    private static final Logger log = LoggerFactory.getLogger(AsanaSourceReader.class);
 
     public AsanaSourceReader(
             HttpParameter httpParameter,

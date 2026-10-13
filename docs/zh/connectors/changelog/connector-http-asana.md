@@ -1,3 +1,3 @@
-| Change                                                      | Commit | Version |
-|-------------------------------------------------------------| --- | --- |
-| [Feature][connector-http-splunk] Add Asana source connector | https://github.com/apache/seatunnel | dev |
+| Change                                                     | Commit | Version |
+|------------------------------------------------------------| --- | --- |
+| [Feature][connector-http-asana] Add Asana source connector | https://github.com/apache/seatunnel | dev |
