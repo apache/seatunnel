@@ -279,7 +279,9 @@ public class SeaTunnelServer
 
     /**
      * Publishes a best-effort marker before a graceful shutdown so the coordinator can downgrade
-     * only it.
+     * only it. This relies on Hazelcast 5.1 {@code LifecycleServiceImpl#shutdown()} publishing
+     * {@link LifecycleState#SHUTTING_DOWN} before distributed-object proxies stop accepting the
+     * marker write; re-verify that ordering when upgrading Hazelcast.
      */
     private boolean markLocalGracefulMemberRemoval() {
         return updateLocalGracefulMemberRemovalMarker(true);

@@ -272,8 +272,9 @@ public class PhysicalVertex {
 
     /**
      * Reads the one-time graceful-removal marker while restoring a task whose worker has already
-     * left the cluster. This recovery path may run before the new master receives its membership
-     * callback, so it must preserve the same classification as the callback path.
+     * left the cluster. This read is intentionally non-clearing: recovery may run before the new
+     * master receives its membership callback, and that callback owns the conditional clear after
+     * every restored job has had the same opportunity to classify the removal.
      */
     private Long getGracefulMemberRemovalMarker(Address lostAddress) {
         try {

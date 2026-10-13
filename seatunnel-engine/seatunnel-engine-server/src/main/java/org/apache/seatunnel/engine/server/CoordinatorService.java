@@ -1063,52 +1063,57 @@ public class CoordinatorService {
             return;
         }
         restoringRunningJobsFromMasterSwitch = true;
-        // waiting have worker registered
-        while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
-            try {
-                logger.info("Waiting for worker registered");
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                logger.severe(ExceptionUtils.getMessage(e));
-                throw new SeaTunnelEngineException("wait worker register error", e);
-            }
-        }
-        List<CompletableFuture<Void>> collect =
-                needRestoreFromMasterNodeSwitchJobs.stream()
-                        .map(
-                                entry ->
-                                        CompletableFuture.runAsync(
-                                                () -> {
-                                                    logger.info(
-                                                            String.format(
-                                                                    "begin restore job (%s) from master active switch",
-                                                                    entry.getKey()));
-                                                    try {
-                                                        // skip the job new submit
-                                                        if (!runningJobMasterMap.containsKey(
-                                                                entry.getKey())) {
-                                                            restoreJobFromMasterActiveSwitch(
-                                                                    entry.getKey(),
-                                                                    entry.getValue());
-                                                        }
-                                                    } catch (Exception e) {
-                                                        logger.severe(e);
-                                                    }
-                                                    logger.info(
-                                                            String.format(
-                                                                    "restore job (%s) from master active switch finished",
-                                                                    entry.getKey()));
-                                                },
-                                                MDCTracer.tracing(entry.getKey(), executorService)))
-                        .collect(Collectors.toList());
-
         try {
-            CompletableFuture<Void> voidCompletableFuture =
-                    CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
-            voidCompletableFuture.get();
-        } catch (Exception e) {
-            logger.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException(e);
+            // waiting have worker registered
+            while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
+                try {
+                    logger.info("Waiting for worker registered");
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    logger.severe(ExceptionUtils.getMessage(e));
+                    throw new SeaTunnelEngineException("wait worker register error", e);
+                }
+            }
+            List<CompletableFuture<Void>> collect =
+                    needRestoreFromMasterNodeSwitchJobs.stream()
+                            .map(
+                                    entry ->
+                                            CompletableFuture.runAsync(
+                                                    () -> {
+                                                        logger.info(
+                                                                String.format(
+                                                                        "begin restore job (%s) from master active switch",
+                                                                        entry.getKey()));
+                                                        try {
+                                                            // skip the job new submit
+                                                            if (!runningJobMasterMap.containsKey(
+                                                                    entry.getKey())) {
+                                                                restoreJobFromMasterActiveSwitch(
+                                                                        entry.getKey(),
+                                                                        entry.getValue());
+                                                            }
+                                                        } catch (Exception e) {
+                                                            logger.severe(e);
+                                                        }
+                                                        logger.info(
+                                                                String.format(
+                                                                        "restore job (%s) from master active switch finished",
+                                                                        entry.getKey()));
+                                                    },
+                                                    MDCTracer.tracing(
+                                                            entry.getKey(), executorService)))
+                            .collect(Collectors.toList());
+
+            try {
+                CompletableFuture<Void> voidCompletableFuture =
+                        CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
+                voidCompletableFuture.get();
+            } catch (Exception e) {
+                logger.severe(ExceptionUtils.getMessage(e));
+                throw new SeaTunnelEngineException(e);
+            }
+        } finally {
+            restoringRunningJobsFromMasterSwitch = false;
         }
     }
 
