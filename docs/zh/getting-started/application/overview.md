@@ -12,17 +12,6 @@ checkpoint 仍由 Zeta 自己负责，平台只提供并回收计算资源。
 Application Mode 不是 standalone 或共享集群部署的替代品，而是同一个 Zeta 引擎的一种部署模式：
 一个作业对应一个自带 Master 和 Worker 的自包含 application。
 
-```mermaid
-flowchart LR
-    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["资源管理器"]
-    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
-    manager --> worker1["Zeta Worker 1"]
-    manager --> workerN["Zeta Worker N"]
-    worker1 <-->|Hazelcast TCP| master
-    workerN <-->|Hazelcast TCP| master
-    master --> storage[("持久化 checkpoint 存储")]
-```
-
 ## 解决了什么问题
 
 - 不再手写启动、发现、提交、失败传播和清理脚本：一条命令提交 application，启动、观测和回收都交给平台；

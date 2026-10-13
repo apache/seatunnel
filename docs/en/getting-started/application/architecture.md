@@ -10,6 +10,19 @@ regular Zeta runtime: worker registration, slot scheduling, task execution, fail
 checkpoints. The platform provider only starts, observes and reclaims the processes, and maps the
 application result to the platform state.
 
+## Runtime topology
+
+```mermaid
+flowchart LR
+    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["Resource Manager"]
+    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
+    manager --> worker1["Zeta Worker 1"]
+    manager --> workerN["Zeta Worker N"]
+    worker1 <-->|Hazelcast TCP| master
+    workerN <-->|Hazelcast TCP| master
+    master --> storage[("Persistent checkpoint storage")]
+```
+
 ## Engine side
 
 ```text

@@ -9,6 +9,19 @@ Application Mode 在 Engine 中增加了一层资源管理器。该层之下仍�
 slot 调度、任务执行、故障传播和 checkpoint。平台 provider 只负责启动、观测、回收进程，并把
 application 结果映射为平台状态。
 
+## 运行拓扑
+
+```mermaid
+flowchart LR
+    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["资源管理器"]
+    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
+    manager --> worker1["Zeta Worker 1"]
+    manager --> workerN["Zeta Worker N"]
+    worker1 <-->|Hazelcast TCP| master
+    workerN <-->|Hazelcast TCP| master
+    master --> storage[("持久化 checkpoint 存储")]
+```
+
 ## Engine 侧
 
 ```text

@@ -15,17 +15,6 @@ Application Mode is not a replacement for standalone or shared-cluster deploymen
 deployment mode of the same Zeta engine: one job becomes one self-contained application with its own
 master and workers.
 
-```mermaid
-flowchart LR
-    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["Resource Manager"]
-    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
-    manager --> worker1["Zeta Worker 1"]
-    manager --> workerN["Zeta Worker N"]
-    worker1 <-->|Hazelcast TCP| master
-    workerN <-->|Hazelcast TCP| master
-    master --> storage[("Persistent checkpoint storage")]
-```
-
 ## What problem it solves
 
 - No hand-written startup, discovery, submission, failure-propagation and cleanup scripts: one
