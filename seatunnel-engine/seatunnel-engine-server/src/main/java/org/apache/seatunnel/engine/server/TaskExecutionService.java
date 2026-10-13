@@ -757,14 +757,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.severe(ExceptionUtils.getMessage(t));
             if (contextPublished) {
                 rollbackPublishedDeployment(taskGroupLocation, context, executionTracker, t);
+                // Workers may already have completed this future as FAILED via taskDone. Keep
+                // that completion. Otherwise the wrapper returned below would surface the deploy
+                // exception and hide the FAILED state already reported to the master.
+                resultFuture.complete(
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, t));
             } else {
                 onFailureBeforeContextPublished.accept(t);
+                // Nothing was published or submitted, so keep the pre-publication completion
+                // contract: complete exceptionally so the whenCompleteAsync handler still emits
+                // the "Task <loc> complete with error <msg>" log and reports FAILED to the
+                // master. TaskDeploymentPrePublicationClassLoaderLeakIT relies on that log line.
+                resultFuture.completeExceptionally(t);
             }
-            // Workers may already have completed this future as FAILED via taskDone. Keep that
-            // completion. Otherwise the wrapper returned below would surface the deploy exception
-            // and hide the FAILED state already reported to the master.
-            resultFuture.complete(
-                    new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, t));
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }
