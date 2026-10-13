@@ -1605,12 +1605,13 @@ def run_diagnose(job_id: str, console: Console) -> int:
     and no network beyond the cluster -- which is exactly the situation someone
     is in when a job is stuck in production and they want an answer now.
 
-    It is also read-only: two GETs, no submit, no stop, no savepoint. That is
+    It is also read-only: GETs only, no submit, no stop, no savepoint. That is
     what makes it safe to point at a live production job.
     """
     from .connectors import _ENGINE_API_BASE
     from .diagnostics.checkpoints import diagnose_checkpoints
     from .diagnostics.jobs import as_int, diagnose_job, is_non_terminal, sort_findings
+    from .diagnostics.realtime import diagnose_realtime
     from .memory import redact_credentials
 
     if not _JOB_ID_RE.match(job_id):
@@ -1744,6 +1745,18 @@ def run_diagnose(job_id: str, console: Console) -> int:
         findings = sort_findings(
             findings + diagnose_checkpoints(checkpoints, now_ms=engine_now_ms)
         )
+
+    # Completed jobs no longer have a realtime store. Optional metric failures
+    # must not discard job/checkpoint evidence or construct an LLM provider.
+    if status.upper() == "RUNNING":
+        try:
+            metric_base = f"{_ENGINE_API_BASE}/metrics/realtime/jobs/{job_id}"
+            edges = rest.request_json(f"{metric_base}/edges?windowMs=180000", timeout=10)
+            vertices = rest.request_json(f"{metric_base}/vertices?windowMs=180000", timeout=10)
+        except Exception as e:
+            edges, vertices = None, None
+            logger.debug("Realtime metrics for job %s unavailable: %s", job_id, e)
+        findings = sort_findings(findings + diagnose_realtime(edges, vertices))
 
     if not findings:
         # Only claim a clean bill of health when the rules actually had their

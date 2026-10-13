@@ -279,8 +279,8 @@ seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model 
 ### Diagnosing a Job
 
 `--diagnose` answers "why is this job not making progress?" from what the
-engine already publishes. It is read-only -- a `GET /job-info/<id>` and a
-`GET /jobs/checkpoints/<id>`, never a submit or a stop -- and uses no LLM at
+engine already publishes. It is read-only -- GET requests for job state,
+checkpoint history and optional realtime metrics, never a submit or a stop -- and uses no LLM at
 all, so it works with no API key and no provider configured:
 
 ```bash
@@ -332,7 +332,26 @@ been slow since. If the cluster predates the checkpoint endpoint, or its
 monitor service is off, the rest of the diagnosis is printed unchanged, with
 one line noting that this part of the analysis did not run.
 
-Every rule is deliberately limited to what one response can prove, because a
+For running jobs, the CLI also reads
+`/metrics/realtime/jobs/<id>/edges` and `/vertices` over the last three minutes.
+With `env.engine.observability.enabled = true`, three consecutive completed
+buckets can identify a queue that was persistently full and backpressured.
+The output retains `queueId`, `targetVertexId`, the measured window and ratios.
+Busy sink writes or transform processing in the same buckets make that
+downstream vertex a **candidate to investigate**, rather than a proven root
+cause. Sink prepare/commit time is checked separately, including when write
+busyness is low; its sum is normalized by bucket duration and subtask count.
+
+The prototype thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
+buckets; busy or prepare/commit time ≥ 0.5 supplies the corresponding work
+evidence. Repeated points are not additional samples, the current partial
+bucket is excluded, and endpoints must have matching bucket widths and an
+overlapping window. Disabled, missing or insufficient data is reported as
+unavailable while job/checkpoint diagnosis continues. Source read time alone
+is not source attribution: synchronous downstream work can execute within
+the source's `pollNext()`.
+
+Every rule is deliberately limited to what its inputs can prove, because a
 wrong hint costs more than a missing one:
 
 - `restoreCount` counts restores since submission, so what it means depends on
