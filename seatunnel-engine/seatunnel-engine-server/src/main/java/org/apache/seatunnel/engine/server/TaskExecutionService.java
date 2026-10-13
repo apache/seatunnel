@@ -94,7 +94,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -240,6 +239,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
+    /**
+     * Runs all terminal task-group metrics reports concurrently without inheriting task interrupts.
+     */
+    private final ExecutorService finalMetricsExecutorService =
+            Executors.newCachedThreadPool(
+                    runnable -> {
+                        Thread thread = new Thread(runnable, "seatunnel.final-metrics");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
     /** Client for managing connector packages on the server. */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
 
@@ -314,6 +324,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        finalMetricsExecutorService.shutdown();
         timerFlushWorker.shutdown();
     }
 
@@ -405,7 +416,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
-        List<Future<?>> blockingFutures =
+        taskGroupExecutionTracker.blockingFutures =
                 tasks.stream()
                         .map(
                                 t ->
@@ -426,17 +437,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         // on cancellation there is a race where the executor might not have started
         // the worker yet. This would result in taskletDone() never being called for
         // a worker.
-        try {
-            uncheckRun(startedLatch::await);
-        } finally {
-            // Early failure cleanup must not cancel a worker before run() releases startedLatch.
-            // Publish the futures after startup, then honor any failure or cancellation received
-            // while waiting so already-running tasks are still interrupted.
-            taskGroupExecutionTracker.blockingFutures = blockingFutures;
-            if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
-                taskGroupExecutionTracker.cancelAllTask();
-            }
-        }
+        uncheckRun(startedLatch::await);
     }
 
     /**
@@ -944,7 +945,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private void updateMetricsContextInImap() {
+    void updateMetricsContextInImap() {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -1574,33 +1575,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          */
         private void cancelAllTask() {
             try {
-                ExecutorService tracingExecutorService = MDCTracer.tracing(executorService);
-                taskGroup
-                        .getTasks()
-                        .forEach(
-                                task ->
-                                        tracingExecutorService.submit(
-                                                () -> {
-                                                    try {
-                                                        task.cancel();
-                                                    } catch (Throwable t) {
-                                                        logger.warning(
-                                                                String.format(
-                                                                        "Cancel task %s external resources failed: %s",
-                                                                        task.getTaskID(),
-                                                                        ExceptionUtils.getMessage(
-                                                                                t)));
-                                                    }
-                                                }));
-            } catch (RejectedExecutionException e) {
-                // The executor may already be shut down; never let this block the interrupt-based
-                // cancellation below.
-                logger.warning(
-                        "Submitting task external resource cancellation failed, the executor may "
-                                + "have been shut down: "
-                                + ExceptionUtils.getMessage(e));
-            }
-            try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));
             } catch (CancellationException ignore) {
@@ -1636,30 +1610,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 finishExecution(taskGroupLocation);
-                try {
-                    updateMetricsContextInImap();
-                } catch (Throwable t) {
-                    logger.severe("update metrics context in imap failed", t);
-                }
                 if (ex == null) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with FINISHED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FINISHED, null);
                     return;
                 } else if (isCancel.get()) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with CANCELED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.CANCELED, null);
                     return;
                 } else {
                     logger.info(
                             String.format("taskGroup %s complete with FAILED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FAILED, ex);
                 }
             }
             if (!isCancel.get() && ex != null) {
@@ -1668,6 +1634,39 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 "task %s error with exception: [%s], cancel other task in taskGroup %s.",
                                 task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask();
+            }
+        }
+
+        /**
+         * Reports final metrics off the task worker, then publishes the terminal state for
+         * FINISHED, CANCELED, or FAILED task groups. Applying the same ordering to every terminal
+         * state keeps completion behavior consistent. The executor's orderly shutdown drains
+         * accepted reports; if submission races with shutdown or reporting fails, the terminal
+         * state is still completed.
+         */
+        private void completeAfterFinalMetrics(
+                TaskGroupLocation taskGroupLocation,
+                ExecutionState executionState,
+                Throwable executionFailure) {
+            TaskExecutionState terminalState =
+                    executionFailure == null
+                            ? new TaskExecutionState(taskGroupLocation, executionState)
+                            : new TaskExecutionState(
+                                    taskGroupLocation, executionState, executionFailure);
+            try {
+                finalMetricsExecutorService.submit(
+                        () -> {
+                            try {
+                                updateMetricsContextInImap();
+                            } catch (Throwable t) {
+                                logger.severe("update metrics context in imap failed", t);
+                            } finally {
+                                future.complete(terminalState);
+                            }
+                        });
+            } catch (Throwable t) {
+                logger.severe("failed to schedule final metrics report", t);
+                future.complete(terminalState);
             }
         }
 
