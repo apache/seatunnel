@@ -52,7 +52,7 @@ class ApplicationSpecificationTest {
                 application,
                 ("application { name = demo, worker-count = 2 }\n"
                                 + "application.worker.slots = ${application.worker-count}\n"
-                                + "yarn { queue = ${queue} }\n")
+                                + "platform { queue = ${queue} }\n")
                         .getBytes(StandardCharsets.UTF_8));
         Map<String, String> overrides = new HashMap<>();
         overrides.put("application.worker-count", "3");
@@ -61,7 +61,7 @@ class ApplicationSpecificationTest {
         assertEquals("demo", loaded.get("application.name"));
         assertEquals("3", loaded.get("application.worker-count"));
         assertEquals("3", loaded.get("application.worker.slots"));
-        assertEquals("analytics", loaded.get("yarn.queue"));
+        assertEquals("analytics", loaded.get("platform.queue"));
         assertEquals(2, overrides.size());
         assertFalse(overrides.containsKey("application.name"));
         assertFalse(loaded.containsKey(ApplicationOptions.MASTER_PORT.key()));
@@ -69,11 +69,11 @@ class ApplicationSpecificationTest {
 
     @Test
     void loadsOverridesWithoutDiscoveringAnApplicationFile() {
-        Map<String, String> overrides = Collections.singletonMap("yarn.queue", "batch");
+        Map<String, String> overrides = Collections.singletonMap("platform.queue", "batch");
         Map<String, String> loaded = SeatunnelApplicationConfig.load(null, overrides);
         assertEquals(overrides, loaded);
-        loaded.put("yarn.queue", "changed");
-        assertEquals("batch", overrides.get("yarn.queue"));
+        loaded.put("platform.queue", "changed");
+        assertEquals("batch", overrides.get("platform.queue"));
         assertTrue(SeatunnelApplicationConfig.load(null, Collections.emptyMap()).isEmpty());
     }
 
@@ -126,7 +126,7 @@ class ApplicationSpecificationTest {
         options.put("application.master.memory-mb", "4096");
         options.put("application.master.cpu-cores", "3");
         options.put("application.master.port", "5802");
-        options.put("yarn.queue", "batch");
+        options.put("platform.queue", "batch");
         String job = "env { job.mode=BATCH }\nsource { FakeSource { row.num=5 } }\n";
         ApplicationSpecification original = SeatunnelApplicationConfig.parse(job, options);
         Properties localized = SeatunnelApplicationConfig.toProperties(original);
@@ -140,7 +140,7 @@ class ApplicationSpecificationTest {
         assertEquals(4096, copy.getMasterMemoryMb());
         assertEquals(3, copy.getMasterCpuCores());
         assertEquals(5802, copy.getMasterPort());
-        assertFalse(localized.containsKey("yarn.queue"));
+        assertFalse(localized.containsKey("platform.queue"));
         assertEquals(original.getJobId(), copy.getJobId());
         assertTrue(copy.getJobId() > 0);
         options.put("application.name", "mutated");

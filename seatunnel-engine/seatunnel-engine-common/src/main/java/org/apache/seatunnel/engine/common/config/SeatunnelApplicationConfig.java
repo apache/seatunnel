@@ -302,7 +302,7 @@ public final class SeatunnelApplicationConfig {
         config.getEngineConfig().setBackupCount(0);
         config.getEngineConfig().setMode(ExecutionMode.CLUSTER);
         // Every application container localizes the same distribution. Upload identifiers contain
-        // absolute master paths and are unsuitable for YARN's per-container localization roots.
+        // absolute master paths and are unsuitable for remote container localization roots.
         ConnectorJarStorageConfig jars = new ConnectorJarStorageConfig();
         jars.setEnable(false);
         config.getEngineConfig().setConnectorJarStorageConfig(jars);

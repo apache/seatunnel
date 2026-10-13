@@ -43,7 +43,6 @@ for application_argument in "$@"; do
 done
 
 case "${application_target}" in
-    [Yy][Aa][Rr][Nn]) application_target="yarn" ;;
     [Kk][Uu][Bb][Ee][Rr][Nn][Ee][Tt][Ee][Ss]) application_target="kubernetes" ;;
     "") ;;
     *)
@@ -57,10 +56,6 @@ CLASS_PATH="${APP_JAR}:${APPLICATION_HOME}/starter/logging/*:${APPLICATION_HOME}
 
 if [[ -n "${application_target}" ]]; then
     CLASS_PATH="${CLASS_PATH}:${APPLICATION_HOME}/resource-managers/${application_target}/*"
-fi
-
-if [[ -n "${HADOOP_CONF_DIR:-}" && "${application_target}" == "yarn" ]]; then
-    CLASS_PATH="${CLASS_PATH}:${HADOOP_CONF_DIR}"
 fi
 
 # Configure logging consistently with the SeaTunnel client launcher.

@@ -97,7 +97,8 @@ public class ApplicationResourceManager<WorkerType extends ResourceIDRetrievable
                 Executors.newFixedThreadPool(
                         // Keep at least two IO threads so a single-worker application still has a
                         // thread left to release its worker while a ResourceManager call (for
-                        // example a YARN heartbeat) is blocked, and cap platform IO concurrency at
+                        // example a platform heartbeat) is blocked, and cap platform IO concurrency
+                        // at
                         // 8.
                         Math.max(2, Math.min(8, specification.getWorkerCount())),
                         runnable -> {

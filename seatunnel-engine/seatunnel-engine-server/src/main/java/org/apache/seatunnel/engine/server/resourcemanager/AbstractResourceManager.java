@@ -108,9 +108,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
      * Synchronizes profiles from Engine workers that are already cluster members when this resource
      * manager starts.
      *
-     * <p>This method does not request or create worker processes. Kubernetes and YARN resource
-     * managers launch those processes through their platform drivers. Newly joined workers register
-     * later through the normal worker heartbeat path; this startup synchronization only prevents an
+     * <p>This method does not request or create worker processes. Kubernetes resource managers
+     * launch those processes through their platform drivers. Newly joined workers register later
+     * through the normal worker heartbeat path; this startup synchronization only prevents an
      * existing member from being absent from the master-side registry until its next heartbeat.
      */
     protected void syncExistingWorkerProfiles() {

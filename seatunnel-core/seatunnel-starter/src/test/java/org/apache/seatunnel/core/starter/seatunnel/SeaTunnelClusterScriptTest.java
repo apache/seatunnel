@@ -45,7 +45,7 @@ public class SeaTunnelClusterScriptTest {
      * Checks that application target parsing loads the same platform selected by Java arguments.
      */
     @ParameterizedTest
-    @CsvSource({"-t,yarn", "--target,KUBERNETES", "-t=,kubernetes", "--target=,YARN"})
+    @CsvSource({"--target,KUBERNETES", "-t=,kubernetes"})
     public void testApplicationScriptLoadsSelectedPlatformAndPreservesArguments(
             String targetOption, String target) throws Exception {
         Path appDirectory = createMinimalDistribution();
@@ -95,12 +95,7 @@ public class SeaTunnelClusterScriptTest {
         String classpath = captured.get(captured.indexOf("-cp") + 1);
         String platform = target.toLowerCase(Locale.ROOT);
         Assertions.assertTrue(classpath.contains("/resource-managers/" + platform + "/*"));
-        Assertions.assertFalse(
-                classpath.contains(
-                        "/resource-managers/"
-                                + (platform.equals("yarn") ? "kubernetes" : "yarn")
-                                + "/*"));
-        Assertions.assertEquals(platform.equals("yarn"), classpath.contains("/etc/hadoop/conf"));
+        Assertions.assertFalse(classpath.contains("/etc/hadoop/conf"));
         int main =
                 captured.indexOf(
                         "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication");

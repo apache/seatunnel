@@ -58,7 +58,7 @@ public class ResourceManagerFactory {
         if (DeployType.STANDALONE.equals(deployType)) {
             return new StandaloneResourceManager(nodeEngine, engineConfig);
         }
-        if (DeployType.YARN.equals(deployType) || DeployType.KUBERNETES.equals(deployType)) {
+        if (DeployType.KUBERNETES.equals(deployType)) {
             if (applicationId == null || specification == null || driver == null) {
                 throw new IllegalStateException(
                         "Application deployment requires an application ID, specification and driver");

@@ -49,7 +49,7 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     @Parameter(
             names = {"-t", "--target"},
-            description = "External resource platform: yarn or kubernetes",
+            description = "External resource platform: kubernetes",
             required = true,
             converter = DeployTypeConverter.class)
     private DeployType target;
@@ -154,20 +154,17 @@ public class ApplicationCommandArgs extends CommandArgs {
 
         @Override
         public DeployType convert(String value) {
-            if (value != null && DeployType.YARN.name().equalsIgnoreCase(value.trim())) {
-                return DeployType.YARN;
-            }
             if (value != null && DeployType.KUBERNETES.name().equalsIgnoreCase(value.trim())) {
                 return DeployType.KUBERNETES;
             }
             if (value != null && DeployType.STANDALONE.name().equalsIgnoreCase(value.trim())) {
                 throw new ParameterException(
-                        "Use seatunnel.sh for standalone jobs; application targets are yarn and kubernetes");
+                        "Use seatunnel.sh for standalone jobs; the application target is kubernetes");
             }
             throw new ParameterException(
                     "Unsupported target '"
                             + value
-                            + "'. Currently only [yarn, kubernetes] are supported!");
+                            + "'. Currently only [kubernetes] is supported!");
         }
     }
 }

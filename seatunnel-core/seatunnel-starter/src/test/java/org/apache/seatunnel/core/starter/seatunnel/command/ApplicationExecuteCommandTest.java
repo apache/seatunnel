@@ -75,10 +75,18 @@ class ApplicationExecuteCommandTest {
         Files.write(job, "env.parallelism = 1".getBytes(StandardCharsets.UTF_8));
         for (String[] arguments :
                 new String[][] {
-                    {"submit", "-t", "yarn", "-c", job.toString(), "-a", application.toString()},
                     {
                         "submit",
-                        "--target=YARN",
+                        "-t",
+                        "kubernetes",
+                        "-c",
+                        job.toString(),
+                        "-a",
+                        application.toString()
+                    },
+                    {
+                        "submit",
+                        "--target=KUBERNETES",
                         "--config=" + job,
                         "--application-config=" + application
                     }
@@ -86,7 +94,7 @@ class ApplicationExecuteCommandTest {
             ApplicationCommandArgs args = parse(arguments);
             args.buildCommand();
             assertEquals(ApplicationOperation.SUBMIT, args.getOperation());
-            assertEquals(DeployType.YARN, args.getTarget());
+            assertEquals(DeployType.KUBERNETES, args.getTarget());
             assertEquals(application.toString(), args.getApplicationConfig());
             assertEquals(job.toString(), args.getConfig());
         }
@@ -95,14 +103,15 @@ class ApplicationExecuteCommandTest {
         status.buildCommand();
         assertEquals("test", status.getOptions().get("kubernetes.namespace"));
         assertEquals(DeployType.KUBERNETES, status.getTarget());
-        assertEquals("a=b", parse("status", "-t", "yarn", "-ikey=a=b").getOptions().get("key"));
+        assertEquals(
+                "a=b", parse("status", "-t", "kubernetes", "-ikey=a=b").getOptions().get("key"));
     }
 
     @Test
     void rejectsMissingCommandsTargetsAndRemovedOptionsButAllowsHelp() {
-        assertThrows(ParameterException.class, () -> parse("--target", "yarn"));
+        assertThrows(ParameterException.class, () -> parse("--target", "kubernetes"));
         assertThrows(ParameterException.class, () -> parse("status", "--id", "app"));
-        assertThrows(ParameterException.class, () -> parse("submit", "status", "-t", "yarn"));
+        assertThrows(ParameterException.class, () -> parse("submit", "status", "-t", "kubernetes"));
         for (String option :
                 new String[] {
                     "-p",
@@ -115,7 +124,8 @@ class ApplicationExecuteCommandTest {
                     "-Dkey=value"
                 }) {
             assertThrows(
-                    ParameterException.class, () -> parse("submit", "-t", "yarn", option, "value"));
+                    ParameterException.class,
+                    () -> parse("submit", "-t", "kubernetes", option, "value"));
         }
         assertTrue(parse("--help").isHelp());
         assertTrue(parse("submit", "--help").isHelp());
@@ -129,7 +139,7 @@ class ApplicationExecuteCommandTest {
                 application,
                 ("application { name = demo, worker-count = 2, job-id = 10, restore-job-id = 9 }\n"
                                 + "application.worker.slots = ${application.worker-count}\n"
-                                + "yarn.queue = ${queue}\n")
+                                + "platform.queue = ${queue}\n")
                         .getBytes(StandardCharsets.UTF_8));
         Path job = temporary.resolve("job.config");
         Files.write(job, "env.parallelism = 1".getBytes(StandardCharsets.UTF_8));
@@ -144,13 +154,13 @@ class ApplicationExecuteCommandTest {
                 mockConstruction(
                         ClusterClientServiceLoader.class,
                         (loader, context) ->
-                                when(loader.<String>getClusterClientFactory(DeployType.YARN))
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
                                         .thenReturn(factory))) {
             ApplicationCommandArgs args =
                     parse(
                             "submit",
                             "-t",
-                            "yarn",
+                            "kubernetes",
                             "-c",
                             job.toString(),
                             "-a",
@@ -175,7 +185,7 @@ class ApplicationExecuteCommandTest {
         assertEquals(Long.valueOf(8), specification.getValue().getRestoreJobId());
         ArgumentCaptor<Map<String, String>> deploymentOptions = ArgumentCaptor.forClass(Map.class);
         verify(factory, times(wait ? 2 : 1)).create(deploymentOptions.capture());
-        assertEquals("analytics", deploymentOptions.getValue().get("yarn.queue"));
+        assertEquals("analytics", deploymentOptions.getValue().get("platform.queue"));
         assertEquals(
                 1,
                 ConfigFactory.parseString(specification.getValue().getJobConfig())
@@ -189,7 +199,7 @@ class ApplicationExecuteCommandTest {
     void rejectsMissingOrMalformedFilesBeforeOpeningPlatformConnections() throws Exception {
         Path application = temporary.resolve("application.config");
         ApplicationCommandArgs missing =
-                parse("status", "-t", "yarn", "--id", "app", "-a", application.toString());
+                parse("status", "-t", "kubernetes", "--id", "app", "-a", application.toString());
         assertTrue(
                 assertThrows(IllegalArgumentException.class, missing::buildCommand)
                         .getMessage()
@@ -205,29 +215,29 @@ class ApplicationExecuteCommandTest {
     @Test
     void serviceLoaderRejectsMissingOrAmbiguousProvidersWithoutOpeningConnections()
             throws Exception {
-        ApplicationClusterDescriptorFactory<?> yarn =
+        ApplicationClusterDescriptorFactory<?> provider =
                 mock(ApplicationClusterDescriptorFactory.class);
         ApplicationClusterDescriptorFactory<?> duplicate =
                 mock(ApplicationClusterDescriptorFactory.class);
-        when(yarn.getDeployType()).thenReturn(DeployType.YARN);
-        when(duplicate.getDeployType()).thenReturn(DeployType.YARN);
+        when(provider.getDeployType()).thenReturn(DeployType.KUBERNETES);
+        when(duplicate.getDeployType()).thenReturn(DeployType.KUBERNETES);
         ServiceLoader<ApplicationClusterDescriptorFactory> providers = mock(ServiceLoader.class);
         when(providers.iterator())
-                .thenAnswer(ignored -> Collections.singletonList(yarn).iterator());
+                .thenAnswer(ignored -> Collections.singletonList(provider).iterator());
         try (MockedStatic<ServiceLoader> spi = mockStatic(ServiceLoader.class)) {
             spi.when(() -> ServiceLoader.load(ApplicationClusterDescriptorFactory.class))
                     .thenReturn(providers);
             ClusterClientServiceLoader loader = new ClusterClientServiceLoader();
-            assertSame(yarn, loader.getClusterClientFactory(DeployType.YARN));
+            assertSame(provider, loader.getClusterClientFactory(DeployType.KUBERNETES));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> loader.getClusterClientFactory(DeployType.KUBERNETES));
+                    () -> loader.getClusterClientFactory(DeployType.STANDALONE));
             when(providers.iterator())
-                    .thenAnswer(ignored -> Arrays.asList(yarn, duplicate).iterator());
+                    .thenAnswer(ignored -> Arrays.asList(provider, duplicate).iterator());
             assertThrows(
                     IllegalStateException.class,
-                    () -> loader.getClusterClientFactory(DeployType.YARN));
-            verify(yarn, never()).create(any());
+                    () -> loader.getClusterClientFactory(DeployType.KUBERNETES));
+            verify(provider, never()).create(any());
             verify(duplicate, never()).create(any());
         }
     }
@@ -239,12 +249,12 @@ class ApplicationExecuteCommandTest {
                 mock(ApplicationClusterDescriptorFactory.class);
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         ApplicationSpecification specification = mock(ApplicationSpecification.class);
-        when(loader.<String>getClusterClientFactory(DeployType.YARN)).thenReturn(factory);
+        when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES)).thenReturn(factory);
         when(factory.create(Collections.emptyMap())).thenReturn(descriptor);
         when(descriptor.deployApplication(specification)).thenReturn("application_1");
         ApplicationClusterDeployer deployer =
                 new ApplicationClusterDeployer(
-                        loader, DeployType.YARN, specification, Collections.emptyMap());
+                        loader, DeployType.KUBERNETES, specification, Collections.emptyMap());
         assertEquals("application_1", deployer.<String>run());
         verify(descriptor).close();
 
@@ -296,14 +306,19 @@ class ApplicationExecuteCommandTest {
                 mockConstruction(
                         ClusterClientServiceLoader.class,
                         (loader, context) ->
-                                when(loader.<String>getClusterClientFactory(DeployType.YARN))
+                                when(loader.<String>getClusterClientFactory(DeployType.KUBERNETES))
                                         .thenReturn(factory))) {
             for (ApplicationOperation operation :
                     new ApplicationOperation[] {
                         ApplicationOperation.STATUS, ApplicationOperation.CANCEL
                     }) {
                 ApplicationCommandArgs args =
-                        parse(operation.getOperation(), "-t", "yarn", "--id", "application_1");
+                        parse(
+                                operation.getOperation(),
+                                "-t",
+                                "kubernetes",
+                                "--id",
+                                "application_1");
                 args.buildCommand().execute();
             }
         }
@@ -316,7 +331,7 @@ class ApplicationExecuteCommandTest {
     @Test
     void validatesCommandBeforeLoadingAnyPlatformProvider() throws Exception {
         Path deploymentConfig = temporary.resolve("deployment.conf");
-        Files.write(deploymentConfig, "yarn.queue = default".getBytes(StandardCharsets.UTF_8));
+        Files.write(deploymentConfig, "platform.queue = default".getBytes(StandardCharsets.UTF_8));
 
         ApplicationCommandArgs cancel = command(ApplicationOperation.CANCEL, deploymentConfig);
         assertThrows(IllegalArgumentException.class, cancel::buildCommand);
@@ -364,7 +379,7 @@ class ApplicationExecuteCommandTest {
             ApplicationOperation operation, Path deploymentConfiguration) {
         ApplicationCommandArgs arguments = new ApplicationCommandArgs();
         arguments.setOperation(operation);
-        arguments.setTarget(DeployType.YARN);
+        arguments.setTarget(DeployType.KUBERNETES);
         arguments.setApplicationConfig(deploymentConfiguration.toString());
         return arguments;
     }

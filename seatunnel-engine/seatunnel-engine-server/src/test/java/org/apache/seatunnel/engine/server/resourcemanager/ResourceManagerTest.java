@@ -104,7 +104,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
 
     @Test
     void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
-        for (DeployType type : new DeployType[] {DeployType.YARN, DeployType.KUBERNETES}) {
+        for (DeployType type : new DeployType[] {DeployType.KUBERNETES, DeployType.KUBERNETES}) {
             ApplicationSpecification specification = applicationSpecification(type);
             ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
             ResourceID worker = new ResourceID("test-worker");
@@ -134,7 +134,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     @Test
     void testApplicationFactoryRejectsIncompleteDependencies() {
         ResourceManagerFactory incomplete =
-                new ResourceManagerFactory(DeployType.YARN, null, null, null);
+                new ResourceManagerFactory(DeployType.KUBERNETES, null, null, null);
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> incomplete.createResourceManager(nodeEngine, new EngineConfig()));
@@ -179,7 +179,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         node,
                         new EngineConfig(),
                         "test-application",
-                        applicationSpecification(DeployType.YARN),
+                        applicationSpecification(DeployType.KUBERNETES),
                         driver) {
                     @Override
                     protected void syncExistingWorkerProfiles() {}
@@ -217,9 +217,9 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
             ApplicationResourceManager<?> manager =
                     (ApplicationResourceManager<?>)
                             new ResourceManagerFactory(
-                                            DeployType.YARN,
+                                            DeployType.KUBERNETES,
                                             "event-application",
-                                            applicationSpecification(DeployType.YARN),
+                                            applicationSpecification(DeployType.KUBERNETES),
                                             driver)
                                     .createResourceManager(nodeEngine, new EngineConfig());
             try {
@@ -258,9 +258,9 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         ApplicationResourceManager<?> manager =
                 (ApplicationResourceManager<?>)
                         new ResourceManagerFactory(
-                                        DeployType.YARN,
+                                        DeployType.KUBERNETES,
                                         "test-application",
-                                        applicationSpecification(DeployType.YARN),
+                                        applicationSpecification(DeployType.KUBERNETES),
                                         driver)
                                 .createResourceManager(nodeEngine, new EngineConfig());
         Address workerAddress = new Address("127.0.0.1", 5802);
@@ -287,7 +287,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         nodeEngine,
                         new EngineConfig(),
                         "test-application",
-                        applicationSpecification(DeployType.YARN),
+                        applicationSpecification(DeployType.KUBERNETES),
                         driver) {
                     @Override
                     protected void syncExistingWorkerProfiles() {
