@@ -88,67 +88,67 @@
                     <relocations>
                         <relocation>
                             <pattern>io.kubernetes</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.io.kubernetes</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.io.kubernetes</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>okhttp3</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.okhttp3</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.okhttp3</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>okio</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.okio</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.okio</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.google.gson</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.com.google.gson</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.com.google.gson</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.yaml</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.yaml</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.yaml</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.fasterxml.jackson</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.com.fasterxml.jackson</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.com.fasterxml.jackson</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.google.protobuf</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.com.google.protobuf</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.com.google.protobuf</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.google.common</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.com.google.common</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.com.google.common</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>io.gsonfire</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.io.gsonfire</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.io.gsonfire</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>io.prometheus</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.io.prometheus</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.io.prometheus</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.apache.commons</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.apache.commons</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.apache.commons</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.jose4j</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.jose4j</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.jose4j</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.bouncycastle</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.bouncycastle</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.bouncycastle</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>kotlin</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.kotlin</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.kotlin</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.intellij</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.intellij</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.intellij</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>org.jetbrains</pattern>
-                            <shadedPattern>org.apache.seatunnel.resource.kubernetes.shaded.org.jetbrains</shadedPattern>
+                            <shadedPattern>${seatunnel.shade.package}.resource.kubernetes.org.jetbrains</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>
