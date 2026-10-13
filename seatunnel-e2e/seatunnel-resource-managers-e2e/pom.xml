@@ -24,7 +24,6 @@
     <artifactId>seatunnel-resource-managers-e2e</artifactId>
     <name>SeaTunnel : E2E : Resource Managers</name>
     <properties>
-        <yarn.test.include>**/e2e/yarn/**/*.java</yarn.test.include>
         <kubernetes.test.include>**/e2e/kubernetes/**/*.java</kubernetes.test.include>
     </properties>
     <dependencies>
@@ -62,32 +61,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-resource-manager-yarn</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-minicluster</artifactId>
-            <version>${seatunnel.shade.hadoop.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Kubernetes client 19.0.1 requires Gson 2.10.1; Hadoop 3.1.4 brings 2.2.4. -->
-                <exclusion>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <!-- Hadoop MiniYARNCluster's JAXB web application needs this API on Java 11+. -->
-            <groupId>javax.activation</groupId>
-            <artifactId>javax.activation-api</artifactId>
-            <version>1.2.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -176,27 +149,6 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>stage-yarn-e2e-provider</id>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <phase>process-test-resources</phase>
-                        <configuration>
-                            <skip>false</skip>
-                            <overWriteReleases>true</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>org.apache.seatunnel</groupId>
-                                    <artifactId>seatunnel-resource-manager-yarn</artifactId>
-                                    <version>${project.version}</version>
-                                    <destFileName>seatunnel-resource-manager-yarn.jar</destFileName>
-                                </artifactItem>
-                            </artifactItems>
-                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
                         <id>stage-kubernetes-e2e-provider</id>
                         <goals>
                             <goal>copy</goal>
@@ -225,7 +177,6 @@
                 <configuration>
                     <testIncludes>
                         <testInclude>**/e2e/common/**/*.java</testInclude>
-                        <testInclude>${yarn.test.include}</testInclude>
                         <testInclude>${kubernetes.test.include}</testInclude>
                     </testIncludes>
                 </configuration>
@@ -254,7 +205,6 @@
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
                     <includes>
-                        <include>${yarn.test.include}</include>
                         <include>${kubernetes.test.include}</include>
                     </includes>
                     <classpathDependencyExcludes combine.children="append">

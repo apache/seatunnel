@@ -85,21 +85,6 @@ const sidebars = {
                         "getting-started/application/architecture",
                         {
                             "type": "category",
-                            "label": "YARN",
-                            "link": {
-                                "type": "doc",
-                                "id": "getting-started/application/yarn/overview"
-                            },
-                            "items": [
-                                "getting-started/application/yarn/architecture",
-                                "getting-started/application/yarn/quick-start",
-                                "getting-started/application/yarn/configuration",
-                                "getting-started/application/yarn/checkpoint-recovery",
-                                "getting-started/application/yarn/faq"
-                            ]
-                        },
-                        {
-                            "type": "category",
                             "label": "Kubernetes",
                             "link": {
                                 "type": "doc",

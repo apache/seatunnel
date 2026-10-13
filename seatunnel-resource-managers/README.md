@@ -2,14 +2,11 @@
 
 > Application mode is an experimental feature.
 
-Optional YARN and Kubernetes providers for native Zeta application mode. Each application runs one dedicated master and a fixed number of workers.
+Optional Kubernetes provider for native Zeta application mode. Each application runs one dedicated master and a fixed number of workers.
 
 ```text
 seatunnel-resource-managers/
 ├── pom.xml                       # Parent and aggregator; inherits the repository root
-├── yarn/                         # Maven artifact: seatunnel-resource-manager-yarn
-│   ├── pom.xml
-│   └── src/                      # Entrypoint plus config/, client/, cli/, launch/ and worker/
 └── kubernetes/                   # Maven artifact: seatunnel-resource-manager-kubernetes
     ├── pom.xml
     └── src/                      # Entrypoint plus config/, cli/, kubeclient/ and worker/
@@ -25,22 +22,22 @@ engine-core → engine-common, seatunnel-core-starter
 engine-server → engine-core
 engine-client → engine-server
 seatunnel-starter → engine-client, engine-server
-yarn / kubernetes → engine-client, engine-server
-seatunnel-dist → seatunnel-starter, yarn, kubernetes
+kubernetes → engine-client, engine-server
+seatunnel-dist → seatunnel-starter, kubernetes
 ```
 
 The deployment-provider SPI resource is `META-INF/services/org.apache.seatunnel.engine.client.deployment.ApplicationClusterDescriptorFactory`.
 
-Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM aggregates `yarn` and `kubernetes`; both inherit this parent. CI explicitly selects `ci` to exclude distribution packaging.
+Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM aggregates `kubernetes`. CI explicitly selects `ci` to exclude distribution packaging.
 
-To build the standard SeaTunnel distribution with both providers:
+To build the standard SeaTunnel distribution with the Kubernetes provider:
 
 ```shell
 ./mvnw -Prelease,seatunnel -pl seatunnel-dist -am \
   -DskipTests -Dskip.ui=true package
 ```
 
-The standard archive is `seatunnel-dist/target/apache-seatunnel-${version}-bin.tar.gz`. Provider bundles are placed in `resource-managers/yarn` and `resource-managers/kubernetes` inside the distribution, and the launcher loads only the selected platform.
+The standard archive is `seatunnel-dist/target/apache-seatunnel-${version}-bin.tar.gz`. The provider bundle is placed in `resource-managers/kubernetes` inside the distribution, and the launcher loads only the selected platform.
 
 The unified E2E module uses Maven dependencies to prepare its test runtime, following the existing connector E2E staging mechanism:
 
@@ -50,6 +47,6 @@ The unified E2E module uses Maven dependencies to prepare its test runtime, foll
   -pl :seatunnel-resource-managers-e2e -am -Pci
 ```
 
-At `process-test-resources`, `maven-dependency-plugin:copy` stages both platform providers and their runtime artifacts under `target/test-classes/e2e-dependencies`. Tests resolve these files through the shared `DependencyJar` utility and prepare a temporary SeaTunnel directory with the repository configuration and scripts. Kubernetes builds its image from this directory; YARN compresses the directory for container localization. No prebuilt distribution or additional assembly descriptor is required. Both platform suites read the same FakeSource, Console and Assert jobs from `src/test/resources/common`; platform directories contain only Engine configuration. Follow the platform guides for running the integration tests.
+At `process-test-resources`, `maven-dependency-plugin:copy` stages the Kubernetes provider and its runtime artifacts under `target/test-classes/e2e-dependencies`. Tests resolve these files through the shared `DependencyJar` utility and prepare a temporary SeaTunnel directory with the repository configuration and scripts. Kubernetes builds its image from this directory. No prebuilt distribution or additional assembly descriptor is required. The suite reads FakeSource, Console and Assert jobs from `src/test/resources/kubernetes`; follow the Kubernetes guide for running the integration tests.
 
 Persistent checkpoints use the existing Engine storage configuration, including HDFS and object stores. A new application can restore a previous job's checkpoint using its native job ID. This recovery path does not require Hazelcast backup replicas; automatic master failover is not provided.
