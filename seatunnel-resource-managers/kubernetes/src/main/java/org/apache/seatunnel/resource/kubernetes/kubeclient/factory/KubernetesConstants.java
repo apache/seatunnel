@@ -46,7 +46,7 @@ public final class KubernetesConstants {
     /** Name of the reserved key whose content replaces the inline job configuration. */
     public static final String JOB_CONFIG_FILE = "job.conf";
 
-    /** Directory where a configured application Secret is mounted read-only. */
+    /** Default directory where a configured application Secret is mounted read-only. */
     public static final String APPLICATION_SECRET_DIRECTORY = "/etc/seatunnel-secrets/application";
 
     /** Environment variable carrying the Base64 encoded localized application specification. */
@@ -59,7 +59,9 @@ public final class KubernetesConstants {
     /** Main container identity, paths, and environment exposed to the application entrypoint. */
     public static final String CONTAINER_NAME = "seatunnel";
 
+    /** Default container path where the existing checkpoint PVC is mounted on the master. */
     public static final String CHECKPOINT_DIRECTORY = "/opt/seatunnel/checkpoints";
+
     public static final String MASTER_HOST_ENV = "SEATUNNEL_APPLICATION_MASTER_HOST";
     public static final String SEATUNNEL_HOME_ENV = "SEATUNNEL_HOME";
 
@@ -78,7 +80,7 @@ public final class KubernetesConstants {
     public static final String SEATUNNEL_CONFIG_FILE = "/config/seatunnel.yaml";
     public static final String LOG4J_CONFIG_FILE = "/config/log4j2_client.properties";
     public static final String KUBERNETES_CLASSPATH =
-            "/starter/seatunnel-starter.jar:"
+            "%s/starter/seatunnel-starter.jar:"
                     + "%s/starter/logging/*:"
                     + "%s/lib/*:"
                     + "%s/resource-managers/kubernetes/*:"

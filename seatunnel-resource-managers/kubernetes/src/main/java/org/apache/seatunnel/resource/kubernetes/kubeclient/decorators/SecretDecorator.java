@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
-import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -29,8 +28,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Mounts the configured application Secret read-only at {@link
- * KubernetesConstants#APPLICATION_SECRET_DIRECTORY}.
+ * Mounts the configured application Secret read-only at {@code kubernetes.secret-directory}.
  *
  * <p>{@code kubernetes.secret-ref} only references a Secret managed outside SeaTunnel. Otherwise
  * the decorator creates the Secret from {@code kubernetes.secret.data} entries; a {@code job.conf}
@@ -53,7 +51,9 @@ public final class SecretDecorator extends AbstractKubernetesStepDecorator {
         }
         V1PodSpec podSpec = job.getInternalResource().getSpec().getTemplate().getSpec();
         KubernetesResourceFactory.mountApplicationSecret(
-                podSpec, parameters.resolvedApplicationSecretName(applicationId));
+                podSpec,
+                parameters.resolvedApplicationSecretName(applicationId),
+                parameters.getSecretDirectory());
         return job;
     }
 

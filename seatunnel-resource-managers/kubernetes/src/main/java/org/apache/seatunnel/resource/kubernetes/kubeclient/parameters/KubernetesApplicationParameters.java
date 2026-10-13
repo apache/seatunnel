@@ -36,6 +36,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -70,6 +71,8 @@ public final class KubernetesApplicationParameters {
     private final List<String> imagePullSecrets;
     private final String serviceAccount;
     private final String seatunnelHome;
+    private final String checkpointDirectory;
+    private final String secretDirectory;
     private final String configMap;
     private final String applicationSecretRef;
     private final String applicationSecretName;
@@ -95,11 +98,9 @@ public final class KubernetesApplicationParameters {
                 ImagePullPolicy.fromValue(options.get(KubernetesOptions.IMAGE_PULL_POLICY));
         this.imagePullSecrets = parseList(options.get(KubernetesOptions.IMAGE_PULL_SECRETS));
         this.serviceAccount = requireNonBlank(options, KubernetesOptions.SERVICE_ACCOUNT);
-        this.seatunnelHome = requireNonBlank(options, KubernetesOptions.SEATUNNEL_HOME);
-        if (!seatunnelHome.startsWith("/") || seatunnelHome.contains(":")) {
-            throw new IllegalArgumentException(
-                    "kubernetes.seatunnel-home must be an absolute path without ':'");
-        }
+        this.seatunnelHome = absolutePath(options, KubernetesOptions.SEATUNNEL_HOME);
+        this.checkpointDirectory = absolutePath(options, KubernetesOptions.CHECKPOINT_DIRECTORY);
+        this.secretDirectory = absolutePath(options, KubernetesOptions.SECRET_DIRECTORY);
         this.configMap = optionalNonBlank(options, KubernetesOptions.CONFIG_MAP);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
@@ -151,22 +152,37 @@ public final class KubernetesApplicationParameters {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
-        return read(properties, null);
+        return read(properties);
     }
 
     /**
-     * Reads the master's Base64 encoded localized specification, optionally replacing the inline
-     * job configuration with a file mounted from a user-managed Secret.
+     * Reads the master's Base64 encoded localized specification.
+     *
+     * <p>When the configured application Secret contains {@code job.conf} in {@code
+     * kubernetes.secret-directory}, it replaces the inline job configuration.
      *
      * @param encodedSpecification value of {@link
      *     org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants#SPECIFICATION_ENV}
-     * @param jobConfigOverride mounted job configuration file, or {@code null} to use the inline
-     *     one
      * @return parsed Kubernetes application settings
      * @throws IOException if the specification is missing, malformed or cannot be read
      */
-    public static KubernetesApplicationParameters read(
-            String encodedSpecification, Path jobConfigOverride) throws IOException {
+    public static KubernetesApplicationParameters read(String encodedSpecification)
+            throws IOException {
+        Properties properties = decode(encodedSpecification);
+        ReadonlyConfig options = ReadonlyConfig.fromMap(kubernetesOptions(properties));
+        Path mountedJobConfig =
+                Paths.get(
+                        options.get(KubernetesOptions.SECRET_DIRECTORY),
+                        KubernetesConstants.JOB_CONFIG_FILE);
+        if (Files.isRegularFile(mountedJobConfig)) {
+            properties.setProperty(
+                    SeatunnelApplicationConfig.JOB_CONFIG_KEY,
+                    new String(Files.readAllBytes(mountedJobConfig), StandardCharsets.UTF_8));
+        }
+        return from(SeatunnelApplicationConfig.fromProperties(properties), options);
+    }
+
+    private static Properties decode(String encodedSpecification) throws IOException {
         if (encodedSpecification == null || encodedSpecification.trim().isEmpty()) {
             throw new IOException("Missing localized application specification");
         }
@@ -181,25 +197,23 @@ public final class KubernetesApplicationParameters {
                 new InputStreamReader(new ByteArrayInputStream(decoded), StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
-        return read(properties, jobConfigOverride);
+        return properties;
     }
 
-    private static KubernetesApplicationParameters read(
-            Properties properties, Path jobConfigOverride) throws IOException {
-        if (jobConfigOverride != null) {
-            properties.setProperty(
-                    SeatunnelApplicationConfig.JOB_CONFIG_KEY,
-                    new String(Files.readAllBytes(jobConfigOverride), StandardCharsets.UTF_8));
-        }
+    private static KubernetesApplicationParameters read(Properties properties) throws IOException {
+        return from(
+                SeatunnelApplicationConfig.fromProperties(properties),
+                ReadonlyConfig.fromMap(kubernetesOptions(properties)));
+    }
+
+    private static Map<String, Object> kubernetesOptions(Properties properties) {
         Map<String, Object> options = new HashMap<>();
         for (String key : properties.stringPropertyNames()) {
             if (key.startsWith("kubernetes.")) {
                 options.put(key, properties.getProperty(key));
             }
         }
-        return from(
-                SeatunnelApplicationConfig.fromProperties(properties),
-                ReadonlyConfig.fromMap(options));
+        return options;
     }
 
     /**
@@ -219,6 +233,8 @@ public final class KubernetesApplicationParameters {
                 KubernetesOptions.IMAGE_PULL_SECRETS.key(), String.join(",", imagePullSecrets));
         properties.setProperty(KubernetesOptions.SERVICE_ACCOUNT.key(), serviceAccount);
         properties.setProperty(KubernetesOptions.SEATUNNEL_HOME.key(), seatunnelHome);
+        properties.setProperty(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), checkpointDirectory);
+        properties.setProperty(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory);
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
         if (configMap != null) {
@@ -490,6 +506,15 @@ public final class KubernetesApplicationParameters {
         String value = options.get(option);
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(option.key() + " is required");
+        }
+        return value;
+    }
+
+    private static String absolutePath(ReadonlyConfig options, Option<String> option) {
+        String value = requireNonBlank(options, option);
+        if (!value.startsWith("/") || value.contains(":")) {
+            throw new IllegalArgumentException(
+                    option.key() + " must be an absolute path without ':'");
         }
         return value;
     }

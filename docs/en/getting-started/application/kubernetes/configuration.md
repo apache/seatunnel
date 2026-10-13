@@ -20,10 +20,12 @@ title: Configuration
 | `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. A `job.conf` key replaces the inline job configuration. |
 | `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
 | `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
+| `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | Absolute directory where the configured application Secret is mounted read-only; a `job.conf` key there replaces the inline job configuration. |
 | `kubernetes.env` | Empty | Comma-separated entries injected into master and worker containers: `NAME=value`, `NAME=secret:<name>/<key>` or `NAME=configmap:<name>/<key>`. |
 | `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
-| `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `/opt/seatunnel/checkpoints` in the master. |
+| `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
+| `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
 | `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.worker.labels` | Empty | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.master.annotations` | Empty | Master Pod annotations as comma-separated `key:value` pairs. |
@@ -69,7 +71,7 @@ Reference a Secret that your platform creates and manages. SeaTunnel mounts it r
 kubernetes.secret-ref = seatunnel-job-secret
 ```
 
-Let SeaTunnel create and own the Secret instead. `data` entries are mounted under `/etc/seatunnel-secrets/application`; inject them as Pod environment variables so `${VAR}` placeholders in the job configuration resolve on the master:
+Let SeaTunnel create and own the Secret instead. `data` entries are mounted under `kubernetes.secret-directory` (default `/etc/seatunnel-secrets/application`); inject them as Pod environment variables so `${VAR}` placeholders in the job configuration resolve on the master:
 
 ```hocon
 kubernetes {

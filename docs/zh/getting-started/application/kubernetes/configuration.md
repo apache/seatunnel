@@ -20,10 +20,12 @@ title: 配置参考
 | `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；其中 `job.conf` 键会替换内联的作业配置。 |
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
 | `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
+| `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | application Secret 只读挂载的绝对路径；该目录中的 `job.conf` 会替换内联的作业配置。 |
 | `kubernetes.env` | 空 | 注入 Master 和 Worker 容器的环境变量条目，逗号分隔：`NAME=value`、`NAME=secret:<name>/<key>` 或 `NAME=configmap:<name>/<key>`。 |
 | `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
-| `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `/opt/seatunnel/checkpoints`。 |
+| `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
+| `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
 | `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.worker.labels` | 空 | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.master.annotations` | 空 | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
@@ -69,7 +71,7 @@ title: 配置参考
 kubernetes.secret-ref = seatunnel-job-secret
 ```
 
-也可以由 SeaTunnel 创建并持有 Secret。`data` 中的条目会挂载到 `/etc/seatunnel-secrets/application`；通过 `kubernetes.env` 注入为 Pod 环境变量后，作业配置里的 `${VAR}` 占位符即可在 Master 内解析：
+也可以由 SeaTunnel 创建并持有 Secret。`data` 中的条目会挂载到 `kubernetes.secret-directory`（默认 `/etc/seatunnel-secrets/application`）；通过 `kubernetes.env` 注入为 Pod 环境变量后，作业配置里的 `${VAR}` 占位符即可在 Master 内解析：
 
 ```hocon
 kubernetes {

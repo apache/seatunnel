@@ -308,9 +308,11 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .getName());
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
                 assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
                 for (V1Pod worker : workers(application)) {
                     assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
                     assertTrue(mounted(worker, "/opt/seatunnel/config/seatunnel.yaml"));
+                    assertTrue(mounted(worker, "/var/run/seatunnel/secrets"));
                 }
                 V1Secret secret = core.readNamespacedSecret(createdSecret, namespace, null);
                 assertFalse(secret.getMetadata().getOwnerReferences().isEmpty());

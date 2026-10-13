@@ -38,9 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -62,8 +59,7 @@ public final class SeatunnelKubernetesApplicationCli {
             LOG.info("Running Kubernetes application {}", id);
             KubernetesApplicationParameters parameters =
                     KubernetesApplicationParameters.read(
-                            System.getenv(KubernetesConstants.SPECIFICATION_ENV),
-                            jobConfigOverride());
+                            System.getenv(KubernetesConstants.SPECIFICATION_ENV));
             ApplicationSpecification specification = parameters.getSpecification();
             LOG.debug("Loaded application specification {}", specification.getName());
             SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
@@ -90,19 +86,6 @@ public final class SeatunnelKubernetesApplicationCli {
             throw new IllegalArgumentException("Expected application id");
         }
         return args[0];
-    }
-
-    /**
-     * Locates a job configuration mounted from the configured application Secret.
-     *
-     * @return the mounted {@code job.conf}, or {@code null} to use the inline configuration
-     */
-    private static Path jobConfigOverride() {
-        Path path =
-                Paths.get(
-                        KubernetesConstants.APPLICATION_SECRET_DIRECTORY,
-                        KubernetesConstants.JOB_CONFIG_FILE);
-        return Files.isRegularFile(path) ? path : null;
     }
 
     /**

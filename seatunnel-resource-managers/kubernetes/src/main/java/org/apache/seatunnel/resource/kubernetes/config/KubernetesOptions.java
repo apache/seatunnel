@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 
 /** Options for isolated, fixed-size Kubernetes applications. */
 public final class KubernetesOptions {
@@ -84,6 +85,18 @@ public final class KubernetesOptions {
                     .defaultValue("")
                     .withDescription(
                             "Comma-separated environment entries injected into master and worker containers: NAME=value, NAME=secret:<name>/<key> or NAME=configmap:<name>/<key>.");
+    public static final Option<String> SECRET_DIRECTORY =
+            Options.key("kubernetes.secret-directory")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.APPLICATION_SECRET_DIRECTORY)
+                    .withDescription(
+                            "Absolute directory where the configured application Secret is mounted read-only; a job.conf key there replaces the inline job configuration.");
+    public static final Option<String> CHECKPOINT_DIRECTORY =
+            Options.key("kubernetes.checkpoint-directory")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.CHECKPOINT_DIRECTORY)
+                    .withDescription(
+                            "Absolute container path where the existing checkpoint PVC is mounted on the master.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

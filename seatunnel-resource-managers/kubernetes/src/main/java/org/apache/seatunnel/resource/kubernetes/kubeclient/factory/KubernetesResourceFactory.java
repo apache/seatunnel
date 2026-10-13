@@ -279,7 +279,10 @@ public final class KubernetesResourceFactory {
         V1PodSpec spec =
                 KubernetesPodFactory.worker(parameters, resources, clusterName, masterAddress);
         if (parameters.hasApplicationSecret()) {
-            mountApplicationSecret(spec, parameters.resolvedApplicationSecretName(job.getName()));
+            mountApplicationSecret(
+                    spec,
+                    parameters.resolvedApplicationSecretName(job.getName()),
+                    parameters.getSecretDirectory());
         }
         mountConfigMaps(spec, parameters, job.getName());
         return new KubernetesPod(
@@ -295,8 +298,10 @@ public final class KubernetesResourceFactory {
      *
      * @param podSpec Pod specification to decorate
      * @param secretName referenced Secret name or the generated/configured name of the created one
+     * @param mountDirectory absolute directory where the Secret is mounted read-only
      */
-    public static void mountApplicationSecret(V1PodSpec podSpec, String secretName) {
+    public static void mountApplicationSecret(
+            V1PodSpec podSpec, String secretName, String mountDirectory) {
         podSpec.addVolumesItem(
                 new V1Volume()
                         .name(KubernetesConstants.APPLICATION_VOLUME)
@@ -309,7 +314,7 @@ public final class KubernetesResourceFactory {
                 .addVolumeMountsItem(
                         new V1VolumeMount()
                                 .name(KubernetesConstants.APPLICATION_VOLUME)
-                                .mountPath(KubernetesConstants.APPLICATION_SECRET_DIRECTORY)
+                                .mountPath(mountDirectory)
                                 .readOnly(true));
     }
 

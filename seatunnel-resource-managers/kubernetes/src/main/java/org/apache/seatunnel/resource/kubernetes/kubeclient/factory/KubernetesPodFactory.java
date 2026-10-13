@@ -74,7 +74,7 @@ final class KubernetesPodFactory {
             container.addVolumeMountsItem(
                     volumeMount(
                             KubernetesConstants.CHECKPOINT_VOLUME,
-                            KubernetesConstants.CHECKPOINT_DIRECTORY,
+                            parameters.getCheckpointDirectory(),
                             false));
             pod.addVolumesItem(checkpointVolume(checkpointClaim));
         }
@@ -212,7 +212,7 @@ final class KubernetesPodFactory {
         command.add("-Dseatunnel.config=" + home + KubernetesConstants.SEATUNNEL_CONFIG_FILE);
         command.add("-Dlog4j2.configurationFile=" + home + KubernetesConstants.LOG4J_CONFIG_FILE);
         command.add("-cp");
-        command.add(home + classpath(home));
+        command.add(classpath(home));
         command.add(main);
         command.addAll(Arrays.asList(args));
         return command;
@@ -231,7 +231,8 @@ final class KubernetesPodFactory {
 
     /** Builds the Java classpath shared by master and worker containers. */
     private static String classpath(String home) {
-        return String.format(KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home);
+        return String.format(
+                KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home, home);
     }
 
     private static void addMasterProbes(

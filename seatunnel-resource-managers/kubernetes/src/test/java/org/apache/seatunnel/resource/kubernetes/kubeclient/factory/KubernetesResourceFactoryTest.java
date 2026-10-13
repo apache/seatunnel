@@ -199,7 +199,7 @@ class KubernetesResourceFactoryTest {
         String encodedSpecification = envValue(jobResource, KubernetesConstants.SPECIFICATION_ENV);
         assertFalse(encodedSpecification.contains("must-not-be-localized"));
         KubernetesApplicationParameters restored =
-                KubernetesApplicationParameters.read(encodedSpecification, null);
+                KubernetesApplicationParameters.read(encodedSpecification);
         assertEquals(specification.getJobId(), restored.getSpecification().getJobId());
         assertEquals(specification.getJobConfig(), restored.getSpecification().getJobConfig());
         assertEquals(
@@ -570,21 +570,100 @@ class KubernetesResourceFactoryTest {
 
     @Test
     void replacesInlineJobConfigurationWithMountedOverride() throws Exception {
+        Path secretDirectory = temporary.resolve("secrets");
+        Files.createDirectories(secretDirectory);
+        Files.write(
+                secretDirectory.resolve("job.conf"),
+                "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory.toString());
         ApplicationSpecification specification =
-                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options());
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(
-                        specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
         StringWriter writer = new StringWriter();
         parameters.write(writer);
         String encoded =
                 Base64.getEncoder()
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
-        Path override = temporary.resolve("job.conf");
-        Files.write(override, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
-        KubernetesApplicationParameters restored =
-                KubernetesApplicationParameters.read(encoded, override);
+        KubernetesApplicationParameters restored = KubernetesApplicationParameters.read(encoded);
         assertEquals("env { job.mode = STREAMING }", restored.getSpecification().getJobConfig());
+    }
+
+    @Test
+    void usesConfiguredMountDirectories() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_DIRECTORY.key(), "/var/run/seatunnel/secrets");
+        options.put(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), "/var/run/seatunnel/checkpoints");
+        options.put(KubernetesOptions.CHECKPOINT_PVC.key(), "existing-checkpoints");
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secret");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesApplicationSpecification application =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        "app", mainClass, parameters);
+        V1Job job = application.getApplicationJob().getInternalResource();
+        assertEquals(
+                "/var/run/seatunnel/secrets",
+                mount(job, KubernetesConstants.APPLICATION_VOLUME).getMountPath());
+        assertEquals(
+                "/var/run/seatunnel/checkpoints",
+                mount(job, KubernetesConstants.CHECKPOINT_VOLUME).getMountPath());
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationParameters restored = KubernetesApplicationParameters.read(encoded);
+        assertEquals("/var/run/seatunnel/secrets", restored.getSecretDirectory());
+        assertEquals("/var/run/seatunnel/checkpoints", restored.getCheckpointDirectory());
+    }
+
+    @Test
+    void rejectsRelativeMountDirectories() {
+        Map<String, String> relativeSecret = options();
+        relativeSecret.put(KubernetesOptions.SECRET_DIRECTORY.key(), "secrets");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(relativeSecret))));
+        Map<String, String> relativeCheckpoint = options();
+        relativeCheckpoint.put(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), "checkpoints");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(relativeCheckpoint))));
+    }
+
+    @Test
+    void buildsClasspathFromTheConfiguredSeatunnelHome() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SEATUNNEL_HOME.key(), "/custom/seatunnel");
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        KubernetesJob job = KubernetesResourceFactory.job("app", mainClass, parameters);
+        List<String> command =
+                job.getInternalResource()
+                        .getSpec()
+                        .getTemplate()
+                        .getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand();
+        assertEquals(
+                "/custom/seatunnel/starter/seatunnel-starter.jar:"
+                        + "/custom/seatunnel/starter/logging/*:"
+                        + "/custom/seatunnel/lib/*:"
+                        + "/custom/seatunnel/resource-managers/kubernetes/*:"
+                        + "/custom/seatunnel/config",
+                command.get(command.indexOf("-cp") + 1));
     }
 
     private static String envValue(V1Job job, String name) {
