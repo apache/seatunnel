@@ -318,7 +318,7 @@ None.
 **Notes:**
 - `jobId` is returned as a string to avoid precision loss in JavaScript clients.
 - `slotCount` is the number of assigned task group slots owned by the running job.
-- `slotSourceAvailable` indicates whether the master-side assigned-slot snapshot was available for this response. When it is `false`, `slotCount = 0` may mean the slot source is not ready yet rather than that the job truly owns no slots.
+- `slotSourceAvailable` is a cluster-wide value computed once for the response and copied into every job entry. It indicates whether the master-side assigned-slot snapshot was available for the response; it does not report freshness for an individual job. When it is `false`, `slotCount = 0` may mean the slot source is not ready yet rather than that the job truly owns no slots.
 - `pipelineSlotCounts` groups the same slot count by pipeline id.
 - `workerSlotCounts` groups the same slot count by worker address.
 - A running job that has not received any slot yet is returned with `slotCount` set to `0` while `slotSourceAvailable` remains `true`.

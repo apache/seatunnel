@@ -45,7 +45,12 @@ public final class RunningJobSlotUsageBuilder {
 
     private RunningJobSlotUsageBuilder() {}
 
-    /** Collects running job ids from the coordinator and aggregates their owned slot profiles. */
+    /**
+     * Collects running job ids from the coordinator and aggregates their owned slot profiles.
+     *
+     * <p>The assigned-slot source is evaluated once per response. Its availability is therefore a
+     * cluster-wide value shared by every job entry in that response.
+     */
     public static List<Map<String, Object>> build(SeaTunnelServer server) {
         IMap<Long, JobInfo> runningJobInfo =
                 server.getNodeEngine()
@@ -95,6 +100,8 @@ public final class RunningJobSlotUsageBuilder {
         Map<Long, SlotUsage> usageByJob = new TreeMap<>();
         runningJobIds.forEach(jobId -> usageByJob.put(jobId, new SlotUsage(jobId)));
         Set<SlotKey> assignedSlotSet = buildAssignedSlotSet(assignedSlots);
+        // Keep one availability value for the response so all job entries describe the same
+        // assigned-slot snapshot.
         boolean slotSourceAvailable =
                 aggregateSlotUsage(
                         usageByJob,
