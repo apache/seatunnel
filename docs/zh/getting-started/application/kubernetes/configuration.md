@@ -28,6 +28,9 @@ title: 配置参考
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
 | `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `none` 可跳过。 |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
+| `kubernetes.jvm-options-file` | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `none` 可跳过。 |
+| `kubernetes.log4j-config-file` | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名、绝对路径，或 `none`。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
+| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径、绝对 `.yaml` 路径，或 `none` 禁用该参数。 |
 | `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.worker.labels` | 空 | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.master.annotations` | 空 | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
@@ -157,12 +160,14 @@ kubernetes {
   校验会降级为告警，Pod 仍通过自己的 ServiceAccount 挂载。
 - 旧的 `kubernetes.config-map` 仍可用于把单个 ConfigMap 整体挂载到 `<seatunnel-home>/config`；
   `kubernetes.configmap` 是按文件挂载的替代方案。
+- `seatunnel.yaml` 由 `kubernetes.seatunnel-config-file` 指定（默认 `config/seatunnel.yaml`，相对
+  `<seatunnel-home>`）；把替换文件挂到该路径即可修改引擎配置。
 
 ### JVM options
 
-Application mode 会把发行版的 JVM 参数文件通过 Java `@argfile` 语法传给 JVM：Master 容器使用
-`jvm_master_options`，Worker 容器使用 `jvm_worker_options`。用 `kubernetes.configmap` 挂载替换文件后
-即可生效，不需要其他改动：
+Application mode 会把发行版的 JVM 参数文件通过 Java `@argfile` 语法传给 JVM：先加载公共的
+`jvm_options`，Master 容器再加载 `jvm_master_options`，Worker 容器再加载 `jvm_worker_options`。
+用 `kubernetes.configmap` 挂载替换文件后即可生效，不需要其他改动：
 
 ```hocon
 kubernetes.configmap.jvm-options {
@@ -177,6 +182,10 @@ kubernetes.configmap.jvm-options {
 也可以通过 `kubernetes.master.jvm-options-file` / `kubernetes.worker.jvm-options-file` 指向绝对路径，
 或设为 `none` 跳过文件。Hazelcast 和 Kerberos 配置重载所需的 Java 11+ 强制模块参数
 （`--add-opens` / `--add-exports`）始终会被追加，挂载的文件只做追加或覆盖。
+
+日志由 `kubernetes.log4j-config-file` 决定（默认 `log4j2_client.properties`，使用 console
+appender，`kubectl logs` 可直接查看）。设为 `log4j2.properties` 可切换到发行版的服务端写文件配置，
+并把该文件挂到对应路径；日志会写到 `<seatunnel-home>/logs`。
 
 命令行参数可能被提交主机上的其他用户看到，因此 `-ikey=value` 只用于非敏感覆盖。将 `kubernetes.kubeconfig` 和其他敏感部署值写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认凭据。
 

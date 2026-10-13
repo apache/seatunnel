@@ -51,6 +51,8 @@ public final class KubernetesConstants {
     public static final String JOB_CONFIG_FILE = "job.conf";
 
     /** Distribution files whose JVM options are applied through the Java argument-file syntax. */
+    public static final String JVM_OPTIONS_FILE = "jvm_options";
+
     public static final String MASTER_JVM_OPTIONS_FILE = "jvm_master_options";
 
     public static final String WORKER_JVM_OPTIONS_FILE = "jvm_worker_options";
@@ -100,8 +102,8 @@ public final class KubernetesConstants {
     public static final int JVM_HEAP_NUMERATOR = 3;
     public static final int JVM_HEAP_DENOMINATOR = 4;
     public static final int MINIMUM_JVM_HEAP_MB = 1;
-    public static final String SEATUNNEL_CONFIG_FILE = "/config/seatunnel.yaml";
-    public static final String LOG4J_CONFIG_FILE = "/config/log4j2_client.properties";
+    public static final String SEATUNNEL_CONFIG_FILE = "config/seatunnel.yaml";
+    public static final String LOG4J_CONFIG_FILE = "log4j2_client.properties";
     public static final String KUBERNETES_CLASSPATH =
             "%s/starter/seatunnel-starter.jar:"
                     + "%s/starter/logging/*:"

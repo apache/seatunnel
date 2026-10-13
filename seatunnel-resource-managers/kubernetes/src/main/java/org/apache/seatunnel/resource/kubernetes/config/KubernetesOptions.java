@@ -109,6 +109,12 @@ public final class KubernetesOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Hazelcast member configuration file for workers, either a file name under <seatunnel-home>/config or an absolute .yaml/.yml/.xml path; unset keeps the built-in configuration.");
+    public static final Option<String> JVM_OPTIONS =
+            Options.key("kubernetes.jvm-options-file")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.JVM_OPTIONS_FILE)
+                    .withDescription(
+                            "Common JVM options file applied to master and workers before the role-specific file: a file name under <seatunnel-home>/config, an absolute path, or 'none' to disable it.");
     public static final Option<String> MASTER_JVM_OPTIONS =
             Options.key("kubernetes.master.jvm-options-file")
                     .stringType()
@@ -121,6 +127,18 @@ public final class KubernetesOptions {
                     .defaultValue(KubernetesConstants.WORKER_JVM_OPTIONS_FILE)
                     .withDescription(
                             "JVM options file for workers: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to 'none' to disable.");
+    public static final Option<String> SEATUNNEL_CONFIG_FILE =
+            Options.key("kubernetes.seatunnel-config-file")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.SEATUNNEL_CONFIG_FILE)
+                    .withDescription(
+                            "SeaTunnel engine configuration file passed as -Dseatunnel.config: a path relative to <seatunnel-home>, an absolute .yaml path, or 'none' to disable the flag.");
+    public static final Option<String> LOG4J_CONFIG_FILE =
+            Options.key("kubernetes.log4j-config-file")
+                    .stringType()
+                    .defaultValue(KubernetesConstants.LOG4J_CONFIG_FILE)
+                    .withDescription(
+                            "Log4j2 configuration file passed as -Dlog4j2.configurationFile: a file name under <seatunnel-home>/config, an absolute path, or 'none' to disable the flag.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

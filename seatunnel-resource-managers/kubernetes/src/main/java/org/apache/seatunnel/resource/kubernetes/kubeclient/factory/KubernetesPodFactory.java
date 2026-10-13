@@ -69,7 +69,7 @@ final class KubernetesPodFactory {
                         parameters,
                         memory,
                         parameters.getMasterHazelcastConfig(),
-                        parameters.getMasterJvmOptions(),
+                        parameters.getMasterJvmOptionsFiles(),
                         mainClass,
                         id));
         container.addEnvItem(masterHostEnv());
@@ -133,7 +133,7 @@ final class KubernetesPodFactory {
                         parameters,
                         resources.getMemoryMb(),
                         parameters.getWorkerHazelcastConfig(),
-                        parameters.getWorkerJvmOptions(),
+                        parameters.getWorkerJvmOptionsFiles(),
                         SeatunnelKubernetesApplicationWorker.class.getName(),
                         clusterName,
                         masterAddress,
@@ -211,7 +211,7 @@ final class KubernetesPodFactory {
             KubernetesApplicationParameters parameters,
             int memory,
             String hazelcastConfig,
-            String jvmOptionsFile,
+            List<String> jvmOptionsFiles,
             String main,
             String... args) {
         String home = parameters.getSeatunnelHome();
@@ -224,12 +224,16 @@ final class KubernetesPodFactory {
         command.add("-Dseatunnel.logs.path=" + home + "/logs");
         command.add("-Dseatunnel.logs.file_name=seatunnel-application");
         command.add("-Dseatunnel.home=" + home);
-        command.add("-Dseatunnel.config=" + home + KubernetesConstants.SEATUNNEL_CONFIG_FILE);
-        command.add("-Dlog4j2.configurationFile=" + home + KubernetesConstants.LOG4J_CONFIG_FILE);
+        if (parameters.getSeatunnelConfigFile() != null) {
+            command.add("-Dseatunnel.config=" + parameters.getSeatunnelConfigFile());
+        }
+        if (parameters.getLog4jConfigFile() != null) {
+            command.add("-Dlog4j2.configurationFile=" + parameters.getLog4jConfigFile());
+        }
         if (hazelcastConfig != null) {
             command.add("-Dhazelcast.config=" + hazelcastConfig);
         }
-        if (jvmOptionsFile != null) {
+        for (String jvmOptionsFile : jvmOptionsFiles) {
             command.add("@" + jvmOptionsFile);
         }
         command.add("-cp");

@@ -28,6 +28,9 @@ title: Configuration
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
 | `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `none` disables it. |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
+| `kubernetes.jvm-options-file` | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `none` disables it. |
+| `kubernetes.log4j-config-file` | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config`, an absolute path, or `none`. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
+| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>`, an absolute `.yaml` path, or `none` to disable the flag. |
 | `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.worker.labels` | Empty | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.master.annotations` | Empty | Master Pod annotations as comma-separated `key:value` pairs. |
@@ -164,13 +167,16 @@ kubernetes {
   skipped with a warning and the Pod still mounts it through its own service account.
 - `kubernetes.config-map` remains available for mounting one ConfigMap over the whole
   `<seatunnel-home>/config` directory; `kubernetes.configmap` is the per-file alternative.
+- `seatunnel.yaml` is loaded from `kubernetes.seatunnel-config-file` (default
+  `config/seatunnel.yaml`, relative to `<seatunnel-home>`); mount a replacement at that path to
+  change the engine configuration.
 
 ### JVM options
 
 Application mode passes the distribution JVM option files to the JVM through the Java `@argfile`
-syntax: `jvm_master_options` in the master container and `jvm_worker_options` in worker
-containers. Mount replacements through `kubernetes.configmap` and they take effect without any
-other change:
+syntax: the common `jvm_options` first, then `jvm_master_options` in the master container and
+`jvm_worker_options` in worker containers. Mount replacements through `kubernetes.configmap` and
+they take effect without any other change:
 
 ```hocon
 kubernetes.configmap.jvm-options {
@@ -186,6 +192,11 @@ Set `kubernetes.master.jvm-options-file` or `kubernetes.worker.jvm-options-file`
 path for a different location, or to `none` to skip the file. The mandatory Java 11+ module flags
 (`--add-opens` / `--add-exports`) used by Hazelcast and the Kerberos configuration reload are
 always appended, so a mounted file only adds or overrides options.
+
+Logging uses `kubernetes.log4j-config-file` (default `log4j2_client.properties`, console appenders
+so `kubectl logs` stays readable). Set it to `log4j2.properties` to use the distribution's
+file-based server configuration, and mount that file at the configured path; logs then go to
+`<seatunnel-home>/logs`.
 
 Use command-line `-ikey=value` only for non-sensitive overrides because command-line arguments may be visible to other users on the submission host. Put `kubernetes.kubeconfig` and other sensitive deployment values in a permission-restricted deployment configuration file, or rely on the Kubernetes SDK default credentials.
 

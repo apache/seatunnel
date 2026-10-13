@@ -323,8 +323,15 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .getConfigMapKeyRef()
                                 .getName());
                 assertTrue(mounted(master, "/opt/seatunnel/config/application-e2e.properties"));
-                assertTrue(mounted(master, "/opt/seatunnel/config/seatunnel.yaml"));
+                assertTrue(mounted(master, "/opt/seatunnel/custom/seatunnel.yaml"));
                 assertTrue(mounted(master, "/var/run/seatunnel/secrets"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
+                                .contains(
+                                        "-Dseatunnel.config=/opt/seatunnel/custom/seatunnel.yaml"));
                 assertTrue(
                         master.getSpec()
                                 .getContainers()
@@ -343,10 +350,16 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 .getContainers()
                                 .get(0)
                                 .getCommand()
+                                .contains("@/opt/seatunnel/config/jvm_options"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
                                 .contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
                 for (V1Pod worker : workers(application)) {
                     assertTrue(mounted(worker, "/opt/seatunnel/config/application-e2e.properties"));
-                    assertTrue(mounted(worker, "/opt/seatunnel/config/seatunnel.yaml"));
+                    assertTrue(mounted(worker, "/opt/seatunnel/custom/seatunnel.yaml"));
                     assertTrue(mounted(worker, "/var/run/seatunnel/secrets"));
                     assertTrue(
                             worker.getSpec()

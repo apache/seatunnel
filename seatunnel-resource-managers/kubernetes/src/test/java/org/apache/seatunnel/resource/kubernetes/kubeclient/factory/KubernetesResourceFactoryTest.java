@@ -810,6 +810,7 @@ class KubernetesResourceFactoryTest {
                         .get(0)
                         .getCommand();
         assertTrue(masterCommand.contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
+        assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_options"));
         assertTrue(masterCommand.contains("@/opt/seatunnel/config/jvm_master_options"));
         V1Pod worker =
                 KubernetesResourceFactory.worker(
@@ -826,6 +827,12 @@ class KubernetesResourceFactoryTest {
                         .get(0)
                         .getCommand()
                         .contains("@/opt/seatunnel/config/jvm_worker_options"));
+        assertTrue(
+                worker.getSpec()
+                        .getContainers()
+                        .get(0)
+                        .getCommand()
+                        .contains("@/opt/seatunnel/config/jvm_options"));
 
         Map<String, String> overrides = options();
         overrides.put(KubernetesOptions.MASTER_JVM_OPTIONS.key(), "/etc/seatunnel/custom.options");
@@ -855,7 +862,26 @@ class KubernetesResourceFactoryTest {
                         .getInternalResource();
         assertTrue(
                 overriddenWorker.getSpec().getContainers().get(0).getCommand().stream()
-                        .noneMatch(argument -> argument.startsWith("@")));
+                        .noneMatch(
+                                argument ->
+                                        argument.equals(
+                                                "@/opt/seatunnel/config/jvm_worker_options")));
+        assertTrue(
+                overriddenWorker.getSpec().getContainers().get(0).getCommand().stream()
+                        .anyMatch(
+                                argument -> argument.equals("@/opt/seatunnel/config/jvm_options")));
+
+        Map<String, String> disabledCommon = options();
+        disabledCommon.put(KubernetesOptions.JVM_OPTIONS.key(), "none");
+        KubernetesApplicationParameters commonDisabled =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(disabledCommon)));
+        assertTrue(
+                masterCommand(commonDisabled)
+                        .contains("@/opt/seatunnel/config/jvm_master_options"));
+        assertTrue(
+                masterCommand(commonDisabled).stream()
+                        .noneMatch(argument -> argument.endsWith("/jvm_options")));
     }
 
     @Test
@@ -875,6 +901,115 @@ class KubernetesResourceFactoryTest {
                         KubernetesApplicationParameters.from(
                                 specification(),
                                 ReadonlyConfig.fromMap(new HashMap<>(absoluteWithColon))));
+    }
+
+    @Test
+    void configuresTheSeatunnelConfigFile() {
+        ApplicationSpecification specification = specification();
+        KubernetesApplicationParameters defaults =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
+        assertTrue(
+                masterCommand(defaults)
+                        .contains("-Dseatunnel.config=/opt/seatunnel/config/seatunnel.yaml"));
+
+        Map<String, String> relative = options();
+        relative.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "custom/engine.yaml");
+        assertTrue(
+                masterCommand(
+                                KubernetesApplicationParameters.from(
+                                        specification,
+                                        ReadonlyConfig.fromMap(new HashMap<>(relative))))
+                        .contains("-Dseatunnel.config=/opt/seatunnel/custom/engine.yaml"));
+
+        Map<String, String> absolute = options();
+        absolute.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "/etc/seatunnel/engine.yaml");
+        assertTrue(
+                masterCommand(
+                                KubernetesApplicationParameters.from(
+                                        specification,
+                                        ReadonlyConfig.fromMap(new HashMap<>(absolute))))
+                        .contains("-Dseatunnel.config=/etc/seatunnel/engine.yaml"));
+
+        Map<String, String> disabled = options();
+        disabled.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "none");
+        assertTrue(
+                masterCommand(
+                                KubernetesApplicationParameters.from(
+                                        specification,
+                                        ReadonlyConfig.fromMap(new HashMap<>(disabled))))
+                        .stream()
+                        .noneMatch(argument -> argument.startsWith("-Dseatunnel.config=")));
+    }
+
+    @Test
+    void rejectsInvalidSeatunnelConfigFiles() {
+        Map<String, String> traversal = options();
+        traversal.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "../escape.yaml");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(traversal))));
+        Map<String, String> wrongSuffix = options();
+        wrongSuffix.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "config/engine.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(wrongSuffix))));
+    }
+
+    @Test
+    void configuresTheLog4jConfigFile() {
+        ApplicationSpecification specification = specification();
+        KubernetesApplicationParameters defaults =
+                KubernetesApplicationParameters.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options())));
+        assertTrue(
+                masterCommand(defaults)
+                        .contains(
+                                "-Dlog4j2.configurationFile=/opt/seatunnel/config/log4j2_client.properties"));
+
+        Map<String, String> serverConfig = options();
+        serverConfig.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "log4j2.properties");
+        assertTrue(
+                masterCommand(
+                                KubernetesApplicationParameters.from(
+                                        specification,
+                                        ReadonlyConfig.fromMap(new HashMap<>(serverConfig))))
+                        .contains(
+                                "-Dlog4j2.configurationFile=/opt/seatunnel/config/log4j2.properties"));
+
+        Map<String, String> disabled = options();
+        disabled.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "none");
+        assertTrue(
+                masterCommand(
+                                KubernetesApplicationParameters.from(
+                                        specification,
+                                        ReadonlyConfig.fromMap(new HashMap<>(disabled))))
+                        .stream()
+                        .noneMatch(argument -> argument.startsWith("-Dlog4j2.configurationFile=")));
+
+        Map<String, String> invalid = options();
+        invalid.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "log4j2.conf");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationParameters.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(invalid))));
+    }
+
+    private static List<String> masterCommand(KubernetesApplicationParameters parameters) {
+        return KubernetesResourceFactory.job("app", mainClass, parameters)
+                .getInternalResource()
+                .getSpec()
+                .getTemplate()
+                .getSpec()
+                .getContainers()
+                .get(0)
+                .getCommand();
     }
 
     private static String envValue(V1Job job, String name) {

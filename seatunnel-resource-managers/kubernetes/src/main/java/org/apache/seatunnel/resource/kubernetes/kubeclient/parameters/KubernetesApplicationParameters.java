@@ -78,6 +78,9 @@ public final class KubernetesApplicationParameters {
     private final String workerHazelcastConfig;
     private final String masterJvmOptions;
     private final String workerJvmOptions;
+    private final String jvmOptions;
+    private final String seatunnelConfigFile;
+    private final String log4jConfigFile;
     private final String configMap;
     private final String applicationSecretRef;
     private final String applicationSecretName;
@@ -116,6 +119,9 @@ public final class KubernetesApplicationParameters {
                 jvmOptionsFile(options, KubernetesOptions.MASTER_JVM_OPTIONS, seatunnelHome);
         this.workerJvmOptions =
                 jvmOptionsFile(options, KubernetesOptions.WORKER_JVM_OPTIONS, seatunnelHome);
+        this.jvmOptions = jvmOptionsFile(options, KubernetesOptions.JVM_OPTIONS, seatunnelHome);
+        this.seatunnelConfigFile = seatunnelConfigFile(options, seatunnelHome);
+        this.log4jConfigFile = log4jConfigFile(options, seatunnelHome);
         this.configMap = optionalNonBlank(options, KubernetesOptions.CONFIG_MAP);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
@@ -258,12 +264,20 @@ public final class KubernetesApplicationParameters {
             properties.setProperty(
                     KubernetesOptions.WORKER_HAZELCAST_CONFIG.key(), workerHazelcastConfig);
         }
-        if (masterJvmOptions != null) {
-            properties.setProperty(KubernetesOptions.MASTER_JVM_OPTIONS.key(), masterJvmOptions);
-        }
-        if (workerJvmOptions != null) {
-            properties.setProperty(KubernetesOptions.WORKER_JVM_OPTIONS.key(), workerJvmOptions);
-        }
+        properties.setProperty(
+                KubernetesOptions.JVM_OPTIONS.key(), jvmOptions == null ? "none" : jvmOptions);
+        properties.setProperty(
+                KubernetesOptions.MASTER_JVM_OPTIONS.key(),
+                masterJvmOptions == null ? "none" : masterJvmOptions);
+        properties.setProperty(
+                KubernetesOptions.WORKER_JVM_OPTIONS.key(),
+                workerJvmOptions == null ? "none" : workerJvmOptions);
+        properties.setProperty(
+                KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(),
+                seatunnelConfigFile == null ? "none" : seatunnelConfigFile);
+        properties.setProperty(
+                KubernetesOptions.LOG4J_CONFIG_FILE.key(),
+                log4jConfigFile == null ? "none" : log4jConfigFile);
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
         if (configMap != null) {
@@ -638,6 +652,95 @@ public final class KubernetesApplicationParameters {
                             + " must be a file name under <seatunnel-home>/config or an absolute path");
         }
         return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/" + value;
+    }
+
+    /**
+     * Resolves the SeaTunnel engine configuration file passed as {@code -Dseatunnel.config}.
+     *
+     * @param options resolved deployment settings
+     * @param seatunnelHome distribution home used for relative paths
+     * @return absolute container path, or {@code null} when the flag is disabled
+     */
+    private static String seatunnelConfigFile(ReadonlyConfig options, String seatunnelHome) {
+        String value = requireNonBlank(options, KubernetesOptions.SEATUNNEL_CONFIG_FILE);
+        if ("none".equalsIgnoreCase(value)) {
+            return null;
+        }
+        String path;
+        if (value.startsWith("/")) {
+            if (value.contains(":")) {
+                throw new IllegalArgumentException(
+                        KubernetesOptions.SEATUNNEL_CONFIG_FILE.key() + " must not contain ':'");
+            }
+            path = value;
+        } else {
+            for (String segment : value.split("/")) {
+                if ("..".equals(segment)) {
+                    throw new IllegalArgumentException(
+                            KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
+                                    + " must not contain '..'");
+                }
+            }
+            if (value.contains(":") || !value.matches("[A-Za-z0-9._/-]+")) {
+                throw new IllegalArgumentException(
+                        KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
+                                + " must be a path relative to <seatunnel-home> or an absolute path");
+            }
+            path = seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + value;
+        }
+        String lowerCase = path.toLowerCase(Locale.ROOT);
+        if (!(lowerCase.endsWith(".yaml") || lowerCase.endsWith(".yml"))) {
+            throw new IllegalArgumentException(
+                    KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
+                            + " must reference a .yaml or .yml file");
+        }
+        return path;
+    }
+
+    /**
+     * Resolves the Log4j2 configuration file passed as {@code -Dlog4j2.configurationFile}.
+     *
+     * @param options resolved deployment settings
+     * @param seatunnelHome distribution home used for relative file names
+     * @return absolute container path, or {@code null} when the flag is disabled
+     */
+    private static String log4jConfigFile(ReadonlyConfig options, String seatunnelHome) {
+        String value = jvmOptionsFile(options, KubernetesOptions.LOG4J_CONFIG_FILE, seatunnelHome);
+        if (value == null) {
+            return null;
+        }
+        String lowerCase = value.toLowerCase(Locale.ROOT);
+        if (!(lowerCase.endsWith(".properties")
+                || lowerCase.endsWith(".xml")
+                || lowerCase.endsWith(".json")
+                || lowerCase.endsWith(".yaml")
+                || lowerCase.endsWith(".yml"))) {
+            throw new IllegalArgumentException(
+                    KubernetesOptions.LOG4J_CONFIG_FILE.key()
+                            + " must reference a Log4j2 configuration file");
+        }
+        return value;
+    }
+
+    /** @return ordered JVM options files: the common file first, then the role-specific file */
+    public List<String> getMasterJvmOptionsFiles() {
+        return jvmOptionsFiles(jvmOptions, masterJvmOptions);
+    }
+
+    /** @return ordered JVM options files: the common file first, then the role-specific file */
+    public List<String> getWorkerJvmOptionsFiles() {
+        return jvmOptionsFiles(jvmOptions, workerJvmOptions);
+    }
+
+    private static List<String> jvmOptionsFiles(String common, String role) {
+        List<String> files = new ArrayList<>(2);
+        if (common != null) {
+            files.add(common);
+        }
+        if (role != null) {
+            files.add(role);
+        }
+        return Collections.unmodifiableList(files);
     }
 
     private static String optionalNonBlank(ReadonlyConfig options, Option<String> option) {
