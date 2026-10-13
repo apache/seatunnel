@@ -72,10 +72,13 @@ import static io.restassured.RestAssured.given;
  * checkpoint.interval}. {@link #CONF_FILE} therefore sizes {@code row.num}/{@code split.num} so
  * every split (4000 rows) stays under that per-poll cap: each split completes in exactly one {@code
  * pollNext} call, so the reader always takes its real, uncontended {@code Thread.sleep(1000L)} -
- * fully outside the checkpoint lock - between splits, giving the barrier thread a guaranteed,
- * contention-free window once per second. At ~500 rows/sec sink throughput that one-second gap
- * drains only a quarter of the queue's capacity before the next split refills it, so the queue
- * never empties and backpressure stays genuinely sustained throughout.
+ * fully outside the checkpoint lock - between splits. At ~500 rows/sec sink throughput, emitting
+ * each 4000-row split takes roughly eight seconds before that one-second window, so the window
+ * recurs about every nine seconds. This stays below the 15-second checkpoint interval with about
+ * 1.7x headroom. The gap drains only a quarter of the queue's capacity before the next split
+ * refills it, so the queue never empties and backpressure stays genuinely sustained throughout.
+ * Keep {@code row.num}, {@code split.num}, {@code write_delay_ms}, and {@code checkpoint.interval}
+ * coupled when changing this timing budget.
  *
  * <p>What is asserted, and why each assertion is meaningful:
  *
