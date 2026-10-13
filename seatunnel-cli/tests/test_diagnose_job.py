@@ -880,7 +880,7 @@ def test_realtime_window_and_bucket_widths_must_agree():
 )
 def test_realtime_invalid_ratios_are_not_pressure(bad):
     edges, vertices = _realtime_payloads()
-    edges["edges"][0]["points"][0]["bpRatio"] = bad
+    edges["edges"][0]["points"][0]["queueFillRatio"] = bad
     assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
 
 
@@ -951,3 +951,11 @@ def test_realtime_current_partial_bucket_cannot_complete_a_pressure_run():
     # 15000..20000 is not complete at toMs=17000. Only the current partial
     # point would make the last three buckets look persistently pressured.
     assert diagnose_realtime(edges, vertices) == []
+
+
+def test_realtime_preserves_engine_backpressure_ratios_above_one():
+    # RealtimeMetricsService.edgePoint does not clamp bpRatio, unlike its
+    # vertex/fill ratios. A delayed collection can report more than one.
+    edges, vertices = _realtime_payloads(bp=1.2)
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "bpRatio=1.20" in finding.evidence

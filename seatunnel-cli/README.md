@@ -350,6 +350,8 @@ overlapping window. Disabled, missing or insufficient data is reported as
 unavailable while job/checkpoint diagnosis continues. Source read time alone
 is not source attribution: synchronous downstream work can execute within
 the source's `pollNext()`.
+Backpressure ratios are preserved as reported by the engine, including values
+above one; queue fill and vertex busy ratios are bounded by the engine.
 
 Every rule is deliberately limited to what its inputs can prove, because a
 wrong hint costs more than a missing one:

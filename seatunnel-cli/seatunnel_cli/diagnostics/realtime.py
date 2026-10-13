@@ -146,7 +146,9 @@ def diagnose_realtime(edges, vertices) -> list[Finding]:
         if not run:
             incomplete_queues += 1
             continue
-        bp = [_ratio(ep[ts].get("bpRatio")) for ts in run]
+        # The engine clamps vertex/fill ratios, but publishes bpRatio without
+        # an upper clamp. Preserve values above one from delayed collection.
+        bp = [_number(ep[ts].get("bpRatio")) for ts in run]
         fill = [_ratio(ep[ts].get("queueFillRatio")) for ts in run]
         if any(v is None for v in bp + fill):
             incomplete_queues += 1
