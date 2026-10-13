@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
+package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
@@ -27,63 +27,45 @@ import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplic
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1ExecAction;
 import io.kubernetes.client.openapi.models.V1Pod;
-import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1Probe;
 
 import java.util.Arrays;
 
 /**
- * Creates one worker Pod resource and hands it to the rest of the worker decorator list.
+ * Creates one worker Pod skeleton, owned by the application Job.
  *
- * <p>Workers are created by the application master, not by the submitter. This step builds the Pod
- * skeleton, including its identity, owner reference, container, command and probes; every later
- * step adds the features shared with the master, so worker and master Pods cannot drift apart.
+ * <p>Workers are created by the application master, not by the submitter. The caller builds the
+ * skeleton and then runs the shared Pod decorator chain over it, so worker and master Pods are
+ * decorated by exactly the same steps.
  */
-public final class PodDecorator extends AbstractWorkloadDecorator<V1Pod> {
-    private final KubernetesJob owner;
-    private final String name;
-    private final WorkerSpecification resources;
-    private final String clusterName;
-    private final String masterAddress;
+public final class WorkerPodFactory extends AbstractWorkloadFactory {
 
-    public PodDecorator(
+    private WorkerPodFactory(KubernetesApplicationConfig parameters) {
+        super(parameters);
+    }
+
+    /** Builds the worker Pod skeleton: identity, owner reference, container, command and probes. */
+    public static V1Pod createWorkerPod(
             KubernetesJob owner,
             String name,
             KubernetesApplicationConfig parameters,
             WorkerSpecification resources,
             String clusterName,
             String masterAddress) {
-        super(parameters);
-        this.owner = owner;
-        this.name = name;
-        this.resources = resources;
-        this.clusterName = clusterName;
-        this.masterAddress = masterAddress;
-    }
-
-    @Override
-    public V1Pod decorate(V1Pod pod) {
-        if (pod != null) {
-            throw new IllegalStateException("The Pod step must start the worker decorator list");
-        }
-        return new V1Pod()
-                .apiVersion(KubernetesConstants.CORE_API_VERSION)
-                .kind(KubernetesConstants.POD_KIND)
-                .metadata(
-                        KubernetesResourceIdentity.podMetadata(
-                                owner,
-                                name,
-                                KubernetesConstants.WORKER_ROLE,
-                                parameters.getWorkerLabels(),
-                                parameters.getWorkerAnnotations()))
-                .spec(workerPod());
+        return new WorkerPodFactory(parameters)
+                .workerPod(owner, name, resources, clusterName, masterAddress);
     }
 
     /**
      * Builds the worker Pod: the shared container and command, joined by the process probe that
      * detects a dead worker without restarting it.
      */
-    private V1PodSpec workerPod() {
+    private V1Pod workerPod(
+            KubernetesJob owner,
+            String name,
+            WorkerSpecification resources,
+            String clusterName,
+            String masterAddress) {
         int memoryMb = resources.getMemoryMb();
         V1Container container = container(memoryMb, resources.getCpuCores());
         container.setCommand(
@@ -96,7 +78,17 @@ public final class PodDecorator extends AbstractWorkloadDecorator<V1Pod> {
                         masterAddress,
                         Integer.toString(resources.getSlots())));
         container.setLivenessProbe(processProbe());
-        return podSpec(container, false);
+        return new V1Pod()
+                .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                .kind(KubernetesConstants.POD_KIND)
+                .metadata(
+                        KubernetesResourceIdentity.podMetadata(
+                                owner,
+                                name,
+                                KubernetesConstants.WORKER_ROLE,
+                                parameters.getWorkerLabels(),
+                                parameters.getWorkerAnnotations()))
+                .spec(podSpec(container, false));
     }
 
     private static V1Probe processProbe() {

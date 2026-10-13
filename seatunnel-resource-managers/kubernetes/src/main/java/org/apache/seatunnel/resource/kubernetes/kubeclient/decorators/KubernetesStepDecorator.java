@@ -19,36 +19,32 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
+import io.kubernetes.client.openapi.models.V1Pod;
+
 import java.util.List;
 
 /**
- * One composable feature of an application deployment, generic over the resource it decorates.
+ * One composable feature of an application deployment.
  *
- * <p>The caller composes one ordered list per resource kind: the owner Job chain ({@code
- * KubernetesStepDecorator<KubernetesJob>}) and the Pod chain ({@code
- * KubernetesStepDecorator<V1Pod>}). The Pod chain is applied to the master template from inside the
- * Job chain and to every worker Pod, so a feature that changes a Pod is implemented once and master
- * and workers cannot drift apart.
+ * <p>A step decorates one Pod and optionally contributes the Kubernetes resources that support the
+ * feature. The caller creates the Pod skeleton first - the master Pod that is later wrapped into
+ * the owner Job, or a worker Pod created by the application master - and then applies one ordered
+ * list of steps. Master and worker Pods share the same steps, so a feature that changes a Pod is
+ * implemented once and the two roles cannot drift apart.
  *
- * <p>The first step of a list creates its resource and rejects a non-{@code null} input; later
- * steps reject {@code null}. Accompanying resources are created after the owner Job and always
- * receive its server-assigned owner reference, so deleting the Job removes exactly the resources
- * created for this deployment.
- *
- * @param <T> resource this step decorates, for example {@code KubernetesJob} or {@code V1Pod}
+ * <p>Accompanying resources are collected only while the application is assembled; they are created
+ * after the owner Job and always receive its server-assigned owner reference, so deleting the Job
+ * removes exactly the resources created for this deployment.
  */
-public interface KubernetesStepDecorator<T> {
+public interface KubernetesStepDecorator {
 
     /**
-     * Applies this feature to the resource being assembled.
+     * Applies this feature to the Pod being assembled.
      *
-     * <p>The first step of the list creates the resource; a feature step that needs it rejects a
-     * {@code null} input.
-     *
-     * @param resource resource being assembled, or {@code null} for the step that creates it
-     * @return the resource containing this feature's changes
+     * @param pod Pod created by the caller, never {@code null}
+     * @return the Pod containing this feature's changes
      */
-    T decorate(T resource);
+    V1Pod decorate(V1Pod pod);
 
     /**
      * Builds resources that support this feature and must exist next to the owner Job.

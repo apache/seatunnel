@@ -43,7 +43,7 @@ import java.util.List;
  * entry then replaces the inline job configuration on the master. Without either option no Secret
  * is created, mounted or deleted.
  */
-public final class SecretDecorator extends AbstractKubernetesPodDecorator {
+public final class SecretDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
     private final KubernetesApplicationConfig parameters;
 
@@ -53,7 +53,7 @@ public final class SecretDecorator extends AbstractKubernetesPodDecorator {
     }
 
     @Override
-    protected V1Pod apply(V1Pod pod) {
+    public V1Pod decorate(V1Pod pod) {
         if (!parameters.hasApplicationSecret()) {
             return pod;
         }

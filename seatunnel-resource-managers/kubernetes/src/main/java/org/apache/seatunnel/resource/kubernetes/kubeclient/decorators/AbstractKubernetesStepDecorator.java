@@ -19,15 +19,20 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 
+import io.kubernetes.client.openapi.models.V1Pod;
+
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
-/**
- * Base for step decorators that contribute no accompanying resources.
- *
- * @param <T> resource this step decorates
- */
-public abstract class AbstractKubernetesStepDecorator<T> implements KubernetesStepDecorator<T> {
+/** No-op defaults for the steps of the Pod decorator chain. */
+public abstract class AbstractKubernetesStepDecorator implements KubernetesStepDecorator {
+
+    /** Steps that change nothing on the Pod keep it unchanged. */
+    @Override
+    public V1Pod decorate(V1Pod pod) {
+        return Objects.requireNonNull(pod, "pod");
+    }
 
     @Override
     public List<KubernetesResource<?>> build() {

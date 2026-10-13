@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
+package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
@@ -35,18 +35,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Shared assembly for the decorator steps that create the application's workload resources.
+ * Shared assembly for the factories that create the application's workload Pod skeletons.
  *
- * <p>{@link JobDecorator} creates the owner Job with its master Pod template and {@link
- * PodDecorator} creates the worker Pods; both extend this class so the container skeleton, the JVM
- * command, the resource requirements and the Pod spec stay identical across roles. Role-specific
- * parts stay in the owning step: the master probes and checkpoint claim, the worker process probe.
+ * <p>{@link ApplicationJobFactory} creates the master Pod that is later wrapped into the owner Job
+ * and {@link WorkerPodFactory} creates the worker Pods; both extend this class so the container
+ * skeleton, the JVM command, the resource requirements and the Pod spec stay identical across
+ * roles. Role-specific parts stay in the owning factory: the master probes and checkpoint claim,
+ * the worker process probe.
  */
-public abstract class AbstractWorkloadDecorator<T> extends AbstractKubernetesStepDecorator<T> {
+public abstract class AbstractWorkloadFactory {
 
     protected final KubernetesApplicationConfig parameters;
 
-    protected AbstractWorkloadDecorator(KubernetesApplicationConfig parameters) {
+    protected AbstractWorkloadFactory(KubernetesApplicationConfig parameters) {
         this.parameters = parameters;
     }
 

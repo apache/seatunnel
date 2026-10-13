@@ -39,7 +39,7 @@ import java.util.Base64;
  * replaces the inline job configuration on the master. Only the master reads this specification, so
  * this decorator is part of the master decorator list and absent from the worker list.
  */
-public final class SpecificationEnvDecorator extends AbstractKubernetesPodDecorator {
+public final class SpecificationEnvDecorator extends AbstractKubernetesStepDecorator {
     /** Linux limits one environment string to 128 KiB; leave room for the launcher overhead. */
     private static final int MAX_SPECIFICATION_LENGTH = 96 * 1024;
 
@@ -50,7 +50,7 @@ public final class SpecificationEnvDecorator extends AbstractKubernetesPodDecora
     }
 
     @Override
-    protected V1Pod apply(V1Pod pod) {
+    public V1Pod decorate(V1Pod pod) {
         V1Container master = pod.getSpec().getContainers().get(0);
         master.addEnvItem(
                 new V1EnvVar().name(KubernetesConstants.SPECIFICATION_ENV).value(encode()));

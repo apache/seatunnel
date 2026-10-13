@@ -20,7 +20,6 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 
@@ -39,22 +38,13 @@ import java.util.List;
  * <p>The Service selects exactly the master Pod of this application, and publishes not-ready
  * addresses so workers can join while the master is still starting.
  */
-public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecorator<KubernetesJob> {
+public final class HeadlessServiceDecorator extends AbstractKubernetesStepDecorator {
     private final String applicationId;
     private final KubernetesApplicationConfig parameters;
 
     public HeadlessServiceDecorator(String applicationId, KubernetesApplicationConfig parameters) {
         this.applicationId = applicationId;
         this.parameters = parameters;
-    }
-
-    @Override
-    public KubernetesJob decorate(KubernetesJob job) {
-        if (job == null) {
-            throw new IllegalStateException(
-                    "The Service step must follow the step that creates the application Job");
-        }
-        return job;
     }
 
     @Override

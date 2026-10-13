@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.kubeclient.decorators;
+package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
@@ -32,6 +32,7 @@ import io.kubernetes.client.openapi.models.V1JobSpec;
 import io.kubernetes.client.openapi.models.V1ObjectFieldSelector;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaimVolumeSource;
+import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 import io.kubernetes.client.openapi.models.V1Probe;
@@ -40,39 +41,30 @@ import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 
 /**
- * Creates the application's owner Job, including the complete master Pod template: container, JVM
- * command, pod-address environment, probes and the optional checkpoint claim.
+ * Creates the application's owner Job around the decorated master Pod.
  *
- * <p>This step starts the master list: it creates the resource every later step decorates and
- * rejects a Job passed in by an earlier step. The created Job is suspended, so the client can
- * create the accompanying resources before the master starts; the retention period removes the Job
- * after its terminal state.
+ * <p>The caller builds the master Pod skeleton, runs the Pod decorator chain over it, and then
+ * wraps the result into the suspended owner Job. The Job template carries the decorated Pod's
+ * metadata and specification; the Job must be created before the accompanying resources and started
+ * afterwards.
  */
-public final class JobDecorator extends AbstractWorkloadDecorator<KubernetesJob> {
-    private final String applicationId;
-    private final String mainClass;
+public final class ApplicationJobFactory extends AbstractWorkloadFactory {
 
-    public JobDecorator(
-            String applicationId, String mainClass, KubernetesApplicationConfig parameters) {
+    private ApplicationJobFactory(KubernetesApplicationConfig parameters) {
         super(parameters);
-        this.applicationId = applicationId;
-        this.mainClass = mainClass;
     }
 
-    @Override
-    public KubernetesJob decorate(KubernetesJob job) {
-        if (job != null) {
-            throw new IllegalStateException("The Job step must start the master decorator list");
-        }
-        V1PodSpec masterSpec = masterPod();
-        V1ObjectMeta masterMetadata =
-                KubernetesResourceIdentity.podMetadata(
-                        applicationId,
-                        KubernetesConstants.MASTER_ROLE,
-                        parameters.getMasterLabels(),
-                        parameters.getMasterAnnotations());
+    /** Builds the master Pod skeleton: container, JVM command, probes and the checkpoint claim. */
+    public static V1Pod createMasterPod(
+            String applicationId, String mainClass, KubernetesApplicationConfig parameters) {
+        return new ApplicationJobFactory(parameters).masterPod(applicationId, mainClass);
+    }
+
+    /** Wraps a decorated master Pod into the suspended owner Job. */
+    public static KubernetesJob createOwnerJob(
+            String applicationId, KubernetesApplicationConfig parameters, V1Pod masterPod) {
         V1PodTemplateSpec template =
-                new V1PodTemplateSpec().metadata(masterMetadata).spec(masterSpec);
+                new V1PodTemplateSpec().metadata(masterPod.getMetadata()).spec(masterPod.getSpec());
         V1JobSpec spec =
                 new V1JobSpec()
                         .suspend(true)
@@ -92,8 +84,22 @@ public final class JobDecorator extends AbstractWorkloadDecorator<KubernetesJob>
                         .spec(spec));
     }
 
+    private V1Pod masterPod(String applicationId, String mainClass) {
+        V1ObjectMeta metadata =
+                KubernetesResourceIdentity.podMetadata(
+                        applicationId,
+                        KubernetesConstants.MASTER_ROLE,
+                        parameters.getMasterLabels(),
+                        parameters.getMasterAnnotations());
+        return new V1Pod()
+                .apiVersion(KubernetesConstants.CORE_API_VERSION)
+                .kind(KubernetesConstants.POD_KIND)
+                .metadata(metadata)
+                .spec(masterPodSpec(applicationId, mainClass));
+    }
+
     /** Builds the master Pod: shared container and command plus its private probes and claim. */
-    private V1PodSpec masterPod() {
+    private V1PodSpec masterPodSpec(String applicationId, String mainClass) {
         ApplicationSpecification specification = parameters.getSpecification();
         int memoryMb = specification.getMasterMemoryMb();
         V1Container container = container(memoryMb, specification.getMasterCpuCores());

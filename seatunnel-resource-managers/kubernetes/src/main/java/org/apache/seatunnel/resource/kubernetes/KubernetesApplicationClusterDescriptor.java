@@ -36,11 +36,10 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIde
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.HeadlessServiceDecorator;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.JobDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.MasterPodDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SecretDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.SpecificationEnvDecorator;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.ApplicationJobFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -51,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,12 +123,12 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     }
 
     /**
-     * Assembles the application's resources through the ordered decorator list.
+     * Assembles the application's resources through the ordered decorator chain.
      *
-     * <p>The first step creates the suspended owner Job, the master Pod step runs the shared Pod
-     * decorator chain over its template, and every later step decorates the Job or contributes an
-     * accompanying resource. The owner Job is returned first because the caller must create it
-     * before the resources that carry its owner reference.
+     * <p>The master Pod skeleton is created first, the chain decorates it and contributes the
+     * accompanying resources, and the decorated Pod is finally wrapped into the suspended owner
+     * Job. The owner Job is returned first because the caller must create it before the resources
+     * that carry its owner reference.
      *
      * @param id generated application Job name
      * @param mainClass master entrypoint class
@@ -138,23 +138,20 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     static List<KubernetesResource<?>> assembleApplication(
             String id, String mainClass, KubernetesApplicationConfig parameters) {
-        List<KubernetesStepDecorator<KubernetesJob>> decorators =
+        V1Pod masterPod = ApplicationJobFactory.createMasterPod(id, mainClass, parameters);
+        List<KubernetesStepDecorator> decorators =
                 Arrays.asList(
-                        new JobDecorator(id, mainClass, parameters),
-                        new MasterPodDecorator(
-                                Arrays.asList(
-                                        new SpecificationEnvDecorator(parameters),
-                                        new EnvironmentDecorator(parameters),
-                                        new SecretDecorator(id, parameters),
-                                        new ConfigMapDecorator(id, parameters))),
+                        new SpecificationEnvDecorator(parameters),
+                        new EnvironmentDecorator(parameters),
+                        new SecretDecorator(id, parameters),
+                        new ConfigMapDecorator(id, parameters),
                         new HeadlessServiceDecorator(id, parameters));
-        KubernetesJob job = null;
         List<KubernetesResource<?>> resources = new ArrayList<>();
-        for (KubernetesStepDecorator<KubernetesJob> decorator : decorators) {
-            job = decorator.decorate(job);
+        for (KubernetesStepDecorator decorator : decorators) {
+            masterPod = decorator.decorate(masterPod);
             resources.addAll(decorator.build());
         }
-        resources.add(0, job);
+        resources.add(0, ApplicationJobFactory.createOwnerJob(id, parameters, masterPod));
         return resources;
     }
 

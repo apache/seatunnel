@@ -38,7 +38,7 @@ import io.kubernetes.client.openapi.models.V1SecretKeySelector;
  * <p>Kubernetes resolves Secret and ConfigMap references, so placeholders in the job configuration
  * are resolved inside the Pod even when the submitting host cannot see those values.
  */
-public final class EnvironmentDecorator extends AbstractKubernetesPodDecorator {
+public final class EnvironmentDecorator extends AbstractKubernetesStepDecorator {
     private final KubernetesApplicationConfig parameters;
 
     public EnvironmentDecorator(KubernetesApplicationConfig parameters) {
@@ -46,7 +46,7 @@ public final class EnvironmentDecorator extends AbstractKubernetesPodDecorator {
     }
 
     @Override
-    protected V1Pod apply(V1Pod pod) {
+    public V1Pod decorate(V1Pod pod) {
         V1Container container = pod.getSpec().getContainers().get(0);
         for (KubernetesEnvironmentVariable variable : parameters.getEnvironmentVariables()) {
             container.addEnvItem(environmentVariable(variable));
