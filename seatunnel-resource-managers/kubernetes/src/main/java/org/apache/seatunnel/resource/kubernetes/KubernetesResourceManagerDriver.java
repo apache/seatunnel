@@ -242,14 +242,14 @@ public final class KubernetesResourceManagerDriver
      * @return worker Pod ready to create
      */
     KubernetesPod assembleWorkerPod(String name, WorkerSpecification resources) {
+        V1Pod pod =
+                WorkerPodFactory.createWorkerPod(
+                        job, name, parameters, resources, clusterName, masterAddress.get());
         List<KubernetesStepDecorator> decorators =
                 Arrays.asList(
                         new EnvironmentDecorator(parameters),
                         new SecretDecorator(job.getName(), parameters),
                         new ConfigMapDecorator(job.getName(), parameters));
-        V1Pod pod =
-                WorkerPodFactory.createWorkerPod(
-                        job, name, parameters, resources, clusterName, masterAddress.get());
         for (KubernetesStepDecorator decorator : decorators) {
             pod = decorator.decorate(pod);
         }
