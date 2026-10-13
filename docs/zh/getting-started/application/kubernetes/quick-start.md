@@ -120,36 +120,34 @@ kubernetes {
   service-account = "seatunnel-application"
   # 示例作业由本 application 自建的 ConfigMap 挂载进来，首次提交无需 -c 文件。
   job-config-file = job.conf
-  configmap {
-    runtime {
-      ref = "seatunnel-configuration"
-      mount {
-        seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-        log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-      }
+  configmap.runtime {
+    ref = "seatunnel-configuration"
+    mount {
+      seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+      log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
     }
-    job-conf {
-      data {
-        job.conf = """
-          env {
-            job.mode = "BATCH"
-            parallelism = 2
+  }
+  configmap.job-conf {
+    data {
+      job.conf = """
+        env {
+          job.mode = "BATCH"
+          parallelism = 2
+        }
+        source {
+          FakeSource {
+            row.num = 10
+            split.num = 2
+            schema { fields { id = int, name = string } }
           }
-          source {
-            FakeSource {
-              row.num = 10
-              split.num = 2
-              schema { fields { id = int, name = string } }
-            }
-          }
-          sink {
-            Console {}
-          }
-        """
-      }
-      mount {
-        job.conf = "/opt/seatunnel/config/job.conf"
-      }
+        }
+        sink {
+          Console {}
+        }
+      """
+    }
+    mount {
+      job.conf = "/opt/seatunnel/config/job.conf"
     }
   }
 }
