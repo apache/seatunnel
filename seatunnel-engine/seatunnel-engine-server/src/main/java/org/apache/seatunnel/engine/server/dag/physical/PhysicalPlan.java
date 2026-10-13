@@ -218,7 +218,6 @@ public class PhysicalPlan {
         }
 
         if (NOT_STARTED_STATUSES.contains(jobStatus)) {
-            // Not started yet: no running work to drain, so go straight to CANCELLED.
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {
@@ -264,7 +263,6 @@ public class PhysicalPlan {
         }
 
         if (NOT_STARTED_STATUSES.contains(jobStatus)) {
-            // Not started yet: no running work to drain, so go straight to CANCELLED.
             updateJobState(JobStatus.CANCELED);
             completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
         } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
