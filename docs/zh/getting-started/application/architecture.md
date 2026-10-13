@@ -47,33 +47,6 @@ flowchart TB
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
-## 启动与执行流程
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant CLI as Application CLI
-    participant RM as 资源管理器
-    participant M as Application Master
-    participant W as Zeta Worker
-    participant CS as Checkpoint 存储
-
-    CLI->>RM: 创建 owner application 及附属资源
-    CLI->>RM: 启动 application
-    Note over CLI,RM: 提交立即返回，不等待 Master
-    M->>M: 读取本地化配置
-    M->>M: 启动 Zeta Master 成员
-    M->>RM: 申请固定数量的 Worker
-    RM->>W: 启动 Worker 进程
-    W->>M: 通过 Hazelcast TCP 加入并注册 slot
-    M->>M: 用 Pod 环境解析作业文件
-    M->>W: 调度任务
-    W->>CS: 写入 checkpoint
-    W->>M: 返回任务结果
-    M->>RM: 释放 Worker 并发布终态
-    M->>M: 退出，平台记录最终状态
-```
-
 ## Engine 侧
 
 ```text
