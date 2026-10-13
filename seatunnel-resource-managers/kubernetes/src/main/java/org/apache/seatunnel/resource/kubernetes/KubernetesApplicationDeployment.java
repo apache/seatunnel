@@ -104,13 +104,18 @@ final class KubernetesApplicationDeployment {
      */
     private void validateUserManagedResources() throws Exception {
         if (parameters.getConfigMap() != null) {
-            api.getConfigMap(parameters.getConfigMap());
+            getReadableConfigMap(parameters.getConfigMap(), "kubernetes.config-map");
         }
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {
                 continue;
             }
-            KubernetesConfigMap configMap = api.getConfigMap(entry.getReference());
+            KubernetesConfigMap configMap =
+                    getReadableConfigMap(
+                            entry.getReference(), "kubernetes.configmap." + entry.getEntryName());
+            if (configMap == null) {
+                continue;
+            }
             for (String key : entry.getMountPaths().keySet()) {
                 if (!containsKey(configMap, key)) {
                     throw new IllegalArgumentException(
@@ -122,6 +127,33 @@ final class KubernetesApplicationDeployment {
                                     + entry.getReference());
                 }
             }
+        }
+    }
+
+    /**
+     * Reads a user-managed ConfigMap for validation.
+     *
+     * <p>A missing ConfigMap or key is a configuration error reported before creation. When the
+     * submitting identity cannot read the ConfigMap, validation is skipped with a warning because
+     * the Pod may still reference it through its own service account.
+     *
+     * @param name ConfigMap name
+     * @param option option that references it, used in the warning
+     * @return the ConfigMap, or {@code null} when the submitter is not allowed to read it
+     * @throws Exception if the ConfigMap is missing or the API fails for another reason
+     */
+    private KubernetesConfigMap getReadableConfigMap(String name, String option) throws Exception {
+        try {
+            return api.getConfigMap(name);
+        } catch (ApiException failure) {
+            if (failure.getCode() == 403) {
+                LOG.warn(
+                        "No permission to verify {} ConfigMap {}; continuing without validation",
+                        option,
+                        name);
+                return null;
+            }
+            throw failure;
         }
     }
 

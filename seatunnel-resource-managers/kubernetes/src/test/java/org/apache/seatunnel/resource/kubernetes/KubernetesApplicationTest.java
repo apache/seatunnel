@@ -269,6 +269,42 @@ class KubernetesApplicationTest {
     }
 
     @Test
+    void continuesWhenUserManagedConfigMapsCannotBeRead() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getConfigMap("seatunnel-runtime")).thenThrow(new ApiException(403, "forbidden"));
+        when(api.getConfigMap("platform-runtime")).thenThrow(new ApiException(403, "forbidden"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        options.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).deleteApplication(anyString());
+    }
+
+    @Test
+    void failsBeforeCreatingResourcesWhenReferencedConfigMapIsMissing() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getConfigMap("platform-runtime")).thenThrow(new ApiException(404, "not found"));
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.shared.ref", "platform-runtime");
+        options.put(
+                "kubernetes.configmap.shared.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        assertThrows(
+                ApiException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
     void rejectsMissingReferencedConfigMapKeysBeforeCreatingResources() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.getConfigMap("platform-runtime"))
