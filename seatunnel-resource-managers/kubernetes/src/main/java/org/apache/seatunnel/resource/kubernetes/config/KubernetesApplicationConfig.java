@@ -62,8 +62,46 @@ import java.util.stream.Collectors;
 @Getter
 public final class KubernetesApplicationConfig {
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
+
+    private static final String KUBERNETES_PREFIX = "kubernetes.";
     private static final String SECRET_DATA_PREFIX = "kubernetes.secret.data.";
     private static final String CONFIG_MAP_PREFIX = "kubernetes.configmap.";
+    private static final String ENV_PREFIX = "kubernetes.env.";
+    private static final String ENV_FROM_PREFIX = "kubernetes.env-from.";
+    private static final String ENV_FROM_SECRET = ENV_FROM_PREFIX + "secret";
+    private static final String ENV_FROM_CONFIGMAP = ENV_FROM_PREFIX + "configmap";
+
+    /** Sections of one {@code kubernetes.configmap.<entry>} option. */
+    private static final String SECTION_REF = "ref";
+
+    private static final String SECTION_NAME = "name";
+    private static final String SECTION_DATA = "data";
+    private static final String SECTION_MOUNT = "mount";
+
+    /** Distribution layout used to resolve relative runtime file names. */
+    private static final String CONFIG_DIRECTORY = "config/";
+
+    private static final String PARENT_DIRECTORY = "..";
+
+    /** Validation patterns for Kubernetes names, data keys, environment names and paths. */
+    private static final String DNS_LABEL_PATTERN = "[a-z0-9]([-a-z0-9]*[a-z0-9])?";
+
+    private static final String DNS_SUBDOMAIN_PATTERN = "[a-z0-9]([-a-z0-9.]*[a-z0-9])?";
+    private static final String DATA_KEY_PATTERN = "[-._a-zA-Z0-9]+";
+    private static final String FILE_NAME_PATTERN = "[A-Za-z0-9._-]+";
+    private static final String RELATIVE_PATH_PATTERN = "[A-Za-z0-9._/-]+";
+    private static final String ENV_NAME_PATTERN = "[A-Za-z_][A-Za-z0-9_]*";
+
+    /** Accepted suffixes of the runtime files the engine and Log4j2 read. */
+    private static final List<String> HAZELCAST_SUFFIXES = Arrays.asList(".yaml", ".yml", ".xml");
+
+    private static final List<String> ENGINE_SUFFIXES = Arrays.asList(".yaml", ".yml");
+
+    private static final List<String> LOG4J_SUFFIXES =
+            Arrays.asList(".properties", ".xml", ".json", ".yaml", ".yml");
+
+    /** Header comment of the localized specification written into the container environment. */
+    private static final String SPECIFICATION_COMMENT = "SeaTunnel Kubernetes application";
 
     private final ApplicationSpecification specification;
     private final String namespace;
@@ -267,7 +305,7 @@ public final class KubernetesApplicationConfig {
     private static Map<String, Object> kubernetesOptions(Properties properties) {
         Map<String, Object> options = new HashMap<>();
         for (String key : properties.stringPropertyNames()) {
-            if (key.startsWith("kubernetes.")) {
+            if (key.startsWith(KUBERNETES_PREFIX)) {
                 options.put(key, properties.getProperty(key));
             }
         }
@@ -332,10 +370,9 @@ public final class KubernetesApplicationConfig {
         }
         for (KubernetesEnvFromReference reference : envFromReferences) {
             properties.setProperty(
-                    ENV_FROM_PREFIX
-                            + (reference.getSource() == KubernetesEnvFromReference.Source.SECRET
-                                    ? "secret"
-                                    : "configmap"),
+                    reference.getSource() == KubernetesEnvFromReference.Source.SECRET
+                            ? ENV_FROM_SECRET
+                            : ENV_FROM_CONFIGMAP,
                     reference.getName());
         }
         writeConfigMaps(properties);
@@ -358,7 +395,7 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(
                 KubernetesOptions.WORKER_TOLERATIONS.key(),
                 KubernetesToleration.serialize(workerTolerations));
-        properties.store(writer, "SeaTunnel Kubernetes application");
+        properties.store(writer, SPECIFICATION_COMMENT);
     }
 
     /** Returns the Kubernetes API spelling of the validated pull policy. */
@@ -391,7 +428,7 @@ public final class KubernetesApplicationConfig {
                 continue;
             }
             String key = entry.getKey().substring(SECRET_DATA_PREFIX.length());
-            if (key.isEmpty() || !key.matches("[-._a-zA-Z0-9]+")) {
+            if (key.isEmpty() || !key.matches(DATA_KEY_PATTERN)) {
                 throw new IllegalArgumentException(
                         entry.getKey() + " must use a valid Kubernetes Secret data key");
             }
@@ -420,10 +457,6 @@ public final class KubernetesApplicationConfig {
         }
         return raw;
     }
-
-    private static final String ENV_PREFIX = "kubernetes.env.";
-    private static final String ENV_FROM_PREFIX = "kubernetes.env-from.";
-    private static final String ENV_NAME_PATTERN = "[A-Za-z_][A-Za-z0-9_]*";
 
     private static List<KubernetesEnvironmentVariable> environmentVariables(
             Map<String, String> options) {
@@ -456,8 +489,8 @@ public final class KubernetesApplicationConfig {
 
     private static List<KubernetesEnvFromReference> envFromReferences(Map<String, String> options) {
         List<KubernetesEnvFromReference> references = new ArrayList<>(2);
-        String secret = options.get(ENV_FROM_PREFIX + "secret");
-        String configMap = options.get(ENV_FROM_PREFIX + "configmap");
+        String secret = options.get(ENV_FROM_SECRET);
+        String configMap = options.get(ENV_FROM_CONFIGMAP);
         if (secret != null) {
             references.add(KubernetesEnvFromReference.secret(requireReferenceName(secret)));
         }
@@ -466,8 +499,8 @@ public final class KubernetesApplicationConfig {
         }
         for (String key : options.keySet()) {
             if (key.startsWith(ENV_FROM_PREFIX)
-                    && !key.equals(ENV_FROM_PREFIX + "secret")
-                    && !key.equals(ENV_FROM_PREFIX + "configmap")) {
+                    && !key.equals(ENV_FROM_SECRET)
+                    && !key.equals(ENV_FROM_CONFIGMAP)) {
                 throw new IllegalArgumentException(
                         key
                                 + " must use kubernetes.env-from.secret or kubernetes.env-from.configmap");
@@ -499,16 +532,16 @@ public final class KubernetesApplicationConfig {
                 throw invalidConfigMapEntry(key);
             }
             String entry = remainder.substring(0, entrySeparator);
-            if (!entry.matches("[a-z0-9]([-a-z0-9]*[a-z0-9])?")) {
+            if (!entry.matches(DNS_LABEL_PATTERN)) {
                 throw new IllegalArgumentException(
                         key + ": ConfigMap entry names must be lowercase DNS labels, got " + entry);
             }
             String path = remainder.substring(entrySeparator + 1);
-            if ("ref".equals(path)) {
+            if (SECTION_REF.equals(path)) {
                 references.put(entry, option.getValue());
                 continue;
             }
-            if ("name".equals(path)) {
+            if (SECTION_NAME.equals(path)) {
                 createdNames.put(entry, option.getValue());
                 continue;
             }
@@ -518,13 +551,13 @@ public final class KubernetesApplicationConfig {
             }
             String section = path.substring(0, sectionSeparator);
             String item = path.substring(sectionSeparator + 1);
-            if (!item.matches("[-._a-zA-Z0-9]+")) {
+            if (!item.matches(DATA_KEY_PATTERN)) {
                 throw new IllegalArgumentException(
                         key + " must use a valid Kubernetes ConfigMap data key");
             }
-            if ("data".equals(section)) {
+            if (SECTION_DATA.equals(section)) {
                 putConfigMapValue(data, entry, item, option.getValue());
-            } else if ("mount".equals(section)) {
+            } else if (SECTION_MOUNT.equals(section)) {
                 if (!option.getValue().startsWith("/") || option.getValue().contains(":")) {
                     throw new IllegalArgumentException(
                             key + " must be an absolute container path without ':'");
@@ -570,7 +603,7 @@ public final class KubernetesApplicationConfig {
                 throw new IllegalArgumentException(
                         CONFIG_MAP_PREFIX + entry + " cannot combine name with ref");
             }
-            if (createdName != null && !createdName.matches("[a-z0-9]([-a-z0-9.]*[a-z0-9])?")) {
+            if (createdName != null && !createdName.matches(DNS_SUBDOMAIN_PATTERN)) {
                 throw new IllegalArgumentException(
                         CONFIG_MAP_PREFIX
                                 + entry
@@ -605,18 +638,19 @@ public final class KubernetesApplicationConfig {
         for (KubernetesConfigMapEntry configMap : configMaps) {
             String prefix = CONFIG_MAP_PREFIX + configMap.getEntryName();
             if (configMap.isReference()) {
-                properties.setProperty(prefix + ".ref", configMap.getReference());
+                properties.setProperty(prefix + "." + SECTION_REF, configMap.getReference());
             } else {
                 if (configMap.getName() != null) {
-                    properties.setProperty(prefix + ".name", configMap.getName());
+                    properties.setProperty(prefix + "." + SECTION_NAME, configMap.getName());
                 }
                 for (Map.Entry<String, String> entry : configMap.getData().entrySet()) {
                     // The master only needs the key set; values are used client-side only.
-                    properties.setProperty(prefix + ".data." + entry.getKey(), "");
+                    properties.setProperty(prefix + "." + SECTION_DATA + "." + entry.getKey(), "");
                 }
             }
             for (Map.Entry<String, String> mount : configMap.getMountPaths().entrySet()) {
-                properties.setProperty(prefix + ".mount." + mount.getKey(), mount.getValue());
+                properties.setProperty(
+                        prefix + "." + SECTION_MOUNT + "." + mount.getKey(), mount.getValue());
             }
         }
     }
@@ -724,17 +758,15 @@ public final class KubernetesApplicationConfig {
             }
             path = value;
         } else {
-            if (!value.matches("[A-Za-z0-9._-]+")) {
+            if (!value.matches(FILE_NAME_PATTERN)) {
                 throw new IllegalArgumentException(
                         option.key()
                                 + " must be a file name under <seatunnel-home>/config or an absolute path");
             }
-            path = seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/" + value;
+            path = configDirectory(seatunnelHome) + value;
         }
         String lowerCase = path.toLowerCase(Locale.ROOT);
-        if (!(lowerCase.endsWith(".yaml")
-                || lowerCase.endsWith(".yml")
-                || lowerCase.endsWith(".xml"))) {
+        if (!hasSuffix(lowerCase, HAZELCAST_SUFFIXES)) {
             throw new IllegalArgumentException(
                     option.key() + " must reference a .yaml, .yml or .xml file");
         }
@@ -775,12 +807,12 @@ public final class KubernetesApplicationConfig {
             }
             return value;
         }
-        if (!value.matches("[A-Za-z0-9._-]+")) {
+        if (!value.matches(FILE_NAME_PATTERN)) {
             throw new IllegalArgumentException(
                     option.key()
                             + " must be a file name under <seatunnel-home>/config or an absolute path");
         }
-        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/" + value;
+        return configDirectory(seatunnelHome) + value;
     }
 
     /**
@@ -801,13 +833,13 @@ public final class KubernetesApplicationConfig {
             path = value;
         } else {
             for (String segment : value.split("/")) {
-                if ("..".equals(segment)) {
+                if (PARENT_DIRECTORY.equals(segment)) {
                     throw new IllegalArgumentException(
                             KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
                                     + " must not contain '..'");
                 }
             }
-            if (value.contains(":") || !value.matches("[A-Za-z0-9._/-]+")) {
+            if (value.contains(":") || !value.matches(RELATIVE_PATH_PATTERN)) {
                 throw new IllegalArgumentException(
                         KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
                                 + " must be a path relative to <seatunnel-home> or an absolute path");
@@ -815,7 +847,7 @@ public final class KubernetesApplicationConfig {
             path = seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + value;
         }
         String lowerCase = path.toLowerCase(Locale.ROOT);
-        if (!(lowerCase.endsWith(".yaml") || lowerCase.endsWith(".yml"))) {
+        if (!hasSuffix(lowerCase, ENGINE_SUFFIXES)) {
             throw new IllegalArgumentException(
                     KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
                             + " must reference a .yaml or .yml file");
@@ -846,7 +878,7 @@ public final class KubernetesApplicationConfig {
             }
             return value;
         }
-        if (!value.matches("[A-Za-z0-9._-]+")) {
+        if (!value.matches(FILE_NAME_PATTERN)) {
             throw new IllegalArgumentException(
                     KubernetesOptions.JOB_CONFIG_FILE.key()
                             + " must be a file name under <seatunnel-home>/config or an absolute path");
@@ -875,7 +907,17 @@ public final class KubernetesApplicationConfig {
     }
 
     private static String configDirectory(String seatunnelHome) {
-        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + "config/";
+        return seatunnelHome + (seatunnelHome.endsWith("/") ? "" : "/") + CONFIG_DIRECTORY;
+    }
+
+    /** @return whether the lower-cased path ends with one of the accepted suffixes */
+    private static boolean hasSuffix(String path, List<String> suffixes) {
+        for (String suffix : suffixes) {
+            if (path.endsWith(suffix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -889,11 +931,7 @@ public final class KubernetesApplicationConfig {
         String value = requireNonBlank(options, KubernetesOptions.LOG4J_CONFIG_FILE);
         String path = configFilePath(KubernetesOptions.LOG4J_CONFIG_FILE, value, seatunnelHome);
         String lowerCase = path.toLowerCase(Locale.ROOT);
-        if (!(lowerCase.endsWith(".properties")
-                || lowerCase.endsWith(".xml")
-                || lowerCase.endsWith(".json")
-                || lowerCase.endsWith(".yaml")
-                || lowerCase.endsWith(".yml"))) {
+        if (!hasSuffix(lowerCase, LOG4J_SUFFIXES)) {
             throw new IllegalArgumentException(
                     KubernetesOptions.LOG4J_CONFIG_FILE.key()
                             + " must reference a Log4j2 configuration file");
