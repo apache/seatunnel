@@ -188,17 +188,20 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                         Files.readAllBytes(
                                 Paths.get(PROJECT_ROOT_PATH, "config", "log4j2_client.properties")),
                         StandardCharsets.UTF_8));
-        runtimeConfiguration.put(
-                "hazelcast-master.yaml",
-                "hazelcast:\n  properties:\n    hazelcast.logging.type: log4j2\n");
-        runtimeConfiguration.put(
-                "hazelcast-worker.yaml",
-                "hazelcast:\n  properties:\n    hazelcast.logging.type: log4j2\n");
-        runtimeConfiguration.put(
-                "jvm_master_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
-        runtimeConfiguration.put(
-                "jvm_worker_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
-        runtimeConfiguration.put("jvm_options", "# e2e override\n-XX:MaxMetaspaceSize=256m\n");
+        // No hardcoded runtime files: take them from the distribution configuration.
+        for (String name :
+                Arrays.asList(
+                        "hazelcast-master.yaml",
+                        "hazelcast-worker.yaml",
+                        "jvm_options",
+                        "jvm_master_options",
+                        "jvm_worker_options")) {
+            runtimeConfiguration.put(
+                    name,
+                    new String(
+                            Files.readAllBytes(Paths.get(PROJECT_ROOT_PATH, "config", name)),
+                            StandardCharsets.UTF_8));
+        }
         core.createNamespacedConfigMap(
                 namespace,
                 new V1ConfigMap()
