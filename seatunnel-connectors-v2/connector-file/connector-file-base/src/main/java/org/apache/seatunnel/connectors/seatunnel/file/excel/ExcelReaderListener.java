@@ -52,6 +52,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
     protected SeaTunnelRowType seaTunnelRowType;
 
     private SeaTunnelDataType<?>[] fieldTypes;
+    private final int[] indexes;
 
     private ExcelCellUtils excelCellUtils;
 
@@ -62,10 +63,20 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             Collector<SeaTunnelRow> output,
             ExcelCellUtils excelCellUtils,
             SeaTunnelRowType seaTunnelRowType) {
+        this(tableId, output, excelCellUtils, seaTunnelRowType, null);
+    }
+
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType,
+            int[] indexes) {
         this.tableId = tableId;
         this.output = output;
         this.excelCellUtils = excelCellUtils;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.indexes = indexes;
 
         fieldTypes = seaTunnelRowType.getFieldTypes();
     }
@@ -87,11 +98,13 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
         Map<Integer, Cell> cellMap = context.readRowHolder().getCellMap();
         int i = 0;
         for (; i < fieldTypes.length; i++) {
-            if (cellMap.get(i) == null) {
+            int columnIndex = indexes == null ? i : indexes[i];
+            Cell cell = cellMap.get(columnIndex);
+            if (cell == null) {
                 seaTunnelRow.setField(i, null);
             } else {
-                Object cell = excelCellUtils.convert(data.get(i), fieldTypes[i], cellMap.get(i));
-                seaTunnelRow.setField(i, cell);
+                Object value = excelCellUtils.convert(data.get(columnIndex), fieldTypes[i], cell);
+                seaTunnelRow.setField(i, value);
             }
         }
         seaTunnelRow.setTableId(tableId);

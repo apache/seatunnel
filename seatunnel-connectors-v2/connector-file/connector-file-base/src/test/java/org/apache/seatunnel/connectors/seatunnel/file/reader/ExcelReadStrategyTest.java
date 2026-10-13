@@ -244,6 +244,33 @@ public class ExcelReadStrategyTest {
     }
 
     @Test
+    public void testEasyExcelReadColumnsUsesSourceColumnIndexes()
+            throws IOException, URISyntaxException {
+        URL excelFile =
+                ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_date_string.xlsx");
+        URL conf =
+                ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_data_string.conf");
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+        Config pluginConfig =
+                ConfigFactory.parseString("read_columns = [\"c_string\", \"c_int\"]")
+                        .withFallback(ConfigFactory.parseFile(new File(conf.toURI())));
+        ExcelReadStrategy readStrategy = new ExcelReadStrategy();
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        readStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+
+        TestCollector collector = new TestCollector();
+        readStrategy.read(Paths.get(excelFile.toURI()).toString(), "", collector);
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        SeaTunnelRow row = collector.getRows().get(0);
+        Assertions.assertEquals(2, row.getArity());
+        Assertions.assertEquals("Cosmos", row.getField(0));
+        Assertions.assertEquals(333, row.getField(1));
+    }
+
+    @Test
     public void testEasyExcelIgnoresPoiFileSizeLimit() throws IOException, URISyntaxException {
         URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
         URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
