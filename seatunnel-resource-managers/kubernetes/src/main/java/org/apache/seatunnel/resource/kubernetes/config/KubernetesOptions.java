@@ -108,31 +108,37 @@ public final class KubernetesOptions {
                     .stringType()
                     .defaultValue(KubernetesConstants.JVM_OPTIONS_FILE)
                     .withDescription(
-                            "Common JVM options file applied to master and workers before the role-specific file: a file name under <seatunnel-home>/config, an absolute path, or 'none' to disable it.");
+                            "Common JVM options file applied to master and workers before the role-specific file: a file name under <seatunnel-home>/config, an absolute path, or '"
+                                    + KubernetesConstants.DISABLED
+                                    + "' to pass no argument file.");
     public static final Option<String> MASTER_JVM_OPTIONS =
             Options.key("kubernetes.master.jvm-options-file")
                     .stringType()
                     .defaultValue(KubernetesConstants.MASTER_JVM_OPTIONS_FILE)
                     .withDescription(
-                            "JVM options file for the master: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to 'none' to disable.");
+                            "JVM options file for the master: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to '"
+                                    + KubernetesConstants.DISABLED
+                                    + "' to pass no argument file.");
     public static final Option<String> WORKER_JVM_OPTIONS =
             Options.key("kubernetes.worker.jvm-options-file")
                     .stringType()
                     .defaultValue(KubernetesConstants.WORKER_JVM_OPTIONS_FILE)
                     .withDescription(
-                            "JVM options file for workers: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to 'none' to disable.");
+                            "JVM options file for workers: a file name under <seatunnel-home>/config or an absolute path, applied through the Java @argfile syntax; set to '"
+                                    + KubernetesConstants.DISABLED
+                                    + "' to pass no argument file.");
     public static final Option<String> SEATUNNEL_CONFIG_FILE =
             Options.key("kubernetes.seatunnel-config-file")
                     .stringType()
                     .defaultValue(KubernetesConstants.SEATUNNEL_CONFIG_FILE)
                     .withDescription(
-                            "SeaTunnel engine configuration file passed as -Dseatunnel.config: a path relative to <seatunnel-home>, an absolute .yaml path, or 'none' to disable the flag.");
+                            "SeaTunnel engine configuration file passed as -Dseatunnel.config: a path relative to <seatunnel-home> or an absolute .yaml/.yml path.");
     public static final Option<String> LOG4J_CONFIG_FILE =
             Options.key("kubernetes.log4j-config-file")
                     .stringType()
                     .defaultValue(KubernetesConstants.LOG4J_CONFIG_FILE)
                     .withDescription(
-                            "Log4j2 configuration file passed as -Dlog4j2.configurationFile: a file name under <seatunnel-home>/config, an absolute path, or 'none' to disable the flag.");
+                            "Log4j2 configuration file passed as -Dlog4j2.configurationFile: a file name under <seatunnel-home>/config or an absolute path.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()

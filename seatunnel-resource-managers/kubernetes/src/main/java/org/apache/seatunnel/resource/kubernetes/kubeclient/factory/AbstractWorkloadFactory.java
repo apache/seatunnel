@@ -178,7 +178,6 @@ public abstract class AbstractWorkloadFactory {
 
     /** Builds the Java classpath shared by master and worker containers. */
     private static String classpath(String home) {
-        return String.format(
-                KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home, home);
+        return String.format(KubernetesConstants.KUBERNETES_CLASSPATH, home, home, home, home);
     }
 }

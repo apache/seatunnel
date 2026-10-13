@@ -61,6 +61,13 @@ public final class KubernetesConstants {
     public static final String WORKER_JVM_OPTIONS_FILE = "jvm_worker_options";
 
     /**
+     * Value of a defaulted runtime-file option that suppresses the file: the container command
+     * passes no argument file for that role. Only the JVM-options options accept it, because only
+     * they replace a distribution file that would otherwise be applied by default.
+     */
+    public static final String DISABLED = "disabled";
+
+    /**
      * Mandatory JDK module flags for Java 11+, mirroring the cluster launcher scripts. Hazelcast
      * and the Kerberos configuration reload need this reflective access.
      */
@@ -107,12 +114,19 @@ public final class KubernetesConstants {
     public static final int MINIMUM_JVM_HEAP_MB = 1;
     public static final String SEATUNNEL_CONFIG_FILE = "config/seatunnel.yaml";
     public static final String LOG4J_CONFIG_FILE = "log4j2_client.properties";
+    /**
+     * Classpath of the application containers.
+     *
+     * <p>Only jars are listed: the distribution's {@code config} directory deliberately stays off
+     * the classpath so that engine and logging configuration come exclusively from the explicit
+     * {@code -Dseatunnel.config} / {@code -Dlog4j2.configurationFile} paths. A classpath copy would
+     * silently supply the distribution file even when a different one is configured.
+     */
     public static final String KUBERNETES_CLASSPATH =
             "%s/starter/seatunnel-starter.jar:"
                     + "%s/starter/logging/*:"
                     + "%s/lib/*:"
-                    + "%s/resource-managers/kubernetes/*:"
-                    + "%s/config";
+                    + "%s/resource-managers/kubernetes/*";
 
     /** Kubernetes field values used by master and worker pod specifications. */
     public static final String RESTART_POLICY_NEVER = "Never";

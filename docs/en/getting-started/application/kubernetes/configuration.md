@@ -51,11 +51,11 @@ Command-line overrides (`-i key=value`) may be visible to other users on the sub
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
 | `kubernetes.master.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for the master: a file name under `<seatunnel-home>/config` or an absolute `.yaml`/`.yml`/`.xml` path. Unset keeps the built-in configuration. |
 | `kubernetes.worker.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for worker containers, using the same forms as the master option. |
-| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `none` disables it. |
+| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `disabled` passes no argument file for the master. |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
-| `kubernetes.jvm-options-file` | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `none` disables it. |
-| `kubernetes.log4j-config-file` | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config`, an absolute path, or `none`. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
-| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>`, an absolute `.yaml` path, or `none` to disable the flag. |
+| `kubernetes.jvm-options-file` | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `disabled` passes no common argument file. |
+| `kubernetes.log4j-config-file` | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config` or an absolute path. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
+| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>` or an absolute `.yaml`/`.yml` path. |
 | `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.worker.labels` | Empty | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.master.annotations` | Empty | Master Pod annotations as comma-separated `key:value` pairs. |
@@ -409,7 +409,7 @@ kubernetes.configmap.jvm-options {
 ```
 
 Set `kubernetes.master.jvm-options-file` or `kubernetes.worker.jvm-options-file` to an absolute
-path for a different location, or to `none` to skip the file.
+path for a different location, or to `disabled` to pass no argument file for that role.
 
 :::note
 The mandatory Java 11+ module flags (`--add-opens` / `--add-exports`) used by Hazelcast and the

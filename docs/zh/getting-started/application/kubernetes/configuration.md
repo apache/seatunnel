@@ -50,11 +50,11 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
 | `kubernetes.master.hazelcast-config` | 未设置（内置配置） | Master 的 Hazelcast 成员配置：`<seatunnel-home>/config` 下的文件名，或 `.yaml`/`.yml`/`.xml` 绝对路径；不设置时使用内置配置。 |
 | `kubernetes.worker.hazelcast-config` | 未设置（内置配置） | Worker 容器的 Hazelcast 成员配置，写法与 Master 选项一致。 |
-| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `none` 可跳过。 |
+| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `disabled` 表示 Master 不传参数文件。 |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
-| `kubernetes.jvm-options-file` | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `none` 可跳过。 |
-| `kubernetes.log4j-config-file` | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名、绝对路径，或 `none`。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
-| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径、绝对 `.yaml` 路径，或 `none` 禁用该参数。 |
+| `kubernetes.jvm-options-file` | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `disabled` 表示不传公共参数文件。 |
+| `kubernetes.log4j-config-file` | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名或绝对路径。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
+| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径或绝对 `.yaml`/`.yml` 路径。 |
 | `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.worker.labels` | 空 | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.master.annotations` | 空 | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
@@ -388,7 +388,7 @@ kubernetes.configmap.jvm-options {
 ```
 
 也可以通过 `kubernetes.master.jvm-options-file` / `kubernetes.worker.jvm-options-file` 指向绝对路径，
-或设为 `none` 跳过文件。
+或设为 `disabled` 表示该角色不传任何参数文件。
 
 :::note
 Hazelcast 和 Kerberos 配置重载所需的 Java 11+ 强制模块参数（`--add-opens` / `--add-exports`）

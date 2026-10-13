@@ -1152,12 +1152,13 @@ class KubernetesApplicationResourcesTest {
                         .getContainers()
                         .get(0)
                         .getCommand();
+        // Only jars are on the classpath: the config directory stays off it so engine and logging
+        // configuration come exclusively from the explicit -D flags.
         assertEquals(
                 "/custom/seatunnel/starter/seatunnel-starter.jar:"
                         + "/custom/seatunnel/starter/logging/*:"
                         + "/custom/seatunnel/lib/*:"
-                        + "/custom/seatunnel/resource-managers/kubernetes/*:"
-                        + "/custom/seatunnel/config",
+                        + "/custom/seatunnel/resource-managers/kubernetes/*",
                 command.get(command.indexOf("-cp") + 1));
     }
 
@@ -1267,7 +1268,7 @@ class KubernetesApplicationResourcesTest {
 
         Map<String, String> overrides = options();
         overrides.put(KubernetesOptions.MASTER_JVM_OPTIONS.key(), "/etc/seatunnel/custom.options");
-        overrides.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "none");
+        overrides.put(KubernetesOptions.WORKER_JVM_OPTIONS.key(), "disabled");
         KubernetesApplicationConfig overridden =
                 KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(overrides)));
@@ -1306,7 +1307,7 @@ class KubernetesApplicationResourcesTest {
                                 argument -> argument.equals("@/opt/seatunnel/config/jvm_options")));
 
         Map<String, String> disabledCommon = options();
-        disabledCommon.put(KubernetesOptions.JVM_OPTIONS.key(), "none");
+        disabledCommon.put(KubernetesOptions.JVM_OPTIONS.key(), "disabled");
         KubernetesApplicationConfig commonDisabled =
                 KubernetesApplicationConfig.from(
                         specification, ReadonlyConfig.fromMap(new HashMap<>(disabledCommon)));
@@ -1364,20 +1365,17 @@ class KubernetesApplicationResourcesTest {
                                         specification,
                                         ReadonlyConfig.fromMap(new HashMap<>(absolute))))
                         .contains("-Dseatunnel.config=/etc/seatunnel/engine.yaml"));
-
-        Map<String, String> disabled = options();
-        disabled.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "none");
-        assertTrue(
-                masterCommand(
-                                KubernetesApplicationConfig.from(
-                                        specification,
-                                        ReadonlyConfig.fromMap(new HashMap<>(disabled))))
-                        .stream()
-                        .noneMatch(argument -> argument.startsWith("-Dseatunnel.config=")));
     }
 
     @Test
     void rejectsInvalidSeatunnelConfigFiles() {
+        Map<String, String> disabled = options();
+        disabled.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "disabled");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(disabled))));
         Map<String, String> traversal = options();
         traversal.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), "../escape.yaml");
         assertThrows(
@@ -1416,16 +1414,6 @@ class KubernetesApplicationResourcesTest {
                         .contains(
                                 "-Dlog4j2.configurationFile=/opt/seatunnel/config/log4j2.properties"));
 
-        Map<String, String> disabled = options();
-        disabled.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "none");
-        assertTrue(
-                masterCommand(
-                                KubernetesApplicationConfig.from(
-                                        specification,
-                                        ReadonlyConfig.fromMap(new HashMap<>(disabled))))
-                        .stream()
-                        .noneMatch(argument -> argument.startsWith("-Dlog4j2.configurationFile=")));
-
         Map<String, String> invalid = options();
         invalid.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "log4j2.conf");
         assertThrows(
@@ -1433,6 +1421,14 @@ class KubernetesApplicationResourcesTest {
                 () ->
                         KubernetesApplicationConfig.from(
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(invalid))));
+
+        Map<String, String> disabled = options();
+        disabled.put(KubernetesOptions.LOG4J_CONFIG_FILE.key(), "disabled");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(disabled))));
     }
 
     @Test
