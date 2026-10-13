@@ -38,7 +38,8 @@ from prompt_toolkit import prompt as pt_prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
-from . import __version__, get_data_dir
+from . import __version__, get_data_dir, rest
+from .diagnostics import ParsedError, parse_error
 from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
 
@@ -121,6 +122,28 @@ def _restore_creds_from_placeholders(config: str, cred_map: dict[str, str]) -> s
     for placeholder, original in cred_map.items():
         config = config.replace(placeholder, original)
     return config
+
+
+_ERROR_EXCERPT_LIMIT = 3000
+_OMITTED_MARKER = "...(earlier frames omitted)...\n"
+
+
+def _build_failure_report(error_text: str) -> tuple[ParsedError, str]:
+    """Parse a raw job failure and render the excerpt that is sent to the model.
+
+    Two separate things happen here on purpose. The parse runs on the *whole*
+    text, because the structured fields are cheap and we want them even when
+    the trace is far too long to forward. The excerpt keeps the *end* of the
+    text, because a Java trace prints the outer wrapper first and the innermost
+    ``Caused by`` last -- so cutting the front discards the root cause, the one
+    field a repair prompt actually needs. `_run_local` already tail-truncates
+    its captured output for the same reason.
+    """
+    parsed = parse_error(error_text)
+    text = error_text or ""
+    if len(text) <= _ERROR_EXCERPT_LIMIT:
+        return parsed, text
+    return parsed, _OMITTED_MARKER + text[-_ERROR_EXCERPT_LIMIT:]
 
 
 class SeaTunnelCLI:
@@ -336,6 +359,7 @@ class SeaTunnelCLI:
             loaded, last_config = self.session_manager.load_session(session_id)
             self.orchestrator.load_history(loaded)
             self.last_config = last_config
+            self._pending_request = None
             self.console.print(
                 f"  Resumed [bold]{session_id}[/bold] ({len(loaded)} messages)", style="success"
             )
@@ -356,6 +380,7 @@ class SeaTunnelCLI:
                 pass
         self.orchestrator.conversation_history.clear()
         self.last_config = None
+        self._pending_request = None
         sid = self.session_manager.new_session()
         self.console.print(f"  New session: [bold]{sid}[/bold]", style="success")
 
@@ -1102,6 +1127,7 @@ class SeaTunnelCLI:
             )
             self.orchestrator.conversation_history.clear()
             self.last_config = None
+            self._pending_request = None
             self.session_manager.new_session()
             self.console.print("  Cleared. New session started.", style="info")
 
@@ -1305,29 +1331,21 @@ class SeaTunnelCLI:
 
     def _run_via_rest_api(self, api_base: str):
         """Submit job via REST API and poll status."""
-        import json as _json
-        import urllib.request
-        import urllib.error
-
         self.console.print("  Submitting job via REST API...", style="info")
         try:
-            url = f"{api_base}/submit-job?format=hocon"
-            req = urllib.request.Request(
-                url,
+            body = rest.request_json(
+                f"{api_base}/submit-job?format=hocon",
+                method="POST",
                 data=self.last_config.encode("utf-8"),
                 headers={"Content-Type": "text/plain"},
-                method="POST",
+                timeout=30,
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = _json.loads(resp.read().decode("utf-8"))
-
             job_id = body.get("jobId")
             job_name = body.get("jobName", "")
             self.console.print(f"  Job submitted: [bold]{job_id}[/bold] ({job_name})", style="success")
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8", errors="replace")
-            self.console.print(f"  [error]Submit failed ({e.code}):[/error]")
-            self._show_error_and_diagnose(error_body)
+        except rest.RestError as e:
+            self.console.print(f"  [error]Submit failed ({e.status}):[/error]")
+            self._show_error_and_diagnose(e.body)
             return
         except Exception as e:
             self.console.print(f"  [error]Submit failed: {e}[/error]")
@@ -1338,9 +1356,6 @@ class SeaTunnelCLI:
 
     def _poll_job_status(self, api_base: str, job_id: str):
         """Poll job status until terminal state, then show results."""
-        import json as _json
-        import urllib.request
-
         terminal_states = {"FINISHED", "CANCELED", "FAILED"}
         self.console.print("  Waiting for job to complete...", style="info")
 
@@ -1351,10 +1366,7 @@ class SeaTunnelCLI:
         for _ in range(max_polls):
             time.sleep(poll_interval)
             try:
-                url = f"{api_base}/job-info/{job_id}"
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    info = _json.loads(resp.read().decode("utf-8"))
+                info = rest.request_json(f"{api_base}/job-info/{job_id}", timeout=10)
 
                 status = info.get("jobStatus", "UNKNOWN")
                 if status != last_status:
@@ -1408,7 +1420,9 @@ class SeaTunnelCLI:
     def _show_error_and_diagnose(self, error_text: str):
         """Diagnose error and directly patch the existing config, with conversation memory."""
         from .memory import redact_credentials
-        truncated = error_text[:3000]
+        parsed, excerpt = _build_failure_report(error_text)
+        if parsed.code or parsed.exception:
+            self.console.print(f"  Root cause: {parsed.headline()}", style="info")
         self.console.print("  Diagnosing and fixing config...", style="info")
 
         repair_system = (
@@ -1432,9 +1446,22 @@ class SeaTunnelCLI:
         safe_config, cred_map = _replace_creds_with_placeholders(
             self.last_config
         ) if self.last_config else ("", {})
-        safe_error = redact_credentials(truncated)
+        safe_error = redact_credentials(excerpt)
+        # The parsed fields come from the whole trace, so they survive even when
+        # the excerpt below had to drop frames. Stating them separately also stops
+        # the model from having to re-derive the error code from the raw text.
+        # They are redacted as well: they are cut from that same trace, so a
+        # root_cause line can carry a JDBC URL with a password in it. "signature"
+        # is dropped because it is an internal dedupe key, not a diagnosis.
+        facts = "\n".join(
+            f"- {k}: {redact_credentials(str(v))}"
+            for k, v in parsed.as_dict().items()
+            if k != "signature"
+        )
         repair_msg = (
-            f"Job execution failed with this error:\n\n```\n{safe_error}\n```\n\n"
+            f"Job execution failed.\n\n"
+            f"Parsed failure:\n{facts}\n\n"
+            f"Raw error:\n\n```\n{safe_error}\n```\n\n"
             f"The config that failed:\n```hocon\n{safe_config}\n```\n\n"
             f"Fix this config. Only change what's needed to resolve the error."
         )

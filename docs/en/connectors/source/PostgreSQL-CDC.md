@@ -23,6 +23,10 @@ import ChangeLog from '../changelog/connector-cdc-postgres.md';
 The PostgreSQL CDC connector allows for reading snapshot data and incremental data from PostgreSQL databases. This document
 describes how to set up the PostgreSQL CDC connector.
 
+Some PostgreSQL-compatible databases (for example HighGo) return the same physical table more than
+once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
+qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -381,6 +385,13 @@ When `startup.mode` is `committed-offset`, the replication slot must already exi
 uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
 
 ### Why does PostgreSQL CDC fall behind?
 
