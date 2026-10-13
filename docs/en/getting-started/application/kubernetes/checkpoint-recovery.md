@@ -91,7 +91,8 @@ bin/seatunnel-application.sh submit --target kubernetes \
 
 :::caution
 The new submission uses a new job ID and loads the historical job's latest eligible checkpoint.
-Missing checkpoints fail submission instead of silently starting over.
+A missing checkpoint fails the job on the master (the `submit` command has already returned)
+instead of silently starting over.
 :::
 
 Keep topology, connector versions, state format, and parallelism compatible. Replay after the checkpoint and sink delivery guarantees depend on connector semantics.

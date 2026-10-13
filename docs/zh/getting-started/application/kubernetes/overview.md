@@ -50,10 +50,12 @@ affinity/PriorityClass、Kerberos、REST/HTTPS。失败的 application 可用 `a
 - Kubernetes 1.24 或更高版本，支持 `batch/v1` Job、挂起 Job 和 Job TTL。
 - 可用的 `kubectl` 和提交端 kubeconfig，或可用的集群内身份。
 - 已创建 Namespace、ServiceAccount 和最小 RBAC。
-- 已创建包含 SeaTunnel 运行时配置的 ConfigMap。
+- 已创建包含 SeaTunnel 运行时配置的 ConfigMap，或使用 `kubernetes.configmap.<entry>.data` 让
+  SeaTunnel 创建。
 - Master 与 Worker Pod 之间允许 Hazelcast TCP 通信。
 - 集群可以拉取包含 SeaTunnel、Kubernetes provider 和作业插件的镜像。
-- 提交身份可以创建和管理 Job、Secret、Service 与 Pod。
+- 提交身份可以创建和管理 Job、Service，以及部署中自建的 Secret/ConfigMap 条目；Worker Pod
+  由 application 的 ServiceAccount 创建。
 
 ## 推荐阅读顺序
 

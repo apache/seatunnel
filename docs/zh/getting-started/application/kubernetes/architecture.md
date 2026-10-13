@@ -16,8 +16,8 @@ flowchart TB
 
   subgraph ns["Application Namespace"]
     job["batch/v1 Job"]
-    config["Secret<br/>job and deployment config"]
-    runtimeConfig["已有 ConfigMap<br/>SeaTunnel 运行时配置"]
+    appConfig["自建 Secret / ConfigMap<br/>可选运行时文件"]
+    runtimeConfig["ConfigMap<br/>SeaTunnel 运行时配置"]
     service["Headless Service<br/>master discovery"]
     master["Master Pod<br/>Zeta Master"]
     worker1["Worker Pod 1"]
@@ -27,7 +27,9 @@ flowchart TB
   client -->|create / status / cancel| api
   api --> job
   job --> master
-  config -. mount .-> master
+  appConfig -. 挂载 .-> master
+  appConfig -. 挂载 .-> worker1
+  appConfig -. 挂载 .-> workerN
   runtimeConfig -. 只读挂载 .-> master
   runtimeConfig -. 只读挂载 .-> worker1
   runtimeConfig -. 只读挂载 .-> workerN
@@ -48,14 +50,16 @@ flowchart TB
   classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
   class client,api layerCyan;
   class ns,job,master,worker1,workerN layerBlue;
-  class config,runtimeConfig,service,image,checkpoint layerPurple;
+  class appConfig,runtimeConfig,service,image,checkpoint layerPurple;
   linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 资源创建顺序
 
 1. 提交器先校验用户管理的运行时 ConfigMap，再创建 `backoffLimit: 0` 的挂起 Job。
-2. 获得 Job UID 后，先创建 Headless Service；配置了 `kubernetes.secret.*` 时再创建带 OwnerReference 的 application Secret。
+2. 获得 Job UID 后，先创建 Headless Service；配置了 `kubernetes.secret.*` 或
+   `kubernetes.configmap.<entry>.data` 时，再创建带 OwnerReference 的 application Secret 与
+   ConfigMap。
 3. Kubernetes API 确认依赖资源创建成功后，提交器解除 Job 挂起并返回 Job 名称，不等待 Master Pod 就绪。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口；镜像拉取慢、准入或调度问题通过 `status` 和 Pod 事件观察。
 4. Master 启动独立 Zeta 集群，通过 Kubernetes API 创建固定数量的 Worker Pod。每个 Worker 配置进程 liveness probe；Master 持续观察带 application label 的 Pod 快照，识别删除和终止状态。
 5. Worker 解析 Headless Service 指向的 Master 地址，加入集群并注册 slot。Pod phase 用于故障检测，Zeta 注册仍是 Worker 就绪和 slot 容量的判断依据。
@@ -64,7 +68,9 @@ flowchart TB
 
 ## RBAC 边界
 
-提交端身份负责创建 Job、Secret 和 Service，并执行查询与取消。Application ServiceAccount 只需要读取 Job 和管理本 application 的 Worker Pod。只有 Master 挂载 ServiceAccount token；Worker 不访问 Kubernetes API。
+提交端身份负责创建 Job、Service，以及自己声明的 Secret/ConfigMap 条目，并执行查询与取消。
+Application ServiceAccount 只需要读取 Job 和管理本 application 的 Worker Pod。只有 Master 挂载
+ServiceAccount token；Worker 不访问 Kubernetes API。
 
 ## 网络与容量
 
@@ -78,10 +84,14 @@ application.worker-count × application.worker.slots
 
 Pod request 与 limit 使用相同 CPU、内存值。Namespace quota、LimitRange、准入策略和节点可用容量都可能阻止调度。
 
-Job、Secret 和 Service 的创建请求由 Kubernetes API 同步确认后才会启动 Job。运行时 watch 只观察会被外部控制器改变的 Pod 生命周期；提交请求失败或响应不明确时，只补偿本次提交创建的资源，不会删除同名的已有资源。
+Job、Secret、ConfigMap 和 Service 的创建请求由 Kubernetes API 同步确认后才会启动 Job。运行时
+watch 只观察会被外部控制器改变的 Pod 生命周期；提交请求失败或响应不明确时，只补偿本次提交创建
+的资源，不会删除同名的已有资源。
 
 ## 所有权与持久数据
 
-Secret 和 Service 由 Job 持有，删除 Job 时由 Kubernetes 回收。Worker 由 application 显式清理，并使用 application 标签辅助兜底删除。运行时 ConfigMap 由用户管理，Master 和 Worker 共同挂载，application 清理后仍会保留。
+自建的 Secret/ConfigMap 和 Service 由 Job 持有，删除 Job 时由 Kubernetes 回收。Worker 由
+application 显式清理，并使用 application 标签辅助兜底删除。引用的 ConfigMap 由用户管理，
+Master 和 Worker 共同挂载，application 清理后仍会保留。
 
 调用方提供的 checkpoint PVC 不设置 Job OwnerReference，因此成功、失败、取消或 TTL 到期都不会删除 PVC。远程 checkpoint 存储同样独立于 application 生命周期。

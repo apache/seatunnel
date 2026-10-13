@@ -17,6 +17,33 @@ bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a applicati
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
 ```
 
+The built-in help lists every option:
+
+```bash
+bin/seatunnel-application.sh -h
+```
+
+```text
+Usage: seatunnel-application.sh [options] submit | status | cancel
+  Options:
+    -a, --application-config Optional HOCON deployment file, e.g.
+                             application.config (not the job file)
+    -c, --config             SeaTunnel job configuration file (required for
+                             submit unless the provider supplies it, for
+                             example kubernetes.job-config-file)
+    -h, --help               Show the usage message
+    --id                     Platform application ID (required for
+                             status/cancel)
+    --job-id                 Optional native Zeta job ID for submit
+    --restore-job-id         Historical Zeta job ID whose latest checkpoint
+                             restores this new application
+  * -t, --target             External resource platform: kubernetes
+    --wait                   Wait for completion (submit/status only; default:
+                             return immediately) (default: false)
+    -i                       Override a non-sensitive deployment option:
+                             -ikey=value (syntax: -ikey=value) (default: {})
+```
+
 ## Arguments
 
 | Argument | Operations | Meaning |

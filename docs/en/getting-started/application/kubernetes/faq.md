@@ -15,7 +15,9 @@ bin/seatunnel-application.sh cancel --target kubernetes \
   --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
-Cancellation deletes the Job and labeled Pods, Service, and any Secret created for the application. It does not create a savepoint, and referenced Secrets or ConfigMaps are never modified. Status returns `UNKNOWN` after deletion or Job TTL expiry.
+Cancellation deletes the Job and labeled Pods, Service, and any Secret or ConfigMap created for the
+application. It does not create a savepoint, and referenced Secrets or ConfigMaps are never modified.
+Status returns `UNKNOWN` after deletion or Job TTL expiry.
 
 ## How do I inspect resources and logs?
 
@@ -31,7 +33,9 @@ Inspect every worker Pod when diagnosing worker failures. Image pull, ResourceQu
 
 ## How long are completed resources retained?
 
-The master exit code produces a Job `Complete` or `Failed` condition. The completed master Pod, Service, and any created Secret remain until `kubernetes.finished-job-retention-seconds` expires.
+The master exit code produces a Job `Complete` or `Failed` condition. The completed master Pod,
+Service, and any created Secret or ConfigMap remain until
+`kubernetes.finished-job-retention-seconds` expires.
 
 If the master is forcibly terminated before cleanup, workers exit after losing the master, but stopped Pod objects may remain until Job TTL cleanup. Retry `cancel` after an API outage is resolved.
 

@@ -15,7 +15,9 @@ bin/seatunnel-application.sh cancel --target kubernetes \
   --id ACTUAL_APPLICATION_ID --application-config kubernetes.conf
 ```
 
-`cancel` 删除 Job，并清理带 application 标签的 Pod、Service 以及由本应用创建的 Secret。取消不创建 savepoint，引用的 Secret/ConfigMap 不会被修改。资源删除后再次查询返回 `UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
+`cancel` 删除 Job，并清理带 application 标签的 Pod、Service 以及由本应用创建的 Secret 和
+ConfigMap。取消不创建 savepoint，引用的 Secret/ConfigMap 不会被修改。资源删除后再次查询返回
+`UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
 
 ## 查看资源和日志
 
@@ -27,11 +29,13 @@ kubectl -n seatunnel-apps logs job/ACTUAL_APPLICATION_ID
 kubectl -n seatunnel-apps describe job ACTUAL_APPLICATION_ID
 ```
 
-Worker 问题需要逐个查看对应 Pod 日志和事件。镜像拉取、ResourceQuota、LimitRange、亲和性和节点容量问题通常出现在 Pod events 中。
+Worker 问题需要逐个查看对应 Pod 日志和事件。镜像拉取、ResourceQuota、LimitRange、准入策略和节点容量问题通常出现在 Pod events 中。
 
-## 状态和保留
+## 保留与清理
 
-Master 退出码形成 Job 的 `Complete` 或 `Failed` condition。结束后的 Master Pod、Service 以及由本应用创建的 Secret 保留到 `kubernetes.finished-job-retention-seconds` 指定的 TTL，便于排障。
+Master 退出码形成 Job 的 `Complete` 或 `Failed` condition。结束后的 Master Pod、Service 以及由
+本应用创建的 Secret 和 ConfigMap 保留到 `kubernetes.finished-job-retention-seconds` 指定的
+TTL，便于排障。
 
 如果 Master 在清理前被强制终止，Worker 会在失去 Master 后退出，停止的 Pod 对象可能保留到 Job TTL。API 故障阻止清理时，在 API 恢复后重新执行 `cancel`。
 

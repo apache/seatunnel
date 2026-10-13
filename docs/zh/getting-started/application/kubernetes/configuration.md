@@ -5,9 +5,10 @@ title: 配置参考
 
 # Kubernetes 配置参考
 
-Application Mode 在提交机上读取两个文件：部署文件（`-a`，包含 `application.*` 和
-`kubernetes.*` 选项）与作业文件（`-c`）。本页是部署文件的参考；首次提交见
-[快速开始](quick-start.md)，恢复相关见 [Checkpoint 恢复](checkpoint-recovery.md)。
+Application Mode 在提交机上读取部署文件（`-a`，包含 `application.*` 和 `kubernetes.*` 选项）；
+作业本身来自 `-c`，或来自平台挂载到 application 内的文件（例如 `kubernetes.job-config-file`）。
+本页是部署文件的参考；首次提交见[快速开始](quick-start.md)，恢复相关见
+[Checkpoint 恢复](checkpoint-recovery.md)。
 
 ## 配置来源
 
@@ -15,7 +16,7 @@ Application Mode 在提交机上读取两个文件：部署文件（`-a`，包�
 | --- | --- | --- |
 | 部署文件（`-a`） | `application.*` 和 `kubernetes.*` | 在提交机解析。敏感值写在这里，不要放命令行。 |
 | 命令行覆盖（`-i key=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
-| 作业文件（`-c`） | 作业本身 | 原样带到 Master，包含未解析的 `${VAR}` 占位符。 |
+| 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。原样带到 Master，包含未解析的 `${VAR}` 占位符。 |
 | Pod 环境 | 作业中的 `${VAR}` | Master 上由 `kubernetes.env`、`kubernetes.env-from.*` 和挂载的 Secret/ConfigMap 文件组成。 |
 
 :::caution
@@ -47,6 +48,8 @@ Application Mode 在提交机上读取两个文件：部署文件（`-a`，包�
 | `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
 | `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
+| `kubernetes.master.hazelcast-config` | 未设置（内置配置） | Master 的 Hazelcast 成员配置：`<seatunnel-home>/config` 下的文件名，或 `.yaml`/`.yml`/`.xml` 绝对路径；不设置时使用内置配置。 |
+| `kubernetes.worker.hazelcast-config` | 未设置（内置配置） | Worker 容器的 Hazelcast 成员配置，写法与 Master 选项一致。 |
 | `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `none` 可跳过。 |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
 | `kubernetes.jvm-options-file` | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `none` 可跳过。 |

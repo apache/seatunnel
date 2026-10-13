@@ -5,9 +5,10 @@ title: Configuration
 
 # Kubernetes configuration
 
-Application Mode reads two files on the submitting host: the deployment file (`-a`) with
-`application.*` and `kubernetes.*` options, and the job file (`-c`). This page is the reference for
-the deployment file; see [Quick start](quick-start.md) for the first submission and
+Application Mode reads the deployment file (`-a`) with `application.*` and `kubernetes.*` options on
+the submitting host. The job itself comes from `-c` or from a file the platform mounts inside the
+application, for example through `kubernetes.job-config-file`. This page is the reference for the
+deployment file; see [Quick start](quick-start.md) for the first submission and
 [Checkpoint recovery](checkpoint-recovery.md) for restore behaviour.
 
 ## Configuration sources
@@ -16,7 +17,7 @@ the deployment file; see [Quick start](quick-start.md) for the first submission 
 | --- | --- | --- |
 | Deployment file (`-a`) | `application.*` and `kubernetes.*` | Resolved on the submitting host. Put sensitive values here, not on the command line. |
 | Option overrides (`-i key=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
-| Job file (`-c`) | The job itself | Carried to the master verbatim, including unresolved `${VAR}` placeholders. |
+| Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders. |
 | Pod environment | `${VAR}` values in the job | Built from `kubernetes.env`, `kubernetes.env-from.*` and mounted Secret/ConfigMap files on the master. |
 
 :::caution
@@ -48,6 +49,8 @@ Command-line overrides (`-i key=value`) may be visible to other users on the sub
 | `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
 | `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
+| `kubernetes.master.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for the master: a file name under `<seatunnel-home>/config` or an absolute `.yaml`/`.yml`/`.xml` path. Unset keeps the built-in configuration. |
+| `kubernetes.worker.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for worker containers, using the same forms as the master option. |
 | `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `none` disables it. |
 | `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
 | `kubernetes.jvm-options-file` | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `none` disables it. |

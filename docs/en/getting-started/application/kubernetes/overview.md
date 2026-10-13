@@ -50,10 +50,12 @@ durable checkpoint with `application.restore-job-id`.
 - Kubernetes 1.24 or later with `batch/v1` Jobs, suspended Jobs, and Job TTL support.
 - `kubectl` and a submitter kubeconfig, or a suitable in-cluster identity.
 - An existing namespace, ServiceAccount, and minimal RBAC.
-- An existing ConfigMap containing the SeaTunnel runtime configuration.
+- An existing ConfigMap with the SeaTunnel runtime configuration, or the
+  `kubernetes.configmap.<entry>.data` route that has SeaTunnel create one.
 - Hazelcast TCP connectivity between master and worker Pods.
 - A cluster that can pull an image containing SeaTunnel, the Kubernetes provider, and job plugins.
-- Submission permission to create and manage Jobs, Secrets, Services, and Pods.
+- Submission permission to create and manage Jobs and Services, plus the Secret/ConfigMap entries
+  the deployment creates; worker Pods are created by the application ServiceAccount.
 
 ## Recommended reading order
 

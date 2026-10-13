@@ -89,7 +89,8 @@ bin/seatunnel-application.sh submit --target kubernetes \
 ```
 
 :::caution
-新提交使用新的 job ID，并从历史 ID 的最新有效 checkpoint 恢复。找不到 checkpoint 时提交失败，
+新提交使用新的 job ID，并从历史 ID 的最新有效 checkpoint 恢复。找不到 checkpoint 时作业在
+Master 上失败（此时 `submit` 命令早已返回），
 不会静默从头执行。
 :::
 
