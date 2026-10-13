@@ -32,7 +32,12 @@ import java.util.function.Function;
 public final class LineageDatasetOptionSupport {
     private LineageDatasetOptionSupport() {}
 
-    /** Maps every resolvable table entry of a connector block through one naming rule. */
+    /**
+     * Maps every resolvable table entry of a connector block through one naming rule.
+     *
+     * <p>Entries that resolve to no table reference, or whose naming function returns empty, are
+     * omitted from the result.
+     */
     public static List<LineageDataset> datasets(
             Map<String, ?> options, Function<TableReference, Optional<LineageDataset>> naming) {
         List<LineageDataset> result = new ArrayList<>();
@@ -46,6 +51,14 @@ public final class LineageDatasetOptionSupport {
         return result;
     }
 
+    /**
+     * Resolves the list of per-table option maps from a connector block.
+     *
+     * <p>When {@code table_list} / {@code table-list} / {@code tables} is a {@link List}, each
+     * element that is a {@link Map} is kept and non-Map entries are silently dropped. If that list
+     * yields no maps (absent, empty, or only non-maps), the whole {@code options} map is treated as
+     * a single table entry.
+     */
     public static List<Map<String, ?>> tables(Map<String, ?> options) {
         Object tableList = first(options, "table_list", "table-list", "tables");
         if (tableList instanceof List) {
@@ -62,6 +75,10 @@ public final class LineageDatasetOptionSupport {
         return Collections.singletonList(options);
     }
 
+    /**
+     * Returns the host of the first comma-separated address in {@code value}, or {@code null} when
+     * {@code value} is {@code null}.
+     */
     public static String firstHost(String value) {
         if (value == null) {
             return null;
@@ -75,6 +92,14 @@ public final class LineageDatasetOptionSupport {
         }
     }
 
+    /**
+     * Parses the first present key as an integer.
+     *
+     * <p>Returns {@code fallback} when none of the keys is present (or the present value is {@code
+     * null}). Returns {@code null} when a key is present but its value cannot be parsed as an
+     * integer, so callers can treat an explicit bad value as "no identity" rather than silently
+     * substituting the default.
+     */
     public static Integer integer(Map<String, ?> options, int fallback, String... keys) {
         Object value = first(options, keys);
         if (value == null) {
@@ -87,11 +112,23 @@ public final class LineageDatasetOptionSupport {
         }
     }
 
+    /**
+     * Returns {@link String#valueOf(Object)} of the first present key, or {@code null} when none of
+     * the keys is present (or the present value is {@code null}).
+     */
     public static String string(Map<String, ?> options, String... keys) {
         Object value = first(options, keys);
         return value == null ? null : String.valueOf(value);
     }
 
+    /**
+     * Returns the value of the first key that {@link Map#containsKey(Object) containsKey}, or
+     * {@code null} when none match.
+     *
+     * <p>Uses {@code containsKey} rather than a null-check on {@code get}, so an explicitly stored
+     * {@code null} value stops the search and is returned as {@code null} instead of falling
+     * through to a later key.
+     */
     public static Object first(Map<String, ?> options, String... keys) {
         for (String key : keys) {
             if (options.containsKey(key)) {
@@ -101,6 +138,11 @@ public final class LineageDatasetOptionSupport {
         return null;
     }
 
+    /**
+     * Strips leading {@code /} characters from {@code value}.
+     *
+     * <p>Trailing slashes are left intact. Returns {@code null} when {@code value} is {@code null}.
+     */
     public static String trimSlashes(String value) {
         if (value == null) {
             return null;

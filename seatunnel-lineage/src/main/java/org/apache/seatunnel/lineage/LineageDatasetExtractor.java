@@ -26,6 +26,11 @@ import java.util.Map;
  * <p>Implementations are discovered through {@link java.util.ServiceLoader}. Built-in extractors
  * live in this module; connector-specific ones can be added later without growing {@link
  * LineageDatasetFactory}.
+ *
+ * <p>Extractors for named connectors must return an {@link #order()} strictly below {@code 100},
+ * the JDBC heuristic's order. The JDBC extractor also matches any option map that carries a {@code
+ * url} (or {@code jdbc_url}) key, so a named-connector extractor that sits at or above 100 would be
+ * shadowed whenever that connector exposes a URL-like option.
  */
 public interface LineageDatasetExtractor {
 
@@ -33,7 +38,9 @@ public interface LineageDatasetExtractor {
      * Relative order among extractors. Lower values are tried first.
      *
      * <p>Built-ins use 10 (Paimon), 20 (Doris), and 100 (JDBC) so the JDBC heuristic remains a
-     * fallback after named connector families.
+     * fallback after named connector families. Custom extractors for named connectors must use a
+     * value below {@code 100}; the default {@code 1000} is only suitable when the connector cannot
+     * also match the JDBC {@code url} heuristic.
      */
     default int order() {
         return 1000;

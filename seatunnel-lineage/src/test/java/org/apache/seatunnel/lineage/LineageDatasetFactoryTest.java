@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.lineage;
 
+import org.apache.seatunnel.lineage.extractor.DorisLineageDatasetExtractor;
+import org.apache.seatunnel.lineage.extractor.JdbcLineageDatasetExtractor;
+import org.apache.seatunnel.lineage.extractor.PaimonLineageDatasetExtractor;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -114,6 +118,44 @@ class LineageDatasetFactoryTest {
         options.put("row.num", 10);
 
         assertTrue(LineageDatasetFactory.fromConnectorOptions("FakeSource", options).isEmpty());
+    }
+
+    /**
+     * Doris options may also carry a {@code url}-like key. The named Doris extractor (order 20)
+     * must still win over the JDBC heuristic (order 100), otherwise Doris tables would be named as
+     * JDBC datasets.
+     */
+    @Test
+    void prefersDorisOverJdbcWhenOptionsAlsoCarryAUrl() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("fenodes", "192.168.10.131:8030");
+        options.put("database", "ds71");
+        options.put("table", "orders");
+        options.put("url", "jdbc:mysql://192.168.10.131:9030/ds71");
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("Doris", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://192.168.10.131:9030", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+    }
+
+    @Test
+    void builtInExtractorOrdersKeepNamedConnectorsBeforeJdbc() {
+        Map<Class<?>, Integer> orders =
+                StreamSupport.stream(
+                                ServiceLoader.load(LineageDatasetExtractor.class).spliterator(),
+                                false)
+                        .collect(
+                                Collectors.toMap(
+                                        extractor -> extractor.getClass(),
+                                        LineageDatasetExtractor::order));
+
+        // Named connectors (10, 20) must stay ahead of the JDBC heuristic (100).
+        assertEquals(10, orders.get(PaimonLineageDatasetExtractor.class));
+        assertEquals(20, orders.get(DorisLineageDatasetExtractor.class));
+        assertEquals(100, orders.get(JdbcLineageDatasetExtractor.class));
     }
 
     @Test

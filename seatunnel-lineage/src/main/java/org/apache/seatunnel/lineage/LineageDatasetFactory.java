@@ -22,12 +22,18 @@ import org.apache.seatunnel.lineage.extractor.LineageDatasetOptionSupport;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Builds canonical datasets from connector option maps without depending on connector classes. */
 public final class LineageDatasetFactory {
+
+    private static final Logger LOGGER = Logger.getLogger(LineageDatasetFactory.class.getName());
 
     private static final List<LineageDatasetExtractor> EXTRACTORS = loadExtractors();
 
@@ -96,15 +102,29 @@ public final class LineageDatasetFactory {
         return null;
     }
 
+    /**
+     * Discovers extractors with this class's own loader and skips broken providers.
+     *
+     * <p>Using {@link Class#getClassLoader()} rather than the thread context class loader keeps a
+     * job class loader from being pinned in the static {@link #EXTRACTORS} list. Built-in
+     * extractors are therefore discovered only via this module's class loader; third-party
+     * extractors visible only on a job class loader are intentionally not loaded here (Option B /
+     * per-loader caching would be needed later if that becomes a requirement). Iterating with an
+     * explicit {@link Iterator} lets a single {@link ServiceConfigurationError} be logged and
+     * skipped so one broken provider cannot fail class initialization for the whole factory.
+     */
     private static List<LineageDatasetExtractor> loadExtractors() {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null) {
-            loader = LineageDatasetFactory.class.getClassLoader();
-        }
+        ClassLoader loader = LineageDatasetFactory.class.getClassLoader();
         List<LineageDatasetExtractor> extractors = new ArrayList<>();
-        for (LineageDatasetExtractor extractor :
-                ServiceLoader.load(LineageDatasetExtractor.class, loader)) {
-            extractors.add(extractor);
+        Iterator<LineageDatasetExtractor> iterator =
+                ServiceLoader.load(LineageDatasetExtractor.class, loader).iterator();
+        while (iterator.hasNext()) {
+            try {
+                extractors.add(iterator.next());
+            } catch (ServiceConfigurationError e) {
+                LOGGER.log(
+                        Level.WARNING, "Skipping a broken LineageDatasetExtractor provider", e);
+            }
         }
         extractors.sort(Comparator.comparingInt(LineageDatasetExtractor::order));
         return Collections.unmodifiableList(extractors);
