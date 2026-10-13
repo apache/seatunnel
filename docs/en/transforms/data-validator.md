@@ -25,7 +25,7 @@ Error handling strategy when validation fails:
 
 ### row_error_handle_way.error_table [string]
 
-Target table name for routing invalid data when `row_error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
+Target table name for routing invalid data when `row_error_handle_way` is set to `ROUTE_TO_TABLE`. This option is not validated by the framework, but if it is not configured in `ROUTE_TO_TABLE` mode, DataValidator cannot route invalid rows and will skip them with a warning instead, so it should always be set when using `ROUTE_TO_TABLE`.
 
 #### Error Table Schema
 
