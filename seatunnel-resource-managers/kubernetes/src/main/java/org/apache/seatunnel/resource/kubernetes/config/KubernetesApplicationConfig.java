@@ -465,7 +465,7 @@ public final class KubernetesApplicationConfig {
             }
             if (!names.add(name)) {
                 throw new IllegalArgumentException(
-                        KubernetesConstants.ENV_OPTION + " contains duplicate name " + name);
+                        "kubernetes.env contains duplicate name " + name);
             }
             variables.add(KubernetesEnvironmentVariable.fromValue(name, option.getValue()));
         }
@@ -499,8 +499,7 @@ public final class KubernetesApplicationConfig {
 
     private static String requireReferenceName(String value) {
         if (value.trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                    KubernetesConstants.ENV_FROM_OPTION + " values must not be empty");
+            throw new IllegalArgumentException("kubernetes.env-from values must not be empty");
         }
         return value.trim();
     }

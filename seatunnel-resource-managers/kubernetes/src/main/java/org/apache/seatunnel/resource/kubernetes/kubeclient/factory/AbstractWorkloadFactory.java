@@ -139,21 +139,12 @@ public abstract class AbstractWorkloadFactory {
         String home = parameters.getSeatunnelHome();
         List<String> command = new ArrayList<>();
         command.add(KubernetesConstants.JAVA_COMMAND);
-        command.add(
-                KubernetesConstants.JVM_MAX_HEAP_PREFIX
-                        + heapMb(memoryMb)
-                        + KubernetesConstants.JVM_MEGABYTE_SUFFIX);
+        command.add(KubernetesConstants.JVM_MAX_HEAP_PREFIX + heapMb(memoryMb) + "m");
         command.add(KubernetesConstants.JVM_EXIT_ON_OUT_OF_MEMORY);
         command.addAll(KubernetesConstants.MANDATORY_JVM_MODULE_FLAGS);
         command.add(KubernetesConstants.SYSPROP_HAZELCAST_LOGGING);
-        command.add(
-                KubernetesConstants.SYSPROP_LOGS_PATH
-                        + home
-                        + "/"
-                        + KubernetesConstants.LOGS_DIRECTORY);
-        command.add(
-                KubernetesConstants.SYSPROP_LOGS_FILE_NAME
-                        + KubernetesConstants.APPLICATION_LOG_FILE_NAME);
+        command.add(KubernetesConstants.SYSPROP_LOGS_PATH + home + "/logs");
+        command.add(KubernetesConstants.SYSPROP_LOGS_FILE_NAME + "seatunnel-application");
         command.add(KubernetesConstants.SYSPROP_SEATUNNEL_HOME + home);
         if (parameters.getSeatunnelConfigFile() != null) {
             command.add(
@@ -167,9 +158,9 @@ public abstract class AbstractWorkloadFactory {
             command.add(KubernetesConstants.SYSPROP_HAZELCAST_CONFIG + hazelcastConfig);
         }
         for (String jvmOptionsFile : jvmOptionsFiles) {
-            command.add(KubernetesConstants.JVM_ARGUMENT_FILE_PREFIX + jvmOptionsFile);
+            command.add("@" + jvmOptionsFile);
         }
-        command.add(KubernetesConstants.JAVA_CLASSPATH_OPTION);
+        command.add("-cp");
         command.add(classpath(home));
         command.add(main);
         command.addAll(Arrays.asList(args));
