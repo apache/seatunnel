@@ -19,13 +19,16 @@ package org.apache.seatunnel.benchmark;
 
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CheckpointSchedulingBenchmarkTest {
 
@@ -38,5 +41,15 @@ class CheckpointSchedulingBenchmarkTest {
                 TimeUnit.MICROSECONDS,
                 CheckpointSchedulingBenchmark.class.getAnnotation(OutputTimeUnit.class).value());
         assertEquals(1, CheckpointSchedulingBenchmark.class.getAnnotation(Threads.class).value());
+    }
+
+    @Test
+    void shouldLowerJitThresholdsSoTheTriggerPathCompilesWithinWarmup() {
+        assertTrue(
+                Arrays.asList(
+                                CheckpointSchedulingBenchmark.class
+                                        .getAnnotation(Fork.class)
+                                        .jvmArgsAppend())
+                        .contains("-XX:CompileThresholdScaling=0.05"));
     }
 }
