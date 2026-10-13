@@ -50,6 +50,27 @@ public final class KubernetesConstants {
     public static final String WORKER_ROLE = "worker";
     public static final String CONFIGURATION_ROLE = "configuration";
 
+    /** Prefix shared by every deployment option, for example {@code kubernetes.image}. */
+    public static final String OPTION_PREFIX = "kubernetes.";
+
+    /**
+     * Prefix of the created Secret's data entries, for example {@code kubernetes.secret.data.KEY}.
+     */
+    public static final String SECRET_DATA_PREFIX = OPTION_PREFIX + "secret.data.";
+
+    /** Prefix of the ConfigMap entries, for example {@code kubernetes.configmap.<entry>.ref}. */
+    public static final String CONFIG_MAP_PREFIX = OPTION_PREFIX + "configmap.";
+
+    /** Prefix of one Pod environment variable, for example {@code kubernetes.env.NAME}. */
+    public static final String ENV_PREFIX = OPTION_PREFIX + "env.";
+
+    /** Prefix of the whole-object envFrom references. */
+    public static final String ENV_FROM_PREFIX = OPTION_PREFIX + "env-from.";
+
+    public static final String ENV_FROM_SECRET = ENV_FROM_PREFIX + "secret";
+
+    public static final String ENV_FROM_CONFIGMAP = ENV_FROM_PREFIX + "configmap";
+
     /** Name of the reserved key whose content replaces the inline job configuration. */
     public static final String JOB_CONFIG_FILE = "job.conf";
 

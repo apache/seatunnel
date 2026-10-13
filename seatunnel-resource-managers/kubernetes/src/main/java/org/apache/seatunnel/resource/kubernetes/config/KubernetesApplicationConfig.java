@@ -63,14 +63,6 @@ import java.util.stream.Collectors;
 public final class KubernetesApplicationConfig {
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
 
-    private static final String KUBERNETES_PREFIX = "kubernetes.";
-    private static final String SECRET_DATA_PREFIX = "kubernetes.secret.data.";
-    private static final String CONFIG_MAP_PREFIX = "kubernetes.configmap.";
-    private static final String ENV_PREFIX = "kubernetes.env.";
-    private static final String ENV_FROM_PREFIX = "kubernetes.env-from.";
-    private static final String ENV_FROM_SECRET = ENV_FROM_PREFIX + "secret";
-    private static final String ENV_FROM_CONFIGMAP = ENV_FROM_PREFIX + "configmap";
-
     /** Sections of one {@code kubernetes.configmap.<entry>} option. */
     private static final String SECTION_REF = "ref";
 
@@ -305,7 +297,7 @@ public final class KubernetesApplicationConfig {
     private static Map<String, Object> kubernetesOptions(Properties properties) {
         Map<String, Object> options = new HashMap<>();
         for (String key : properties.stringPropertyNames()) {
-            if (key.startsWith(KUBERNETES_PREFIX)) {
+            if (key.startsWith(KubernetesConstants.OPTION_PREFIX)) {
                 options.put(key, properties.getProperty(key));
             }
         }
@@ -363,16 +355,17 @@ public final class KubernetesApplicationConfig {
         }
         for (Map.Entry<String, String> entry : applicationSecretData.entrySet()) {
             // The master only needs the key set; values must stay on the submitting client.
-            properties.setProperty(SECRET_DATA_PREFIX + entry.getKey(), "");
+            properties.setProperty(KubernetesConstants.SECRET_DATA_PREFIX + entry.getKey(), "");
         }
         for (KubernetesEnvironmentVariable variable : environmentVariables) {
-            properties.setProperty(ENV_PREFIX + variable.getName(), variable.serializeValue());
+            properties.setProperty(
+                    KubernetesConstants.ENV_PREFIX + variable.getName(), variable.serializeValue());
         }
         for (KubernetesEnvFromReference reference : envFromReferences) {
             properties.setProperty(
                     reference.getSource() == KubernetesEnvFromReference.Source.SECRET
-                            ? ENV_FROM_SECRET
-                            : ENV_FROM_CONFIGMAP,
+                            ? KubernetesConstants.ENV_FROM_SECRET
+                            : KubernetesConstants.ENV_FROM_CONFIGMAP,
                     reference.getName());
         }
         writeConfigMaps(properties);
@@ -424,10 +417,10 @@ public final class KubernetesApplicationConfig {
     private static Map<String, String> secretData(Map<String, String> options) {
         Map<String, String> data = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : options.entrySet()) {
-            if (!entry.getKey().startsWith(SECRET_DATA_PREFIX)) {
+            if (!entry.getKey().startsWith(KubernetesConstants.SECRET_DATA_PREFIX)) {
                 continue;
             }
-            String key = entry.getKey().substring(SECRET_DATA_PREFIX.length());
+            String key = entry.getKey().substring(KubernetesConstants.SECRET_DATA_PREFIX.length());
             if (key.isEmpty() || !key.matches(DATA_KEY_PATTERN)) {
                 throw new IllegalArgumentException(
                         entry.getKey() + " must use a valid Kubernetes Secret data key");
@@ -463,17 +456,17 @@ public final class KubernetesApplicationConfig {
         List<KubernetesEnvironmentVariable> variables = new ArrayList<>();
         Set<String> names = new HashSet<>();
         for (Map.Entry<String, String> option : options.entrySet()) {
-            if (!option.getKey().startsWith(ENV_PREFIX)) {
+            if (!option.getKey().startsWith(KubernetesConstants.ENV_PREFIX)) {
                 continue;
             }
-            String name = option.getKey().substring(ENV_PREFIX.length());
+            String name = option.getKey().substring(KubernetesConstants.ENV_PREFIX.length());
             if (!name.matches(ENV_NAME_PATTERN)) {
                 throw new IllegalArgumentException(
                         option.getKey() + " must use a valid environment variable name");
             }
             if (KubernetesConstants.SPECIFICATION_ENV.equals(name)) {
                 throw new IllegalArgumentException(
-                        ENV_PREFIX
+                        KubernetesConstants.ENV_PREFIX
                                 + name
                                 + " must not override "
                                 + KubernetesConstants.SPECIFICATION_ENV);
@@ -489,8 +482,8 @@ public final class KubernetesApplicationConfig {
 
     private static List<KubernetesEnvFromReference> envFromReferences(Map<String, String> options) {
         List<KubernetesEnvFromReference> references = new ArrayList<>(2);
-        String secret = options.get(ENV_FROM_SECRET);
-        String configMap = options.get(ENV_FROM_CONFIGMAP);
+        String secret = options.get(KubernetesConstants.ENV_FROM_SECRET);
+        String configMap = options.get(KubernetesConstants.ENV_FROM_CONFIGMAP);
         if (secret != null) {
             references.add(KubernetesEnvFromReference.secret(requireReferenceName(secret)));
         }
@@ -498,9 +491,9 @@ public final class KubernetesApplicationConfig {
             references.add(KubernetesEnvFromReference.configMap(requireReferenceName(configMap)));
         }
         for (String key : options.keySet()) {
-            if (key.startsWith(ENV_FROM_PREFIX)
-                    && !key.equals(ENV_FROM_SECRET)
-                    && !key.equals(ENV_FROM_CONFIGMAP)) {
+            if (key.startsWith(KubernetesConstants.ENV_FROM_PREFIX)
+                    && !key.equals(KubernetesConstants.ENV_FROM_SECRET)
+                    && !key.equals(KubernetesConstants.ENV_FROM_CONFIGMAP)) {
                 throw new IllegalArgumentException(
                         key
                                 + " must use kubernetes.env-from.secret or kubernetes.env-from.configmap");
@@ -523,10 +516,10 @@ public final class KubernetesApplicationConfig {
         Map<String, Map<String, String>> mounts = new LinkedHashMap<>();
         for (Map.Entry<String, String> option : options.entrySet()) {
             String key = option.getKey();
-            if (!key.startsWith(CONFIG_MAP_PREFIX)) {
+            if (!key.startsWith(KubernetesConstants.CONFIG_MAP_PREFIX)) {
                 continue;
             }
-            String remainder = key.substring(CONFIG_MAP_PREFIX.length());
+            String remainder = key.substring(KubernetesConstants.CONFIG_MAP_PREFIX.length());
             int entrySeparator = remainder.indexOf('.');
             if (entrySeparator <= 0 || entrySeparator == remainder.length() - 1) {
                 throw invalidConfigMapEntry(key);
@@ -579,11 +572,13 @@ public final class KubernetesApplicationConfig {
             Map<String, String> mountPaths = mounts.getOrDefault(entry, Collections.emptyMap());
             if (reference != null && !dataEntries.isEmpty()) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX + entry + " cannot combine ref with data entries");
+                        KubernetesConstants.CONFIG_MAP_PREFIX
+                                + entry
+                                + " cannot combine ref with data entries");
             }
             if (reference == null && dataEntries.isEmpty()) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX
+                        KubernetesConstants.CONFIG_MAP_PREFIX
                                 + entry
                                 + (createdName == null
                                         ? " requires ref or data entries"
@@ -591,21 +586,25 @@ public final class KubernetesApplicationConfig {
             }
             if (reference != null && mountPaths.isEmpty()) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX + entry + " references require mount entries");
+                        KubernetesConstants.CONFIG_MAP_PREFIX
+                                + entry
+                                + " references require mount entries");
             }
             if (reference == null && !mountPaths.keySet().equals(dataEntries.keySet())) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX
+                        KubernetesConstants.CONFIG_MAP_PREFIX
                                 + entry
                                 + " must declare a full mount path for every data entry");
             }
             if (reference != null && createdName != null) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX + entry + " cannot combine name with ref");
+                        KubernetesConstants.CONFIG_MAP_PREFIX
+                                + entry
+                                + " cannot combine name with ref");
             }
             if (createdName != null && !createdName.matches(DNS_SUBDOMAIN_PATTERN)) {
                 throw new IllegalArgumentException(
-                        CONFIG_MAP_PREFIX
+                        KubernetesConstants.CONFIG_MAP_PREFIX
                                 + entry
                                 + ".name must be a lowercase DNS subdomain, got "
                                 + createdName);
@@ -630,13 +629,16 @@ public final class KubernetesApplicationConfig {
                 values.computeIfAbsent(entry, ignored -> new LinkedHashMap<>());
         if (entryValues.put(key, value) != null) {
             throw new IllegalArgumentException(
-                    CONFIG_MAP_PREFIX + entry + " contains duplicate key " + key);
+                    KubernetesConstants.CONFIG_MAP_PREFIX
+                            + entry
+                            + " contains duplicate key "
+                            + key);
         }
     }
 
     private void writeConfigMaps(Properties properties) {
         for (KubernetesConfigMapEntry configMap : configMaps) {
-            String prefix = CONFIG_MAP_PREFIX + configMap.getEntryName();
+            String prefix = KubernetesConstants.CONFIG_MAP_PREFIX + configMap.getEntryName();
             if (configMap.isReference()) {
                 properties.setProperty(prefix + "." + SECTION_REF, configMap.getReference());
             } else {
