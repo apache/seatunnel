@@ -151,7 +151,11 @@ kubernetes {
   configmap.runtime {
     name = seatunnel-runtime-config
     data {
-      seatunnel.yaml = "engine:\n  checkpoint:\n    interval: 10000"
+      seatunnel.yaml = """
+        engine:
+          checkpoint:
+            interval: 10000
+        """
     }
     mount {
       seatunnel.yaml = /opt/seatunnel/config/seatunnel.yaml
