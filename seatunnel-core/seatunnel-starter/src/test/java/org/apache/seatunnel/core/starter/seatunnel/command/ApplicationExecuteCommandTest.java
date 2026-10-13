@@ -319,6 +319,7 @@ class ApplicationExecuteCommandTest {
                                 "kubernetes",
                                 "--id",
                                 "application_1");
+                args.setWait(operation == ApplicationOperation.STATUS);
                 args.buildCommand().execute();
             }
         }
@@ -335,6 +336,16 @@ class ApplicationExecuteCommandTest {
 
         ApplicationCommandArgs cancel = command(ApplicationOperation.CANCEL, deploymentConfig);
         assertThrows(IllegalArgumentException.class, cancel::buildCommand);
+        ApplicationCommandArgs cancelWithWait =
+                command(ApplicationOperation.CANCEL, deploymentConfig);
+        cancelWithWait.setId("application_1");
+        cancelWithWait.setWait(true);
+        IllegalArgumentException waitFailure =
+                assertThrows(IllegalArgumentException.class, cancelWithWait::buildCommand);
+        assertTrue(
+                waitFailure
+                        .getMessage()
+                        .contains("--wait is supported only with submit or status"));
 
         ApplicationCommandArgs submit = command(ApplicationOperation.SUBMIT, deploymentConfig);
         assertThrows(IllegalArgumentException.class, submit::buildCommand);
