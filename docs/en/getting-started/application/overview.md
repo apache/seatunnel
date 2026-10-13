@@ -1,140 +1,62 @@
 ---
 sidebar_position: 1
-title: Application Mode
+title: Overview
 ---
 
-# Application Mode (experimental)
+# Application Mode overview
 
-Application Mode runs an independent SeaTunnel job on YARN or Kubernetes. It is intended for teams that already operate a resource platform and do not want to maintain a long-running shared SeaTunnel cluster. Every submission creates a temporary Zeta master and a fixed set of workers for one job. The platform reclaims the compute resources when the job terminates.
-
-Application Mode uses the native Zeta Engine, connectors, and checkpoint mechanism. It does not depend on Flink or Spark, and it does not place multiple jobs in one application.
+Application Mode runs one independent SeaTunnel job per application. The resource platform starts a
+dedicated master and a fixed number of workers, the master runs exactly one job, and the platform
+reclaims every process when the application finishes. Zeta itself owns worker registration, slot
+scheduling, task execution and checkpoints; the platform only provides and reclaims compute
+resources.
 
 ```mermaid
 flowchart LR
-    client["Submission client<br/>job config + deployment config"]
-
-    subgraph platform["Resource Manager"]
-        direction TB
-        master["One master"]
-        workers["Worker 1 ... Worker N"]
-        job["One native Zeta job"]
-        master --> workers
-        master --> job
-    end
-
-    checkpoint[("HDFS / OSS / S3 / persistent volume<br/>checkpoint")]
-
-    client -->|submit one application| master
-    job -->|persist| checkpoint
-
-    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
-    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
-    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
-    class client layerCyan;
-    class master,workers,job layerBlue;
-    class checkpoint layerPurple;
-    linkStyle default stroke:#5db8e2,stroke-width:2px;
+    cli["SeaTunnel Application CLI"] -->|submit / status / cancel| manager["Resource Manager"]
+    manager -->|request fixed workers| master["Application Master<br/>Zeta Master"]
+    manager --> worker1["Zeta Worker 1"]
+    manager --> workerN["Zeta Worker N"]
+    worker1 <-->|Hazelcast TCP| master
+    workerN <-->|Hazelcast TCP| master
+    master --> storage[("Persistent checkpoint storage")]
 ```
 
-## Commands
+## Cluster shape
+
+- One application runs one Zeta master and a fixed number of workers; no member is added or removed
+  while the job runs.
+- Workers register their slots with the master before the single job starts.
+- The master maps the job result to the platform state and releases the workers before it exits.
+- Checkpoints live in engine-owned persistent storage and survive the application; a new application
+  can restore them by native job ID.
+
+## Command line
 
 ```bash
-# Submit; returns the platform application ID and native Zeta job ID
-bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config
-bin/seatunnel-application.sh submit -t kubernetes -c job.conf -a application.config --wait
-
-# Query / wait / cancel using the platform application ID
-bin/seatunnel-application.sh status -t yarn --id application_... -a application.config
-bin/seatunnel-application.sh status -t yarn --id application_... -a application.config --wait
-bin/seatunnel-application.sh cancel -t kubernetes --id seatunnel-... -a application.config
-
-# Recover into a new application, optionally selecting its new Zeta job ID
-bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
-  --restore-job-id 10001 --job-id 10002 --wait
-
-# Override worker capacity without editing the deployment file
-bin/seatunnel-application.sh submit -t yarn -c job.conf -a application.config \
-  -iapplication.worker-count=3 -iapplication.worker.slots=4
-
-bin/seatunnel-application.sh --help
+bin/seatunnel-application.sh submit -t <target> -c job.conf -a application.config
+bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config --wait
+bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
 ```
 
-| Argument | Meaning |
+| Option | Meaning |
 | --- | --- |
-| `submit`, `status`, `cancel` | Required positional operation; these operate on applications, not individual Zeta jobs |
-| `-t`, `--target` | Required resource platform: `yarn` or `kubernetes` |
-| `-c`, `--config` | Job file, required only for `submit` |
-| `-a`, `--application-config` | Optional HOCON deployment file; filenames such as `application.config` are supported |
-| `--id` | Platform application ID, required for `status` and `cancel` |
-| `--job-id` | Optional positive new Zeta job ID for `submit`; generated when omitted |
-| `--restore-job-id` | Historical Zeta job ID to restore from; must differ from the new job ID |
-| `--wait` | Wait for the platform's terminal state, for `submit` or `status` only |
-| `-ikey=value` | Non-sensitive common or platform deployment option, e.g. worker resources, YARN queue or Kubernetes namespace |
+| `-t`, `--target` | Resource platform that runs the application. |
+| `-c`, `--config` | SeaTunnel job configuration file, required for submit. |
+| `-a`, `--application-config` | Optional deployment file with common and platform options. |
+| `--wait` | Submit/status wait for a terminal result; without it the command returns immediately. |
+| `-ikey=value` | Non-sensitive deployment override, for example worker resources or platform options. |
 
-Job configuration and deployment configuration remain separate. `-a` is not required when SDK defaults and `-i` supply the needed platform settings; no deployment file is auto-discovered. Submission still requires platform-specific settings such as a YARN distribution or Kubernetes image. For status/cancel, supply the same connection, namespace and staging settings used at submission; the job file is not needed.
+`submit` returns as soon as the platform accepted the application; it does not wait for the master,
+so slow image pulls or provider scheduling never fail the command. `status` and `cancel` only talk
+to the platform API, and can be used after the master has exited.
 
-Precedence is explicit `--job-id` / `--restore-job-id`, then `-i`, then deployment file, then option defaults. Deployment overrides are merged before resolving HOCON `${...}` substitutions. Both `--target yarn` and `--target=yarn` are accepted; quote paths containing spaces. Keep credentials in permission-restricted files, not command-line arguments.
+## Requirements
 
-Without `--wait`, submit returns after deployment and status returns the current state. Status reporting exits nonzero for `FAILED`, `CANCELED` or `UNKNOWN`; cancel acknowledges the cancellation request. Closing the CLI does not cancel an application. See [YARN configuration](yarn/configuration.md) and [Kubernetes configuration](kubernetes/configuration.md) for available deployment options.
+- A supported resource platform provider must be present in the distribution.
+- The platform must be able to start and observe the dedicated processes and clean them up when the
+  application ends.
+- Credentials stay outside the job file: inject them through platform-managed secrets and resolve
+  them with `${VAR}` placeholders inside the application.
 
-## When to use Application Mode
-
-- A job should own its master, workers, dependencies, and failure boundary.
-- YARN or Kubernetes should provision, observe, and clean up the compute resources.
-- A batch job should release resources when it finishes, or a streaming job should run as an independent application.
-- Worker count, CPU, memory, and slots can be determined before submission.
-- After a master or worker failure, a new application may recover from a durable checkpoint.
-
-## When not to use Application Mode
-
-- Use a Zeta standalone deployment when one long-running SeaTunnel cluster must host multiple jobs.
-- The workload requires automatic master failover, worker replacement, autoscaling, or application restart.
-- The YARN or HDFS environment requires Kerberos.
-- The workload must run with the Flink or Spark engine.
-
-## How a submission runs
-
-1. The CLI reads the job and deployment configuration and asks the selected platform provider to create an application.
-2. The platform starts one application master, which starts the only Zeta master in the same process.
-3. The master requests a fixed number of workers. Each worker joins the application's isolated cluster through Hazelcast TCP discovery.
-4. After every worker registers, the master submits one job to Zeta and continuously maps its state to the platform application.
-5. When the job succeeds, fails, or is canceled, the master releases workers and exits. The platform completes the remaining cleanup.
-
-One master can coordinate three or more workers. Effective parallel capacity depends on `application.worker-count × application.worker.slots` and the job topology.
-
-## Reliability boundary
-
-This release has one master and sets `backup-count=0`. No standby member can take over a running master, so it does not provide live high availability. Losing a worker also fails the application; the worker is not replaced inside that application.
-
-Durable checkpoint recovery remains available. Store checkpoints in HDFS, OSS, S3, COS, or a Kubernetes persistent volume during the initial execution. After a failure, submit a new application and identify the historical Zeta job ID whose latest eligible checkpoint should be loaded. The new execution receives a new platform application ID and a new Zeta job ID.
-
-For retention, storage dependencies, connector compatibility, and recovery limits, see the platform guides and [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md). See [failure and recovery](architecture.md#failure-and-recovery) for the distinction between durable recovery and live failover.
-
-## Supported platforms
-
-| Platform | Resource layout | Start here |
-| --- | --- | --- |
-| YARN | One ApplicationMaster and a fixed number of worker containers; a shared filesystem localizes the distribution | [YARN Application Mode](yarn/overview.md) |
-| Kubernetes | One Job hosting the master and a fixed number of worker pods; all processes use the same image | [Kubernetes Application Mode](kubernetes/overview.md) |
-
-The standard SeaTunnel distribution includes both YARN and Kubernetes providers. The result remains the standard `apache-seatunnel-<version>-bin.tar.gz`; Application Mode does not introduce a separate distribution.
-
-## Current scope
-
-| Capability | Current behavior |
-| --- | --- |
-| Job and cluster | One submission creates one job in one isolated Zeta cluster |
-| Workers | Supports a fixed number of workers and parallel task execution |
-| Lifecycle | Submit, inspect status, wait for completion, and cancel |
-| Failure handling | Startup timeout, insufficient resources, and master or worker loss fail the application |
-| Recovery | Manually submit a new application from a durable checkpoint |
-| HA and scaling | No automatic master failover, worker replacement, or autoscaling |
-
-## Recommended reading order
-
-| Phase | Document | Description |
-| --- | --- | --- |
-| Choose a platform | [YARN guide](yarn/overview.md) / [Kubernetes guide](kubernetes/overview.md) | Prepare the environment, build the distribution, and submit the first job |
-| Configure deployment | [YARN configuration](yarn/configuration.md) / [Kubernetes configuration](kubernetes/configuration.md) | Platform permissions, resources, image, and distribution settings |
-| Configure recovery | [YARN checkpoint recovery](yarn/checkpoint-recovery.md) / [Kubernetes checkpoint recovery](kubernetes/checkpoint-recovery.md) | Durable storage, recovery after failure, and cleanup |
-| Understand the deployment | [Architecture](architecture.md) | Runtime topology, roles, lifecycle, and reliability boundary |
+Platform-specific preparation, permissions and configuration are described in the platform guide.
