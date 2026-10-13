@@ -23,8 +23,12 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import org.junit.jupiter.api.Test;
+
+import io.kubernetes.client.openapi.models.V1EnvVar;
+import io.kubernetes.client.openapi.models.V1Pod;
 
 import java.io.File;
 import java.io.StringReader;
@@ -89,9 +93,8 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                                         core.readNamespacedConfigMap(
                                                 application.getClusterId(), namespace, null)));
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
         }
     }
 
@@ -108,9 +111,8 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
                                 "The application must reach job parsing, not fail during runtime startup. Master logs:\n"
                                         + masterLogs);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
         }
     }
 
@@ -147,5 +149,13 @@ public class KubernetesApplicationBatchIT extends AbstractKubernetesApplicationI
             process.destroyForcibly();
             Files.deleteIfExists(output);
         }
+    }
+
+    private static String inlineSpecification(V1Pod master) {
+        return master.getSpec().getContainers().get(0).getEnv().stream()
+                .filter(env -> KubernetesConstants.SPECIFICATION_ENV.equals(env.getName()))
+                .map(V1EnvVar::getValue)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing inline specification"));
     }
 }

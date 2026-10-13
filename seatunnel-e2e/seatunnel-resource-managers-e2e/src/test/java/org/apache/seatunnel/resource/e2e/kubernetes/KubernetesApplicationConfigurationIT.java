@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -70,6 +71,30 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 RUNTIME_CONFIG_MAP, namespace, runtime, null, null, null, null);
         core.deleteNamespacedSecret(
                 REFERENCE_SECRET, namespace, null, null, null, null, null, null);
+    }
+
+    private static V1EnvVar environment(V1Pod pod, String name) {
+        return pod.getSpec().getContainers().get(0).getEnv().stream()
+                .filter(env -> name.equals(env.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing environment variable " + name));
+    }
+
+    private static boolean envFromSecret(V1Pod pod, String secretName) {
+        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
+                .anyMatch(
+                        source ->
+                                source.getSecretRef() != null
+                                        && secretName.equals(source.getSecretRef().getName()));
+    }
+
+    private static boolean envFromConfigMap(V1Pod pod, String configMapName) {
+        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
+                .anyMatch(
+                        source ->
+                                source.getConfigMapRef() != null
+                                        && configMapName.equals(
+                                                source.getConfigMapRef().getName()));
     }
 
     @Test
@@ -190,9 +215,8 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 // when job.mode, parallelism and the envFrom value are resolved on the master.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -238,9 +262,8 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 // can only succeed when the mounted job.conf replaced it before parsing.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -272,9 +295,8 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 // can only succeed when the mounted ConfigMap job.conf replaced it.
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -296,7 +318,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 awaitWorkersRunning(application, 1);
                 V1Pod master = masterPod(application);
                 assertEquals(
-                        "seatunnel-application-e2e-ref-secret",
+                        REFERENCE_SECRET,
                         environment(master, "E2E_PARALLELISM")
                                 .getValueFrom()
                                 .getSecretKeyRef()
@@ -311,9 +333,8 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 }
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
             assertNotNull(core.readNamespacedSecret(REFERENCE_SECRET, namespace, null));
             assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
         }

@@ -78,9 +78,8 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 recordPodDiagnostics(first);
                 throw failure;
             } finally {
-                deployer.cancelApplication(first.getClusterId());
+                cancelAndAwait(first);
             }
-            awaitAllResourcesRemoved(first);
         }
         V1PersistentVolumeClaim retained =
                 core.readNamespacedPersistentVolumeClaim(claim, namespace, null);
@@ -113,9 +112,8 @@ public class KubernetesApplicationRecoveryIT extends AbstractKubernetesApplicati
                 recordPodDiagnostics(restored);
                 throw failure;
             } finally {
-                deployer.cancelApplication(restored.getClusterId());
+                cancelAndAwait(restored);
             }
-            awaitAllResourcesRemoved(restored);
         }
         assertEquals(
                 "Bound",

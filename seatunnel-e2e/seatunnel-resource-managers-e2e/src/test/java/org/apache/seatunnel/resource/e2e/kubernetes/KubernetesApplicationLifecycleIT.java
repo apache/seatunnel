@@ -24,6 +24,7 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Container;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -42,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Verifies isolation, cancellation, worker loss and quota cleanup in a disposable K3s. */
 public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicationIT {
+    private static final String CONTAINERD_RUNTIME_PREFIX = "containerd://";
 
     @Test
     void simultaneousApplicationsAreIsolatedAndCancellationRemovesEverything() throws Exception {
@@ -99,24 +101,20 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                     }
                     assertRuntimeConfigMapMounted(masterPod(first));
                     assertRuntimeConfigMapMounted(masterPod(second));
-                    deployer.cancelApplication(first.getClusterId());
-                    awaitAllResourcesRemoved(first);
+                    cancelAndAwait(first);
                     assertEquals(
                             ApplicationStatus.UNKNOWN,
                             deployer.getApplicationStatus(first.getClusterId()));
-                    awaitAllResourcesRemoved(first);
                     assertEquals(
                             ApplicationStatus.RUNNING,
                             deployer.getApplicationStatus(second.getClusterId()));
                     assertEquals(1, workers(second).size());
                 } finally {
-                    deployer.cancelApplication(second.getClusterId());
+                    cancelAndAwait(second);
                 }
-                awaitAllResourcesRemoved(second);
             } finally {
-                deployer.cancelApplication(first.getClusterId());
+                cancelAndAwait(first);
             }
-            awaitAllResourcesRemoved(first);
         }
     }
 
@@ -142,9 +140,8 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                         application.getStatus(),
                         "Worker cleanup must preserve the original application failure");
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
         }
     }
 
@@ -159,9 +156,8 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                 awaitStatus(application, ApplicationStatus.FAILED);
                 awaitWorkersExited(application);
             } finally {
-                deployer.cancelApplication(application.getClusterId());
+                cancelAndAwait(application);
             }
-            awaitAllResourcesRemoved(application);
         }
     }
 
@@ -188,9 +184,8 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                     awaitStatus(application, ApplicationStatus.FAILED);
                     awaitWorkersRemoved(application);
                 } finally {
-                    deployer.cancelApplication(application.getClusterId());
+                    cancelAndAwait(application);
                 }
-                awaitAllResourcesRemoved(application);
             }
         } finally {
             core.deleteNamespacedResourceQuota(
@@ -254,5 +249,23 @@ public class KubernetesApplicationLifecycleIT extends AbstractKubernetesApplicat
                                                         volume.getConfigMap().getName())));
         assertTrue(mounted(pod, "/opt/seatunnel/config/seatunnel.yaml"));
         assertTrue(mounted(pod, "/opt/seatunnel/config/log4j2_client.properties"));
+    }
+
+    /** Kills the container of one application Pod inside the disposable cluster. */
+    private static void killPodContainer(V1Pod pod) throws Exception {
+        String containerId = pod.getStatus().getContainerStatuses().get(0).getContainerID();
+        Container.ExecResult result =
+                k3s.execInContainer(
+                        "ctr",
+                        "--address",
+                        CONTAINERD_SOCKET,
+                        "--namespace",
+                        "k8s.io",
+                        "tasks",
+                        "kill",
+                        "--signal",
+                        "SIGKILL",
+                        containerId.substring(CONTAINERD_RUNTIME_PREFIX.length()));
+        assertEquals(0, result.getExitCode(), result.getStderr());
     }
 }

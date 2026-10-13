@@ -30,7 +30,6 @@ import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClie
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -54,7 +53,6 @@ import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.RbacAuthorizationV1Api;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
-import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
@@ -96,6 +94,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractKubernetesApplicationIT implements TestResource {
     private static final String K3S_IMAGE = "rancher/k3s:v1.31.6-k3s1";
+    private static final String CONTAINER_NAME = "seatunnel";
+    protected static final String CONTAINERD_SOCKET = "/run/k3s/containerd/containerd.sock";
+    private static final long STATUS_TIMEOUT_SECONDS = 300;
+    private static final long WORKERS_TIMEOUT_SECONDS = 240;
+    private static final long CLEANUP_TIMEOUT_SECONDS = 60;
     protected static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     protected static final String ROLE_LABEL = "seatunnel.apache.org/role";
     protected static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
@@ -108,7 +111,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     protected static BatchV1Api batch;
     protected static ApiClient apiClient;
     protected static ClusterDescriptor<String> deployer;
-    private static K3sContainer k3s;
+    protected static K3sContainer k3s;
     private static Path kubeconfig;
     private static KubernetesClient platformMonitor;
     private static boolean namespaceCreated;
@@ -120,10 +123,29 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         startScenarioFixtures();
     }
 
+    /**
+     * Releases the class-scoped fixtures only. The disposable cluster is JVM-scoped: it is removed
+     * by the shutdown hook registered in {@link #startCluster()} because the scenario classes that
+     * run later in the same JVM still need it.
+     */
     @AfterAll
     @Override
     public void tearDown() throws Exception {
         stopScenarioFixtures();
+    }
+
+    /**
+     * Cancels the application and waits until every resource it owned is gone. Cancellation is safe
+     * to call after a failed test, so scenarios use this in {@code finally} blocks.
+     */
+    protected static void cancelAndAwait(KubernetesApplicationClient application) throws Exception {
+        try {
+            deployer.cancelApplication(application.getClusterId());
+            awaitAllResourcesRemoved(application);
+        } catch (Exception | Error failure) {
+            recordPodDiagnostics(application);
+            throw failure;
+        }
     }
 
     /**
@@ -157,7 +179,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             KubernetesApplicationClient application, ApplicationStatus expected) {
         try {
             Awaitility.await()
-                    .atMost(300, TimeUnit.SECONDS)
+                    .atMost(STATUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
@@ -189,7 +211,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                             core.readNamespacedPodLog(
                                     name,
                                     namespace,
-                                    "seatunnel",
+                                    CONTAINER_NAME,
                                     false,
                                     false,
                                     null,
@@ -212,79 +234,39 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
 
     protected static void awaitWorkersRunning(
             KubernetesApplicationClient application, int expected) {
-        Awaitility.await()
-                .atMost(240, TimeUnit.SECONDS)
-                .pollInterval(2, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            List<V1Pod> workers = workers(application);
-                            assertEquals(expected, workers.size());
-                            assertTrue(
-                                    workers.stream()
-                                            .allMatch(
-                                                    pod ->
-                                                            pod.getStatus() != null
-                                                                    && "Running"
-                                                                            .equals(
-                                                                                    pod.getStatus()
-                                                                                            .getPhase())));
-                        });
+        try {
+            Awaitility.await()
+                    .atMost(WORKERS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<V1Pod> workers = workers(application);
+                                assertEquals(expected, workers.size());
+                                assertTrue(
+                                        workers.stream()
+                                                .allMatch(
+                                                        pod ->
+                                                                pod.getStatus() != null
+                                                                        && "Running"
+                                                                                .equals(
+                                                                                        pod.getStatus()
+                                                                                                .getPhase())));
+                            });
+        } catch (RuntimeException failure) {
+            recordPodDiagnostics(application);
+            throw failure;
+        }
     }
 
     protected static void awaitWorkersRemoved(KubernetesApplicationClient application) {
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
-    }
-
-    /** Kills the container of one application Pod inside the disposable cluster. */
-    protected static void killPodContainer(V1Pod pod) throws Exception {
-        String containerId = pod.getStatus().getContainerStatuses().get(0).getContainerID();
-        Container.ExecResult result =
-                k3s.execInContainer(
-                        "ctr",
-                        "--address",
-                        "/run/k3s/containerd/containerd.sock",
-                        "--namespace",
-                        "k8s.io",
-                        "tasks",
-                        "kill",
-                        "--signal",
-                        "SIGKILL",
-                        containerId.substring("containerd://".length()));
-        assertEquals(0, result.getExitCode(), result.getStderr());
-    }
-
-    protected static String inlineSpecification(V1Pod master) {
-        return master.getSpec().getContainers().get(0).getEnv().stream()
-                .filter(env -> KubernetesConstants.SPECIFICATION_ENV.equals(env.getName()))
-                .map(V1EnvVar::getValue)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Missing inline specification"));
-    }
-
-    protected static V1EnvVar environment(V1Pod pod, String name) {
-        return pod.getSpec().getContainers().get(0).getEnv().stream()
-                .filter(env -> name.equals(env.getName()))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Missing environment variable " + name));
-    }
-
-    protected static boolean envFromSecret(V1Pod pod, String secretName) {
-        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
-                .anyMatch(
-                        source ->
-                                source.getSecretRef() != null
-                                        && secretName.equals(source.getSecretRef().getName()));
-    }
-
-    protected static boolean envFromConfigMap(V1Pod pod, String configMapName) {
-        return pod.getSpec().getContainers().get(0).getEnvFrom().stream()
-                .anyMatch(
-                        source ->
-                                source.getConfigMapRef() != null
-                                        && configMapName.equals(
-                                                source.getConfigMapRef().getName()));
+        try {
+            Awaitility.await()
+                    .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
+        } catch (RuntimeException failure) {
+            recordPodDiagnostics(application);
+            throw failure;
+        }
     }
 
     protected static boolean mounted(V1Pod pod, String path) {
@@ -295,9 +277,9 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                         && Boolean.TRUE.equals(mount.getReadOnly()));
     }
 
-    protected static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
+    private static void awaitAllResourcesRemoved(KubernetesApplicationClient application) {
         Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
+                .atMost(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             assertTrue(pods(application, null).isEmpty());
@@ -356,7 +338,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         return pods(application, "master").get(0);
     }
 
-    protected static List<V1Pod> pods(KubernetesApplicationClient application, String role)
+    private static List<V1Pod> pods(KubernetesApplicationClient application, String role)
             throws Exception {
         String selector = APPLICATION_LABEL + "=" + application.getClusterId();
         if (role != null) {
@@ -394,7 +376,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
             return core.readNamespacedPodLog(
                     name,
                     namespace,
-                    "seatunnel",
+                    CONTAINER_NAME,
                     false,
                     false,
                     null,
@@ -479,7 +461,9 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                     null,
                     null);
             namespaceCreated = true;
-            createFixtures(options);
+            createSharedFixtures();
+            deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
+            platformMonitor = KubernetesClientFactory.create(options, false);
         } catch (Exception failure) {
             stopCluster();
             throw failure;
@@ -536,7 +520,12 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         }
     }
 
-    private static void createFixtures(Map<String, String> options) throws Exception {
+    /**
+     * Creates the suite-wide fixtures every scenario class shares: the runtime ConfigMap, the
+     * application ServiceAccount and its RBAC Role/RoleBinding. Class-scoped fixtures belong in
+     * {@link #startScenarioFixtures()}.
+     */
+    private static void createSharedFixtures() throws Exception {
         core.createNamespacedServiceAccount(
                 namespace,
                 Yaml.loadAs(
@@ -592,8 +581,6 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
         V1RoleBinding roleBinding =
                 Yaml.loadAs(getResourcesFile("/kubernetes/role-binding.yaml"), V1RoleBinding.class);
         rbac.createNamespacedRoleBinding(namespace, roleBinding, null, null, null, null);
-        deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
-        platformMonitor = KubernetesClientFactory.create(options, false);
     }
 
     private static void importImage(String image) throws Exception {
@@ -609,7 +596,7 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                     k3s.execInContainer(
                             "ctr",
                             "--address",
-                            "/run/k3s/containerd/containerd.sock",
+                            CONTAINERD_SOCKET,
                             "--namespace",
                             "k8s.io",
                             "images",
