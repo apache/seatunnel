@@ -63,7 +63,7 @@ bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a applicati
 | Option | Meaning |
 | --- | --- |
 | `-t`, `--target` | Resource platform that runs the application. |
-| `-c`, `--config` | SeaTunnel job configuration file, required for submit. |
+| `-c`, `--config` | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf`. |
 | `-a`, `--application-config` | Optional deployment file with common and platform options. |
 | `--wait` | Submit/status wait for a terminal result; without it the command returns immediately. |
 | `-ikey=value` | Non-sensitive deployment override, for example worker resources or platform options. |
@@ -71,6 +71,9 @@ bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a applicati
 `submit` returns as soon as the platform accepted the application; it does not wait for the master,
 so slow image pulls or provider scheduling never fail the command. `status` and `cancel` only talk
 to the platform API, and can be used after the master has exited.
+
+The platform guide documents the full command reference, including exit codes and cancellation
+behavior.
 
 ## Requirements
 

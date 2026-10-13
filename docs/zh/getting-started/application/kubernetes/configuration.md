@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 title: 配置参考
 ---
 
@@ -120,13 +120,15 @@ taint 的节点池上一直 `Pending`，事件里是 `had untolerated taint`。
 ### 作业配置
 
 `-c job.conf` 在提交机上是**原样读取**并放入本地化配置的，提交端只做一次“允许占位符未解析”的
-解析检查。Master 启动时，如果配置了 `kubernetes.job-config-file`，选定的文件会在解析作业前整体
-替换它。该选项默认是 `null`：不配置就不挂载、不读取任何文件。因此最终生效的是：
+解析检查。作业也可以来自 Pod 内的挂载文件，由 `kubernetes.job-config-file` 选择——正是这个选项
+让 `-c` 变成可选；两个来源都没有的提交会在创建任何资源之前被拒绝。
 
-1. 不设置（默认）或设为空值：始终使用提交的 `-c` 文件；
-2. 设置了路径且文件存在——`<seatunnel-home>/config` 下的文件名，或任意挂载了 Secret 或
-   ConfigMap key 的绝对路径：使用该挂载文件；
-3. 设置了路径但文件不存在：Master 打印 WARN 并回退到 `-c` 的内容。
+该选项解析出的是 `<seatunnel-home>/config` 下的文件名，或 Secret/ConfigMap key 挂载的绝对路径。
+作业解析前：
+
+- **未配置该选项（默认）**：使用提交的 `-c` 文件，此时 `-c` 必传。
+- **已配置且文件存在**：用挂载文件替换提交的内容。
+- **已配置但文件不存在**：Master 打印 WARN 回退到 `-c`；没有提交文件时直接失败，而不是无作业启动。
 
 最终文本只在 Master 解析一次，`${VAR}` 在此时结合 Pod 环境解析，所以提交机的值不会被烘进作业。
 

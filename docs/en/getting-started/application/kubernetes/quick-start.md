@@ -184,3 +184,6 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 `submit` returns as soon as the API accepted the started Job, so slow image pulls or scheduling
 never fail the command. Use `status --wait` (or `submit --wait`) when you need the terminal result.
 :::
+
+See [Commands](commands.md) for every argument, the exit-code contract, and the `kubectl`
+inspection patterns.

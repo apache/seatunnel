@@ -178,3 +178,5 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 `submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢或调度慢不会让提交失败；需要终态时用
 `status --wait`（或 `submit --wait`）。
 :::
+
+完整参数、退出码约定和 `kubectl` 排查方式见 [命令参考](commands.md)。

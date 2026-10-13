@@ -92,6 +92,7 @@ const sidebars = {
                             "items": [
                                 "getting-started/application/kubernetes/architecture",
                                 "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/commands",
                                 "getting-started/application/kubernetes/configuration",
                                 "getting-started/application/kubernetes/checkpoint-recovery",
                                 "getting-started/application/kubernetes/faq"

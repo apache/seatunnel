@@ -61,6 +61,7 @@ durable checkpoint with `application.restore-job-id`.
 | --- | --- | --- |
 | Understand deployment | [Cluster architecture](architecture.md) | Job, worker Pods, Service, Secret, ConfigMap, and storage relationships |
 | Run the first job | [Quick start](quick-start.md) | Build an image, create RBAC, and submit a job |
+| Operate an application | [Commands](commands.md) | Submit, inspect, wait for, and cancel an application |
 | Tune deployment | [Configuration](configuration.md) | Complete Kubernetes and shared application options |
 | Configure recovery | [Checkpoint recovery](checkpoint-recovery.md) | PVC, HDFS, object storage, and explicit recovery |
 | Troubleshoot | [FAQ](faq.md) | Status, cancellation, logs, cleanup, and common failures |

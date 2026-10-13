@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 title: Configuration
 ---
 
@@ -125,15 +125,18 @@ events.
 ### Job configuration
 
 `-c job.conf` is read verbatim on the submitting host and carried inside the localized
-specification; the submitter only parse-checks it with placeholders left unresolved. When the
-master starts, the file optionally selected by `kubernetes.job-config-file` replaces that content
-before the job is parsed. The option defaults to `null`, so nothing is mounted or read unless it is
-configured:
+specification; the submitter only parse-checks it with placeholders left unresolved. The job may
+also come from a file inside the Pod, which is what `kubernetes.job-config-file` selects. That
+option is what makes `-c` optional: a submission that provides neither source is rejected before the
+first resource is created.
 
-1. unset (the default) or empty: the submitted `-c` file is always used;
-2. set and a file exists at the resolved path - a name under `<seatunnel-home>/config` or an
-   absolute path a Secret or ConfigMap key is mounted at: that mounted file is used;
-3. set but the file is missing: the master logs a warning and falls back to `-c`.
+The option resolves to a file name under `<seatunnel-home>/config` or to the absolute path a Secret
+or ConfigMap key is mounted at. Before the job is parsed:
+
+- **Option unset (the default):** the submitted `-c` file is used, so `-c` is required.
+- **Option set and the file exists:** the mounted file replaces the submitted content.
+- **Option set and the file is missing:** the master warns and falls back to `-c`; without a
+  submitted file it fails instead of starting without a job.
 
 The surviving text is parsed exactly once on the master, where `${VAR}` is resolved against the Pod
 environment, so the submitting host never bakes its own values into the job.

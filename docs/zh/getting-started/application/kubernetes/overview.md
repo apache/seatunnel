@@ -61,6 +61,7 @@ affinity/PriorityClass、Kerberos、REST/HTTPS。失败的 application 可用 `a
 | --- | --- | --- |
 | 理解部署 | [集群架构](architecture.md) | Job、Worker Pod、Service、Secret、ConfigMap 和存储关系 |
 | 首次运行 | [快速开始](quick-start.md) | 构建镜像、创建 RBAC 并提交第一个作业 |
+| 运维 application | [命令参考](commands.md) | 提交、查看、等待与取消 application |
 | 调整参数 | [配置参考](configuration.md) | 完整 Kubernetes 与公共 application 选项 |
 | 配置容错 | [Checkpoint 恢复](checkpoint-recovery.md) | PVC、HDFS、对象存储与故障后恢复 |
 | 问题排查 | [FAQ](faq.md) | 状态、取消、日志、资源清理和常见问题 |

@@ -55,13 +55,15 @@ bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a applicati
 | 参数 | 含义 |
 | --- | --- |
 | `-t`, `--target` | 运行 application 的资源平台 |
-| `-c`, `--config` | SeaTunnel 作业配置文件，submit 必填 |
+| `-c`, `--config` | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
 | `-a`, `--application-config` | 可选部署文件，包含公共选项和平台选项 |
 | `--wait` | submit/status 等待终态；不传则立即返回 |
 | `-ikey=value` | 非敏感部署覆盖项，例如 worker 资源或平台选项 |
 
 `submit` 在平台接受 application 后立即返回，不等待 Master，所以镜像拉取慢或平台调度慢不会让提交失败。
 `status`、`cancel` 只访问平台 API，Master 退出后仍可使用。
+
+完整的命令参考（含退出码与取消行为）见对应平台指南。
 
 ## 前提条件
 
