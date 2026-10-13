@@ -25,6 +25,8 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 - [x] file format type
   - [x] text
   - [x] csv
+  - [x] parquet
+  - [x] orc
   - [x] json
   - [x] excel
   - [x] xml
@@ -93,6 +95,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | skip_header_row_number     | Long    | No       | 0                             | Skip the first few lines, but only for the txt and csv.                                                                                        |
 | schema                     | Config  | No       | -                             | The schema of upstream data                                                                                                                    |
 | read_columns               | List    | No       | -                             | The read column list of the data source, user can use it to implement field projection.                                                        |
+| read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook, Only used when file_format is excel.                                                                         |
 | xml_row_tag                | String  | No       | -                             | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                |
 | xml_use_attr_format        | Boolean | No       | -                             | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                           |

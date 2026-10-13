@@ -31,7 +31,7 @@ minikube start --kubernetes-version=v1.23.3
 Install with default settings.
 ```bash
 # Choose the corresponding version yourself
-export VERSION=2.3.10
+export VERSION=3.0.1
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
@@ -90,6 +90,14 @@ curl http://127.0.0.1:8080/system-monitoring-information
 ```
 
 After that, submit jobs through [REST API V2](../../engines/zeta/rest-api-v2.md).
+
+> **Note:** The Helm chart disables the deprecated Zeta REST API v1 on the Hazelcast member port
+> (5801) by default (`hazelcast.network.rest-api.enabled: false`), matching the standalone
+> `config/hazelcast.yaml`. Use REST API v2 on port 8080, the interface shown above. For the same
+> reason the default Prometheus pod annotations scrape metrics from `8080/metrics`. If you must use
+> REST API v1, set `rest-api.enabled: true` in a custom ConfigMap and restrict port 5801 with a
+> `NetworkPolicy`. A `helm upgrade` updates the ConfigMap, but running pods keep the old
+> configuration until they are restarted.
 
 ## What's More
 
