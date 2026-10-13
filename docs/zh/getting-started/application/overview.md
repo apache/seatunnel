@@ -5,31 +5,47 @@ title: 概述
 
 # Application Mode 简介
 
-Application Mode 为每个作业运行一套独立的 Zeta 集群：资源平台启动专用的 Master 和固定数量的
-Worker，Master 只运行一个作业，作业结束后平台回收全部进程。Worker 注册、slot 调度、任务执行和
-checkpoint 仍由 Zeta 自己负责，平台只提供并回收计算资源。
+Application Mode 是 STIP-41 提出的应用部署模式。一次提交就是一套自包含的 application：资源平台
+启动专用的 Zeta Master 和固定数量的 Worker，Master 只运行一个作业，作业结束后平台回收全部进程。
 
-Application Mode 不是 standalone 或共享集群部署的替代品，而是同一个 Zeta 引擎的一种部署模式：
-一个作业对应一个自带 Master 和 Worker 的自包含 application。
+Worker 注册、slot 调度、任务执行和 checkpoint 仍由 Zeta 自己负责，资源平台只提供并回收计算资源。
+正是这层边界，让同一个作业文件无需改动就能跑在不同的资源平台上。
 
-## 解决了什么问题
+## 业务场景
 
-- 不再手写启动、发现、提交、失败传播和清理脚本：一条命令提交 application，启动、观测和回收都交给平台；
-- 按作业隔离：每个作业一套专用 Master 和固定 Worker，作业之间互不影响，application 状态直接映射平台状态；
-- 平台原生运维：status/cancel 直接访问平台 API，凭据放在平台管理的 Secret 中而不是作业文件里；
-- checkpoint 跨 application 存活：后续 application 可以按原生 job ID 恢复上一个作业。
+### 一次性批处理任务
 
-## 适用场景
+作业只跑一次，结果落盘后立即释放全部资源：不需要维护长期驻留的集群，也没有残留进程需要手工清理。
+application 状态直接映射为平台对象，用 `status` 和 `cancel` 就能观测和停止。
 
-- 已经有资源平台，不想再维护长期运行的共享 SeaTunnel 集群；
-- 每个作业都希望拥有独立集群和固定资源占用；
-- 希望用平台原生对象查看和管理作业生命周期。
+### 大规模批处理团队
 
-## 不适用场景
+同时运行大量批处理作业的团队可以获得按作业隔离的能力：每个作业独享 Master 和固定数量的 Worker，
+有自己的 CPU、内存、slot 占用，以及 namespace 和 label。作业之间不会互相借占 slot 或干扰状态，
+配额和策略也按 application 生效。checkpoint 跨 application 存活，新的 application 可以按原生
+job ID 恢复此前的作业。
 
-- 大量小作业希望共用一个长期集群（用 standalone 或集群部署）；
-- 作业运行期间需要动态扩缩 Worker 或自动补拉 Worker；Application Mode 使用固定 Worker，失败即结束；
-- 发行版中没有对应资源平台的 provider。
+:::note
+Application Mode 不是 standalone 或共享集群部署的替代品：大量小作业希望共用一个长期集群时仍应使用
+集群模式；需要动态扩缩 Worker 的作业也不适合 Application Mode 的固定 Worker 集合，失败即结束。
+:::
+
+## 资源管理器边界层
+
+STIP-41 把 Application Mode 构建在统一的资源管理器边界层上，而不是为每个平台单独堆功能。引擎侧
+（application 生命周期、规格传输、Worker 管理、checkpoint）保持平台无关；资源管理器 driver 只负责
+启动、观测和释放计算资源。所有资源管理器遵循同一份契约，能力可以并行增强，架构技术债保持可控。
+借助 AI 辅助开发，编码不再是瓶颈，后续增加资源管理器不必排队推进。
+
+Kubernetes 资源管理器是该契约的第一个实现；共享的命令行、配置模型和文档都保持平台中立，后续资源
+管理器可以直接接入同一层边界。
+
+## 后续方向
+
+- 编排器集成：让 Airflow、DolphinScheduler 直接提交并监控 Application Mode 作业，调度管道复用
+  已有的 DAG 和 operator；
+- PyPI 分发：提供 Python 启动器，用 Python 直接运行原生 Zeta application，降低 Python 数据工程师
+  的上手门槛，便于数据回刷和日常一次性任务。
 
 ## 集群形态
 

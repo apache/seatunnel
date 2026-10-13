@@ -5,40 +5,58 @@ title: Overview
 
 # About Application Mode
 
-Application Mode runs one independent SeaTunnel job per application. The resource platform starts a
-dedicated master and a fixed number of workers, the master runs exactly one job, and the platform
-reclaims every process when the application finishes. Zeta itself owns worker registration, slot
-scheduling, task execution and checkpoints; the platform only provides and reclaims compute
-resources.
+Application Mode is the application deployment model proposed by STIP-41. One submission becomes one
+self-contained application: the resource platform starts a dedicated Zeta master and a fixed number
+of workers, the master runs exactly one job, and the platform reclaims every process when the
+application finishes.
 
-Application Mode is not a replacement for standalone or shared-cluster deployment. It is a
-deployment mode of the same Zeta engine: one job becomes one self-contained application with its own
-master and workers.
+Zeta itself owns worker registration, slot scheduling, task execution and checkpoints; the resource
+platform only provides and reclaims compute. That boundary is what lets the same job run on
+different platforms without changing the job file.
 
-## What problem it solves
+## Business scenarios
 
-- No hand-written startup, discovery, submission, failure-propagation and cleanup scripts: one
-  command submits an application that the platform starts, observes and reclaims.
-- Per-job isolation: each job gets a dedicated master and a fixed worker set, so one job cannot
-  disturb another and the application state maps directly to the platform state.
-- Platform-native operations: status and cancel talk to the platform API, and credentials stay in
-  platform-managed secrets instead of the job file.
-- Checkpoints survive the application: a later application can restore the previous job by its
-  native job ID.
+### One-off batch jobs
 
-## When to use Application Mode
+A job runs once, its result is written, and every resource it held is released immediately: no
+long-running cluster to keep warm and no leftover processes to clean up by hand. The application
+state maps directly to platform objects, so `status` and `cancel` are enough to observe and stop it.
 
-- You already operate a resource platform and do not want to maintain a long-running shared
-  SeaTunnel cluster.
-- Each job should run in its own isolated cluster with a fixed resource footprint.
-- The job lifecycle should be visible and manageable through platform-native objects.
+### Large-scale batch teams
 
-## When not to use Application Mode
+Teams that run many batch jobs at the same time get per-job isolation: every job owns its master and
+its fixed set of workers, with its own CPU, memory and slot footprint, namespace and labels. One job
+cannot borrow slots from another or disturb its state, and quotas and policies apply per
+application. Checkpoints survive the application, so a later application can restore an earlier job
+by its native job ID.
 
-- Many small jobs should share one long-running cluster (use standalone or cluster deployment).
-- The job needs dynamic worker scaling or automatic worker replenishment while it runs; Application
-  Mode uses a fixed worker set and fails instead of scaling out.
-- The distribution has no provider for your resource platform.
+:::note
+Application Mode is not a replacement for standalone or shared-cluster deployment: many small jobs
+that should share one long-running cluster still belong to cluster mode, and a job that needs
+dynamic worker scaling should not use the fixed worker set of Application Mode.
+:::
+
+## One boundary layer for resource managers
+
+STIP-41 builds Application Mode on a single resource-manager boundary layer instead of implementing
+each platform's capabilities ad hoc. The engine side - application lifecycle, specification
+transport, worker management, checkpoints - stays platform independent; a resource manager driver
+only starts, observes and releases compute. Keeping every resource manager on that contract lets
+their capabilities be enhanced in parallel and keeps architecture technical debt bounded. With
+AI-assisted development, coding is no longer the bottleneck, so additional resource managers can be
+implemented without taking turns.
+
+The Kubernetes resource manager is the first implementation of this contract; the shared command
+line, configuration model and documentation are platform-neutral, so later resource managers can
+plug into the same boundary.
+
+## Future directions
+
+- Orchestrator integration: let Airflow and DolphinScheduler submit and monitor Application Mode
+  jobs directly, so scheduled pipelines reuse their existing DAGs and operators.
+- PyPI distribution: ship a Python launcher that runs a native Zeta application from Python,
+  lowering the barrier for Python data engineers and making backfills and ad-hoc one-off jobs
+  easier.
 
 ## Cluster shape
 
