@@ -267,7 +267,9 @@ exit;
 
 ## LOB 列
 
-现象：大字段存在行外。不设 `lob.enabled` 时，流式插入的 LOB 经常是 null，只改 LOB 的更新可能丢失。快照不受影响，JDBC 会读出真实值。
+现象：大字段存在行外。不设 `lob.enabled` 时，流式插入的 LOB 经常是 null，只改 LOB 的更新可能丢失。快照不依赖 `lob.enabled`：分片读取是普通 JDBC `SELECT`，CLOB、NCLOB、BLOB 会从该行 JDBC locator 物化成真实值（不会按列再查一遍）。
+
+下游 SeaTunnel 类型不变（字符型 LOB 为 STRING，BLOB 为 BYTES）。目标表请用能装大对象的列类型（例如 CLOB、LONGTEXT），不要用很短的 VARCHAR。快照和 re-select 会把 LOB 读进内存，请按最大列值和分片并行度给 reader 留够堆。
 
 `lob.enabled = true` 开始挖掘这些 redo，值透传给 Debezium。不设置时，`debezium.lob.enabled` 仍然有效；显式设置会覆盖它。没有后续写入的 `EMPTY_CLOB()` / `EMPTY_BLOB()` 是空字符串或空字节，SQL `NULL` 仍是 null。同一事务里同一行的事件会合并，后一条 SQL `NULL` 会覆盖先前的值。不可用值占位符仍表示该 redo 记录没有这一列，合并时保持原值。没开挖掘就把 `lob.reselect.enabled` 设为 true，或把 `lob.unavailable-value.handling` 设为 `null` / `fail`，提交时会被拒绝。
 

@@ -30,9 +30,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Re-selects Oracle LOB columns over JDBC.
@@ -55,6 +58,8 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
     private transient Connection connection;
     private transient boolean pdbSelected;
     private transient Map<String, PreparedStatement> statementCache;
+    private transient Set<String> flashbackUnavailableTables =
+            Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
     public JdbcOracleLobColumnReselector(
             String url, String username, String password, String pdbName) {
@@ -80,6 +85,7 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
         return query(
                 openConnection(),
                 statementCache(),
+                flashbackUnavailableTables,
                 schema,
                 table,
                 lobColumns,
@@ -120,6 +126,7 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
         return query(
                 connection,
                 null,
+                null,
                 schema,
                 table,
                 lobColumns,
@@ -135,6 +142,7 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
     static OracleLobColumnReselector.ReselectResult query(
             Connection connection,
             Map<String, PreparedStatement> cache,
+            Set<String> flashbackUnavailableTables,
             String schema,
             String table,
             List<String> lobColumns,
@@ -142,8 +150,11 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
             List<Object> primaryKeyValues,
             String commitScn)
             throws SQLException {
+        String tableKey = flashbackTableKey(schema, table);
         String scn = OracleLobReselectSql.usableCommitScn(commitScn);
-        if (scn != null) {
+        if (scn != null
+                && (flashbackUnavailableTables == null
+                        || !flashbackUnavailableTables.contains(tableKey))) {
             try {
                 return execute(
                         connection,
@@ -157,15 +168,17 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
                 if (!OracleLobReselectSql.isFlashbackUnavailable(e)) {
                     throw e;
                 }
-                LOG.warn(
-                        "Flashback LOB re-select failed for {}.{} at SCN {}. "
-                                + "Reading the current row instead. Grant FLASHBACK ANY TABLE, "
-                                + "or FLASHBACK on the table, to read the committed image. "
-                                + "The current row can differ if it changed again.",
-                        schema,
-                        table,
-                        scn,
-                        e);
+                if (flashbackUnavailableTables != null
+                        && flashbackUnavailableTables.add(tableKey)) {
+                    LOG.warn(
+                            "Flashback LOB re-select unavailable for {}.{} (example SCN {}). "
+                                    + "Reading the current row instead. Grant FLASHBACK ANY TABLE "
+                                    + "or FLASHBACK on the table to read the committed image. "
+                                    + "The current row can differ if it changed again.",
+                            schema,
+                            table,
+                            scn);
+                }
             }
         }
         return execute(
@@ -175,6 +188,13 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
                 lobColumns,
                 primaryKeyValues,
                 null);
+    }
+
+    private static String flashbackTableKey(String schema, String table) {
+        if (schema == null || schema.isEmpty()) {
+            return table;
+        }
+        return schema + "." + table;
     }
 
     private Connection openConnection() throws SQLException {

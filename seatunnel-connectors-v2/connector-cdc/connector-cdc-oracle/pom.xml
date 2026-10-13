@@ -31,8 +31,8 @@
     <properties>
         <debezium.version>1.9.8.Final</debezium.version>
         <oracle.version>19.18.0.0</oracle.version>
-        <!-- xmlparserv2 registers an Oracle SAX factory. Keep the JDK parser for tests. -->
-        <surefire.jvm.args>-Dfile.encoding=UTF-8 -Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl</surefire.jvm.args>
+        <!-- Appended to CI -Dsurefire.jvm.args so xmlparserv2 does not override the JDK SAX factory. -->
+        <surefire.module.args>-Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl</surefire.module.args>
     </properties>
 
     <dependencyManagement>
@@ -120,5 +120,17 @@
             <artifactId>xmlparserv2</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>${surefire.jvm.args} ${surefire.module.args}</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

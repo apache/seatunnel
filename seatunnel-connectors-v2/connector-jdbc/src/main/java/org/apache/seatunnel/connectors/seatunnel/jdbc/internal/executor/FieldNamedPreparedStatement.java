@@ -421,9 +421,11 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public int executeUpdate() throws SQLException {
-        int updated = statement.executeUpdate();
-        StatementBoundLobs.free(this);
-        return updated;
+        try {
+            return statement.executeUpdate();
+        } finally {
+            StatementBoundLobs.free(this);
+        }
     }
 
     @Override
@@ -581,9 +583,11 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public int[] executeBatch() throws SQLException {
-        int[] result = statement.executeBatch();
-        StatementBoundLobs.free(this);
-        return result;
+        try {
+            return statement.executeBatch();
+        } finally {
+            StatementBoundLobs.free(this);
+        }
     }
 
     @Override

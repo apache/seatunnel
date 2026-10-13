@@ -268,7 +268,9 @@ exit;
 
 ## LOB columns
 
-What you see: large values live outside the row. With `lob.enabled` unset, a streaming LOB insert is often null, and an update that only changes the LOB can be missed. The snapshot is unaffected: JDBC reads the real value.
+What you see: large values live outside the row. With `lob.enabled` unset, a streaming LOB insert is often null, and an update that only changes the LOB can be missed. Snapshot does not depend on `lob.enabled`: the split query is a normal JDBC `SELECT`, and CLOB, NCLOB, and BLOB columns are materialized from the JDBC locator on that row (no extra query per column).
+
+Downstream SeaTunnel types are unchanged (STRING for character LOBs, BYTES for BLOB). Use target columns that can hold large values (for example CLOB or LONGTEXT, not a short VARCHAR). Snapshot and re-select materialize LOB values in memory; size the reader heap for your largest columns and split parallelism.
 
 `lob.enabled = true` mines that redo and passes the value through to Debezium. If you omit it, `debezium.lob.enabled` still applies; an explicit `lob.enabled` overrides it. An `EMPTY_CLOB()` / `EMPTY_BLOB()` with no later write is an empty string or empty bytes. SQL `NULL` stays null. Events for the same row in one transaction are merged, and a later SQL `NULL` replaces the earlier value. The unavailable placeholder still means the column was absent from that redo record and is left unchanged. Setting `lob.reselect.enabled = true`, or `lob.unavailable-value.handling` to `null` or `fail`, while mining is off is rejected.
 
