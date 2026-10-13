@@ -106,7 +106,7 @@ configuration directory stays untouched.
 
 ## 4. Create job and deployment configuration
 
-`job.conf`:
+`job.conf` (or start from the bundled `config/v2.batch.config.template`):
 
 ```hocon
 env { job.mode = "BATCH", parallelism = 2 }

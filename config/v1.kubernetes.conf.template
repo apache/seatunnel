@@ -15,34 +15,22 @@
 # limitations under the License.
 #
 
-# Pass this deployment file with -a / --application-config; pass the job separately with -c / --config.
-# Replace platform paths/image and prepare permissions before submission.
+# Minimal deployment file. Pair it with a job file, for example the bundled batch template:
+#   bin/seatunnel-application.sh submit -t kubernetes -c config/v2.batch.config.template -a kubernetes.conf
+# Secret, ConfigMap, environment and runtime-file options are documented in
+# docs/en/getting-started/application/kubernetes/configuration.md.
 application {
   name = "example-batch"
+  # The bundled batch template runs two source tasks plus the split enumerator.
   worker-count = 2
 }
 
 kubernetes {
   namespace = "seatunnel"
   image = "your-registry/seatunnel-application:<version>"
+  # ServiceAccount and RBAC as described in the Kubernetes quick start.
   service-account = "seatunnel-application"
-  # Existing ConfigMap whose keys are mounted individually, leaving the rest of the
-  # distribution's config directory untouched.
-  configmap {
-    runtime {
-      ref = "seatunnel-configuration"
-      mount {
-        seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-        log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-      }
-    }
-  }
-  # Single environment variable injected as a secretKeyRef; use ${MYSQL_PASSWORD} in the job
-  # configuration and let the master resolve it from the Pod environment.
-  env.MYSQL_PASSWORD = "secret:seatunnel-job-secrets/password"
-  # Or inject every key of an existing Secret/ConfigMap at once (Kubernetes envFrom).
-  # env-from.secret = "seatunnel-job-secrets"
-  # Tolerate a tainted node pool (optional); entries are key[=value][:Effect] separated by ';'.
+  # Optional: tolerate tainted node pools. Entries are key[=value][:Effect] separated by ';'.
   # master.tolerations = "dedicated=seatunnel:NoSchedule"
   # worker.tolerations = "dedicated=seatunnel:NoSchedule"
 }

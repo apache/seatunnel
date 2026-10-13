@@ -101,7 +101,7 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
 
 ## 4. 准备作业与部署配置
 
-`job.conf`：
+`job.conf`（也可以直接用发行版自带的 `config/v2.batch.config.template`）：
 
 ```hocon
 env { job.mode = "BATCH", parallelism = 2 }
