@@ -121,7 +121,7 @@ def test_parse_config_response_error_codes():
     assert "error_code" not in ok
 
 
-def test_cli_debug_flag_enables_env():
+def test_cli_debug_flag_enables_debug():
     from seatunnel_cli import cli
 
     class _Stop(Exception):
