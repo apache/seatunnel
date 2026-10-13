@@ -61,8 +61,13 @@ public final class ApplicationJobRunner {
      * @throws Exception if startup, execution, cancellation or resource cleanup fails
      */
     public void run() throws Exception {
+        // The application's own startup budget covers a slow but healthy coordinator activation:
+        // the cluster-mode retry window of getCoordinatorService() is meant for callers that can
+        // retry, and this runner executes exactly one job without such a caller.
         ApplicationResourceManager<?> resources =
-                (ApplicationResourceManager<?>) server.getCoordinatorService().getResourceManager();
+                (ApplicationResourceManager<?>)
+                        server.awaitCoordinatorService(specification.getStartupTimeoutMillis())
+                                .getResourceManager();
         CompletableFuture<Void> cancellation = new CompletableFuture<>();
         CompletableFuture<JobResult> execution = null;
         JobResult result = null;

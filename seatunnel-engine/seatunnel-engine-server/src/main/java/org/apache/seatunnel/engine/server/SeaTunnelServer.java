@@ -88,6 +88,9 @@ public class SeaTunnelServer
 
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
 
+    /** Pause between two checks whether the coordinator service became active. */
+    private static final long COORDINATOR_ACTIVATION_POLL_MILLIS = 200L;
+
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     @Getter private SeaTunnelEngineContext engineContext;
@@ -351,6 +354,35 @@ public class SeaTunnelServer
             throw new SeaTunnelEngineException(
                     "Please don't get coordinator service from an inactive master node");
         }
+    }
+
+    /**
+     * Waits until this member's coordinator service has finished initialization.
+     *
+     * <p>{@link #getCoordinatorService()} only tolerates a short activation window because its
+     * cluster-mode callers retry on a higher level. Callers that cannot retry, such as the
+     * application master that runs exactly one job, wait with their own startup budget instead.
+     *
+     * @param timeoutMillis budget for the coordinator service to become active
+     * @return the active coordinator service
+     * @throws SeaTunnelEngineRetryableException if the budget expires before activation
+     * @throws SeaTunnelEngineException if this member stopped being the master
+     * @throws InterruptedException if the wait is interrupted
+     */
+    public CoordinatorService awaitCoordinatorService(long timeoutMillis)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (!isCoordinatorActive()) {
+            if (!isMasterNode()) {
+                throw new SeaTunnelEngineException("This is not a master node now.");
+            }
+            if (System.nanoTime() >= deadline) {
+                throw new SeaTunnelEngineRetryableException(
+                        "Can not get coordinator service from an active master node.");
+            }
+            Thread.sleep(COORDINATOR_ACTIVATION_POLL_MILLIS);
+        }
+        return coordinatorService;
     }
 
     synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {
