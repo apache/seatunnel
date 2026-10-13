@@ -15,12 +15,15 @@ Use it when Kubernetes manages compute resources and jobs require isolated resou
 | --- | --- | --- |
 | Application master | One Job Pod | Start the Zeta master, create workers, submit the job, and coordinate cleanup |
 | Worker | N regular Pods | Join the isolated Hazelcast cluster and provide fixed task slots |
-| Job configuration | Secret | Mounted read-only only by the master with resolved job and deployment information |
-| Runtime configuration | Existing ConfigMap | Mounted read-only by the master and workers with `seatunnel.yaml` and logging configuration |
+| Job configuration | Inline master environment; optional mounted `job.conf` | `kubernetes.job-config-file` selects a ConfigMap or Secret file; unset keeps the submitted `-c` file |
+| Runtime configuration | Existing or created ConfigMap | Mounted read-only by the master and workers with `seatunnel.yaml`, Hazelcast, JVM option and logging files |
 | Master discovery | Headless Service | Provide the current application's master address to workers |
 | Checkpoint | PVC or supported remote storage | Preserve recoverable state outside the application |
 
-Losing the master or any worker fails the current Job. Workers are not replaced and no standby master is started. A new application can restore from a durable checkpoint.
+:::caution
+Losing the master or any worker fails the current Job. Workers are not replaced and no standby
+master is started. A new application can restore from a durable checkpoint.
+:::
 
 ## Prerequisites
 
@@ -42,4 +45,4 @@ Losing the master or any worker fails the current Job. Workers are not replaced 
 | Configure recovery | [Checkpoint recovery](checkpoint-recovery.md) | PVC, HDFS, object storage, and explicit recovery |
 | Troubleshoot | [FAQ](faq.md) | Status, cancellation, logs, cleanup, and common failures |
 
-See the shared [Application Mode overview](../overview.md) and [architecture](../architecture.md) for common behavior.
+See the shared [Application Mode overview](../overview.md) for common behavior.

@@ -15,12 +15,15 @@ Kubernetes Application Mode 为一个 SeaTunnel 作业创建一个独立的 Kube
 | --- | --- | --- |
 | Application Master | 一个 Job Pod | 启动 Zeta Master、创建 Worker、提交作业和协调清理 |
 | Worker | N 个普通 Pod | 加入独立 Hazelcast 集群并提供固定 task slot |
-| 作业配置 | Secret | 以只读方式仅挂载给 Master，包含解析后的作业与部署信息 |
-| 运行时配置 | 已有 ConfigMap | 以只读方式挂载给 Master 和 Worker，包含 `seatunnel.yaml` 与日志配置 |
+| 作业配置 | 默认内联在 Master 环境；可选挂载 `job.conf` | 由 `kubernetes.job-config-file` 选择 ConfigMap 或 Secret 文件；不设置时使用提交的 `-c` 文件 |
+| 运行时配置 | 已有或自建 ConfigMap | 以只读方式挂载给 Master 和 Worker，包含 `seatunnel.yaml`、Hazelcast、JVM 参数与日志配置 |
 | Master 发现 | Headless Service | 为 Worker 提供当前 application 的 Master 地址 |
 | Checkpoint | PVC 或受支持的远程存储 | 在 application 之外保存可恢复状态 |
 
-Master 或任意 Worker 丢失都会使当前 Job 失败。系统不会自动补建 Worker 或启动备用 Master。持久化 checkpoint 可用于创建新的 application 恢复执行。
+:::caution
+Master 或任意 Worker 丢失都会使当前 Job 失败。系统不会自动补建 Worker 或启动备用 Master。
+持久化 checkpoint 可用于创建新的 application 恢复执行。
+:::
 
 ## 前置条件
 
@@ -42,4 +45,4 @@ Master 或任意 Worker 丢失都会使当前 Job 失败。系统不会自动补
 | 配置容错 | [Checkpoint 恢复](checkpoint-recovery.md) | PVC、HDFS、对象存储与故障后恢复 |
 | 问题排查 | [FAQ](faq.md) | 状态、取消、日志、资源清理和常见问题 |
 
-公共能力边界参见 [Application Mode 概览](../overview.md) 和[架构概览](../architecture.md)。
+公共能力边界参见 [Application Mode 概览](../overview.md)。

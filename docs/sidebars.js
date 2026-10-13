@@ -82,7 +82,6 @@ const sidebars = {
                     "label": "Application Mode (Experimental)",
                     "items": [
                         "getting-started/application/overview",
-                        "getting-started/application/architecture",
                         {
                             "type": "category",
                             "label": "Kubernetes",

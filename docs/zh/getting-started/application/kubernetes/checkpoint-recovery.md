@@ -15,7 +15,9 @@ title: Checkpoint 恢复
 - HDFS；
 - OSS、S3、COS 等原生 checkpoint storage 支持的对象存储。
 
+:::note
 远程存储不需要 `kubernetes.checkpoint-pvc`。镜像必须包含对应文件系统实现和依赖。
+:::
 
 ## 使用 PVC
 
@@ -57,7 +59,10 @@ seatunnel:
           namespace: /opt/seatunnel/checkpoints/orders/
 ```
 
-Provider 只负责挂载 PVC；存储类型和 namespace 由原生 checkpoint plugin 解释。Master 用户必须具有卷目录写权限。application 不会删除该 PVC。
+:::caution
+Provider 只负责挂载 PVC；存储类型和 namespace 由原生 checkpoint plugin 解释。Master 用户必须
+具有卷目录写权限。application 不会删除该 PVC。
+:::
 
 ## 使用远程存储
 
@@ -83,6 +88,9 @@ bin/seatunnel-application.sh submit --target kubernetes \
   --restore-job-id PREVIOUS_JOB_ID --wait
 ```
 
-新提交使用新的 job ID，并从历史 ID 的最新有效 checkpoint 恢复。找不到 checkpoint 时提交失败，不会静默从头执行。
+:::caution
+新提交使用新的 job ID，并从历史 ID 的最新有效 checkpoint 恢复。找不到 checkpoint 时提交失败，
+不会静默从头执行。
+:::
 
 保持作业拓扑、Connector 版本、状态格式和并行度兼容。checkpoint 后产生的数据是否重放以及 Sink 交付保证取决于 Connector 语义。

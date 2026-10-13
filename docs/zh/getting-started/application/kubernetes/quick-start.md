@@ -26,8 +26,10 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
-镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及作业
-所需的全部 Connector、Format 和驱动 jar。
+:::note
+镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及
+作业所需的全部 Connector、Format 和驱动 jar。
+:::
 
 ## 2. 创建 Namespace 和 RBAC
 
@@ -141,8 +143,11 @@ kubernetes {
 }
 ```
 
-每个挂载的 key 必须写完整容器路径，两个条目不能挂到同一路径。需要传凭据时用平台管理的 Secret
-并在作业文件里引用：
+:::note
+每个挂载的 key 必须写完整容器路径，两个条目不能挂到同一路径。
+:::
+
+需要传凭据时用平台管理的 Secret 并在作业文件里引用：
 
 ```hocon
 kubernetes {
@@ -153,7 +158,9 @@ kubernetes {
 }
 ```
 
-然后在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
+:::tip
+在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
+:::
 
 ## 5. 提交与查看
 
@@ -167,5 +174,7 @@ kubectl -n seatunnel-apps describe job APPLICATION_ID
 kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
+:::note
 `submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢或调度慢不会让提交失败；需要终态时用
 `status --wait`（或 `submit --wait`）。
+:::

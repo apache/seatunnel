@@ -97,7 +97,6 @@ Platform-specific preparation, permissions and configuration are described in th
 | Phase | Document | Description |
 | --- | --- | --- |
 | Understand | This page | What Application Mode is, and when to use it. |
-| Deep dive | [Architecture](architecture.md) | Resource-manager design, specification flow and lifecycle. |
 | Try it out | Platform guide | Environment preparation, first submission and status inspection. |
 | Configure | Platform guide | Platform options, credentials and runtime configuration. |
 | Operate | Platform guide | Cancellation, failure diagnosis and retention behavior. |

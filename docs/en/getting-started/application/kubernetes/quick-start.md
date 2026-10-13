@@ -27,8 +27,10 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
+:::note
 The image must contain `starter/`, `config/`, `lib/`, `connectors/` and
 `resource-managers/kubernetes/`, plus every connector, format and driver used by the job.
+:::
 
 ## 2. Create namespace and RBAC
 
@@ -146,8 +148,11 @@ kubernetes {
 }
 ```
 
-Every mounted key needs its full container path; two entries cannot share one path. To pass
-credentials, inject platform-managed values and reference them from the job file:
+:::note
+Every mounted key needs its full container path; two entries cannot share one path.
+:::
+
+To pass credentials, inject platform-managed values and reference them from the job file:
 
 ```hocon
 kubernetes {
@@ -158,8 +163,10 @@ kubernetes {
 }
 ```
 
-Then use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod, never on the
+:::tip
+Use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod, never on the
 submitting host.
+:::
 
 ## 5. Submit and inspect
 
@@ -173,5 +180,7 @@ kubectl -n seatunnel-apps describe job APPLICATION_ID
 kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
+:::note
 `submit` returns as soon as the API accepted the started Job, so slow image pulls or scheduling
 never fail the command. Use `status --wait` (or `submit --wait`) when you need the terminal result.
+:::

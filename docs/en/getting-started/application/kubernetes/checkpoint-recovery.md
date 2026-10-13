@@ -15,7 +15,10 @@ Supported choices include:
 - HDFS;
 - object stores supported by native checkpoint storage, including OSS, S3, and COS.
 
-Remote storage does not require `kubernetes.checkpoint-pvc`. The image must contain the corresponding filesystem implementation and dependencies.
+:::note
+Remote storage does not require `kubernetes.checkpoint-pvc`. The image must contain the
+corresponding filesystem implementation and dependencies.
+:::
 
 ## Use a PVC
 
@@ -57,7 +60,10 @@ seatunnel:
           namespace: /opt/seatunnel/checkpoints/orders/
 ```
 
-The provider only mounts the PVC. Native checkpoint storage interprets the backend and namespace. The master user must be able to write to the volume. The application never deletes this PVC.
+:::caution
+The provider only mounts the PVC. Native checkpoint storage interprets the backend and namespace.
+The master user must be able to write to the volume. The application never deletes this PVC.
+:::
 
 ## Use remote storage
 
@@ -83,6 +89,9 @@ bin/seatunnel-application.sh submit --target kubernetes \
   --restore-job-id PREVIOUS_JOB_ID --wait
 ```
 
-The new submission uses a new job ID and loads the historical job's latest eligible checkpoint. Missing checkpoints fail submission instead of silently starting over.
+:::caution
+The new submission uses a new job ID and loads the historical job's latest eligible checkpoint.
+Missing checkpoints fail submission instead of silently starting over.
+:::
 
 Keep topology, connector versions, state format, and parallelism compatible. Replay after the checkpoint and sink delivery guarantees depend on connector semantics.

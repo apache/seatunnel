@@ -83,7 +83,6 @@ bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a applicati
 | 阶段 | 文档 | 说明 |
 | --- | --- | --- |
 | 理解 | 本页 | Application Mode 是什么、什么时候用 |
-| 深入 | [架构](architecture.md) | 资源管理器设计、规格流转和生命周期 |
 | 上手 | 平台指南 | 环境准备、首次提交、状态查询 |
 | 配置 | 平台指南 | 平台选项、凭据和运行时配置 |
 | 运维 | 平台指南 | 取消、失败诊断和保留策略 |
