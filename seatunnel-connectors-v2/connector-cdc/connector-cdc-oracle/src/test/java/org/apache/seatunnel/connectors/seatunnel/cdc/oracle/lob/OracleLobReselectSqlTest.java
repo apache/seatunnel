@@ -136,6 +136,7 @@ public class OracleLobReselectSqlTest {
         JdbcOracleLobColumnReselector.query(
                 connection,
                 cache,
+                null,
                 "DEBEZIUM",
                 "LOB_TYPES",
                 Collections.singletonList("VAL_CLOB"),
@@ -145,6 +146,7 @@ public class OracleLobReselectSqlTest {
         JdbcOracleLobColumnReselector.query(
                 connection,
                 cache,
+                null,
                 "DEBEZIUM",
                 "LOB_TYPES",
                 Collections.singletonList("VAL_CLOB"),
