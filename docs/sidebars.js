@@ -82,6 +82,7 @@ const sidebars = {
                     "label": "Application Mode (Experimental)",
                     "items": [
                         "getting-started/application/overview",
+                        "getting-started/application/cli",
                         {
                             "type": "category",
                             "label": "Kubernetes",

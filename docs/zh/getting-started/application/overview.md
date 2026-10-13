@@ -44,27 +44,6 @@ job ID 恢复此前的作业。
 - Master 将作业结果映射为平台终态，并在退出前释放全部 Worker；
 - checkpoint 存放在引擎侧的持久化存储中，可跨应用程序生命周期，由新的应用程序按作业 ID 恢复。
 
-## 命令行
-
-```bash
-bin/seatunnel-application.sh submit -t <target> -c job.conf -a application.config
-bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config --wait
-bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
-```
-
-| 参数 | 含义 |
-| --- | --- |
-| `-t`, `--target` | 运行 application 的资源平台 |
-| `-c`, `--config` | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
-| `-a`, `--application-config` | 可选部署文件，包含公共选项和平台选项 |
-| `--wait` | submit/status 等待终态；不传则立即返回 |
-| `-ikey=value` | 非敏感部署覆盖项，例如 worker 资源或平台选项 |
-
-`submit` 在平台接受 application 后立即返回，不等待 Master，所以镜像拉取慢或平台调度慢不会让提交失败。
-`status`、`cancel` 只访问平台 API，Master 退出后仍可使用。
-
-完整的命令参考（含退出码与取消行为）见对应平台指南。
-
 ## 前提条件
 
 - 发行版中包含所选用资源平台的 provider；
@@ -91,6 +70,7 @@ bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a applicati
 | 阶段 | 文档 | 说明 |
 | --- | --- | --- |
 | 理解 | 本页 | Application Mode 是什么、什么时候用 |
+| 运行 | [命令行](cli.md) | 提交、查看、等待与取消 application |
 | 上手 | 平台指南 | 环境准备、首次提交、状态查询 |
 | 配置 | 平台指南 | 平台选项、凭据和运行时配置 |
 | 运维 | 平台指南 | 取消、失败诊断和保留策略 |

@@ -84,6 +84,8 @@ and to read the owner Job. The **submitting identity** separately needs:
 - required: create/get/delete Jobs, create/delete Services, and get ConfigMaps (references are
   validated before submission);
 - only with `kubernetes.secret`: create/delete Secrets;
+- only with a created ConfigMap entry (`kubernetes.configmap.<entry>.data`): create/delete
+  ConfigMaps;
 - only with `kubernetes.secret-ref`: get Secrets (validation is skipped with a warning when the
   identity cannot read them).
 
@@ -104,23 +106,10 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
 Mounts use `subPath`, so only the declared files are replaced and the rest of the image
 configuration directory stays untouched.
 
-## 4. Create job and deployment configuration
+## 4. Create the deployment configuration
 
-`job.conf` (or start from the bundled `config/v2.batch.config.template`):
-
-```hocon
-env { job.mode = "BATCH", parallelism = 2 }
-source {
-  FakeSource {
-    row.num = 10
-    split.num = 2
-    schema { fields { id = int, name = string } }
-  }
-}
-sink { Console {} }
-```
-
-Start from `config/v1.kubernetes.conf.template` and set the platform options:
+Start from `config/v1.kubernetes.conf.template`, which already carries a demo job, and set the
+platform options:
 
 ```bash
 cp config/v1.kubernetes.conf.template kubernetes.conf
@@ -136,6 +125,9 @@ kubernetes {
   namespace = "seatunnel-apps"
   image = "registry.example.com/seatunnel:application"
   service-account = "seatunnel-application"
+  # The demo job is mounted from a ConfigMap SeaTunnel creates for this application, so the first
+  # submission needs no -c file.
+  job-config-file = job.conf
   configmap {
     runtime {
       ref = "seatunnel-configuration"
@@ -144,12 +136,37 @@ kubernetes {
         log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
       }
     }
+    job-conf {
+      data {
+        job.conf = """
+          env {
+            job.mode = "BATCH"
+            parallelism = 2
+          }
+          source {
+            FakeSource {
+              row.num = 10
+              split.num = 2
+              schema { fields { id = int, name = string } }
+            }
+          }
+          sink {
+            Console {}
+          }
+        """
+      }
+      mount {
+        job.conf = "/opt/seatunnel/config/job.conf"
+      }
+    }
   }
 }
 ```
 
 :::note
-Every mounted key needs its full container path; two entries cannot share one path.
+Every mounted key needs its full container path; two entries cannot share one path. The created
+ConfigMap is named `<application-id>-job-conf` and is deleted with the application. To keep the job
+in its own file instead, pass it with `-c job.conf` and remove `job-config-file`.
 :::
 
 To pass credentials, inject platform-managed values and reference them from the job file:
@@ -171,7 +188,7 @@ submitting host.
 ## 5. Submit and inspect
 
 ```bash
-bin/seatunnel-application.sh submit --target kubernetes -c job.conf -a kubernetes.conf
+bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 bin/seatunnel-application.sh status --target kubernetes --id APPLICATION_ID -a kubernetes.conf --wait
 bin/seatunnel-application.sh cancel --target kubernetes --id APPLICATION_ID -a kubernetes.conf
 
@@ -181,8 +198,9 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
 :::note
-`submit` returns as soon as the API accepted the started Job, so slow image pulls or scheduling
-never fail the command. Use `status --wait` (or `submit --wait`) when you need the terminal result.
+No `-c` file is needed because the deployment file carries the job. `submit` returns as soon as the
+API accepted the started Job, so slow image pulls or scheduling never fail the command. Use
+`status --wait` (or `submit --wait`) when you need the terminal result.
 :::
 
 See [Commands](commands.md) for every argument, the exit-code contract, and the `kubectl`

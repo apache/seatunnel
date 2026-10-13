@@ -82,6 +82,7 @@ kubectl apply -f application-rbac.yaml
 
 - 必需：Job 的 create/get/delete、Service 的 create/delete、ConfigMap 的 get（提交前校验引用）；
 - 仅使用 `kubernetes.secret` 时：Secret 的 create/delete；
+- 仅使用创建型 ConfigMap（`kubernetes.configmap.<entry>.data`）时：ConfigMap 的 create/delete；
 - 仅使用 `kubernetes.secret-ref` 时：Secret 的 get（无权限时校验降级为告警）。
 
 本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
@@ -99,23 +100,9 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
 
 挂载使用 `subPath`，只替换声明的文件，镜像里配置目录的其他文件不受影响。
 
-## 4. 准备作业与部署配置
+## 4. 准备部署配置
 
-`job.conf`（也可以直接用发行版自带的 `config/v2.batch.config.template`）：
-
-```hocon
-env { job.mode = "BATCH", parallelism = 2 }
-source {
-  FakeSource {
-    row.num = 10
-    split.num = 2
-    schema { fields { id = int, name = string } }
-  }
-}
-sink { Console {} }
-```
-
-从 `config/v1.kubernetes.conf.template` 复制并修改平台选项：
+从 `config/v1.kubernetes.conf.template` 复制（模板里已带一个可直接运行的示例作业），修改平台选项：
 
 ```bash
 cp config/v1.kubernetes.conf.template kubernetes.conf
@@ -131,6 +118,8 @@ kubernetes {
   namespace = "seatunnel-apps"
   image = "registry.example.com/seatunnel:application"
   service-account = "seatunnel-application"
+  # 示例作业由本 application 自建的 ConfigMap 挂载进来，首次提交无需 -c 文件。
+  job-config-file = job.conf
   configmap {
     runtime {
       ref = "seatunnel-configuration"
@@ -139,12 +128,37 @@ kubernetes {
         log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
       }
     }
+    job-conf {
+      data {
+        job.conf = """
+          env {
+            job.mode = "BATCH"
+            parallelism = 2
+          }
+          source {
+            FakeSource {
+              row.num = 10
+              split.num = 2
+              schema { fields { id = int, name = string } }
+            }
+          }
+          sink {
+            Console {}
+          }
+        """
+      }
+      mount {
+        job.conf = "/opt/seatunnel/config/job.conf"
+      }
+    }
   }
 }
 ```
 
 :::note
-每个挂载的 key 必须写完整容器路径，两个条目不能挂到同一路径。
+每个挂载的 key 必须写完整容器路径，两个条目不能挂到同一路径。创建型 ConfigMap 命名为
+`<application-id>-job-conf`，随 application 一起删除；如果希望作业放在独立文件里，改用
+`-c job.conf` 提交并去掉 `job-config-file`。
 :::
 
 需要传凭据时用平台管理的 Secret 并在作业文件里引用：
@@ -165,7 +179,7 @@ kubernetes {
 ## 5. 提交与查看
 
 ```bash
-bin/seatunnel-application.sh submit --target kubernetes -c job.conf -a kubernetes.conf
+bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
 bin/seatunnel-application.sh status --target kubernetes --id APPLICATION_ID -a kubernetes.conf --wait
 bin/seatunnel-application.sh cancel --target kubernetes --id APPLICATION_ID -a kubernetes.conf
 
@@ -175,8 +189,8 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 ```
 
 :::note
-`submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢或调度慢不会让提交失败；需要终态时用
-`status --wait`（或 `submit --wait`）。
+作业已写在部署文件里，因此无需 `-c`。`submit` 在 API 接受并启动 Job 后立即返回，镜像拉取慢
+或调度慢不会让提交失败；需要终态时用 `status --wait`（或 `submit --wait`）。
 :::
 
 完整参数、退出码约定和 `kubectl` 排查方式见 [命令参考](commands.md)。

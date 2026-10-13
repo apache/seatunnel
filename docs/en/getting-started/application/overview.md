@@ -52,29 +52,6 @@ by its native job ID.
 - Checkpoints live in engine-owned persistent storage and survive the application; a new application
   can restore them by native job ID.
 
-## Command line
-
-```bash
-bin/seatunnel-application.sh submit -t <target> -c job.conf -a application.config
-bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config --wait
-bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
-```
-
-| Option | Meaning |
-| --- | --- |
-| `-t`, `--target` | Resource platform that runs the application. |
-| `-c`, `--config` | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf`. |
-| `-a`, `--application-config` | Optional deployment file with common and platform options. |
-| `--wait` | Submit/status wait for a terminal result; without it the command returns immediately. |
-| `-ikey=value` | Non-sensitive deployment override, for example worker resources or platform options. |
-
-`submit` returns as soon as the platform accepted the application; it does not wait for the master,
-so slow image pulls or provider scheduling never fail the command. `status` and `cancel` only talk
-to the platform API, and can be used after the master has exited.
-
-The platform guide documents the full command reference, including exit codes and cancellation
-behavior.
-
 ## Requirements
 
 - A supported resource platform provider must be present in the distribution.
@@ -103,6 +80,7 @@ Platform-specific preparation, permissions and configuration are described in th
 | Phase | Document | Description |
 | --- | --- | --- |
 | Understand | This page | What Application Mode is, and when to use it. |
+| Run | [Command line](cli.md) | Submit, inspect, wait for, and cancel an application. |
 | Try it out | Platform guide | Environment preparation, first submission and status inspection. |
 | Configure | Platform guide | Platform options, credentials and runtime configuration. |
 | Operate | Platform guide | Cancellation, failure diagnosis and retention behavior. |
