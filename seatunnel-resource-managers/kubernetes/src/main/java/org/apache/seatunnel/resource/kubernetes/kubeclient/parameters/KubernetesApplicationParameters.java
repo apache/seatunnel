@@ -81,7 +81,6 @@ public final class KubernetesApplicationParameters {
     private final String jvmOptions;
     private final String seatunnelConfigFile;
     private final String log4jConfigFile;
-    private final String configMap;
     private final String applicationSecretRef;
     private final String applicationSecretName;
     private final Map<String, String> applicationSecretData;
@@ -122,7 +121,6 @@ public final class KubernetesApplicationParameters {
         this.jvmOptions = jvmOptionsFile(options, KubernetesOptions.JVM_OPTIONS, seatunnelHome);
         this.seatunnelConfigFile = seatunnelConfigFile(options, seatunnelHome);
         this.log4jConfigFile = log4jConfigFile(options, seatunnelHome);
-        this.configMap = optionalNonBlank(options, KubernetesOptions.CONFIG_MAP);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
         this.applicationSecretData = secretData(rawOptions(options));
@@ -280,9 +278,6 @@ public final class KubernetesApplicationParameters {
                 log4jConfigFile == null ? "none" : log4jConfigFile);
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
-        if (configMap != null) {
-            properties.setProperty(KubernetesOptions.CONFIG_MAP.key(), configMap);
-        }
         if (applicationSecretRef != null) {
             properties.setProperty(KubernetesOptions.SECRET_REF.key(), applicationSecretRef);
         }

@@ -15,7 +15,6 @@ title: Configuration
 | `kubernetes.image-pull-secrets` | Empty | Comma-separated existing Secret names used to pull images from private registries. |
 | `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
-| `kubernetes.config-map` | Unset | Existing ConfigMap mounted read-only at `<seatunnel-home>/config` in both master and worker Pods. |
 | `kubernetes.configmap.<entry>` | Unset | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. An optional `name` overrides the default `<application-id>-<entry>` so other options can reference it. |
 | `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. A `job.conf` key replaces the inline job configuration. |
 | `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
@@ -62,7 +61,7 @@ Pod JVM heap uses 75% of the memory limit, leaving the remainder for off-heap al
 
 Use `kubernetes.image-pull-secrets` for existing private-registry Secrets. The provider does not create those credentials or expose an arbitrary Pod template. Local files and plugin JARs referenced by a job are not downloaded dynamically and must already be present in the image.
 
-Set `kubernetes.config-map` to the name of an existing ConfigMap containing the SeaTunnel runtime configuration, including `seatunnel.yaml` and `log4j2_client.properties`. The submitter verifies that the ConfigMap exists before it creates the application Job. Kubernetes then mounts it read-only at `<seatunnel-home>/config` in both the master and worker Pods. SeaTunnel treats this ConfigMap as user-owned and does not delete it when the application ends.
+Use `kubernetes.configmap.<entry>` to place runtime configuration files such as `seatunnel.yaml` and `log4j2_client.properties` in the master and worker Pods. Each key is mounted read-only at the path its `mount` entry declares, so the remaining files the image ships under `<seatunnel-home>/config`, including `jvm_options`, stay in place.
 
 By default the localized application specification, including the resolved job configuration, is carried in the master container environment, so submission requires no permission to create Secrets. `kubernetes.secret-ref` adds a read-only reference to an existing Secret and `kubernetes.secret.data.*` lets SeaTunnel create and own one; a `job.conf` key in either Secret replaces the inline job configuration. Referenced Secrets are never modified or deleted, while created Secrets carry the Job owner reference and disappear with the application. Keep connector credentials out of the inline specification and use Secrets managed by your platform.
 
@@ -165,8 +164,8 @@ kubernetes {
 - Referenced ConfigMaps are never modified or deleted; their mounted keys are validated before
   submission. When the submitting identity cannot read a referenced ConfigMap, validation is
   skipped with a warning and the Pod still mounts it through its own service account.
-- `kubernetes.config-map` remains available for mounting one ConfigMap over the whole
-  `<seatunnel-home>/config` directory; `kubernetes.configmap` is the per-file alternative.
+- Every key is mounted individually through `subPath`, so a ConfigMap never hides the other files
+  the image ships in the same directory.
 - `seatunnel.yaml` is loaded from `kubernetes.seatunnel-config-file` (default
   `config/seatunnel.yaml`, relative to `<seatunnel-home>`); mount a replacement at that path to
   change the engine configuration.

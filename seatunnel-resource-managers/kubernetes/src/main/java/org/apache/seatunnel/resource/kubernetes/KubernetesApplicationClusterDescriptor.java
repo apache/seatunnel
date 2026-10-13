@@ -118,19 +118,15 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     /**
      * Verifies user-managed ConfigMaps before the first application resource is created.
      *
-     * <p>The legacy {@code kubernetes.config-map} only needs to exist. Every {@code
-     * kubernetes.configmap.<entry>} reference additionally declares which keys it mounts, so those
-     * keys must exist in the referenced ConfigMap. No application-owned resource exists yet, so a
-     * failure here never needs compensation.
+     * <p>Every {@code kubernetes.configmap.<entry>} reference declares which keys it mounts, so
+     * those keys must exist in the referenced ConfigMap. No application-owned resource exists yet,
+     * so a failure here never needs compensation.
      *
      * @param parameters resolved application settings
      * @throws Exception if a referenced ConfigMap or one of its mounted keys is missing
      */
     private void validateUserManagedResources(KubernetesApplicationParameters parameters)
             throws Exception {
-        if (parameters.getConfigMap() != null) {
-            getReadableConfigMap(parameters.getConfigMap(), "kubernetes.config-map");
-        }
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {
                 continue;

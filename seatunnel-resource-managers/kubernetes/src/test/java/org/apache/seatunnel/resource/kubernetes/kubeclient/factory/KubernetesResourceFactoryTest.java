@@ -152,7 +152,10 @@ class KubernetesResourceFactoryTest {
         options.put(KubernetesOptions.WORKER_ANNOTATIONS.key(), "owner:runtime");
         options.put(KubernetesOptions.MASTER_NODE_SELECTOR.key(), "pool:master");
         options.put(KubernetesOptions.WORKER_NODE_SELECTOR.key(), "pool:worker");
-        options.put(KubernetesOptions.CONFIG_MAP.key(), "seatunnel-runtime");
+        options.put("kubernetes.configmap.runtime.ref", "seatunnel-runtime");
+        options.put(
+                "kubernetes.configmap.runtime.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
         options.put(KubernetesOptions.NAMESPACE.key(), "analytics");
         options.put("submitter.private-setting", "must-not-be-localized");
         ApplicationSpecification specification =
@@ -215,13 +218,15 @@ class KubernetesResourceFactoryTest {
         assertEquals(parameters.getWorkerAnnotations(), restored.getWorkerAnnotations());
         assertEquals(parameters.getMasterNodeSelector(), restored.getMasterNodeSelector());
         assertEquals(parameters.getWorkerNodeSelector(), restored.getWorkerNodeSelector());
+        String runtimeVolume = KubernetesConstants.CONFIG_VOLUME + "-0";
         assertEquals(
-                "seatunnel-runtime",
-                volume(jobResource, KubernetesConstants.CONFIG_VOLUME).getConfigMap().getName());
+                "seatunnel-runtime", volume(jobResource, runtimeVolume).getConfigMap().getName());
+        // Mounting one key through subPath keeps the rest of the image's configuration directory.
         assertEquals(
-                "/opt/seatunnel/config",
-                mount(jobResource, KubernetesConstants.CONFIG_VOLUME).getMountPath());
-        assertTrue(mount(jobResource, KubernetesConstants.CONFIG_VOLUME).getReadOnly());
+                "/opt/seatunnel/config/seatunnel.yaml",
+                mount(jobResource, runtimeVolume).getMountPath());
+        assertEquals("seatunnel.yaml", mount(jobResource, runtimeVolume).getSubPath());
+        assertTrue(mount(jobResource, runtimeVolume).getReadOnly());
         KubernetesService service = KubernetesResourceFactory.service("app", parameters);
         assertEquals("None", service.getInternalResource().getSpec().getClusterIP());
         KubernetesPod workerPod =
@@ -242,7 +247,7 @@ class KubernetesResourceFactoryTest {
         assertEquals(
                 "seatunnel-runtime", worker.getSpec().getVolumes().get(0).getConfigMap().getName());
         assertEquals(
-                "/opt/seatunnel/config",
+                "/opt/seatunnel/config/seatunnel.yaml",
                 worker.getSpec().getContainers().get(0).getVolumeMounts().get(0).getMountPath());
         assertEquals("java", worker.getSpec().getContainers().get(0).getCommand().get(0));
         List<String> workerCommand = worker.getSpec().getContainers().get(0).getCommand();

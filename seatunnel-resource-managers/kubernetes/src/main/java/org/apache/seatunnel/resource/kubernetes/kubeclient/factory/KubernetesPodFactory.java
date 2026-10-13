@@ -25,7 +25,6 @@ import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplic
 
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.custom.Quantity;
-import io.kubernetes.client.openapi.models.V1ConfigMapVolumeSource;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1EnvVarSource;
@@ -75,7 +74,6 @@ final class KubernetesPodFactory {
         container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification.getMasterPort(), specification);
         V1PodSpec pod = pod(parameters, container, true);
-        mountRuntimeConfiguration(parameters, container, pod);
         String checkpointClaim = parameters.getCheckpointPvc();
         if (checkpointClaim != null) {
             container.addVolumeMountsItem(
@@ -139,22 +137,7 @@ final class KubernetesPodFactory {
                         masterAddress,
                         Integer.toString(resources.getSlots())));
         container.setLivenessProbe(processProbe());
-        V1PodSpec pod = pod(parameters, container, false);
-        mountRuntimeConfiguration(parameters, container, pod);
-        return pod;
-    }
-
-    private static void mountRuntimeConfiguration(
-            KubernetesApplicationParameters parameters, V1Container container, V1PodSpec pod) {
-        if (parameters.getConfigMap() == null) {
-            return;
-        }
-        container.addVolumeMountsItem(
-                volumeMount(
-                        KubernetesConstants.CONFIG_VOLUME,
-                        parameters.getSeatunnelHome() + "/config",
-                        true));
-        pod.addVolumesItem(configMapVolume(parameters.getConfigMap()));
+        return pod(parameters, container, false);
     }
 
     private static V1PodSpec pod(
@@ -199,12 +182,6 @@ final class KubernetesPodFactory {
                 Quantity.fromString(memory + KubernetesConstants.MEBIBYTE_SUFFIX));
         resources.put(KubernetesConstants.CPU_RESOURCE, Quantity.fromString(Integer.toString(cpu)));
         return new V1ResourceRequirements().requests(resources).limits(new HashMap<>(resources));
-    }
-
-    private static V1Volume configMapVolume(String configMap) {
-        return new V1Volume()
-                .name(KubernetesConstants.CONFIG_VOLUME)
-                .configMap(new V1ConfigMapVolumeSource().name(configMap));
     }
 
     private static List<String> command(

@@ -15,7 +15,6 @@ title: 配置参考
 | `kubernetes.image-pull-secrets` | 空 | 用于拉取私有仓库镜像的已有 Secret 名称，多个名称以逗号分隔。 |
 | `kubernetes.service-account` | `default` | Master 使用的已有 ServiceAccount。 |
 | `kubernetes.seatunnel-home` | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
-| `kubernetes.config-map` | 未设置 | 已有 ConfigMap，以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。 |
 | `kubernetes.configmap.<entry>` | 未设置 | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。可选 `name` 覆盖默认的 `<application-id>-<entry>`，便于其他配置按名字引用。 |
 | `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；其中 `job.conf` 键会替换内联的作业配置。 |
 | `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
@@ -62,7 +61,7 @@ title: 配置参考
 
 通过 `kubernetes.image-pull-secrets` 引用已有的私有镜像仓库 Secret。Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引用的本地文件和 JAR 不会动态下载，必须已经存在于镜像中。
 
-通过 `kubernetes.config-map` 指定包含 SeaTunnel 运行时配置的已有 ConfigMap，其中应包含 `seatunnel.yaml`、`log4j2_client.properties` 等配置文件。提交端会在创建 application Job 前确认该 ConfigMap 已存在；Kubernetes 随后将其以只读方式挂载到 Master 和 Worker Pod 的 `<seatunnel-home>/config`。该 ConfigMap 由用户管理，application 结束时 SeaTunnel 不会删除它。
+通过 `kubernetes.configmap.<entry>` 将 `seatunnel.yaml`、`log4j2_client.properties` 等运行时配置文件放入 Master 和 Worker Pod。每个 key 按其 `mount` 声明的路径以只读方式挂载，因此镜像在 `<seatunnel-home>/config` 下自带的其他文件（包括 `jvm_options`）会保持原样。
 
 默认情况下，本地化后的 application 配置（含作业配置）通过 Master 容器的环境变量传递，因此提交不需要创建 Secret 的权限。`kubernetes.secret-ref` 只读引用平台管理的已有 Secret，`kubernetes.secret.data.*` 则由 SeaTunnel 创建并持有 Secret；两种方式中若包含 `job.conf` 键，会替换内联的作业配置。引用型 Secret 不会被修改或删除，创建型 Secret 带 Job ownerReference，随 application 一起清理。请把 Connector 凭据放在平台管理的 Secret 中，不要内联到本地化配置。
 
@@ -158,8 +157,7 @@ kubernetes {
 
 - 引用型 ConfigMap 不会被修改或删除，挂载的 key 会在提交前校验；如果提交身份没有读取权限，
   校验会降级为告警，Pod 仍通过自己的 ServiceAccount 挂载。
-- 旧的 `kubernetes.config-map` 仍可用于把单个 ConfigMap 整体挂载到 `<seatunnel-home>/config`；
-  `kubernetes.configmap` 是按文件挂载的替代方案。
+- 每个 key 都通过 `subPath` 单独挂载，因此 ConfigMap 不会遮蔽镜像在同一目录下自带的其他文件。
 - `seatunnel.yaml` 由 `kubernetes.seatunnel-config-file` 指定（默认 `config/seatunnel.yaml`，相对
   `<seatunnel-home>`）；把替换文件挂到该路径即可修改引擎配置。
 

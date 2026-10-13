@@ -61,12 +61,6 @@ public final class KubernetesOptions {
                     .stringType()
                     .defaultValue("/opt/seatunnel")
                     .withDescription("Absolute path of the distribution inside the image.");
-    public static final Option<String> CONFIG_MAP =
-            Options.key("kubernetes.config-map")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Existing ConfigMap mounted read-only at the SeaTunnel configuration directory in master and worker pods.");
     public static final Option<String> SECRET_REF =
             Options.key("kubernetes.secret-ref")
                     .stringType()

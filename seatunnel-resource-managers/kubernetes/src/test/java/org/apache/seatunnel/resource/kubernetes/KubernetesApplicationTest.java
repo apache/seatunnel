@@ -508,7 +508,10 @@ class KubernetesApplicationTest {
     private static Map<String, String> options() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
-        options.put(KubernetesOptions.CONFIG_MAP.key(), "seatunnel-runtime");
+        options.put("kubernetes.configmap.runtime.ref", "seatunnel-runtime");
+        options.put(
+                "kubernetes.configmap.runtime.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
         options.put(KubernetesOptions.KUBE_CONFIG.key(), "/submitter-kubeconfig");
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
         return options;

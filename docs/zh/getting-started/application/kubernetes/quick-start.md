@@ -129,7 +129,8 @@ kubernetes {
   namespace = "seatunnel-apps"
   image = "registry.example.com/seatunnel:application"
   service-account = "seatunnel-application"
-  config-map = "seatunnel-configuration"
+  configmap.runtime.ref = "seatunnel-configuration"
+  configmap.runtime.mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
 }
 ```
 
