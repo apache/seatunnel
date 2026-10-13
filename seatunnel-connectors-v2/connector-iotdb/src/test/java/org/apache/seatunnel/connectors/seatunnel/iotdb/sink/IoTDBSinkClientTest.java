@@ -115,6 +115,19 @@ public class IoTDBSinkClientTest {
         };
     }
 
+    private static IoTDBSinkClient clientRoutingToWithDownNodes(
+            final List<StubNode> nodes, final Set<Integer> downNodes) {
+        return new IoTDBSinkClient(config()) {
+            @Override
+            protected Session buildSession(String host, int port) throws IoTDBConnectionException {
+                if (downNodes.contains(Integer.parseInt(host.substring(1)))) {
+                    throw new IoTDBConnectionException("node " + host + " is down");
+                }
+                return nodes.get(Integer.parseInt(host.substring(1)));
+            }
+        };
+    }
+
     /** Stub node whose inserts always fail at the network level. */
     private static StubNode networkFailingNode() {
         return new StubNode(new HashSet<>()) {
@@ -159,6 +172,77 @@ public class IoTDBSinkClientTest {
         Assertions.assertEquals(n0AttemptsBefore, n0.attempts);
         Assertions.assertEquals(15, count(n1.acceptedDevices, "sg.d_a"));
         Assertions.assertEquals(15, count(n2.acceptedDevices, "sg.d_b"));
+    }
+
+    @Test
+    public void shouldStartWhenTheFirstNodeIsDown() throws Exception {
+        // node0 is down at startup; node1 leads the device, node2 leads nothing
+        StubNode n1 = new StubNode(new HashSet<>(Arrays.asList("sg.d_a")));
+        StubNode n2 = new StubNode(new HashSet<>());
+        IoTDBSinkClient client =
+                clientRoutingToWithDownNodes(
+                        Arrays.asList(null, n1, n2), new HashSet<>(Arrays.asList(0)));
+
+        for (int i = 0; i < 10; i++) {
+            client.write(record("sg.d_a", i));
+        }
+        client.close();
+
+        Assertions.assertEquals(10, count(n1.acceptedDevices, "sg.d_a"));
+    }
+
+    @Test
+    public void shouldSkipUnreachableNodeWhenFollowingRedirects() throws Exception {
+        // node0 fails at the network level, node1 leads nothing, node2 leads the device
+        StubNode n0 = networkFailingNode();
+        StubNode n1 = new StubNode(new HashSet<>());
+        StubNode n2 = new StubNode(new HashSet<>(Arrays.asList("sg.d_a")));
+        IoTDBSinkClient client = clientRoutingTo(Arrays.asList(n0, n1, n2), config(1));
+
+        for (int i = 0; i < 5; i++) {
+            client.write(record("sg.d_a", i));
+        }
+        client.close();
+
+        // node0 was tried exactly once, then skipped; the redirect path landed on node2
+        Assertions.assertEquals(1, n0.attempts);
+        Assertions.assertEquals(5, count(n2.acceptedDevices, "sg.d_a"));
+    }
+
+    @Test
+    public void shouldBoundTheDeviceLeaderCache() throws Exception {
+        // node0 leads nothing (every new device gets redirected), node1 accepts everything
+        StubNode n0 = new StubNode(new HashSet<>());
+        StubNode n1 =
+                new StubNode(new HashSet<>(Arrays.asList("sg.d_0"))) {
+                    @Override
+                    public void insertRecords(
+                            List<String> deviceIds,
+                            List<Long> times,
+                            List<List<String>> measurementsList,
+                            List<List<TSDataType>> typesList,
+                            List<List<Object>> valuesList) {
+                        attempts++;
+                        acceptedDevices.addAll(deviceIds);
+                    }
+                };
+        IoTDBSinkClient client = clientRoutingTo(Arrays.asList(n0, n1));
+
+        int devices = IoTDBSinkClient.DEVICE_LEADER_CACHE_MAX_ENTRIES + 5;
+        for (int i = 0; i < devices; i++) {
+            client.write(record("sg.d_" + i, i));
+        }
+        client.close();
+
+        try {
+            java.lang.reflect.Field field =
+                    IoTDBSinkClient.class.getDeclaredField("deviceLeaderIndex");
+            field.setAccessible(true);
+            java.util.Map<?, ?> cache = (java.util.Map<?, ?>) field.get(client);
+            Assertions.assertEquals(IoTDBSinkClient.DEVICE_LEADER_CACHE_MAX_ENTRIES, cache.size());
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
@@ -207,9 +291,10 @@ public class IoTDBSinkClientTest {
                     client.write(record("sg.d_a", 1L));
                     client.close();
                 });
-        // only the configured retry budget (1) is spent: one initial attempt plus one retry,
-        // no matter how many endpoints are configured
-        Assertions.assertEquals(2, n0.attempts);
+        // only the configured retry budget (1) is spent: the single network failure marks node0
+        // unreachable for this flush, so the remaining rounds traverse the other endpoints via
+        // redirects without touching node0 again; the budget is never enlarged by endpoints
+        Assertions.assertEquals(1, n0.attempts);
     }
 
     @Test

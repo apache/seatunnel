@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,6 +47,13 @@ public class IoTDBSinkClient {
 
     private static final int DEFAULT_IOTDB_PORT = 6667;
 
+    /**
+     * Upper bound for the device -> leader cache. Device cardinality is user-data driven and can
+     * grow without limit, so the least recently used device is evicted once the bound is hit; it
+     * will simply be probed again on its next write.
+     */
+    static final int DEVICE_LEADER_CACHE_MAX_ENTRIES = 100_000;
+
     private final SinkConfig sinkConfig;
     private final List<IoTDBRecord> batchList;
 
@@ -56,9 +62,23 @@ public class IoTDBSinkClient {
 
     /**
      * Device -> index in nodeUrls of the node that last accepted its writes (the region leader).
-     * Writes are grouped by this so each group goes straight to the right leader.
+     * Writes are grouped by this so each group goes straight to the right leader. Access-ordered
+     * and bounded by {@link #DEVICE_LEADER_CACHE_MAX_ENTRIES}.
      */
-    private final Map<String, Integer> deviceLeaderIndex = new HashMap<>();
+    private final Map<String, Integer> deviceLeaderIndex =
+            new LinkedHashMap<String, Integer>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
+                    return size() > DEVICE_LEADER_CACHE_MAX_ENTRIES;
+                }
+            };
+
+    /**
+     * Nodes that failed at the network level during the current flush. Redirect rotation and leader
+     * lookup skip them so records do not burn the network budget on a node that is known to be
+     * down; the set is reset per flush so a recovered node is probed again next time.
+     */
+    private final Set<Integer> unreachableNodes = new HashSet<>();
 
     /**
      * Devices whose leader is not known yet (or just changed). They are written one device per
@@ -80,16 +100,29 @@ public class IoTDBSinkClient {
         if (initialize) {
             return;
         }
-        try {
-            sessionFor(0);
-        } catch (IoTDBConnectionException e) {
-            log.error("Initialize IoTDB client failed.", e);
-            throw new IotdbConnectorException(
-                    IotdbConnectorErrorCode.INITIALIZE_CLIENT_FAILED,
-                    "Initialize IoTDB client failed.",
-                    e);
+        IoTDBConnectionException lastFailure = null;
+        // The sink starts as soon as ANY configured node accepts a session; sessions of
+        // unreachable nodes stay null and are rebuilt lazily by writeGroup(). This keeps the
+        // multi-url failover the single bundled multi-url session used to provide.
+        for (int index = 0; index < sessions.length; index++) {
+            try {
+                sessionFor(index);
+                initialize = true;
+                return;
+            } catch (IoTDBConnectionException e) {
+                lastFailure = e;
+                log.warn(
+                        "IoTDB node {} is unreachable during initialization;"
+                                + " trying the next configured node.",
+                        sinkConfig.getNodeUrls().get(index),
+                        e);
+            }
         }
-        initialize = true;
+        log.error("Initialize IoTDB client failed: none of the configured nodes is reachable.");
+        throw new IotdbConnectorException(
+                IotdbConnectorErrorCode.INITIALIZE_CLIENT_FAILED,
+                "Initialize IoTDB client failed: none of the configured nodes is reachable.",
+                lastFailure);
     }
 
     private Session sessionFor(int index) throws IoTDBConnectionException {
@@ -239,6 +272,7 @@ public class IoTDBSinkClient {
         int networkBudget = retryBudget();
         int[] networkFailures = new int[1];
         int maxRounds = sessions.length + networkBudget + 1;
+        unreachableNodes.clear();
 
         for (int round = 0; !remaining.isEmpty(); round++) {
             if (round >= maxRounds) {
@@ -316,6 +350,7 @@ public class IoTDBSinkClient {
             throws IOException {
         try {
             insertRecords(sessionFor(index), records);
+            unreachableNodes.remove(index);
             for (IoTDBRecord record : records) {
                 probingDevices.remove(record.getDevice());
             }
@@ -343,7 +378,7 @@ public class IoTDBSinkClient {
                                     + " next configured node.",
                             sinkConfig.getNodeUrls().get(index),
                             device);
-                    deviceLeaderIndex.put(device, (index + 1) % sessions.length);
+                    deviceLeaderIndex.put(device, nextNodeAfter(index));
                     probingDevices.add(device);
                 }
                 nextRound.addAll(records);
@@ -367,6 +402,7 @@ public class IoTDBSinkClient {
                         e);
             }
             networkFailures[0]++;
+            unreachableNodes.add(index);
             log.warn(
                     "Writing {} records to IoTDB node {} failed (attempt {});"
                             + " rebuilding session and retrying.",
@@ -402,7 +438,28 @@ public class IoTDBSinkClient {
 
     private int leaderIndexOf(String device) {
         Integer index = deviceLeaderIndex.get(device);
-        return index == null ? 0 : index;
+        int preferred = index == null ? 0 : index;
+        // A cached leader that just failed at the network level must not swallow the retry
+        // budget again this round; route around it instead.
+        if (unreachableNodes.contains(preferred)) {
+            preferred = nextNodeAfter(preferred);
+        }
+        return preferred;
+    }
+
+    /**
+     * Returns the first node after {@code index} (wrapping) that has not failed at the network
+     * level during the current flush. When every node is flagged, the plain successor is returned
+     * so the round limit still bounds the traversal.
+     */
+    private int nextNodeAfter(int index) {
+        for (int step = 1; step <= sessions.length; step++) {
+            int candidate = (index + step) % sessions.length;
+            if (!unreachableNodes.contains(candidate)) {
+                return candidate;
+            }
+        }
+        return (index + 1) % sessions.length;
     }
 
     private static boolean isRedirectionRecommendation(StatementExecutionException e) {
