@@ -28,14 +28,22 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hazelcast.client.config.ClientConfig;
+import io.kubernetes.client.openapi.ApiException;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +53,9 @@ import java.util.concurrent.TimeoutException;
 
 /** Submits one isolated application Job and discovers its control plane on demand. */
 final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(KubernetesApplicationClusterDescriptor.class);
+
     private final KubernetesClient api;
     private final ReadonlyConfig options;
 
@@ -73,23 +84,135 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     @Override
     public String deployApplication(ApplicationSpecification specification) throws Exception {
-        return submitApplication(specification);
-    }
-
-    /**
-     * Localizes the specification, creates the owner Job and starts it without waiting for a live
-     * master.
-     *
-     * @param specification resolved job content and fixed resource requirements
-     * @return the generated Kubernetes Job name
-     * @throws Exception if the specification is invalid or the Kubernetes API rejects a resource
-     */
-    String submitApplication(ApplicationSpecification specification) throws Exception {
         KubernetesApplicationParameters parameters =
                 KubernetesApplicationParameters.from(specification, options);
         String id = KubernetesResourceFactory.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
-        return new KubernetesApplicationDeployment(api, id, mainClass, parameters).deploy();
+        validateUserManagedResources(parameters);
+        KubernetesApplicationSpecification applicationSpecification =
+                KubernetesApplicationFactory.buildApplicationSpecification(
+                        id, mainClass, parameters);
+        KubernetesJob job = null;
+        try {
+            LOG.debug("Creating owner Job {} and its accompanying resources", id);
+            job = api.createJob(applicationSpecification.getApplicationJob());
+            api.createAccompanyingResources(
+                    job, applicationSpecification.getAccompanyingResources());
+            LOG.debug("Starting Job {}", id);
+            api.startJob(job.getName());
+            return job.getName();
+        } catch (Exception failure) {
+            LOG.warn("Kubernetes application {} deployment failed", id, failure);
+            if (job != null || ambiguousOutcome(failure)) {
+                // Deleting the owner removes exactly the resources created for this application.
+                try {
+                    api.deleteApplication(id);
+                } catch (Exception cleanup) {
+                    failure.addSuppressed(cleanup);
+                }
+            }
+            throw describe(id, failure);
+        }
+    }
+
+    /**
+     * Verifies user-managed ConfigMaps before the first application resource is created.
+     *
+     * <p>The legacy {@code kubernetes.config-map} only needs to exist. Every {@code
+     * kubernetes.configmap.<entry>} reference additionally declares which keys it mounts, so those
+     * keys must exist in the referenced ConfigMap. No application-owned resource exists yet, so a
+     * failure here never needs compensation.
+     *
+     * @param parameters resolved application settings
+     * @throws Exception if a referenced ConfigMap or one of its mounted keys is missing
+     */
+    private void validateUserManagedResources(KubernetesApplicationParameters parameters)
+            throws Exception {
+        if (parameters.getConfigMap() != null) {
+            getReadableConfigMap(parameters.getConfigMap(), "kubernetes.config-map");
+        }
+        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+            if (!entry.isReference()) {
+                continue;
+            }
+            KubernetesConfigMap configMap =
+                    getReadableConfigMap(
+                            entry.getReference(), "kubernetes.configmap." + entry.getEntryName());
+            if (configMap == null) {
+                continue;
+            }
+            for (String key : entry.getMountPaths().keySet()) {
+                if (!containsKey(configMap, key)) {
+                    throw new IllegalArgumentException(
+                            "kubernetes.configmap."
+                                    + entry.getEntryName()
+                                    + " mounts missing key "
+                                    + key
+                                    + " from ConfigMap "
+                                    + entry.getReference());
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads a user-managed ConfigMap for validation.
+     *
+     * <p>A missing ConfigMap or key is a configuration error reported before creation. When the
+     * submitting identity cannot read the ConfigMap, validation is skipped with a warning because
+     * the Pod may still reference it through its own service account.
+     *
+     * @param name ConfigMap name
+     * @param option option that references it, used in the warning
+     * @return the ConfigMap, or {@code null} when the submitter is not allowed to read it
+     * @throws Exception if the ConfigMap is missing or the API fails for another reason
+     */
+    private KubernetesConfigMap getReadableConfigMap(String name, String option) throws Exception {
+        try {
+            return api.getConfigMap(name);
+        } catch (ApiException failure) {
+            if (failure.getCode() == 403) {
+                LOG.warn(
+                        "No permission to verify {} ConfigMap {}; continuing without validation",
+                        option,
+                        name);
+                return null;
+            }
+            throw failure;
+        }
+    }
+
+    private static boolean containsKey(KubernetesConfigMap configMap, String key) {
+        return (configMap.getInternalResource().getData() != null
+                        && configMap.getInternalResource().getData().containsKey(key))
+                || (configMap.getInternalResource().getBinaryData() != null
+                        && configMap.getInternalResource().getBinaryData().containsKey(key));
+    }
+
+    /** @return whether a failed request may still have been applied by the API server */
+    private static boolean ambiguousOutcome(Exception failure) {
+        if (!(failure instanceof ApiException)) {
+            return false;
+        }
+        int code = ((ApiException) failure).getCode();
+        return code == 0 || code >= 500;
+    }
+
+    private static Exception describe(String id, Exception failure) {
+        if (!(failure instanceof ApiException)) {
+            return failure;
+        }
+        ApiException apiFailure = (ApiException) failure;
+        return new ApiException(
+                "Kubernetes application deployment failed for "
+                        + id
+                        + " (HTTP "
+                        + apiFailure.getCode()
+                        + ")",
+                apiFailure,
+                apiFailure.getCode(),
+                apiFailure.getResponseHeaders(),
+                apiFailure.getResponseBody());
     }
 
     private String awaitMaster(String id, long timeoutMillis) throws Exception {
