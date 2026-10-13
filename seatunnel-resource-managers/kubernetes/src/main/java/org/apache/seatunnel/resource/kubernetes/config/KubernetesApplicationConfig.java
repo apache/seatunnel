@@ -96,6 +96,8 @@ public final class KubernetesApplicationConfig {
     private final Map<String, String> workerAnnotations;
     private final Map<String, String> masterNodeSelector;
     private final Map<String, String> workerNodeSelector;
+    private final List<KubernetesToleration> masterTolerations;
+    private final List<KubernetesToleration> workerTolerations;
 
     private KubernetesApplicationConfig(
             ApplicationSpecification specification, ReadonlyConfig options) {
@@ -144,6 +146,14 @@ public final class KubernetesApplicationConfig {
         this.workerAnnotations = pairs(options, KubernetesOptions.WORKER_ANNOTATIONS);
         this.masterNodeSelector = pairs(options, KubernetesOptions.MASTER_NODE_SELECTOR);
         this.workerNodeSelector = pairs(options, KubernetesOptions.WORKER_NODE_SELECTOR);
+        this.masterTolerations =
+                KubernetesToleration.parse(
+                        KubernetesOptions.MASTER_TOLERATIONS.key(),
+                        options.get(KubernetesOptions.MASTER_TOLERATIONS));
+        this.workerTolerations =
+                KubernetesToleration.parse(
+                        KubernetesOptions.WORKER_TOLERATIONS.key(),
+                        options.get(KubernetesOptions.WORKER_TOLERATIONS));
     }
 
     /**
@@ -326,6 +336,12 @@ public final class KubernetesApplicationConfig {
                 KubernetesOptions.MASTER_NODE_SELECTOR.key(), serializePairs(masterNodeSelector));
         properties.setProperty(
                 KubernetesOptions.WORKER_NODE_SELECTOR.key(), serializePairs(workerNodeSelector));
+        properties.setProperty(
+                KubernetesOptions.MASTER_TOLERATIONS.key(),
+                KubernetesToleration.serialize(masterTolerations));
+        properties.setProperty(
+                KubernetesOptions.WORKER_TOLERATIONS.key(),
+                KubernetesToleration.serialize(workerTolerations));
         properties.store(writer, "SeaTunnel Kubernetes application");
     }
 

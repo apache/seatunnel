@@ -58,6 +58,8 @@ Application Mode 在提交机上读取两个文件：部署文件（`-a`，包�
 | `kubernetes.worker.annotations` | 空 | Worker Pod annotation，格式为逗号分隔的 `key:value`。 |
 | `kubernetes.master.node-selector` | 空 | Master Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
 | `kubernetes.worker.node-selector` | 空 | Worker Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
+| `kubernetes.master.tolerations` | 空 | Master Pod 的 tolerations，格式为 `;` 分隔的 `key[=value][:Effect]`，例如 `dedicated=seatunnel:NoSchedule`。 |
+| `kubernetes.worker.tolerations` | 空 | Worker Pod 的 tolerations，语法与 master 选项一致。 |
 
 ### Application 选项
 
@@ -95,6 +97,25 @@ Application Mode 在提交机上读取两个文件：部署文件（`-a`，包�
 Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引用的本地文件和 JAR 不会动态
 下载，必须已经存在于镜像中。
 :::
+
+### 调度
+
+用 `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` 指定节点池，配合
+`kubernetes.*.tolerations` 容忍节点池上的 taint。Worker 是 master 运行时创建的，所以 worker 的
+tolerations 会随本地化配置一起进入 Pod：
+
+```hocon
+kubernetes {
+  master.node-selector = "pool:seatunnel"
+  worker.node-selector = "pool:seatunnel"
+  master.tolerations = "dedicated=seatunnel:NoSchedule"
+  worker.tolerations = "dedicated=seatunnel:NoSchedule;spot:NoExecute"
+}
+```
+
+每个条目形如 `key[=value][:Effect]`，多个用 `;` 分隔：不带 value 表示 `Exists` 操作符；显式
+effect 只能是 `NoSchedule`、`PreferNoSchedule` 或 `NoExecute`。不配 tolerations 时，Pod 会在带
+taint 的节点池上一直 `Pending`，事件里是 `had untolerated taint`。
 
 ### 作业配置
 

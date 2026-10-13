@@ -50,6 +50,7 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
 import io.kubernetes.client.openapi.models.V1ServicePort;
+import io.kubernetes.client.openapi.models.V1Toleration;
 import io.kubernetes.client.openapi.models.V1Volume;
 import io.kubernetes.client.openapi.models.V1VolumeMount;
 
@@ -164,6 +165,8 @@ class KubernetesApplicationResourcesTest {
         options.put(KubernetesOptions.WORKER_ANNOTATIONS.key(), "owner:runtime");
         options.put(KubernetesOptions.MASTER_NODE_SELECTOR.key(), "pool:master");
         options.put(KubernetesOptions.WORKER_NODE_SELECTOR.key(), "pool:worker");
+        options.put(KubernetesOptions.MASTER_TOLERATIONS.key(), "dedicated=seatunnel:NoSchedule");
+        options.put(KubernetesOptions.WORKER_TOLERATIONS.key(), "batch:NoExecute;spot=true");
         options.put("kubernetes.configmap.runtime.ref", "seatunnel-runtime");
         options.put(
                 "kubernetes.configmap.runtime.mount.seatunnel.yaml",
@@ -202,6 +205,13 @@ class KubernetesApplicationResourcesTest {
         assertEquals(
                 "master",
                 jobResource.getSpec().getTemplate().getSpec().getNodeSelector().get("pool"));
+        List<V1Toleration> masterTolerations =
+                jobResource.getSpec().getTemplate().getSpec().getTolerations();
+        assertEquals(1, masterTolerations.size());
+        assertEquals("dedicated", masterTolerations.get(0).getKey());
+        assertEquals("Equal", masterTolerations.get(0).getOperator());
+        assertEquals("seatunnel", masterTolerations.get(0).getValue());
+        assertEquals("NoSchedule", masterTolerations.get(0).getEffect());
         assertEquals(
                 "registry-two",
                 jobResource
@@ -230,6 +240,8 @@ class KubernetesApplicationResourcesTest {
         assertEquals(parameters.getWorkerAnnotations(), restored.getWorkerAnnotations());
         assertEquals(parameters.getMasterNodeSelector(), restored.getMasterNodeSelector());
         assertEquals(parameters.getWorkerNodeSelector(), restored.getWorkerNodeSelector());
+        assertEquals(parameters.getMasterTolerations(), restored.getMasterTolerations());
+        assertEquals(parameters.getWorkerTolerations(), restored.getWorkerTolerations());
         String runtimeVolume = KubernetesConstants.CONFIG_VOLUME + "-0";
         assertEquals(
                 "seatunnel-runtime", volume(jobResource, runtimeVolume).getConfigMap().getName());
@@ -260,6 +272,16 @@ class KubernetesApplicationResourcesTest {
         assertEquals("data", worker.getMetadata().getLabels().get("workload"));
         assertEquals("runtime", worker.getMetadata().getAnnotations().get("owner"));
         assertEquals("worker", worker.getSpec().getNodeSelector().get("pool"));
+        List<V1Toleration> workerTolerations = worker.getSpec().getTolerations();
+        assertEquals(2, workerTolerations.size());
+        assertEquals("batch", workerTolerations.get(0).getKey());
+        assertEquals("Exists", workerTolerations.get(0).getOperator());
+        assertNull(workerTolerations.get(0).getValue());
+        assertEquals("NoExecute", workerTolerations.get(0).getEffect());
+        assertEquals("spot", workerTolerations.get(1).getKey());
+        assertEquals("Equal", workerTolerations.get(1).getOperator());
+        assertEquals("true", workerTolerations.get(1).getValue());
+        assertNull(workerTolerations.get(1).getEffect());
         assertEquals("registry-one", worker.getSpec().getImagePullSecrets().get(0).getName());
         assertEquals(
                 "seatunnel-runtime", worker.getSpec().getVolumes().get(0).getConfigMap().getName());
@@ -545,6 +567,42 @@ class KubernetesApplicationResourcesTest {
                                 variable ->
                                         KubernetesConstants.SPECIFICATION_ENV.equals(
                                                 variable.getName())));
+    }
+
+    @Test
+    void rejectsInvalidTolerations() {
+        Map<String, String> unknownEffect = options();
+        unknownEffect.put(KubernetesOptions.MASTER_TOLERATIONS.key(), "dedicated=seatunnel:Never");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(unknownEffect))));
+        Map<String, String> missingKey = options();
+        missingKey.put(KubernetesOptions.WORKER_TOLERATIONS.key(), "=seatunnel:NoSchedule");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(missingKey))));
+        Map<String, String> missingValue = options();
+        missingValue.put(KubernetesOptions.WORKER_TOLERATIONS.key(), "dedicated=:NoSchedule");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(missingValue))));
+        Map<String, String> emptyEntry = options();
+        emptyEntry.put(KubernetesOptions.WORKER_TOLERATIONS.key(), "batch=true;;spot=true");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(),
+                                ReadonlyConfig.fromMap(new HashMap<>(emptyEntry))));
     }
 
     @Test

@@ -59,6 +59,8 @@ Command-line overrides (`-i key=value`) may be visible to other users on the sub
 | `kubernetes.worker.annotations` | Empty | Worker Pod annotations as comma-separated `key:value` pairs. |
 | `kubernetes.master.node-selector` | Empty | Master Pod node selector as comma-separated `key:value` pairs. |
 | `kubernetes.worker.node-selector` | Empty | Worker Pod node selector as comma-separated `key:value` pairs. |
+| `kubernetes.master.tolerations` | Empty | Master Pod tolerations as `key[=value][:Effect]` entries separated by `;`, for example `dedicated=seatunnel:NoSchedule`. |
+| `kubernetes.worker.tolerations` | Empty | Worker Pod tolerations, using the same syntax as the master option. |
 
 ### Application options
 
@@ -99,6 +101,26 @@ The provider does not create those credentials or expose an arbitrary Pod templa
 plugin JARs referenced by a job are not downloaded dynamically and must already be present in the
 image.
 :::
+
+### Scheduling
+
+Use `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` to target a node pool,
+and the matching `kubernetes.*.tolerations` to tolerate its taints. Workers are created by the
+master at runtime, so worker tolerations travel inside the localized specification:
+
+```hocon
+kubernetes {
+  master.node-selector = "pool:seatunnel"
+  worker.node-selector = "pool:seatunnel"
+  master.tolerations = "dedicated=seatunnel:NoSchedule"
+  worker.tolerations = "dedicated=seatunnel:NoSchedule;spot:NoExecute"
+}
+```
+
+Entries are `key[=value][:Effect]` separated by `;`: a key without a value uses the `Exists`
+operator, and an explicit effect must be `NoSchedule`, `PreferNoSchedule` or `NoExecute`. Without
+tolerations, the Pods stay `Pending` on a tainted node pool and report `had untolerated taint`
+events.
 
 ### Job configuration
 

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesToleration;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
 import io.kubernetes.client.custom.Quantity;
@@ -26,6 +27,7 @@ import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1LocalObjectReference;
 import io.kubernetes.client.openapi.models.V1PodSpec;
 import io.kubernetes.client.openapi.models.V1ResourceRequirements;
+import io.kubernetes.client.openapi.models.V1Toleration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Shared assembly for the factories that create the application's workload Pod skeletons.
@@ -78,7 +81,33 @@ public abstract class AbstractWorkloadFactory {
         }
         pod.setNodeSelector(
                 master ? parameters.getMasterNodeSelector() : parameters.getWorkerNodeSelector());
+        addTolerations(pod, master);
         return pod;
+    }
+
+    /** Applies the role's tolerations so tainted node pools stay schedulable. */
+    private void addTolerations(V1PodSpec pod, boolean master) {
+        List<KubernetesToleration> tolerations =
+                master ? parameters.getMasterTolerations() : parameters.getWorkerTolerations();
+        if (tolerations.isEmpty()) {
+            return;
+        }
+        pod.setTolerations(
+                tolerations.stream()
+                        .map(AbstractWorkloadFactory::kubernetesToleration)
+                        .collect(Collectors.toList()));
+    }
+
+    private static V1Toleration kubernetesToleration(KubernetesToleration toleration) {
+        V1Toleration result =
+                new V1Toleration().key(toleration.getKey()).operator(toleration.getOperator());
+        if (!toleration.getValue().isEmpty()) {
+            result.value(toleration.getValue());
+        }
+        if (!toleration.getEffect().isEmpty()) {
+            result.effect(toleration.getEffect());
+        }
+        return result;
     }
 
     private static V1ResourceRequirements resourceRequirements(int memoryMb, int cpuCores) {

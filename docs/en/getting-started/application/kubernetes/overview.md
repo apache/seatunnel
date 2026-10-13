@@ -25,6 +25,26 @@ Losing the master or any worker fails the current Job. Workers are not replaced 
 master is started. A new application can restore from a durable checkpoint.
 :::
 
+## Capabilities
+
+| Area | Supported in this release |
+| --- | --- |
+| Submission | `submit`, `status`, `cancel`; submission returns as soon as the Job is started, `--wait` opts into waiting |
+| Topology | One master and a fixed number of workers, each with its own CPU, memory and slots; one native job per application |
+| Job configuration | Submitted `-c` file or a file mounted from a Secret/ConfigMap; `${VAR}` placeholders resolved inside the Pod |
+| Secrets and ConfigMaps | Reference existing objects, which SeaTunnel never creates or deletes, or let it create owned ones; every mounted key declares its full path and uses `subPath` |
+| Environment | Per-variable `kubernetes.env.*` and whole-object `envFrom`, sourced from literals, Secrets or ConfigMaps |
+| Runtime files | Engine, Hazelcast, JVM-options and Log4j2 file selection, each of which can be disabled |
+| Scheduling | Namespace, ServiceAccount, image pull Secrets, labels, annotations, node selectors and tolerations |
+| Storage and recovery | Checkpoint PVC mount and recovery of an earlier job through `application.restore-job-id` |
+| Lifecycle | Worker loss or master exit fails the application; `cancel` removes every owned resource and keeps referenced ones; finished Jobs are retained for `kubernetes.finished-job-retention-seconds` |
+
+:::note
+Not in this release: HA master failover, worker replacement or autoscaling, arbitrary Pod templates,
+affinity/PriorityClass, Kerberos and REST/HTTPS. A failed application can be resumed from its last
+durable checkpoint with `application.restore-job-id`.
+:::
+
 ## Prerequisites
 
 - Kubernetes 1.24 or later with `batch/v1` Jobs, suspended Jobs, and Job TTL support.

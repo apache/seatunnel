@@ -42,4 +42,7 @@ kubernetes {
   env.MYSQL_PASSWORD = "secret:seatunnel-job-secrets/password"
   # Or inject every key of an existing Secret/ConfigMap at once (Kubernetes envFrom).
   # env-from.secret = "seatunnel-job-secrets"
+  # Tolerate a tainted node pool (optional); entries are key[=value][:Effect] separated by ';'.
+  # master.tolerations = "dedicated=seatunnel:NoSchedule"
+  # worker.tolerations = "dedicated=seatunnel:NoSchedule"
 }

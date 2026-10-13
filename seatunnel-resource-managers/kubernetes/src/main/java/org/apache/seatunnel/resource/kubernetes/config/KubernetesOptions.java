@@ -152,31 +152,39 @@ public final class KubernetesOptions {
                     .withDescription(
                             "Existing persistent volume claim mounted on the master at /opt/seatunnel/checkpoints; never deleted by application cleanup.");
     public static final Option<String> MASTER_LABELS =
-            keyValueOption(
+            textOption(
                     "kubernetes.master.labels",
                     "Additional labels on the master Pod, formatted as comma-separated key:value pairs.");
     public static final Option<String> WORKER_LABELS =
-            keyValueOption(
+            textOption(
                     "kubernetes.worker.labels",
                     "Additional labels on worker Pods, formatted as comma-separated key:value pairs.");
     public static final Option<String> MASTER_ANNOTATIONS =
-            keyValueOption(
+            textOption(
                     "kubernetes.master.annotations",
                     "Annotations on the master Pod, formatted as comma-separated key:value pairs.");
     public static final Option<String> WORKER_ANNOTATIONS =
-            keyValueOption(
+            textOption(
                     "kubernetes.worker.annotations",
                     "Annotations on worker Pods, formatted as comma-separated key:value pairs.");
     public static final Option<String> MASTER_NODE_SELECTOR =
-            keyValueOption(
+            textOption(
                     "kubernetes.master.node-selector",
                     "Node selector for the master Pod, formatted as comma-separated key:value pairs.");
     public static final Option<String> WORKER_NODE_SELECTOR =
-            keyValueOption(
+            textOption(
                     "kubernetes.worker.node-selector",
                     "Node selector for worker Pods, formatted as comma-separated key:value pairs.");
+    public static final Option<String> MASTER_TOLERATIONS =
+            textOption(
+                    "kubernetes.master.tolerations",
+                    "Tolerations for the master Pod, formatted as key[=value][:Effect] entries separated by ';', for example dedicated=seatunnel:NoSchedule.");
+    public static final Option<String> WORKER_TOLERATIONS =
+            textOption(
+                    "kubernetes.worker.tolerations",
+                    "Tolerations for worker Pods, formatted as key[=value][:Effect] entries separated by ';'.");
 
-    private static Option<String> keyValueOption(String key, String description) {
+    private static Option<String> textOption(String key, String description) {
         return Options.key(key).stringType().defaultValue("").withDescription(description);
     }
 }
