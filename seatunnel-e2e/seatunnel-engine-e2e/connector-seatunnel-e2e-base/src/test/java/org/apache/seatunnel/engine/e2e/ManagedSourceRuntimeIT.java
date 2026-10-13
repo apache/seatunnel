@@ -35,9 +35,9 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 /**
  * End-to-end coverage for the engine-managed Source runtime introduced by STIP-31.
  *
- * <p>The cluster boots with {@code managed-source-runtime} enabled and only FakeSource allowlisted,
- * so these tests run a real job through the managed Reader and coordinator event loops while every
- * other connector stays on the legacy lane.
+ * <p>The cluster boots with {@code managed-source-runtime} enabled, and FakeSource explicitly
+ * declares the managed capability. These tests therefore run a real job through the managed Reader
+ * and coordinator event loops while unsupported connectors remain on the legacy lane.
  *
  * <p>Each test asserts the lane that was actually selected. Without that assertion a silent
  * fallback to the legacy lane would still pass, which would make this suite worse than no coverage
@@ -74,7 +74,7 @@ public class ManagedSourceRuntimeIT extends SeaTunnelEngineContainer {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Assertions.assertTrue(
                 server.getLogs().contains(MANAGED_LANE_LOG),
-                "FakeSource is allowlisted, so it must run on the managed lane, not fall back to legacy");
+                "FakeSource declares the managed capability, so it must run on the managed lane");
     }
 
     /**

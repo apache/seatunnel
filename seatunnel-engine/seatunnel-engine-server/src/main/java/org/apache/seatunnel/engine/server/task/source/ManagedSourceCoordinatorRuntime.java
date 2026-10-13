@@ -169,6 +169,17 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
     }
 
     /**
+     * Returns readers whose managed epoch handshake has completed on the coordinator owner loop.
+     */
+    public Set<Integer> readyReaderSubtasks() {
+        checkOwner();
+        return readers.entrySet().stream()
+                .filter(entry -> entry.getValue().ready)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Binds the connector enumerator constructed during restore.
      *
      * <p>Called exactly once, synchronously within {@code SourceSplitEnumeratorTask.restoreState},

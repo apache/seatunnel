@@ -489,27 +489,36 @@ public class KafkaSourceSplitEnumerator
 
     private synchronized void assignSplit() {
         Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
+        Set<Integer> registeredReaders = context.registeredReaders();
         for (int taskID = 0; taskID < context.currentParallelism(); taskID++) {
-            readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+            if (registeredReaders.contains(taskID)) {
+                readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+            }
         }
 
         pendingSplit.forEach(
                 (key, value) -> {
                     if (!assignedSplit.containsKey(key)) {
-                        readySplit.get(getSplitOwner(key, context.currentParallelism())).add(value);
+                        List<KafkaSourceSplit> ownerSplits =
+                                readySplit.get(getSplitOwner(key, context.currentParallelism()));
+                        if (ownerSplits != null) {
+                            ownerSplits.add(value);
+                        }
                     }
                 });
 
+        Set<TopicPartition> dispatchedPartitions = new HashSet<>();
         readySplit.forEach(
                 (id, split) -> {
                     context.assignSplit(id, split);
+                    split.forEach(value -> dispatchedPartitions.add(value.getTopicPartition()));
                     if (discoveryIntervalMillis <= 0) {
                         context.signalNoMoreSplits(id);
                     }
                 });
 
-        assignedSplit.putAll(pendingSplit);
-        pendingSplit.clear();
+        dispatchedPartitions.forEach(
+                partition -> assignedSplit.put(partition, pendingSplit.remove(partition)));
     }
 
     private static int getSplitOwner(TopicPartition tp, int numReaders) {

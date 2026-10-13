@@ -24,6 +24,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 class SourceAssignmentTrackerTest {
 
@@ -62,6 +65,25 @@ class SourceAssignmentTrackerTest {
         Assertions.assertTrue(tracker.contains("command-1"));
         Assertions.assertEquals(1, tracker.stateCount(SourceAssignmentState.APPLIED));
         Assertions.assertEquals(0L, tracker.compactedEntries());
+    }
+
+    @Test
+    void restoreShouldNotClaimCoordinatorOwnerThread() throws Exception {
+        SourceAssignmentTracker source = new SourceAssignmentTracker(10, 16_384L);
+        recordAssignment(source, "command-1", 1L, 0, "attempt-1");
+        List<SourceAssignmentTracker.Entry> checkpointEntries = source.entries();
+
+        SourceAssignmentTracker restored = new SourceAssignmentTracker(10, 16_384L);
+        ExecutorService restoreExecutor = Executors.newSingleThreadExecutor();
+        try {
+            restoreExecutor
+                    .submit(() -> restored.restore(checkpointEntries))
+                    .get(1, TimeUnit.SECONDS);
+        } finally {
+            restoreExecutor.shutdownNow();
+        }
+
+        Assertions.assertEquals(1, restored.size());
     }
 
     @Test

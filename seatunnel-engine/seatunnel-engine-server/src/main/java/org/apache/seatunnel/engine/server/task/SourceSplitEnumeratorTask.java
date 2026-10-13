@@ -466,6 +466,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
+                } else if (isManagedCoordinatorRuntime()
+                        && managedCoordinatorRuntime.runOneTurn()) {
+                    // Keep draining checkpoint notifications until the final checkpoint closes
+                    // the bounded Source. Otherwise closeCalled can never be set.
                 } else {
                     Thread.sleep(100);
                 }
@@ -484,6 +488,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public Set<Integer> getRegisteredReaders() {
+        if (isManagedCoordinatorRuntime()) {
+            return managedCoordinatorRuntime.readyReaderSubtasks();
+        }
         return taskMemberMapping.keySet().stream()
                 .map(TaskLocation::getTaskIndex)
                 .collect(Collectors.toSet());

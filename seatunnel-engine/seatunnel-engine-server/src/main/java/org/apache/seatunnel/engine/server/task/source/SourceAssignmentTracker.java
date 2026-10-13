@@ -338,12 +338,12 @@ public final class SourceAssignmentTracker {
      * is the only trustworthy record of who owned what, and merging live entries into it would
      * resurrect assignments the checkpoint deliberately does not contain. Entries are copied so the
      * caller cannot mutate ledger state afterwards, and the configured limits are re-applied to the
-     * restored set.
+     * restored set. This restore hook deliberately does not claim event-loop ownership: it runs on
+     * the task-restore operation thread before the coordinator owner loop starts.
      *
      * @param restoredEntries entries decoded from the coordinator checkpoint
      */
     public void restore(Collection<Entry> restoredEntries) {
-        checkOwner();
         entries.clear();
         stateCounts.clear();
         trackedBytes = 0L;
