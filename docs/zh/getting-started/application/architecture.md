@@ -20,6 +20,14 @@ flowchart LR
     worker1 <-->|Hazelcast TCP| master
     workerN <-->|Hazelcast TCP| master
     master --> storage[("持久化 checkpoint 存储")]
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+    class cli,manager layerCyan;
+    class master,worker1,workerN layerBlue;
+    class storage layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## Engine 侧
