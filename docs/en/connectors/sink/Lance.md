@@ -94,7 +94,9 @@ The target Lance table name. When it is not set, the connector uses the upstream
 
 ### lance.write.batch-size
 
-Number of SeaTunnel rows buffered in memory before the writer converts them into **one** Lance fragment and appends it. The default is `10000` and the value must be at least `1`. A larger value produces fewer, larger fragments but keeps more rows in memory.
+Number of SeaTunnel rows buffered in memory before the writer converts them into **one** Lance fragment and appends it. The default is `10000` (the writer previously used a fixed buffer of `1000` rows), and the value must be at least `1`.
+
+Lance stores data by column, so a fragment of `10000` rows can still be small. Too few rows per fragment produces many small columnar files and increases read and write amplification later. A larger value means fewer, larger fragments, but each writer holds more rows in memory before flushing. Raise this value when the job has enough memory, and lower it when memory is tight, for example with wide rows or vector columns.
 
 The writer also flushes on checkpoint (`prepareCommit`) and when the sink closes, even if the buffer has not reached this size.
 

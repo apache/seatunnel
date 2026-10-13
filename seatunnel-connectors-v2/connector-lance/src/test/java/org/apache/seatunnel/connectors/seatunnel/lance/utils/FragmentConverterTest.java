@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -25,8 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import org.junit.jupiter.api.Assertions;
@@ -46,6 +50,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 class FragmentConverterTest {
@@ -103,6 +108,47 @@ class FragmentConverterTest {
             Assertions.assertEquals("row-0", new String(vector.get(0), StandardCharsets.UTF_8));
             Assertions.assertEquals("row-1", new String(vector.get(1), StandardCharsets.UTF_8));
             Assertions.assertEquals("row-2", new String(vector.get(2), StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void shouldPackMultipleArrayRowsIntoOneVectorSchemaRoot() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_floats"},
+                        new SeaTunnelDataType<?>[] {ArrayType.FLOAT_ARRAY_TYPE});
+        Field arrayField =
+                new Field(
+                        "c_floats",
+                        FieldType.nullable(new ArrowType.List()),
+                        Collections.singletonList(
+                                Field.nullable(
+                                        "item",
+                                        new ArrowType.FloatingPoint(
+                                                FloatingPointPrecision.SINGLE))));
+        Schema schema = new Schema(Collections.singletonList(arrayField));
+        List<Float> fiveValues = Arrays.asList(1.0f, 2.0f, 3.0f, 4.0f, 5.0f);
+        List<Float> oneValue = Collections.singletonList(6.0f);
+        List<Float> empty = Collections.emptyList();
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                Arrays.asList(
+                                        new SeaTunnelRow(new Object[] {fiveValues}),
+                                        new SeaTunnelRow(new Object[] {oneValue}),
+                                        new SeaTunnelRow(new Object[] {empty}),
+                                        new SeaTunnelRow(new Object[] {null})),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(4, root.getRowCount());
+            ListVector vector = (ListVector) root.getVector("c_floats");
+            Assertions.assertEquals(fiveValues, vector.getObject(0));
+            Assertions.assertEquals(oneValue, vector.getObject(1));
+            Assertions.assertFalse(vector.isNull(2));
+            Assertions.assertEquals(empty, vector.getObject(2));
+            Assertions.assertTrue(vector.isNull(3));
         }
     }
 

@@ -89,7 +89,9 @@ Lance namespace 的根目录。SeaTunnel 运行用户需要有权限在该目录
 
 ### lance.write.batch-size
 
-Writer 在内存中攒多少行后再转换成 **一个** Lance fragment 并 append。默认值是 `10000`，取值必须不小于 `1`。调大后 fragment 更少、更大，但内存里常驻的行也更多。
+Writer 在内存中攒多少行后再转换成 **一个** Lance fragment 并 append。默认值是 `10000`（此前 Writer 固定攒 `1000` 行），取值必须不小于 `1`。
+
+Lance 是列存格式，`10000` 行一个 fragment 可能仍然偏小。每个 fragment 行数过少，会产生大量小列存文件，增加后续的读写放大。调大后 fragment 更少、更大，但每个 Writer flush 前在内存里攒的行也更多。资源充足时可以调大这个值，资源紧张时（例如宽表或向量列）应调小。
 
 即使未凑满该行数，checkpoint（`prepareCommit`）和 sink close 时也会 flush。
 
