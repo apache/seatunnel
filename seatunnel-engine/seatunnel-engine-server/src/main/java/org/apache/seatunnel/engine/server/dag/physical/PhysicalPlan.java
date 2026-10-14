@@ -58,6 +58,10 @@ public class PhysicalPlan {
      *
      * <p>Kept as an explicit status set rather than an ordinal range so that adding a status in the
      * middle of the enum cannot silently change which states are considered "not started".
+     *
+     * <p>The check and status transition still use separate synchronization boundaries; the
+     * pre-existing check-then-act race is tracked in
+     * https://github.com/apache/seatunnel/issues/12342.
      */
     private static final Set<JobStatus> NOT_STARTED_STATUSES =
             EnumSet.of(JobStatus.INITIALIZING, JobStatus.CREATED, JobStatus.PENDING);
