@@ -10,13 +10,25 @@ Application Mode 为每个作业运行一套独立的 Zeta 集群。提交端创
 
 ## 1. 准备镜像
 
-使用包含 Application Mode 的发行版，或从源码构建：
+应用镜像就是标准 SeaTunnel 发行版加上 `resource-managers/kubernetes/` 里的 Kubernetes 资源管理器。
+可以直接用包含 Application Mode 的官方镜像，也可以自行构建（用于未发布改动或额外 Connector）。
+
+### 官方镜像
+
+```bash
+docker pull apache/seatunnel:<version>
+docker tag apache/seatunnel:<version> registry.example.com/seatunnel:application
+```
+
+### 自定义构建
+
+从源码构建发行版：
 
 ```bash
 ./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-用标准发行版构建应用镜像：
+用产物构建镜像：
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -33,6 +45,9 @@ WORKDIR /opt/seatunnel
 cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
 docker build -t registry.example.com/seatunnel:application .
 ```
+
+无论哪种方式，`kubernetes.image` 都必须指向集群可拉取的镜像：推送到镜像仓库，或加载到本地集群
+（`minikube image load`、`kind load docker-image`）。
 
 :::note
 镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及

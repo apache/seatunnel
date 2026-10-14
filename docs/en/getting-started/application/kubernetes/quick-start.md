@@ -11,13 +11,26 @@ fixed workers, runs exactly one job, releases the workers and exits.
 
 ## 1. Prepare the image
 
-Use a released distribution that includes Application Mode, or build one from source:
+The application image is the standard SeaTunnel distribution with the Kubernetes resource manager
+in `resource-managers/kubernetes/`. Use a released image that includes Application Mode, or build
+your own to pick up unreleased changes or extra connectors.
+
+### Released image
+
+```bash
+docker pull apache/seatunnel:<version>
+docker tag apache/seatunnel:<version> registry.example.com/seatunnel:application
+```
+
+### Custom image
+
+Build the distribution from source:
 
 ```bash
 ./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-Build the application image from the standard distribution:
+Build the image from the produced archive:
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -34,6 +47,9 @@ Put `apache-seatunnel-<version>-bin.tar.gz` from `seatunnel-dist/target/` next t
 cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
 docker build -t registry.example.com/seatunnel:application .
 ```
+
+Either way, `kubernetes.image` must name an image the cluster can pull: push it to a registry, or
+load it into a local cluster (`minikube image load`, `kind load docker-image`).
 
 :::note
 The image must contain `starter/`, `config/`, `lib/`, `connectors/` and
