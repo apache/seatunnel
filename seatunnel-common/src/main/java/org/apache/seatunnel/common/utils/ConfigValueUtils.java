@@ -230,4 +230,46 @@ public class ConfigValueUtils {
 
         return !inQuote && stack.isEmpty();
     }
+
+    /**
+     * Finds the position of the closing character matching the opener at {@code start}.
+     *
+     * @param input the input string to scan
+     * @param start the index of the opening token: {@code '$'} for {@code "${"},
+     *              {@code '['} for square brackets, or {@code '{'} for braces
+     * @return the index of the matching closing character, or {@code -1} if not found
+     */
+    public static int findClosePos(String input, int start) {
+        int braceDepth = 1;
+        int bracketDepth = 0;
+        boolean insideQuotes = false;
+
+        for (int i = start; i < input.length(); i++) {
+            char c = input.charAt(i);
+
+            if (c == '"') {
+                if (isEscapedQuote(input, i)) {
+                    continue;
+                }
+                insideQuotes = !insideQuotes;
+                continue;
+            }
+
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}') {
+                    braceDepth--;
+                    if (braceDepth == 0) {
+                        return i;
+                    }
+                } else if (c == '[') {
+                    bracketDepth++;
+                } else if (c == ']') {
+                    bracketDepth--;
+                }
+            }
+        }
+        return -1;
+    }
 }
