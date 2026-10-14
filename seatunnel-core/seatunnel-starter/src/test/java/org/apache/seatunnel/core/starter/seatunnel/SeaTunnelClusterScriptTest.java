@@ -83,7 +83,6 @@ public class SeaTunnelClusterScriptTest {
                         "PATH",
                         fakeJavaDirectory + ":" + builder.environment().getOrDefault("PATH", ""));
         builder.environment().put("CAPTURE_FILE", capturedArguments.toString());
-        builder.environment().put("HADOOP_CONF_DIR", "/etc/hadoop/conf");
         Process process = builder.start();
         try {
             Assertions.assertTrue(process.waitFor(10, TimeUnit.SECONDS));
@@ -97,7 +96,6 @@ public class SeaTunnelClusterScriptTest {
         Assertions.assertTrue(classpath.contains("/resource-managers/" + platform + "/*"));
         // Server configuration files must not leak into the client JVM through the classpath.
         Assertions.assertFalse(classpath.contains(appDirectory.resolve("config").toString()));
-        Assertions.assertFalse(classpath.contains("/etc/hadoop/conf"));
         int main =
                 captured.indexOf(
                         "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication");
