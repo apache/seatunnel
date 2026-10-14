@@ -166,8 +166,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
      */
     private void validateUserManagedResources(
             KubernetesApplicationConfig parameters, String applicationId) throws Exception {
-        // A created Secret or ConfigMap does not exist before this submission, so references to
-        // them
+        // A created Secret or ConfigMap does not exist before this submission, so references to it
         // are validated against the declared data keys instead of the API.
         String createdSecret = createdSecretName(parameters, applicationId);
         Map<String, KubernetesConfigMapEntry> createdConfigMaps =
@@ -176,22 +175,20 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             if (!entry.isReference()) {
                 continue;
             }
-            KubernetesConfigMap configMap =
-                    getReadableConfigMap(
-                            entry.getReference(),
-                            KubernetesConstants.CONFIG_MAP_PREFIX + entry.getEntryName());
+            String option = KubernetesConstants.CONFIG_MAP_PREFIX + entry.getEntryName();
+            KubernetesConfigMap configMap = getReadableConfigMap(entry.getReference(), option);
             if (configMap == null) {
                 continue;
             }
             for (String key : entry.getMountPaths().keySet()) {
                 if (!containsKey(configMap, key)) {
                     throw new IllegalArgumentException(
-                            KubernetesConstants.CONFIG_MAP_PREFIX
-                                    + entry.getEntryName()
-                                    + " mounts missing key "
-                                    + key
-                                    + " from ConfigMap "
-                                    + entry.getReference());
+                            String.format(
+                                    "%s mounts missing key %s from %s %s",
+                                    option,
+                                    key,
+                                    KubernetesConstants.CONFIG_MAP_KIND,
+                                    entry.getReference()));
                 }
             }
         }
@@ -256,48 +253,51 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         if (variable.isSecret()) {
             if (variable.getSecretName().equals(createdSecret)) {
                 if (!parameters.getApplicationSecretData().containsKey(variable.getKey())) {
-                    throw new IllegalArgumentException(
-                            option
-                                    + " references missing key "
-                                    + variable.getKey()
-                                    + " in Secret "
-                                    + createdSecret);
+                    throw missingKey(
+                            option,
+                            variable.getKey(),
+                            KubernetesConstants.SECRET_KIND,
+                            createdSecret);
                 }
                 return;
             }
             KubernetesSecret secret = getReadableSecret(variable.getSecretName(), option);
             if (secret != null && !containsKey(secret, variable.getKey())) {
-                throw new IllegalArgumentException(
-                        option
-                                + " references missing key "
-                                + variable.getKey()
-                                + " in Secret "
-                                + variable.getSecretName());
+                throw missingKey(
+                        option,
+                        variable.getKey(),
+                        KubernetesConstants.SECRET_KIND,
+                        variable.getSecretName());
             }
         } else if (variable.isConfigMap()) {
             KubernetesConfigMapEntry created = createdConfigMaps.get(variable.getConfigMapName());
             if (created != null) {
                 if (!created.getData().containsKey(variable.getKey())) {
-                    throw new IllegalArgumentException(
-                            option
-                                    + " references missing key "
-                                    + variable.getKey()
-                                    + " in ConfigMap "
-                                    + variable.getConfigMapName());
+                    throw missingKey(
+                            option,
+                            variable.getKey(),
+                            KubernetesConstants.CONFIG_MAP_KIND,
+                            variable.getConfigMapName());
                 }
                 return;
             }
             KubernetesConfigMap configMap =
                     getReadableConfigMap(variable.getConfigMapName(), option);
             if (configMap != null && !containsKey(configMap, variable.getKey())) {
-                throw new IllegalArgumentException(
-                        option
-                                + " references missing key "
-                                + variable.getKey()
-                                + " in ConfigMap "
-                                + variable.getConfigMapName());
+                throw missingKey(
+                        option,
+                        variable.getKey(),
+                        KubernetesConstants.CONFIG_MAP_KIND,
+                        variable.getConfigMapName());
             }
         }
+    }
+
+    /** @return error for one environment reference whose key is missing in the referenced object */
+    private static IllegalArgumentException missingKey(
+            String option, String key, String kind, String name) {
+        return new IllegalArgumentException(
+                String.format("%s references missing key %s in %s %s", option, key, kind, name));
     }
 
     /**
@@ -384,11 +384,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         KubernetesClientException clientFailure = (KubernetesClientException) failure;
         return new KubernetesClientException(
                 clientFailure.getCode(),
-                "Kubernetes application deployment failed for "
-                        + id
-                        + " (HTTP "
-                        + clientFailure.getCode()
-                        + ")",
+                String.format(
+                        "Kubernetes application deployment failed for %s (HTTP %d)",
+                        id, clientFailure.getCode()),
                 clientFailure);
     }
 
@@ -398,10 +396,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             KubernetesJob job = api.getJob(id);
             if (job.isFailed() || job.isComplete()) {
                 throw new IllegalStateException(
-                        "Kubernetes application "
-                                + id
-                                + " has no live master: "
-                                + job.getFailureReason());
+                        String.format(
+                                "Kubernetes application %s has no live master: %s",
+                                id, job.getFailureReason()));
             }
             String selector =
                     KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE);
