@@ -123,7 +123,7 @@ seatunnel:
     engine:
         slot-service:
             dynamic-slot: false
-            slot-num: 20
+            slot-num: 20  # 可选；未设置时默认为 CPU 核心数的 2 倍
         # 其他配置
 ```
 
@@ -166,7 +166,7 @@ seatunnel:
         backup-count: 1
         print-execution-info-interval: 10
         slot-service:
-            dynamic-slot: true
+            dynamic-slot: false
         checkpoint:
             interval: 300000
             timeout: 10000
@@ -377,7 +377,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+当`dynamic-slot: true`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
 
 ### 4.8 Coordinator Service
 

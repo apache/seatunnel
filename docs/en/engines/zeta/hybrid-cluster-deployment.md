@@ -64,7 +64,7 @@ seatunnel:
     engine:
         slot-service:
             dynamic-slot: false
-            slot-num: 20
+            slot-num: 20  # optional; defaults to 2 x CPU cores when omitted
         # Other configurations
 ```
 

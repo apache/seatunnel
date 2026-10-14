@@ -117,7 +117,7 @@ seatunnel:
     engine:
         slot-service:
             dynamic-slot: false
-            slot-num: 20
+            slot-num: 20  # optional; defaults to 2 x CPU cores when omitted
         # other configurations
 ```
 
@@ -161,7 +161,7 @@ seatunnel:
         backup-count: 1
         print-execution-info-interval: 10
         slot-service:
-            dynamic-slot: true
+            dynamic-slot: false
         checkpoint:
             interval: 300000
             timeout: 10000

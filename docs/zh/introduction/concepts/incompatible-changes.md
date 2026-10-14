@@ -13,6 +13,8 @@
     - 以前依靠按需动态生成 Slot 即可运行的任务，现在在达到固定 Slot 上限时可能在提交阶段失败并抛出 `NoEnoughResourceException`。在默认的 `job-schedule-strategy: REJECT` 下，这类任务会立即失败而非运行。
     - 如果您显式设置了 `job-schedule-strategy: WAIT`，该配置现在会真正生效（作业进入队列并每 3 秒重试），而不再被静默覆盖为 `REJECT`（只要 `dynamic-slot: true` 就会发生此覆盖）。对于从未意识到 `WAIT` 一直被忽略的用户，这是一次集群级的提交行为变更。
     - 滚动重启期间，动态/静态混部的 Worker 可能在心跳中上报不一致的 `dynamicSlot`，建议采用协调式（非滚动）重启。
+    - `seatunnel.sh -e local` 会加载发行包自带的 `config/seatunnel.yaml`，因此单机内嵌的 master-worker 节点现在以固定 `2 × availableProcessors()` 个 Slot 启动。在默认的 `job-schedule-strategy: REJECT` 下，所需 Slot 数超过该上限（N = 2 + P > slot-num）的任务会在提交时抛出 `NoEnoughResourceException`，而不再无上限运行。本地如需更大并行度，请在 `config/seatunnel.yaml` 中调大 `slot-num`，或在该文件中设置 `dynamic-slot: true`。
+    - 升级或 master active 切换后，从 `runningJobInfoIMap` 恢复的任务会与新提交的任务一样经过固定 Slot 上限的资源检查，而不会被无条件恢复。过去依靠动态生成 Slot 运行的任务可能在启用新默认值后的第一次重启时被标记为 `FAILED`（checkpoint 保持完好）。重启前请按需要持续运行的任务规模评估 `slot-num`（N = 2 + Σ 作业并行度），或设置 `dynamic-slot: true`。
   - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请根据峰值并行度评估 `slot-num`（N = 2 + Σ 作业并行度），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
 
 ### 运行环境要求
