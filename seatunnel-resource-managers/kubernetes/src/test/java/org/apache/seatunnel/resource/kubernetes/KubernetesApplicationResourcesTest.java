@@ -538,6 +538,28 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    void rejectsLocalizedSpecificationsAboveTheEnvTransportLimit() {
+        Map<String, String> options = options();
+        String oversizedJobOption = new String(new char[80 * 1024]).replace('\0', 'x');
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(
+                        "env { job.mode = BATCH }\nenv { oversized = \""
+                                + oversizedJobOption
+                                + "\" }",
+                        options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters));
+        assertTrue(failure.getMessage().contains("too large"), failure.getMessage());
+    }
+
+    @Test
     void keepsTheLocalizedSpecificationOffWorkerPods() throws Exception {
         KubernetesApplicationConfig parameters =
                 KubernetesApplicationConfig.from(

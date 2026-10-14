@@ -342,6 +342,7 @@ class KubernetesApplicationTest {
         String applicationId = descriptor.deployApplication(specification());
         assertTrue(nativeClients.constructed().isEmpty());
         InOrder order = inOrder(api);
+        order.verify(api).getConfigMap("seatunnel-runtime");
         order.verify(api).createJob(any());
         order.verify(api).createAccompanyingResources(any(), any());
         order.verify(api).startJob(applicationId);
