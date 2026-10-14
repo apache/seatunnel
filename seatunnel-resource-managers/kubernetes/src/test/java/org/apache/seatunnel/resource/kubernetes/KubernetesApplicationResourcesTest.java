@@ -1645,6 +1645,41 @@ class KubernetesApplicationResourcesTest {
                                 specification(), ReadonlyConfig.fromMap(new HashMap<>(options))));
     }
 
+    @Test
+    void rejectsUnknownKubernetesOptions() {
+        Map<String, String> options = options();
+        options.put("kubernetes.worker.toleration", "dedicated=seatunnel:NoSchedule");
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                KubernetesApplicationConfig.from(
+                                        specification(),
+                                        ReadonlyConfig.fromMap(new HashMap<>(options))));
+        assertTrue(
+                failure.getMessage().contains("kubernetes.worker.toleration"),
+                failure.getMessage());
+    }
+
+    @Test
+    void supportsEscapedCommasInAnnotationValues() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.WORKER_ANNOTATIONS.key(), "team:platform\\,batch");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals("platform,batch", parameters.getWorkerAnnotations().get("team"));
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals(
+                "platform,batch",
+                KubernetesApplicationConfig.read(encoded).getWorkerAnnotations().get("team"));
+    }
+
     private static List<String> masterCommand(KubernetesApplicationConfig parameters) {
         return applicationJob(
                         KubernetesApplicationClusterDescriptor.assembleApplication(

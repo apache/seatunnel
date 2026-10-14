@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionUtil;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
@@ -62,6 +63,14 @@ import java.util.stream.Collectors;
 @Getter
 public final class KubernetesApplicationConfig {
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
+
+    /** Prefixes of options whose keys are dynamic, for example {@code kubernetes.env.<NAME>}. */
+    private static final List<String> DYNAMIC_OPTION_PREFIXES =
+            Arrays.asList(
+                    KubernetesConstants.ENV_PREFIX,
+                    KubernetesConstants.ENV_FROM_PREFIX,
+                    KubernetesConstants.SECRET_DATA_PREFIX,
+                    KubernetesConstants.CONFIG_MAP_PREFIX);
 
     /** Sections of one {@code kubernetes.configmap.<entry>} option. */
     private static final String SECTION_REF = "ref";
@@ -150,6 +159,7 @@ public final class KubernetesApplicationConfig {
         this.jobConfigFile = resolveJobConfigFile(options, seatunnelHome);
         requireJobConfiguration(specification.getJobConfig(), jobConfigFile);
         Map<String, String> rawOptions = rawOptions(options);
+        validateDeclaredOptions(rawOptions);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
         this.applicationSecretData = secretData(rawOptions);
@@ -729,8 +739,40 @@ public final class KubernetesApplicationConfig {
 
     private static String serializePairs(Map<String, String> pairs) {
         return pairs.entrySet().stream()
-                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                .map(entry -> entry.getKey() + ":" + entry.getValue().replace(",", "\\,"))
                 .collect(Collectors.joining(","));
+    }
+
+    /**
+     * Rejects unknown {@code kubernetes.*} options so a misspelled key fails fast instead of being
+     * dropped silently.
+     *
+     * <p>Keys with dynamic names, such as {@code kubernetes.env.<NAME>} or {@code
+     * kubernetes.configmap.<entry>.data.<key>}, are validated by their own parsers.
+     *
+     * @param options raw deployment options
+     * @throws IllegalArgumentException if an option is neither declared nor dynamic
+     */
+    private static void validateDeclaredOptions(Map<String, String> options) {
+        Set<String> declared = OptionUtil.getDeclaredOptionKeys(KubernetesOptions.class);
+        for (String key : options.keySet()) {
+            if (!key.startsWith(KubernetesConstants.OPTION_PREFIX)
+                    || declared.contains(key)
+                    || startsWithAny(key, DYNAMIC_OPTION_PREFIXES)) {
+                continue;
+            }
+            throw new IllegalArgumentException(
+                    "Unknown Kubernetes option " + key + "; check the option name");
+        }
+    }
+
+    private static boolean startsWithAny(String value, List<String> prefixes) {
+        for (String prefix : prefixes) {
+            if (value.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String requireNonBlank(ReadonlyConfig options, Option<String> option) {
@@ -1032,14 +1074,14 @@ public final class KubernetesApplicationConfig {
             return Collections.emptyMap();
         }
         Map<String, String> result = new LinkedHashMap<>();
-        for (String pair : value.split(",")) {
+        for (String pair : splitPairs(value)) {
             int separator = pair.indexOf(':');
             if (separator <= 0 || separator == pair.length() - 1) {
                 throw new IllegalArgumentException(
                         option.key() + " must contain comma-separated key:value pairs");
             }
             String key = pair.substring(0, separator).trim();
-            String configuredValue = pair.substring(separator + 1).trim();
+            String configuredValue = pair.substring(separator + 1).trim().replace("\\,", ",");
             if (key.isEmpty()
                     || configuredValue.isEmpty()
                     || result.put(key, configuredValue) != null) {
@@ -1048,5 +1090,36 @@ public final class KubernetesApplicationConfig {
             }
         }
         return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Splits comma-separated pairs while keeping an escaped comma ({@code \,}) inside one pair.
+     *
+     * @param value configured pairs
+     * @return the raw pairs, with escapes preserved for the value parser
+     */
+    private static List<String> splitPairs(String value) {
+        List<String> pairs = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean escaped = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (escaped) {
+                current.append('\\').append(character);
+                escaped = false;
+            } else if (character == '\\') {
+                escaped = true;
+            } else if (character == ',') {
+                pairs.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(character);
+            }
+        }
+        if (escaped) {
+            current.append('\\');
+        }
+        pairs.add(current.toString());
+        return pairs;
     }
 }

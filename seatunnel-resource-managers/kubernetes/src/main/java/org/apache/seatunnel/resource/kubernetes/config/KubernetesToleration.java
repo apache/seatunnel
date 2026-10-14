@@ -93,6 +93,9 @@ public final class KubernetesToleration {
     private static KubernetesToleration parseEntry(String optionKey, String text) {
         String key = text;
         String effect = "";
+        // Kubernetes accepts only the three effects and requires toleration values to be valid
+        // label values, so a ':' segment that is not an effect is rejected instead of silently
+        // becoming part of the value.
         int effectSeparator = key.indexOf(':');
         if (effectSeparator >= 0) {
             effect = key.substring(effectSeparator + 1).trim();
