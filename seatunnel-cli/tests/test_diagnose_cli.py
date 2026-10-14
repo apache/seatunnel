@@ -705,6 +705,24 @@ def test_optional_realtime_data_gap_is_not_a_healthy_diagnosis(engine, body):
     assert "persistently backpressured" not in out
 
 
+@pytest.mark.parametrize("bp", [0.0, 0.8])
+def test_stale_realtime_samples_are_reported_as_a_gap_in_the_cli(engine, bp):
+    edges, vertices = _realtime_payloads(bp=bp)
+    edges["toMs"] = vertices["toMs"] = 22000
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = 4_000_000_000
+    engine.script = _realtime_routes(edges, vertices)
+
+    code, out = _run()
+
+    assert code == 0
+    assert "Realtime pressure checks unavailable" in out
+    assert "Nothing to report" not in out
+    assert "persistently backpressured" not in out
+    assert "substantial time preparing/committing" not in out
+    assert len(engine.paths) == 4
+
+
 def test_missing_realtime_endpoint_preserves_checkpoint_slowdown(engine):
     _, vertices = _realtime_payloads()
     engine.script = _realtime_routes(

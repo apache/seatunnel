@@ -84,13 +84,11 @@ def _points(series, start, end, width):
     return {ts: point for ts, point in indexed.items() if ts not in conflicts}
 
 
-def _recent_run(timestamps, width):
-    timestamps = sorted(timestamps)[-MIN_BUCKETS:]
-    if len(timestamps) < MIN_BUCKETS:
-        return []
-    if any(b - a != width for a, b in zip(timestamps, timestamps[1:])):
-        return []
-    return timestamps
+def _recent_run(timestamps, width, end):
+    """Require the window's latest complete buckets, not a stale matching run."""
+    complete_end = (end // width) * width
+    required = [complete_end - i * width for i in range(MIN_BUCKETS, 0, -1)]
+    return required if all(ts in timestamps for ts in required) else []
 
 
 def _unavailable(reason):
@@ -142,7 +140,7 @@ def diagnose_realtime(edges, vertices) -> list[Finding]:
             continue
         ep = _points(edge, start, end, width)
         vp = vertex_points.get(target, {})
-        run = _recent_run(ep.keys() & vp.keys(), width)
+        run = _recent_run(ep.keys() & vp.keys(), width, end)
         if not run:
             incomplete_queues += 1
             continue
@@ -181,7 +179,7 @@ def diagnose_realtime(edges, vertices) -> list[Finding]:
         )
 
     for vertex_id, points in vertex_points.items():
-        run = _recent_run(points, width)
+        run = _recent_run(points, width, end)
         if not run:
             continue
         ratios = []

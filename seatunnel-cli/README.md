@@ -346,7 +346,9 @@ The prototype thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
 buckets; busy or prepare/commit time ≥ 0.5 supplies the corresponding work
 evidence. Repeated points are not additional samples, the current partial
 bucket is excluded, and endpoints must have matching bucket widths and an
-overlapping window. Disabled, missing or insufficient data is reported as
+overlapping window. The three buckets must be the latest complete buckets in
+that shared engine window; older matches cannot replace missing or conflicting
+recent data. Disabled, missing or insufficient data is reported as
 unavailable while job/checkpoint diagnosis continues. Source read time alone
 is not source attribution: synchronous downstream work can execute within
 the source's `pollNext()`.

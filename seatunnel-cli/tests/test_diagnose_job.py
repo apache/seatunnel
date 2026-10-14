@@ -842,6 +842,55 @@ def test_realtime_conflicting_duplicate_points_are_discarded():
     assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
 
 
+@pytest.mark.parametrize("endpoint", ["edges", "vertices"])
+@pytest.mark.parametrize("gap", ["missing", "conflicting"])
+def test_realtime_recent_gap_cannot_fall_back_to_an_old_pressure_episode(endpoint, gap):
+    edges, vertices = _realtime_payloads(timestamps=(0, 5000, 10000, 15000))
+    edges["toMs"] = vertices["toMs"] = 22000
+    points = (edges if endpoint == "edges" else vertices)[endpoint][0]["points"]
+    if gap == "missing":
+        points.pop()
+    else:
+        conflicting = {**points[-1]}
+        conflicting["bpRatio" if endpoint == "edges" else "sinkBusyRatio"] = 0
+        points.append(conflicting)
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_stale_healthy_samples_are_a_coverage_gap():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    edges["toMs"] = vertices["toMs"] = 27000
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_old_commit_pressure_is_not_current_evidence():
+    edges, vertices = _realtime_payloads(bp=0, fill=0, busy=0)
+    edges["toMs"] = vertices["toMs"] = 22000
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = 4_000_000_000
+
+    assert _rules(diagnose_realtime(edges, vertices)) == ["realtime_unavailable"]
+
+
+def test_realtime_window_ending_at_a_boundary_includes_the_just_completed_bucket():
+    edges, vertices = _realtime_payloads()
+    edges["toMs"] = vertices["toMs"] = 15000
+
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "window=0..15000ms" in finding.evidence
+
+
+def test_realtime_freshness_uses_the_shared_engine_window():
+    edges, vertices = _realtime_payloads(timestamps=(0, 5000, 10000, 15000))
+    edges["toMs"] = 22000
+    vertices["toMs"] = 17000
+
+    finding = _by_rule(diagnose_realtime(edges, vertices), "realtime_queue_pressure")
+    assert "window=0..15000ms" in finding.evidence
+
+
 def test_realtime_requires_matching_target_and_timestamps():
     edges, vertices = _realtime_payloads()
     vertices["vertices"][0]["vertexId"] = 999
