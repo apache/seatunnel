@@ -156,10 +156,11 @@ ServiceAccount; the table lists when each of its permissions is needed:
 The localized specification travels in the master Pod environment; no application Secret is
 created by default.
 
-## 3. Create the runtime ConfigMap
+## 3. Create the runtime ConfigMap (optional)
 
-The master and worker Pods need `seatunnel.yaml` and `log4j2_client.properties` from the
-distribution. Create one ConfigMap and mount the keys per file:
+The image already contains `config/seatunnel.yaml` and `config/log4j2_client.properties`, so the
+first run can skip this step. Create a ConfigMap only when you override those files without
+rebuilding the image:
 
 ```bash
 kubectl -n seatunnel-apps create configmap seatunnel-configuration \
@@ -168,7 +169,15 @@ kubectl -n seatunnel-apps create configmap seatunnel-configuration \
 ```
 
 Mounts use `subPath`, so only the declared files are replaced and the rest of the image
-configuration directory stays untouched.
+configuration directory stays untouched. Reference the ConfigMap from the deployment file:
+
+```hocon
+kubernetes.configmap.runtime {
+  ref = "seatunnel-configuration"
+  mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
+  mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
+}
+```
 
 ## 4. Create the deployment configuration
 
@@ -192,11 +201,6 @@ kubernetes {
   # The demo job is mounted from a ConfigMap SeaTunnel creates for this application, so the first
   # submission needs no -c file.
   job-config-file = job.conf
-  configmap.runtime {
-    ref = "seatunnel-configuration"
-    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-  }
   configmap.job-conf {
     data.job.conf = """
       env {
