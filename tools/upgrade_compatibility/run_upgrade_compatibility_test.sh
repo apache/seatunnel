@@ -53,9 +53,9 @@ assert_contains() {
 
 test_selects_regular_distribution() {
     reset_distributions
-    local regular_archive="${DIST_DIR}/apache-seatunnel-3.0.0-SNAPSHOT-bin.tar.gz"
+    local regular_archive="${DIST_DIR}/apache-seatunnel-3.0.1-SNAPSHOT-bin.tar.gz"
     touch "${regular_archive}"
-    touch "${DIST_DIR}/apache-seatunnel-edge-agent-3.0.0-SNAPSHOT-bin.tar.gz"
+    touch "${DIST_DIR}/apache-seatunnel-edge-agent-3.0.1-SNAPSHOT-bin.tar.gz"
 
     assert_equals "${regular_archive}" "$(find_current_distribution)"
 }
@@ -71,7 +71,7 @@ test_uses_explicit_distribution() {
 
 test_rejects_missing_regular_distribution() {
     reset_distributions
-    touch "${DIST_DIR}/apache-seatunnel-edge-agent-3.0.0-SNAPSHOT-bin.tar.gz"
+    touch "${DIST_DIR}/apache-seatunnel-edge-agent-3.0.1-SNAPSHOT-bin.tar.gz"
 
     local output
     if output="$(find_current_distribution 2>&1)"; then
@@ -83,7 +83,7 @@ test_rejects_missing_regular_distribution() {
 
 test_rejects_multiple_regular_distributions() {
     reset_distributions
-    touch "${DIST_DIR}/apache-seatunnel-3.0.0-SNAPSHOT-bin.tar.gz"
+    touch "${DIST_DIR}/apache-seatunnel-3.0.1-SNAPSHOT-bin.tar.gz"
     touch "${DIST_DIR}/apache-seatunnel-3.1.0-SNAPSHOT-bin.tar.gz"
 
     local output
