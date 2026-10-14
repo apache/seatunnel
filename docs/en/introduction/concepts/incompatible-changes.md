@@ -325,6 +325,15 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
+- **Breaking Change: Doris LARGEINT now maps to DECIMAL(39,0) instead of STRING**
+  - **Affected component**: `seatunnel-connectors-v2/connector-doris` source side (`AbstractDorisTypeConverter`)
+  - **Description**: Doris `LARGEINT` is a signed 128-bit integer whose maximum value (2^127 - 1 = 170141183460469231731687303715884105727) has 39 decimal digits. The connector previously exposed it as `STRING` in the SeaTunnel schema, which forced downstream sinks and transforms that expect numeric types to handle a string-to-number conversion. It was also mapped to `DECIMAL(20,0)` in some code paths (e.g. nested map values), which silently narrows values that exceed 20 digits. LARGEINT columns now resolve to `DECIMAL(39,0)`, and nested values in array and map types propagate this precision as well.
+  - **Impact**: Any downstream consumer that previously treated a Doris LARGEINT column as `STRING` will now see `DECIMAL(39,0)`. Code or SQL that explicitly casts or coerces the column to STRING may receive a different runtime type. Additionally, `DECIMAL(39,0)` exceeds Spark's 38-digit ceiling — a Doris LARGEINT column read through the Spark adapter will cause Spark to reject the schema with a precision-exceeds-38 error.
+  - **Migration Guide**:
+    - **General**: Remove explicit `CAST(... AS STRING)` on Doris LARGEINT columns where numeric arithmetic is desired; the column is now natively decimal.
+    - **Spark users**: If you route Doris LARGEINT columns through the Spark adapter, explicitly cast them to a compatible type in a Transform (e.g., `CAST(largeint_col AS STRING)` or `CAST(largeint_col AS BIGINT)` if values fit). A dedicated fix for the Spark precision ceiling is tracked separately.
+    - **Sink auto-create**: Doris-to-Doris roundtrips preserve the original `LARGEINT` declaration; cross-database sinks that auto-create target tables will receive `DECIMAL(39,0)`, which may need manual DDL adjustment if the target DB does not support 39-digit precision.
+
 ### Transform Changes
 
 - **Behavior change: AMAZON embedding honors retry options**
