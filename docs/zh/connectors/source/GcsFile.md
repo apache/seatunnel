@@ -54,10 +54,17 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | field_delimiter | string | 否 | `\001` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
 | row_delimiter | string | 否 | `\n` | text 文件的行分隔符。 |
 | skip_header_row_number | long | 否 | `0` | 跳过 text 或 CSV 文件开头的行数。 |
+| csv_use_header_line | boolean | 否 | `false` | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用。 |
 | encoding | string | 否 | `UTF-8` | text、JSON、CSV 和 XML 的字符编码。 |
+| date_format | string | 否 | `yyyy-MM-dd` | 日期类型格式，用于告诉连接器如何将字符串转换为日期。 |
+| datetime_format | string | 否 | `yyyy-MM-dd HH:mm:ss` | 时间戳类型格式，用于告诉连接器如何将字符串转换为时间戳。 |
+| time_format | string | 否 | `HH:mm:ss` | 时间类型格式，用于告诉连接器如何将字符串转换为时间。 |
 | parse_partition_from_path | boolean | 否 | `true` | 从 `/year=2026/month=08` 形式的路径解析分区值。 |
 | recursive_file_scan | boolean | 否 | `true` | 是否递归扫描子目录。 |
 | file_filter_pattern | string | 否 | - | 文件名过滤模式。 |
+| file_filter_modified_start | string | 否 | - | 按最后修改时间过滤文件。过滤修改时间晚于等于该时间的文件（含该时间），默认格式为 `yyyy-MM-dd HH:mm:ss`。 |
+| file_filter_modified_end | string | 否 | - | 按最后修改时间过滤文件。过滤修改时间早于该时间的文件（不含该时间），默认格式为 `yyyy-MM-dd HH:mm:ss`。 |
+| sort_files_by_modification_time | boolean | 否 | `false` | 是否按修改时间降序排序文件。读取不断演化的 schema 时启用此选项，可确保 schema 推断使用最新的文件。 |
 | filename_extension | string | 否 | - | 文件扩展名过滤，例如 `csv` 或 `.json`。 |
 | compress_codec | string | 否 | `none` | 单个压缩文件的压缩编码。 |
 | archive_compress_codec | string | 否 | `none` | 归档压缩编码。 |
@@ -85,6 +92,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | backup_path | string | 条件必填 | - | `post_sync_action=backup` 时必填，且不能与源路径重叠。 |
 | retention_max_age | string | 否 | - | SeaTunnel 备份对象的最大保留时间。 |
 | retention_check_interval | string | 否 | `1H` | 备份保留扫描间隔。 |
+| metalake_type | string | 否 | `gravitino` | Metalake 服务类型，目前支持 `gravitino`。 |
 | common-options | | 否 | - | 参见 [Source 通用配置](../common-options/source-common-options.md)。 |
 
 ## 示例

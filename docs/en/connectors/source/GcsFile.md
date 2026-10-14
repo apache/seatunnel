@@ -64,10 +64,17 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | field_delimiter | string | no | `\001` | Field delimiter for text and CSV files. `delimiter` is an alias. |
 | row_delimiter | string | no | `\n` | Row delimiter for text files. |
 | skip_header_row_number | long | no | `0` | Number of initial text or CSV rows to skip. |
+| csv_use_header_line | boolean | no | `false` | Use the header line to parse the file, only used when the file format is `csv` and the file contains an RFC 4180 header line. |
 | encoding | string | no | `UTF-8` | Character encoding for text, JSON, CSV, and XML files. |
+| date_format | string | no | `yyyy-MM-dd` | Date type format, used to tell the connector how to convert string to date. |
+| datetime_format | string | no | `yyyy-MM-dd HH:mm:ss` | Datetime type format, used to tell the connector how to convert string to datetime. |
+| time_format | string | no | `HH:mm:ss` | Time type format, used to tell the connector how to convert string to time. |
 | parse_partition_from_path | boolean | no | `true` | Adds partition values parsed from paths such as `/year=2026/month=08`. |
 | recursive_file_scan | boolean | no | `true` | Whether to scan subdirectories recursively. |
 | file_filter_pattern | string | no | - | File name filter pattern. |
+| file_filter_modified_start | string | no | - | File modification time filter. Filters files based on the last modification start time (inclusive). The default format is `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. Filters files based on the last modification end time (exclusive). The default format is `yyyy-MM-dd HH:mm:ss`. |
+| sort_files_by_modification_time | boolean | no | `false` | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | filename_extension | string | no | - | File extension filter, for example `csv` or `.json`. |
 | compress_codec | string | no | `none` | Compression codec for a single compressed file. |
 | archive_compress_codec | string | no | `none` | Archive compression codec. |
@@ -95,6 +102,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | backup_path | string | conditional | - | Required for `post_sync_action=backup`. Must not overlap the source path. |
 | retention_max_age | string | no | - | Maximum age for SeaTunnel backup objects. |
 | retention_check_interval | string | no | `1H` | Backup retention scan interval. |
+| metalake_type | string | no | `gravitino` | The type of metalake service, currently supports `gravitino`. |
 | common-options | | no | - | See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Example
