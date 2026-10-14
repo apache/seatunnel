@@ -302,6 +302,10 @@ public class DorisValueReader {
         return next;
     }
 
+    /**
+     * Finds the IPV4 fields by their catalog source type, because the row type only says STRING and
+     * the Arrow reader cannot tell an IPV4 column from a plain integer.
+     */
     @VisibleForTesting
     static int[] ipv4FieldIndexes(CatalogTable catalogTable, SeaTunnelRowType rowType) {
         Map<String, String> sourceTypes = new HashMap<>();
@@ -318,6 +322,10 @@ public class DorisValueReader {
         return indexes.stream().mapToInt(Integer::intValue).toArray();
     }
 
+    /**
+     * Runs after the Arrow-to-row step and turns the integer that Doris sends for IPV4 into
+     * dotted-decimal text, leaving NULL as is.
+     */
     @VisibleForTesting
     static void convertIpv4Fields(SeaTunnelRow row, int[] ipv4FieldIndexes) {
         for (int index : ipv4FieldIndexes) {
