@@ -224,7 +224,7 @@ For source installs (`setup.sh` / `pip install`), the directory structure does n
 For live connector metadata and REST API job submission, start the SeaTunnel server:
 
 ```bash
-export SEATUNNEL_API_BASE=http://localhost:5801  # Default
+export SEATUNNEL_API_BASE=http://localhost:8080  # Default: the engine's Jetty HTTP port
 ```
 
 When the engine is running, the CLI operates in **cluster mode** with live connector metadata, engine-level validation, and direct job submission via REST API. When unavailable, it falls back to **offline mode** using the bundled connector metadata.
@@ -248,7 +248,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
-| `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
+| `SEATUNNEL_API_BASE` | No | `http://localhost:8080` | SeaTunnel REST API endpoint (the engine's Jetty HTTP port, not the 5801 member port) |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
 
 ## Usage
