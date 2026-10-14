@@ -197,6 +197,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | enable_upsert                             | Boolean | 否    | true                         |
 | is_primary_key_updated                    | Boolean | 否    | true                         |
 | support_upsert_by_insert_only             | Boolean | 否    | false                        |
+| upsert_batch_key_ordered                  | Boolean | 否    | false                        |
 | table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
@@ -310,7 +311,7 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 ### max_retries [int]
 
-JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
+JDBC `executeBatch` 失败后的重试次数。对于 PostgreSQL `40P01` 等事务冲突，只有在 sink 能够回滚并完整重放本次 flush 事务时才会重试。当一个 checkpoint 事务跨越多个 flush 时，冲突会直接抛出，由 checkpoint 恢复机制安全重放整个事务。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
 ### batch_size [int]
 
@@ -553,6 +554,10 @@ sink {
 ### support_upsert_by_insert_only [boolean]
 
 是否通过仅 insert 的语句支持 upsert 行为。该参数属于高级兼容选项，默认关闭。
+
+### upsert_batch_key_ordered [boolean]
+
+在每次 flush 前，按确定性的主键顺序执行标准主键 upsert 和 delete 条目，降低并发 JDBC writer 之间因加锁顺序不同导致死锁的概率。为保持兼容，默认值为 `false`，仅作用于自动生成的主键 upsert 路径；自定义 `query` 仍按其配置顺序执行。排序只覆盖一次 flush，不能替代事务冲突处理。
 
 ### use_copy_statement [boolean]
 
