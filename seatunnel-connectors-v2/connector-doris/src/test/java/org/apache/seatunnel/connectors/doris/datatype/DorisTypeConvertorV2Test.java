@@ -190,6 +190,54 @@ public class DorisTypeConvertorV2Test {
     }
 
     @Test
+    public void testReconvertIpv4() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("address")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType("ipv4")
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertIpv6() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("address")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType("IPV6")
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertStringNotIp() {
+        // Plain STRING without an IP sourceType must NOT be reconverted to IPV4/IPV6
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(16777215L)
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getDataType());
+    }
+
+    @Test
     public void testConvertSmallint() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()

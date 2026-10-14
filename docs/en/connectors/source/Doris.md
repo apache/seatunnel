@@ -56,6 +56,8 @@ Used to read data from Apache Doris.
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4                                 | STRING                                                                                                                                              |
+| IPV6                                 | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |

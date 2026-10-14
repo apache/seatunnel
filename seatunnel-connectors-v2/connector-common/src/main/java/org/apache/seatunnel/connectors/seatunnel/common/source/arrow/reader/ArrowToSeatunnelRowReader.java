@@ -159,12 +159,15 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             SqlType currentType, Types.MinorType minorType, Object fieldValue) {
         switch (currentType) {
             case STRING:
+                if (fieldValue == null) {
+                    return null;
+                }
                 if (fieldValue instanceof byte[]) {
                     return new String((byte[]) fieldValue);
                 } else if (fieldValue instanceof Text) {
                     return ((Text) fieldValue).toString();
                 } else {
-                    return fieldValue;
+                    return fieldValue.toString();
                 }
             case DECIMAL:
                 if (fieldValue instanceof String) {

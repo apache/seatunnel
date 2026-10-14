@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.source.reader;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.backend.BackendClient;
@@ -39,7 +40,9 @@ import org.apache.doris.sdk.thrift.TScanOpenResult;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -73,6 +76,9 @@ public class DorisValueReader {
     protected SeaTunnelRowType seaTunnelRowType;
     protected boolean asyncThreadStarted;
 
+    /** Column indices that are IPV4 type and need integer-to-dotted-decimal conversion. */
+    protected final List<Integer> ipv4ColumnIndices = new ArrayList<>();
+
     public DorisValueReader(
             PartitionDefinition partition,
             DorisSourceConfig config,
@@ -88,6 +94,52 @@ public class DorisValueReader {
             this.rowBatchBlockingQueue = new ArrayBlockingQueue<>(blockingQueueSize);
         }
         init();
+        initIpv4ColumnIndices();
+    }
+
+    /**
+     * Identify which column indices are IPV4 based on sourceType in the catalog table schema. Doris
+     * sends IPV4 as an Int32 through Arrow, so we need to convert those integers to dotted-decimal
+     * text after reading.
+     */
+    private void initIpv4ColumnIndices() {
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        List<Column> columns = dorisSourceTable.getCatalogTable().getTableSchema().getColumns();
+        for (int i = 0; i < fieldNames.length; i++) {
+            for (Column col : columns) {
+                if (col.getName().equals(fieldNames[i])
+                        && col.getSourceType() != null
+                        && col.getSourceType().equalsIgnoreCase("IPV4")) {
+                    ipv4ColumnIndices.add(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /** Convert an IPV4 32-bit integer to dotted-decimal text, e.g. -1062731775 → "192.168.0.1". */
+    private static String convertIpv4IntToString(int ip) {
+        return String.format(
+                "%d.%d.%d.%d",
+                (ip >>> 24) & 0xFF, (ip >>> 16) & 0xFF, (ip >>> 8) & 0xFF, ip & 0xFF);
+    }
+
+    /** Post-process a row to convert any IPV4 integer values to dotted-decimal strings. */
+    private void convertIpv4Columns(SeaTunnelRow row) {
+        for (int idx : ipv4ColumnIndices) {
+            Object value = row.getField(idx);
+            if (value instanceof Integer) {
+                row.setField(idx, convertIpv4IntToString((Integer) value));
+            } else if (value instanceof String) {
+                // ArrowToSeatunnelRowReader.toString() gave us the signed int string, convert it
+                try {
+                    int ip = Integer.parseInt((String) value);
+                    row.setField(idx, convertIpv4IntToString(ip));
+                } catch (NumberFormatException ignored) {
+                    // Already a dotted-decimal or other text, leave it alone
+                }
+            }
+        }
     }
 
     private void init() {
@@ -284,6 +336,7 @@ public class DorisValueReader {
                     DorisConnectorErrorCode.SHOULD_NEVER_HAPPEN, "never happen error.");
         }
         SeaTunnelRow next = rowBatch.next();
+        convertIpv4Columns(next);
         next.setTableId(dorisSourceTable.getTablePath().toString());
         return next;
     }
