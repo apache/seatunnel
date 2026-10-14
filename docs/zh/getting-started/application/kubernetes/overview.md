@@ -17,7 +17,7 @@ Kubernetes Application Mode 为一个 SeaTunnel 作业创建一个独立的 Kube
 | Worker | N 个普通 Pod | 加入独立 Hazelcast 集群并提供固定 task slot |
 | 作业配置 | 默认内联在 Master 环境；可选挂载 `job.conf` | 由 `kubernetes.job-config-file` 选择 ConfigMap 或 Secret 文件；不设置时使用提交的 `-c` 文件 |
 | 运行时配置 | 已有或自建 ConfigMap | 以只读方式挂载给 Master 和 Worker，包含 `seatunnel.yaml`、Hazelcast、JVM 参数与日志配置 |
-| Master 发现 | Headless Service | 为 Worker 提供当前 application 的 Master 地址 |
+| Master 发现 | Master Pod IP | Worker 通过该地址经 TCP 加入集群；Headless Service 只负责选中 Master Pod |
 | Checkpoint | PVC 或受支持的远程存储 | 在 application 之外保存可恢复状态 |
 
 :::caution

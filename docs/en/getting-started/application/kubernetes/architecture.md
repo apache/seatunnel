@@ -18,7 +18,7 @@ flowchart TB
     job["batch/v1 Job"]
     appConfig["Created Secret / ConfigMap<br/>optional runtime files"]
     runtimeConfig["ConfigMap<br/>SeaTunnel runtime configuration"]
-    service["Headless Service<br/>master discovery"]
+    service["Headless Service<br/>master Pod selector"]
     master["Master Pod<br/>Zeta Master"]
     worker1["Worker Pod 1"]
     workerN["Worker Pod N"]
@@ -33,8 +33,8 @@ flowchart TB
   runtimeConfig -. read-only mount .-> master
   runtimeConfig -. read-only mount .-> worker1
   runtimeConfig -. read-only mount .-> workerN
-  service -. resolve master .-> worker1
-  service -. resolve master .-> workerN
+  master -. pod IP .-> worker1
+  master -. pod IP .-> workerN
   master -->|create fixed workers| api
   api --> worker1
   api --> workerN
@@ -62,7 +62,7 @@ flowchart TB
    ConfigMap.
 3. After the API confirms the dependent resources, it unsuspends the Job and returns the Job name without waiting for the master Pod. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port. Use `status` or Pod events to observe slow image pulls, admission or scheduling problems.
 4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. Each worker has a process liveness probe, and the master watches application-labelled Pod snapshots for deletion and terminal phases.
-5. Workers resolve the master through the headless Service, join the cluster, and register slots. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
+5. Workers join the master over TCP at its Pod IP and register slots; the headless Service only selects the master Pod. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
 6. The master submits one Zeta job after every worker is ready.
 7. After the job terminates, the master removes workers and exits. The Job records `Complete` or `Failed`.
 

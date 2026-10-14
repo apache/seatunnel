@@ -110,7 +110,7 @@ Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引
 | --- | --- | --- |
 | Job | `create`、`get`、`patch`、`delete` | 始终需要；`patch` 用于解除 Job 挂起 |
 | Pod | `list`、`deletecollection` | 始终需要；`list` 供 `status` 查询，`deletecollection` 供 `cancel` 清理 |
-| Service | `create`、`delete` | 始终需要；headless 发现 Service |
+| Service | `create`、`delete` | 始终需要；用于选中 Master Pod 的 headless Service |
 | ConfigMap | `get` | `kubernetes.configmap.<entry>.ref`；无权限时校验降级为告警 |
 | ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
 | Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |

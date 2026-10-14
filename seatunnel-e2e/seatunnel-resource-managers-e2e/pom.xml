@@ -183,22 +183,6 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>${surefire.jvm.args} -Xmx2048m ${surefire.module.args}</argLine>
-                    <!-- Release the MiniCluster JVM before starting the K3s suite on CI. -->
-                    <forkCount>1</forkCount>
-                    <reuseForks>false</reuseForks>
-                    <!-- MiniCluster uses upstream test jars; exclude the relocated runtime API. -->
-                    <classpathDependencyExcludes combine.children="override">
-                        <classpathDependencyExclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</classpathDependencyExclude>
-                        <!-- The staged fat jar contains unshaded Jetty classes; worker JVMs load it from the archive. -->
-                        <classpathDependencyExclude>org.apache.seatunnel:seatunnel-starter</classpathDependencyExclude>
-                    </classpathDependencyExcludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>${surefire.jvm.args} -Xmx2048m ${surefire.module.args}</argLine>
@@ -206,6 +190,9 @@
                     <!-- The disposable K3s cluster and its fixtures are started once per JVM and
                          shared by every application-mode scenario class. -->
                     <reuseForks>true</reuseForks>
+                    <!-- A renamed or missing scenario class must fail the run instead of turning
+                         this job green with "No tests to run". -->
+                    <failIfNoSpecifiedTests>true</failIfNoSpecifiedTests>
                     <includes>
                         <include>${kubernetes.test.include}</include>
                     </includes>

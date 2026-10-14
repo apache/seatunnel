@@ -17,7 +17,7 @@ Use it when Kubernetes manages compute resources and jobs require isolated resou
 | Worker | N regular Pods | Join the isolated Hazelcast cluster and provide fixed task slots |
 | Job configuration | Inline master environment; optional mounted `job.conf` | `kubernetes.job-config-file` selects a ConfigMap or Secret file; unset keeps the submitted `-c` file |
 | Runtime configuration | Existing or created ConfigMap | Mounted read-only by the master and workers with `seatunnel.yaml`, Hazelcast, JVM option and logging files |
-| Master discovery | Headless Service | Provide the current application's master address to workers |
+| Master discovery | Master Pod IP | Workers join the advertised Pod IP over TCP; the headless Service only selects the master Pod |
 | Checkpoint | PVC or supported remote storage | Preserve recoverable state outside the application |
 
 :::caution

@@ -115,7 +115,7 @@ The **submitting identity** runs `bin/seatunnel-application.sh` and needs:
 | --- | --- | --- |
 | Jobs | `create`, `get`, `patch`, `delete` | always; `patch` unsuspends the Job after creation |
 | Pods | `list`, `deletecollection` | always; `list` resolves the application status, `deletecollection` removes the Pods on `cancel` |
-| Services | `create`, `delete` | always; the headless discovery Service |
+| Services | `create`, `delete` | always; the headless Service that selects the master Pod |
 | ConfigMaps | `get` | `kubernetes.configmap.<entry>.ref`; without it the validation is skipped with a warning |
 | ConfigMaps | `create`, `delete` | only with a created entry (`kubernetes.configmap.<entry>.data`) |
 | Secrets | `create`, `delete` | only with `kubernetes.secret` |
