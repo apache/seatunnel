@@ -170,12 +170,20 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
         return MySqlIncrementalSource.class;
     }
 
+    /**
+     * Dry-run-only schema inference: discovers tables from MySQL via the catalog path. The result
+     * is cached on the context for the subsequent {@link #validateConnectionForDryRun} call.
+     */
     @Override
     public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
         ReadonlyConfig config = normalizeConfig(context.getOptions());
         return buildCatalogTables(context, config, Collections.emptyList());
     }
 
+    /**
+     * Dry-run-only connection validation: opens a JDBC connection to the MySQL server and checks
+     * replication privileges plus binlog configuration. No source instance is created.
+     */
     @Override
     public void validateConnectionForDryRun(
             TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
@@ -183,7 +191,12 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
         validateReplicationPrivileges(config);
     }
 
-    /** Normalize source options before dry-run validation. */
+    /**
+     * Hook for subclasses to normalize connector-specific options before dry-run validation.
+     *
+     * <p>The default implementation is an identity transform; {@code OceanBaseIncrementalSourceFactory}
+     * overrides this to inject {@code compatible_mode=mysql}.
+     */
     protected ReadonlyConfig normalizeConfig(ReadonlyConfig config) {
         return config;
     }
@@ -200,6 +213,13 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
         };
     }
 
+    /**
+     * Dry-run-only validation: verifies that the MySQL user has the required replication privileges
+     * and the server has binlog enabled with ROW format.
+     *
+     * <p>Called only from {@code --dry-run connect}; the normal {@code createSource} / {@code
+     * restoreSource} paths are unaffected.
+     */
     private void validateReplicationPrivileges(ReadonlyConfig config) {
         try {
             MySqlSourceConfigFactory sourceConfigFactory =
@@ -215,6 +235,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                     MySqlConnectionUtils.createMySqlConnection(
                             sourceConfigFactory.create(0).getDbzConfiguration())) {
                 validateReplicationPrivileges(connection, config.get(JdbcSourceOptions.USERNAME));
+                validateBinlogConfiguration(connection);
             }
         } catch (Exception e) {
             if (e instanceof SeaTunnelException) {
@@ -224,6 +245,14 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
         }
     }
 
+    /**
+     * Verifies that the MySQL user has the two privileges required by Debezium for CDC: {@code
+     * REPLICATION SLAVE} and {@code REPLICATION CLIENT}.
+     *
+     * <p>This check is dry-run-only; the runtime path relies on Debezium's own privilege checks.
+     * Note that {@code RELOAD} and {@code SELECT} are also commonly needed but are not enforced
+     * here because they are typically granted by default on MySQL and OceanBase installations.
+     */
     static void validateReplicationPrivileges(MySqlConnection connection, String username) {
         for (String privilege : Arrays.asList("REPLICATION SLAVE", "REPLICATION CLIENT")) {
             if (!connection.userHasPrivileges(privilege)) {
@@ -239,6 +268,72 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 + escapedUsername
                                 + "'@'%';");
             }
+        }
+    }
+
+    /**
+     * Verifies server-side binlog settings required by MySQL CDC: {@code log_bin=ON}, {@code
+     * binlog_format=ROW}, and {@code binlog_row_image=FULL}.
+     *
+     * <p>These are cheap {@code SHOW GLOBAL VARIABLES} queries that run during dry-run connect.
+     * Missing any of them will cause the real CDC job to fail at start, so catching them early
+     * gives users a clear, actionable message.
+     */
+    private static void validateBinlogConfiguration(MySqlConnection connection) {
+        try {
+            checkVariableEquals(connection, "log_bin", "ON");
+            checkVariableEquals(connection, "binlog_format", "ROW");
+            checkVariableEquals(connection, "binlog_row_image", "FULL");
+        } catch (SeaTunnelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to check MySQL binlog configuration. "
+                            + "Ensure the user has sufficient privileges to run SHOW VARIABLES.",
+                    e);
+        }
+    }
+
+    private static void checkVariableEquals(
+            MySqlConnection connection, String variableName, String expectedValue) {
+        String actualValue;
+        try {
+            actualValue =
+                    connection.queryAndMap(
+                            "SHOW GLOBAL VARIABLES LIKE '" + variableName + "'",
+                            rs -> {
+                                if (rs.next()) {
+                                    return rs.getString(2);
+                                }
+                                return null;
+                            });
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to query MySQL variable '" + variableName + "': " + e.getMessage(), e);
+        }
+
+        if (actualValue == null) {
+            throw new SeaTunnelException(
+                    "MySQL variable '"
+                            + variableName
+                            + "' not found. The server may not support this variable or "
+                            + "the user lacks SHOW VARIABLES privileges.");
+        }
+
+        if (!expectedValue.equalsIgnoreCase(actualValue.trim())) {
+            throw new SeaTunnelException(
+                    "MySQL variable '"
+                            + variableName
+                            + "' must be '"
+                            + expectedValue
+                            + "' for CDC to work, but it is currently '"
+                            + actualValue
+                            + "'. "
+                            + "Update my.cnf and restart the server, or use SET GLOBAL "
+                            + variableName
+                            + "='"
+                            + expectedValue
+                            + "' if dynamic reconfiguration is supported.");
         }
     }
 

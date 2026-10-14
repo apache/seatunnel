@@ -132,12 +132,31 @@ public class ElasticsearchSinkFactory implements TableSinkFactory, SupportSinkDr
         validateConnection(context.getOptions());
     }
 
+    /**
+     * Dry-run-only connection validation: verifies that the Elasticsearch cluster is reachable and,
+     * for static index names with {@code SCHEMA_SAVE_MODE=ERROR_WHEN_SCHEMA_NOT_EXIST}, that the
+     * target index exists.
+     */
     private void validateConnection(ReadonlyConfig config) {
         try (EsRestClient client = EsRestClient.createInstance(config)) {
             validateConnection(config, client);
         }
     }
 
+    /**
+     * Shared validation logic factored out so both production dry-run and unit tests can reuse it.
+     *
+     * <p>Checks performed:
+     *
+     * <ol>
+     *   <li>{@code GET /} succeeds — proves the host list and credentials work.
+     *   <li>If the configured index is a literal name (no {@code $} interpolation) and {@code
+     *       SCHEMA_SAVE_MODE} is {@code ERROR_WHEN_SCHEMA_NOT_EXIST}, issues a {@code HEAD
+     *       /index_name} to confirm the target exists.
+     * </ol>
+     *
+     * <p>This does not create any documents or schemas.
+     */
     static void validateConnection(ReadonlyConfig config, EsRestClient client) {
         client.getClusterInfo();
         String index = config.get(INDEX);

@@ -34,8 +34,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
 
 class ElasticsearchSinkFactoryTest {
 
@@ -90,8 +92,7 @@ class ElasticsearchSinkFactoryTest {
         ElasticsearchSinkFactory.validateConnection(config, client);
 
         verify(client).getClusterInfo();
-        verify(client, org.mockito.Mockito.never())
-                .checkIndexExist(org.mockito.ArgumentMatchers.anyString());
+        verify(client, never()).checkIndexExist(anyString());
     }
 
     @Test

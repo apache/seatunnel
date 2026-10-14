@@ -232,6 +232,18 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         return createSourceConfigFactory(config, startupConfig, stopConfig);
     }
 
+    /**
+     * Static factory overload used by the dry-run validation path to build a Debezium {@link
+     * MySqlSourceConfigFactory} without needing a live {@link MySqlIncrementalSource} instance.
+     *
+     * <p>On the runtime path, the instance method {@link #createSourceConfigFactory} delegates to
+     * this same overload; splitting into two methods keeps the public {@code SourceConfig.Factory}
+     * SPI contract intact while letting {@code MySqlIncrementalSourceFactory} construct the factory
+     * for its own JDBC privilege checks.
+     *
+     * <p>This method is intentionally not public to avoid leaking it into the wider connector
+     * SPI.
+     */
     static MySqlSourceConfigFactory createSourceConfigFactory(
             ReadonlyConfig config, StartupConfig startupConfig, StopConfig stopConfig) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();

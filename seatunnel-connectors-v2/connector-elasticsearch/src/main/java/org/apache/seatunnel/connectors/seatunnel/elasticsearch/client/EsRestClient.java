@@ -46,7 +46,6 @@ import org.apache.http.util.EntityUtils;
 
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
@@ -526,16 +525,14 @@ public class EsRestClient implements Closeable {
     }
 
     /**
-     * Instead of the getIndexDocsCount method to determine if the index exists,
+     * Check whether an index exists in Elasticsearch.
      *
-     * <p>
+     * <p>The low-level REST client ignores 404 responses for HEAD requests and returns a normal
+     * {@link Response} with status 404. This method returns {@code true} only on 200, and {@code
+     * false} for 404; other error responses raise {@link ElasticsearchConnectorException}.
      *
-     * <p>getIndexDocsCount throws an exception if the index does not exist
-     *
-     * <p>
-     *
-     * @param index index
-     * @return true or false
+     * @param index index name
+     * @return true if the index exists, false if it does not (404)
      */
     public boolean checkIndexExist(String index) {
         Request request = new Request("HEAD", "/" + index.toLowerCase());
@@ -543,12 +540,6 @@ public class EsRestClient implements Closeable {
             Response response = restClient.performRequest(request);
             int statusCode = response.getStatusLine().getStatusCode();
             return statusCode == 200;
-        } catch (ResponseException ex) {
-            if (ex.getResponse().getStatusLine().getStatusCode() == 404) {
-                return false;
-            }
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
         } catch (Exception ex) {
             throw new ElasticsearchConnectorException(
                     ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
