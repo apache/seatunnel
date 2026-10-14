@@ -35,16 +35,15 @@ public class StandaloneResourceManager extends AbstractResourceManager {
         log.info("Init standalone ResourceManager");
         try {
             super.init();
-        } catch (Exception e) {
-            IllegalStateException initializationFailure =
-                    new IllegalStateException(
-                            "Could not initialize standalone resource manager", e);
+        } catch (RuntimeException e) {
+            // Keep the original exception type visible to callers and log-based alerting; only add
+            // the cleanup failure as a suppressed exception.
             try {
                 close();
             } catch (RuntimeException cleanupFailure) {
-                initializationFailure.addSuppressed(cleanupFailure);
+                e.addSuppressed(cleanupFailure);
             }
-            throw initializationFailure;
+            throw e;
         }
     }
 }

@@ -351,6 +351,10 @@ final class DefaultKubernetesClient implements KubernetesClient {
     /**
      * Deletes the owner Job with foreground propagation so Kubernetes removes the Pods, Secret and
      * Service created for this application, then removes any remaining labeled Pods.
+     *
+     * <p>Workers are disposable and are deleted immediately. The master Pod keeps its own
+     * termination grace period so its shutdown hook and checkpoint retention can finish before the
+     * container is killed.
      */
     @Override
     public void deleteApplication(String id) {
@@ -363,7 +367,20 @@ final class DefaultKubernetesClient implements KubernetesClient {
             }
         }
         try {
-            deletePods(KubernetesResourceIdentity.selector(id));
+            // Workers are disposable, so they are deleted immediately.
+            deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE), 0);
+        } catch (KubernetesClientException e) {
+            if (failure == null) {
+                failure = e;
+            } else {
+                failure.addSuppressed(e);
+            }
+        }
+        try {
+            // The master keeps its own termination grace period so its shutdown hook and
+            // checkpoint retention can finish before the container is killed.
+            deletePods(
+                    KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE), null);
         } catch (KubernetesClientException e) {
             if (failure == null) {
                 failure = e;
@@ -396,10 +413,21 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void deleteWorkers(String id) {
-        deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE));
+        deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE), 0);
     }
 
-    private void deletePods(String selector) {
+    /**
+     * Deletes the Pods selected by the given label selector without waiting for their termination.
+     *
+     * <p>Deletion uses {@code Background} propagation, so Kubernetes removes the Pods on its own
+     * schedule and a missing collection is tolerated.
+     *
+     * @param selector label selector of the Pods to delete
+     * @param gracePeriodSeconds termination grace period in seconds, or {@code null} to keep the
+     *     {@code terminationGracePeriodSeconds} declared by each Pod
+     * @throws KubernetesClientException if the request fails for a reason other than absence
+     */
+    private void deletePods(String selector, Integer gracePeriodSeconds) {
         try {
             core.deleteCollectionNamespacedPod(
                     namespace,
@@ -407,7 +435,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
                     null,
                     null,
                     null,
-                    0,
+                    gracePeriodSeconds,
                     selector,
                     null,
                     null,

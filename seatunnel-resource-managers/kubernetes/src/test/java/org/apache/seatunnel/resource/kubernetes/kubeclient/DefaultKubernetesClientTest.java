@@ -263,6 +263,7 @@ class DefaultKubernetesClientTest {
     @Test
     void deletesOnlyTheOwnerJobAndLabeledPods() throws Exception {
         List<String> requests = new ArrayList<>();
+        List<String> queries = new ArrayList<>();
         ApiClient client =
                 new ApiClient()
                         .setHttpClient(
@@ -275,6 +276,8 @@ class DefaultKubernetesClientTest {
                                                                     + chain.request()
                                                                             .url()
                                                                             .encodedPath());
+                                                    queries.add(
+                                                            chain.request().url().encodedQuery());
                                                     return new Response.Builder()
                                                             .request(chain.request())
                                                             .protocol(Protocol.HTTP_1_1)
@@ -291,13 +294,21 @@ class DefaultKubernetesClientTest {
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             api.deleteApplication("app");
         }
-        assertEquals(2, requests.size());
+        assertEquals(3, requests.size());
         assertTrue(
                 requests.get(0).startsWith("DELETE /apis/batch/v1/namespaces/test/jobs/app"),
                 requests.toString());
         assertTrue(
                 requests.get(1).startsWith("DELETE /api/v1/namespaces/test/pods"),
                 requests.toString());
+        assertTrue(
+                requests.get(2).startsWith("DELETE /api/v1/namespaces/test/pods"),
+                requests.toString());
+        // Workers are deleted immediately; the master keeps its own termination grace period.
+        assertTrue(queries.get(1).contains("worker"), queries.toString());
+        assertTrue(queries.get(1).contains("gracePeriodSeconds=0"), queries.toString());
+        assertTrue(queries.get(2).contains("master"), queries.toString());
+        assertFalse(queries.get(2).contains("gracePeriodSeconds"), queries.toString());
         assertFalse(
                 requests.stream()
                         .anyMatch(

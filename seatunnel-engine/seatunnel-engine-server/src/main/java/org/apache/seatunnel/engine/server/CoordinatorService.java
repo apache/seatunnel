@@ -1347,8 +1347,14 @@ public class CoordinatorService {
 
         ResourceManager manager = resourceManager;
         resourceManager = null;
-        if (manager != null) {
-            manager.close();
+        try {
+            if (manager != null) {
+                manager.close();
+            }
+        } catch (Exception e) {
+            // Continue the shutdown: the event processor and the remaining cleanup must still
+            // run even when a resource manager refuses to close.
+            logger.warning("close resource manager error: " + e);
         }
 
         try {

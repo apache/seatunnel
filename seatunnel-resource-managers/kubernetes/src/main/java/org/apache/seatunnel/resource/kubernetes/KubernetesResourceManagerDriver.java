@@ -63,7 +63,7 @@ public final class KubernetesResourceManagerDriver
     private static final Logger LOG =
             LoggerFactory.getLogger(KubernetesResourceManagerDriver.class);
 
-    private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
+    private static final long WORKER_WATCH_INTERVAL_MILLIS = 5_000;
 
     private final KubernetesClient api;
     private final KubernetesApplicationConfig parameters;
