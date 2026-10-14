@@ -236,7 +236,7 @@ class ApplicationLifecycleTest {
     }
 
     @Test
-    void cleanupFailureChangesThePublishedOutcome() throws Exception {
+    void cleanupFailureKeepsTheSuccessfulOutcome() throws Exception {
         LocalDriver driver =
                 new LocalDriver() {
                     @Override
@@ -248,9 +248,10 @@ class ApplicationLifecycleTest {
                         return result;
                     }
                 };
-        Exception failure = assertThrows(Exception.class, () -> run(JOB, driver, 30000));
-        assertEquals(ApplicationStatus.FAILED, driver.finalStatus);
-        assertTrue(failure.getMessage().contains("release acknowledgment failed"));
+        // The native job already committed; a cleanup failure must not turn the published
+        // application status into FAILED, which would make orchestrators re-run the batch.
+        run(JOB, driver, 30000);
+        assertEquals(ApplicationStatus.SUCCEEDED, driver.finalStatus);
         assertTrue(driver.closed);
     }
 
