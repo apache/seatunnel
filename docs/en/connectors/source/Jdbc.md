@@ -288,9 +288,35 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
-| YashanDB  |              |          |
+| YashanDB  | CockroachDB  |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
+
+### CockroachDB
+
+Use the existing PostgreSQL JDBC driver with `dialect = "CockroachDB"`. The dialect must be explicit: a `jdbc:postgresql:` URL without it continues to select PostgreSQL.
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  query = "SELECT id, customer, amount FROM public.orders"
+  partition_column = "customer"
+  partition_num = 4
+  split.string-strategy = "hash"
+}
+```
+
+Configure the driver's trusted root certificate for your cluster. `sslmode=disable` is only appropriate for disposable insecure local test clusters.
+
+CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys, and places null keys in one partition so they are not omitted. It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
+
+String conversion uses the discovered schema's native type information instead of querying result-set type metadata while a cursor is open. The supported reads do not require the `multiple_active_portals_enabled` preview setting. An explicit schema without native type information treats STRING fields as ordinary strings.
+
+The initial scope is bounded reads from existing tables using `query` or explicit `table_path`, with the PostgreSQL driver's compatible type mapping. CockroachDB 24.3 tests cover INT8, STRING, DECIMAL, BOOL, BYTES, UUID, and null values. Regex catalog discovery, CDC, and range/auto string splitting are not included. Numeric splitting and hash string splitting use the existing JDBC splitter lifecycle; no new driver or connector plugin is required.
 
 ## Parallel Reader
 
