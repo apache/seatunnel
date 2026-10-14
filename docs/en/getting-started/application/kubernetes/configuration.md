@@ -107,8 +107,15 @@ image.
 
 ## Permissions
 
-Two identities access the Kubernetes API. The **master Pod** runs with
-`kubernetes.service-account` and creates, observes and deletes worker Pods and reads the owner Job.
+Two identities access the Kubernetes API.
+
+The **master Pod** runs with `kubernetes.service-account` and needs:
+
+| Resource | Verbs | Required when |
+| --- | --- | --- |
+| Pods | `create`, `list`, `watch`, `delete`, `deletecollection` | always; `create`/`delete`/`deletecollection` manage worker Pods, `watch` reports a lost worker |
+| Jobs | `get` | always; reads the owner Job |
+
 The **submitting identity** runs `bin/seatunnel-application.sh` and needs:
 
 | Resource | Verbs | Required when |

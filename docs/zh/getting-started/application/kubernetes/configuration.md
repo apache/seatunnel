@@ -103,8 +103,16 @@ Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引
 
 ## 权限
 
-访问 Kubernetes API 的有两个身份：**Master Pod** 以 `kubernetes.service-account` 运行，负责创建、
-观测、删除 Worker Pod 并读取 owner Job；**提交身份** 运行 `bin/seatunnel-application.sh`，需要：
+访问 Kubernetes API 的有两个身份。
+
+**Master Pod** 以 `kubernetes.service-account` 运行，需要：
+
+| 资源 | 动词 | 需要时机 |
+| --- | --- | --- |
+| Pod | `create`、`list`、`watch`、`delete`、`deletecollection` | 始终需要；`create`/`delete`/`deletecollection` 管理 Worker Pod，`watch` 用于发现 Worker 丢失 |
+| Job | `get` | 始终需要；读取 owner Job |
+
+**提交身份** 运行 `bin/seatunnel-application.sh`，需要：
 
 | 资源 | 动词 | 需要时机 |
 | --- | --- | --- |
