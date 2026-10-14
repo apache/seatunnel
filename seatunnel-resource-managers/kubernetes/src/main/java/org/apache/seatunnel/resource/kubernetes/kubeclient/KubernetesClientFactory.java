@@ -45,6 +45,15 @@ public final class KubernetesClientFactory {
     public static KubernetesClient create(Map<String, String> options, boolean inCluster)
             throws IOException {
         ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<>(options));
+        return new DefaultKubernetesClient(
+                boundedClient(inCluster, config),
+                watchClient(inCluster, config),
+                config.get(KubernetesOptions.NAMESPACE));
+    }
+
+    /** @return client whose requests are bounded by a total call timeout */
+    private static ApiClient boundedClient(boolean inCluster, ReadonlyConfig config)
+            throws IOException {
         ApiClient client = getApiClient(inCluster, config);
         client.setConnectTimeout(API_TIMEOUT_MILLIS);
         client.setReadTimeout(API_TIMEOUT_MILLIS);
@@ -53,7 +62,19 @@ public final class KubernetesClientFactory {
                         .newBuilder()
                         .callTimeout(API_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                         .build());
-        return new DefaultKubernetesClient(client, config.get(KubernetesOptions.NAMESPACE));
+        return client;
+    }
+
+    /**
+     * @return client for the pod informer, which requires an unbounded read timeout because a watch
+     *     response stays open until the API server ends it
+     */
+    private static ApiClient watchClient(boolean inCluster, ReadonlyConfig config)
+            throws IOException {
+        ApiClient client = getApiClient(inCluster, config);
+        client.setConnectTimeout(API_TIMEOUT_MILLIS);
+        client.setReadTimeout(0);
+        return client;
     }
 
     /**

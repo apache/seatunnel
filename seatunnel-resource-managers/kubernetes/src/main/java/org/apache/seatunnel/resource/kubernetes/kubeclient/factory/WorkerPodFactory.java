@@ -40,7 +40,7 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
         super(parameters);
     }
 
-    /** Builds the worker Pod skeleton: identity, owner reference, container, command and probes. */
+    /** Builds the worker Pod skeleton: identity, owner reference, container and command. */
     public static V1Pod createWorkerPod(
             KubernetesJob owner,
             String name,
@@ -53,8 +53,8 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
     }
 
     /**
-     * Builds the worker Pod: the shared container and command, joined by the process probe that
-     * detects a dead worker without restarting it.
+     * Builds the worker Pod: the shared container and command. The Pod carries no probe; the master
+     * detects a lost worker from the Kubernetes Pod watch instead.
      */
     private V1Pod workerPod(
             KubernetesJob owner,

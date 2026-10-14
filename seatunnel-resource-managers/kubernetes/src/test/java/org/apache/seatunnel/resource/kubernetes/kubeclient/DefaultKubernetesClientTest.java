@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
@@ -38,6 +39,7 @@ import io.kubernetes.client.openapi.models.V1ServiceSpec;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
+import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import okio.Buffer;
@@ -97,7 +99,7 @@ class DefaultKubernetesClientTest {
     @Test
     void retriesTransientPodListingFailures() throws Exception {
         AtomicInteger requests = new AtomicInteger();
-        CountDownLatch listed = new CountDownLatch(1);
+        CountDownLatch added = new CountDownLatch(1);
         AtomicReference<Exception> error = new AtomicReference<>();
         ApiClient client =
                 new ApiClient()
@@ -118,24 +120,15 @@ class DefaultKubernetesClientTest {
                                                                                         "application/json")))
                                                                 .build();
                                                     }
-                                                    return new Response.Builder()
-                                                            .request(chain.request())
-                                                            .protocol(Protocol.HTTP_1_1)
-                                                            .code(200)
-                                                            .message("OK")
-                                                            .body(
-                                                                    ResponseBody.create(
-                                                                            "{\"apiVersion\":\"v1\",\"kind\":\"PodList\",\"items\":[]}",
-                                                                            MediaType.get(
-                                                                                    "application/json")))
-                                                            .build();
+                                                    return podResponse(chain.request());
                                                 })
                                         .build());
+        // The pod informer requires a client without a read timeout.
+        client.setReadTimeout(0);
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
-            KubernetesWatch watch =
-                    api.watchPods("role=worker", 10, pods -> listed.countDown(), error::set);
+            KubernetesWatch watch = api.watchPods("role=worker", callback(added, error));
             try {
-                assertTrue(listed.await(5, TimeUnit.SECONDS));
+                assertTrue(added.await(5, TimeUnit.SECONDS));
                 assertTrue(requests.get() >= 2);
                 assertNull(error.get());
             } finally {
@@ -152,31 +145,31 @@ class DefaultKubernetesClientTest {
                 new ApiClient()
                         .setHttpClient(
                                 new OkHttpClient.Builder()
-                                        .addInterceptor(
-                                                chain ->
-                                                        new Response.Builder()
-                                                                .request(chain.request())
-                                                                .protocol(Protocol.HTTP_1_1)
-                                                                .code(200)
-                                                                .message("OK")
-                                                                .body(
-                                                                        ResponseBody.create(
-                                                                                "{\"apiVersion\":\"v1\",\"kind\":\"PodList\",\"items\":[]}",
-                                                                                MediaType.get(
-                                                                                        "application/json")))
-                                                                .build())
+                                        .addInterceptor(chain -> podResponse(chain.request()))
                                         .build());
+        // The pod informer requires a client without a read timeout.
+        client.setReadTimeout(0);
         try (KubernetesClient api = new DefaultKubernetesClient(client, "test")) {
             KubernetesWatch watch =
                     api.watchPods(
                             "role=worker",
-                            10,
-                            pods -> {
-                                throw new IllegalStateException("listener failure");
-                            },
-                            failure -> {
-                                error.set(failure);
-                                reported.countDown();
+                            new PodWatchCallback() {
+                                @Override
+                                public void onPodAdded(KubernetesPod pod) {
+                                    throw new IllegalStateException("listener failure");
+                                }
+
+                                @Override
+                                public void onPodModified(KubernetesPod pod) {}
+
+                                @Override
+                                public void onPodDeleted(KubernetesPod pod) {}
+
+                                @Override
+                                public void onWatchError(Exception failure) {
+                                    error.set(failure);
+                                    reported.countDown();
+                                }
                             });
             try {
                 assertTrue(reported.await(5, TimeUnit.SECONDS));
@@ -346,5 +339,51 @@ class DefaultKubernetesClientTest {
             // The Kubernetes Status body explains RBAC, quota and admission failures.
             assertTrue(failure.getMessage().contains("denied"), failure.getMessage());
         }
+    }
+
+    /**
+     * Serves a PodList for list requests and one Added event for the informer's watch request. The
+     * informer reads {@code metadata.resourceVersion} from the list, so the PodList carries one.
+     */
+    private static Response podResponse(Request request) {
+        boolean watch = "true".equals(request.url().queryParameter("watch"));
+        String body =
+                watch
+                        ? "{\"type\":\"ADDED\",\"object\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\","
+                                + "\"metadata\":{\"name\":\"app-worker-1\"},"
+                                + "\"status\":{\"phase\":\"Running\"}}}\n"
+                        : "{\"apiVersion\":\"v1\",\"kind\":\"PodList\",\"metadata\":"
+                                + "{\"resourceVersion\":\"1\"},\"items\":[{\"apiVersion\":\"v1\","
+                                + "\"kind\":\"Pod\",\"metadata\":{\"name\":\"app-worker-1\"},"
+                                + "\"status\":{\"phase\":\"Running\"}}]}";
+        return new Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(ResponseBody.create(body, MediaType.get("application/json")))
+                .build();
+    }
+
+    /** Callback that counts the first added Pod and records the first watch error. */
+    private static PodWatchCallback callback(
+            CountDownLatch added, AtomicReference<Exception> error) {
+        return new PodWatchCallback() {
+            @Override
+            public void onPodAdded(KubernetesPod pod) {
+                added.countDown();
+            }
+
+            @Override
+            public void onPodModified(KubernetesPod pod) {}
+
+            @Override
+            public void onPodDeleted(KubernetesPod pod) {}
+
+            @Override
+            public void onWatchError(Exception failure) {
+                error.set(failure);
+            }
+        };
     }
 }

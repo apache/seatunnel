@@ -30,6 +30,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.PodWatchCallback;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
@@ -49,8 +50,6 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -60,6 +59,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -68,7 +68,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -110,6 +109,13 @@ class KubernetesResourceManagerDriverTest {
         KubernetesClient api = mock(KubernetesClient.class);
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
+        AtomicReference<PodWatchCallback> watchCallback = new AtomicReference<>();
+        when(api.watchPods(anyString(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            watchCallback.set(invocation.getArgument(1));
+                            return mock(KubernetesWatch.class);
+                        });
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
@@ -155,7 +161,8 @@ class KubernetesResourceManagerDriverTest {
             assertNull(driver.releaseWorker(worker).get());
             assertNull(driver.releaseWorker(worker).get());
             driver.releaseWorker(new KubernetesWorkerNode(new ResourceID("other-worker"))).get();
-            driver.checkWorkers();
+            // A released worker is unknown to the driver before its Pod event arrives.
+            watchCallback.get().onPodDeleted(pod("app-worker-1", "Running"));
             verify(api, times(1)).deletePod("app-worker-1");
             verify(api, never()).deletePod("other-worker");
             verify(events, never()).onWorkerTerminated(any(), anyString());
@@ -168,15 +175,13 @@ class KubernetesResourceManagerDriverTest {
         KubernetesClient api = mock(KubernetesClient.class);
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
-        AtomicBoolean failed = new AtomicBoolean();
-        when(api.listPods(anyString()))
+        AtomicReference<PodWatchCallback> watchCallback = new AtomicReference<>();
+        when(api.watchPods(anyString(), any()))
                 .thenAnswer(
-                        invocation ->
-                                Arrays.asList(
-                                        pod(
-                                                "app-worker-1",
-                                                failed.get() ? terminalPhase : "Running"),
-                                        pod("app-worker-2", "Running")));
+                        invocation -> {
+                            watchCallback.set(invocation.getArgument(1));
+                            return mock(KubernetesWatch.class);
+                        });
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
@@ -188,17 +193,12 @@ class KubernetesResourceManagerDriverTest {
         KubernetesWorkerNode first =
                 driver.requestWorker(specification().getWorkerSpecification()).get();
         driver.requestWorker(specification().getWorkerSpecification()).get();
-        failed.set(true);
-        driver.checkWorkers();
-        // A one-tick missing Pod may be caused by listPods racing with a concurrent create.
-        verifyNoInteractions(events);
-        driver.checkWorkers();
+        PodWatchCallback callback = watchCallback.get();
+        callback.onPodModified(pod("app-worker-1", terminalPhase));
         if ("Succeeded".equals(terminalPhase)) {
             verifyNoInteractions(events);
-            // A previously successful Pod may later disappear through garbage collection.
-            when(api.listPods(anyString()))
-                    .thenReturn(Collections.singletonList(pod("app-worker-2", "Running")));
-            driver.checkWorkers();
+            // A completed Pod disappears without failing the worker that already exited.
+            callback.onPodDeleted(pod("app-worker-1", terminalPhase));
             verifyNoInteractions(events);
         } else {
             ArgumentCaptor<KubernetesWorkerNode> terminated =
@@ -212,7 +212,6 @@ class KubernetesResourceManagerDriverTest {
             assertTrue(diagnostics.getValue().contains(terminalPhase));
         }
         driver.close();
-        driver.checkWorkers();
         verify(api).deleteWorkers("app");
         verify(api).close();
     }
@@ -256,7 +255,7 @@ class KubernetesResourceManagerDriverTest {
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
         KubernetesWatch watch = mock(KubernetesWatch.class);
-        when(api.watchPods(anyString(), anyLong(), any(), any())).thenReturn(watch);
+        when(api.watchPods(anyString(), any())).thenReturn(watch);
         KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
                         api,
@@ -266,12 +265,10 @@ class KubernetesResourceManagerDriverTest {
                         "isolated-app");
         driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
         ArgumentCaptor<String> selector = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<Long> interval = ArgumentCaptor.forClass(Long.class);
-        verify(api).watchPods(selector.capture(), interval.capture(), any(), any());
+        verify(api).watchPods(selector.capture(), any());
         assertEquals(
                 "seatunnel.apache.org/application-id=app,seatunnel.apache.org/role=worker",
                 selector.getValue());
-        assertEquals(5_000L, interval.getValue().longValue());
         driver.close();
         verify(watch).close();
     }
@@ -282,7 +279,13 @@ class KubernetesResourceManagerDriverTest {
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
         when(api.getJob("app")).thenReturn(job());
         KubernetesClientException failure = new KubernetesClientException(500, "watch failed");
-        when(api.listPods(anyString())).thenThrow(failure);
+        AtomicReference<PodWatchCallback> watchCallback = new AtomicReference<>();
+        when(api.watchPods(anyString(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            watchCallback.set(invocation.getArgument(1));
+                            return mock(KubernetesWatch.class);
+                        });
         doNothing().when(mainThreadExecutor).execute(any());
         try (KubernetesResourceManagerDriver driver =
                 new KubernetesResourceManagerDriver(
@@ -292,8 +295,8 @@ class KubernetesResourceManagerDriverTest {
                         "app",
                         "isolated-app")) {
             driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
-            driver.checkWorkers();
-            driver.checkWorkers();
+            watchCallback.get().onWatchError(failure);
+            watchCallback.get().onWatchError(failure);
             verify(events, never()).onError(any());
             ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
             verify(mainThreadExecutor).execute(callback.capture());
