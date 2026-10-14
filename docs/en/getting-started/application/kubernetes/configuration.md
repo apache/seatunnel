@@ -120,8 +120,9 @@ The **submitting identity** runs `bin/seatunnel-application.sh` and needs:
 | Secrets | `create`, `delete` | only with `kubernetes.secret` |
 | Secrets | `get` | only with `kubernetes.secret-ref`; without it the validation is skipped with a warning |
 
-The quick start applies one Role per identity; replace the submitter RoleBinding subject with your
-user, group or CI ServiceAccount.
+The quick start grants only the verbs its demo job uses; add the ConfigMap `get` rule and the
+Secret rules when the deployment needs references or Secrets, then replace the submitter
+RoleBinding subject with your user, group or CI ServiceAccount.
 
 ## Scheduling
 

@@ -115,8 +115,9 @@ Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引
 | Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
 | Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
 
-quick start 的 manifest 会为两个身份各建一个 Role；请把提交身份 RoleBinding 的 subjects 换成你的
-用户、用户组或 CI ServiceAccount。
+quick start 的 manifest 只授予示例作业需要的动词；部署用到 ConfigMap 引用或 Secret 时再补上对应的
+`get` 与 Secret 规则，并把提交身份 RoleBinding 的 subjects 换成你的用户、用户组或 CI
+ServiceAccount。
 
 ## 调度
 
