@@ -1605,6 +1605,53 @@ class KubernetesApplicationResourcesTest {
         assertEquals(masterPort, port.getTargetPort().getIntValue());
     }
 
+    @Test
+    void appliesTheConfiguredActiveDeadlineToTheOwnerJob() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(), "7200");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        V1Job job =
+                applicationJob(
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters))
+                        .getInternalResource();
+        assertEquals(7200L, job.getSpec().getActiveDeadlineSeconds());
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        // The localized specification round-trips the deadline for the master's own settings.
+        assertEquals(7200L, KubernetesApplicationConfig.read(encoded).getActiveDeadlineSeconds());
+    }
+
+    @Test
+    void omitsTheActiveDeadlineByDefault() throws Exception {
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        V1Job job =
+                applicationJob(
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters))
+                        .getInternalResource();
+        // Without the option a streaming application must stay active until it finishes.
+        assertNull(job.getSpec().getActiveDeadlineSeconds());
+    }
+
+    @Test
+    void rejectsNonPositiveActiveDeadlines() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(), "0");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options))));
+    }
+
     private static List<String> masterCommand(KubernetesApplicationConfig parameters) {
         return applicationJob(
                         KubernetesApplicationClusterDescriptor.assembleApplication(

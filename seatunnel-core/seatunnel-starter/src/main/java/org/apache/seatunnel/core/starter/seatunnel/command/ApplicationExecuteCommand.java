@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Executes application submit, status, and cancellation operations against an external platform.
@@ -95,8 +96,7 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
                 clientServiceLoader.getClusterClientFactory(applicationCommandArgs.getTarget());
         ID applicationId = factory.parseApplicationId(id);
         try (ClusterDescriptor<ID> descriptor = factory.create(options)) {
-            ApplicationStatus status =
-                    getStatus(descriptor, applicationId, applicationCommandArgs.isWait());
+            ApplicationStatus status = getStatus(descriptor, applicationId);
             System.out.println("Status: " + status);
             if (status.isFailure()) {
                 throw new CommandExecuteException(
@@ -105,11 +105,32 @@ public class ApplicationExecuteCommand implements Command<ApplicationCommandArgs
         }
     }
 
-    static <ID> ApplicationStatus getStatus(
-            ClusterDescriptor<ID> descriptor, ID applicationId, boolean wait) throws Exception {
+    /**
+     * Reads one platform status; with {@code --wait} it polls until a terminal status or the
+     * configured client-side timeout.
+     */
+    <ID> ApplicationStatus getStatus(ClusterDescriptor<ID> descriptor, ID applicationId)
+            throws Exception {
         ApplicationStatus status = descriptor.getApplicationStatus(applicationId);
-        while (wait && !status.isTerminal() && status != ApplicationStatus.UNKNOWN) {
-            Thread.sleep(500L);
+        if (!applicationCommandArgs.isWait()) {
+            return status;
+        }
+        long waitTimeoutMillis = applicationCommandArgs.resolvedWaitTimeoutMillis();
+        long deadline =
+                waitTimeoutMillis > 0
+                        ? System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitTimeoutMillis)
+                        : 0L;
+        while (!status.isTerminal() && status != ApplicationStatus.UNKNOWN) {
+            if (deadline != 0L && System.nanoTime() >= deadline) {
+                throw new CommandExecuteException(
+                        "Timed out after "
+                                + waitTimeoutMillis
+                                + " ms waiting for application "
+                                + applicationId
+                                + "; last status: "
+                                + status);
+            }
+            Thread.sleep(applicationCommandArgs.resolvedWaitIntervalMillis());
             status = descriptor.getApplicationStatus(applicationId);
         }
         return status;

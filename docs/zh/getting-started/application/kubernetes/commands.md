@@ -41,7 +41,8 @@ Status: RUNNING
 ```
 
 加 `--wait` 会持续轮询直到终态；`FAILED`、`CANCELED` 和 `UNKNOWN` 会让命令以非零码退出，可直接
-作为调度器或 CI 的完成判定。
+作为调度器或 CI 的完成判定。`--wait-timeout` 可以限制轮询时长，超时后带最后状态报错退出；
+默认 `0` 表示一直等待。`--wait-interval` 设置轮询间隔（默认 500 ms）。
 
 ## cancel
 

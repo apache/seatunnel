@@ -13,7 +13,8 @@ application。
 
 ```bash
 bin/seatunnel-application.sh submit -t <target> -a application.config [-c job.conf]
-bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait]
+bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
+  [--wait-timeout <ms>] [--wait-interval <ms>]
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
 ```
 
@@ -40,6 +41,11 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
   * -t, --target             External resource platform: kubernetes
     --wait                   Wait for completion (submit/status only; default:
                              return immediately) (default: false)
+    --wait-timeout           Maximum time in milliseconds that --wait polls for
+                             a terminal status before failing with the last
+                             observed status; 0 waits indefinitely (default: 0)
+    --wait-interval          Status poll interval in milliseconds while --wait
+                             blocks (default: 500)
     -i                       Override a non-sensitive deployment option:
                              -ikey=value (syntax: -ikey=value) (default: {})
 ```
@@ -54,7 +60,9 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `-a`、`--application-config` | 全部 | 可选部署文件，包含公共选项和平台选项 |
 | `-i key=value` | 全部 | 覆盖单个非敏感部署选项，例如 `-i application.worker-count=4`，可重复使用 |
 | `--id` | status、cancel | `submit` 打印的平台 application ID |
-| `--wait` | submit、status | 轮询直到 application 到达终态 |
+| `--wait` | submit、status | 轮询直到终态 |
+| `--wait-timeout <ms>` | submit、status | `--wait` 等待终态的最长时间（毫秒），超时后带最后状态报错；默认 `0` 表示一直等待。需配合 `--wait` |
+| `--wait-interval <ms>` | submit、status | `--wait` 的状态轮询间隔（毫秒），默认 `500`。需配合 `--wait` |
 | `--job-id` | submit | 指定原生 Zeta 作业 ID，不指定时自动生成 |
 | `--restore-job-id` | submit | 用该作业 ID 的最新 checkpoint 恢复本次 application |
 
@@ -82,7 +90,9 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 
 ## 状态与等待
 
-`status` 默认只读一次快照；加 `--wait` 后持续轮询直到终态。平台无关的状态定义如下：
+`status` 默认只读一次快照；加 `--wait` 后持续轮询直到终态。`--wait-timeout` 可以限制轮询时长，
+超时后带最后状态报错退出；默认 `0` 表示一直等待，与 attached 客户端语义一致。`--wait-interval`
+控制轮询间隔。平台无关的状态定义如下：
 
 | 状态 | 含义 |
 | --- | --- |

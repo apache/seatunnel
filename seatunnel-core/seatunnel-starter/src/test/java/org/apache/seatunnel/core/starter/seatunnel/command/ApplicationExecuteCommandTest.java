@@ -302,12 +302,11 @@ class ApplicationExecuteCommandTest {
     void reportsApplicationStateWithoutConnectingToMaster() throws Exception {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         when(descriptor.getApplicationStatus("app")).thenReturn(ApplicationStatus.UNKNOWN);
-        assertEquals(
-                ApplicationStatus.UNKNOWN,
-                ApplicationExecuteCommand.getStatus(descriptor, "app", false));
-        assertEquals(
-                ApplicationStatus.UNKNOWN,
-                ApplicationExecuteCommand.getStatus(descriptor, "app", true));
+        ApplicationCommandArgs args = new ApplicationCommandArgs();
+        ApplicationExecuteCommand command = new ApplicationExecuteCommand(args);
+        assertEquals(ApplicationStatus.UNKNOWN, command.getStatus(descriptor, "app"));
+        args.setWait(true);
+        assertEquals(ApplicationStatus.UNKNOWN, command.getStatus(descriptor, "app"));
         verify(descriptor, never()).retrieve(any());
     }
 
@@ -316,11 +315,59 @@ class ApplicationExecuteCommandTest {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         when(descriptor.getApplicationStatus("app"))
                 .thenReturn(ApplicationStatus.RUNNING, ApplicationStatus.SUCCEEDED);
+        ApplicationCommandArgs args = new ApplicationCommandArgs();
+        args.setWait(true);
         assertEquals(
                 ApplicationStatus.SUCCEEDED,
-                ApplicationExecuteCommand.getStatus(descriptor, "app", true));
+                new ApplicationExecuteCommand(args).getStatus(descriptor, "app"));
         verify(descriptor, times(2)).getApplicationStatus("app");
         verify(descriptor, never()).retrieve(any());
+    }
+
+    @Test
+    void failsWithTheLastStatusWhenTheWaitTimeoutElapses() throws Exception {
+        ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
+        when(descriptor.getApplicationStatus("app")).thenReturn(ApplicationStatus.RUNNING);
+        ApplicationCommandArgs args = new ApplicationCommandArgs();
+        args.setWait(true);
+        args.setWaitTimeoutMillis(50L);
+        args.setWaitIntervalMillis(50L);
+        ApplicationExecuteCommand command = new ApplicationExecuteCommand(args);
+        CommandExecuteException failure =
+                assertThrows(
+                        CommandExecuteException.class, () -> command.getStatus(descriptor, "app"));
+        assertTrue(failure.getMessage().contains("Timed out after 50 ms"));
+        assertTrue(failure.getMessage().contains("last status: RUNNING"));
+    }
+
+    @Test
+    void waitFlagsRequireWaitAndPositiveValues() {
+        ApplicationCommandArgs status = new ApplicationCommandArgs();
+        status.setOperation(ApplicationOperation.STATUS);
+        status.setTarget(DeployType.KUBERNETES);
+        status.setId("application_1");
+        status.setWait(true);
+        status.setWaitTimeoutMillis(100L);
+        status.setWaitIntervalMillis(200L);
+        assertTrue(status.buildCommand() instanceof ApplicationExecuteCommand);
+        assertEquals(100L, status.resolvedWaitTimeoutMillis());
+        assertEquals(200L, status.resolvedWaitIntervalMillis());
+
+        ApplicationCommandArgs defaults = new ApplicationCommandArgs();
+        defaults.setOperation(ApplicationOperation.STATUS);
+        defaults.setTarget(DeployType.KUBERNETES);
+        defaults.setId("application_1");
+        defaults.setWait(true);
+        assertEquals(0L, defaults.resolvedWaitTimeoutMillis());
+        assertEquals(
+                ApplicationCommandArgs.DEFAULT_WAIT_INTERVAL_MILLIS,
+                defaults.resolvedWaitIntervalMillis());
+
+        status.setWaitIntervalMillis(0L);
+        assertThrows(IllegalArgumentException.class, status::buildCommand);
+        status.setWaitIntervalMillis(200L);
+        status.setWait(false);
+        assertThrows(IllegalArgumentException.class, status::buildCommand);
     }
 
     @Test

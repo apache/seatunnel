@@ -82,6 +82,15 @@ final class DefaultKubernetesClient implements KubernetesClient {
     }
 
     @Override
+    public KubernetesSecret getSecret(String name) {
+        try {
+            return new KubernetesSecret(core.readNamespacedSecret(name, namespace, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
+    }
+
+    @Override
     public KubernetesJob createJob(KubernetesJob job) {
         try {
             return new KubernetesJob(

@@ -19,7 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.kubeclient.resources;
 
 import io.kubernetes.client.openapi.models.V1Secret;
 
-/** Secret containing the localized application specification. */
+/** Secret created from {@code kubernetes.secret.data} and mounted into every application Pod. */
 public final class KubernetesSecret extends KubernetesResource<V1Secret> {
     /**
      * Wraps one Kubernetes Secret model.

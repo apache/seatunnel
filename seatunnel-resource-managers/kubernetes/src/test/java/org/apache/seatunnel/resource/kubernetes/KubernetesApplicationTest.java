@@ -41,6 +41,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIde
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.AfterEach;
@@ -63,6 +64,7 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
+import io.kubernetes.client.openapi.models.V1Secret;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -325,6 +327,73 @@ class KubernetesApplicationTest {
                         new KubernetesApplicationClusterDescriptor(api, options)
                                 .deployApplication(specification()));
         verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void failsBeforeCreatingResourcesWhenReferencedSecretIsMissing() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secrets");
+        assertThrows(
+                KubernetesClientException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void failsBeforeCreatingResourcesWhenEnvFromSecretIsMissing() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        Map<String, String> options = options();
+        options.put("kubernetes.env-from.secret", "platform-secrets");
+        assertThrows(
+                KubernetesClientException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void rejectsMissingEnvironmentSecretKeysBeforeCreatingResources() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenReturn(
+                        new KubernetesSecret(
+                                new V1Secret()
+                                        .metadata(new V1ObjectMeta().name("platform-secrets"))
+                                        .data(Collections.singletonMap("other", new byte[] {1}))));
+        Map<String, String> options = options();
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:platform-secrets/password");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void continuesWhenReferencedSecretsCannotBeRead() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(403, "forbidden"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secrets");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:platform-secrets/password");
+        options.put("kubernetes.env-from.secret", "platform-secrets");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).deleteApplication(anyString());
     }
 
     @Test

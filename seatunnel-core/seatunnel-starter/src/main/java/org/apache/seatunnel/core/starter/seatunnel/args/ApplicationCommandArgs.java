@@ -41,6 +41,9 @@ import java.util.Map;
 @Parameters(separators = "=")
 public class ApplicationCommandArgs extends CommandArgs {
 
+    /** Default status poll interval while {@code --wait} blocks the client. */
+    public static final long DEFAULT_WAIT_INTERVAL_MILLIS = 500L;
+
     @Parameter(
             description = "submit | status | cancel",
             required = true,
@@ -83,6 +86,17 @@ public class ApplicationCommandArgs extends CommandArgs {
             description = "Wait for completion (submit/status only; default: return immediately)")
     private boolean wait;
 
+    @Parameter(
+            names = "--wait-timeout",
+            description =
+                    "Maximum time in milliseconds that --wait polls for a terminal status before failing with the last observed status; 0 waits indefinitely (default: 0)")
+    private Long waitTimeoutMillis;
+
+    @Parameter(
+            names = "--wait-interval",
+            description = "Status poll interval in milliseconds while --wait blocks (default: 500)")
+    private Long waitIntervalMillis;
+
     @DynamicParameter(
             names = "-i",
             description = "Override a non-sensitive deployment option: -ikey=value")
@@ -100,6 +114,15 @@ public class ApplicationCommandArgs extends CommandArgs {
     public void validateCommandOptions() {
         if (applicationConfig != null) {
             requireFile(applicationConfig, "--application-config");
+        }
+        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
+            throw new IllegalArgumentException("--wait-timeout must not be negative");
+        }
+        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
+            throw new IllegalArgumentException("--wait-interval must be positive");
+        }
+        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
+            throw new IllegalArgumentException("--wait-timeout and --wait-interval require --wait");
         }
         if (operation == ApplicationOperation.SUBMIT) {
             if (config != null) {
@@ -123,6 +146,16 @@ public class ApplicationCommandArgs extends CommandArgs {
         if (wait && operation == ApplicationOperation.CANCEL) {
             throw new IllegalArgumentException("--wait is supported only with submit or status");
         }
+    }
+
+    /** @return configured wait timeout in milliseconds, or {@code 0} to wait indefinitely */
+    public long resolvedWaitTimeoutMillis() {
+        return waitTimeoutMillis == null ? 0L : waitTimeoutMillis;
+    }
+
+    /** @return configured poll interval in milliseconds, or the default interval */
+    public long resolvedWaitIntervalMillis() {
+        return waitIntervalMillis == null ? DEFAULT_WAIT_INTERVAL_MILLIS : waitIntervalMillis;
     }
 
     private static void requireFile(String path, String option) {

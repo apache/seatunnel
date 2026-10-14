@@ -22,6 +22,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesC
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import java.util.List;
@@ -43,6 +44,13 @@ public interface KubernetesClient extends AutoCloseable {
      * @throws KubernetesClientException if the ConfigMap is absent or the request fails
      */
     KubernetesConfigMap getConfigMap(String name);
+
+    /**
+     * Reads an existing Secret that Pods reference for runtime configuration or key values.
+     *
+     * @throws KubernetesClientException if the Secret is absent or the request fails
+     */
+    KubernetesSecret getSecret(String name);
 
     /**
      * Creates the suspended owner Job and returns its server-assigned metadata.

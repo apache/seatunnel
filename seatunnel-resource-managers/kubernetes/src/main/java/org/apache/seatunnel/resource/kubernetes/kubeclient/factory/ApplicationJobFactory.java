@@ -72,6 +72,7 @@ public final class ApplicationJobFactory extends AbstractWorkloadFactory {
                         .completions(1)
                         .parallelism(1)
                         .ttlSecondsAfterFinished(parameters.getRetentionSeconds())
+                        .activeDeadlineSeconds(parameters.getActiveDeadlineSeconds())
                         .template(template);
         V1ObjectMeta metadata =
                 KubernetesResourceIdentity.metadata(

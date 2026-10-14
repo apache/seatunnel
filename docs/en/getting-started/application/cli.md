@@ -13,7 +13,8 @@ so `status` and `cancel` see exactly the application `submit` created.
 
 ```bash
 bin/seatunnel-application.sh submit -t <target> -a application.config [-c job.conf]
-bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait]
+bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
+  [--wait-timeout <ms>] [--wait-interval <ms>]
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
 ```
 
@@ -40,6 +41,11 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
   * -t, --target             External resource platform: kubernetes
     --wait                   Wait for completion (submit/status only; default:
                              return immediately) (default: false)
+    --wait-timeout           Maximum time in milliseconds that --wait polls for
+                             a terminal status before failing with the last
+                             observed status; 0 waits indefinitely (default: 0)
+    --wait-interval          Status poll interval in milliseconds while --wait
+                             blocks (default: 500)
     -i                       Override a non-sensitive deployment option:
                              -ikey=value (syntax: -ikey=value) (default: {})
 ```
@@ -54,7 +60,9 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `-a`, `--application-config` | all | Optional deployment file with common and platform options |
 | `-i key=value` | all | Override one non-sensitive deployment option, for example `-i application.worker-count=4`; repeatable |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
-| `--wait` | submit, status | Poll until the application reaches a terminal status |
+| `--wait` | submit, status | Poll until a terminal status |
+| `--wait-timeout <ms>` | submit, status | Maximum time in milliseconds that `--wait` polls before failing with the last observed status; `0` (the default) waits indefinitely. Requires `--wait` |
+| `--wait-interval <ms>` | submit, status | Status poll interval in milliseconds while `--wait` blocks; default `500`. Requires `--wait` |
 | `--job-id` | submit | Native Zeta job ID to use for this application instead of a generated one |
 | `--restore-job-id` | submit | Job ID whose latest durable checkpoint restores the new application |
 
@@ -84,7 +92,9 @@ on the submitting host, so platform-managed credentials can be injected through 
 ## Status and waiting
 
 `status` reports one snapshot by default and polls that snapshot until it becomes terminal when
-`--wait` is given. The platform-independent states are:
+`--wait` is given. `--wait-timeout` fails the wait with the last observed status when the limit is
+reached; the default `0` waits indefinitely, like an attached client. `--wait-interval` sets how
+often the status is polled. The platform-independent states are:
 
 | Status | Meaning |
 | --- | --- |

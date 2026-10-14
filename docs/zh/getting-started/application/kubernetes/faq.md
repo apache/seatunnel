@@ -5,7 +5,12 @@ title: FAQ
 
 # Kubernetes FAQ
 
-## 状态与取消
+Application Mode 运维、生命周期、故障与安全方面的常见问题。命令见[命令参考](commands.md)，全量
+参数表见[配置参数说明](configuration.md)。
+
+## 运维
+
+### 如何查看或取消 application？
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
@@ -19,7 +24,7 @@ bin/seatunnel-application.sh cancel --target kubernetes \
 ConfigMap。取消不创建 savepoint，引用的 Secret/ConfigMap 不会被修改。资源删除后再次查询返回
 `UNKNOWN`；Job TTL 到期后也会返回 `UNKNOWN`。
 
-## 查看资源和日志
+### 如何查看资源和日志？
 
 ```bash
 kubectl -n seatunnel-apps get jobs,pods,services,secrets \
@@ -31,13 +36,22 @@ kubectl -n seatunnel-apps describe job ACTUAL_APPLICATION_ID
 
 Worker 问题需要逐个查看对应 Pod 日志和事件。镜像拉取、ResourceQuota、LimitRange、准入策略和节点容量问题通常出现在 Pod events 中。
 
-## 保留与清理
+## 生命周期
+
+### 完成后的资源保留多久？
 
 Master 退出码形成 Job 的 `Complete` 或 `Failed` condition。结束后的 Master Pod、Service 以及由
 本应用创建的 Secret 和 ConfigMap 保留到 `kubernetes.finished-job-retention-seconds` 指定的
 TTL，便于排障。
 
 如果 Master 在清理前被强制终止，Worker 会在失去 Master 后退出，停止的 Pod 对象可能保留到 Job TTL。API 故障阻止清理时，在 API 恢复后重新执行 `cancel`。
+
+### Master Pod 始终起不来会怎样？
+
+Job 会一直处于 `Active`，`status --wait` 会持续轮询；可以用 `--wait-timeout` 限制等待
+时长。无人值守的批作业建议设置 `kubernetes.active-deadline-seconds`，让 Kubernetes 自动把 Job
+置为失败，`--wait` 随之返回 `FAILED`。根因看 Pod events：镜像拉取、准入策略、ResourceQuota 或
+节点资源不足。
 
 ## 常见问题
 

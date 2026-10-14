@@ -48,6 +48,7 @@ Command-line overrides (`-i key=value`) may be visible to other users on the sub
 | `kubernetes.env-from.configmap` | string | no | - | Existing ConfigMap whose keys are all injected as environment variables (Kubernetes `envFrom.configMapRef`). |
 | `kubernetes.kubeconfig` | string | no | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
 | `kubernetes.finished-job-retention-seconds` | int | no | `86400` | Positive retention period for completed or failed Jobs. |
+| `kubernetes.active-deadline-seconds` | long | no | - | Absolute deadline in seconds counted from Job creation for the whole application, including master startup. Set it for unattended batch runs; unset keeps the Job active until the job finishes or is canceled. |
 | `kubernetes.checkpoint-pvc` | string | no | - | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
 | `kubernetes.checkpoint-directory` | string | no | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
 | `kubernetes.master.hazelcast-config` | string | no | - | Hazelcast member configuration for the master: a file name under `<seatunnel-home>/config` or an absolute `.yaml`/`.yml`/`.xml` path. Not set keeps the built-in configuration. |

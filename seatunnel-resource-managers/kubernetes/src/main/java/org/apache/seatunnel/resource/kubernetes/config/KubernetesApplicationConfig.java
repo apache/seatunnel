@@ -111,6 +111,7 @@ public final class KubernetesApplicationConfig {
     private final List<KubernetesEnvFromReference> envFromReferences;
     private final List<KubernetesConfigMapEntry> configMaps;
     private final int retentionSeconds;
+    private final Long activeDeadlineSeconds;
     private final String checkpointPvc;
     private final Map<String, String> masterLabels;
     private final Map<String, String> workerLabels;
@@ -157,11 +158,10 @@ public final class KubernetesApplicationConfig {
         this.envFromReferences = envFromReferences(rawOptions);
         this.configMaps = configMaps(rawOptions);
         validateConfigMapMounts();
-        this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
-        if (retentionSeconds < 1) {
-            throw new IllegalArgumentException(
-                    "kubernetes.finished-job-retention-seconds must be positive");
-        }
+        this.retentionSeconds = requirePositive(options, KubernetesOptions.RETENTION_SECONDS);
+        // Unset keeps the Job active until it finishes; setting it bounds startup plus the run.
+        this.activeDeadlineSeconds =
+                optionalPositive(options, KubernetesOptions.ACTIVE_DEADLINE_SECONDS);
         this.checkpointPvc = optionalNonBlank(options, KubernetesOptions.CHECKPOINT_PVC);
         this.masterLabels = labels(options, KubernetesOptions.MASTER_LABELS);
         this.workerLabels = labels(options, KubernetesOptions.WORKER_LABELS);
@@ -339,6 +339,11 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(KubernetesOptions.LOG4J_CONFIG_FILE.key(), log4jConfigFile);
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
+        if (activeDeadlineSeconds != null) {
+            properties.setProperty(
+                    KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(),
+                    Long.toString(activeDeadlineSeconds));
+        }
         if (applicationSecretRef != null) {
             properties.setProperty(KubernetesOptions.SECRET_REF.key(), applicationSecretRef);
         }
@@ -975,6 +980,22 @@ public final class KubernetesApplicationConfig {
         }
         if (value.trim().isEmpty()) {
             throw new IllegalArgumentException(option.key() + " must not be empty");
+        }
+        return value;
+    }
+
+    private static int requirePositive(ReadonlyConfig options, Option<Integer> option) {
+        int value = options.get(option);
+        if (value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
+        }
+        return value;
+    }
+
+    private static Long optionalPositive(ReadonlyConfig options, Option<Long> option) {
+        Long value = options.get(option);
+        if (value != null && value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
         }
         return value;
     }

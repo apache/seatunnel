@@ -46,6 +46,9 @@ Status: RUNNING
 
 `--wait` keeps polling until a terminal status is reported; `FAILED`, `CANCELED` and `UNKNOWN` make
 the command exit non-zero, which turns it into a completion gate for schedulers and CI.
+`--wait-timeout` bounds that polling and fails with the last observed status when the limit is
+reached, while the default `0` keeps waiting indefinitely; `--wait-interval` sets the poll interval
+(500 ms by default).
 
 ## cancel
 

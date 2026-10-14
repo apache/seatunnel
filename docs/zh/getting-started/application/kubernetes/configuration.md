@@ -47,6 +47,7 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `kubernetes.env-from.configmap` | string | no | - | 已有 ConfigMap，其全部 key 注入为环境变量（等价 Kubernetes `envFrom.configMapRef`）。 |
 | `kubernetes.kubeconfig` | string | no | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
 | `kubernetes.finished-job-retention-seconds` | int | no | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
+| `kubernetes.active-deadline-seconds` | long | no | - | 整个 application 的绝对超时秒数，从 Job 创建算起，包含 Master 启动。无人值守的批作业建议设置；不设置时 Job 会一直处于 Active，直到作业结束或被取消。 |
 | `kubernetes.checkpoint-pvc` | string | no | - | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
 | `kubernetes.checkpoint-directory` | string | no | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
 | `kubernetes.master.hazelcast-config` | string | no | - | Master 的 Hazelcast 成员配置：`<seatunnel-home>/config` 下的文件名，或 `.yaml`/`.yml`/`.xml` 绝对路径；不设置时使用内置配置。 |

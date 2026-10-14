@@ -5,7 +5,12 @@ title: FAQ
 
 # Kubernetes FAQ
 
-## How do I inspect or cancel an application?
+High-frequency questions about operations, lifecycle, failures and security for Application Mode.
+Commands live in [Commands](commands.md), full option tables in [Configuration](configuration.md).
+
+## Operations
+
+### How do I inspect or cancel an application?
 
 ```bash
 bin/seatunnel-application.sh status --target kubernetes \
@@ -19,7 +24,7 @@ Cancellation deletes the Job and labeled Pods, Service, and any Secret or Config
 application. It does not create a savepoint, and referenced Secrets or ConfigMaps are never modified.
 Status returns `UNKNOWN` after deletion or Job TTL expiry.
 
-## How do I inspect resources and logs?
+### How do I inspect resources and logs?
 
 ```bash
 kubectl -n seatunnel-apps get jobs,pods,services,secrets \
@@ -31,13 +36,22 @@ kubectl -n seatunnel-apps describe job ACTUAL_APPLICATION_ID
 
 Inspect every worker Pod when diagnosing worker failures. Image pull, ResourceQuota, LimitRange, admission, and node-capacity problems normally appear in Pod events.
 
-## How long are completed resources retained?
+## Lifecycle
+
+### How long are completed resources retained?
 
 The master exit code produces a Job `Complete` or `Failed` condition. The completed master Pod,
 Service, and any created Secret or ConfigMap remain until
 `kubernetes.finished-job-retention-seconds` expires.
 
 If the master is forcibly terminated before cleanup, workers exit after losing the master, but stopped Pod objects may remain until Job TTL cleanup. Retry `cancel` after an API outage is resolved.
+
+### What happens when the master Pod never starts?
+
+The Job stays `Active` and `status --wait` keeps polling; `--wait-timeout` bounds that wait.
+For unattended batch runs, set `kubernetes.active-deadline-seconds` so Kubernetes fails the Job
+automatically and `--wait` returns `FAILED`. Fix the root cause from the Pod events: image pull,
+admission policy, ResourceQuota, or node capacity.
 
 ## Common failures
 
