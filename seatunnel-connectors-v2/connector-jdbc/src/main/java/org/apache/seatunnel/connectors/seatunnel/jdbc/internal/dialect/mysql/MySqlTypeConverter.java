@@ -126,6 +126,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
      * OceanBaseMySqlTypeConverter} has no {@code *_UNSIGNED} case for either. Keeping the superset
      * is the safe choice: the guard only answers "is this column unsigned", and narrowing it per
      * dialect would silently drop the attribute for the shared numeric types.
+     *
+     * <p>{@code MYSQL_SET_UNSIGNED} is deliberately not a member. That key is synthesized when a
+     * non-numeric {@code SET} column is mis-flagged as unsigned, and the guard exists to stop that
+     * mis-flagging, so accepting it here would undo the fix.
      */
     private static final Set<String> UNSIGNED_BASE_TYPE_NAMES =
             Collections.unmodifiableSet(

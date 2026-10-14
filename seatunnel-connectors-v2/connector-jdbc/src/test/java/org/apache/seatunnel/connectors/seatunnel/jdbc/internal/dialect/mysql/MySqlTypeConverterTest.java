@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import com.mysql.cj.MysqlType;
 
 import java.lang.reflect.Modifier;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -105,6 +106,14 @@ public class MySqlTypeConverterTest {
     }
 
     /**
+     * {@code *_UNSIGNED} constants that are synthesized instead of describing a real MySQL type.
+     * {@code MYSQL_SET_UNSIGNED} is produced when a {@code SET} column is wrongly flagged as
+     * unsigned, and the numeric guard has to reject it, so it is asserted separately below.
+     */
+    private static final List<String> SYNTHETIC_UNSIGNED_TYPE_NAMES =
+            Collections.singletonList(MySqlTypeConverter.MYSQL_SET_UNSIGNED);
+
+    /**
      * The guard derives the numeric base types it accepts from the {@code *_UNSIGNED} constants of
      * the converter, so every such constant must be accepted. This fails if the derivation is later
      * replaced by a hand-written list that misses a type added here.
@@ -128,12 +137,24 @@ public class MySqlTypeConverterTest {
 
         // Guard against a rename that would silently make this check vacuous.
         Assertions.assertFalse(unsignedTypeNames.isEmpty());
+        Assertions.assertTrue(unsignedTypeNames.containsAll(SYNTHETIC_UNSIGNED_TYPE_NAMES));
         for (String unsignedTypeName : unsignedTypeNames) {
             String baseName = unsignedTypeName.substring(0, unsignedTypeName.indexOf(' '));
-            Assertions.assertTrue(
+            boolean accepted =
                     MySqlTypeConverter.isNumericUnsignedColumnType(
-                            baseName, baseName.toLowerCase(Locale.ROOT) + " unsigned"),
-                    () -> unsignedTypeName + " must be accepted by the UNSIGNED guard");
+                            baseName, baseName.toLowerCase(Locale.ROOT) + " unsigned");
+            if (SYNTHETIC_UNSIGNED_TYPE_NAMES.contains(unsignedTypeName)) {
+                Assertions.assertFalse(
+                        accepted,
+                        () ->
+                                unsignedTypeName
+                                        + " is synthesized for a non-numeric type and must be"
+                                        + " rejected by the numeric UNSIGNED guard");
+            } else {
+                Assertions.assertTrue(
+                        accepted,
+                        () -> unsignedTypeName + " must be accepted by the UNSIGNED guard");
+            }
         }
     }
 
