@@ -68,6 +68,13 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
     // failure can roll back only the failed batch without moving the durable commit boundary.
     private Savepoint lastSuccessfulBatchSavepoint;
+    // Flush sequence of the shared transaction when lastSuccessfulBatchSavepoint was set, so a
+    // rollback to it can tell whether another writer on the same connection flushed afterwards.
+    private long lastSuccessfulBatchSavepointSequence;
+    // Set once rows were reported as written at a savepoint boundary but are not committed yet. A
+    // full rollback then discards rows that were already reported, so it must not count as
+    // reported work.
+    private boolean reportedUncommittedRows;
     private Boolean supportsSavepoints;
     private boolean savepointUnsupportedLogged;
 
@@ -438,6 +445,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     reportWriteSuccess(batchRows);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
+                        // Roll back before the connection is closed below, as the other close
+                        // path does. Some drivers (for example Oracle) commit an open transaction
+                        // on close, which would commit a partial result.
+                        rollbackIfNeeded("close");
                         throwAsIoException(e);
                     }
                     handleRowLevelBatchFailure(RowErrorPhase.CLOSE, null, batchRows, e);
@@ -489,6 +500,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             Connection connection = connectionProvider.getConnection();
             Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
             lastSuccessfulBatchSavepoint = connection.setSavepoint();
+            lastSuccessfulBatchSavepointSequence = outputFormat.currentFlushSequence();
+            reportedUncommittedRows = true;
             releaseSavepointSilently(connection, previousSavepoint);
             return true;
         } catch (SQLException e) {
@@ -596,18 +609,28 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         if (lastSuccessfulBatchSavepoint != null) {
+            // Batches up to the savepoint stay in the open transaction, still uncommitted.
             connection.rollback(lastSuccessfulBatchSavepoint);
+            outputFormat.markRolledBackToSavepoint(lastSuccessfulBatchSavepointSequence);
         } else {
             connection.rollback();
+            // The failed batch is reported to the row-error collector. Rows this writer already
+            // reported as written, and batches other writers flushed on the same connection, are
+            // lost with it; the state records that.
+            outputFormat.markRolledBack(connection, !reportedUncommittedRows);
+            reportedUncommittedRows = false;
         }
         lastSuccessfulBatchSavepoint = null;
     }
 
     private void commitIfNeeded() throws SQLException {
         Connection connection = connectionProvider.getConnection();
+        outputFormat.checkUncommittedBatchesOn(connection);
         if (!connection.getAutoCommit()) {
             connection.commit();
             lastSuccessfulBatchSavepoint = null;
+            reportedUncommittedRows = false;
+            outputFormat.markCommitted(connection);
         }
     }
 
@@ -686,8 +709,14 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             Connection connection = connectionProvider.getConnection();
             if (connection != null && !connection.getAutoCommit()) {
                 connection.rollback();
+                // The rows of this failed phase are not reported anywhere, so if flushed work was
+                // discarded, no writer on this connection may commit this interval any more.
+                outputFormat.markRolledBack(connection, false);
+                reportedUncommittedRows = false;
             }
-        } catch (SQLException rollbackException) {
+        } catch (SQLException | RuntimeException rollbackException) {
+            // Best effort: the caller is already failing with the original error. A pooled
+            // provider can also throw a RuntimeException when it cannot hand out a connection.
             log.warn("Rollback jdbc sink writer failed during {}.", phase, rollbackException);
         }
     }

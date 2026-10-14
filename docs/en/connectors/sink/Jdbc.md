@@ -311,6 +311,10 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 
 The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
+With checkpointing enabled and a manual-commit connection (`auto_commit = false`, or Oracle), batches flushed since the last commit (checkpoint or timer flush) are still uncommitted. While such batches exist, a failed flush is not retried, because a retry would re-send only the current batch while the earlier ones may already be rolled back, for example by a lost connection or a deadlock (SQLState class `40`). With nothing pending, a class `40` error rolled back only the failed batch, so it is still retried. Likewise, whatever `max_retries` is set to, if the connection holding them is lost and replaced before the commit, the sink fails instead of committing the new connection. In both cases the job recovers from the last checkpoint.
+
+In a multi-table sink, the tables written through the same queue share one connection and one transaction. If flushed batches of any of these tables are lost in a checkpoint interval (the connection is lost or replaced, or another table rolls the transaction back), none of them commits again, and the job recovers from the last checkpoint.
+
 ### batch_size [int]
 
 The maximum number of buffered rows per batch. The sink flushes when the buffer reaches `batch_size`, when a checkpoint prepares a commit, or when the writer closes. A larger value can improve throughput but uses more memory and increases the amount of work retried after a failure.

@@ -312,6 +312,10 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
+开启 checkpoint 且连接为手动提交（`auto_commit = false`，或 Oracle）时，上次提交（checkpoint 或定时 flush）之后已 flush 的 batch 仍未提交。存在这样的 batch 时，flush 失败后不会重试，因为重试只会重新发送当前 batch，而之前的 batch 可能已被回滚，例如因为连接丢失或死锁（SQLState 为 `40` 类）。没有待提交数据时，`40` 类错误只回滚了失败的 batch，因此仍会重试。同样，无论 `max_retries` 设置为多少，如果持有这些 batch 的连接在提交前丢失并被替换，sink 会直接失败，而不是提交新连接。两种情况下作业都会从上一个 checkpoint 恢复。
+
+在多表 sink 中，经由同一个队列写入的多张表共用一个连接和一个事务。如果在一个 checkpoint 周期内，其中任意一张表已 flush 的 batch 丢失（连接丢失或被替换，或另一张表回滚了该事务），这些表之后都不会再提交，作业会从上一个 checkpoint 恢复。
+
 ### batch_size [int]
 
 每个 batch 最多缓存的行数。达到 `batch_size`、checkpoint 准备提交或 writer 关闭时会执行 flush。增大该值可能提高吞吐，但会占用更多内存，并增加故障后需要重试的数据量。

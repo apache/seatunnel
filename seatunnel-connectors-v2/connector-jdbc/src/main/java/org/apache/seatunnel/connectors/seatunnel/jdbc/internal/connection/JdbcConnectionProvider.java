@@ -58,4 +58,15 @@ public interface JdbcConnectionProvider {
      * @throws ClassNotFoundException driver class not found
      */
     Connection reestablishConnection() throws SQLException, ClassNotFoundException;
+
+    /**
+     * Returns the manual-commit transaction state shared by every writer that uses the same
+     * connection as this provider, or {@code null} if this provider does not keep one. A writer
+     * then keeps its own state.
+     *
+     * @return the shared transaction state, or {@code null}
+     */
+    default JdbcTransactionState getTransactionState() {
+        return null;
+    }
 }
