@@ -23,9 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import java.util.HashMap;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MAX_MS;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
-
 /**
  * Builds the HTTP request parameters for the Asana tasks endpoint: the tasks URL, the Bearer
  * Authorization header, query params (project, page limit, fields, optional modified_since) and
@@ -77,8 +74,8 @@ public class AsanaSourceParameter extends HttpParameter {
 
         if (!config.getOptional(AsanaSourceOptions.RETRY).isPresent()) {
             setRetry(3);
-            setRetryBackoffMultiplierMillis(DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS);
-            setRetryBackoffMaxMillis(DEFAULT_RETRY_BACKOFF_MAX_MS);
         }
+        setRetryBackoffMultiplierMillis(config.get(AsanaSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS));
+        setRetryBackoffMaxMillis(config.get(AsanaSourceOptions.RETRY_BACKOFF_MAX_MS));
     }
 }
