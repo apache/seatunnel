@@ -258,6 +258,29 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "The configuration-only --check command is provided by Zeta")
+    public void testBlankSourceUrlRejectedByConfigCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult connectorSetup = container.executeConnectorCheck(new String[] {"-l"});
+        Assertions.assertEquals(
+                0,
+                connectorSetup.getExitCode(),
+                connectorSetup.getStdout() + connectorSetup.getStderr());
+        String configPath = "/tmp/seatunnel/config/sqlservercdc_blank_url.conf";
+        container.copyFileToContainer("/sqlservercdc_blank_url.conf", configPath);
+
+        Container.ExecResult result =
+                container.executeBaseCommand(new String[] {"--config", configPath, "--check"});
+        String output = result.getStdout() + result.getStderr();
+
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains("url") && output.contains("blank"), output);
+    }
+
     /**
      * Verifies that a single SqlServer CDC source can capture multiple tables and route them to
      * different sink tables in the same database.
