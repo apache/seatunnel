@@ -12,7 +12,7 @@ seatunnel-resource-managers/
     └── src/                      # Entrypoint plus config/, cli/, exception/, kubeclient/ and worker/
 ```
 
-There is no resource-manager `core` module. Shared `ApplicationSpecification` and `WorkerSpecification` live in engine-common under `org.apache.seatunnel.engine.common.config.spec`; `ApplicationOptions` lives in `engine.common.config.server` and `SeatunnelApplicationConfig` in `engine.common.config`. `ApplicationJarPathResolver` lives in engine-core. These modules do not depend on platform SDKs.
+There is no resource-manager `core` module. Shared `ApplicationSpecification` and `WorkerSpecification` live in engine-common under `org.apache.seatunnel.engine.common.config.spec`; `ApplicationOptions` lives in `engine.common.config.server` and `SeatunnelApplicationConfig` in `engine.common.config`. These modules do not depend on platform SDKs.
 
 Engine client owns native Zeta job communication and the deployment SPI. Engine server owns `ApplicationJobExecutionEnvironment`, `ApplicationJobRunner`, the external worker-driver SPI, resource lifecycle and the existing slot scheduler. Platform providers implement deployment and worker drivers; separate Master/Worker CLIs prepare configuration and call `SeaTunnelServerStarter.createHazelcastInstance`. Master CLIs own job cancellation signaling and master shutdown.
 

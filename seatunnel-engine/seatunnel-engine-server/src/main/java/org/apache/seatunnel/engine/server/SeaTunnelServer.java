@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -111,7 +110,6 @@ public class SeaTunnelServer
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     @Getter private final SeaTunnelConfig seaTunnelConfig;
-    private final JarPathResolver jarPathResolver;
     @Getter private final ResourceManagerFactory resourceManagerFactory;
 
     private volatile boolean isRunning = true;
@@ -119,37 +117,19 @@ public class SeaTunnelServer
     @Getter private EventService eventService;
 
     /**
-     * Constructs an uninitialized server using unchanged jar identities for class loading.
+     * Constructs an uninitialized server.
      *
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, JarPathResolver.identity(), new ResourceManagerFactory());
-    }
-
-    /**
-     * Constructs an uninitialized server with a resolver for its node-local task jars.
-     *
-     * <p>Hazelcast owns server initialization and shutdown. The resolver is retained and passed to
-     * the classloader service during initialization; its resource ownership remains with the
-     * caller.
-     *
-     * @param seaTunnelConfig Engine and cluster configuration retained for initialization
-     * @param jarPathResolver stable resolver used by this server's classloader service
-     * @throws NullPointerException if either argument is null
-     */
-    public SeaTunnelServer(
-            @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
-        this(seaTunnelConfig, jarPathResolver, new ResourceManagerFactory());
+        this(seaTunnelConfig, new ResourceManagerFactory());
     }
 
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig,
-            @NonNull JarPathResolver jarPathResolver,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
-        this.jarPathResolver = jarPathResolver;
         this.resourceManagerFactory = resourceManagerFactory;
     }
 
@@ -192,9 +172,7 @@ public class SeaTunnelServer
 
         classLoaderService =
                 new DefaultClassLoaderService(
-                        seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(),
-                        nodeEngine,
-                        jarPathResolver);
+                        seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(), nodeEngine);
 
         eventService = new EventService(nodeEngine);
 

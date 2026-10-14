@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
@@ -66,7 +65,6 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import io.kubernetes.client.openapi.models.V1Secret;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -129,20 +127,14 @@ class KubernetesApplicationTest {
                                     SeaTunnelServerStarter.createHazelcastInstance(
                                             any(SeaTunnelConfig.class),
                                             isNull(),
-                                            any(JarPathResolver.class),
                                             any(ResourceManagerFactory.class)))
                     .thenReturn(worker);
             SeatunnelKubernetesApplicationWorker.main(
                     new String[] {"kubernetes-app", "master:5801", "2"});
-            ArgumentCaptor<JarPathResolver> resolver =
-                    ArgumentCaptor.forClass(JarPathResolver.class);
             starter.verify(
                     () ->
                             SeaTunnelServerStarter.createHazelcastInstance(
-                                    eq(config),
-                                    isNull(),
-                                    resolver.capture(),
-                                    any(ResourceManagerFactory.class)));
+                                    eq(config), isNull(), any(ResourceManagerFactory.class)));
             starter.verifyNoMoreInteractions();
             clients.verifyNoInteractions();
             verify(cluster).addMembershipListener(any(MembershipListener.class));
@@ -166,8 +158,6 @@ class KubernetesApplicationTest {
             assertEquals(
                     "GRACEFUL",
                     config.getHazelcastConfig().getProperty("hazelcast.shutdownhook.policy"));
-            List<URL> jars = Collections.emptyList();
-            assertSame(jars, resolver.getValue().resolve(jars));
         }
     }
 
@@ -188,7 +178,6 @@ class KubernetesApplicationTest {
                                     SeaTunnelServerStarter.createHazelcastInstance(
                                             any(SeaTunnelConfig.class),
                                             isNull(),
-                                            any(JarPathResolver.class),
                                             any(ResourceManagerFactory.class)))
                     .thenReturn(worker);
             SeatunnelKubernetesApplicationWorker.main(

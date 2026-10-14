@@ -30,13 +30,10 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
-import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.core.classloader.ApplicationJarPathResolver;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -63,12 +60,9 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,8 +80,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -473,7 +465,7 @@ class ApplicationLifecycleTest {
                             + ":"
                             + master.getCluster().getLocalMember().getAddress().getPort();
             SeaTunnelConfig workerConfig = engineConfig();
-            worker = startWorker(clusterName, address, 2, workerConfig, JarPathResolver.identity());
+            worker = startWorker(clusterName, address, 2, workerConfig);
             assertEquals(
                     "true",
                     workerConfig
@@ -504,65 +496,6 @@ class ApplicationLifecycleTest {
             }
             master.shutdown();
         }
-    }
-
-    @Test
-    void workerLoadsRelocatedArtifactThroughExplicitResolver(@TempDir Path directory)
-            throws Exception {
-        Path masterHome = directory.resolve("master-distribution");
-        Path workerHome = directory.resolve("worker-distribution");
-        Path jar = workerHome.resolve("connectors/plugin.jar");
-        Files.createDirectories(jar.getParent());
-        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
-            output.putNextEntry(new JarEntry("localized-artifact.txt"));
-            output.write('w');
-            output.closeEntry();
-        }
-        String clusterName = "application-artifact-" + UUID.randomUUID();
-        SeaTunnelConfig masterConfig = engineConfig();
-        SeatunnelApplicationConfig.configure(masterConfig, clusterName, null, 2);
-        HazelcastInstance master = SeaTunnelServerStarter.createHazelcastInstance(masterConfig);
-        HazelcastInstance worker = null;
-        try {
-            worker =
-                    startWorker(
-                            clusterName,
-                            master.getCluster().getLocalMember().getAddress().getHost()
-                                    + ":"
-                                    + master.getCluster().getLocalMember().getAddress().getPort(),
-                            2,
-                            engineConfig(),
-                            new ApplicationJarPathResolver(
-                                    masterHome.toString(), workerHome.toString()));
-            SeaTunnelServer server =
-                    ((HazelcastInstanceImpl) worker)
-                            .node
-                            .getNodeEngine()
-                            .getService(SeaTunnelServer.SERVICE_NAME);
-            URL original = masterHome.resolve("connectors/plugin.jar").toUri().toURL();
-            try (SeaTunnelChildFirstClassLoader loader =
-                    (SeaTunnelChildFirstClassLoader)
-                            server.getClassLoaderService()
-                                    .getClassLoader(17L, Collections.singletonList(original))) {
-                URL marker = loader.getResource("localized-artifact.txt");
-                assertNotNull(marker);
-                URLConnection connection = marker.openConnection();
-                // This test-owned connection must not retain a global cached JarFile on Windows.
-                connection.setUseCaches(false);
-                try (InputStream resource = connection.getInputStream()) {
-                    assertEquals('w', resource.read());
-                }
-            } finally {
-                server.getClassLoaderService()
-                        .releaseClassLoader(17L, Collections.singletonList(original));
-            }
-        } finally {
-            if (worker != null) {
-                worker.shutdown();
-            }
-            master.shutdown();
-        }
-        Files.delete(jar);
     }
 
     @Test
@@ -624,8 +557,7 @@ class ApplicationLifecycleTest {
                                         SeatunnelApplicationConfig.clusterName("test-application"),
                                         masterAddress.get().get(),
                                         2,
-                                        engineConfig(),
-                                        JarPathResolver.identity());
+                                        engineConfig());
                         lateWorker.set(worker);
                         joinedExistingMaster.set(
                                 worker.getCluster().getMembers().stream()
@@ -762,7 +694,6 @@ class ApplicationLifecycleTest {
                 SeaTunnelServerStarter.createHazelcastInstance(
                         config,
                         null,
-                        JarPathResolver.identity(),
                         new ResourceManagerFactory(
                                 DeployType.KUBERNETES, id, specification, driver));
         SeaTunnelServer server =
@@ -836,17 +767,13 @@ class ApplicationLifecycleTest {
     }
 
     private static HazelcastInstanceImpl startWorker(
-            String clusterName,
-            String address,
-            int slots,
-            SeaTunnelConfig config,
-            JarPathResolver resolver) {
+            String clusterName, String address, int slots, SeaTunnelConfig config) {
         SeatunnelApplicationConfig.configure(config, clusterName, address, slots);
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         return SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, resolver, new ResourceManagerFactory());
+                config, null, new ResourceManagerFactory());
     }
 
     private static class LocalDriver implements ResourceManagerDriver<ResourceID> {
@@ -885,8 +812,7 @@ class ApplicationLifecycleTest {
                             clusterName,
                             masterAddress.get(),
                             specification.getSlots(),
-                            engineConfig(),
-                            JarPathResolver.identity());
+                            engineConfig());
             return CompletableFuture.completedFuture(new ResourceID("local-worker"));
         }
 

@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
@@ -56,26 +55,14 @@ public class SeaTunnelServerStarter {
 
     private static HazelcastInstanceImpl initializeHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig, String customInstanceName) {
-        return initializeHazelcastInstance(
-                seaTunnelConfig, customInstanceName, JarPathResolver.identity());
-    }
-
-    /**
-     * Starts one node with its explicit jar resolver and initializes its telemetry after startup.
-     */
-    private static HazelcastInstanceImpl initializeHazelcastInstance(
-            @NonNull SeaTunnelConfig seaTunnelConfig,
-            String customInstanceName,
-            @NonNull JarPathResolver jarPathResolver) {
         return createHazelcastInstance(
-                seaTunnelConfig, customInstanceName, jarPathResolver, new ResourceManagerFactory());
+                seaTunnelConfig, customInstanceName, new ResourceManagerFactory());
     }
 
-    /** Creates a configured member with its jar resolver and resource manager factory. */
+    /** Creates a configured member with its resource manager factory. */
     public static HazelcastInstanceImpl createHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
-            @NonNull JarPathResolver jarPathResolver,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
@@ -93,9 +80,7 @@ public class SeaTunnelServerStarter {
                                         seaTunnelConfig.getHazelcastConfig(),
                                         instanceName,
                                         new SeaTunnelNodeContext(
-                                                seaTunnelConfig,
-                                                jarPathResolver,
-                                                resourceManagerFactory)))
+                                                seaTunnelConfig, resourceManagerFactory)))
                         .getOriginal();
         // init telemetry instance
         if (condition) {
@@ -123,40 +108,21 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
-        return createHazelcastInstance(
-                seaTunnelConfig, null, JarPathResolver.identity(), resourceManagerFactory);
+        return createHazelcastInstance(seaTunnelConfig, null, resourceManagerFactory);
     }
 
     /**
-     * Starts a lite worker using the original serialized jar paths.
+     * Starts a lite worker.
      *
      * @param seaTunnelConfig configuration whose role and lite-member flag are set for a worker
      * @return started worker instance owned and eventually shut down by the caller
      */
     public static HazelcastInstanceImpl createWorkerHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig) {
-        return createWorkerHazelcastInstance(seaTunnelConfig, JarPathResolver.identity());
-    }
-
-    /**
-     * Starts a lite worker with an explicit resolver for this node's local jar paths.
-     *
-     * <p>The resolver is passed directly through node construction to the Engine classloader
-     * service; it is not stored in cluster configuration or shared with other nodes. The caller
-     * retains ownership of any resolver resources. Node initialization or joining failures
-     * propagate to the caller as runtime exceptions.
-     *
-     * @param seaTunnelConfig configuration whose role and lite-member flag are set for a worker
-     * @param jarPathResolver stable instance-scoped resolver used for task classloaders
-     * @return started worker instance owned and eventually shut down by the caller
-     * @throws NullPointerException if configuration or resolver is null
-     */
-    public static HazelcastInstanceImpl createWorkerHazelcastInstance(
-            @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
         // in hazelcast lite node will not store IMap data.
         seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
-        return initializeHazelcastInstance(seaTunnelConfig, null, jarPathResolver);
+        return initializeHazelcastInstance(seaTunnelConfig, null);
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance() {

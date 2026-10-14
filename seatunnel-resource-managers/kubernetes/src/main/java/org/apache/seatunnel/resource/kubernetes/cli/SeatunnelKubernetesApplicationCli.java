@@ -22,7 +22,6 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
@@ -165,7 +164,6 @@ public final class SeatunnelKubernetesApplicationCli {
             return SeaTunnelServerStarter.createHazelcastInstance(
                     engineConfiguration,
                     null,
-                    JarPathResolver.identity(),
                     new ResourceManagerFactory(DeployType.KUBERNETES, id, specification, driver));
         } catch (Exception failure) {
             try {

@@ -20,7 +20,6 @@ package org.apache.seatunnel.resource.kubernetes.worker;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
@@ -52,7 +51,7 @@ public final class SeatunnelKubernetesApplicationWorker {
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         HazelcastInstanceImpl worker =
                 SeaTunnelServerStarter.createHazelcastInstance(
-                        config, null, JarPathResolver.identity(), new ResourceManagerFactory());
+                        config, null, new ResourceManagerFactory());
         worker.getCluster().addMembershipListener(new MasterExitListener());
     }
 
