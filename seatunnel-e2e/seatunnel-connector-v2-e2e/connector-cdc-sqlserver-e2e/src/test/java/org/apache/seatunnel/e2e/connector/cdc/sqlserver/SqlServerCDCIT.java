@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
@@ -265,13 +266,18 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "The configuration-only --check command is provided by Zeta")
     public void testBlankSourceUrlRejectedByConfigCheck(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult connectorSetup = container.executeConnectorCheck(new String[] {"-l"});
-        Assertions.assertEquals(
-                0,
-                connectorSetup.getExitCode(),
-                connectorSetup.getStdout() + connectorSetup.getStderr());
+        String configResource = "/sqlservercdc_blank_url.conf";
+        container.executeExtraCommands(
+                engineContainer ->
+                        ContainerUtil.copyConnectorJarToContainer(
+                                engineContainer,
+                                configResource,
+                                "seatunnel-connectors-v2",
+                                "connector-",
+                                "seatunnel",
+                                "/tmp/seatunnel"));
         String configPath = "/tmp/seatunnel/config/sqlservercdc_blank_url.conf";
-        container.copyFileToContainer("/sqlservercdc_blank_url.conf", configPath);
+        container.copyFileToContainer(configResource, configPath);
 
         Container.ExecResult result =
                 container.executeBaseCommand(new String[] {"--config", configPath, "--check"});
