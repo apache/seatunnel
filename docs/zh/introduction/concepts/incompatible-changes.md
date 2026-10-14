@@ -24,7 +24,7 @@
 ### Application Mode 内部 API 变更
 
 - `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
-  YARN 或 Kubernetes 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+  Application Mode 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
 - `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
   提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
 - `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理

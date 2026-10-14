@@ -26,7 +26,7 @@ You need to check this document before you upgrade to related version.
 
 - `ResourceManagerFactory` is now a single concrete class. Its no-argument constructor selects the
   standalone manager, while the four-argument constructor creates an `ApplicationResourceManager`
-  for YARN or Kubernetes. Platform-specific resource-manager subclasses and factory SPI are removed.
+  for application mode. Platform-specific resource-manager subclasses and factory SPI are removed.
 - `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
   executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
   terminal outcome through `finish(...)` and release their platform clients in `close()`.
