@@ -368,6 +368,89 @@ class KubernetesApplicationTest {
     }
 
     @Test
+    void acceptsReferencesToTheSecretThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        // The application-owned Secret does not exist before this submission creates it.
+        when(api.getSecret("application-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "application-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "secret-value");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:application-secrets/MYSQL_PASSWORD");
+        options.put("kubernetes.env-from.secret", "application-secrets");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).getSecret(anyString());
+    }
+
+    @Test
+    void rejectsMissingKeysInTheSecretThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "application-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "secret-value");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:application-secrets/OTHER_PASSWORD");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).getSecret(anyString());
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void acceptsReferencesToTheConfigMapThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        // The application-owned ConfigMap does not exist before this submission creates it.
+        when(api.getConfigMap("application-config"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.generated.name", "application-config");
+        options.put(
+                "kubernetes.configmap.generated.data.application-e2e.properties",
+                "source=kubernetes-configmap");
+        options.put(
+                "kubernetes.configmap.generated.mount.application-e2e.properties",
+                "/opt/seatunnel/config/application-e2e.properties");
+        options.put(
+                "kubernetes.env.APPLICATION_FILE",
+                "configmap:application-config/application-e2e.properties");
+        options.put("kubernetes.env-from.configmap", "application-config");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).getConfigMap("application-config");
+    }
+
+    @Test
+    void rejectsMissingKeysInTheConfigMapThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.generated.name", "application-config");
+        options.put("kubernetes.configmap.generated.data.application-e2e.properties", "value");
+        options.put(
+                "kubernetes.configmap.generated.mount.application-e2e.properties",
+                "/opt/seatunnel/config/application-e2e.properties");
+        options.put(
+                "kubernetes.env.APPLICATION_FILE", "configmap:application-config/other.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).getConfigMap("application-config");
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
     void continuesWhenReferencedSecretsCannotBeRead() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.getSecret("platform-secrets"))
