@@ -31,6 +31,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 public class DmdbTypeConverterTest {
     @Test
     public void testConvertUnsupported() {
@@ -648,6 +650,46 @@ public class DmdbTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertTimestampWithLocalTimeZone() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamp with local time zone")
+                        .dataType("timestamp with local time zone")
+                        .scale(6)
+                        .build();
+
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
+    }
+
+    @Test
+    public void testConvertIntervalTypes() {
+        for (String intervalType :
+                Arrays.asList(
+                        "INTERVAL YEAR TO MONTH",
+                        "INTERVAL YEAR",
+                        "INTERVAL DAY TO SECOND",
+                        "INTERVAL HOUR TO MINUTE",
+                        "INTERVAL MINUTE TO SECOND")) {
+            BasicTypeDefine<Object> typeDefine =
+                    BasicTypeDefine.builder()
+                            .name("test")
+                            .columnType(intervalType)
+                            .dataType(intervalType.toLowerCase())
+                            .build();
+
+            Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+
+            Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType(), intervalType);
+            Assertions.assertEquals(intervalType, column.getSourceType(), intervalType);
+        }
     }
 
     @Test
