@@ -335,6 +335,52 @@ public class CatalogUtils {
                 sqlQuery);
     }
 
+    /**
+     * Resolves the single physical table that every result column is reported as originating from.
+     * Returns empty when any column reports missing or inconsistent origin metadata (for example
+     * expression columns or join queries), or when the driver fails to report origin metadata at
+     * all — in both cases the query cannot be verified as single-table and no underlying table
+     * metadata should be merged.
+     */
+    public static Optional<TablePath> getSinglePhysicalTablePath(ResultSetMetaData metadata) {
+        if (metadata == null) {
+            return Optional.empty();
+        }
+        try {
+            int columnCount = metadata.getColumnCount();
+            if (columnCount == 0) {
+                return Optional.empty();
+            }
+            TablePath tablePath = getPhysicalTablePath(metadata, 1);
+            if (tablePath == null) {
+                return Optional.empty();
+            }
+            for (int index = 2; index <= columnCount; index++) {
+                if (!tablePath.equals(getPhysicalTablePath(metadata, index))) {
+                    return Optional.empty();
+                }
+            }
+            return Optional.of(tablePath);
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to verify the physical table of the query result metadata, skip merging underlying table metadata",
+                    e);
+            return Optional.empty();
+        }
+    }
+
+    private static TablePath getPhysicalTablePath(ResultSetMetaData metadata, int columnIndex)
+            throws SQLException {
+        String tableName = metadata.getTableName(columnIndex);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        return TablePath.of(
+                StringUtils.defaultIfBlank(metadata.getCatalogName(columnIndex), null),
+                StringUtils.defaultIfBlank(metadata.getSchemaName(columnIndex), null),
+                tableName);
+    }
+
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata,
             BiFunction<ResultSetMetaData, Integer, Column> columnConverter,
