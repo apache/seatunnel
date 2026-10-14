@@ -266,6 +266,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
         int[] cellIndexes = indexes == null ? IntStream.range(0, cellCount).toArray() : indexes;
         // Maps output field indexes to Excel column indexes.
+        // When skipHeaderNumber is positive, the last skipped row is treated as the header.
         Map<Integer, Integer> headerColumns = new HashMap<>();
         if (skipHeaderNumber > 0) {
             Row headerRow = sheet.getRow(startRow - 1);
