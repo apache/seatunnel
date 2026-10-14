@@ -62,7 +62,7 @@ public class RabbitmqClient implements AutoCloseable {
     public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
         try {
-            this.connectionFactory = createConnectionFactory();
+            this.connectionFactory = createConnectionFactory(config);
             this.connection = connectionFactory.newConnection();
             this.channel = connection.createChannel();
 
@@ -102,7 +102,8 @@ public class RabbitmqClient implements AutoCloseable {
         return new QueueingConsumer(channel, queue, splitId);
     }
 
-    private ConnectionFactory createConnectionFactory() {
+    // Shared by runtime and preflight so URI precedence, authentication and TLS stay identical.
+    static ConnectionFactory createConnectionFactory(RabbitmqConfig config) {
         ConnectionFactory factory = new ConnectionFactory();
         if (StringUtils.isNotEmpty(config.getUri())) {
             try {
@@ -159,7 +160,7 @@ public class RabbitmqClient implements AutoCloseable {
     }
 
     /** Configures TLS with the JVM trust store and hostname verification enabled. */
-    private void configureSsl(ConnectionFactory factory) {
+    private static void configureSsl(ConnectionFactory factory) {
         try {
             factory.useSslProtocol(SSLContext.getDefault());
             factory.enableHostnameVerification();
