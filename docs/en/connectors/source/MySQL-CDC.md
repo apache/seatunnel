@@ -6,6 +6,7 @@ import ChangeLog from '../changelog/connector-cdc-mysql.md';
 
 ## Support Those Engines
 
+> Spark<br/>
 > SeaTunnel Zeta<br/>
 > Flink <br/>
 
@@ -33,7 +34,7 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 
 ### Install Jdbc Driver
 
-#### For Flink Engine
+#### For Spark/Flink Engine
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
 
@@ -686,6 +687,17 @@ latest offset and skip the initial snapshot.
 ### How do I handle timezone and character set issues?
 
 Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/Shanghai"`. For character set issues, append `characterEncoding=UTF-8&useUnicode=true` to the JDBC connection URL.
+
+### Can MySQL CDC run on the Spark engine?
+
+Yes. The Spark engine runs the source as one Spark task that holds the split enumerator and all
+readers, for both `BATCH` and `STREAMING` jobs; `parallelism` sets the number of readers in that task.
+Spark does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`. Use a smaller `batch_size` when rows must arrive promptly.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 
