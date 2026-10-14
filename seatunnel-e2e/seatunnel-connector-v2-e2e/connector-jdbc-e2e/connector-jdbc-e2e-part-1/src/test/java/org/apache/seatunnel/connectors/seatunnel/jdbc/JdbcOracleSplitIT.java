@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -86,6 +87,7 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
         containerEnv.put("APP_USER_PASSWORD", PASSWORD);
         oracleContainer =
                 new OracleContainer(imageName)
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withDatabaseName(SCHEMA)
                         .withCopyFileToContainer(
                                 MountableFile.forClasspathResource("sql/oracle_init.sql"),

@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -76,6 +77,7 @@ public class JdbcSqlServerSplitIT extends TestSuiteBase implements TestResource 
         DockerImageName imageName = DockerImageName.parse(SQLSERVER_IMAGE);
         sqlServerContainer =
                 new MSSQLServerContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .acceptLicense()
                         .withNetwork(NETWORK)
                         .withNetworkAliases("sqlserver-e2e")
