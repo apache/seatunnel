@@ -156,21 +156,7 @@ ServiceAccount; the table lists when each of its permissions is needed:
 The localized specification travels in the master Pod environment; no application Secret is
 created by default.
 
-## 3. Create the runtime ConfigMap
-
-The master and worker Pods need `seatunnel.yaml` and `log4j2_client.properties` from the
-distribution. Create one ConfigMap and mount the keys per file:
-
-```bash
-kubectl -n seatunnel-apps create configmap seatunnel-configuration \
-  --from-file=seatunnel.yaml=config/seatunnel.yaml \
-  --from-file=log4j2_client.properties=config/log4j2_client.properties
-```
-
-Mounts use `subPath`, so only the declared files are replaced and the rest of the image
-configuration directory stays untouched.
-
-## 4. Create the deployment configuration
+## 3. Create the deployment configuration
 
 Start from `config/v1.kubernetes.conf.template`, which already carries a demo job, and set the
 platform options:
@@ -192,11 +178,6 @@ kubernetes {
   # The demo job is mounted from a ConfigMap SeaTunnel creates for this application, so the first
   # submission needs no -c file.
   job-config-file = job.conf
-  configmap.runtime {
-    ref = "seatunnel-configuration"
-    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-  }
   configmap.job-conf {
     data.job.conf = """
       env {
@@ -241,7 +222,7 @@ Use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod,
 submitting host.
 :::
 
-## 5. Submit and inspect
+## 4. Submit and inspect
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf

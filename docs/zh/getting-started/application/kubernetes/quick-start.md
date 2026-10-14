@@ -152,20 +152,7 @@ CI ServiceAccount。下表说明提交身份各项权限的使用时机：
 
 本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
 
-## 3. 创建运行时 ConfigMap
-
-Master 和 Worker Pod 需要发行版里的 `seatunnel.yaml` 与 `log4j2_client.properties`。创建一个
-ConfigMap，按键逐文件挂载：
-
-```bash
-kubectl -n seatunnel-apps create configmap seatunnel-configuration \
-  --from-file=seatunnel.yaml=config/seatunnel.yaml \
-  --from-file=log4j2_client.properties=config/log4j2_client.properties
-```
-
-挂载使用 `subPath`，只替换声明的文件，镜像里配置目录的其他文件不受影响。
-
-## 4. 准备部署配置
+## 3. 准备部署配置
 
 从 `config/v1.kubernetes.conf.template` 复制（模板里已带一个可直接运行的示例作业），修改平台选项：
 
@@ -185,11 +172,6 @@ kubernetes {
   service-account = "seatunnel-application"
   # 示例作业由本 application 自建的 ConfigMap 挂载进来，首次提交无需 -c 文件。
   job-config-file = job.conf
-  configmap.runtime {
-    ref = "seatunnel-configuration"
-    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-  }
   configmap.job-conf {
     data.job.conf = """
       env {
@@ -233,7 +215,7 @@ kubernetes {
 在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
 :::
 
-## 5. 提交与查看
+## 4. 提交与查看
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf
