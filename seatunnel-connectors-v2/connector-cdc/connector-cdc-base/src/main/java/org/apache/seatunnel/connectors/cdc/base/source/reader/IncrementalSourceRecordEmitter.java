@@ -49,6 +49,7 @@ import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.W
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getTableId;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isHeartbeatRecord;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
@@ -143,12 +144,15 @@ public class IncrementalSourceRecordEmitter<T>
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
             Offset position = getOffsetPosition(element);
-            splitState.asIncrementalSplitState().setStartupOffset(position);
+            splitState.asIncrementalSplitState().setStartupOffset(position, getTableId(element));
             emitElement(element, output);
         } else if (isDataChangeRecord(element) || isHeartbeatRecord(element)) {
             if (splitState.isIncrementalSplitState()) {
                 Offset position = getOffsetPosition(element);
-                splitState.asIncrementalSplitState().setStartupOffset(position);
+                splitState
+                        .asIncrementalSplitState()
+                        .setStartupOffset(
+                                position, isHeartbeatRecord(element) ? null : getTableId(element));
             }
             emitElement(element, output);
         } else {

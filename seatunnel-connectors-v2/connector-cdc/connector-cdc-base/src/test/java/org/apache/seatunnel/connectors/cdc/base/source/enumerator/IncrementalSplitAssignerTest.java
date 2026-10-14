@@ -31,9 +31,11 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -150,6 +152,60 @@ class IncrementalSplitAssignerTest {
         assertTrue(reassignedSplit.isPresent());
         assertEquals(Collections.singletonList(tableId), reassignedSplit.get().getTableIds());
         assertSame(startupOffset, reassignedSplit.get().getStartupOffset());
+    }
+
+    @Test
+    void shouldKeepPerTableWatermarksWhenRestoredTablesShareIncrementalSplit() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset earlierOffset = mock(Offset.class);
+        Offset laterOffset = mock(Offset.class);
+        Offset stoppingOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(earlierOffset.isBefore(laterOffset)).thenReturn(true);
+        when(laterOffset.isBefore(earlierOffset)).thenReturn(false);
+        when(offsetFactory.neverStop()).thenReturn(stoppingOffset);
+
+        TableId firstTable = TableId.parse("database.schema.first");
+        TableId secondTable = TableId.parse("database.schema.second");
+        Map<TableId, Offset> firstTableWatermark =
+                Collections.singletonMap(firstTable, earlierOffset);
+        Map<TableId, Offset> secondTableWatermark =
+                Collections.singletonMap(secondTable, laterOffset);
+        IncrementalSplit firstRestoredSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(firstTable),
+                        earlierOffset,
+                        stoppingOffset,
+                        Collections.emptyList(),
+                        firstTableWatermark);
+        IncrementalSplit secondRestoredSplit =
+                new IncrementalSplit(
+                        "incremental-split-1",
+                        Collections.singletonList(secondTable),
+                        laterOffset,
+                        stoppingOffset,
+                        Collections.emptyList(),
+                        secondTableWatermark);
+
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(
+                                sourceConfig,
+                                new LinkedHashSet<>(Arrays.asList(firstTable, secondTable))),
+                        1,
+                        offsetFactory);
+        assigner.addSplits(Arrays.asList(firstRestoredSplit, secondRestoredSplit));
+
+        IncrementalSplit reassignedSplit = assigner.getNext().get().asIncrementalSplit();
+
+        assertSame(earlierOffset, reassignedSplit.getStartupOffset());
+        assertSame(earlierOffset, reassignedSplit.getTableStartupOffsets().get(firstTable));
+        assertSame(laterOffset, reassignedSplit.getTableStartupOffsets().get(secondTable));
     }
 
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -312,19 +313,13 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         return false;
     }
 
-    private void configureFilter() {
+    @VisibleForTesting
+    void configureFilter() {
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
         Map<TableId, List<CompletedSnapshotSplitInfo>> splitsInfoMap = new HashMap<>();
         Map<TableId, Offset> tableIdBinlogPositionMap = new HashMap<>();
         List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
                 currentIncrementalSplit.getCompletedSnapshotSplitInfos();
-
-        // latest-offset mode
-        if (completedSnapshotSplitInfos.isEmpty()) {
-            for (TableId tableId : currentIncrementalSplit.getTableIds()) {
-                tableIdBinlogPositionMap.put(tableId, currentIncrementalSplit.getStartupOffset());
-            }
-        }
 
         // calculate the max high watermark of every table
         for (CompletedSnapshotSplitInfo finishedSplitInfo : completedSnapshotSplitInfos) {
@@ -338,6 +333,28 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             Offset maxHighWatermark = tableIdBinlogPositionMap.get(tableId);
             if (maxHighWatermark == null || highWatermark.isAfter(maxHighWatermark)) {
                 tableIdBinlogPositionMap.put(tableId, highWatermark);
+            }
+        }
+        // A split may combine restored tables whose checkpoint offsets differ. Retain each
+        // table's offset so replay from the split minimum does not emit records twice.
+        Map<TableId, Offset> tableStartupOffsets = currentIncrementalSplit.getTableStartupOffsets();
+        if (tableStartupOffsets != null) {
+            for (Map.Entry<TableId, Offset> entry : tableStartupOffsets.entrySet()) {
+                TableId tableId = entry.getKey();
+                Offset tableStartupOffset = entry.getValue();
+                Offset currentWatermark = tableIdBinlogPositionMap.get(tableId);
+                if (tableStartupOffset != null
+                        && (currentWatermark == null
+                                || tableStartupOffset.isAfter(currentWatermark))) {
+                    tableIdBinlogPositionMap.put(tableId, tableStartupOffset);
+                }
+            }
+        }
+        // New tables do not have a checkpoint watermark yet. Their completed snapshot high
+        // watermark above remains authoritative; otherwise, fall back to the split offset.
+        if (splitStartWatermark != null) {
+            for (TableId tableId : currentIncrementalSplit.getTableIds()) {
+                tableIdBinlogPositionMap.putIfAbsent(tableId, splitStartWatermark);
             }
         }
         this.finishedSplitsInfo = splitsInfoMap;

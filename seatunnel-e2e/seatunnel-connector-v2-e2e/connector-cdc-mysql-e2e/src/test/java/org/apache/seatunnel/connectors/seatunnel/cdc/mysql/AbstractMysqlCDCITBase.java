@@ -672,7 +672,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 () -> {
                     try {
                         container.restoreJob(
-                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table.conf",
+                                "/mysqlcdc_to_mysql_with_multi_table_mode_two_table_exactly_once.conf",
                                 String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
@@ -682,6 +682,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+        changeSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
 
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
