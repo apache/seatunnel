@@ -110,41 +110,44 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     /**
      * Validates command-specific arguments before reading files or opening platform connections.
+     *
+     * @throws ParameterException when the combination of arguments is invalid, so the caller
+     *     reports it through the usage path instead of a stack trace
      */
     public void validateCommandOptions() {
         if (applicationConfig != null) {
             requireFile(applicationConfig, "--application-config");
         }
         if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
-            throw new IllegalArgumentException("--wait-timeout must not be negative");
+            throw new ParameterException("--wait-timeout must not be negative");
         }
         if (waitIntervalMillis != null && waitIntervalMillis < 1) {
-            throw new IllegalArgumentException("--wait-interval must be positive");
+            throw new ParameterException("--wait-interval must be positive");
         }
         if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
-            throw new IllegalArgumentException("--wait-timeout and --wait-interval require --wait");
+            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
         }
         if (operation == ApplicationOperation.SUBMIT) {
             if (config != null) {
                 requireFile(config, "--config");
             }
             if (id != null) {
-                throw new IllegalArgumentException("submit does not accept --id");
+                throw new ParameterException("submit does not accept --id");
             }
             return;
         }
         if (id == null || id.trim().isEmpty()) {
-            throw new IllegalArgumentException("status/cancel require --id");
+            throw new ParameterException("status/cancel require --id");
         }
         if (config != null) {
-            throw new IllegalArgumentException("status/cancel do not accept --config");
+            throw new ParameterException("status/cancel do not accept --config");
         }
         if (jobId != null || restoreJobId != null) {
-            throw new IllegalArgumentException(
+            throw new ParameterException(
                     "--job-id and --restore-job-id are supported only with submit");
         }
         if (wait && operation == ApplicationOperation.CANCEL) {
-            throw new IllegalArgumentException("--wait is supported only with submit or status");
+            throw new ParameterException("--wait is supported only with submit or status");
         }
     }
 
@@ -160,7 +163,7 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     private static void requireFile(String path, String option) {
         if (!Files.isRegularFile(Paths.get(path))) {
-            throw new IllegalArgumentException(option + " file does not exist: " + path);
+            throw new ParameterException(option + " file does not exist: " + path);
         }
     }
 

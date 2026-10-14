@@ -230,7 +230,7 @@ class ApplicationExecuteCommandTest {
         ApplicationCommandArgs missing =
                 parse("status", "-t", "kubernetes", "--id", "app", "-a", application.toString());
         assertTrue(
-                assertThrows(IllegalArgumentException.class, missing::buildCommand)
+                assertThrows(ParameterException.class, missing::buildCommand)
                         .getMessage()
                         .contains("--application-config"));
         Files.write(application, "application { invalid".getBytes(StandardCharsets.UTF_8));
@@ -364,10 +364,10 @@ class ApplicationExecuteCommandTest {
                 defaults.resolvedWaitIntervalMillis());
 
         status.setWaitIntervalMillis(0L);
-        assertThrows(IllegalArgumentException.class, status::buildCommand);
+        assertThrows(ParameterException.class, status::buildCommand);
         status.setWaitIntervalMillis(200L);
         status.setWait(false);
-        assertThrows(IllegalArgumentException.class, status::buildCommand);
+        assertThrows(ParameterException.class, status::buildCommand);
     }
 
     @Test
@@ -411,13 +411,13 @@ class ApplicationExecuteCommandTest {
         Files.write(deploymentConfig, "platform.queue = default".getBytes(StandardCharsets.UTF_8));
 
         ApplicationCommandArgs cancel = command(ApplicationOperation.CANCEL, deploymentConfig);
-        assertThrows(IllegalArgumentException.class, cancel::buildCommand);
+        assertThrows(ParameterException.class, cancel::buildCommand);
         ApplicationCommandArgs cancelWithWait =
                 command(ApplicationOperation.CANCEL, deploymentConfig);
         cancelWithWait.setId("application_1");
         cancelWithWait.setWait(true);
-        IllegalArgumentException waitFailure =
-                assertThrows(IllegalArgumentException.class, cancelWithWait::buildCommand);
+        ParameterException waitFailure =
+                assertThrows(ParameterException.class, cancelWithWait::buildCommand);
         assertTrue(
                 waitFailure
                         .getMessage()
@@ -429,16 +429,16 @@ class ApplicationExecuteCommandTest {
                 command(ApplicationOperation.SUBMIT, deploymentConfig);
         submitWithMissingJob.setConfig(
                 deploymentConfig.getParent().resolve("missing-job.conf").toString());
-        assertThrows(IllegalArgumentException.class, submitWithMissingJob::buildCommand);
+        assertThrows(ParameterException.class, submitWithMissingJob::buildCommand);
 
         ApplicationCommandArgs status = command(ApplicationOperation.STATUS, deploymentConfig);
         status.setId("application_1");
         assertTrue(status.buildCommand() instanceof ApplicationExecuteCommand);
         status.setJobId(12L);
-        assertThrows(IllegalArgumentException.class, status::buildCommand);
+        assertThrows(ParameterException.class, status::buildCommand);
         status.setJobId(null);
         status.setRestoreJobId(100L);
-        assertThrows(IllegalArgumentException.class, status::buildCommand);
+        assertThrows(ParameterException.class, status::buildCommand);
 
         assertThrows(
                 ParameterException.class,

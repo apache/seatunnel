@@ -22,8 +22,6 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-import com.beust.jcommander.ParameterException;
-
 /** User-facing entrypoint for native Zeta application deployment and management. */
 public final class SeaTunnelApplication {
 
@@ -34,22 +32,13 @@ public final class SeaTunnelApplication {
                         new ApplicationCommandArgs(),
                         EngineType.SEATUNNEL_APPLICATION.getStarterShellName(),
                         false,
-                        SeaTunnelApplication::validateCommandOptions);
+                        ApplicationCommandArgs::validateCommandOptions);
         try {
             SeaTunnel.run(applicationCommandArgs.buildCommand());
         } catch (Exception e) {
             System.err.println("Application command failed: " + e.getMessage());
             e.printStackTrace(System.err);
             System.exit(1);
-        }
-    }
-
-    /** Reports invalid arguments through the usage path instead of a stack trace. */
-    private static void validateCommandOptions(ApplicationCommandArgs arguments) {
-        try {
-            arguments.validateCommandOptions();
-        } catch (IllegalArgumentException failure) {
-            throw new ParameterException(failure.getMessage());
         }
     }
 }
