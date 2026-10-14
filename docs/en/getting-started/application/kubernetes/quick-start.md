@@ -206,22 +206,6 @@ ConfigMap is named `<application-id>-job-conf` and is deleted with the applicati
 in its own file instead, pass it with `-c job.conf` and remove `job-config-file`.
 :::
 
-To pass credentials, inject platform-managed values and reference them from the job file:
-
-```hocon
-kubernetes {
-  # Reference a Secret managed by your platform, or let SeaTunnel create one:
-  secret-ref = "platform-job-secrets"
-  # secret { name = "example-job-secrets", data.MYSQL_PASSWORD = ${MYSQL_PASSWORD} }
-  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
-}
-```
-
-:::tip
-Use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod, never on the
-submitting host.
-:::
-
 ## 4. Submit and inspect
 
 ```bash

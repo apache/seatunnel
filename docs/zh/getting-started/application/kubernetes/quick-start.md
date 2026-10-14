@@ -200,21 +200,6 @@ kubernetes {
 `-c job.conf` 提交并去掉 `job-config-file`。
 :::
 
-需要传凭据时用平台管理的 Secret 并在作业文件里引用：
-
-```hocon
-kubernetes {
-  # 引用平台已有 Secret，或让 SeaTunnel 创建：
-  secret-ref = "platform-job-secrets"
-  # secret { name = "example-job-secrets", data.MYSQL_PASSWORD = ${MYSQL_PASSWORD} }
-  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
-}
-```
-
-:::tip
-在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
-:::
-
 ## 4. 提交与查看
 
 ```bash
