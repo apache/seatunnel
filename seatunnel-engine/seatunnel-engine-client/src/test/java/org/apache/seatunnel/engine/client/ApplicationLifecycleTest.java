@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
+import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -97,10 +98,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -253,6 +256,28 @@ class ApplicationLifecycleTest {
         run(JOB, driver, 30000);
         assertEquals(ApplicationStatus.SUCCEEDED, driver.finalStatus);
         assertTrue(driver.closed);
+    }
+
+    @Test
+    void errorDuringExecutionKeepsTheOriginalFailureAndCleansUp() throws Exception {
+        SeaTunnelServer server = mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = mock(CoordinatorService.class);
+        ApplicationResourceManager<?> resources = mock(ApplicationResourceManager.class);
+        when(server.awaitCoordinatorService(anyLong())).thenReturn(coordinator);
+        when(coordinator.getResourceManager()).thenReturn(resources);
+        StackOverflowError failure = new StackOverflowError("worker registration failed");
+        doThrow(failure).when(resources).awaitWorkerRegistration();
+
+        ApplicationJobRunner runner = new ApplicationJobRunner(server, specification(JOB, 30000));
+        // A JVM Error must reach the caller unchanged instead of a synthetic "job did not
+        // complete" failure, and resource cleanup must still run.
+        assertSame(failure, assertThrows(StackOverflowError.class, runner::run));
+        verify(resources).stopApplicationWorkers();
+        verify(resources)
+                .finish(
+                        eq(ApplicationStatus.FAILED),
+                        eq("java.lang.StackOverflowError: worker registration failed"));
+        verify(resources).close();
     }
 
     @Test

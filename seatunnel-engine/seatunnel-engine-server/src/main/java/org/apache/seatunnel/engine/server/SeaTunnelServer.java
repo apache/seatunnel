@@ -372,9 +372,12 @@ public class SeaTunnelServer
     public CoordinatorService awaitCoordinatorService(long timeoutMillis)
             throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (!isCoordinatorActive()) {
+        while (true) {
             if (!isMasterNode()) {
                 throw new SeaTunnelEngineException("This is not a master node now.");
+            }
+            if (isCoordinatorActive()) {
+                return coordinatorService;
             }
             if (System.nanoTime() >= deadline) {
                 throw new SeaTunnelEngineRetryableException(
@@ -382,7 +385,6 @@ public class SeaTunnelServer
             }
             Thread.sleep(COORDINATOR_ACTIVATION_POLL_MILLIS);
         }
-        return coordinatorService;
     }
 
     synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {

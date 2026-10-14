@@ -55,7 +55,9 @@ reached, while the default `0` keeps waiting indefinitely; `--wait-interval` set
 `cancel` deletes the owner Job of the application. Owned Pods, Services, Secrets and ConfigMaps are
 garbage-collected through the owner reference; referenced objects created outside SeaTunnel are
 never modified or deleted. After cancellation the application reports `CANCELED`, and a finished
-Job is retained until `kubernetes.finished-job-retention-seconds` expires.
+Job is retained until `kubernetes.finished-job-retention-seconds` expires. A canceled master exits
+with code 1, because a Kubernetes Job cannot express `CANCELED`, so the Job object ends in the
+`Failed` state while `status` reports `CANCELED`.
 
 ## Inspecting in Kubernetes
 

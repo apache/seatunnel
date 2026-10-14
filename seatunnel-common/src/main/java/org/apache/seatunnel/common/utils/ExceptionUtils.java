@@ -59,12 +59,39 @@ public class ExceptionUtils {
      * <p>This allows cleanup to continue after an earlier failure while preserving all failures for
      * the caller to inspect.
      */
-    public static Exception collect(Exception current, Exception next) {
+    public static <T extends Throwable> T collect(T current, T next) {
         if (current == null) {
             return next;
         }
         current.addSuppressed(next);
         return current;
+    }
+
+    /**
+     * Unwraps a failure that may be an {@link Error}.
+     *
+     * <p>Same rules as {@link #unwrap(Exception)}, except that the cause may be any throwable, so
+     * an error hidden behind an {@link ExecutionException} or {@link CompletionException} is
+     * returned instead of the transport exception. Callers that keep JVM errors alive alongside
+     * exceptions, for example an application runner that must not replace an error with a synthetic
+     * failure, use this overload.
+     *
+     * @param failure failure to unwrap
+     * @return the unwrapped failure
+     */
+    public static Throwable unwrap(Throwable failure) {
+        while ((failure instanceof ExecutionException || failure instanceof CompletionException)
+                && failure.getCause() != null) {
+            Throwable cause = failure.getCause();
+            for (Throwable suppressed : failure.getSuppressed()) {
+                if (suppressed != cause) {
+                    cause.addSuppressed(suppressed);
+                }
+            }
+            failure = cause;
+        }
+
+        return failure;
     }
 
     /**

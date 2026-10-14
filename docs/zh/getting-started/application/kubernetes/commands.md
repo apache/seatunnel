@@ -49,6 +49,8 @@ Status: RUNNING
 `cancel` 删除 application 的 owner Job，自有 Pod、Service、Secret 和 ConfigMap 通过 owner
 reference 一并回收；SeaTunnel 之外创建的引用对象不会被修改或删除。取消后 application 状态为
 `CANCELED`，已完成的 Job 保留到 `kubernetes.finished-job-retention-seconds` 到期。
+被取消的 Master 以退出码 1 结束（Kubernetes Job 无法表达 `CANCELED`），因此 Job 对象最终是
+`Failed` 状态，而 `status` 报告 `CANCELED`。
 
 ## 用 kubectl 排查
 
