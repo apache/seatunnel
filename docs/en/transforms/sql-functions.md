@@ -1235,6 +1235,13 @@ fractional value reaches an integral target only through `COALESCE` or `IFNULL`,
 type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
 `NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
+`BIGINT` | `LONG` is range-checked the same way, but only an overflowing string source reaches it as
+a cast, such as `CAST('9223372036854775808' AS BIGINT)`, where `TRY_CAST` returns `NULL`. A `DECIMAL`
+or `DOUBLE` source is refused while the statement is prepared, so it reaches `BIGINT` only through
+`COALESCE` or `IFNULL`: when `bigint_col` is `NULL`, `COALESCE(bigint_col, decimal_col)` on
+`18446744073709551616` now fails instead of returning `0`. `TRY_CAST` cannot turn that into `NULL`,
+because no cast is involved.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

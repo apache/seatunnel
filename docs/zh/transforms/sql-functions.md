@@ -1239,6 +1239,12 @@ CAST(FLAG AS BOOLEAN)
 小数值只能通过 COALESCE 或 IFNULL 到达整型目标（这两者的目标类型是推断出来的，而不是显式写出的），
 此时会向零截断：当 `int_col` 为 NULL 时，`COALESCE(int_col, double_col)` 对 `5.7` 得到 `5`。
 
+BIGINT | LONG 也会以同样方式做范围检查，但只有超出范围的字符串来源会以 cast 的形式到达，例如
+`CAST('9223372036854775808' AS BIGINT)`，此时 TRY_CAST 返回 NULL。DECIMAL 与 DOUBLE 来源在语句准备
+阶段就会被拒绝，因此它们只能通过 COALESCE 或 IFNULL 到达 BIGINT：当 `bigint_col` 为 NULL 时，
+`COALESCE(bigint_col, decimal_col)` 对 `18446744073709551616` 现在会失败，而不再返回 `0`。
+由于其中不涉及 cast，TRY_CAST 无法把这种情况转成 NULL。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

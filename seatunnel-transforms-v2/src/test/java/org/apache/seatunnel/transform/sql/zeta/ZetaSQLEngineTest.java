@@ -570,4 +570,163 @@ public class ZetaSQLEngineTest {
                     sql + " should widen to BIGINT and keep the value");
         }
     }
+
+    @Test
+    public void testCoalesceRejectsWideAndNonFiniteSourcesForABigintTarget() {
+        // The reachable route for #12612. COALESCE and IFNULL infer their type from the first
+        // non-null argument, so COALESCE(bigint, decimal) targets BIGINT and the decimal is
+        // narrowed here. These are the four values measured on dev, which arrived as 5, 0, 0 and
+        // Long.MAX_VALUE respectively instead of failing.
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_bigint", "c_decimal"},
+                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, new DecimalType(38, 0)});
+        SeaTunnelRowType doubleRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_bigint", "c_double"},
+                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.DOUBLE_TYPE});
+
+        // Proves the test is about the magnitude and not about the conversion failing generally:
+        // longValue() silently produces these, which is the defect being fixed.
+        Assertions.assertEquals(
+                5L,
+                new BigDecimal("18446744073709551621").longValue(),
+                "2^64+5 must wrap to 5 through longValue(), otherwise this test proves nothing");
+        Assertions.assertEquals(
+                0L,
+                new BigDecimal("18446744073709551616").longValue(),
+                "2^64 must wrap to 0 through longValue(), otherwise this test proves nothing");
+        Assertions.assertEquals(
+                0L,
+                Double.valueOf(Double.NaN).longValue(),
+                "NaN must map to 0 through longValue(), as the docs note for this change states");
+        Assertions.assertEquals(
+                Long.MAX_VALUE,
+                Double.valueOf(1.0e30d).longValue(),
+                "1e30 must saturate at Long.MAX_VALUE through longValue(), per the docs note");
+
+        for (String fn : new String[] {"coalesce", "ifnull"}) {
+            for (Object v :
+                    new Object[] {
+                        new BigDecimal("18446744073709551621"),
+                        new BigDecimal("18446744073709551616"),
+                        new BigDecimal("-18446744073709551621")
+                    }) {
+                ZetaSQLEngine engine = new ZetaSQLEngine();
+                String sql = "select " + fn + "(c_bigint, c_decimal) as r from test";
+                engine.init("test", "test", decimalRowType, sql);
+                SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                engine.transformBySQL(
+                                        new SeaTunnelRow(new Object[] {null, v}), outType),
+                        sql + " should reject " + v);
+            }
+
+            for (Object v : new Object[] {Double.NaN, 1.0e30d, -1.0e30d}) {
+                ZetaSQLEngine engine = new ZetaSQLEngine();
+                String sql = "select " + fn + "(c_bigint, c_double) as r from test";
+                engine.init("test", "test", doubleRowType, sql);
+                SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                engine.transformBySQL(
+                                        new SeaTunnelRow(new Object[] {null, v}), outType),
+                        sql + " should reject " + v);
+            }
+        }
+
+        // Controls: an in-range decimal and an in-range double still convert, and a fractional
+        // double is still truncated towards zero rather than rejected.
+        ZetaSQLEngine decimalEngine = new ZetaSQLEngine();
+        String decimalSql = "select coalesce(c_bigint, c_decimal) as r from test";
+        decimalEngine.init("test", "test", decimalRowType, decimalSql);
+        SeaTunnelRowType decimalOut = decimalEngine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(
+                7L,
+                decimalEngine
+                        .transformBySQL(
+                                new SeaTunnelRow(new Object[] {null, new BigDecimal("7")}),
+                                decimalOut)
+                        .get(0)
+                        .getField(0),
+                "an in-range decimal must still convert to BIGINT");
+
+        ZetaSQLEngine doubleEngine = new ZetaSQLEngine();
+        String doubleSql = "select coalesce(c_bigint, c_double) as r from test";
+        doubleEngine.init("test", "test", doubleRowType, doubleSql);
+        SeaTunnelRowType doubleOut = doubleEngine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(
+                5L,
+                doubleEngine
+                        .transformBySQL(new SeaTunnelRow(new Object[] {null, 5.7d}), doubleOut)
+                        .get(0)
+                        .getField(0),
+                "a fractional double must still truncate towards zero for BIGINT");
+    }
+
+    @Test
+    public void testStringSourceBoundariesForABigintTargetIncludingTryCast() {
+        // BIGINT was the one integral target missing from the string-source matrix above. It is
+        // also the only route by which TRY_CAST can return NULL for a BIGINT target, because
+        // Long.parseLong reports its own overflow per row; see the next test for why the numeric
+        // sources have no TRY_CAST form at all.
+        Assertions.assertEquals(
+                Long.MIN_VALUE,
+                castResult(
+                        "select cast(c_str as BIGINT) as r from test",
+                        rowWith(0L, String.valueOf(Long.MIN_VALUE))),
+                "BIGINT should accept the exact Long.MIN_VALUE string");
+        Assertions.assertEquals(
+                Long.MAX_VALUE,
+                castResult(
+                        "select cast(c_str as BIGINT) as r from test",
+                        rowWith(0L, String.valueOf(Long.MAX_VALUE))),
+                "BIGINT should accept the exact Long.MAX_VALUE string");
+
+        // One step beyond each bound, written out because long arithmetic cannot express them.
+        for (String v : new String[] {"9223372036854775808", "-9223372036854775809"}) {
+            Assertions.assertThrows(
+                    Exception.class,
+                    () -> castResult("select cast(c_str as BIGINT) as r from test", rowWith(0L, v)),
+                    "BIGINT should reject the string " + v);
+            Assertions.assertNull(
+                    castResult("select try_cast(c_str as BIGINT) as r from test", rowWith(0L, v)),
+                    "BIGINT TRY_CAST should be null for the string " + v);
+        }
+    }
+
+    @Test
+    public void testBigintTargetCannotBeReachedByAnExplicitCastFromDecimalOrDouble() {
+        // Why the four numeric values in #12612 have no TRY_CAST form: CastFunction.LONG_CAST_TYPES
+        // admits only TINYINT, SMALLINT, INT, BIGINT and STRING, so a DECIMAL or DOUBLE source is
+        // refused while the statement is prepared, before any row exists. TRY_CAST's catch sits in
+        // the per-row path and is never reached, so it cannot turn these into NULL. Pinned so the
+        // PR's claim about TRY_CAST stays true if that type list is ever widened.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_decimal", "c_double"},
+                        new SeaTunnelDataType[] {new DecimalType(38, 0), BasicType.DOUBLE_TYPE});
+
+        String[][] cases = {
+            {"cast(c_decimal as BIGINT)", "Unsupported CAST FROM DECIMAL AS type: BIGINT"},
+            {"try_cast(c_decimal as BIGINT)", "Unsupported CAST FROM DECIMAL AS type: BIGINT"},
+            {"cast(c_double as BIGINT)", "Unsupported CAST FROM DOUBLE AS type: BIGINT"},
+            {"try_cast(c_double as BIGINT)", "Unsupported CAST FROM DOUBLE AS type: BIGINT"}
+        };
+        for (String[] c : cases) {
+            ZetaSQLEngine engine = new ZetaSQLEngine();
+            engine.init("test", "test", rowType, "select " + c[0] + " as r from test");
+            TransformException thrown =
+                    Assertions.assertThrows(
+                            TransformException.class,
+                            () -> engine.typeMapping(new ArrayList<>()),
+                            c[0] + " should be rejected while the plan is prepared");
+            Assertions.assertTrue(
+                    thrown.getMessage().contains(c[1]),
+                    c[0] + " should report \"" + c[1] + "\" but reported: " + thrown.getMessage());
+        }
+    }
 }
