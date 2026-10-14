@@ -4,6 +4,13 @@
 
 ## dev
 
+### CDC：可空列不再用作快照分片列
+
+- **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
+  - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
+  - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
+  - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
