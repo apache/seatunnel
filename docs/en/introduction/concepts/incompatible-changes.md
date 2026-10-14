@@ -472,4 +472,16 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
     read of a multi-gigabyte log has to fit in the node's heap.
 
+- **Behavior change: part of the engine startup log output changes**
+  - **Affected component**: `seatunnel-engine-server` (`SeaTunnelServer`,
+    `AbstractResourceManager`, `StandaloneResourceManager`); only log-based monitoring is affected.
+  - **Description**: The `SeaTunnel server start...`, `Init ResourceManager` and `initWorker... `
+    lines are no longer written. Worker synchronisation now logs
+    `Synchronizing existing worker profiles`, and the standalone resource manager logs
+    `Init standalone ResourceManager`.
+  - **Impact**: Alerting or log parsing that matches the old text stops matching; runtime behaviour
+    and the cluster lifecycle are unchanged.
+  - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
+    of the exact text.
+
 ### Dependency Upgrades

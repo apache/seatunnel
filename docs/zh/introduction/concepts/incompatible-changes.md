@@ -388,4 +388,13 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
+
 ### 依赖升级
