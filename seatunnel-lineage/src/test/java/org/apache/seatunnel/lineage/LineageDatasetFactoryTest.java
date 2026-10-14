@@ -131,7 +131,8 @@ class LineageDatasetFactoryTest {
         options.put("fenodes", "192.168.10.131:8030");
         options.put("database", "ds71");
         options.put("table", "orders");
-        options.put("url", "jdbc:mysql://192.168.10.131:9030/ds71");
+        // Distinct from the Doris naming path so a JDBC-first order would fail this assertion.
+        options.put("url", "jdbc:postgresql://other-host:5432/other_db");
 
         List<LineageDataset> datasets =
                 LineageDatasetFactory.fromConnectorOptions("Doris", options);

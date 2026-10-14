@@ -118,12 +118,24 @@ public final class LineageDatasetFactory {
         List<LineageDatasetExtractor> extractors = new ArrayList<>();
         Iterator<LineageDatasetExtractor> iterator =
                 ServiceLoader.load(LineageDatasetExtractor.class, loader).iterator();
-        while (iterator.hasNext()) {
+        while (true) {
+            final boolean hasNext;
+            try {
+                hasNext = iterator.hasNext();
+            } catch (ServiceConfigurationError e) {
+                LOGGER.log(
+                        Level.WARNING,
+                        "Stopping LineageDatasetExtractor discovery after a broken provider lookup",
+                        e);
+                break;
+            }
+            if (!hasNext) {
+                break;
+            }
             try {
                 extractors.add(iterator.next());
             } catch (ServiceConfigurationError e) {
-                LOGGER.log(
-                        Level.WARNING, "Skipping a broken LineageDatasetExtractor provider", e);
+                LOGGER.log(Level.WARNING, "Skipping a broken LineageDatasetExtractor provider", e);
             }
         }
         extractors.sort(Comparator.comparingInt(LineageDatasetExtractor::order));
