@@ -73,7 +73,9 @@ public final class SeatunnelKubernetesApplicationWorker {
                 LOG.warn(
                         "Application master {} left the cluster; shutting down worker",
                         membershipEvent.getMember().getAddress());
-                System.exit(1);
+                // Halt instead of exiting gracefully: the master is gone, and running the shutdown
+                // hook here would only wait for Hazelcast to drain a lite member.
+                Runtime.getRuntime().halt(1);
             }
         }
     }
