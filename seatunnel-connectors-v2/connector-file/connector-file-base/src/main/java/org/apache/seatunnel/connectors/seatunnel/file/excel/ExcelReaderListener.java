@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.excel;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -53,6 +54,8 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
 
     private SeaTunnelDataType<?>[] fieldTypes;
     private final int[] indexes;
+    // Maps output field indexes to Excel column indexes.
+    private final Map<Integer, Integer> headerColumns = new HashMap<>();
 
     private ExcelCellUtils excelCellUtils;
 
@@ -83,10 +86,17 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
 
     @Override
     public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
-        for (int i = 0; i < headMap.size(); i++) {
-            String header = headMap.get(i).getStringValue();
-            if (!"null".equals(header)) {
-                customHeaders.put(i, header);
+        headerColumns.clear();
+        customHeaders.clear();
+        for (Map.Entry<Integer, ReadCellData<?>> entry : headMap.entrySet()) {
+            String header = entry.getValue().getStringValue();
+            if (StringUtils.isNotEmpty(header) && !"null".equals(header)) {
+                customHeaders.put(entry.getKey(), header);
+                // Schema fields may appear in a different order than the Excel columns.
+                int fieldIndex = seaTunnelRowType.indexOf(header, false);
+                if (fieldIndex >= 0) {
+                    headerColumns.put(fieldIndex, entry.getKey());
+                }
             }
         }
     }
@@ -98,8 +108,13 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
         Map<Integer, Cell> cellMap = context.readRowHolder().getCellMap();
         int i = 0;
         for (; i < fieldTypes.length; i++) {
-            int columnIndex = indexes == null ? i : indexes[i];
-            Cell cell = cellMap.get(columnIndex);
+            Integer columnIndex;
+            if (headerColumns.isEmpty()) {
+                columnIndex = indexes == null ? i : indexes[i];
+            } else {
+                columnIndex = headerColumns.get(i);
+            }
+            Cell cell = columnIndex == null ? null : cellMap.get(columnIndex);
             if (cell == null) {
                 seaTunnelRow.setField(i, null);
             } else {

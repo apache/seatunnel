@@ -42,6 +42,7 @@ import org.apache.poi.ss.usermodel.CellValue;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.NumberToTextConverter;
@@ -56,6 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -262,21 +264,38 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
+        int[] cellIndexes = indexes == null ? IntStream.range(0, cellCount).toArray() : indexes;
+        // Maps output field indexes to Excel column indexes.
+        Map<Integer, Integer> headerColumns = new HashMap<>();
+        if (skipHeaderNumber > 0) {
+            Row headerRow = sheet.getRow(startRow - 1);
+            if (headerRow != null) {
+                for (Cell headerCell : headerRow) {
+                    String header = formatter.formatCellValue(headerCell, formulaEvaluator);
+                    int fieldIndex = seaTunnelRowType.indexOf(header, false);
+                    if (fieldIndex >= 0) {
+                        headerColumns.put(fieldIndex, headerCell.getColumnIndex());
+                    }
+                }
+            }
+        }
         IntStream.range(startRow, lastRowNum + 1)
                 .mapToObj(sheet::getRow)
                 .filter(Objects::nonNull)
                 .forEach(
                         rowData -> {
-                            int[] cellIndexes =
-                                    indexes == null
-                                            ? IntStream.range(0, cellCount).toArray()
-                                            : indexes;
-                            int z = 0;
                             SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
-                            for (int j : cellIndexes) {
-                                Cell cell = rowData.getCell(j);
+                            for (int i = 0; i < fieldTypes.length; i++) {
+                                Integer columnIndex;
+                                if (headerColumns.isEmpty()) {
+                                    columnIndex = cellIndexes[i];
+                                } else {
+                                    columnIndex = headerColumns.get(i);
+                                }
+                                Cell cell =
+                                        columnIndex == null ? null : rowData.getCell(columnIndex);
                                 seaTunnelRow.setField(
-                                        z++,
+                                        i,
                                         cell == null
                                                 ? null
                                                 : excelCellUtils.convert(
@@ -285,7 +304,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                                                 cell,
                                                                 formulaEvaluator,
                                                                 formatter),
-                                                        fieldTypes[z - 1],
+                                                        fieldTypes[i],
                                                         null));
                             }
                             if (isMergePartition) {
