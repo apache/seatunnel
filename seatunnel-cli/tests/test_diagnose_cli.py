@@ -686,6 +686,7 @@ def test_realtime_pressure_reaches_model_free_read_only_cli(engine, monkeypatch)
     assert "sink writes were busy" in out
     assert "queueId=-3 targetVertexId=1 buckets=3" in out
     assert "window=0..15000ms" in out
+    assert "bucketMs=5000" in out
     assert engine.paths == [
         "/job-info/852",
         "/jobs/checkpoints/852",

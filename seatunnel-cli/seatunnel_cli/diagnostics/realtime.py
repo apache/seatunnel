@@ -173,7 +173,7 @@ def diagnose_realtime(edges, vertices) -> list[Finding]:
                 "realtime_queue_pressure",
                 detail,
                 f"queueId={queue_id} targetVertexId={target} buckets={len(run)} "
-                f"window={run[0]}..{run[-1] + width}ms "
+                f"window={run[0]}..{run[-1] + width}ms bucketMs={width} "
                 f"median bpRatio={median(bp):.2f} queueFillRatio={median(fill):.2f}",
             )
         )
@@ -199,7 +199,7 @@ def diagnose_realtime(edges, vertices) -> list[Finding]:
                     "realtime_sink_commit_pressure",
                     f"Vertex {vertex_id} spent substantial time preparing/committing across three completed buckets. "
                     "Investigate checkpoint/commit work; sinkBusyRatio measures writes only.",
-                    f"vertexId={vertex_id} buckets={len(run)} window={run[0]}..{run[-1] + width}ms "
+                    f"vertexId={vertex_id} buckets={len(run)} window={run[0]}..{run[-1] + width}ms bucketMs={width} "
                     f"median prepare+commit ratio={median(ratios):.2f}",
                 )
             )

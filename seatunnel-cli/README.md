@@ -336,11 +336,28 @@ For running jobs, the CLI also reads
 `/metrics/realtime/jobs/<id>/edges` and `/vertices` over the last three minutes.
 With `env.engine.observability.enabled = true`, three consecutive completed
 buckets can identify a queue that was persistently full and backpressured.
-The output retains `queueId`, `targetVertexId`, the measured window and ratios.
+The output retains `queueId`, `targetVertexId`, the measured window, `bucketMs` and ratios.
 Busy sink writes or transform processing in the same buckets make that
 downstream vertex a **candidate to investigate**, rather than a proven root
 cause. Sink prepare/commit time is checked separately, including when write
 busyness is low; its sum is normalized by bucket duration and subtask count.
+
+Fixture-based output with five-second buckets (synthetic millisecond timestamps):
+
+```text
+Job 852 (unnamed) — RUNNING
+  [warning] Queue -3 into vertex 1 was persistently backpressured in the matched window. Downstream sink
+writes were busy too; investigate this vertex as a bottleneck candidate. (queueId=-3 targetVertexId=1
+buckets=3 window=0..15000ms bucketMs=5000 median bpRatio=0.80 queueFillRatio=0.90)
+```
+
+This points to a queue/vertex pair for investigation over a measured 15-second window;
+it does not identify the cause. If observability is disabled, the same command reports a coverage gap:
+
+```text
+Job 852 (unnamed) — RUNNING
+  [info] Realtime pressure checks unavailable: engine.observability.enabled is false.
+```
 
 The prototype thresholds are backpressure ≥ 0.5 and fill ≥ 0.8 in all three
 buckets; busy or prepare/commit time ≥ 0.5 supplies the corresponding work

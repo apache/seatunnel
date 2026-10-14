@@ -297,10 +297,27 @@ acknowledged it`），指向具体的某一环而不是整个作业。
 `/metrics/realtime/jobs/<id>/edges` 和 `/vertices`。开启
 `env.engine.observability.enabled = true` 后，三个连续且已完成的时间桶
 可用于识别持续满载、持续背压的队列。输出保留 `queueId`、`targetVertexId`、
-观测时间窗口和比率。如果相同时间桶里的 sink 写入或 transform 处理也很忙，
+观测时间窗口、`bucketMs` 桶宽和比率。如果相同时间桶里的 sink 写入或 transform 处理也很忙，
 下游节点会被标记为**待排查的瓶颈候选**，而不是确定的根因。
 sink prepare/commit 耗时单独分析，即使写入忙碌度很低也可见；总耗时会按
 时间桶长度和子任务数归一化。
+
+下面是五秒桶宽的测试样例输出，时间戳为合成的毫秒值：
+
+```text
+Job 852 (unnamed) — RUNNING
+  [warning] Queue -3 into vertex 1 was persistently backpressured in the matched window. Downstream sink
+writes were busy too; investigate this vertex as a bottleneck candidate. (queueId=-3 targetVertexId=1
+buckets=3 window=0..15000ms bucketMs=5000 median bpRatio=0.80 queueFillRatio=0.90)
+```
+
+它指出一个值得排查的队列和目标节点，观测窗口为 15 秒，并不判断根因。
+如果观测未开启，同一命令会说明缺少分析依据：
+
+```text
+Job 852 (unnamed) — RUNNING
+  [info] Realtime pressure checks unavailable: engine.observability.enabled is false.
+```
 
 原型阈值为三个时间桶均满足背压 ≥ 0.5、队列填充 ≥ 0.8；忙碌度或提交耗时
 占比 ≥ 0.5 用于提供对应的执行证据。重复数据不算新样本，当前尚未完成的

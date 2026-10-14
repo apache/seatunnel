@@ -782,7 +782,24 @@ def test_realtime_matches_completed_buckets_and_keeps_queue_identity():
     assert "candidate" in finding.detail
     assert "queueId=-3 targetVertexId=1 buckets=3" in finding.evidence
     assert "window=0..15000ms" in finding.evidence
+    assert "bucketMs=5000" in finding.evidence
     assert "bpRatio=0.80 queueFillRatio=0.90" in finding.evidence
+
+
+@pytest.mark.parametrize("width", [1000, 7000])
+def test_realtime_evidence_reports_actual_bucket_width(width):
+    edges, vertices = _realtime_payloads(timestamps=(0, width, 2 * width))
+    for data in (edges, vertices):
+        data["bucketMs"] = width
+        data["toMs"] = 3 * width
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = int(width * 1_000_000 * 0.8)
+
+    findings = diagnose_realtime(edges, vertices)
+    for rule in ("realtime_queue_pressure", "realtime_sink_commit_pressure"):
+        evidence = _by_rule(findings, rule).evidence
+        assert f"bucketMs={width}" in evidence
+        assert f"window=0..{3 * width}ms" in evidence
 
 
 def test_realtime_transient_spike_is_not_sustained_pressure():
