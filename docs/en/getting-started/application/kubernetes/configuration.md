@@ -16,12 +16,12 @@ deployment file; see [Quick start](quick-start.md) for the first submission and
 | Source | Configures | Notes |
 | --- | --- | --- |
 | Deployment file (`-a`) | `application.*` and `kubernetes.*` | Resolved on the submitting host. Put sensitive values here, not on the command line. |
-| Option overrides (`-i key=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
+| Option overrides (`-Dkey=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
 | Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders. |
 | Pod environment | `${VAR}` values in the job | Built from `kubernetes.env`, `kubernetes.env-from.*` and mounted Secret/ConfigMap files on the master. |
 
 :::caution
-Command-line overrides (`-i key=value`) may be visible to other users on the submitting host. Keep
+Command-line overrides (`-Dkey=value`) may be visible to other users on the submitting host. Keep
 `kubernetes.kubeconfig` and other sensitive values in a permission-restricted deployment file.
 :::
 

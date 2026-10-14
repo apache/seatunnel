@@ -51,8 +51,10 @@ case "${application_target}" in
         ;;
 esac
 
-# Load only the SDK required by the selected deployment platform.
-CLASS_PATH="${APP_JAR}:${APPLICATION_HOME}/starter/logging/*:${APPLICATION_HOME}/lib/*:${CONF_DIR}"
+# Load only the SDK required by the selected deployment platform. The distribution config
+# directory stays off the classpath so the client cannot pick up server configuration files by
+# accident; the configuration files below are passed explicitly instead, like seatunnel.sh.
+CLASS_PATH="${APP_JAR}:${APPLICATION_HOME}/starter/logging/*:${APPLICATION_HOME}/lib/*"
 
 if [[ -n "${application_target}" ]]; then
     CLASS_PATH="${CLASS_PATH}:${APPLICATION_HOME}/resource-managers/${application_target}/*"
@@ -60,6 +62,18 @@ fi
 
 # Configure logging consistently with the SeaTunnel client launcher.
 JAVA_OPTS="${JAVA_OPTS:-} -Dlog4j2.isThreadContextMapInheritable=true"
+
+if [[ -f "${CONF_DIR}/hazelcast-client.yaml" ]]; then
+    JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.client.config=${CONF_DIR}/hazelcast-client.yaml"
+fi
+
+if [[ -f "${CONF_DIR}/seatunnel.yaml" ]]; then
+    JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${CONF_DIR}/seatunnel.yaml"
+fi
+
+if [[ -f "${CONF_DIR}/hazelcast.yaml" ]]; then
+    JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${CONF_DIR}/hazelcast.yaml"
+fi
 
 if [[ -f "${CONF_DIR}/log4j2_client.properties" ]]; then
     JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2"

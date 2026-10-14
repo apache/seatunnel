@@ -98,8 +98,8 @@ public class ApplicationCommandArgs extends CommandArgs {
     private Long waitIntervalMillis;
 
     @DynamicParameter(
-            names = "-i",
-            description = "Override a non-sensitive deployment option: -ikey=value")
+            names = "-D",
+            description = "Override a non-sensitive deployment option: -Dkey=value")
     private Map<String, String> options = new LinkedHashMap<>();
 
     @Override

@@ -73,7 +73,7 @@ public class SeaTunnelClusterScriptTest {
                         "job config.conf",
                         "-a",
                         "application.config",
-                        "-iapplication.worker-count=3"));
+                        "-Dapplication.worker-count=3"));
         List<String> command = new ArrayList<>(Arrays.asList("/bin/bash", launcher.toString()));
         command.addAll(arguments);
         ProcessBuilder builder = new ProcessBuilder(command);
@@ -95,6 +95,8 @@ public class SeaTunnelClusterScriptTest {
         String classpath = captured.get(captured.indexOf("-cp") + 1);
         String platform = target.toLowerCase(Locale.ROOT);
         Assertions.assertTrue(classpath.contains("/resource-managers/" + platform + "/*"));
+        // Server configuration files must not leak into the client JVM through the classpath.
+        Assertions.assertFalse(classpath.contains(appDirectory.resolve("config").toString()));
         Assertions.assertFalse(classpath.contains("/etc/hadoop/conf"));
         int main =
                 captured.indexOf(

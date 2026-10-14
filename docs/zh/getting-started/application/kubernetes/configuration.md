@@ -15,12 +15,12 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | 来源 | 配置内容 | 说明 |
 | --- | --- | --- |
 | 部署文件（`-a`） | `application.*` 和 `kubernetes.*` | 在提交机解析。敏感值写在这里，不要放命令行。 |
-| 命令行覆盖（`-i key=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
+| 命令行覆盖（`-Dkey=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
 | 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。原样带到 Master，包含未解析的 `${VAR}` 占位符。 |
 | Pod 环境 | 作业中的 `${VAR}` | Master 上由 `kubernetes.env`、`kubernetes.env-from.*` 和挂载的 Secret/ConfigMap 文件组成。 |
 
 :::caution
-命令行覆盖（`-i key=value`）可能被提交主机上的其他用户看到。`kubernetes.kubeconfig` 等敏感值请
+命令行覆盖（`-Dkey=value`）可能被提交主机上的其他用户看到。`kubernetes.kubeconfig` 等敏感值请
 写入权限受限的部署文件。
 :::
 

@@ -99,12 +99,12 @@ class ApplicationExecuteCommandTest {
             assertEquals(job.toString(), args.getConfig());
         }
         ApplicationCommandArgs status =
-                parse("status", "-t=kubernetes", "--id", "example", "-ikubernetes.namespace=test");
+                parse("status", "-t=kubernetes", "--id", "example", "-Dkubernetes.namespace=test");
         status.buildCommand();
         assertEquals("test", status.getOptions().get("kubernetes.namespace"));
         assertEquals(DeployType.KUBERNETES, status.getTarget());
         assertEquals(
-                "a=b", parse("status", "-t", "kubernetes", "-ikey=a=b").getOptions().get("key"));
+                "a=b", parse("status", "-t", "kubernetes", "-Dkey=a=b").getOptions().get("key"));
     }
 
     @Test
@@ -121,7 +121,7 @@ class ApplicationExecuteCommandTest {
                     "-dc",
                     "--deployment-config",
                     "--restore-from-checkpoint",
-                    "-Dkey=value"
+                    "-ikey=value"
                 }) {
             assertThrows(
                     ParameterException.class,
@@ -165,9 +165,9 @@ class ApplicationExecuteCommandTest {
                             job.toString(),
                             "-a",
                             application.toString(),
-                            "-iapplication.worker-count=3",
-                            "-iapplication.job-id=20",
-                            "-iqueue=analytics",
+                            "-Dapplication.worker-count=3",
+                            "-Dapplication.job-id=20",
+                            "-Dqueue=analytics",
                             "--job-id",
                             "30",
                             "--restore-job-id",

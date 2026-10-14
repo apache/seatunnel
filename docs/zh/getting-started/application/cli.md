@@ -46,8 +46,8 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
                              observed status; 0 waits indefinitely (default: 0)
     --wait-interval          Status poll interval in milliseconds while --wait
                              blocks (default: 500)
-    -i                       Override a non-sensitive deployment option:
-                             -ikey=value (syntax: -ikey=value) (default: {})
+    -D                       Override a non-sensitive deployment option:
+                             -Dkey=value (syntax: -Dkey=value) (default: {})
 ```
 
 ## 参数
@@ -58,7 +58,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `-t`、`--target` | 全部 | 运行 application 的资源平台 |
 | `-c`、`--config` | submit | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
 | `-a`、`--application-config` | 全部 | 可选部署文件，包含公共选项和平台选项 |
-| `-i key=value` | 全部 | 覆盖单个非敏感部署选项，例如 `-i application.worker-count=4`，可重复使用 |
+| `-Dkey=value` | 全部 | 覆盖单个非敏感的 `application.*` / `kubernetes.*` 部署选项（例如 `-Dapplication.worker-count=4`），可重复；作业 `${...}` 变量在 Pod 内解析，不在提交机替换 |
 | `--id` | status、cancel | `submit` 打印的平台 application ID |
 | `--wait` | submit、status | 轮询直到终态 |
 | `--wait-timeout <ms>` | submit、status | `--wait` 等待终态的最长时间（毫秒），超时后带最后状态报错；默认 `0` 表示一直等待。需配合 `--wait` |

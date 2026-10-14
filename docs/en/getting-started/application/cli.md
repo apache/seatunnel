@@ -46,8 +46,8 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
                              observed status; 0 waits indefinitely (default: 0)
     --wait-interval          Status poll interval in milliseconds while --wait
                              blocks (default: 500)
-    -i                       Override a non-sensitive deployment option:
-                             -ikey=value (syntax: -ikey=value) (default: {})
+    -D                       Override a non-sensitive deployment option:
+                             -Dkey=value (syntax: -Dkey=value) (default: {})
 ```
 
 ## Arguments
@@ -58,7 +58,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `-t`, `--target` | all | Resource platform that runs the application |
 | `-c`, `--config` | submit | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf` |
 | `-a`, `--application-config` | all | Optional deployment file with common and platform options |
-| `-i key=value` | all | Override one non-sensitive deployment option, for example `-i application.worker-count=4`; repeatable |
+| `-Dkey=value` | all | Override one non-sensitive `application.*` or `kubernetes.*` deployment option, for example `-Dapplication.worker-count=4`; repeatable. Job `${...}` variables are resolved inside the Pod, not on the submitting host |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
 | `--wait` | submit, status | Poll until a terminal status |
 | `--wait-timeout <ms>` | submit, status | Maximum time in milliseconds that `--wait` polls before failing with the last observed status; `0` (the default) waits indefinitely. Requires `--wait` |
