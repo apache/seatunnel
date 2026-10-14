@@ -78,58 +78,20 @@ kubectl apply -f application-rbac.yaml
 ```
 
 上面的 ServiceAccount 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用。
-运行 `bin/seatunnel-application.sh` 的 **提交身份** 需要在目标 Namespace 中单独绑定 Role：
+运行 `bin/seatunnel-application.sh` 的 **提交身份** 需要该 Namespace 内的以下权限：
 
-- 必需：Job 的 `create`、`get`、`patch`（解除 Job 挂起）和 `delete`；
-- 必需：Pod 的 `list`（解析 application 状态）和 `deletecollection`（`cancel` 清理剩余 Pod）；
-- 必需：Service 的 `create` 和 `delete`；
-- 使用创建型 ConfigMap（`kubernetes.configmap.<entry>.data`）时必需：ConfigMap 的 `create`
-  和 `delete`；
-- 建议具备：ConfigMap 的 `get`，用于在提交前校验 `kubernetes.configmap.<entry>.ref`；
-  无该权限时校验降级为告警；
-- 仅使用 `kubernetes.secret` 时：Secret 的 `create` 和 `delete`；
-- 仅使用 `kubernetes.secret-ref` 时：Secret 的 `get`（无权限时校验降级为告警）。
+| 资源 | 动词 | 需要时机 |
+| --- | --- | --- |
+| Job | `create`、`get`、`patch`、`delete` | 始终需要；`patch` 用于解除 Job 挂起 |
+| Pod | `list`、`deletecollection` | 始终需要；`list` 供 `status` 查询，`deletecollection` 供 `cancel` 清理 |
+| Service | `create`、`delete` | 始终需要；headless 发现 Service |
+| ConfigMap | `get` | `kubernetes.configmap.<entry>.ref`；无权限时校验降级为告警 |
+| ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
+| Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
+| Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
 
-下面的示例把上述权限绑定给同 Namespace 内的提交身份；请把 subjects 换成实际运行客户端的身份
-（用户、用户组或 CI ServiceAccount）：
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: seatunnel-application-submitter
-  namespace: seatunnel-apps
-rules:
-  - apiGroups: ["batch"]
-    resources: ["jobs"]
-    verbs: ["create", "get", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["list", "deletecollection"]
-  - apiGroups: [""]
-    resources: ["services"]
-    verbs: ["create", "delete"]
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get", "create", "delete"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "create", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: seatunnel-application-submitter
-  namespace: seatunnel-apps
-subjects:
-  - kind: ServiceAccount
-    name: seatunnel-submitter
-    namespace: seatunnel-apps
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: seatunnel-application-submitter
-```
+提交用的 kubeconfig 缺少上面某个动词时，按对应规则建一个 Role 并绑定到该用户、用户组或
+CI ServiceAccount。
 
 本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
 
