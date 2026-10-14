@@ -27,6 +27,14 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
+Put `apache-seatunnel-<version>-bin.tar.gz` from `seatunnel-dist/target/` next to the Dockerfile
+(the `ADD` path is relative to the build context) and build the image:
+
+```bash
+cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
+docker build -t registry.example.com/seatunnel:application .
+```
+
 :::note
 The image must contain `starter/`, `config/`, `lib/`, `connectors/` and
 `resource-managers/kubernetes/`, plus every connector, format and driver used by the job.

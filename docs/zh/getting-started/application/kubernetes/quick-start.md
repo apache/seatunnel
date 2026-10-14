@@ -26,6 +26,14 @@ ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
+把 `seatunnel-dist/target/` 下的 `apache-seatunnel-<version>-bin.tar.gz` 放到 Dockerfile 旁边
+（`ADD` 路径相对构建上下文），然后构建镜像：
+
+```bash
+cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
+docker build -t registry.example.com/seatunnel:application .
+```
+
 :::note
 镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及
 作业所需的全部 Connector、Format 和驱动 jar。
