@@ -38,7 +38,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.json.JsonObject;
+import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryResult;
+import com.couchbase.client.java.query.QueryScanConsistency;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -48,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * End-to-end integration test for the Couchbase sink connector.
+ * End-to-end integration test for the Couchbase source and sink connector.
  *
  * <p>Starts a real Couchbase community server via {@link CouchbaseContainer}, which handles full
  * cluster bootstrap automatically (node init, services, memory quotas, credentials, bucket). The
@@ -66,6 +68,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_SCOPE = "_default";
     private static final String COUCHBASE_COLLECTION = "test_collection";
     private static final String COUCHBASE_COLLECTION_TIMER_FLUSH = "test_collection_timer_flush";
+    private static final String COUCHBASE_COLLECTION_SOURCE_RESULT = "test_source_result";
 
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
@@ -227,6 +230,22 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     rows.get(0).getString("state"),
                                     "Primary index not yet online");
                         });
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE COLLECTION `test_bucket`.`_default`.`test_source_result`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE PRIMARY INDEX ON `test_bucket`.`_default`.`test_source_result`"));
         log.info("Couchbase cluster ready at {}", couchbaseContainer.getConnectionString());
     }
 
@@ -336,6 +355,65 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     "E2E passed: count={}, sample doc={}",
                                     count.get(),
                                     doc.toMap());
+                        });
+    }
+
+    @TestTemplate
+    public void testCouchbaseSourceToAssert(TestContainer container)
+            throws IOException, InterruptedException {
+        cluster.query("CREATE PRIMARY INDEX IF NOT EXISTS ON `test_bucket`.`_default`.`_default`");
+        cluster.query(
+                "DELETE FROM `test_bucket`.`_default`.`test_source_result`",
+                QueryOptions.queryOptions().scanConsistency(QueryScanConsistency.REQUEST_PLUS));
+        cluster.bucket(COUCHBASE_BUCKET)
+                .defaultCollection()
+                .upsert(
+                        "source-one",
+                        JsonObject.create()
+                                .put("id", 1)
+                                .put("name", "first")
+                                .put("enabled", true)
+                                .put("amount", 12.5)
+                                .putNull("nullable"));
+        cluster.bucket(COUCHBASE_BUCKET)
+                .defaultCollection()
+                .upsert(
+                        "source-two",
+                        JsonObject.create()
+                                .put("id", 2)
+                                .put("name", "second")
+                                .put("enabled", false)
+                                .put("amount", -3.25));
+
+        Container.ExecResult result = container.executeJob("/couchbase_source_to_assert.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<JsonObject> rows =
+                                    cluster.query(
+                                                    "SELECT RAW d FROM `test_bucket`.`_default`.`"
+                                                            + COUCHBASE_COLLECTION_SOURCE_RESULT
+                                                            + "` AS d ORDER BY d.id",
+                                                    QueryOptions.queryOptions()
+                                                            .scanConsistency(
+                                                                    QueryScanConsistency
+                                                                            .REQUEST_PLUS))
+                                            .rowsAsObject();
+                            Assertions.assertEquals(2, rows.size());
+                            Assertions.assertEquals(1, rows.get(0).getInt("id"));
+                            Assertions.assertEquals("first", rows.get(0).getString("name"));
+                            Assertions.assertEquals(true, rows.get(0).getBoolean("enabled"));
+                            Assertions.assertEquals(12.5, rows.get(0).getDouble("amount"));
+                            Assertions.assertNull(rows.get(0).get("nullable"));
+                            Assertions.assertEquals(2, rows.get(1).getInt("id"));
+                            Assertions.assertEquals("second", rows.get(1).getString("name"));
+                            Assertions.assertEquals(false, rows.get(1).getBoolean("enabled"));
+                            Assertions.assertEquals(-3.25, rows.get(1).getDouble("amount"));
+                            Assertions.assertNull(rows.get(1).get("nullable"));
                         });
     }
 
