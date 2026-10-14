@@ -42,9 +42,10 @@ class JavaInfo:
 _VERSION_RE = re.compile(r'version "(\d+)(?:\.(\d+))?[^"]*"')
 
 _TIMEOUT = 10
+DEFAULT_MIN_JAVA_VERSION = 11
 
 
-def _find_java_executable(min_version: int = 11) -> Optional[str]:
+def _find_java_executable(min_version: int = DEFAULT_MIN_JAVA_VERSION) -> Optional[str]:
     """Return the path to the java binary, or None if not found.
 
     Resolution order:
@@ -84,7 +85,7 @@ def _parse_major_version(output: str) -> Optional[int]:
     return None
 
 
-def detect_java(min_version: int = 11) -> JavaInfo:
+def detect_java(min_version: int = DEFAULT_MIN_JAVA_VERSION) -> JavaInfo:
     """Locate a Java executable, verify it meets *min_version*, and return a :class:`JavaInfo`.
 
     Resolution order: ``$JAVA_HOME/bin/java`` first, then the first ``java`` on ``PATH``.
@@ -141,6 +142,13 @@ def detect_java(min_version: int = 11) -> JavaInfo:
         )
 
     if major < min_version:
+        java_home = os.environ.get("JAVA_HOME", "").strip()
+        if java_home:
+            raise JavaDetectionError(
+                f"Java {major} found at '{executable}' (from JAVA_HOME='{java_home}'), "
+                f"but Java {min_version}+ is required. "
+                f"Fix or unset JAVA_HOME, or install JDK {min_version}+."
+            )
         raise JavaDetectionError(
             f"Java {major} found at '{executable}', but Java {min_version}+ is required. "
             f"Set JAVA_HOME or install JDK {min_version}+."

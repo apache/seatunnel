@@ -246,6 +246,23 @@ class TestDetectJava(unittest.TestCase):
                 info = detect_java()
         self.assertEqual(11, info.major_version)
 
+    def test_java_home_too_old_error_mentions_java_home_value(self):
+        """Java found via JAVA_HOME but too old: error must mention JAVA_HOME value, 'Java 8', and 'unset JAVA_HOME'."""
+        fake_home = "/opt/jdk8"
+        expected_binary = "java.exe" if sys.platform == "win32" else "java"
+        expected_exe = os.path.join(fake_home, "bin", expected_binary)
+
+        with self._patch_env(java_home=fake_home):
+            with mock.patch("os.path.isfile", return_value=True):
+                with self._patch_run(stderr='java version "1.8.0_292" 2021-04-20'):
+                    with self.assertRaises(JavaDetectionError) as ctx:
+                        detect_java()
+        msg = str(ctx.exception)
+        self.assertIn(fake_home, msg)
+        self.assertIn("Java 8", msg)
+        self.assertIn(expected_exe, msg)
+        self.assertIn("unset JAVA_HOME", msg)
+
 
 if __name__ == "__main__":
     unittest.main()
