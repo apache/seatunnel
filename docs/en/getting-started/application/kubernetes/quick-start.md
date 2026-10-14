@@ -96,15 +96,52 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: seatunnel-application
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel-submitter
+    namespace: seatunnel-apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-application-submitter
 ```
 
 ```bash
 kubectl apply -f application-rbac.yaml
 ```
 
-The ServiceAccount above is used by the **master Pod** to create, observe and delete worker Pods
-and to read the owner Job. The **submitting identity** that runs `bin/seatunnel-application.sh`
-needs these permissions in the namespace:
+The first Role is used by the **master Pod** to create, observe and delete worker Pods and to read
+the owner Job; the second is used by the **submitting identity** that runs
+`bin/seatunnel-application.sh`. Replace the submitter subject with that user, group or CI
+ServiceAccount; the table lists when each of its permissions is needed:
 
 | Resource | Verbs | Required when |
 | --- | --- | --- |
@@ -115,9 +152,6 @@ needs these permissions in the namespace:
 | ConfigMaps | `create`, `delete` | only with a created entry (`kubernetes.configmap.<entry>.data`) |
 | Secrets | `create`, `delete` | only with `kubernetes.secret` |
 | Secrets | `get` | only with `kubernetes.secret-ref`; without it the validation is skipped with a warning |
-
-When the kubeconfig used for submission lacks one of these verbs, create a Role with the matching
-rules and bind it to that user, group or CI ServiceAccount.
 
 The localized specification travels in the master Pod environment; no application Secret is
 created by default.

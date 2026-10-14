@@ -94,14 +94,51 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: seatunnel-application
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel-submitter
+    namespace: seatunnel-apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-application-submitter
 ```
 
 ```bash
 kubectl apply -f application-rbac.yaml
 ```
 
-上面的 ServiceAccount 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用。
-运行 `bin/seatunnel-application.sh` 的 **提交身份** 需要该 Namespace 内的以下权限：
+第一个 Role 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用；第二个 Role
+供运行 `bin/seatunnel-application.sh` 的 **提交身份** 使用，请把它的 subjects 换成该用户、用户组或
+CI ServiceAccount。下表说明提交身份各项权限的使用时机：
 
 | 资源 | 动词 | 需要时机 |
 | --- | --- | --- |
@@ -112,9 +149,6 @@ kubectl apply -f application-rbac.yaml
 | ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
 | Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
 | Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
-
-提交用的 kubeconfig 缺少上面某个动词时，按对应规则建一个 Role 并绑定到该用户、用户组或
-CI ServiceAccount。
 
 本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
 
