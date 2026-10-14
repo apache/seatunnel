@@ -466,11 +466,11 @@ firebase:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
 
-deployment:
+application:
   - changed-files:
       - any-glob-to-any-file: 'seatunnel-resource-managers/**'
 
-kubernetes:
+application-k8s:
   - changed-files:
       - any-glob-to-any-file: 'seatunnel-resource-managers/kubernetes/**'
 
