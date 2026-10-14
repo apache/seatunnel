@@ -100,6 +100,24 @@ Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引
 下载，必须已经存在于镜像中。
 :::
 
+## 权限
+
+访问 Kubernetes API 的有两个身份：**Master Pod** 以 `kubernetes.service-account` 运行，负责创建、
+观测、删除 Worker Pod 并读取 owner Job；**提交身份** 运行 `bin/seatunnel-application.sh`，需要：
+
+| 资源 | 动词 | 需要时机 |
+| --- | --- | --- |
+| Job | `create`、`get`、`patch`、`delete` | 始终需要；`patch` 用于解除 Job 挂起 |
+| Pod | `list`、`deletecollection` | 始终需要；`list` 供 `status` 查询，`deletecollection` 供 `cancel` 清理 |
+| Service | `create`、`delete` | 始终需要；headless 发现 Service |
+| ConfigMap | `get` | `kubernetes.configmap.<entry>.ref`；无权限时校验降级为告警 |
+| ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
+| Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
+| Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
+
+quick start 的 manifest 会为两个身份各建一个 Role；请把提交身份 RoleBinding 的 subjects 换成你的
+用户、用户组或 CI ServiceAccount。
+
 ## 调度
 
 用 `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` 指定节点池，配合

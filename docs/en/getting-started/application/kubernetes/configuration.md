@@ -104,6 +104,25 @@ plugin JARs referenced by a job are not downloaded dynamically and must already 
 image.
 :::
 
+## Permissions
+
+Two identities access the Kubernetes API. The **master Pod** runs with
+`kubernetes.service-account` and creates, observes and deletes worker Pods and reads the owner Job.
+The **submitting identity** runs `bin/seatunnel-application.sh` and needs:
+
+| Resource | Verbs | Required when |
+| --- | --- | --- |
+| Jobs | `create`, `get`, `patch`, `delete` | always; `patch` unsuspends the Job after creation |
+| Pods | `list`, `deletecollection` | always; `list` resolves the application status, `deletecollection` removes the Pods on `cancel` |
+| Services | `create`, `delete` | always; the headless discovery Service |
+| ConfigMaps | `get` | `kubernetes.configmap.<entry>.ref`; without it the validation is skipped with a warning |
+| ConfigMaps | `create`, `delete` | only with a created entry (`kubernetes.configmap.<entry>.data`) |
+| Secrets | `create`, `delete` | only with `kubernetes.secret` |
+| Secrets | `get` | only with `kubernetes.secret-ref`; without it the validation is skipped with a warning |
+
+The quick start applies one Role per identity; replace the submitter RoleBinding subject with your
+user, group or CI ServiceAccount.
+
 ## Scheduling
 
 Use `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` to target a node pool,

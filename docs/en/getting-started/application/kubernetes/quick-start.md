@@ -138,23 +138,7 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-The first Role is used by the **master Pod** to create, observe and delete worker Pods and to read
-the owner Job; the second is used by the **submitting identity** that runs
-`bin/seatunnel-application.sh`. Replace the submitter subject with that user, group or CI
-ServiceAccount; the table lists when each of its permissions is needed:
-
-| Resource | Verbs | Required when |
-| --- | --- | --- |
-| Jobs | `create`, `get`, `patch`, `delete` | always; `patch` unsuspends the Job after creation |
-| Pods | `list`, `deletecollection` | always; `list` resolves the application status, `deletecollection` removes the Pods on `cancel` |
-| Services | `create`, `delete` | always; the headless discovery Service |
-| ConfigMaps | `get` | `kubernetes.configmap.<entry>.ref`; without it the validation is skipped with a warning |
-| ConfigMaps | `create`, `delete` | only with a created entry (`kubernetes.configmap.<entry>.data`) |
-| Secrets | `create`, `delete` | only with `kubernetes.secret` |
-| Secrets | `get` | only with `kubernetes.secret-ref`; without it the validation is skipped with a warning |
-
-The localized specification travels in the master Pod environment; no application Secret is
-created by default.
+Replace the submitter subject with the identity that runs `bin/seatunnel-application.sh`.
 
 ## 3. Create the deployment configuration
 

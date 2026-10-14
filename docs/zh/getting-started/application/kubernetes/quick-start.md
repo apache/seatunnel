@@ -136,21 +136,7 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-第一个 Role 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用；第二个 Role
-供运行 `bin/seatunnel-application.sh` 的 **提交身份** 使用，请把它的 subjects 换成该用户、用户组或
-CI ServiceAccount。下表说明提交身份各项权限的使用时机：
-
-| 资源 | 动词 | 需要时机 |
-| --- | --- | --- |
-| Job | `create`、`get`、`patch`、`delete` | 始终需要；`patch` 用于解除 Job 挂起 |
-| Pod | `list`、`deletecollection` | 始终需要；`list` 供 `status` 查询，`deletecollection` 供 `cancel` 清理 |
-| Service | `create`、`delete` | 始终需要；headless 发现 Service |
-| ConfigMap | `get` | `kubernetes.configmap.<entry>.ref`；无权限时校验降级为告警 |
-| ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
-| Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
-| Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
-
-本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
+请把提交身份 RoleBinding 的 subjects 换成运行 `bin/seatunnel-application.sh` 的身份。
 
 ## 3. 准备部署配置
 
