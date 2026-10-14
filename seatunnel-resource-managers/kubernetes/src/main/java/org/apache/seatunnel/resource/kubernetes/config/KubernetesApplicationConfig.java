@@ -226,8 +226,10 @@ public final class KubernetesApplicationConfig {
      * replaces the inline job configuration. By default that is {@code job.conf} inside the mounted
      * application Secret; a ConfigMap key mounted at an absolute path works the same way.
      *
-     * <p>When that file is missing, the inline job configuration is used (the submitter carries it
-     * as a fallback); a submission that carries no inline configuration fails here instead.
+     * <p>Submitters omit the inline job text whenever {@code kubernetes.job-config-file} is set, so
+     * a missing file fails here instead of starting without the job the file was meant to provide.
+     * A specification written by an older submitter still carries the text and falls back to it
+     * with a warning.
      *
      * @param encodedSpecification value of {@link
      *     org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants#SPECIFICATION_ENV}
@@ -251,8 +253,10 @@ public final class KubernetesApplicationConfig {
                         KubernetesOptions.JOB_CONFIG_FILE.key()
                                 + " "
                                 + jobConfigFile
-                                + " does not exist and the submission carried no inline job configuration");
+                                + " does not exist in the Pod and the localized specification carries no"
+                                + " inline job configuration");
             } else {
+                // Only reachable for specifications written before the inline text was omitted.
                 log.warn(
                         "Configured {} {} does not exist; using the inline job configuration",
                         KubernetesOptions.JOB_CONFIG_FILE.key(),
@@ -311,6 +315,10 @@ public final class KubernetesApplicationConfig {
      * <p>The master reads this content from its container environment to recreate the settings it
      * needs when it creates workers. Common fields and the generated job ID come from the
      * specification; the explicit fields below are the Kubernetes settings needed after submission.
+     *
+     * <p>When {@code kubernetes.job-config-file} is configured the inline job text is dropped: the
+     * master reads the mounted file instead, so credentials inside {@code -c} never reach the Job
+     * object.
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
@@ -324,6 +332,9 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), checkpointDirectory);
         properties.setProperty(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory);
         if (jobConfigFile != null) {
+            // The master replaces the inline job with the mounted file. Keeping the submitted text
+            // as well would expose it through the Job object for the retention period.
+            properties.remove(SeatunnelApplicationConfig.JOB_CONFIG_KEY);
             properties.setProperty(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile);
         }
         if (masterHazelcastConfig != null) {

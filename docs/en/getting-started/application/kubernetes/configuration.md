@@ -17,7 +17,7 @@ deployment file; see [Quick start](quick-start.md) for the first submission and
 | --- | --- | --- |
 | Deployment file (`-a`) | `application.*` and `kubernetes.*` | Resolved on the submitting host. Put sensitive values here, not on the command line. |
 | Option overrides (`-Dkey=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
-| Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders. |
+| Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders, unless a mounted file is configured — then only the file is used. |
 | Pod environment | `${VAR}` values in the job | Built from `kubernetes.env`, `kubernetes.env-from.*` and mounted Secret/ConfigMap files on the master. |
 
 :::caution
@@ -174,9 +174,10 @@ The option resolves to a file name under `<seatunnel-home>/config` or to the abs
 or ConfigMap key is mounted at. Before the job is parsed:
 
 - **Option unset (the default):** the submitted `-c` file is used, so `-c` is required.
-- **Option set and the file exists:** the mounted file replaces the submitted content.
-- **Option set and the file is missing:** the master warns and falls back to `-c`; without a
-  submitted file it fails instead of starting without a job.
+- **Option set and the file exists:** the mounted file replaces the submitted content, and the
+  inline `-c` text is not carried in the Job object.
+- **Option set and the file is missing:** the master fails instead of starting without a job; only
+  a specification written by an older submitter still falls back to its inline text.
 
 The surviving text is parsed exactly once on the master, where `${VAR}` is resolved against the Pod
 environment, so the submitting host never bakes its own values into the job.

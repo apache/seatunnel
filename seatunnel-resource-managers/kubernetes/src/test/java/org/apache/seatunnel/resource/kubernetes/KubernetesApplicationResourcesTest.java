@@ -1012,7 +1012,31 @@ class KubernetesApplicationResourcesTest {
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
         IOException failure =
                 assertThrows(IOException.class, () -> KubernetesApplicationConfig.read(encoded));
-        assertTrue(failure.getMessage().contains("carried no inline job configuration"));
+        assertTrue(failure.getMessage().contains("carries no inline job configuration"));
+    }
+
+    @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
+    void doesNotTransportTheInlineJobWhenAJobConfigFileIsConfigured() throws Exception {
+        Path jobConfigFile = temporary.resolve("job.conf");
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(
+                        "env { job.mode = BATCH, password = \"inline-secret\" }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        // The mounted file supplies the job, so the submitted text must not travel in the spec.
+        assertFalse(writer.toString().contains(SeatunnelApplicationConfig.JOB_CONFIG_KEY));
+        assertFalse(writer.toString().contains("inline-secret"));
+        assertTrue(writer.toString().contains(KubernetesOptions.JOB_CONFIG_FILE.key()));
     }
 
     @Test

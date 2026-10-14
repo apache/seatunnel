@@ -16,7 +16,7 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | --- | --- | --- |
 | 部署文件（`-a`） | `application.*` 和 `kubernetes.*` | 在提交机解析。敏感值写在这里，不要放命令行。 |
 | 命令行覆盖（`-Dkey=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
-| 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。原样带到 Master，包含未解析的 `${VAR}` 占位符。 |
+| 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。未配置挂载文件时原样带到 Master，包含未解析的 `${VAR}` 占位符；配置了则只使用挂载文件，内联正文不参与传输。 |
 | Pod 环境 | 作业中的 `${VAR}` | Master 上由 `kubernetes.env`、`kubernetes.env-from.*` 和挂载的 Secret/ConfigMap 文件组成。 |
 
 :::caution
@@ -166,8 +166,8 @@ taint 的节点池上一直 `Pending`，事件里是 `had untolerated taint`。
 作业解析前：
 
 - **未配置该选项（默认）**：使用提交的 `-c` 文件，此时 `-c` 必传。
-- **已配置且文件存在**：用挂载文件替换提交的内容。
-- **已配置但文件不存在**：Master 打印 WARN 回退到 `-c`；没有提交文件时直接失败，而不是无作业启动。
+- **已配置且文件存在**：用挂载文件替换提交的内容，内联 `-c` 正文不会进入 Job 对象。
+- **已配置但文件不存在**：Master 直接失败，而不是无作业启动；只有老版本提交端写出的配置仍会回退到内联正文。
 
 最终文本只在 Master 解析一次，`${VAR}` 在此时结合 Pod 环境解析，所以提交机的值不会被烘进作业。
 
