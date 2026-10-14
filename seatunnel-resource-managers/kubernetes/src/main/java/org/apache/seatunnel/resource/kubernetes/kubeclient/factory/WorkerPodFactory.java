@@ -25,11 +25,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import io.kubernetes.client.openapi.models.V1Container;
-import io.kubernetes.client.openapi.models.V1ExecAction;
 import io.kubernetes.client.openapi.models.V1Pod;
-import io.kubernetes.client.openapi.models.V1Probe;
-
-import java.util.Arrays;
 
 /**
  * Creates one worker Pod skeleton, owned by the application Job.
@@ -77,7 +73,6 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
                         clusterName,
                         masterAddress,
                         Integer.toString(resources.getSlots())));
-        container.setLivenessProbe(processProbe());
         return new V1Pod()
                 .apiVersion(KubernetesConstants.CORE_API_VERSION)
                 .kind(KubernetesConstants.POD_KIND)
@@ -89,20 +84,5 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
                                 parameters.getWorkerLabels(),
                                 parameters.getWorkerAnnotations()))
                 .spec(podSpec(container, false));
-    }
-
-    private static V1Probe processProbe() {
-        V1ExecAction action =
-                new V1ExecAction()
-                        .command(
-                                Arrays.asList(
-                                        KubernetesConstants.SHELL_COMMAND,
-                                        "-c",
-                                        KubernetesConstants.PROCESS_PROBE_COMMAND));
-        return new V1Probe()
-                .exec(action)
-                .timeoutSeconds(KubernetesConstants.PROBE_TIMEOUT_SECONDS)
-                .periodSeconds(KubernetesConstants.PROBE_PERIOD_SECONDS)
-                .failureThreshold(KubernetesConstants.PROBE_FAILURE_THRESHOLD);
     }
 }

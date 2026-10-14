@@ -356,15 +356,8 @@ class KubernetesApplicationResourcesTest {
                                 .get(0)
                                 .getStartupProbe()
                         != null);
-        assertEquals(
-                "kill -0 1",
-                worker.getSpec()
-                        .getContainers()
-                        .get(0)
-                        .getLivenessProbe()
-                        .getExec()
-                        .getCommand()
-                        .get(2));
+        // PID 1 is the JVM itself, so a process probe cannot fail before the container exits.
+        assertNull(worker.getSpec().getContainers().get(0).getLivenessProbe());
     }
 
     private static ApplicationSpecification specification() {

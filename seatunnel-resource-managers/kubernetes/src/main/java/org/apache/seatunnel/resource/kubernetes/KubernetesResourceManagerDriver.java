@@ -324,7 +324,7 @@ public final class KubernetesResourceManagerDriver
                 missingWorkers.remove(name);
                 continue;
             }
-            if (pod == null || pod.isTerminating() || pod.isTerminated()) {
+            if (pod == null || pod.isTerminating() || pod.isTerminated() || pod.isUnknown()) {
                 if (missingWorkers.contains(name)) {
                     terminatedWorker = worker;
                     diagnostics =

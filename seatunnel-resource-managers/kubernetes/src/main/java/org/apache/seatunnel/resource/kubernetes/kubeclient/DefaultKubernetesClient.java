@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -457,7 +459,29 @@ final class DefaultKubernetesClient implements KubernetesClient {
                 detail == null || detail.isEmpty()
                         ? "Kubernetes API request failed (HTTP " + failure.getCode() + ")"
                         : detail;
+        String body = responseBody(failure);
+        if (!body.isEmpty()) {
+            message = message + " - " + body;
+        }
         return new KubernetesClientException(failure.getCode(), message, failure);
+    }
+
+    /**
+     * Returns the response body of one failed request for diagnosis.
+     *
+     * <p>RBAC, quota and admission failures explain themselves in the Kubernetes `Status` body,
+     * which the SDK message does not include. The body is collapsed to a single bounded line so it
+     * cannot break log formatting or flood the output.
+     *
+     * @param failure failed SDK request
+     * @return the collapsed body, or an empty string when the response carried none
+     */
+    private static String responseBody(ApiException failure) {
+        String body = failure.getResponseBody();
+        if (body == null || body.trim().isEmpty()) {
+            return "";
+        }
+        return StringUtils.abbreviate(body.trim().replaceAll("\\s+", " "), 512);
     }
 
     private static void rethrowUnlessMissing(ApiException failure) {

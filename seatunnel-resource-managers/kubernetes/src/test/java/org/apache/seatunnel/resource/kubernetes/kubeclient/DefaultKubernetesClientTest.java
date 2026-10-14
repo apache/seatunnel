@@ -343,6 +343,8 @@ class DefaultKubernetesClientTest {
                     assertThrows(KubernetesClientException.class, () -> api.deletePod("worker"));
             assertEquals(403, failure.getCode());
             assertTrue(failure.getCause() instanceof ApiException, failure.toString());
+            // The Kubernetes Status body explains RBAC, quota and admission failures.
+            assertTrue(failure.getMessage().contains("denied"), failure.getMessage());
         }
     }
 }

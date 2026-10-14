@@ -32,6 +32,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -161,7 +163,7 @@ class KubernetesResourceManagerDriverTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Succeeded", "Failed"})
+    @ValueSource(strings = {"Succeeded", "Failed", "Unknown"})
     void reportsOnlyFailedWorkersAndCleansEveryPod(String terminalPhase) throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
@@ -207,7 +209,7 @@ class KubernetesResourceManagerDriverTest {
             assertEquals(
                     first.getResourceID().getResourceIdString(),
                     terminated.getValue().getResourceID().getResourceIdString());
-            assertTrue(diagnostics.getValue().contains("Failed"));
+            assertTrue(diagnostics.getValue().contains(terminalPhase));
         }
         driver.close();
         driver.checkWorkers();
@@ -246,6 +248,32 @@ class KubernetesResourceManagerDriverTest {
         assertThrows(KubernetesClientException.class, driver::close);
         verify(api).deleteWorkers("app");
         verify(api).close();
+    }
+
+    @Test
+    void watchesWorkerPodsWithTheApplicationSelectorAndClosesTheWatch() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        ResourceEventHandler<KubernetesWorkerNode> events = mock(ResourceEventHandler.class);
+        when(api.getJob("app")).thenReturn(job());
+        KubernetesWatch watch = mock(KubernetesWatch.class);
+        when(api.watchPods(anyString(), anyLong(), any(), any())).thenReturn(watch);
+        KubernetesResourceManagerDriver driver =
+                new KubernetesResourceManagerDriver(
+                        api,
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options()))),
+                        "app",
+                        "isolated-app");
+        driver.initialize(events, mainThreadExecutor, ioExecutor, () -> "10.0.0.1:5801");
+        ArgumentCaptor<String> selector = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Long> interval = ArgumentCaptor.forClass(Long.class);
+        verify(api).watchPods(selector.capture(), interval.capture(), any(), any());
+        assertEquals(
+                "seatunnel.apache.org/application-id=app,seatunnel.apache.org/role=worker",
+                selector.getValue());
+        assertEquals(5_000L, interval.getValue().longValue());
+        driver.close();
+        verify(watch).close();
     }
 
     @Test
