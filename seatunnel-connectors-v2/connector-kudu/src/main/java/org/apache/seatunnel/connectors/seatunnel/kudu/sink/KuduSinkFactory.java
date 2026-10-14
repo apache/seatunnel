@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -48,7 +49,7 @@ public class KuduSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KuduSinkOptions.MASTER)
+                .required(KuduSinkOptions.MASTER, Conditions.notBlank(KuduSinkOptions.MASTER))
                 .optional(KuduSinkOptions.TABLE_NAME)
                 .optional(KuduSinkOptions.WORKER_COUNT)
                 .optional(KuduSinkOptions.OPERATION_TIMEOUT)

@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Kudu Master Address Validation
+
+- The Kudu source, sink, and catalog now reject an empty or whitespace-only `kudu_masters`
+  during option validation. Such values previously passed option validation and failed later
+  when the Kudu client was created; they now fail fast with an `Option validation failed`
+  error identifying `kudu_masters` as not blank.
+- A missing value was already rejected. Nonblank values are still passed through unchanged;
+  address parsing and client construction are unchanged.
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**

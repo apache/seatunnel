@@ -354,6 +354,28 @@ public class KuduIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceEmptyMastersRejected(TestContainer container)
+            throws IOException, InterruptedException {
+        assertMastersValidationFailure(container, "/kudu_source_empty_masters.conf");
+    }
+
+    @TestTemplate
+    public void testSinkWhitespaceMastersRejected(TestContainer container)
+            throws IOException, InterruptedException {
+        assertMastersValidationFailure(container, "/kudu_sink_whitespace_masters.conf");
+    }
+
+    private void assertMastersValidationFailure(TestContainer container, String configFile)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob(configFile);
+        String output = execResult.getStdout() + "\n" + execResult.getStderr();
+        Assertions.assertNotEquals(0, execResult.getExitCode(), output);
+        Assertions.assertTrue(output.contains("Option validation failed"), output);
+        Assertions.assertTrue(output.contains("kudu_masters"), output);
+        Assertions.assertTrue(output.contains("is not blank"), output);
+    }
+
+    @TestTemplate
     public void testKudu(TestContainer container) throws IOException, InterruptedException {
         dropTableIfExists(KUDU_SOURCE_TABLE);
         dropTableIfExists(KUDU_SINK_TABLE);
