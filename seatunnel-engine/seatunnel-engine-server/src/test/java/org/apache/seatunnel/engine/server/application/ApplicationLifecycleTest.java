@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.server.application;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
@@ -38,16 +37,12 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.application.ApplicationJobExecutionEnvironment;
-import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -55,13 +50,11 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
-import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,29 +99,10 @@ import static org.mockito.Mockito.when;
 /** Exercises application lifecycle against real master/worker engine instances and native jobs. */
 @Timeout(120)
 class ApplicationLifecycleTest {
-    // The existing HDFS storage plugin caches one filesystem instance per JVM. Real application
-    // masters run in separate JVMs; these in-process fixtures must share its configured location.
+    // The local-file storage plugin resolves every path from this directory and keeps no
+    // process-scoped state, so each fixture owns its checkpoints without touching a shared
+    // singleton (unlike the Hadoop storage plugin, which caches one filesystem per JVM).
     @TempDir static Path checkpoints;
-
-    private static Field storageSingleton;
-    private static Object previousStorage;
-
-    @BeforeAll
-    static void isolateProcessScopedCheckpointStorage() throws ReflectiveOperationException {
-        // Other starter tests initialize the same process-scoped plugin with different settings.
-        // Model the application's fresh process here, then restore the prior fixture at class end.
-        storageSingleton = HdfsFileStorageInstance.class.getDeclaredField("HDFS_STORAGE");
-        storageSingleton.setAccessible(true);
-        previousStorage = storageSingleton.get(null);
-        storageSingleton.set(null, null);
-    }
-
-    @AfterAll
-    static void restoreProcessScopedCheckpointStorage() throws IllegalAccessException {
-        if (storageSingleton != null) {
-            storageSingleton.set(null, previousStorage);
-        }
-    }
 
     private static final String JOB =
             readJobConfig("/application_lifecycle_batch_fake_to_console.conf");
@@ -478,13 +452,6 @@ class ApplicationLifecycleTest {
             assertEquals(2, worker.getCluster().getMembers().size());
             assertEquals(2, workerConfig.getEngineConfig().getSlotServiceConfig().getSlotNum());
             assertTrue(worker.getLifecycleService().isRunning());
-            ClientConfig clientConfig = new ClientConfig();
-            clientConfig.setClusterName(clusterName);
-            clientConfig.getNetworkConfig().setAddresses(Collections.singletonList(address));
-            try (SeaTunnelClient nativeClient = new SeaTunnelClient(clientConfig)) {
-                assertEquals(
-                        JobStatus.UNKNOWABLE.name(), nativeClient.getJobStatus(Long.MAX_VALUE));
-            }
             assertTrue(master.getLifecycleService().isRunning());
             assertTrue(worker.getLifecycleService().isRunning());
             worker.shutdown();
@@ -737,9 +704,8 @@ class ApplicationLifecycleTest {
     private static SeaTunnelConfig engineConfig() {
         SeaTunnelConfig config = new SeaTunnelConfig();
         CheckpointStorageConfig storage = new CheckpointStorageConfig();
-        storage.setStorage("hdfs");
+        storage.setStorage("localfile");
         Map<String, String> storageOptions = new HashMap<>();
-        storageOptions.put("storage.type", "local");
         storageOptions.put("namespace", checkpoints.toString());
         storage.setStoragePluginConfig(storageOptions);
         CheckpointConfig checkpoint = new CheckpointConfig();
@@ -760,10 +726,15 @@ class ApplicationLifecycleTest {
     /** Reads a job configuration that the tests submit verbatim. */
     private static String readJobConfig(String confFile) {
         try {
-            return Files.readString(Paths.get(ContentFormatUtilTest.getResource(confFile)));
+            return Files.readString(Paths.get(testResource(confFile)));
         } catch (IOException failure) {
             throw new UncheckedIOException(failure);
         }
+    }
+
+    /** @return absolute path of one job configuration in this module's test resources */
+    private static String testResource(String name) {
+        return System.getProperty("user.dir") + "/src/test/resources/" + name;
     }
 
     private static HazelcastInstanceImpl startWorker(
