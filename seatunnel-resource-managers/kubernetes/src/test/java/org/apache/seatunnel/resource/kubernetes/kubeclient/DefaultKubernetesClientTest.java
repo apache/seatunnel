@@ -257,6 +257,7 @@ class DefaultKubernetesClientTest {
     void deletesOnlyTheOwnerJobAndLabeledPods() throws Exception {
         List<String> requests = new ArrayList<>();
         List<String> queries = new ArrayList<>();
+        List<String> decodedQueries = new ArrayList<>();
         ApiClient client =
                 new ApiClient()
                         .setHttpClient(
@@ -271,6 +272,8 @@ class DefaultKubernetesClientTest {
                                                                             .encodedPath());
                                                     queries.add(
                                                             chain.request().url().encodedQuery());
+                                                    decodedQueries.add(
+                                                            chain.request().url().query());
                                                     return new Response.Builder()
                                                             .request(chain.request())
                                                             .protocol(Protocol.HTTP_1_1)
@@ -298,10 +301,30 @@ class DefaultKubernetesClientTest {
                 requests.get(2).startsWith("DELETE /api/v1/namespaces/test/pods"),
                 requests.toString());
         // Workers are deleted immediately; the master keeps its own termination grace period.
+        assertTrue(queries.get(0).contains("propagationPolicy=Foreground"), queries.toString());
         assertTrue(queries.get(1).contains("worker"), queries.toString());
         assertTrue(queries.get(1).contains("gracePeriodSeconds=0"), queries.toString());
+        assertTrue(queries.get(1).contains("propagationPolicy=Background"), queries.toString());
+        // Dropping the selector would delete every Pod in the namespace, so both deletions must
+        // stay scoped to this application's role.
+        assertTrue(
+                decodedQueries
+                        .get(1)
+                        .contains(
+                                "labelSelector="
+                                        + KubernetesResourceIdentity.selector(
+                                                "app", KubernetesConstants.WORKER_ROLE)),
+                decodedQueries.toString());
         assertTrue(queries.get(2).contains("master"), queries.toString());
         assertFalse(queries.get(2).contains("gracePeriodSeconds"), queries.toString());
+        assertTrue(
+                decodedQueries
+                        .get(2)
+                        .contains(
+                                "labelSelector="
+                                        + KubernetesResourceIdentity.selector(
+                                                "app", KubernetesConstants.MASTER_ROLE)),
+                decodedQueries.toString());
         assertFalse(
                 requests.stream()
                         .anyMatch(
