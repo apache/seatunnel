@@ -21,6 +21,8 @@ import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientExcept
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
+import com.google.gson.reflect.TypeToken;
+import io.kubernetes.client.informer.ListerWatcher;
 import io.kubernetes.client.informer.ResourceEventHandler;
 import io.kubernetes.client.informer.SharedIndexInformer;
 import io.kubernetes.client.informer.SharedInformerFactory;
@@ -30,8 +32,15 @@ import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodList;
 import io.kubernetes.client.util.CallGenerator;
+import io.kubernetes.client.util.CallGeneratorParams;
+import io.kubernetes.client.util.Watch;
+import io.kubernetes.client.util.Watchable;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Call;
 
+import java.io.IOException;
+import java.net.ConnectException;
+import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +59,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * the watch immediately, transient errors are tolerated for {@link
  * KubernetesConstants#WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS} while the informer reconnects, and an
  * exception from a callback is terminal because it comes from the resource manager driver.
+ *
+ * <p>The reflector retries a refused watch connection internally, with a one second pause and
+ * without calling the informer's exception handler, so those attempts would never reach the failure
+ * policy above. {@link ReportingListerWatcher} reports them instead, which keeps the budget
+ * meaningful while the API server is unreachable.
  */
 @Slf4j
 final class InformerPodWatch implements KubernetesWatch {
@@ -58,13 +72,33 @@ final class InformerPodWatch implements KubernetesWatch {
     private final ExecutorService informerExecutor;
     private final String selector;
     private final PodWatchCallback callback;
+    private final long transientFailureBudgetMillis;
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final AtomicLong firstFailureNanos = new AtomicLong();
 
     InformerPodWatch(
             ApiClient client, String namespace, String selector, PodWatchCallback callback) {
+        this(
+                client,
+                podListerWatcher(client, namespace, selector),
+                selector,
+                callback,
+                KubernetesConstants.WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS);
+    }
+
+    /**
+     * Runs the informer against an injected lister/watcher and failure budget so tests can drive
+     * reconnects without an API server.
+     */
+    InformerPodWatch(
+            ApiClient client,
+            ListerWatcher<V1Pod, V1PodList> listerWatcher,
+            String selector,
+            PodWatchCallback callback,
+            long transientFailureBudgetMillis) {
         this.selector = selector;
         this.callback = callback;
+        this.transientFailureBudgetMillis = transientFailureBudgetMillis;
         this.informerExecutor =
                 Executors.newSingleThreadExecutor(
                         runnable -> {
@@ -75,9 +109,8 @@ final class InformerPodWatch implements KubernetesWatch {
         this.factory = new SharedInformerFactory(client, informerExecutor);
         SharedIndexInformer<V1Pod> informer =
                 factory.sharedIndexInformerFor(
-                        callGenerator(client, namespace, selector),
+                        new ReportingListerWatcher(listerWatcher),
                         V1Pod.class,
-                        V1PodList.class,
                         0L,
                         (type, failure) -> handleWatchFailure(failure));
         informer.addEventHandler(
@@ -129,6 +162,40 @@ final class InformerPodWatch implements KubernetesWatch {
                                 null);
     }
 
+    /**
+     * Binds list and watch calls the same way the shared informer factory does, but keeps the watch
+     * accessible to {@link ReportingListerWatcher}.
+     *
+     * @param client informer client
+     * @param namespace watched namespace
+     * @param selector label selector of the application's worker Pods
+     * @return informer lister/watcher for this application's Pods
+     */
+    private static ListerWatcher<V1Pod, V1PodList> podListerWatcher(
+            ApiClient client, String namespace, String selector) {
+        CallGenerator callGenerator = callGenerator(client, namespace, selector);
+        // A watch response stays open until the API server ends it, so it must not inherit the
+        // bounded read timeout of the ordinary API client.
+        client.setReadTimeout(0);
+        return new ListerWatcher<>() {
+            @Override
+            public V1PodList list(CallGeneratorParams params) throws ApiException {
+                return (V1PodList)
+                        client.execute(callGenerator.generate(params), V1PodList.class).getData();
+            }
+
+            @Override
+            public Watchable<V1Pod> watch(CallGeneratorParams params) throws ApiException {
+                Call call =
+                        client.getHttpClient().newCall(callGenerator.generate(params).request());
+                return Watch.createWatch(
+                        client,
+                        call,
+                        TypeToken.getParameterized(Watch.Response.class, V1Pod.class).getType());
+            }
+        };
+    }
+
     private void deliver(Runnable delivery) {
         if (stopped.get()) {
             return;
@@ -160,11 +227,16 @@ final class InformerPodWatch implements KubernetesWatch {
         if (started == 0L) {
             firstFailureNanos.compareAndSet(0L, System.nanoTime());
             started = firstFailureNanos.get();
+            log.warn(
+                    "Could not watch application pods for selector {}; the informer will reconnect",
+                    selector,
+                    reportable);
+        } else {
+            log.debug(
+                    "Could not watch application pods for selector {}; the informer will reconnect",
+                    selector,
+                    reportable);
         }
-        log.warn(
-                "Could not watch application pods for selector {}; the informer will reconnect",
-                selector,
-                reportable);
         if (transientFailureBudgetExhausted(started)) {
             stopAndReport(
                     new IllegalStateException(
@@ -202,10 +274,9 @@ final class InformerPodWatch implements KubernetesWatch {
      * @param startedNanos {@link System#nanoTime()} of the first failure in the current streak
      * @return whether the tolerated transient pod-watch failure budget has elapsed
      */
-    private static boolean transientFailureBudgetExhausted(long startedNanos) {
+    private boolean transientFailureBudgetExhausted(long startedNanos) {
         return System.nanoTime() - startedNanos
-                >= TimeUnit.MILLISECONDS.toNanos(
-                        KubernetesConstants.WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS);
+                >= TimeUnit.MILLISECONDS.toNanos(transientFailureBudgetMillis);
     }
 
     private static boolean isNonRetryable(Exception failure) {
@@ -214,5 +285,134 @@ final class InformerPodWatch implements KubernetesWatch {
             return code == 401 || code == 403 || code == 404;
         }
         return false;
+    }
+
+    /**
+     * Feeds every reconnect the reflector swallows into the shared failure policy.
+     *
+     * <p>The reflector calls {@code watch} again after a refused connection instead of reporting
+     * the failure, so without this wrapper a permanently unreachable API server would keep the
+     * watch silently retrying and the application would never observe the worker Pods it can no
+     * longer track. Failures the reflector reports itself (every type other than a connect
+     * exception) are left to it so the budget counts each failure exactly once.
+     */
+    private final class ReportingListerWatcher implements ListerWatcher<V1Pod, V1PodList> {
+
+        private final ListerWatcher<V1Pod, V1PodList> delegate;
+
+        private ReportingListerWatcher(ListerWatcher<V1Pod, V1PodList> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public V1PodList list(CallGeneratorParams params) throws ApiException {
+            V1PodList pods = delegate.list(params);
+            // A completed list proves the API server is reachable again.
+            firstFailureNanos.set(0L);
+            return pods;
+        }
+
+        @Override
+        public Watchable<V1Pod> watch(CallGeneratorParams params) throws ApiException {
+            try {
+                Watchable<V1Pod> watch = delegate.watch(params);
+                // The watch call is executed eagerly, so a returned stream is an open connection.
+                firstFailureNanos.set(0L);
+                return new ReportingWatch(watch);
+            } catch (ApiException failure) {
+                // Report first, then rethrow so the reflector keeps its retry and re-list
+                // behaviour.
+                reportSwallowedFailure(failure);
+                throw failure;
+            }
+        }
+
+        /**
+         * Reports a connection failure that the informer reflector retries silently.
+         *
+         * <p>{@code ReflectorRunnable} catches a refused watch connection, sleeps for one second
+         * and calls {@code watch} again without notifying the informer's exception handler (see the
+         * {@code isConnectException} branch of its run loop). Without this report the transient
+         * failure budget would never start, so an unreachable API server would leave the
+         * application running while it has already lost sight of its worker Pods.
+         *
+         * <p>Only connect exceptions are reported here: every other failure reaches {@link
+         * #handleWatchFailure(Throwable)} through the informer's own handler, and reporting those a
+         * second time would exhaust the shared budget after half the intended time.
+         *
+         * @param failure failed watch attempt as it left the delegate
+         */
+        private void reportSwallowedFailure(Throwable failure) {
+            if (isConnectException(failure)) {
+                handleWatchFailure(failure);
+            }
+        }
+    }
+
+    /** Reports stream failures that the reflector retries without notifying the informer. */
+    private final class ReportingWatch implements Watchable<V1Pod> {
+
+        private final Watchable<V1Pod> delegate;
+
+        private ReportingWatch(Watchable<V1Pod> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public boolean hasNext() {
+            try {
+                return delegate.hasNext();
+            } catch (RuntimeException failure) {
+                reportSwallowed(failure);
+                throw failure;
+            }
+        }
+
+        @Override
+        public Watch.Response<V1Pod> next() {
+            try {
+                return delegate.next();
+            } catch (RuntimeException failure) {
+                reportSwallowed(failure);
+                throw failure;
+            }
+        }
+
+        @Override
+        public Iterator<Watch.Response<V1Pod>> iterator() {
+            return this;
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+
+        /**
+         * Reports a connection failure of an already established stream.
+         *
+         * <p>The reflector treats a connection loss while reading the stream exactly like a failed
+         * reconnect: it sleeps and retries without notifying the informer, so the failure has to
+         * reach the budget from here for the same reason as the watch call above. Failures the
+         * reflector reports itself are left to it, which keeps every failure counted once.
+         *
+         * @param failure failure thrown while reading the stream
+         */
+        private void reportSwallowed(RuntimeException failure) {
+            if (isConnectException(failure)) {
+                handleWatchFailure(failure);
+            }
+        }
+    }
+
+    /**
+     * @param failure watch failure
+     * @return whether the reflector retries this failure without reporting it
+     */
+    private static boolean isConnectException(Throwable failure) {
+        if (failure instanceof ConnectException) {
+            return true;
+        }
+        return failure.getCause() instanceof ConnectException;
     }
 }
