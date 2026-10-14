@@ -197,4 +197,16 @@ public class AsanaSourceFactoryTest {
             Assertions.assertEquals("3", emittedRows.get(2).getField(0));
         }
     }
+
+    @Test
+    public void testNegativeBackoffRejected() {
+        HashMap<String, Object> configMap = new HashMap<>();
+        configMap.put("api_key", "test-token");
+        configMap.put("project_gid", "12345");
+        configMap.put("retry_backoff_multiplier_ms", -1);
+        AsanaSourceParameter parameter = new AsanaSourceParameter();
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> parameter.buildWithConfig(ReadonlyConfig.fromMap(configMap)));
+    }
 }

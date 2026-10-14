@@ -77,5 +77,9 @@ public class AsanaSourceParameter extends HttpParameter {
         }
         setRetryBackoffMultiplierMillis(config.get(AsanaSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS));
         setRetryBackoffMaxMillis(config.get(AsanaSourceOptions.RETRY_BACKOFF_MAX_MS));
+
+        if (getRetryBackoffMultiplierMillis() < 0 || getRetryBackoffMaxMillis() < 0) {
+            throw new IllegalArgumentException("Asana retry backoff values must not be negative.");
+        }
     }
 }

@@ -132,4 +132,32 @@ public class AsanaSourceReaderTest {
             }
         }
     }
+
+    @Test
+    public void testCustomBackoffHonoredWithoutExplicitRetry() {
+        HashMap<String, Object> configMap = new HashMap<>();
+        configMap.put("api_key", "test-token");
+        configMap.put("project_gid", "12345");
+        configMap.put("retry_backoff_multiplier_ms", 2000);
+        configMap.put("retry_backoff_max_ms", 3000);
+        AsanaSourceParameter parameter = new AsanaSourceParameter();
+        parameter.buildWithConfig(ReadonlyConfig.fromMap(configMap));
+
+        Assertions.assertEquals(3, parameter.getRetry());
+        Assertions.assertEquals(2000, parameter.getRetryBackoffMultiplierMillis());
+        Assertions.assertEquals(3000, parameter.getRetryBackoffMaxMillis());
+    }
+
+    @Test
+    public void testDefaultBackoffWhenNothingConfigured() {
+        HashMap<String, Object> configMap = new HashMap<>();
+        configMap.put("api_key", "test-token");
+        configMap.put("project_gid", "12345");
+        AsanaSourceParameter parameter = new AsanaSourceParameter();
+        parameter.buildWithConfig(ReadonlyConfig.fromMap(configMap));
+
+        Assertions.assertEquals(3, parameter.getRetry());
+        Assertions.assertEquals(100, parameter.getRetryBackoffMultiplierMillis());
+        Assertions.assertEquals(10000, parameter.getRetryBackoffMaxMillis());
+    }
 }
