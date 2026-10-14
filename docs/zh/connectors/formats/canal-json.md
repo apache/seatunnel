@@ -23,6 +23,14 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Can
 | canal_json.database.include    | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
 | canal_json.table.include       | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`table`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容    |
 
+:::warning
+
+在当前的 SeaTunnel 实现中，除 `format` 外的上述选项都不会从作业配置中读取。解析错误的行为由各个连接器自行决定：Kafka 和 Pulsar
+source 在 `canal_json` 格式下始终跳过解析错误的行，Amazon SQS source 则从不跳过。`canal_json.database.include` /
+`canal_json.table.include` 的过滤功能目前没有任何连接器实现。
+
+:::
+
 # 如何使用
 
 ## Kafka 使用示例

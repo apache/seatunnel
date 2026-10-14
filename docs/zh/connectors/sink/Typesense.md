@@ -27,6 +27,7 @@ import ChangeLog from '../changelog/connector-typesense.md';
 | 名称                       | 类型     | 是否必须 | 默认值                          | 描述                                                |
 |--------------------------|--------|------|------------------------------|---------------------------------------------------|
 | hosts                    | array  | 是    | -                            | Typesense 节点地址，格式为 `host:port`，支持配置多个地址。        |
+| protocol                 | string | 否    | http                         | 连接 Typesense 使用的协议。Typesense Cloud 请使用 `https`。  |
 | collection               | string | 是    | -                            | 目标 collection 名。                                 |
 | schema_save_mode         | string | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标 collection 结构。                         |
 | data_save_mode           | string | 是    | APPEND_DATA                  | 写入前如何处理目标 collection 中已有文档。                      |
@@ -41,6 +42,10 @@ import ChangeLog from '../changelog/connector-typesense.md';
 ### hosts [array]
 
 Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:8108"]`。配置多个节点时，每个 Writer 只持有一个客户端，不会把写入请求在节点之间负载均衡。
+
+### protocol [string]
+
+连接 Typesense 使用的协议。默认值为 `http`，Typesense Cloud 请使用 `https`。
 
 ### collection [string]
 

@@ -2,6 +2,14 @@
 
 Seatunnel 的 Kafka 连接器支持解析通过 Kafka Connect Source 抽取的数据，特别是从 Kafka Connect JDBC 和 Kafka Connect Debezium 抽取的数据
 
+# 格式选项
+
+| 选项                            | 默认值    | 是否需要 | 描述                                    |
+|-------------------------------|--------|------|------------------------------------------|
+| format                        | (none) | 是    | 指定要使用的格式，这里应该是 `COMPATIBLE_KAFKA_CONNECT_JSON`。 |
+| key_converter_schema_enabled  | true   | 否    | Kafka Connect key converter 生成的 JSON 载荷是否携带 schema。 |
+| value_converter_schema_enabled| true   | 否    | Kafka Connect value converter 生成的 JSON 载荷是否携带 schema。 |
+
 # 如何使用
 
 ## Kafka 流入 Mysql

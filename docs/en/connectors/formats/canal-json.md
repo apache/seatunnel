@@ -22,6 +22,16 @@ SeaTunnel also supports to encode the INSERT/UPDATE/DELETE messages in SeaTunnel
 | canal_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | canal_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
+:::warning
+
+In the current SeaTunnel implementation, the options above (except `format`) are not read from the job
+configuration. Connectors decide the parse-error behavior themselves: the Kafka and Pulsar sources
+always skip rows with parse errors in `canal_json` format, while the Amazon SQS source never skips.
+The `canal_json.database.include` / `canal_json.table.include` filtering is not applied by any
+connector.
+
+:::
+
 # How to use
 
 ## Kafka Uses Example

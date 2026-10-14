@@ -20,6 +20,13 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Ogg
 | ogg_json.database.include    | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
 | ogg_json.table.include       | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的 `table` 元字段来仅读取特定表的更改日志行。此字符串Pattern模式与Java的Pattern兼容   |
 
+:::warning
+
+在当前的 SeaTunnel 实现中，除 `format` 外的上述选项都不会从作业配置中读取。目前只有 Kafka source 支持 `ogg_json` 格式，且它会始终跳过解析错误的行。
+`ogg_json.database.include` / `ogg_json.table.include` 的过滤功能不会被应用。
+
+:::
+
 # 如何使用 Ogg 格式
 
 ## Kafka 使用示例

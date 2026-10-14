@@ -20,6 +20,15 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 | format                            | (none)  | yes      | Specify what format to use, here should be 'debezium_json'.                                          |
 | debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors. |
 
+:::warning
+
+In the current SeaTunnel implementation, `debezium-json.ignore-parse-errors` is not read from the job
+configuration: connectors that consume `debezium_json` always fail on parse errors. Whether Debezium
+records include the schema is controlled by connector-specific options such as the Kafka source's
+`debezium_record_include_schema`, not by a `debezium-json.*` option.
+
+:::
+
 # How To Use
 
 ## Kafka Uses example
