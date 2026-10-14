@@ -44,8 +44,9 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -73,17 +74,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class NestedArrayConverterTest {
 
     private static SparkSession spark;
-
-    @BeforeAll
-    static void startSpark() {
-        spark =
-                SparkSession.builder()
-                        .master("local[1]")
-                        .appName("nested-array-conversion")
-                        .config("spark.ui.enabled", "false")
-                        .config("spark.driver.host", "127.0.0.1")
-                        .getOrCreate();
-    }
 
     @AfterAll
     static void stopSpark() {
@@ -150,7 +140,18 @@ class NestedArrayConverterTest {
 
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("arrays")
+    // The Spark 3.3 execution dependency cannot start a local session on JDK 17 or newer.
+    @DisabledForJreRange(min = JRE.JAVA_17)
     void roundTripsThroughSparkExecution(ArrayType<?, ?> type, Object value) throws IOException {
+        if (spark == null) {
+            spark =
+                    SparkSession.builder()
+                            .master("local[1]")
+                            .appName("nested-array-conversion")
+                            .config("spark.ui.enabled", "false")
+                            .config("spark.driver.host", "127.0.0.1")
+                            .getOrCreate();
+        }
         SeaTunnelRowType rowType = rowType(type);
         SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType);
         SeaTunnelRow input = row(value);
