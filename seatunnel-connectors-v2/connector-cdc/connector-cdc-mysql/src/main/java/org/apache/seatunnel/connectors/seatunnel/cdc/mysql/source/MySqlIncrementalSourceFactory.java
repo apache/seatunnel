@@ -43,6 +43,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -104,7 +105,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                 .optional(MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
+                        Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY),
                         SourceOptions.EXACTLY_ONCE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,

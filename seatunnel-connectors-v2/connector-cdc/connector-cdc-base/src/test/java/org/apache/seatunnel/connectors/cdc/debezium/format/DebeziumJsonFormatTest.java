@@ -37,7 +37,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 class DebeziumJsonFormatTest {
@@ -50,7 +52,8 @@ class DebeziumJsonFormatTest {
                                     StartupMode.INITIAL,
                                     StartupMode.EARLIEST,
                                     StartupMode.LATEST,
-                                    StartupMode.SPECIFIC))
+                                    StartupMode.SPECIFIC,
+                                    StartupMode.SNAPSHOT_ONLY))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
@@ -124,5 +127,64 @@ class DebeziumJsonFormatTest {
         Assertions.assertEquals(1, tables.size());
         Assertions.assertEquals(
                 "default.default.default", tables.get(0).getTableId().toTablePath().getFullName());
+    }
+
+    @Test
+    void testSnapshotOnlyRejectsStartupTimestampBeforeSourceInitialization() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(STARTUP_MODE.key(), "snapshot-only");
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
+
+        assertSnapshotOnlyConfigRejected(options, "startup.timestamp");
+    }
+
+    @Test
+    void testSnapshotOnlyRejectsStopModeBeforeSourceInitialization() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(STARTUP_MODE.key(), "snapshot-only");
+        options.put(STOP_MODE.key(), "latest");
+
+        assertSnapshotOnlyConfigRejected(options, "stop.mode");
+    }
+
+    @Test
+    void testSnapshotOnlyRejectsSpecificOffsetsBeforeSourceInitialization() {
+        for (Option<?> offsetOption :
+                Arrays.asList(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)) {
+            Map<String, Object> options = new HashMap<>();
+            options.put(STARTUP_MODE.key(), "snapshot-only");
+            options.put(
+                    offsetOption.key(),
+                    offsetOption == SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE
+                            ? "mysql-bin.000001"
+                            : 4L);
+
+            assertSnapshotOnlyConfigRejected(options, offsetOption.key());
+        }
+    }
+
+    private void assertSnapshotOnlyConfigRejected(
+            Map<String, Object> options, String expectedOption) {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                new FailingSource(
+                                        ReadonlyConfig.fromMap(options), Collections.emptyList()));
+
+        Assertions.assertTrue(exception.getMessage().contains(expectedOption));
+    }
+
+    static class FailingSource extends TestIncrementalSource {
+        FailingSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
+            super(options, catalogTables);
+        }
+
+        @Override
+        public SourceConfig.Factory<SourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
+            throw new AssertionError("source initialization must follow option validation");
+        }
     }
 }
