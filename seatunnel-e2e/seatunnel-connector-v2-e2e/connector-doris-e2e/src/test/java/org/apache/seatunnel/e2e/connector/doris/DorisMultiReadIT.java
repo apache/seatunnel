@@ -192,13 +192,12 @@ public class DorisMultiReadIT extends AbstractDorisIT {
                     }
 
                     if (sourceColumnType.equalsIgnoreCase("map<smallint(6),largeint>")) {
-                        Assertions.assertEquals(
-                                "map<smallint(6),decimalv3(20, 0)>", sinkColumnType);
+                        Assertions.assertEquals("map<smallint(6),largeint>", sinkColumnType);
                         continue;
                     }
 
                     if (sourceColumnType.equalsIgnoreCase("map<largeint,double>")) {
-                        Assertions.assertEquals("map<decimalv3(20, 0),double>", sinkColumnType);
+                        Assertions.assertEquals("map<largeint,double>", sinkColumnType);
                         continue;
                     }
 
