@@ -132,6 +132,16 @@ also come from a file inside the Pod, which is what `kubernetes.job-config-file`
 option is what makes `-c` optional: a submission that provides neither source is rejected before the
 first resource is created.
 
+:::caution
+The inline job text is carried Base64-encoded in the Pod template of the application Job, so anyone
+who can read Jobs or Pods in the namespace can read it, including credentials written in the job
+file, for as long as the Job is retained (`kubernetes.finished-job-retention-seconds`, 24 hours by
+default). Base64 is not encryption. Keep credentials out of the inline job, mount the job file from
+a Secret through `kubernetes.job-config-file`, or encrypt the affected values with
+[config encryption](../../../introduction/configuration/config-encryption-decryption.md), which the
+master decrypts at runtime.
+:::
+
 The option resolves to a file name under `<seatunnel-home>/config` or to the absolute path a Secret
 or ConfigMap key is mounted at. Before the job is parsed:
 

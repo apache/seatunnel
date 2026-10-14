@@ -125,6 +125,15 @@ taint 的节点池上一直 `Pending`，事件里是 `had untolerated taint`。
 解析检查。作业也可以来自 Pod 内的挂载文件，由 `kubernetes.job-config-file` 选择——正是这个选项
 让 `-c` 变成可选；两个来源都没有的提交会在创建任何资源之前被拒绝。
 
+:::caution
+内联作业配置以 Base64 编码保存在 application Job 的 Pod 模板里（只是编码，不是加密），凡是能
+读取该 Namespace 中 Job 或 Pod 的身份都能看到它，包括作业文件里明文写的凭据；暴露时间与 Job
+的保留时间一致（`kubernetes.finished-job-retention-seconds`，默认 24 小时）。建议不要把凭据
+放在内联作业里：用 `kubernetes.job-config-file` 从 Secret 挂载作业文件，或对敏感值启用
+[配置加密](../../../introduction/configuration/config-encryption-decryption.md)，由 Master 在
+运行时解密。
+:::
+
 该选项解析出的是 `<seatunnel-home>/config` 下的文件名，或 Secret/ConfigMap key 挂载的绝对路径。
 作业解析前：
 
