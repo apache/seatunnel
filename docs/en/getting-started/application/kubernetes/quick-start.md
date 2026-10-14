@@ -79,15 +79,61 @@ kubectl apply -f application-rbac.yaml
 ```
 
 The ServiceAccount above is used by the **master Pod** to create, observe and delete worker Pods
-and to read the owner Job. The **submitting identity** separately needs:
+and to read the owner Job. The **submitting identity** that runs `bin/seatunnel-application.sh`
+needs a Role of its own in the target namespace:
 
-- required: create/get/delete Jobs, create/delete Services, and get ConfigMaps (references are
-  validated before submission);
-- only with `kubernetes.secret`: create/delete Secrets;
-- only with a created ConfigMap entry (`kubernetes.configmap.<entry>.data`): create/delete
-  ConfigMaps;
-- only with `kubernetes.secret-ref`: get Secrets (validation is skipped with a warning when the
+- required: Jobs `create`, `get`, `patch` (unsuspending the Job) and `delete`;
+- required: Pods `list` (resolving the application status) and `deletecollection` (`cancel`
+  deletes the remaining Pods);
+- required: Services `create` and `delete`;
+- required with a created ConfigMap entry (`kubernetes.configmap.<entry>.data`): ConfigMaps
+  `create` and `delete`;
+- recommended: ConfigMaps `get`, which validates `kubernetes.configmap.<entry>.ref` before
+  submission; without it the validation is skipped with a warning;
+- only with `kubernetes.secret`: Secrets `create` and `delete`;
+- only with `kubernetes.secret-ref`: Secrets `get` (validation is skipped with a warning when the
   identity cannot read them).
+
+The example below binds those permissions to a submitter in the same namespace; replace the
+subject with the identity that runs the client (a user, a group or a CI ServiceAccount):
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel-submitter
+    namespace: seatunnel-apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-application-submitter
+```
 
 The localized specification travels in the master Pod environment; no application Secret is
 created by default.
