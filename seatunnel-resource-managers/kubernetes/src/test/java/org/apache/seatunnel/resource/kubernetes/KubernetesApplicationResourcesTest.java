@@ -38,6 +38,8 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesS
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -905,6 +907,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void keepsTheSubmittedJobConfigurationWithoutAConfiguredJobConfigFile() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
@@ -930,6 +936,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void replacesInlineJobConfigurationWithAMountedSecretFile() throws Exception {
         Path secretDirectory = temporary.resolve("secrets");
         Path jobConfigFile = secretDirectory.resolve("job.conf");
@@ -965,6 +975,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void acceptsSubmissionsThatRelyOnAMountedJobConfigFile() throws Exception {
         Path jobConfigFile = temporary.resolve("mounted-job.conf");
         Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
@@ -986,6 +1000,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void failsWhenTheMountedJobConfigFileIsMissingAndNothingWasSubmitted() throws Exception {
         Path jobConfigFile = temporary.resolve("missing-job.conf");
         Map<String, String> options = options();
@@ -1005,6 +1023,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void resolvesJobConfigFileNamesUnderTheConfigDirectory() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("custom-job.conf");
@@ -1028,6 +1050,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void replacesInlineJobConfigurationWithAFileFromAConfigMap() throws Exception {
         Path jobConfigFile = temporary.resolve("config").resolve("job.conf");
         Files.createDirectories(jobConfigFile.getParent());
@@ -1072,6 +1098,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void keepsTheSubmittedJobConfigurationWhenTheOptionIsEmpty() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
