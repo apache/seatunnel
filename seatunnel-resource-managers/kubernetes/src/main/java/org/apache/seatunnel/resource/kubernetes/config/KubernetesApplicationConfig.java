@@ -24,10 +24,8 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -61,8 +59,8 @@ import java.util.stream.Collectors;
  * resolved values and contain no configuration parsing logic.
  */
 @Getter
+@Slf4j
 public final class KubernetesApplicationConfig {
-    private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
 
     /** Prefixes of options whose keys are dynamic, for example {@code kubernetes.env.<NAME>}. */
     private static final List<String> DYNAMIC_OPTION_PREFIXES =
@@ -255,7 +253,7 @@ public final class KubernetesApplicationConfig {
                                 + jobConfigFile
                                 + " does not exist and the submission carried no inline job configuration");
             } else {
-                LOG.warn(
+                log.warn(
                         "Configured {} {} does not exist; using the inline job configuration",
                         KubernetesOptions.JOB_CONFIG_FILE.key(),
                         jobConfigFile);

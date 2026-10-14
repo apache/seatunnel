@@ -28,9 +28,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesS
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.kubernetes.client.custom.V1Patch;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -41,6 +38,7 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,8 +57,8 @@ import java.util.function.Consumer;
  * deployer or driver that opens this connection owns its lifetime and must close it after pending
  * requests and resource cleanup complete.
  */
+@Slf4j
 final class DefaultKubernetesClient implements KubernetesClient {
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultKubernetesClient.class);
 
     private final ApiClient client;
     private final CoreV1Api core;
@@ -291,7 +289,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
             firstFailureNanos.compareAndSet(0L, System.nanoTime());
             started = firstFailureNanos.get();
         }
-        LOG.warn(
+        log.warn(
                 "Could not list application pods for selector {}; will keep polling",
                 selector,
                 failure);

@@ -24,17 +24,14 @@ import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.cluster.MembershipEvent;
 import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 /** Starts one fixed-slot application worker without Kubernetes API access. */
+@Slf4j
 public final class SeatunnelKubernetesApplicationWorker {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(SeatunnelKubernetesApplicationWorker.class);
 
     private SeatunnelKubernetesApplicationWorker() {}
 
@@ -70,7 +67,7 @@ public final class SeatunnelKubernetesApplicationWorker {
         @Override
         public void memberRemoved(MembershipEvent membershipEvent) {
             if (!membershipEvent.getMember().isLiteMember()) {
-                LOG.warn(
+                log.warn(
                         "Application master {} left the cluster; shutting down worker",
                         membershipEvent.getMember().getAddress());
                 // Halt instead of exiting gracefully: the master is gone, and running the shutdown

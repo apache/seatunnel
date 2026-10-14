@@ -50,11 +50,9 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.models.V1Pod;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,9 +64,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Submits one isolated application Job and discovers its control plane on demand. */
+@Slf4j
 final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(KubernetesApplicationClusterDescriptor.class);
 
     private final KubernetesClient api;
     private final ReadonlyConfig options;
@@ -106,14 +103,14 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         List<KubernetesResource<?>> application = assembleApplication(id, mainClass, parameters);
         KubernetesJob job = null;
         try {
-            LOG.debug("Creating owner Job {} and its accompanying resources", id);
+            log.debug("Creating owner Job {} and its accompanying resources", id);
             job = api.createJob((KubernetesJob) application.remove(0));
             api.createAccompanyingResources(job, application);
-            LOG.debug("Starting Job {}", id);
+            log.debug("Starting Job {}", id);
             api.startJob(job.getName());
             return job.getName();
         } catch (Exception failure) {
-            LOG.warn("Kubernetes application {} deployment failed", id, failure);
+            log.warn("Kubernetes application {} deployment failed", id, failure);
             if (job != null || ambiguousOutcome(failure)) {
                 // Deleting the owner removes exactly the resources created for this application.
                 try {
@@ -257,7 +254,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             return api.getConfigMap(name);
         } catch (KubernetesClientException failure) {
             if (failure.getCode() == 403) {
-                LOG.warn(
+                log.warn(
                         "No permission to verify {} ConfigMap {}; continuing without validation",
                         option,
                         name);
@@ -284,7 +281,7 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             return api.getSecret(name);
         } catch (KubernetesClientException failure) {
             if (failure.getCode() == 403) {
-                LOG.warn(
+                log.warn(
                         "No permission to verify {} Secret {}; continuing without validation",
                         option,
                         name);
