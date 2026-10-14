@@ -42,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -413,7 +414,7 @@ public class StarRocksStreamLoadVisitorTest {
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 2000);
 
         assertTrue(visitor.doStreamLoad(createFlushTuple()));
-        verify(httpHelper, org.mockito.Mockito.times(2)).doHttpGet(anyString(), any(), anyInt());
+        verify(httpHelper, times(2)).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
@@ -436,7 +437,7 @@ public class StarRocksStreamLoadVisitorTest {
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 2000);
 
         assertTrue(visitor.doStreamLoad(createFlushTuple()));
-        verify(httpHelper, org.mockito.Mockito.times(2)).doHttpGet(anyString(), any(), anyInt());
+        verify(httpHelper, times(2)).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
@@ -513,7 +514,7 @@ public class StarRocksStreamLoadVisitorTest {
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper, 2000);
 
         assertTrue(visitor.doStreamLoad(createFlushTuple()));
-        verify(httpHelper, org.mockito.Mockito.times(2)).doHttpGet(anyString(), any(), anyInt());
+        verify(httpHelper, times(2)).doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
