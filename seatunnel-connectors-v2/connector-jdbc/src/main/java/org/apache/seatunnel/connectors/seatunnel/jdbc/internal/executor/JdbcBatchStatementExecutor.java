@@ -39,6 +39,20 @@ public interface JdbcBatchStatementExecutor<T> {
         // no-op by default
     }
 
+    /**
+     * Returns whether this executor can retry the current transaction after a database conflict.
+     * Implementations must retain their logical input buffer while discarding only the JDBC
+     * driver's partially submitted batch.
+     */
+    default boolean supportsTransactionConflictRetry() {
+        return false;
+    }
+
+    /** Discards a partially submitted JDBC batch while retaining the logical records for replay. */
+    default void resetForTransactionConflictRetry() throws SQLException {
+        throw new SQLException("Transaction conflict retry is not supported by this executor");
+    }
+
     /** Close JDBC related statements. */
     void closeStatements() throws SQLException;
 }

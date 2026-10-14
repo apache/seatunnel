@@ -74,10 +74,25 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     }
 
     @Override
+    public boolean supportsTransactionConflictRetry() {
+        return true;
+    }
+
+    @Override
+    public void resetForTransactionConflictRetry() throws SQLException {
+        statementExecutor.clearBatch();
+        flushFailed = false;
+    }
+
+    @Override
     public void closeStatements() throws SQLException {
         try {
             if (!buffer.isEmpty() && !flushFailed) {
                 executeBatch();
+            } else if (flushFailed) {
+                // A child executor may still contain a partially submitted JDBC batch. Never let
+                // its close method execute that batch after the transaction has failed.
+                statementExecutor.clearBatch();
             }
         } finally {
             statementExecutor.closeStatements();
