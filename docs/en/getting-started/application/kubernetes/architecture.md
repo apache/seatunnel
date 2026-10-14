@@ -61,7 +61,7 @@ flowchart TB
    `kubernetes.configmap.<entry>.data` is configured, the owner-referenced application Secret and
    ConfigMap.
 3. After the API confirms the dependent resources, it unsuspends the Job and returns the Job name without waiting for the master Pod. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port. Use `status` or Pod events to observe slow image pulls, admission or scheduling problems.
-4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. Each worker has a process liveness probe, and the master watches application-labelled Pod snapshots for deletion and terminal phases.
+4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. The master watches the application-labelled Pods through the Kubernetes watch API, so a deleted worker or a worker in a terminal phase is reported immediately; worker Pods carry no liveness probe.
 5. Workers join the master over TCP at its Pod IP and register slots; the headless Service only selects the master Pod. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
 6. The master submits one Zeta job after every worker is ready.
 7. After the job terminates, the master removes workers and exits. The Job records `Complete` or `Failed`.

@@ -61,7 +61,7 @@ flowchart TB
    `kubernetes.configmap.<entry>.data` 时，再创建带 OwnerReference 的 application Secret 与
    ConfigMap。
 3. Kubernetes API 确认依赖资源创建成功后，提交器解除 Job 挂起并返回 Job 名称，不等待 Master Pod 就绪。TCP startup probe 使用配置的启动超时等待 Zeta Master，随后 readiness 和 liveness probe 检查 Hazelcast Master 端口；镜像拉取慢、准入或调度问题通过 `status` 和 Pod 事件观察。
-4. Master 启动独立 Zeta 集群，通过 Kubernetes API 创建固定数量的 Worker Pod。每个 Worker 配置进程 liveness probe；Master 持续观察带 application label 的 Pod 快照，识别删除和终止状态。
+4. Master 启动独立 Zeta 集群，通过 Kubernetes API 创建固定数量的 Worker Pod。Master 通过 Kubernetes watch API 观察带 application label 的 Worker Pod，Pod 被删除或进入终止状态时立即上报；Worker 不配置 liveness probe。
 5. Worker 通过 Master 的 Pod IP 以 TCP 加入集群并注册 slot；Headless Service 只负责选中 Master Pod。Pod phase 用于故障检测，Zeta 注册仍是 Worker 就绪和 slot 容量的判断依据。
 6. 所有 Worker 就绪后，Master 提交唯一的 Zeta 作业。
 7. 作业进入终态后，Master 删除 Worker 并退出；Job 状态保留为 `Complete` 或 `Failed`。
