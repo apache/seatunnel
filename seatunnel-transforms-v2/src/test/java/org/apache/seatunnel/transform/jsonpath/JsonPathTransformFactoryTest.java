@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -106,5 +107,46 @@ class JsonPathTransformFactoryTest {
         entry.put("dest_field", "name");
         cfg.put("columns", Arrays.asList(entry));
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformOnlyConfigPasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> entry = tableRule();
+        entry.remove(TransformCommonOptions.TABLE_PATH.key());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryMustSatisfyTheRule() {
+        Map<String, Object> entry = tableRule();
+        entry.remove("columns");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        cfg.put("row_error_handle_way", "SKIP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    /** A complete rule for a single table, used as a {@code table_transform} entry. */
+    private Map<String, Object> tableRule() {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put("columns", Arrays.asList(columnEntry("$.data.name", "raw", "name")));
+        return entry;
     }
 }

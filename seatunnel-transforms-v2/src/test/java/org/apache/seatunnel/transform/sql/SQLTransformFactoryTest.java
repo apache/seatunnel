@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -94,5 +95,43 @@ public class SQLTransformFactoryTest {
         Assertions.assertThrows(
                 OptionValidationException.class,
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
+    }
+
+    @Test
+    void testTableTransformOnlyConfigPasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> entry = tableRule();
+        entry.remove(TransformCommonOptions.TABLE_PATH.key());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryMustSatisfyTheRule() {
+        Map<String, Object> entry = tableRule();
+        entry.remove("query");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    /** A complete rule for a single table, used as a {@code table_transform} entry. */
+    private Map<String, Object> tableRule() {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put("query", "select * from test");
+        return entry;
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                .validate(new SQLTransformFactory().optionRule());
     }
 }

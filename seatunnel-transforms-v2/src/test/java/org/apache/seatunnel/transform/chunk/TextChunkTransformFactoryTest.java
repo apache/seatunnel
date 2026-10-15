@@ -245,4 +245,50 @@ public class TextChunkTransformFactoryTest {
         Assertions.assertDoesNotThrow(
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
     }
+
+    @Test
+    void testTableTransformOnlyConfigPasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> entry = tableRule();
+        entry.remove(TransformCommonOptions.TABLE_PATH.key());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryMustSatisfyTheRule() {
+        Map<String, Object> entry = tableRule();
+        entry.remove("text_field");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        cfg.put("chunk_size", 8);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    /** A complete rule for a single table, used as a {@code table_transform} entry. */
+    private Map<String, Object> tableRule() {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put("text_field", "content");
+        return entry;
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                .validate(new TextChunkTransformFactory().optionRule());
+    }
 }

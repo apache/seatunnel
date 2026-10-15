@@ -24,11 +24,12 @@ import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransform;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.filterrowkind.FieldRowKindMultiCatalogTransform;
 import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransformFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -100,22 +101,116 @@ class FilterRowKindTransformFactoryTest {
     }
 
     @Test
-    void testDirectConstructionWithEmptyKindsFailsOnTransform() {
+    void testTableTransformOnlyPasses() {
         Map<String, Object> cfg = new HashMap<>();
-        cfg.put("exclude_kinds", Collections.emptyList());
+        cfg.put("table_transform", Collections.singletonList(kindsRule("exclude_kinds")));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformWithTransformLevelRulePasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("include_kinds", Arrays.asList("INSERT"));
+        cfg.put("table_transform", Collections.singletonList(kindsRule("exclude_kinds")));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testEmptyTableTransformListStillRequiresTransformLevelRule() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("table_transform", Collections.emptyList());
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("exclusive"));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutKindsFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("table_transform", Collections.singletonList(kindsRule(null)));
+        assertValidationFails(cfg, "include_kinds", "exclude_kinds");
+    }
+
+    @Test
+    void testTableTransformEntryWithBothKindsFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        Map<String, Object> entry = kindsRule("include_kinds");
+        entry.put("exclude_kinds", Arrays.asList("DELETE"));
+        cfg.put("table_transform", Collections.singletonList(entry));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("table_transform"));
+    }
+
+    @Test
+    void testTableTransformEntryWithEmptyKindsFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        Map<String, Object> entry = kindsRule(null);
+        entry.put("include_kinds", Collections.emptyList());
+        cfg.put("table_transform", Collections.singletonList(entry));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("empty"));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("include_kinds", Arrays.asList("INSERT"));
+        cfg.put("table_transform", Collections.singletonList(entry));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("table_path"));
+    }
+
+    @Test
+    void testBothTransformLevelKindsWithTableTransformFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("include_kinds", Arrays.asList("INSERT"));
+        cfg.put("exclude_kinds", Arrays.asList("DELETE"));
+        cfg.put("table_transform", Collections.singletonList(kindsRule("include_kinds")));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("mutually exclusive"));
+    }
+
+    /** Tables without a matching {@code table_transform} entry must stay unchanged. */
+    @Test
+    void testMultiTableRulesOnlyLeavesUnlistedTablesUnchanged() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
-        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
-        FilterRowKindTransform transform =
-                new FilterRowKindTransform(ReadonlyConfig.fromMap(cfg), catalogTable);
+        CatalogTable listed =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "xyz", rowType);
+        CatalogTable unlisted =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "www", rowType);
 
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () -> transform.map(new SeaTunnelRow(new Object[] {1})));
-        Assertions.assertTrue(
-                exception.getMessage().contains("Either excludeKinds or includeKinds"),
-                "Should explain the required options: " + exception.getMessage());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("table_transform", Collections.singletonList(kindsRule("exclude_kinds")));
+        FieldRowKindMultiCatalogTransform transform =
+                new FieldRowKindMultiCatalogTransform(
+                        Arrays.asList(listed, unlisted), ReadonlyConfig.fromMap(cfg));
+
+        SeaTunnelRow listedRow = new SeaTunnelRow(new Object[] {1});
+        listedRow.setTableId("test.xyz");
+        listedRow.setRowKind(RowKind.INSERT);
+        Assertions.assertNull(transform.map(listedRow));
+
+        SeaTunnelRow unlistedRow = new SeaTunnelRow(new Object[] {2});
+        unlistedRow.setTableId("test.www");
+        unlistedRow.setRowKind(RowKind.INSERT);
+        SeaTunnelRow output = transform.map(unlistedRow);
+        Assertions.assertNotNull(output);
+        Assertions.assertEquals(2, output.getField(0));
+    }
+
+    private Map<String, Object> kindsRule(String kindsOption) {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        if (kindsOption != null) {
+            entry.put(kindsOption, Collections.singletonList("INSERT"));
+        }
+        return entry;
     }
 }

@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
 import lombok.NonNull;
@@ -66,8 +64,8 @@ public class FilterRowKindTransform extends FilterRowTransform {
         if (!this.includeKinds.isEmpty()) {
             return this.includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
-        throw new SeaTunnelRuntimeException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                "Transform config error! Either excludeKinds or includeKinds must be configured");
+        // An empty rule cannot pass the option rule, it only occurs when the transform is built
+        // without validation. Keep the row in that case instead of failing at runtime.
+        return inputRow;
     }
 }
