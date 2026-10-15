@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -99,6 +100,10 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                 builder.dataType(decimalType);
                 builder.columnLength(p);
                 builder.scale(scale);
+                break;
+            case DORIS_IPV4:
+            case DORIS_IPV6:
+                builder.dataType(BasicType.STRING_TYPE);
                 break;
             case DORIS_ARRAY:
                 convertArray(typeDefine.getColumnType(), builder, typeDefine.getName());
@@ -290,6 +295,16 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                 && column.getSourceType().equalsIgnoreCase(DORIS_VARIANT)) {
             builder.columnType(DORIS_VARIANT);
             builder.dataType(DORIS_VARIANT);
+            return;
+        }
+        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_IPV4)) {
+            builder.columnType(DORIS_IPV4);
+            builder.dataType(DORIS_IPV4);
+            return;
+        }
+        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_IPV6)) {
+            builder.columnType(DORIS_IPV6);
+            builder.dataType(DORIS_IPV6);
             return;
         }
 

@@ -51,6 +51,8 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final String DORIS_CHAR = "CHAR";
     public static final String DORIS_VARCHAR = "VARCHAR";
     public static final String DORIS_STRING = "STRING";
+    public static final String DORIS_IPV4 = "IPV4";
+    public static final String DORIS_IPV6 = "IPV6";
 
     public static final String DORIS_BOOLEAN_ARRAY = "ARRAY<boolean>";
     public static final String DORIS_TINYINT_ARRAY = "ARRAY<tinyint>";

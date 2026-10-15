@@ -180,6 +180,8 @@ You can use the following placeholders
 | MAP             | MAP                                     |
 | JSON            | STRING                                  |
 | VARIANT         | STRING                                  |
+| IPV4            | STRING                                  |
+| IPV6            | STRING                                  |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |

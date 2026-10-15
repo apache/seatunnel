@@ -36,15 +36,11 @@ public class SchemaUtils {
         Schema schema = new Schema(tscanColumnDescs.size());
         tscanColumnDescs.stream()
                 .forEach(
-                        desc ->
-                                schema.put(
-                                        new Field(
-                                                desc.getName(),
-                                                desc.getType().name(),
-                                                "",
-                                                0,
-                                                0,
-                                                "")));
+                        desc -> {
+                            String typeName =
+                                    desc.getType() != null ? desc.getType().name() : "UNKNOWN";
+                            schema.put(new Field(desc.getName(), typeName, "", 0, 0, ""));
+                        });
         return schema;
     }
 }

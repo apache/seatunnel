@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.doris.datatype;
 
+import org.apache.seatunnel.shade.org.apache.arrow.memory.RootAllocator;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.FieldVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.VarCharVector;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.Schema;
+
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -27,11 +34,20 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.common.source.arrow.reader.ArrowToSeatunnelRowReader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 public class DorisTypeConvertorV2Test {
@@ -107,6 +123,118 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BYTE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertIpTypesToString() {
+        for (String ipType : new String[] {"ipv4", "IPV6"}) {
+            BasicTypeDefine<Object> typeDefine =
+                    BasicTypeDefine.builder()
+                            .name("address")
+                            .columnType(ipType)
+                            .dataType(ipType)
+                            .build();
+
+            Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+
+            Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+            Assertions.assertEquals(ipType, column.getSourceType());
+        }
+    }
+
+    @Test
+    public void testReadIpValuesAsStrings() throws Exception {
+        String ipv4Value = "192.0.2.10";
+        String ipv6Value = "2001:db8::10";
+        Column ipv4Column = convertIpType("ipv4");
+        Column ipv6Column = convertIpType("ipv6");
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ipv4", "ipv6"},
+                        new SeaTunnelDataType<?>[] {
+                            ipv4Column.getDataType(), ipv6Column.getDataType()
+                        });
+
+        try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                VarCharVector ipv4Vector = new VarCharVector("ipv4", allocator);
+                VarCharVector ipv6Vector = new VarCharVector("ipv6", allocator)) {
+            ipv4Vector.allocateNew();
+            ipv6Vector.allocateNew();
+            ipv4Vector.setSafe(0, ipv4Value.getBytes(StandardCharsets.UTF_8));
+            ipv6Vector.setSafe(0, ipv6Value.getBytes(StandardCharsets.UTF_8));
+            ipv4Vector.setValueCount(1);
+            ipv6Vector.setValueCount(1);
+            List<FieldVector> vectors = Arrays.asList(ipv4Vector, ipv6Vector);
+            Schema schema = new Schema(Arrays.asList(ipv4Vector.getField(), ipv6Vector.getField()));
+            try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectors, 1);
+                    ArrowStreamWriter writer =
+                            new ArrowStreamWriter(root, null, Channels.newChannel(output))) {
+                writer.writeBatch();
+                output.flush();
+            }
+
+            try (ArrowToSeatunnelRowReader reader =
+                    new ArrowToSeatunnelRowReader(output.toByteArray(), rowType).readArrow()) {
+                SeaTunnelRow row = reader.next();
+                Assertions.assertEquals(ipv4Value, row.getField(0));
+                Assertions.assertEquals(ipv6Value, row.getField(1));
+                Assertions.assertFalse(reader.hasNext());
+            }
+        }
+    }
+
+    private Column convertIpType(String ipType) {
+        return DorisTypeConverterV2.INSTANCE.convert(
+                BasicTypeDefine.builder().name(ipType).columnType(ipType).dataType(ipType).build());
+    }
+
+    @Test
+    public void testReconvertIpv4() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("address")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType("ipv4")
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV4, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertIpv6() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("address")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType("IPV6")
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_IPV6, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertStringNotIp() {
+        // Plain STRING without an IP sourceType must NOT be reconverted to IPV4/IPV6
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(16777215L)
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_STRING, typeDefine.getDataType());
     }
 
     @Test
