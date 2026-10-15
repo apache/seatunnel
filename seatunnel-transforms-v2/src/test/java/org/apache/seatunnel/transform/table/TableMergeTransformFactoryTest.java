@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 class TableMergeTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new TableMergeTransformFactory(), TableMergeConfig.TABLE);
+    }
 
     @Test
     void testFactoryIdentifier() {

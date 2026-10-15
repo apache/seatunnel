@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 class DefineSinkTypeTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new DefineSinkTypeTransformFactory(), DefineSinkTypeTransformConfig.COLUMNS);
+    }
 
     private final OptionRule rule = new DefineSinkTypeTransformFactory().optionRule();
 

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 class RegexExtractTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new RegexExtractTransformFactory(),
+                RegexExtractTransformConfig.KEY_SOURCE_FIELD,
+                RegexExtractTransformConfig.KEY_REGEX_PATTERN,
+                RegexExtractTransformConfig.KEY_OUTPUT_FIELDS);
+    }
 
     private final OptionRule rule = new RegexExtractTransformFactory().optionRule();
 

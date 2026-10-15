@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,12 @@ import java.util.List;
 import java.util.Map;
 
 public class SQLTransformFactoryTest {
+
+    @Test
+    public void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new SQLTransformFactory(), SQLTransform.KEY_QUERY);
+    }
 
     @Test
     public void testFactoryIdentifierAndOptionRule() {
