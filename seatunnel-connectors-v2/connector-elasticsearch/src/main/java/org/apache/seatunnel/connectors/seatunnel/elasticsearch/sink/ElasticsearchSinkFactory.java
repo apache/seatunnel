@@ -21,12 +21,16 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchValidators.ApiKeyEncodedFormatValidator;
@@ -56,7 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTOR_DIMENSIONS;
 
 @AutoService(Factory.class)
-public class ElasticsearchSinkFactory implements TableSinkFactory {
+public class ElasticsearchSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Elasticsearch";
@@ -121,5 +125,47 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                                 original),
                         context.getCatalogTable());
         return () -> new ElasticsearchSink(readonlyConfig, newTable);
+    }
+
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) {
+        validateConnection(context.getOptions());
+    }
+
+    /**
+     * Dry-run-only connection validation: verifies that the Elasticsearch cluster is reachable and,
+     * for static index names with {@code SCHEMA_SAVE_MODE=ERROR_WHEN_SCHEMA_NOT_EXIST}, that the
+     * target index exists.
+     */
+    private void validateConnection(ReadonlyConfig config) {
+        try (EsRestClient client = EsRestClient.createInstance(config)) {
+            validateConnection(config, client);
+        }
+    }
+
+    /**
+     * Shared validation logic factored out so both production dry-run and unit tests can reuse it.
+     *
+     * <p>Checks performed:
+     *
+     * <ol>
+     *   <li>{@code GET /} succeeds — proves the host list and credentials work.
+     *   <li>If the configured index is a literal name (no {@code $} interpolation) and {@code
+     *       SCHEMA_SAVE_MODE} is {@code ERROR_WHEN_SCHEMA_NOT_EXIST}, issues a {@code HEAD
+     *       /index_name} to confirm the target exists.
+     * </ol>
+     *
+     * <p>This does not create any documents or schemas.
+     */
+    static void validateConnection(ReadonlyConfig config, EsRestClient client) {
+        client.getClusterInfo();
+        String index = config.get(INDEX);
+        if (!index.contains("${")
+                && !client.checkIndexExist(index)
+                && config.get(ElasticsearchSinkOptions.SCHEMA_SAVE_MODE)
+                        == SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST) {
+            throw new SeaTunnelException(
+                    "Elasticsearch index '" + index + "' does not exist or is not accessible");
+        }
     }
 }

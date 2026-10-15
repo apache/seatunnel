@@ -631,6 +631,11 @@ MySQL 用户需要以下权限：
 GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
 ```
 
+`--dry-run connect` 会读取所选表的元数据，并检查 `REPLICATION SLAVE` 和 `REPLICATION CLIENT`
+权限。该校验只会在显式请求 dry-run 时运行。权限检查使用 Debezium 的
+`SHOW GRANTS FOR CURRENT_USER`；如果所需权限仅通过未激活的 MySQL 角色授予，检查可能无法识别。
+请直接授予所需权限，或将该角色设为用户的默认角色。
+
 同时需要在 `my.cnf` / `my.ini` 中开启 binlog：
 
 ```ini

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oceanbase.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
@@ -28,7 +30,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Tests the OceanBase CDC wrapper contract that differentiates it from the reused MySQL CDC
@@ -71,6 +75,31 @@ public class OceanBaseIncrementalSourceFactoryTest {
         Assertions.assertEquals(
                 "mysql",
                 factory.mysqlCompatibleConfig(config).get(JdbcCommonOptions.COMPATIBLE_MODE));
+    }
+
+    /** Verify dry-run schema discovery applies the OceanBase catalog selector by default. */
+    @Test
+    public void testDryRunSchemaDiscoveryDefaultsCatalogCompatibleModeToMysql() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(requiredOptions());
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(config, getClass().getClassLoader());
+        AtomicReference<ReadonlyConfig> catalogConfig = new AtomicReference<>();
+        OceanBaseIncrementalSourceFactory factory =
+                new OceanBaseIncrementalSourceFactory() {
+                    @Override
+                    protected List<CatalogTable> buildCatalogTables(
+                            TableSourceFactoryContext context,
+                            ReadonlyConfig config,
+                            List<CatalogTable> restoreTables) {
+                        catalogConfig.set(config);
+                        return Collections.emptyList();
+                    }
+                };
+
+        factory.inferSchemaForDryRun(context);
+
+        Assertions.assertEquals(
+                "mysql", catalogConfig.get().get(JdbcCommonOptions.COMPATIBLE_MODE));
     }
 
     /** Verify static validation accepts the explicit MySQL selector used by E2E configurations. */

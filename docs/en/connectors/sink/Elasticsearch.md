@@ -57,6 +57,14 @@ Engine Supported
 | vector_dimensions       | int     | no       | 0                            | Dimensionality of the dense vectors stored under `vectorization_fields`. Set together with `vectorization_fields`. |
 | multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas when writing multiple tables. |
 
+## Dry-run connection validation
+
+`--dry-run connect` checks cluster connectivity and authentication with `GET /`. For a fixed index,
+it also sends `HEAD /{index}`. A missing index is an error when
+`schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`; modes that create the index allow it to be
+absent. Index names containing `${...}` placeholders skip the index check because the final name is
+not available until records are processed. These checks run only for dry-run validation.
+
 ### hosts [array]
 
 `Elasticsearch` cluster http address, the format is `host:port` , allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.

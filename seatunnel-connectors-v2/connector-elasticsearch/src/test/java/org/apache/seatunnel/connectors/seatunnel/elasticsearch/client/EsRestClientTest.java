@@ -146,6 +146,40 @@ public class EsRestClientTest {
                 "Error message should contain ES response body for debugging");
     }
 
+    // ---- checkIndexExist: 404 returns false ----
+    // The low-level REST client ignores 404 for HEAD and returns a normal Response,
+    // so we mock that path directly instead of fabricating a ResponseException.
+
+    @Test
+    void testCheckIndexExistReturnsFalseForNotFound() throws Exception {
+        Response mockResponse = mock(Response.class);
+        StatusLine mockStatusLine = mock(StatusLine.class);
+
+        when(mockRestClient.performRequest(any(Request.class))).thenReturn(mockResponse);
+        when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+        when(mockStatusLine.getStatusCode()).thenReturn(404);
+
+        EsRestClient client = createEsRestClient(mockRestClient);
+
+        Assertions.assertFalse(client.checkIndexExist("missing_index"));
+    }
+
+    // ---- checkIndexExist: 200 returns true ----
+
+    @Test
+    void testCheckIndexExistReturnsTrueForExisting() throws Exception {
+        Response mockResponse = mock(Response.class);
+        StatusLine mockStatusLine = mock(StatusLine.class);
+
+        when(mockRestClient.performRequest(any(Request.class))).thenReturn(mockResponse);
+        when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+        when(mockStatusLine.getStatusCode()).thenReturn(200);
+
+        EsRestClient client = createEsRestClient(mockRestClient);
+
+        Assertions.assertTrue(client.checkIndexExist("existing_index"));
+    }
+
     private EsRestClient createEsRestClient(RestClient restClient) throws Exception {
         Constructor<EsRestClient> constructor =
                 EsRestClient.class.getDeclaredConstructor(RestClient.class);

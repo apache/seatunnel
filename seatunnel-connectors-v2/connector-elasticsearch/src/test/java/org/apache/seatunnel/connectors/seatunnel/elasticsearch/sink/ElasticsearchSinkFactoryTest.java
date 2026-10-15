@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +32,12 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
 
 class ElasticsearchSinkFactoryTest {
 
@@ -52,6 +61,61 @@ class ElasticsearchSinkFactoryTest {
     void testValidConfig() {
         Assertions.assertDoesNotThrow(
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(validSinkConfig())).validate(rule));
+    }
+
+    @Test
+    void testSupportsSinkDryRunValidation() {
+        Assertions.assertTrue(
+                new ElasticsearchSinkFactory() instanceof SupportSinkDryRunValidation);
+    }
+
+    @Test
+    void testDryRunChecksClusterAndStaticIndex() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(validSinkConfig());
+        EsRestClient client = mock(EsRestClient.class);
+        when(client.checkIndexExist("test_index")).thenReturn(true);
+
+        Assertions.assertDoesNotThrow(
+                () -> ElasticsearchSinkFactory.validateConnection(config, client));
+
+        verify(client).getClusterInfo();
+        verify(client).checkIndexExist("test_index");
+    }
+
+    @Test
+    void testDryRunSkipsDynamicIndexExistenceCheck() {
+        Map<String, Object> sinkConfig = validSinkConfig();
+        sinkConfig.put("index", "events-${now}");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(sinkConfig);
+        EsRestClient client = mock(EsRestClient.class);
+
+        ElasticsearchSinkFactory.validateConnection(config, client);
+
+        verify(client).getClusterInfo();
+        verify(client, never()).checkIndexExist(anyString());
+    }
+
+    @Test
+    void testDryRunFailsWhenStaticIndexIsNotAccessible() {
+        Map<String, Object> sinkConfig = validSinkConfig();
+        sinkConfig.put("schema_save_mode", "ERROR_WHEN_SCHEMA_NOT_EXIST");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(sinkConfig);
+        EsRestClient client = mock(EsRestClient.class);
+        when(client.checkIndexExist("test_index")).thenReturn(false);
+
+        Assertions.assertThrows(
+                SeaTunnelException.class,
+                () -> ElasticsearchSinkFactory.validateConnection(config, client));
+    }
+
+    @Test
+    void testDryRunAllowsMissingIndexWhenSchemaCanBeCreated() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(validSinkConfig());
+        EsRestClient client = mock(EsRestClient.class);
+        when(client.checkIndexExist("test_index")).thenReturn(false);
+
+        Assertions.assertDoesNotThrow(
+                () -> ElasticsearchSinkFactory.validateConnection(config, client));
     }
 
     @Test

@@ -67,6 +67,11 @@ public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFac
         return OceanBaseIncrementalSource.class;
     }
 
+    @Override
+    protected ReadonlyConfig normalizeConfig(ReadonlyConfig config) {
+        return mysqlCompatibleConfig(config);
+    }
+
     /**
      * Allow the OceanBase catalog selector while restricting this MySQL-binlog wrapper to MySQL
      * compatible mode.

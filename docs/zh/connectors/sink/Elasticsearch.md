@@ -414,6 +414,13 @@ sink {
 }
 ```
 
+## Dry-run 连接校验
+
+`--dry-run connect` 会通过 `GET /` 检查集群连接和身份验证。对于固定索引，还会发送
+`HEAD /{index}`。当 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 时，索引不存在会导致校验失败；
+允许创建索引的模式则允许索引暂不存在。索引名包含 `${...}` 占位符时会跳过索引检查，因为处理记录前
+无法确定最终索引名。这些检查只会在 dry-run 校验时运行。
+
 ## 变更日志
 
 <ChangeLog />

@@ -21,10 +21,14 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.debezium.connector.mysql.MySqlConnection;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,6 +37,9 @@ import java.util.Map;
 
 import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE;
 import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_POS;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class MySqlIncrementalSourceFactoryTest {
 
@@ -51,6 +58,41 @@ public class MySqlIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new MySqlIncrementalSourceFactory()).optionRule());
+    }
+
+    @Test
+    public void testSupportsSourceDryRunValidation() {
+        Assertions.assertTrue(
+                new MySqlIncrementalSourceFactory() instanceof SupportSourceDryRunValidation);
+    }
+
+    @Test
+    public void testValidateReplicationPrivilegesRequiresBothGrants() {
+        MySqlConnection connection = mock(MySqlConnection.class);
+        when(connection.userHasPrivileges("REPLICATION SLAVE")).thenReturn(true);
+        when(connection.userHasPrivileges("REPLICATION CLIENT")).thenReturn(true);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        MySqlIncrementalSourceFactory.validateReplicationPrivileges(
+                                connection, "seatunnel"));
+    }
+
+    @Test
+    public void testValidateReplicationPrivilegesReportsMissingGrant() {
+        MySqlConnection connection = mock(MySqlConnection.class);
+        when(connection.userHasPrivileges("REPLICATION SLAVE")).thenReturn(true);
+        when(connection.userHasPrivileges("REPLICATION CLIENT")).thenReturn(false);
+
+        SeaTunnelException exception =
+                assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                MySqlIncrementalSourceFactory.validateReplicationPrivileges(
+                                        connection, "seatunnel"));
+        Assertions.assertTrue(exception.getMessage().contains("REPLICATION CLIENT"));
+        Assertions.assertTrue(exception.getMessage().contains("GRANT REPLICATION CLIENT"));
+        Assertions.assertTrue(exception.getMessage().contains("'seatunnel'@'%';"));
     }
 
     @Test
