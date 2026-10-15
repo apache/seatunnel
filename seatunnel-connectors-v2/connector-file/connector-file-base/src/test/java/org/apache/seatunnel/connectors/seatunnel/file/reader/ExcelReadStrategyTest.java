@@ -31,6 +31,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -439,6 +443,64 @@ public class ExcelReadStrategyTest {
         excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
 
         Assertions.assertEquals(5, testCollector.getRows().size());
+    }
+
+    @Test
+    public void testPoiReadKeepsNumericPrecision() throws IOException {
+        File excelFile = writeNumericExcel();
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "skip_header_row_number = 1\n"
+                                + "schema { fields { c_double = double, c_decimal = \"decimal(20, 4)\","
+                                + " c_bigint = bigint, c_string = string } }");
+
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+
+        Assertions.assertEquals(2, rows.size());
+        // "General" display format would have produced 10.28571429 and 1012345.67
+        Assertions.assertEquals(10.285714285, rows.get(0).getField(0));
+        Assertions.assertEquals(new BigDecimal("1012345.6699"), rows.get(0).getField(1));
+        Assertions.assertEquals(1234567890123L, rows.get(0).getField(2));
+        // A numeric cell read into a string column keeps its displayed text
+        Assertions.assertEquals("42", rows.get(0).getField(3));
+        // The sink writes a decimal that a double cannot hold as a text cell
+        Assertions.assertEquals(new BigDecimal("9215784885957046.9450"), rows.get(1).getField(1));
+    }
+
+    private File writeNumericExcel() throws IOException {
+        File excelFile = File.createTempFile("excel_numeric_precision_", ".xlsx");
+        excelFile.deleteOnExit();
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("c_double");
+            header.createCell(1).setCellValue("c_decimal");
+            header.createCell(2).setCellValue("c_bigint");
+            header.createCell(3).setCellValue("c_string");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(10.285714285);
+            row.createCell(1).setCellValue(1012345.6699);
+            row.createCell(2).setCellValue(1234567890123L);
+            row.createCell(3).setCellValue(42);
+            Row wide = sheet.createRow(2);
+            wide.createCell(0).setCellValue(1.5);
+            wide.createCell(1).setCellValue("9215784885957046.9450");
+            wide.createCell(2).setCellValue(1);
+            wide.createCell(3).setCellValue("x");
+            workbook.write(output);
+        }
+        return excelFile;
+    }
+
+    private List<SeaTunnelRow> readExcel(File excelFile, Config pluginConfig) throws IOException {
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        excelReadStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+        TestCollector testCollector = new TestCollector();
+        excelReadStrategy.read(excelFile.getAbsolutePath(), "", testCollector);
+        return testCollector.getRows();
     }
 
     private void testLargeExcelRead(String filePath, String configPath, int rowCount)

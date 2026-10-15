@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -56,6 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -63,6 +65,16 @@ import java.util.stream.IntStream;
 @Getter
 @Slf4j
 public class ExcelReadStrategy extends AbstractReadStrategy {
+
+    private static final EnumSet<SqlType> NUMERIC_SQL_TYPES =
+            EnumSet.of(
+                    SqlType.TINYINT,
+                    SqlType.SMALLINT,
+                    SqlType.INT,
+                    SqlType.BIGINT,
+                    SqlType.FLOAT,
+                    SqlType.DOUBLE,
+                    SqlType.DECIMAL);
 
     private String dateFormatterPattern = DateUtils.Formatter.YYYY_MM_DD.getValue();
 
@@ -283,7 +295,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                                                 cell.getCellType(),
                                                                 cell,
                                                                 formulaEvaluator,
-                                                                formatter),
+                                                                formatter,
+                                                                fieldTypes[z - 1]),
                                                         fieldTypes[z - 1],
                                                         null));
                             }
@@ -387,7 +400,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             CellType cellType,
             Cell cell,
             FormulaEvaluator formulaEvaluator,
-            DataFormatter formatter) {
+            DataFormatter formatter,
+            SeaTunnelDataType<?> fieldType) {
         switch (cellType) {
             case STRING:
                 return cell.getStringCellValue();
@@ -396,6 +410,11 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getLocalDateTimeCellValue();
+                }
+                if (NUMERIC_SQL_TYPES.contains(fieldType.getSqlType())) {
+                    // The displayed text is rounded by the cell format ("General" keeps about 10
+                    // significant digits), so numeric columns read the stored double instead.
+                    return cell.getNumericCellValue();
                 }
                 return formatter.formatCellValue(cell);
             case BLANK:

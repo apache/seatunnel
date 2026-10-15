@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File connectors: Excel keeps the full value of DOUBLE and DECIMAL
+
+- **Behavior change: Excel files are written and read without losing DOUBLE and DECIMAL digits**
+  - **Description**: The Excel sink converted DECIMAL values to `double`, and the Excel source (POI engine) read numeric cells through their display format, which keeps about 10 significant digits. DOUBLE and DECIMAL values changed in an Excel round trip, for example `10.285714285` became `10.28571428`. The source now reads the stored number of a numeric cell for numeric columns, and parses DECIMAL values from text without going through `double`. The sink still writes a DECIMAL as a number cell when a `double` holds it exactly, and otherwise writes it as a text cell.
+  - **Impact**: Numeric columns read from Excel can now carry more digits than before. A DECIMAL with more significant digits than a `double` holds (about 15 to 17, for example many `DECIMAL(38, 18)` values) is now a text cell in the written file, so Excel shows it as text and does not use it in formulas such as `SUM`.
+  - **Migration Guide**: No change is needed to read the files with SeaTunnel. If spreadsheet formulas must use such a column, cast it to DOUBLE before the sink, which writes a number cell and accepts the rounding.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
