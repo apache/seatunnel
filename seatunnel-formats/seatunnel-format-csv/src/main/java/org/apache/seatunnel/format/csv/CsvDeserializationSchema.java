@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
@@ -368,6 +369,7 @@ public class CsvDeserializationSchema implements Serializable {
         DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
         if (dateTimeFormatter == null) {
             dateTimeFormatter = matchTimestampFormatter(field, fieldName);
+            fieldFormatterMap.put(fieldName, dateTimeFormatter);
         }
         TemporalAccessor parsedTimestamp =
                 parseTimestampWithFormatterRefresh(field, fieldName, dateTimeFormatter);
@@ -376,13 +378,12 @@ public class CsvDeserializationSchema implements Serializable {
                 parsedTimestamp.query(TemporalQueries.localTime()));
     }
 
-    /** Matches and caches a supported formatter for the current timestamp. */
+    /** Matches a supported formatter or reports an unsupported timestamp. */
     private DateTimeFormatter matchTimestampFormatter(String field, String fieldName) {
         DateTimeFormatter dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
         if (dateTimeFormatter == null) {
             throw CommonError.formatDateTimeError(field, fieldName);
         }
-        fieldFormatterMap.put(fieldName, dateTimeFormatter);
         return dateTimeFormatter;
     }
 
@@ -391,9 +392,30 @@ public class CsvDeserializationSchema implements Serializable {
             String field, String fieldName, DateTimeFormatter dateTimeFormatter) {
         try {
             return dateTimeFormatter.parse(field);
-        } catch (DateTimeParseException ignored) {
-            return matchTimestampFormatter(field, fieldName).parse(field);
+        } catch (DateTimeParseException parseException) {
+            DateTimeFormatter refreshedFormatter = matchTimestampFormatter(field, fieldName);
+            if (refreshedFormatter == dateTimeFormatter) {
+                // The value matched a supported pattern but is not a valid calendar date.
+                throw formatDateTimeErrorWithCause(field, fieldName, parseException);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            try {
+                return refreshedFormatter.parse(field);
+            } catch (DateTimeParseException refreshedException) {
+                throw formatDateTimeErrorWithCause(field, fieldName, refreshedException);
+            }
         }
+    }
+
+    /**
+     * Reports an unsupported timestamp with the field name and value, keeping the parsing error as
+     * the cause for diagnostics.
+     */
+    private static SeaTunnelRuntimeException formatDateTimeErrorWithCause(
+            String field, String fieldName, DateTimeParseException cause) {
+        SeaTunnelRuntimeException exception = CommonError.formatDateTimeError(field, fieldName);
+        exception.initCause(cause);
+        return exception;
     }
 
     private OffsetDateTime parseTimestampTz(String field, String fieldName) {
@@ -401,10 +423,7 @@ public class CsvDeserializationSchema implements Serializable {
             return OffsetDateTime.parse(field, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         } catch (DateTimeParseException ignored) {
             // Fallback: data written by old SeaTunnel (wall-clock, no offset).
-            DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(field);
-            if (fallbackFmt == null) {
-                throw CommonError.formatDateTimeError(field, fieldName);
-            }
+            DateTimeFormatter fallbackFmt = matchTimestampFormatter(field, fieldName);
             TemporalAccessor ta = fallbackFmt.parse(field);
             return LocalDateTime.of(
                             ta.query(TemporalQueries.localDate()),

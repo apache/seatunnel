@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
@@ -373,8 +374,16 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             return dateTimeFormatter.parse(field);
         } catch (DateTimeParseException parseException) {
             DateTimeFormatter refreshedFormatter = matchTimestampFormatter(field, fieldName);
+            if (refreshedFormatter == dateTimeFormatter) {
+                // The value matched a supported pattern but is not a valid calendar date.
+                throw formatDateTimeErrorWithCause(field, fieldName, parseException);
+            }
             fieldFormatterMap.put(fieldName, refreshedFormatter);
-            return refreshedFormatter.parse(field);
+            try {
+                return refreshedFormatter.parse(field);
+            } catch (DateTimeParseException refreshedException) {
+                throw formatDateTimeErrorWithCause(field, fieldName, refreshedException);
+            }
         }
     }
 
@@ -385,5 +394,16 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             throw CommonError.formatDateTimeError(field, fieldName);
         }
         return dateTimeFormatter;
+    }
+
+    /**
+     * Reports an unsupported timestamp with the field name and value, keeping the parsing error as
+     * the cause for diagnostics.
+     */
+    private static SeaTunnelRuntimeException formatDateTimeErrorWithCause(
+            String field, String fieldName, DateTimeParseException cause) {
+        SeaTunnelRuntimeException exception = CommonError.formatDateTimeError(field, fieldName);
+        exception.initCause(cause);
+        return exception;
     }
 }
