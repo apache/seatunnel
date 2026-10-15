@@ -36,7 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import com.mysql.cj.MysqlType;
 import lombok.NonNull;
@@ -241,7 +240,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         MysqlType mysqlType = MysqlType.getByName(columnType);
-        boolean unsigned = JdbcCatalogUtils.isNumericUnsignedColumnType(columnType);
+        boolean unsigned = MySqlTypeConverter.isNumericUnsignedColumnType(dataType, columnType);
 
         BasicTypeDefine<MysqlType> typeDefine =
                 BasicTypeDefine.<MysqlType>builder()
