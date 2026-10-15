@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_type             | string  | 否    |                              |
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |
+| key_encoding           | string  | 否    | `LEGACY`                     |
 | auth_type              | string  | 否    | basic                        |
 | username               | string  | 否    |                              |
 | password               | string  | 否    |                              |
@@ -70,7 +71,13 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ### key_delimiter [string]
 
-设定复合键的分隔符（默认为 `_`），例如，如果使用 `$` 作为分隔符，那么文档的 `_id` 将呈现为 `KEY1$KEY2$KEY3` 的格式
+设定 `LEGACY` 编码下复合键的分隔符（默认为 `_`），例如，使用 `$` 时文档 `_id` 为 `KEY1$KEY2$KEY3`。使用 `LENGTH_PREFIXED` 编码时该选项会被忽略。
+
+### key_encoding [string]
+
+控制如何将 `primary_keys` 转换为文档 `_id`。默认值 `LEGACY` 会保留原有的分隔符拼接格式。对于复合主键，设置为 `LENGTH_PREFIXED` 后，每个格式化后的键值会编码为“字符长度:键值”，即使键值包含分隔符也不会产生边界歧义。例如，`("1_1", "2")` 编码为 `3:1_11:2`，而 `("1", "1_2")` 编码为 `1:13:1_2`。如果只配置一个主键字段，文档 ID 保持不变。
+
+从 `LEGACY` 切换到 `LENGTH_PREFIXED` 会改变复合主键的文档 ID。对已有索引启用前，请先重建索引或迁移已有文档；否则后续写入可能在旧 ID 之外创建另一组文档。单主键 ID 保持不变；为保持兼容性，默认值仍为 `LEGACY`。
 
 ### multi_table_sink_replica [int]
 

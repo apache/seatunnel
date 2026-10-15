@@ -89,6 +89,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 60L;
 
+    private static final long INDEX_REFRESH_TIMEOUT_SECONDS = 120L;
+
     private List<String> testDataset1;
 
     private List<String> testDataset2;
@@ -742,6 +744,27 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         1,
                                         esRestClient
                                                 .getIndexDocsCount("st_index_full_type_target")
+                                                .get(0)
+                                                .getDocsCount()));
+    }
+
+    @TestTemplate
+    public void testCompositeKeyEncodingAvoidsDocumentIdCollisions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fake_to_elasticsearch_composite_key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        esRestClient
+                                                .getIndexDocsCount("st_composite_key_encoding")
                                                 .get(0)
                                                 .getDocsCount()));
     }

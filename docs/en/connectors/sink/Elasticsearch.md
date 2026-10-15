@@ -37,7 +37,8 @@ Engine Supported
 | data_save_mode          | string  | no       | APPEND_DATA                  | How to handle existing documents before writing: `DROP_DATA`, `APPEND_DATA`, `ERROR_WHEN_DATA_EXISTS`. The Elasticsearch sink restricts this option to a `singleChoice` and explicitly excludes `CUSTOM_PROCESSING`. |
 | index_type              | string  | no       | -                            | Deprecated. Maps to Elasticsearch `_type` for clusters that still require it. Leave unset for modern clusters. |
 | primary_keys            | list    | no       | -                            | Primary key fields used to generate the document `_id`. Required for CDC sources that produce update / delete events. |
-| key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys into `_id` (default `_`). Use a different character to avoid clashes with field values. |
+| key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys when `key_encoding = "LEGACY"`. |
+| key_encoding            | string  | no       | `LEGACY`                     | Encoding used to build `_id` from `primary_keys`: `LEGACY` keeps the existing delimiter-joined IDs; `LENGTH_PREFIXED` prevents collisions between composite key values. |
 | auth_type               | string  | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`) or `api_key` (Elasticsearch API key). |
 | username                | string  | no       | -                            | Username for `basic` auth. |
 | password                | string  | no       | -                            | Password for `basic` auth. |
@@ -76,7 +77,13 @@ Primary key fields used to generate the document `_id`, this is cdc required opt
 
 ### key_delimiter [string]
 
-Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+Delimiter for composite keys in `LEGACY` encoding ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3". It is ignored when `key_encoding = "LENGTH_PREFIXED"`.
+
+### key_encoding [string]
+
+Controls how `primary_keys` are converted to the document `_id`. The default `LEGACY` preserves the existing delimiter-joined format. For composite keys, set `LENGTH_PREFIXED` to encode each formatted value as its character length, a colon, and the value, so boundaries remain unambiguous even when values contain the delimiter. For example, `("1_1", "2")` becomes `3:1_11:2`, while `("1", "1_2")` becomes `1:13:1_2`. When exactly one primary key is configured, its document ID remains unchanged.
+
+Changing this option from `LEGACY` to `LENGTH_PREFIXED` changes document IDs for composite keys. To use it with an existing index, reindex or migrate existing documents before switching; otherwise, subsequent writes can create a second set of documents alongside the old IDs. Single-key IDs remain unchanged, and the default remains `LEGACY` for compatibility.
 
 ### multi_table_sink_replica [int]
 
