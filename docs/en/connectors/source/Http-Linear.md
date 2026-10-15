@@ -1,6 +1,6 @@
 import ChangeLog from '../changelog/connector-http-linear.md';
 
-# Http-Linear
+# Linear
 
 > Linear source connector
 
@@ -22,31 +22,21 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 | Name                        | Type    | Required | Default | Description |
 |-----------------------------|---------|----------|---------|-------------|
 | url                         | String  | Yes      | -       | Linear API endpoint URL, usually `https://api.linear.app/graphql`. |
-| api_key                     | String  | Yes      | -       | Linear API key. The connector sends it as the `Authorization` request header. |
+| api_key                     | String  | Yes      | -       | Linear API key. The connector sends it verbatim as the `Authorization` request header value; no `Bearer ` prefix is added, so OAuth access tokens must be configured as `api_key = "Bearer <token>"`. |
 | method                      | String  | No       | get     | HTTP request method. Supported values are `GET` and `POST`. |
-| headers                     | Map     | No       | -       | Extra HTTP headers. `Authorization` is set automatically from `api_key`. |
+| headers                     | Map     | No       | -       | Extra HTTP headers. Any `Authorization` entry here is always replaced by the value of `api_key`. |
 | params                      | Map     | No       | -       | Query parameters sent with the request. |
 | body                        | String  | No       | -       | HTTP request body. Usually used with `method = "POST"` to send a GraphQL query. |
-| format                      | String  | No       | text    | Response format. Use `json` when reading the GraphQL response into a SeaTunnel schema; use `text` to return the raw response as `content`. |
+| format                      | String  | No       | text    | Response format. Use `json` when reading the GraphQL response into a SeaTunnel schema; use `text` to return the raw response as `content`. The shared HTTP option also accepts `binary`, but `binary` is not supported by the `Linear` source and `binary_chunk_size` has no effect here. |
 | schema                      | Config  | No       | -       | Output schema. Required when `format = "json"`. |
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | content_field               | String  | No       | -       | JSONPath used to select a nested part of the response before parsing it with `schema`, for example `$.data.issues.nodes.*`. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when output fields come from different JSON paths. |
-| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. |
-| page_type                   | String  | No       | PageNumber | Pagination type. Supported values are `PageNumber` (default) and `Cursor`. Use `Cursor` for Linear connections that paginate with `page_info` / `endCursor`. |
-| cursor_field                | String  | No       | -       | The request parameter name that carries the cursor value. Used together with `page_type = "Cursor"`. |
-| cursor_response_field       | String  | No       | -       | The JSONPath of the cursor in the response body. Used together with `page_type = "Cursor"`. |
-| poll_interval_millis        | Int     | No       | -       | Request interval in milliseconds when the source is used in streaming mode. The Linear source supports batch mode only. |
 | retry                       | Int     | No       | -       | Maximum retry times when the HTTP request fails with an `IOException`. |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds. |
 | enable_multi_lines          | Boolean | No       | false   | When `true`, multiple JSON objects separated by newlines in the response body are treated as separate records. |
 | keep_params_as_form         | Boolean | No       | false   | When `true`, request parameters are sent as form-encoded body parameters instead of URL query parameters. |
-| keep_page_param_as_http_param | Boolean | No    | false   | When `true`, the page parameter remains in the request URL when paginating instead of being replaced inside the body. |
-| batch_size                  | Int     | No       | 100     | The number of records returned per page request when the total number of pages is unknown. |
-| start_page_number           | Long    | No       | 1       | Which page number to start synchronizing from. |
-| total_page_size             | Long    | No       | 0       | Total page size to read. `0` means use `batch_size` until the API stops returning new pages. |
-| use_placeholder_replacement | Boolean | No       | false   | When `true`, use `${field}` placeholder replacement for headers, parameters and body values; otherwise use key-based replacement. |
 | connect_timeout_ms          | Int     | No       | 12000   | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms           | Int     | No       | 60000   | HTTP socket timeout in milliseconds. |
 | json_filed_missed_return_null | Boolean | No    | false   | Return null when a configured JSON field is missing. |
@@ -54,7 +44,7 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 
 :::tip
 
-`api_key` is a sensitive credential. Avoid hardcoding real keys in shared job files. Use SeaTunnel variable substitution or your deployment secret mechanism when possible.
+`api_key` is a sensitive credential. Unlike options such as `password` or `access_key`, `api_key` is not masked in parsed-config logs and is not encrypted or decrypted by default. To protect the value, add `api_key` to `env.shade.options` and encrypt it with the configured `shade.identifier`. See [Config Encryption and Decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 :::
 
@@ -64,7 +54,8 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 - Set `format = "json"` and configure `schema` when you want typed SeaTunnel rows.
 - Use `content_field` to unwrap the GraphQL envelope, for example `$.data.issues.nodes.*`, before parsing with `schema`.
 - Use `json_field` only when each output field needs its own JSONPath expression.
-- `api_key` overrides the `Authorization` header. Put only other custom headers in `headers`.
+- Pagination is not supported by this connector. Each job reads only what a single request returns; the HTTP `pageing` block and its options have no effect here.
+- `api_key` is sent verbatim as the `Authorization` header value and always overrides any `Authorization` entry in `headers`. Put only other custom headers in `headers`.
 
 ## Task Examples
 
