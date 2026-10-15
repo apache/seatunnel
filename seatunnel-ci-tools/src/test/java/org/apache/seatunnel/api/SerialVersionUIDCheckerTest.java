@@ -130,7 +130,17 @@ public class SerialVersionUIDCheckerTest {
                             + File.separator
                             + "job");
     private static final JavaParser JAVA_PARSER;
-    private static final Set<String> checkedClasses = new HashSet<>();
+    // Classes visited by the type-argument path, which only asserts that a serialVersionUID
+    // field exists. Tracked separately from fullyValidatedClasses so that the governed-class
+    // path (checkClassDeclaration) still runs its full "static final long, not -1L" validation
+    // on these classes: sharing one set would let whichever path visits a class first (for
+    // example JdbcSourceConfig, both a *Config class and a generic state argument of
+    // IncrementalSource subclasses) short-circuit the other, and the visit order depends on
+    // Files.walk, i.e. on the filesystem.
+    private static final Set<String> existenceCheckedClasses = new HashSet<>();
+    // Classes that went through the full declaration validation in checkClassDeclaration.
+    // The existence-only path skips these because the full validation subsumes it.
+    private static final Set<String> fullyValidatedClasses = new HashSet<>();
     private static final Map<String, ClassOrInterfaceDeclaration> classDeclarationMap =
             new HashMap<>();
     private static final Path SOURCE_ROOT_FRAGMENT = Paths.get("src", "main", "java");
@@ -423,10 +433,11 @@ public class SerialVersionUIDCheckerTest {
                     return;
                 }
                 String paramTypeName = typeDeclaration.getQualifiedName();
-                if (!checkedClasses.contains(paramTypeName)) {
+                if (!existenceCheckedClasses.contains(paramTypeName)
+                        && !fullyValidatedClasses.contains(paramTypeName)) {
                     // Check if the class is abstract and return early if it is
                     if (isAbstractClass(typeDeclaration)) {
-                        checkedClasses.add(paramTypeName);
+                        existenceCheckedClasses.add(paramTypeName);
                         return;
                     }
 
@@ -434,7 +445,7 @@ public class SerialVersionUIDCheckerTest {
                         missingSerialVersionUID.add(paramTypeName);
                         LOG.warn("Class {} is missing serialVersionUID field", paramTypeName);
                     }
-                    checkedClasses.add(paramTypeName);
+                    existenceCheckedClasses.add(paramTypeName);
                 }
             }
         } catch (Exception e) {
@@ -447,13 +458,13 @@ public class SerialVersionUIDCheckerTest {
         try {
             ResolvedReferenceTypeDeclaration typeDeclaration = classDeclaration.resolve();
             String className = typeDeclaration.getQualifiedName();
-            if (!checkedClasses.contains(className)) {
+            if (!fullyValidatedClasses.contains(className)) {
                 String problem = checkSerialVersionUIDDeclaration(classDeclaration);
                 if (problem != null) {
                     missingSerialVersionUID.add(className + " - " + problem);
                     LOG.warn("Class {} has an invalid serialVersionUID: {}", className, problem);
                 }
-                checkedClasses.add(className);
+                fullyValidatedClasses.add(className);
             }
         } catch (Exception e) {
             LOG.warn(
@@ -622,7 +633,8 @@ public class SerialVersionUIDCheckerTest {
 
     @AfterAll
     public static void cleanup() {
-        checkedClasses.clear();
+        existenceCheckedClasses.clear();
+        fullyValidatedClasses.clear();
         classDeclarationMap.clear();
     }
 }
