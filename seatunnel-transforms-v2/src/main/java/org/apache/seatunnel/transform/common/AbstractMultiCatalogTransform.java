@@ -46,10 +46,13 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     protected Map<String, SeaTunnelTransform<SeaTunnelRow>> transformMap;
 
+    protected final ReadonlyConfig transformLevelConfig;
+
     public AbstractMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         this.inputCatalogTables = inputCatalogTables;
         this.transformMap = new HashMap<>();
+        this.transformLevelConfig = config;
         Pattern tableMatchRegex =
                 Pattern.compile(config.get(TransformCommonOptions.TABLE_MATCH_REGEX));
         boolean ruleMatchModeConfigured =

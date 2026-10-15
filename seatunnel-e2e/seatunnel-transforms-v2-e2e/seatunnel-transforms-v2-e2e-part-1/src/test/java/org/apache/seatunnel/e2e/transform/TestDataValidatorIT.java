@@ -101,4 +101,16 @@ public class TestDataValidatorIT extends TestSuiteBase {
                 container.executeJob("/data_validator_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /**
+     * The global error handling policy must also reach the tables built from a {@code
+     * table_transform} entry, so both tables route their invalid row to the error table.
+     */
+    @TestTemplate
+    public void testDataValidatorRouteToTableWithTableTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator_route_to_table_with_table_transform.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

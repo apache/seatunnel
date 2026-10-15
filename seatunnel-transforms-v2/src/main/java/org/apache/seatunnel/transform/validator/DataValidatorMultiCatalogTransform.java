@@ -17,16 +17,21 @@
 
 package org.apache.seatunnel.transform.validator;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
 import org.apache.seatunnel.transform.common.IdentityMapTransform;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,6 +40,16 @@ import java.util.Set;
  * field rules, tables without a matching rule are passed through unchanged.
  */
 public class DataValidatorMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
+
+    /**
+     * Error handling policies of the transform. They are configured once at the transform level and
+     * have to apply to every validated table, including the tables that are built from a {@code
+     * table_transform} entry, which replaces the rest of the transform level rule.
+     */
+    private static final List<Option<?>> GLOBAL_POLICY_OPTIONS =
+            Arrays.asList(
+                    TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION,
+                    TransformCommonOptions.ERROR_TABLE_OPTION);
 
     public DataValidatorMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
@@ -49,7 +64,23 @@ public class DataValidatorMultiCatalogTransform extends AbstractMultiCatalogMapT
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new DataValidatorTransform(config, inputCatalogTable);
+        return new DataValidatorTransform(withGlobalPolicies(config), inputCatalogTable);
+    }
+
+    /**
+     * The error handling policy is transform level configuration, so a table selected by a {@code
+     * table_transform} entry inherits it unless the entry sets its own value.
+     */
+    private ReadonlyConfig withGlobalPolicies(ReadonlyConfig tableConfig) {
+        Map<String, Object> mergedOptions = new HashMap<>(tableConfig.getSourceMap());
+        for (Option<?> option : GLOBAL_POLICY_OPTIONS) {
+            if (tableConfig.getOptional(option).isEmpty()) {
+                transformLevelConfig
+                        .getOptional(option)
+                        .ifPresent(value -> mergedOptions.put(option.key(), value));
+            }
+        }
+        return ReadonlyConfig.fromMap(mergedOptions);
     }
 
     /** Mirrors the mandatory options of the transform-level rule declared by the factory. */

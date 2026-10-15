@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,12 @@ import java.util.HashSet;
 import java.util.Map;
 
 class DataValidatorTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new DataValidatorTransformFactory(), DataValidatorTransformConfig.FIELD_RULES);
+    }
 
     private final OptionRule rule = new DataValidatorTransformFactory().optionRule();
 
@@ -199,5 +207,84 @@ class DataValidatorTransformFactoryTest {
                             BasicType.STRING_TYPE
                         });
         return CatalogTableUtil.getCatalogTable("catalog", database, null, tableName, rowType);
+    }
+
+    /**
+     * The error handling policy is configured once at the transform level, so it has to reach the
+     * transforms that are built from a {@code table_transform} entry as well.
+     */
+    @Test
+    void testGlobalRouteToTablePolicyReachesTableTransformEntries() {
+        CatalogTable catalogTable = catalogTable("db", "fake");
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(
+                TransformCommonOptions.TABLE_PATH.key(),
+                catalogTable.getTableId().toTablePath().toString());
+        Map<String, Object> fieldRule = new HashMap<>();
+        fieldRule.put("field_name", "name");
+        fieldRule.put("rule_type", "NOT_NULL");
+        entry.put("field_rules", Arrays.asList(fieldRule));
+
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("row_error_handle_way", "ROUTE_TO_TABLE");
+        cfg.put(TransformCommonOptions.ERROR_TABLE_OPTION.key(), "error_data");
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+
+        DataValidatorMultiCatalogTransform transform =
+                new DataValidatorMultiCatalogTransform(
+                        Collections.singletonList(catalogTable), ReadonlyConfig.fromMap(cfg));
+
+        Map<String, CatalogTable> producedTables = new HashMap<>();
+        transform
+                .getProducedCatalogTables()
+                .forEach(
+                        table ->
+                                producedTables.put(
+                                        table.getTableId().toTablePath().toString(), table));
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("db.fake", "db.error_data")), producedTables.keySet());
+
+        SeaTunnelRow invalidRow = new SeaTunnelRow(new Object[] {1, null, 18, "a@b.c"});
+        invalidRow.setTableId(catalogTable.getTableId().toTablePath().toString());
+        SeaTunnelRow routedRow = transform.map(invalidRow);
+        Assertions.assertNotNull(routedRow);
+        Assertions.assertEquals("db.error_data", routedRow.getTableId());
+    }
+
+    /** An entry is a complete rule for its table, so its own policy wins over the global one. */
+    @Test
+    void testTableTransformEntryPolicyOverridesTheGlobalPolicy() {
+        CatalogTable catalogTable = catalogTable("db", "fake");
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(
+                TransformCommonOptions.TABLE_PATH.key(),
+                catalogTable.getTableId().toTablePath().toString());
+        entry.put("row_error_handle_way", "SKIP");
+        Map<String, Object> fieldRule = new HashMap<>();
+        fieldRule.put("field_name", "name");
+        fieldRule.put("rule_type", "NOT_NULL");
+        entry.put("field_rules", Arrays.asList(fieldRule));
+
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("row_error_handle_way", "ROUTE_TO_TABLE");
+        cfg.put(TransformCommonOptions.ERROR_TABLE_OPTION.key(), "error_data");
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+
+        DataValidatorMultiCatalogTransform transform =
+                new DataValidatorMultiCatalogTransform(
+                        Collections.singletonList(catalogTable), ReadonlyConfig.fromMap(cfg));
+
+        Map<String, CatalogTable> producedTables = new HashMap<>();
+        transform
+                .getProducedCatalogTables()
+                .forEach(
+                        table ->
+                                producedTables.put(
+                                        table.getTableId().toTablePath().toString(), table));
+        Assertions.assertEquals(Collections.singleton("db.fake"), producedTables.keySet());
+
+        SeaTunnelRow invalidRow = new SeaTunnelRow(new Object[] {1, null, 18, "a@b.c"});
+        invalidRow.setTableId(catalogTable.getTableId().toTablePath().toString());
+        Assertions.assertNull(transform.map(invalidRow));
     }
 }
