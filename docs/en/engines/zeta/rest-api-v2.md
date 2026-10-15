@@ -1704,6 +1704,7 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 ```json
 {
   "jobId": "1234567890",
+  "generatedAt": 1720000006500,
   "updatedAt": 1720000000123,
   "pipelines": [
     {
@@ -1766,7 +1767,8 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 | Field | Description |
 | --- | --- |
 | `jobId` | Job ID. |
-| `updatedAt` | Latest snapshot timestamp (millisecond). |
+| `generatedAt` | When this response was produced, in epoch milliseconds, taken from the clock of the member that served it. Always present, including when there is no overview to report. Use this, not `updatedAt`, to work out how long an `inProgress` checkpoint has been running: subtract its `triggerTimestamp` from this value. |
+| `updatedAt` | When the overview was last written, in epoch milliseconds — that is, the time of the most recent checkpoint event (trigger, acknowledgement, completion, failure or restore). It does **not** advance while a checkpoint is simply waiting, so it is not a response timestamp and cannot be used to age an in-progress checkpoint. Absent when the monitor has nothing recorded for the job. |
 | `pipelines` | List of pipeline statistics. |
 | `pipelines[].pipelineId` | Pipeline ID. |
 | `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint statistics:<br/>- `triggered`: total triggered checkpoints.<br/>- `completed`: total successful checkpoints.<br/>- `failed`: total failed checkpoints.<br/>- `inProgress`: checkpoints currently running.<br/>- `restored`: number of restore (including savepoint) attempts. |
