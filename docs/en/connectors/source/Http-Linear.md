@@ -33,13 +33,13 @@ The Linear source connector reads data from the [Linear](https://linear.app/) Gr
 | content_field               | String  | No       | -       | JSONPath used to select a nested part of the response before parsing it with `schema`, for example `$.data.issues.nodes.*`. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when output fields come from different JSON paths. |
 | retry                       | Int     | No       | -       | Maximum retry times when the HTTP request fails with an `IOException`. |
-| retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
-| retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds. |
+| retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. Takes effect only when `retry` is configured. |
+| retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds. Takes effect only when `retry` is configured. |
 | enable_multi_lines          | Boolean | No       | false   | When `true`, multiple JSON objects separated by newlines in the response body are treated as separate records. |
 | keep_params_as_form         | Boolean | No       | false   | When `true`, request parameters are sent as form-encoded body parameters instead of URL query parameters. |
 | connect_timeout_ms          | Int     | No       | 12000   | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms           | Int     | No       | 60000   | HTTP socket timeout in milliseconds. |
-| json_filed_missed_return_null | Boolean | No    | false   | Return null when a configured JSON field is missing. |
+| json_filed_missed_return_null | Boolean | No       | false   | Return null when a configured JSON field is missing. |
 | common-options              | Config  | No       | -       | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 :::tip

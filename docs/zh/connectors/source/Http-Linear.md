@@ -33,13 +33,13 @@ Linear 源连接器用于读取 [Linear](https://linear.app/) GraphQL API 数据
 | content_field                | String  | 否   | -          | 在 `schema` 解析之前先通过 JSONPath 抽取一段 JSON，例如 `$.data.issues.nodes.*`。                      |
 | json_field                   | Config  | 否   | -          | 字段级 JSONPath 映射，与 `schema` 配合使用。                                                          |
 | retry                        | Int     | 否   | -          | HTTP 请求抛出 `IOException` 时的最大重试次数。                                                           |
-| retry_backoff_multiplier_ms  | Int     | 否   | 100        | 重试退避乘数（毫秒）。                                                                                |
-| retry_backoff_max_ms         | Int     | 否   | 10000      | 最大重试退避时间（毫秒）。                                                                            |
+| retry_backoff_multiplier_ms  | Int     | 否   | 100        | 重试退避乘数（毫秒），仅在配置了 `retry` 时生效。 |
+| retry_backoff_max_ms         | Int     | 否   | 10000      | 最大重试退避时间（毫秒），仅在配置了 `retry` 时生效。 |
 | enable_multi_lines           | Boolean | 否   | false      | 为 `true` 时，响应体中以换行分隔的多个 JSON 对象会被当作独立记录。                                           |
 | keep_params_as_form          | Boolean | 否   | false      | 为 `true` 时，请求参数以表单编码放入请求体，而不是 URL 查询参数。                                           |
 | connect_timeout_ms           | Int     | 否   | 12000      | HTTP 连接超时（毫秒）。                                                                                |
 | socket_timeout_ms            | Int     | 否   | 60000      | HTTP socket 超时（毫秒）。                                                                              |
-| json_filed_missed_return_null | Boolean | 否  | false      | 配置的 JSON 字段缺失时返回 null。                                                                     |
+| json_filed_missed_return_null | Boolean | 否   | false      | 配置的 JSON 字段缺失时返回 null。                                                                     |
 | common-options               | Config  | 否   | -          | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。        |
 
 :::tip
