@@ -77,6 +77,15 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
   - `-i ' =v1 , k2=v2'` now reports an error, because the key for `v1` is empty after trimming.
   - `-i`: Meaningful leading and trailing whitespace is silently removed.
 
+### Configuration File Placeholder Default Values
+
+- **Breaking change: The same placeholder key can no longer have multiple different default values**
+  - When the same placeholder key is used multiple times, older versions used the default value from its last occurrence as the unified default value. Starting from this version, the same placeholder key is no longer allowed to have multiple different default values.
+  - **Migration guide:**
+    - For keys whose placeholders appear multiple times, the default values must be kept consistent. If they are inconsistent, they must be changed to be consistent.
+    - If you need to keep the default value so that it takes effect, you need to change the placeholder key, and change the key overridden via the -i parameter to the modified key in the configuration file.
+
+
 ### SQL TINYINT array schema
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
