@@ -162,6 +162,173 @@ def test_long_credential_free_word_run_is_not_rescanned_per_offset():
     assert elapsed < 5.0, f"redacting 30000 word characters took {elapsed:.2f}s"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password = ${DB_PASSWORD}",
+        "password=${DB_PASSWORD}",
+        "password = ${?MYSQL_PASSWORD}",
+        "password is ${DB_PASSWORD}",
+        "password was ${?DB_PASSWORD}",
+        '"password": ${DB_PASSWORD}',
+    ],
+)
+def test_keeps_bare_hocon_substitution(text):
+    # Regression: the bare value alternative accepted the single `$` that opens a
+    # substitution, so `password = ${DB_PASSWORD}` was stored as
+    # `password = ***REDACTED***{DB_PASSWORD}`. The stored config is reloaded
+    # after /resume and written out again by /save and /export, so that
+    # corruption reached the engine as invalid HOCON.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'password = "${DB_PASSWORD}"',
+        "password = '${DB_PASSWORD}'",
+        'password = "${?MYSQL_PASSWORD}"',
+        '"password": "${DB_PASSWORD}"',
+        "'api_key' = '${?API_KEY}'",
+        'password = " ${DB_PASSWORD} "',
+    ],
+)
+def test_keeps_quoted_hocon_substitution(text):
+    # A quoted value that is nothing but a reference keeps the secret out of the
+    # config file, so it is a reference and not a secret.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password = ${DB_PASSWORD}${?OTHER}",
+        "password=${A}${B}",
+        "password = ${?DB_PASSWORD}${?MYSQL_PASSWORD}",
+        "password = ${A}${B}${C}",
+        "password is ${A}${B}",
+        'password = "${DB_PASSWORD}${?OTHER}"',
+        "password = '${DB_PASSWORD}${OTHER}'",
+        '"password": ${DB_PASSWORD}${OTHER},',
+        "password = ${A}${B} # comment",
+    ],
+)
+def test_keeps_concatenated_hocon_substitutions(text):
+    # HOCON concatenates whitespace-free values, so a chain of references is
+    # still nothing but references. Redacting it would replace the whole chain
+    # with a marker and break the config that is reloaded after /resume.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'password = ""',
+        "password = ''",
+        '"password": ""',
+        "token = ''",
+        'password = "" # comment',
+        '"password": "",',
+        "password = '' }",
+        "token = ''   ",
+        'password = ""\nhost=localhost',
+    ],
+)
+def test_keeps_empty_quoted_value(text):
+    # An empty value carries no secret, so it stays empty instead of being
+    # rewritten into a non-empty marker inside the stored config. It is the
+    # whole value on its line, which is what makes it an empty credential.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            'private_key = """-----BEGIN RSA PRIVATE KEY-----',
+            'private_key = "***REDACTED***""-----BEGIN RSA PRIVATE KEY-----',
+        ),
+        ('password = ""s3cret', 'password = "***REDACTED***"s3cret'),
+        ("password = ''s3cret", "password = '***REDACTED***'s3cret"),
+        ('password = "" ""', 'password = "***REDACTED***" ""'),
+    ],
+)
+def test_empty_pair_that_opens_a_longer_value_is_redacted(text, expected):
+    # Only a pair that ends the value is an empty credential: a `"""` opener, a
+    # pair followed by more text on the same line, and two concatenated pairs
+    # each continue the value, so they are redacted as usual instead of being
+    # read as `nothing to hide` and left in place.
+    assert redact_credentials(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text, key, secret",
+    [
+        ('password = "s3cret-${DB_PASSWORD}"', "password", "s3cret"),
+        ("password = 's3cret-${DB_PASSWORD}'", "password", "s3cret"),
+        ("password = s3cret-${DB_PASSWORD}", "password", "s3cret"),
+        ("password = ${DB_PASSWORD}-s3cret", "password", "s3cret"),
+        ("password = ${?DB_PASSWORD}s3cret", "password", "s3cret"),
+        ("password = $${DB_PASSWORD}s3cret", "password", "s3cret"),
+        ("client_secret = s3cret${?DB_PASSWORD}", "client_secret", "s3cret"),
+        ("access_key = ${DB_PASSWORD}s3cret", "access_key", "s3cret"),
+        ("password = ${DB_PASSWORD}${?OTHER}s3cret", "password", "s3cret"),
+        ("password = s3cret${DB_PASSWORD}${?OTHER}", "password", "s3cret"),
+    ],
+)
+def test_redacts_literal_secret_next_to_substitution(text, key, secret):
+    # A value that mixes literal text with a reference still contains the literal
+    # secret, so the complete value is redacted and no `{DB_PASSWORD}` tail is
+    # left behind.
+    redacted = redact_credentials(text)
+    assert secret not in redacted
+    assert key in redacted
+    assert "REDACTED" in redacted
+    assert "DB_PASSWORD" not in redacted
+    assert "$" not in redacted
+    assert "{" not in redacted
+
+
+def test_redacts_dollar_value_that_does_not_open_a_substitution():
+    # Only the `$` that opens `${...}` is exempt; a `$` anywhere else stays part
+    # of the value.
+    assert redact_credentials("password = $DB_PASSWORD") == "password = ***REDACTED***"
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("password = ${", "password = ${"),
+        ("password = ${DB_PASSWORD", "password = ${DB_PASSWORD"),
+        ("password = x${y", "password = ***REDACTED***${y"),
+        ('password = "x${y', 'password = "***REDACTED***"'),
+    ],
+)
+def test_malformed_substitution_is_not_rewritten_into_a_marker(text, expected):
+    # An unclosed substitution is not a secret, so it stays readable instead of
+    # having only its `$` replaced; a real value in front of it is still
+    # redacted completely.
+    assert redact_credentials(text) == expected
+
+
+def test_session_json_keeps_hocon_substitution_in_last_config(tmp_path):
+    # last_config is reloaded on /resume and written out again by /save and
+    # /export, so a substitution has to survive the stored round trip.
+    manager = SessionManager(tmp_path)
+    config = (
+        "env {\n  parallelism = 1\n}\n"
+        "source {\n  Jdbc {\n"
+        '    url = "jdbc:mysql://db:3306/app"\n'
+        '    user = "app"\n'
+        "    password = ${?MYSQL_PASSWORD}\n"
+        "    client_secret = ${DB_CLIENT_SECRET}${?MYSQL_CLIENT_SECRET}\n"
+        "  }\n}\n"
+    )
+    manager.save_session([{"role": "user", "content": [{"text": config}]}], config)
+    raw = (manager.sessions_dir / f"{manager.current_session_id}.json").read_text()
+    assert json.loads(raw)["last_config"] == config
+
+
 def test_long_prefixed_key_is_still_redacted_within_the_run():
     # The boundary must not stop a genuine prefixed key from being redacted when
     # it sits at the end of a long `[\w.-]` run instead of after a space.

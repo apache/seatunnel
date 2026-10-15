@@ -73,9 +73,32 @@ _CREDENTIAL_KEYS = (
     r"(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|"
     r"auth[-_]?token|secret|credential|private[-_]?key)"
 )
+# A HOCON substitution, as used to keep secrets out of a config file.
+_SUBSTITUTION = r"\$\{[^{}\r\n]*\}"
+# Values that hold no secret of their own: a value that is nothing but one or
+# more substitutions such as `${DB_PASSWORD}`, `${?MYSQL_PASSWORD}` or the valid
+# HOCON concatenation `${DB_PASSWORD}${?MYSQL_PASSWORD}`, optionally quoted. They
+# must be returned unchanged, because the stored config is reloaded on /resume
+# and written out again by /save and /export.
+_CREDENTIAL_FREE_VALUE = re.compile(r"""["']?\s*(?:\$\{\??[\w.\-]+\})+\s*["']?""")
+# An empty pair is exempt as well, but only while it is the whole value on the
+# line: `private_key = """-----BEGIN ...` opens a HOCON triple-quoted string and
+# `password = ""s3cret` continues the value, so neither `""` is an empty
+# credential. Judging that from the matched substring alone would leave the rest
+# of such a line unredacted.
+_EMPTY_CREDENTIAL_VALUE = re.compile(r"""(?:""|'')""")
+# What may follow an exempted empty pair: the end of the line, a comment, or the
+# separator or closing bracket that ends the value inside a JSON/HOCON structure.
+_CREDENTIAL_VALUE_TAIL = re.compile(r"\s*(?:[,}\])]|#|//|$)")
+# A bare value must consume a whole `${...}` instead of stopping at its `$`: a
+# value such as `s3cret-${DB_PASSWORD}` mixes a real secret with a reference, and
+# redacting only the part in front of `${` would leave a `{DB_PASSWORD}` tail
+# that breaks the config. The alternatives are disjoint — the character run
+# excludes `$`, the single `$` is guarded by `(?!\$\{)`, and the substitution run
+# starts with `$` — so the repetition scans linearly instead of backtracking.
 _CREDENTIAL_ASSIGNMENT_VALUE = (
-    r'''(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|'''
-    r'''["'][^\r\n]+|[^\s"',:}{)\]]+)'''
+    r"""(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|["'][^\r\n]+"""
+    r"""|(?:(?!\$\{)\$|[^\s"',:}{)\]$]+|""" + _SUBSTITUTION + r")+)"
 )
 
 _CREDENTIAL_KV_PATTERNS = re.compile(
@@ -118,8 +141,32 @@ def contains_credential(text: str) -> bool:
     return False
 
 
+def _ends_credential_value(match: re.Match) -> bool:
+    """Return True if nothing on the same line continues the matched value.
+
+    Uses the text that follows the match, not the match itself, so an empty pair
+    is only accepted as an empty credential when it really is the whole value.
+    """
+    line_end = match.string.find("\n", match.end())
+    if line_end == -1:
+        line_end = len(match.string)
+    rest_of_line = match.string[match.end() : line_end]
+    return _CREDENTIAL_VALUE_TAIL.match(rest_of_line) is not None
+
+
 def _redact_assignment(match: re.Match) -> str:
+    """Replace a credential value with a marker, keeping key and quote style.
+
+    A value that is only a substitution is a reference rather than a secret, and
+    an empty pair is a placeholder, so both are returned as they are: rewriting
+    them would corrupt the stored config instead of protecting anything. The
+    empty pair only counts while it is the whole value on the line.
+    """
     value = match.group("value")
+    if _CREDENTIAL_FREE_VALUE.fullmatch(value):
+        return match.group(0)
+    if _EMPTY_CREDENTIAL_VALUE.fullmatch(value) and _ends_credential_value(match):
+        return match.group(0)
     quote = value[0] if value[0] in "\"'" else ""
     return match.group("prefix") + quote + "***REDACTED***" + quote
 
@@ -129,6 +176,9 @@ def redact_credentials(text: str) -> str:
 
     Used to scrub session history and memory content before persistence.
     Preserves the structure (key names, hosts, ports) but removes secret values.
+    Substitutions and empty values are kept: they carry no secret themselves, and
+    rewriting them would corrupt the config that is reloaded after a resume. An
+    empty value is only kept while it is the whole value on its own line.
     """
     # Redact known token patterns
     text = _CREDENTIAL_VALUE_PATTERNS.sub("***REDACTED***", text)
