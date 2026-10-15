@@ -664,28 +664,13 @@ def dry_run_config(config_str: str) -> dict:
                 pass
 
     # ── Phase 3: REST API validation ──
-    from .connectors import _check_engine, _ENGINE_API_BASE
+    from .connectors import _check_engine
     if _check_engine():
-        try:
-            import urllib.request
-            # Use submit-job endpoint with a dry-run approach:
-            # We validate by checking if config parses on server side
-            # without actually starting the job
-            url = f"{_ENGINE_API_BASE}/submit-job"
-            headers = {"Content-Type": "application/json"}
-            # Submit with an invalid job name pattern to trigger validation
-            # without actual execution — this is a best-effort approach
-            # since SeaTunnel doesn't have a dedicated validate endpoint
-            data = json.dumps({
-                "env": {"job.mode": "BATCH"},
-                "params": {"config": config_str, "format": "hocon"},
-            }).encode("utf-8")
-
-            # For now, just verify the config format is accepted by the API
-            # A full submit-and-cancel approach would be too risky
-            result["phase3_api"] = "SKIPPED (no dedicated validate endpoint)"
-        except Exception as e:
-            result["phase3_api"] = f"ERROR: {e}"
+        # The engine has no validate-only endpoint, and submitting a real job to
+        # validate it is not an option, so there is nothing to call here. This
+        # used to build a request URL, headers and body and then discard them
+        # without ever sending anything; only the status below had any effect.
+        result["phase3_api"] = "SKIPPED (no dedicated validate endpoint)"
 
     # ── Summary ──
     phases_passed = ["Local: " + local_result]
@@ -731,21 +716,32 @@ You do NOT answer questions about:
 
 ## How to Classify User Intent
 
-Output **PLAN:** ONLY when the user explicitly asks to CREATE or MODIFY a data pipeline config.
-Signals: "sync X to Y", "read from X write to Y", "create a job that...", "add a transform to...",
-"modify the config to...", "change the sink to..."
+Ask one question first: **does the request describe data that should end up somewhere, or a job
+to build?** If yes, output **PLAN:**. If no, output **CHAT:**.
 
-Output **CHAT:** for EVERYTHING else, including:
+Classify on the outcome being asked for, NOT on which verb was used. Every verb that means
+"move or produce data" leads to PLAN — sync, export, import, load, dump, copy, migrate, ingest,
+replicate, archive, extract, stream, capture, route, print, write, send, build, create, generate,
+set up, as well as "read from X ... to Y". The same holds in Chinese: 同步、导出、导入、写入、
+读取、抽取、采集、迁移、复制、备份、推送、落地、输出到、创建作业、搭一个任务、建一条流水线.
+These lists are illustrative, never exhaustive. A request with no recognizable verb at all —
+"one batch job with this DAG: ...", "三条流水线：..." — is still PLAN, because it describes a job
+to build.
+
+Output **CHAT:** when the request is *about* SeaTunnel rather than asking for a pipeline:
 - Greetings, help requests, "what is X" questions
 - **Error logs, stack traces, exception messages** — analyze and diagnose them
 - **Job failure analysis** — identify root cause and suggest fixes
-- **Config review** — review a config without regenerating it
+- **Config review** — review an existing config without regenerating it
 - **Connector questions** — explain options, compare connectors
 - **Troubleshooting** — "why is my job slow", "my job keeps failing", etc.
-- Pasted text that looks like logs/errors/exceptions rather than pipeline descriptions
 
-IMPORTANT: When the user pastes logs or error messages, ALWAYS treat it as a diagnostic request (CHAT),
-never as a pipeline creation request (PLAN). Analyze the error and provide actionable advice.
+Tie-breakers, applied in this order:
+1. Pasted logs, stack traces, or exception text → **CHAT**, even when the text also names a
+   source and a sink. Analyze the error and give actionable advice.
+2. Otherwise, a request naming data to move → **PLAN**, even when it mentions testing,
+   debugging, printing, fake/sample data, or the Console sink. "Print 10 fake rows to the
+   console" is a pipeline to build, not a question to answer.
 
 ## Default Assumptions (for PLAN mode — do NOT ask for these):
 - Parallelism → 2
