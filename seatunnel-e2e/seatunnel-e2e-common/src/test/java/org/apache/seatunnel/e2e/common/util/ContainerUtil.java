@@ -72,8 +72,9 @@ public final class ContainerUtil {
 
     /**
      * Engines whose containers an E2E suite runs, for example {@code RUN_ENGINES=zeta} or {@code
-     * RUN_ENGINES=["flink","spark"]}. CI sets it from the changed modules; developers use it to
-     * verify a suite locally against a single engine. Leaving it unset keeps every engine.
+     * RUN_ENGINES=["flink","spark"]}. CI sets it from the changed modules and developers use it to
+     * verify a suite locally against a single engine. Leaving it unset, blank, or {@code all} keeps
+     * every engine, while an unknown engine name fails fast with a clear error.
      */
     public static final String RUN_ENGINES = "RUN_ENGINES";
 
@@ -441,11 +442,16 @@ public final class ContainerUtil {
     /**
      * Keeps the containers of the engines listed in {@code RUN_ENGINES}.
      *
-     * <p>When the variable is unset, blank, or matches none of the discovered containers, every
-     * discovered container is kept so that a wrong value cannot silently skip a suite.
+     * <p>When the variable is unset, blank, {@code all}, or matches none of the discovered
+     * containers, every discovered container is kept, so an engine cannot silently disappear from a
+     * suite. An engine name that cannot be parsed fails fast instead of being ignored.
      */
     private static List<TestContainer> filterByRunEngines(List<TestContainer> containers) {
-        String rawRunEngines = System.getenv(RUN_ENGINES);
+        return filterByRunEngines(containers, System.getenv(RUN_ENGINES));
+    }
+
+    static List<TestContainer> filterByRunEngines(
+            List<TestContainer> containers, String rawRunEngines) {
         if (StringUtils.isBlank(rawRunEngines)) {
             return containers;
         }

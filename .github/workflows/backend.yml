@@ -209,6 +209,7 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       shared: ${{ steps.filter.outputs.shared }}
       translation: ${{ steps.filter.outputs.translation }}
+      translation-base: ${{ steps.filter.outputs.translation-base }}
       translation-flink: ${{ steps.filter.outputs.translation-flink }}
       translation-spark: ${{ steps.filter.outputs.translation-spark }}
       run-engines: ${{ steps.run-engines.outputs.engines || '["flink","spark","zeta"]' }}
@@ -328,8 +329,15 @@ jobs:
           shared=${shared_files%%$'\n'*}
           shared_file_list=${shared_files#*$'\n'}
 
+          # Broad probe: any translation change keeps the API trigger.
           translation_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/**"`
           translation=${translation_files%%$'\n'*}
+
+          # The broad glob also matches the engine sub-modules, so the engine scope uses narrowed
+          # probes: the base module is shared by the Flink and Spark translators, while the Flink
+          # and Spark translators are engine specific.
+          translation_base_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/pom.xml" "seatunnel-translation/seatunnel-translation-base/**"`
+          translation_base=${translation_base_files%%$'\n'*}
 
           translation_flink_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/seatunnel-translation-flink/**"`
           translation_flink=${translation_flink_files%%$'\n'*}
@@ -358,6 +366,7 @@ jobs:
           echo "shared=$shared" >> $GITHUB_OUTPUT
           echo "shared_files=$shared_file_list" >> $GITHUB_OUTPUT
           echo "translation=$translation" >> $GITHUB_OUTPUT
+          echo "translation-base=$translation_base" >> $GITHUB_OUTPUT
           echo "translation-flink=$translation_flink" >> $GITHUB_OUTPUT
           echo "translation-spark=$translation_spark" >> $GITHUB_OUTPUT
           echo "api=$true_or_false" >> $GITHUB_OUTPUT
@@ -371,7 +380,7 @@ jobs:
           CONNECTOR_E2E: ${{ steps.filter.outputs.cv2-e2e }}
           DIST: ${{ steps.filter.outputs.dist }}
           STANDALONE: ${{ steps.filter.outputs.standalone }}
-          TRANSLATION: ${{ steps.filter.outputs.translation }}
+          TRANSLATION_BASE: ${{ steps.filter.outputs.translation-base }}
           TRANSLATION_FLINK: ${{ steps.filter.outputs.translation-flink }}
           TRANSLATION_SPARK: ${{ steps.filter.outputs.translation-spark }}
           ENGINE: ${{ steps.filter.outputs.engine }}
@@ -386,7 +395,7 @@ jobs:
               --connector-e2e "${CONNECTOR_E2E:-false}" \
               --dist "${DIST:-false}" \
               --standalone "${STANDALONE:-false}" \
-              --translation "${TRANSLATION:-false}" \
+              --translation-base "${TRANSLATION_BASE:-false}" \
               --translation-flink "${TRANSLATION_FLINK:-false}" \
               --translation-spark "${TRANSLATION_SPARK:-false}" \
               --engine "${ENGINE:-false}" \

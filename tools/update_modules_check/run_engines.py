@@ -24,7 +24,8 @@ affect:
 * shared code, connector modules, the distribution and the standalone modules are used by
   every engine, so they keep the full matrix;
 * ``seatunnel-translation`` implements the plan translators of the Flink and Spark
-  starters only, so it never needs the Zeta container;
+  starters only, so it never needs the Zeta container: the base module is shared by both,
+  while ``seatunnel-translation-flink`` / ``-spark`` only need their own engine;
 * ``seatunnel-engine`` is the Zeta engine and is not used by the Flink and Spark starters;
 * when no rule matches, every engine runs: coverage is only narrowed on purpose.
 """
@@ -44,7 +45,7 @@ GROUP_ENGINES = {
     "connector-e2e": ALL_ENGINES,
     "dist": ALL_ENGINES,
     "standalone": ALL_ENGINES,
-    "translation": ("flink", "spark"),
+    "translation-base": ("flink", "spark"),
     "translation-flink": ("flink",),
     "translation-spark": ("spark",),
     "engine": ("zeta",),
