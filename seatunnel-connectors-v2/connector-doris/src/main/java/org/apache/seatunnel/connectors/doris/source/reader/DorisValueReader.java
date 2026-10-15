@@ -119,9 +119,15 @@ public class DorisValueReader {
 
     /** Convert an IPV4 32-bit integer to dotted-decimal text, e.g. -1062731775 → "192.168.0.1". */
     private static String convertIpv4IntToString(int ip) {
-        return String.format(
-                "%d.%d.%d.%d",
-                (ip >>> 24) & 0xFF, (ip >>> 16) & 0xFF, (ip >>> 8) & 0xFF, ip & 0xFF);
+        return new StringBuilder(15)
+                .append((ip >>> 24) & 0xFF)
+                .append('.')
+                .append((ip >>> 16) & 0xFF)
+                .append('.')
+                .append((ip >>> 8) & 0xFF)
+                .append('.')
+                .append(ip & 0xFF)
+                .toString();
     }
 
     /** Post-process a row to convert any IPV4 integer values to dotted-decimal strings. */
