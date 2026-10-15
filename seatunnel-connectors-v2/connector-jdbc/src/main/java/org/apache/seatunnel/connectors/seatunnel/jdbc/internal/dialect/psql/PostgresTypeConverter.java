@@ -35,12 +35,15 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 // reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
 public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
+
+    static final String USER_DEFINED_TYPE_NAME_OPTION = "postgres.userDefinedTypeName";
 
     // Postgres jdbc driver maps several alias to real type, we use real type rather than alias:
     // boolean <=> bool
@@ -294,6 +297,11 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (isUserDefinedStringType(typeDefine.getSqlType())) {
                     builder.dataType(BasicType.STRING_TYPE);
                     builder.sourceType(userDefinedSourceType(typeDefine.getColumnType()));
+                    if (typeDefine.getColumnType() != null) {
+                        builder.options(
+                                Collections.singletonMap(
+                                        USER_DEFINED_TYPE_NAME_OPTION, typeDefine.getColumnType()));
+                    }
                     break;
                 }
                 throw CommonError.convertToSeaTunnelTypeError(

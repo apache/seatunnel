@@ -379,6 +379,7 @@ public class PostgresDialect implements JdbcDialect {
         boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
         String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        columnType = quoteUserDefinedType(columnType, column, sameCatalog);
         StringBuilder sqlBuilder =
                 new StringBuilder()
                         .append("ALTER TABLE ")
@@ -407,6 +408,23 @@ public class PostgresDialect implements JdbcDialect {
             }
         }
         return sqlBuilder.toString();
+    }
+
+    private String quoteUserDefinedType(String columnType, Column column, boolean sameCatalog) {
+        Map<String, Object> options = column.getOptions();
+        if (!sameCatalog
+                || options == null
+                || !(options.get(PostgresTypeConverter.USER_DEFINED_TYPE_NAME_OPTION)
+                        instanceof String)) {
+            return columnType;
+        }
+        // Debezium supplies the raw type name without its schema; quote it as one identifier.
+        String sourceType =
+                (String) options.get(PostgresTypeConverter.USER_DEFINED_TYPE_NAME_OPTION);
+        if (StringUtils.isBlank(sourceType)) {
+            return columnType;
+        }
+        return "\"" + sourceType.replace("\"", "\"\"") + "\"";
     }
 
     private List<String> buildUpdateColumnSQL(
