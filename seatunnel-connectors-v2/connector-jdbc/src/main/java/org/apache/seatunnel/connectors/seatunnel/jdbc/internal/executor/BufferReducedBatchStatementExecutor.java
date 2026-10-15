@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +45,11 @@ public class BufferReducedBatchStatementExecutor
 
     @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
             new LinkedHashMap<>();
+
+    // Whether each buffered key existed before this batch, judged from its first change. Only the
+    // last change per key is kept, so an INSERT followed by an UPDATE must still be written as an
+    // INSERT, and a DELETE followed by an INSERT as an UPDATE.
+    @NonNull private final Map<SeaTunnelRow, Boolean> existedBeforeBatch = new HashMap<>();
 
     private boolean flushFailed;
 
@@ -61,6 +67,7 @@ public class BufferReducedBatchStatementExecutor
         }
 
         SeaTunnelRow key = keyExtractor.apply(record);
+        existedBeforeBatch.putIfAbsent(key, !RowKind.INSERT.equals(record.getRowKind()));
         boolean changeFlag = changeFlag(record.getRowKind());
         SeaTunnelRow value = valueTransform.apply(record);
         buffer.put(key, Pair.of(changeFlag, value));
@@ -77,7 +84,12 @@ public class BufferReducedBatchStatementExecutor
                     if (preChangeFlag != null && !preChangeFlag) {
                         deleteExecutor.executeBatch();
                     }
-                    upsertExecutor.addToBatch(entry.getValue().getValue());
+                    SeaTunnelRow value = entry.getValue().getValue().copy();
+                    value.setRowKind(
+                            existedBeforeBatch.getOrDefault(entry.getKey(), true)
+                                    ? RowKind.UPDATE_AFTER
+                                    : RowKind.INSERT);
+                    upsertExecutor.addToBatch(value);
                 } else {
                     if (preChangeFlag != null && preChangeFlag) {
                         upsertExecutor.executeBatch();
@@ -95,6 +107,7 @@ public class BufferReducedBatchStatementExecutor
                 }
             }
             buffer.clear();
+            existedBeforeBatch.clear();
             flushFailed = false;
         } catch (SQLException e) {
             flushFailed = true;
@@ -117,6 +130,7 @@ public class BufferReducedBatchStatementExecutor
     @Override
     public void clearBatch() throws SQLException {
         buffer.clear();
+        existedBeforeBatch.clear();
         upsertExecutor.clearBatch();
         deleteExecutor.clearBatch();
     }
