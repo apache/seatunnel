@@ -59,6 +59,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP                       | TIMESTAMP      |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP | BLOB           |
 
+DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 列分别生成 `TIMESTAMP_S`、`TIMESTAMP_MS`、`TIMESTAMP`、`TIMESTAMP_NS`。中间的正数精度使用下一个更宽的原生精度；未指定精度时保留默认的 `TIMESTAMP` 映射。对于带有微秒以下小数位的值，DuckDB 写入器使用文本绑定，避免测试所用 JDBC 驱动将其截断到微秒，使 `TIMESTAMP_NS` 目标列能够保留全部 9 位小数。已有表不会自动迁移，其列类型仍限制实际存储精度。
+
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 ## Sink 选项

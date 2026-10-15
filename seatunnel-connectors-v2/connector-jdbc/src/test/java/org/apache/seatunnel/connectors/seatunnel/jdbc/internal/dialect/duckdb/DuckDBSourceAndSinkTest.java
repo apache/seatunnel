@@ -19,16 +19,23 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
@@ -180,6 +187,271 @@ public class DuckDBSourceAndSinkTest {
             }
         } finally {
             TimeZone.setDefault(original);
+        }
+    }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testSinkAutoCreatedTimestampColumnsKeepNanos() throws Exception {
+        String table = "ts_scale_sink";
+        String tablePath = SCHEMA_NAME + "." + table;
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format("DROP TABLE IF EXISTS \"%s\".\"%s\"", SCHEMA_NAME, table));
+        }
+
+        // The upstream schema declares one column per native DuckDB fractional-second precision.
+        // The declared scale is the only precision information the sink has when it creates the
+        // target table, so the automatic DDL has to carry it over.
+        CatalogTable upstreamTable =
+                CatalogTable.of(
+                        TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, SCHEMA_NAME, table),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .column(
+                                        timestampColumn(
+                                                "c_ts_s", DuckDBTypeConverter.TIMESTAMP_S_SCALE))
+                                .column(
+                                        timestampColumn(
+                                                "c_ts_ms", DuckDBTypeConverter.TIMESTAMP_MS_SCALE))
+                                .column(
+                                        timestampColumn(
+                                                "c_ts", DuckDBTypeConverter.TIMESTAMP_SCALE))
+                                .column(
+                                        timestampColumn(
+                                                "c_ts_ns", DuckDBTypeConverter.TIMESTAMP_NS_SCALE))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        null);
+
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", jdbcUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put("database", DATABASE_NAME);
+        sinkOptions.put("table", tablePath);
+        sinkOptions.put("query", "");
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        ReadonlyConfig sinkConfig = ReadonlyConfig.fromMap(sinkOptions);
+
+        // The target table does not exist yet, so the production schema save mode creates it.
+        JdbcUrlUtil.UrlInfo urlInfo = DuckDBURLParser.parse(jdbcUrl);
+        DuckDBCatalog writeCatalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, SCHEMA_NAME);
+        SaveModeHandler saveModeHandler =
+                new JdbcSaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        writeCatalog,
+                        TablePath.of(DATABASE_NAME, SCHEMA_NAME, table),
+                        upstreamTable,
+                        null,
+                        false);
+        try {
+            saveModeHandler.open();
+            saveModeHandler.handleSchemaSaveMode();
+        } finally {
+            saveModeHandler.close();
+        }
+
+        // 1. The created columns are the native DuckDB types, discovered from the database.
+        String[] columnNames = {"c_ts_s", "c_ts_ms", "c_ts", "c_ts_ns"};
+        String[] nativeTypes = {
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_S,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS
+        };
+        Integer[] nativeScales = {
+            DuckDBTypeConverter.TIMESTAMP_S_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_MS_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_NS_SCALE
+        };
+        for (int index = 0; index < columnNames.length; index++) {
+            Assertions.assertEquals(
+                    nativeTypes[index],
+                    readColumnDataType(table, columnNames[index]),
+                    columnNames[index]);
+        }
+        DuckDBCatalog readCatalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, SCHEMA_NAME);
+        CatalogTable created;
+        try {
+            readCatalog.open();
+            created = readCatalog.getTable(TablePath.of(DATABASE_NAME, SCHEMA_NAME, table));
+        } finally {
+            readCatalog.close();
+        }
+        for (int index = 0; index < columnNames.length; index++) {
+            String name = columnNames[index];
+            Assertions.assertEquals(
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                    created.getTableSchema().getColumn(name).getDataType(),
+                    name);
+            Assertions.assertEquals(
+                    nativeScales[index], created.getTableSchema().getColumn(name).getScale(), name);
+        }
+
+        // 2. Write explicit values through the real sink: a normal value, a pre-epoch value, an
+        // all-NULL row and one nanosecond after the epoch.
+        LocalDateTime base = LocalDateTime.of(2024, 1, 1, 12, 34, 56);
+        LocalDateTime beforeEpoch = LocalDateTime.of(1969, 12, 31, 23, 59, 59);
+        LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(timestampSinkRow(1, base, 123_000_000, 123_456_000, 123_456_789));
+        rows.add(timestampSinkRow(2, beforeEpoch, 123_000_000, 123_456_000, 123_456_789));
+        rows.add(timestampSinkRow(3, null, 0, 0, 0));
+        rows.add(timestampSinkRow(4, epoch, 0, 0, 1));
+        // Values wider than the destination column retain DuckDB's native narrowing behavior.
+        rows.add(
+                timestampSinkRow(
+                        5, base.withNano(999_999_999), 999_999_999, 999_999_999, 999_999_999));
+        rows.add(timestampSinkRow(6, base.withNano(1_500), 1_500, 1_500, 1_500));
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                upstreamTable, sinkConfig, new JdbcSinkFactory(), rows);
+        Assertions.assertEquals(6, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, table)));
+
+        // 3. Read the stored values back with independent SQL, outside the connector read path, so
+        // a symmetric truncation cannot make the expectations below pass.
+        LocalDateTime[][] expected = {
+            {
+                base,
+                base.withNano(123_000_000),
+                base.withNano(123_456_000),
+                base.withNano(123_456_789)
+            },
+            {
+                beforeEpoch,
+                beforeEpoch.withNano(123_000_000),
+                beforeEpoch.withNano(123_456_000),
+                beforeEpoch.withNano(123_456_789)
+            },
+            {null, null, null, null}
+        };
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT id, c_ts_s::VARCHAR, c_ts_ms::VARCHAR, c_ts::VARCHAR, "
+                                        + "c_ts_ns::VARCHAR FROM main."
+                                        + table
+                                        + " WHERE id <= 3 ORDER BY id")) {
+            for (LocalDateTime[] row : expected) {
+                Assertions.assertTrue(result.next());
+                for (int index = 0; index < columnNames.length; index++) {
+                    String message = "id " + result.getInt(1) + ", " + columnNames[index];
+                    String value = result.getString(index + 2);
+                    if (row[index] == null) {
+                        Assertions.assertNull(value, message);
+                        continue;
+                    }
+                    // Parsed from DuckDB's own text rendering, so a value that lost fractional
+                    // seconds on the way in cannot match.
+                    Assertions.assertEquals(
+                            row[index], LocalDateTime.parse(value.replace(' ', 'T')), message);
+                }
+            }
+            Assertions.assertFalse(result.next());
+        }
+
+        // 4. The nanosecond column keeps all nine digits: DuckDB's own literals are used, so a
+        // microsecond truncation (or the rounding a typed binding applies) fails these.
+        assertNanosStored(table, 1, "2024-01-01 12:34:56.123456789");
+        assertNanosStored(table, 2, "1969-12-31 23:59:59.123456789");
+        assertNanosStored(table, 4, "1970-01-01 00:00:00.000000001");
+        assertNanosStored(table, 5, "2024-01-01 12:34:56.999999999");
+        assertNanosStored(table, 6, "2024-01-01 12:34:56.000001500");
+        Assertions.assertEquals(
+                1,
+                countTimestampRows(
+                        table,
+                        "id = 5 AND c_ts_s = TIMESTAMP_S '2024-01-01 12:34:57'"
+                                + " AND c_ts_ms = TIMESTAMP_MS '2024-01-01 12:34:57'"
+                                + " AND c_ts = TIMESTAMP '2024-01-01 12:34:56.999999'"));
+        Assertions.assertEquals(
+                1,
+                countTimestampRows(
+                        table,
+                        "id = 6 AND c_ts_s = TIMESTAMP_S '2024-01-01 12:34:56'"
+                                + " AND c_ts_ms = TIMESTAMP_MS '2024-01-01 12:34:56'"
+                                + " AND c_ts = TIMESTAMP '2024-01-01 12:34:56.000001'"));
+        Assertions.assertEquals(
+                0,
+                countTimestampRows(
+                        table, "id = 1 AND c_ts_ns = TIMESTAMP_NS '2024-01-01 12:34:56.123456'"));
+        Assertions.assertEquals(
+                0,
+                countTimestampRows(
+                        table, "id = 4 AND c_ts_ns = TIMESTAMP_NS '1970-01-01 00:00:00'"));
+    }
+
+    /** A timestamp column whose declared precision is the only information the sink DDL gets. */
+    private Column timestampColumn(String name, int scale) {
+        return PhysicalColumn.builder()
+                .name(name)
+                .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
+                .nullable(true)
+                .scale(scale)
+                .build();
+    }
+
+    /**
+     * Builds one sink row from wall clocks: the four fractional values of {@code wallClock} for the
+     * second, millisecond, microsecond and nanosecond columns. A null wall clock is an all-NULL
+     * row.
+     */
+    private SeaTunnelRow timestampSinkRow(
+            int id, LocalDateTime wallClock, int milliseconds, int microseconds, int nanoseconds) {
+        if (wallClock == null) {
+            return new SeaTunnelRow(new Object[] {id, null, null, null, null});
+        }
+        return new SeaTunnelRow(
+                new Object[] {
+                    id,
+                    wallClock,
+                    wallClock.withNano(milliseconds),
+                    wallClock.withNano(microseconds),
+                    wallClock.withNano(nanoseconds)
+                });
+    }
+
+    /** Reads the type DuckDB itself reports for a column of an existing table. */
+    private String readColumnDataType(String table, String columnName) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                String.format(
+                                        "SELECT data_type FROM information_schema.columns WHERE"
+                                                + " table_schema = '%s' AND table_name = '%s' AND"
+                                                + " column_name = '%s'",
+                                        SCHEMA_NAME, table, columnName))) {
+            Assertions.assertTrue(result.next(), columnName);
+            return result.getString(1);
+        }
+    }
+
+    /** Asserts that the nanosecond column holds exactly the given DuckDB literal. */
+    private void assertNanosStored(String table, int id, String literal) throws SQLException {
+        String where = String.format("id = %d AND c_ts_ns = TIMESTAMP_NS '%s'", id, literal);
+        Assertions.assertEquals(1, countTimestampRows(table, where), where);
+    }
+
+    /** Counts the rows of the timestamp table that match an independent SQL predicate. */
+    private int countTimestampRows(String table, String where) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                String.format(
+                                        "SELECT COUNT(*) FROM main.%s WHERE %s", table, where))) {
+            result.next();
+            return result.getInt(1);
         }
     }
 

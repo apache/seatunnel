@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
@@ -518,6 +519,91 @@ public class DuckDBTypeConverterTest {
                                 .build());
         Assertions.assertEquals(DuckDBTypeConverter.DUCKDB_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(DuckDBTypeConverter.DUCKDB_TIMESTAMP, typeDefine.getDataType());
+    }
+
+    @Test
+    void testReconvertTimestampFollowsDeclaredPrecision() {
+        // DuckDB only has 0, 3, 6 and 9 fractional digits, so each declared precision uses the
+        // smallest native type that holds it. A column without a declared precision keeps the
+        // previous microsecond mapping.
+        assertReconvertedTimestampType(null, DuckDBTypeConverter.DUCKDB_TIMESTAMP);
+        assertReconvertedTimestampType(
+                DuckDBTypeConverter.TIMESTAMP_S_SCALE, DuckDBTypeConverter.DUCKDB_TIMESTAMP_S);
+        assertReconvertedTimestampType(
+                DuckDBTypeConverter.TIMESTAMP_MS_SCALE, DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS);
+        assertReconvertedTimestampType(
+                DuckDBTypeConverter.TIMESTAMP_SCALE, DuckDBTypeConverter.DUCKDB_TIMESTAMP);
+        assertReconvertedTimestampType(
+                DuckDBTypeConverter.TIMESTAMP_NS_SCALE, DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS);
+    }
+
+    @Test
+    void testReconvertTimestampWidensIntermediatePrecision() {
+        // A precision between two native types can only be rounded up: the lower native type
+        // would silently drop source digits.
+        assertReconvertedTimestampType(1, DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS);
+        assertReconvertedTimestampType(2, DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS);
+        assertReconvertedTimestampType(4, DuckDBTypeConverter.DUCKDB_TIMESTAMP);
+        assertReconvertedTimestampType(5, DuckDBTypeConverter.DUCKDB_TIMESTAMP);
+        assertReconvertedTimestampType(7, DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS);
+        assertReconvertedTimestampType(8, DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS);
+    }
+
+    @Test
+    void testReconvertTimestampHandlesOutOfRangePrecision() {
+        // Unknown negative precision retains the default; nanoseconds are the widest valid type.
+        assertReconvertedTimestampType(-1, DuckDBTypeConverter.DUCKDB_TIMESTAMP);
+        assertReconvertedTimestampType(10, DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS);
+    }
+
+    /**
+     * Builds the real DuckDB production DDL for a single TIMESTAMP column so both the reconverted
+     * type and the type DuckDB actually accepts stay observable for one declared precision.
+     */
+    private void assertReconvertedTimestampType(Integer declaredScale, String expectedDuckDBType) {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("c")
+                        .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
+                        .nullable(true)
+                        .scale(declaredScale)
+                        .build();
+        BasicTypeDefine<?> typeDefine = DuckDBTypeConverter.INSTANCE.reconvert(column);
+        String message = "declared scale " + declaredScale;
+        Assertions.assertEquals(expectedDuckDBType, typeDefine.getColumnType(), message);
+        Assertions.assertEquals(expectedDuckDBType, typeDefine.getDataType(), message);
+        Assertions.assertEquals(
+                declaredScale == null ? null : nativeTimestampScale(expectedDuckDBType),
+                typeDefine.getScale(),
+                message);
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql", "default", "main", "t"),
+                        TableSchema.builder().column(column).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        null);
+        TablePath tablePath = TablePath.of("default", "main", "t");
+        Assertions.assertEquals(
+                "CREATE TABLE \"main\".\"t\" (\n    \"c\" " + expectedDuckDBType + "\n)",
+                DuckDBCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, DuckDBTypeConverter.INSTANCE, false)
+                        .build(tablePath)
+                        .get(0),
+                message);
+    }
+
+    private int nativeTimestampScale(String duckDBType) {
+        switch (duckDBType) {
+            case DuckDBTypeConverter.DUCKDB_TIMESTAMP_S:
+                return DuckDBTypeConverter.TIMESTAMP_S_SCALE;
+            case DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS:
+                return DuckDBTypeConverter.TIMESTAMP_MS_SCALE;
+            case DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS:
+                return DuckDBTypeConverter.TIMESTAMP_NS_SCALE;
+            default:
+                return DuckDBTypeConverter.TIMESTAMP_SCALE;
+        }
     }
 
     @Test

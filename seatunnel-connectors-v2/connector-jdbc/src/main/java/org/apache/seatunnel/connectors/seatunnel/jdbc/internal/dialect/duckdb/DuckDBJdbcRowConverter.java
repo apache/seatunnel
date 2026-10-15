@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,6 +45,8 @@ import java.util.TimeZone;
 public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
+
+    private static final int NANOS_PER_MICROSECOND = 1_000;
 
     /** Set once per reader so the remaining historical limitation is not logged per row. */
     private transient boolean aliasTimestampFallbackWarned;
@@ -133,6 +139,33 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
     protected void writeTime(PreparedStatement statement, int index, LocalTime time)
             throws SQLException {
         statement.setObject(index, time);
+    }
+
+    /**
+     * Binds a timestamp that carries sub-microsecond digits as ISO-8601 text.
+     *
+     * <p>The tested DuckDB JDBC driver (1.3.1.0) binds {@code setTimestamp} and the typed {@code
+     * setObject} through a microsecond conversion, so such a value loses its last digits even in a
+     * {@code TIMESTAMP_NS} column. Text reaches DuckDB unchanged and is cast to the target column
+     * type, which keeps all nine digits. Values a microsecond binding already represents exactly,
+     * and all other data types, keep the base behaviour.
+     */
+    @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        if (value instanceof LocalDateTime
+                && seaTunnelDataType.getSqlType() == SqlType.TIMESTAMP
+                && ((LocalDateTime) value).getNano() % NANOS_PER_MICROSECOND != 0) {
+            statement.setString(statementIndex, value.toString());
+            return;
+        }
+        super.setValueToStatementByDataType(
+                value, statement, seaTunnelDataType, statementIndex, sourceType);
     }
 
     @Override

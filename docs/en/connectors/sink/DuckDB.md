@@ -63,6 +63,8 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | TIMESTAMP                                                           | TIMESTAMP        |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
 
+When the DuckDB sink creates a table, SeaTunnel `TIMESTAMP` columns with scales 0, 3, 6 and 9 become `TIMESTAMP_S`, `TIMESTAMP_MS`, `TIMESTAMP` and `TIMESTAMP_NS`, respectively. Intermediate positive scales use the next wider native precision; an unspecified scale retains the default `TIMESTAMP` mapping. For values with sub-microsecond digits, the DuckDB writer uses a text binding to avoid the tested JDBC driver's microsecond truncation, allowing a `TIMESTAMP_NS` target to retain all nine digits. Existing tables are not migrated: their declared type still limits stored precision.
+
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
 ## Sink Options
