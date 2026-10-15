@@ -199,7 +199,13 @@ public class SeaTunnelServer
     private void startMaster() {
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
-        checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
+        checkpointMonitorService =
+                new CheckpointMonitorService(
+                        engineContext,
+                        seaTunnelConfig
+                                .getEngineConfig()
+                                .getCheckpointConfig()
+                                .getMonitorHistorySize());
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(

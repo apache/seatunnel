@@ -356,6 +356,21 @@ seatunnel:
           namespace: /tmp/seatunnel/checkpoint_snapshot
 ```
 
+监控保留的 checkpoint 历史条数同样在引擎侧配置：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      monitor-history-size: 32   # 默认值
+```
+
+它表示为 `/jobs/checkpoints/{jobId}` REST 端点每个 pipeline 保留多少条已完成的
+checkpoint 记录。这个窗口决定了客户端最多能把作业和自己多久之前的历史做对比，
+对发现"逐渐变慢"尤为关键：按默认 300000ms 的间隔，32 条约覆盖 2.5 小时；但若
+作业每 10000ms 做一次 checkpoint，就只覆盖约 5 分钟。间隔短的作业应调大该值。
+历史按 pipeline 保存在内存中，因此窗口越大，开销随运行中的 pipeline 数量增长。
+
 说明：
 - BATCH 模式下如果作业 env 未配置 `checkpoint.interval`，当前实现会禁用 checkpoint（以源码实现为准）。
 - checkpoint storage 主要由引擎侧配置管理；作业级配置不应假设可以随意指定 storage type/path。
