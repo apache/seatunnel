@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class AssertRuleParserTest {
     AssertRuleParser parser = new AssertRuleParser();
@@ -59,6 +60,9 @@ public class AssertRuleParserTest {
         AssertFieldRule ageRule = assertFieldRules.get(1);
         List<AssertFieldRule.AssertRule> ageValueRules = ageRule.getFieldRules();
         assertEquals("age", ageRule.getFieldName());
+        // field_type is optional, so a rule that does not declare it keeps a null field type and
+        // is checked against the field type of the incoming row by the executor.
+        assertNull(ageRule.getFieldType());
         assertEquals(3, ageValueRules.size());
         assertEquals(AssertFieldRule.AssertRuleType.NOT_NULL, ageValueRules.get(0).getRuleType());
         assertEquals(AssertFieldRule.AssertRuleType.MIN, ageValueRules.get(1).getRuleType());
