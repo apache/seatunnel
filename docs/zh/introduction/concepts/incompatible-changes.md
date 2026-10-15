@@ -4,6 +4,67 @@
 
 ## dev
 
+### CDC：可空列不再用作快照分片列
+
+- **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
+  - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
+  - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
+  - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
+### 运行环境要求
+
+- **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
+  - **影响范围**：所有模块——整个发行包、Zeta 引擎、全部连接器，以及发布的 Docker 镜像
+  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jdk`——仍保留完整 JDK 而非 JRE，以便 `jps`/`jstack`/`jmap` 继续可用于诊断运行中的节点。
+  - **影响**：
+    - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
+    - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
+    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才正式支持 Java 11（SPARK-24417）。Spark 2.4 在 Java 11 上仍可启动，但会打印非法反射访问告警，并且会把较老的 commons-lang3 放进 classpath，部分连接器会因此初始化失败，因此强烈建议使用 Spark 3.x。
+    - 已按 Java 8 编译的第三方连接器仍可正常使用。Java 11 JVM 可以直接加载更低版本的 class 文件，所以只有 JVM 版本有要求，对您自己 jar 的字节码级别没有要求。
+  - **迁移指南**：
+    1. 将所有运行 SeaTunnel 代码的节点的 JVM 升级到 Java 11 或 Java 17：客户端、Zeta master 与 worker，以及作业提交到的 Flink 或 Spark 集群。
+    2. 如果提交到 Flink，请将集群切换到运行 Java 11 及以上的镜像或部署。
+    3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
+    4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
+    5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### 用户变量(`-i` 参数)
+
+- **`-i` 参数值在 `System.getProperties()`中不可见**
+
+  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过 `System.getProperties()` 访问。
+
+- **`-i` 参数不再允许重复key**
+  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
+  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
+
+- **双引号包裹的 `-i` 值会被解包**
+  - 例如 `-i k="v"` 现在等价于 `-i k=v`（引号被剥掉）。双引号主要针对包含逗号(`,`),花括号(`{}`)和方括号(`[]`)等包含结构化定界符的字符串参数值使用，其他普通字符可不用双引号。
+
+- **不平衡的`{}`或`[]`会被部分解析成map和list**
+  - `-i k=[a,b],c]` 中`[a,b]`会当成数组解析，`c]` 因为没有 `=` 会被忽略（不会作为字符串保留）
+  - 以 `{` 或 `[` 开头、括号平衡但不是合法 HOCON/JSON 的参数值，现在会在解析阶段抛出 BadValue 错误。之前能正常工作的未加引号的值（如 `-i pattern={a,b} `）会因此失败。如需保留为普通字符串，请用转义双引号包裹：
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` key 和 value 现在会 trim，空 key 会被拒绝**
+  - `-i 'k1= , k2=v2'` 现在会明确将空格去掉，k1的会变为空字符串，第二个键值对的key会变为`k2`而不是带空格的` k2`。
+  - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
+  - 有意义的首尾空白会被静默去除。
+
+### SQL TINYINT 数组模式
+
+Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
+
+### DuckDB BIT 和 ENUM 自动建表
+
+- Catalog 未提供长度时，标量 `BIT` 和 `ENUM` 列现在保留未指定的 STRING 长度，不再使用原来的 1/255 回退值。
+  正长度保持不变。自动生成的列将使用 MySQL `LONGTEXT` 或 PostgreSQL `text`，不再使用原来的有界字符串类型。
+- 已有目标表不会自动扩容。传输超出原有限制的值前，请检查列定义并手动扩容。
+- 使用 `create_index = true`（默认值）时，如果这些列属于主键，MySQL 自动建表会失败：`LONGTEXT` 无法作为
+  使用完整列值的主键。请提前创建目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，
+  并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
+  `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
@@ -14,6 +75,14 @@
   将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
 - 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
   命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
+### Zeta SQL Transform：内置 AES_ENCRYPT / AES_DECRYPT
+
+- **行为变更：AES_ENCRYPT / AES_DECRYPT 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
+  - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
 
 ### RabbitMQ Connector
 
@@ -68,7 +137,8 @@
     - **CDC（基于 Debezium，TiDB）**：CDC 连接器现在可以正确处理 Debezium 反序列化层中的 `TIMESTAMP_TZ` 类型。以前，`TIMESTAMP_TZ` 不受支持，会抛出 `UnsupportedOperationException`。现在，在 CDC 管道中使用带时区列的用户可以正常使用。
     - **Iceberg（已有表）**：在本 PR 之前，SeaTunnel 的 `TIMESTAMP` 类型错误地以带时区（`withZone()`）的形式写入 Iceberg。本 PR 之后，`TIMESTAMP` 写为不带时区（`withoutZone()`），而 Iceberg `withZone()` 列读取时返回 `TIMESTAMP_TZ`。**升级影响**：如果您的 Iceberg 表是由旧版 SeaTunnel 创建的，其时间戳列以 `withZone()` 形式存储。升级后，SeaTunnel 会将其读取为 `TIMESTAMP_TZ` 而非 `TIMESTAMP`，下游 Sink 或 Transform 若期望 `TIMESTAMP` 类型可能遇到类型不匹配错误。**迁移方案**：重新创建受影响的 Iceberg 表，或在管道配置中使用 SQL Transform 将 `TIMESTAMP_TZ` 转换回 `TIMESTAMP`。
     - **TIMESTAMP_TZ 写入约定**：SeaTunnel 根据 Sink 格式的表达能力，对 `TIMESTAMP_TZ` 采用两级序列化约定：
-      - **不支持原生时区类型的 DB 列类型 Sink（Doris、StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
+      - **Doris Sink**：`TIMESTAMP_TZ` 会先转换到 Doris 的目标时区，再以 `DATETIME` 存储。可通过 `sink.datetime-timezone` 显式指定目标时区；未配置时，SeaTunnel 使用 JVM 默认时区。例如，配置 `sink.datetime-timezone = "Asia/Shanghai"` 时，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 02:00:00`。
+      - **其他不支持原生时区类型的 DB 列类型 Sink（StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
       - **基于字符串/文本的 Sink（Text 文件、Kafka、Pulsar、RocketMQ、RabbitMQ、Redis 等）**：保留完整的 ISO 8601 偏移（例如 `"2024-01-01T03:00:00+09:00"`）。这些格式可以用字符串表示时区偏移，不会丢失信息。如果需要在这类 Sink 中使用 wall-clock 行为，请在写入前通过 SQL Transform 将 `TIMESTAMP_TZ` 转换为 `TIMESTAMP`。
     - **Xugu TIMESTAMP_TZ（有损写入）**：Xugu `TIMESTAMP WITH TIME ZONE` 列在类型层面暴露为 `TIMESTAMP_TZ`，但由于 Xugu JDBC 驱动批量执行缺陷（[E19138]），实际写入时会丢弃时区偏移，仅存储时钟时间。首次写入时会输出 WARN 日志。
 
@@ -321,5 +391,21 @@
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
 ### 引擎行为变更
+
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
 ### 依赖升级

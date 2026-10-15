@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。
+通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。生成的哈希分区 SQL 与 JVM 默认 locale 无关。
 
 ## 支持 DuckDB 版本
 
@@ -47,6 +47,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
+DuckDB 的标量 `BIT` 和 `ENUM` 映射为 `STRING`。Catalog 未提供长度时，SeaTunnel 保留未指定的长度，不再假定 BIT 只有一个字符或 ENUM 最长为 255 个字符。通过 `CREATE TYPE` 创建的命名 ENUM 类型也适用。例如，MySQL 自动建表会为这些列使用 `LONGTEXT`。已有目标表不会自动扩容。`ENUM(...)[]` 等列表声明保留原有的回退映射。
+
+MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。如果 `BIT` 或 `ENUM` 列属于主键，请提前创建兼容的目标表，为主键显式选择能够容纳源数据且符合 MySQL 索引限制的有界类型，并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`。详情参见[不向前兼容的更新](../../introduction/concepts/incompatible-changes.md#duckdb-bit-和-enum-自动建表)。
+
 | DuckDB 数据类型                                              | SeaTunnel 数据类型 |
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |
@@ -61,10 +65,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
 | DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
+| BIT<br/>ENUM                                             | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+
+JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
+
+> 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
 
 ## 源选项
 
