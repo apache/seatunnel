@@ -19,6 +19,8 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -301,5 +303,31 @@ public class ConfigBuilderTest {
         Assertions.assertFalse(fields.containsKey("^t_nova_.*$"));
         Assertions.assertEquals("literal", fields.get("  ${FOO}  "));
         Assertions.assertFalse(fields.containsKey("${FOO}"));
+    }
+
+    @Test
+    void testDuplicateKeyThrowsException() {
+        List<String> variables = Arrays.asList("jobName=value1", "jobName=value2");
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
+    }
+
+    @Test
+    void testUserKeyValueTrimmed() {
+        List<String> variables = Arrays.asList("k1= , k2=v2".split(","));
+        Map<String, String> userConfigMap = ConfigBuilder.extractUserVariables(variables);
+
+        Assertions.assertTrue(userConfigMap.get("k1").isEmpty());
+        Assertions.assertTrue(userConfigMap.containsKey("k2"));
+        Assertions.assertFalse(userConfigMap.containsKey(" k2"));
+    }
+
+    @Test
+    void testUserEmptyKeyThrowsConfigCheckException() {
+        List<String> variables = Arrays.asList(" =v1 , k2=v2".split(","));
+
+        Assertions.assertThrows(
+                ConfigCheckException.class, () -> ConfigBuilder.extractUserVariables(variables));
     }
 }

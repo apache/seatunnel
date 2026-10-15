@@ -70,12 +70,12 @@ libfb303-xxx.jar
 
 | 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
 |------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
-| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                   |
+| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径，不能为空白字符串。                                                                          |
 | catalog_name                 | 字符串  | 否    | paimon                       | Paimon catalog名称                                                                                     |
 | catalog_type                 | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
 | catalog_uri                  | 字符串  | 当 `catalog_type` 为 `hive` 时是 | -                            | Paimon catalog 的 URI。当 `catalog_type` 为 `hive` 时必须配置。                                                |
-| database                     | 字符串  | 是    | -                            | 数据库名称                                                                                                |
-| table                        | 字符串  | 是    | -                            | 表名                                                                                                   |
+| database                     | 字符串  | 是    | -                            | 数据库名称，不能为空白字符串。                                                                                        |
+| table                        | 字符串  | 是    | -                            | 表名，不能为空白字符串。                                                                                          |
 | user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
 | password                     | 字符串  | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
 | hdfs_site_path               | 字符串  | 否    | -                            | 已废弃。hdfs-site.xml 文件路径。新作业建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`                         |

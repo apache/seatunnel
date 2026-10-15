@@ -61,7 +61,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | schema | config | conditional | - | Required for `text`, `json`, `excel`, `csv`, and `xml`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | read_columns | list | no | - | Columns to project from the source. |
 | read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
-| field_delimiter | string | no | `\001` for text, `,` for CSV | Field delimiter for text and CSV files. `delimiter` is an alias. |
+| field_delimiter | string | no | `\001` | Field delimiter for text and CSV files. `delimiter` is an alias. |
 | row_delimiter | string | no | `\n` | Row delimiter for text files. |
 | skip_header_row_number | long | no | `0` | Number of initial text or CSV rows to skip. |
 | encoding | string | no | `UTF-8` | Character encoding for text, JSON, CSV, and XML files. |

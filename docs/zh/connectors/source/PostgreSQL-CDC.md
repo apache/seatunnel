@@ -290,7 +290,7 @@ sink {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 source {
@@ -375,6 +375,20 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 `committed-offset` 时，复制槽必须已存在，因为 SeaTunnel 会使用其 `confirmed_flush_lsn`
 作为启动偏移量。未使用的复制槽会持续占用磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC
 任务永久下线时，应在 PostgreSQL 侧手动删除不再使用的复制槽。
+
+### 为什么任务报错 "replication slot ... has been invalidated"？
+
+PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复制槽落后超过 `max_slot_wal_keep_size`、
+空闲时间超过 `idle_replication_slot_timeout`（PostgreSQL 18），或在备库上与恢复冲突。此时 `pg_replication_slots` 中的
+`wal_status` 为 `lost`、`conflicting` 为 `true`（PostgreSQL 16 及以上版本），或显示 `invalidation_reason`（PostgreSQL 17 及以上版本）。复制槽已确认位置之后的变更已无法读取，
+因此需要从复制槽读取变更的任务会以错误 `POSTGRES-04` 失败；`snapshot-only` 任务不使用复制槽，不受影响。请执行 `SELECT pg_drop_replication_slot('<slot.name>')`
+删除该复制槽，并在不从 checkpoint 或 savepoint 恢复的情况下重新启动任务；如需重新做快照，请使用 `startup.mode = initial`。
+
+### 从保存点恢复时如何处理事务边界？
+
+恢复时会区分保存的事务提交记录与已处理的数据行，因为事务提交和下一事务的第一条数据行
+可能具有相同的 LSN。任务停止期间提交的数据仍可被重放。不包含操作类型的旧保存点仍可读取；
+为避免丢失数据，恢复时可能重放无法明确区分的边界记录。
 
 ### PostgreSQL CDC 为什么会滞后？
 
