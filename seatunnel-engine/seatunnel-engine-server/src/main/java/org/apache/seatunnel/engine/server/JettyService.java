@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
+import org.apache.seatunnel.engine.server.rest.filter.WebUiFragmentRedirectFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointHistoryServlet;
@@ -194,6 +195,13 @@ public class JettyService {
             FilterHolder basicAuthFilterHolder = new FilterHolder(new BasicAuthFilter(httpConfig));
             context.addFilter(basicAuthFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
         }
+
+        // The Web UI route lives in the URL fragment. Clients that escape a whole URL send that
+        // fragment as part of the path, which matches no static resource, so restore it instead of
+        // answering with the Jetty 404 page.
+        FilterHolder webUiFragmentRedirectHolder =
+                new FilterHolder(new WebUiFragmentRedirectFilter());
+        context.addFilter(webUiFragmentRedirectHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
 
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
         URL uiResource = JettyService.class.getClassLoader().getResource("ui");
