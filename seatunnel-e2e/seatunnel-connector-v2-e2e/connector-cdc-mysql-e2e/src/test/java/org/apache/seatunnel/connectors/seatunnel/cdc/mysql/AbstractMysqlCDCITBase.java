@@ -375,9 +375,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // Compare every column except code: NULL codes are emitted as 0 by the MySQL schema
-        // parsing, a separate issue (#12599) from the skipped rows.
-        String rowQuery = "select id, name from " + MYSQL_DATABASE + ".%s order by id";
+        // Compare complete rows: the NULL codes must also reach the sink as NULL, not as 0
+        String rowQuery = "select id, code, name from " + MYSQL_DATABASE + ".%s order by id";
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
