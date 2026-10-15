@@ -28,9 +28,13 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 import org.apache.seatunnel.transform.filterrowkind.FieldRowKindMultiCatalogTransform;
+import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransform;
 import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransformFactory;
+import org.apache.seatunnel.transform.filterrowkind.FilterRowKinkTransformConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,6 +45,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 class FilterRowKindTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new FilterRowKindTransformFactory(),
+                FilterRowKinkTransformConfig.INCLUDE_KINDS,
+                FilterRowKinkTransformConfig.EXCLUDE_KINDS);
+    }
 
     private final OptionRule rule = new FilterRowKindTransformFactory().optionRule();
 
@@ -212,5 +224,26 @@ class FilterRowKindTransformFactoryTest {
             entry.put(kindsOption, Collections.singletonList("INSERT"));
         }
         return entry;
+    }
+
+    /** Direct construction bypasses the option rule, the transform has to fail closed. */
+    @Test
+    void testDirectConstructionWithEmptyKindsFailsOnTransform() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("exclude_kinds", Collections.emptyList());
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        FilterRowKindTransform transform =
+                new FilterRowKindTransform(ReadonlyConfig.fromMap(cfg), catalogTable);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {1})));
+        Assertions.assertTrue(
+                exception.getMessage().contains("Either excludeKinds or includeKinds"),
+                "Should explain the required options: " + exception.getMessage());
     }
 }
