@@ -16,6 +16,10 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -34,6 +38,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.TimeZone;
 
+@Slf4j
 public final class JdbcFieldTypeUtils {
 
     private JdbcFieldTypeUtils() {}
@@ -87,7 +92,58 @@ public final class JdbcFieldTypeUtils {
 
     public static BigDecimal getBigDecimal(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        return resultSet.getBigDecimal(columnIndex);
+        return getBigDecimal(resultSet, columnIndex, false);
+    }
+
+    /**
+     * Reads a DECIMAL/NUMERIC column value as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL and its derivatives (e.g. Kingbase) allow the special numeric values {@code
+     * NaN}, {@code Infinity} and {@code -Infinity} (supported since PostgreSQL 14), which have no
+     * {@code BigDecimal} representation. The driver fails in that case with {@code PSQLException:
+     * Bad value for type BigDecimal : NaN} (text protocol) or with a {@code ClassCastException}
+     * (binary protocol, where the driver returns a {@code Double}). When {@code
+     * numericSpecialValueAsNull} is enabled, these special values are read as {@code null} and a
+     * warning is logged, so that a single special value does not abort the whole job. Otherwise the
+     * original error is thrown.
+     */
+    public static BigDecimal getBigDecimal(
+            ResultSet resultSet, int columnIndex, boolean numericSpecialValueAsNull)
+            throws SQLException {
+        try {
+            return resultSet.getBigDecimal(columnIndex);
+        } catch (SQLException | ClassCastException e) {
+            if (numericSpecialValueAsNull) {
+                String value = getStringQuietly(resultSet, columnIndex);
+                if (isNumericSpecialValue(value)) {
+                    log.warn(
+                            "The numeric special value '{}' at column {} cannot be represented as BigDecimal, reading it as null",
+                            value,
+                            columnIndex);
+                    return null;
+                }
+            }
+            throw e;
+        }
+    }
+
+    @Nullable private static String getStringQuietly(ResultSet resultSet, int columnIndex) {
+        try {
+            return resultSet.getString(columnIndex);
+        } catch (SQLException | RuntimeException ignored) {
+            // The raw value cannot be read, the original error is rethrown by the caller
+            return null;
+        }
+    }
+
+    private static boolean isNumericSpecialValue(@Nullable String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return "NaN".equalsIgnoreCase(trimmed)
+                || "Infinity".equalsIgnoreCase(trimmed)
+                || "-Infinity".equalsIgnoreCase(trimmed);
     }
 
     public static Date getDate(ResultSet resultSet, int columnIndex) throws SQLException {

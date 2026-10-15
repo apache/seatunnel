@@ -266,6 +266,14 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+数值特殊值按 null 读取，如果为 true，无法表示为 BigDecimal 的数值特殊值（NaN、Infinity、-Infinity）将按 null 读取。目前仅支持 PostgreSQL。
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。例如，使用 starrocks 时，需要将其设置为 `starrocks`。类似地，使用 mysql 时，需要将其值设置为 `mysql`。

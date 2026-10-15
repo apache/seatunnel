@@ -270,6 +270,14 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+Numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.

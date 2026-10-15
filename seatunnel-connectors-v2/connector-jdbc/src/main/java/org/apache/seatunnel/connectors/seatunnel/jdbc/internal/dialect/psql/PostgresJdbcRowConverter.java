@@ -67,6 +67,16 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
+    private final boolean numericSpecialValueAsNull;
+
+    public PostgresJdbcRowConverter() {
+        this(false);
+    }
+
+    public PostgresJdbcRowConverter(boolean numericSpecialValueAsNull) {
+        this.numericSpecialValueAsNull = numericSpecialValueAsNull;
+    }
+
     @Override
     public String converterName() {
         return DatabaseIdentifier.POSTGRESQL;
@@ -142,7 +152,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     fields[fieldIndex] = JdbcFieldTypeUtils.getDouble(rs, resultSetIndex);
                     break;
                 case DECIMAL:
-                    fields[fieldIndex] = JdbcFieldTypeUtils.getBigDecimal(rs, resultSetIndex);
+                    fields[fieldIndex] =
+                            JdbcFieldTypeUtils.getBigDecimal(
+                                    rs, resultSetIndex, numericSpecialValueAsNull);
                     break;
                 case DATE:
                     Date sqlDate = JdbcFieldTypeUtils.getDate(rs, resultSetIndex);
