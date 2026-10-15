@@ -33,7 +33,12 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -193,6 +198,29 @@ class ProtobufConverterTest {
     private static Descriptors.Descriptor int32FieldMessage(String fieldName, int number)
             throws Descriptors.DescriptorValidationException {
         return buildTestMessage(testMessage().addField(int32Field(fieldName, number)));
+    }
+
+    /** Builds a message of {@code descriptor} that has exactly one field set. */
+    private static DynamicMessage singleFieldMessage(
+            Descriptors.Descriptor descriptor, String fieldName, Object value) throws IOException {
+        byte[] protobufMessage =
+                DynamicMessage.newBuilder(descriptor)
+                        .setField(descriptor.findFieldByName(fieldName), value)
+                        .build()
+                        .toByteArray();
+        return DynamicMessage.parseFrom(descriptor, protobufMessage);
+    }
+
+    /** Serializes and deserializes {@code value}, as shipping it to another node does. */
+    private static <T extends Serializable> T serializeAndDeserialize(T value) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(value);
+        }
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (T) input.readObject();
+        }
     }
 
     /** Fixture: a proto3 map field, as in {@code map<string, float> attributes = 9;}. */
@@ -633,5 +661,148 @@ class ProtobufConverterTest {
 
         Assertions.assertEquals("test data", convertedRow.getField(0));
         Assertions.assertNull(convertedRow.getField(1));
+    }
+
+    /**
+     * The field resolution of a job must be computed once per owning message and reused for every
+     * record. The resolver runs once per record and once per column, so repeating the
+     * case-insensitive index build for every record would scan the whole message again for every
+     * column whose name does not match the proto field exactly.
+     */
+    @Test
+    void testReadSideFieldResolutionPlanIsReusedAcrossRecords() throws Exception {
+        Descriptors.Descriptor descriptor = stringFieldMessage("c_string", 6);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"C_STRING"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        DynamicMessage dynamicMessage = singleFieldMessage(descriptor, "c_string", "test data");
+        ProtobufToRowConverter converter =
+                new ProtobufToRowConverter(UNCOMPILED_PROTO_SOURCE, MESSAGE_NAME);
+
+        ProtobufFieldResolver fieldResolver = converter.getFieldResolver();
+        Assertions.assertSame(fieldResolver, converter.getFieldResolver());
+
+        for (int record = 0; record < 3; record++) {
+            SeaTunnelRow convertedRow = converter.converter(descriptor, dynamicMessage, rowType);
+            Assertions.assertEquals("test data", convertedRow.getField(0));
+        }
+
+        Assertions.assertSame(fieldResolver, converter.getFieldResolver());
+        Assertions.assertEquals(1, fieldResolver.cachedDescriptorCount());
+    }
+
+    /** The write side resolves every column of every record the same way as the read side. */
+    @Test
+    void testWriteSideFieldResolutionPlanIsReusedAcrossRecords() throws Exception {
+        Descriptors.Descriptor descriptor = stringFieldMessage("c_string", 6);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"C_STRING"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        RowToProtobufConverter converter = new RowToProtobufConverter(rowType, descriptor);
+
+        ProtobufFieldResolver fieldResolver = converter.getFieldResolver();
+
+        for (int record = 0; record < 3; record++) {
+            DynamicMessage dynamicMessage =
+                    DynamicMessage.parseFrom(
+                            descriptor,
+                            converter.convertRowToGenericRecord(
+                                    new SeaTunnelRow(new Object[] {"test data"})));
+            Assertions.assertEquals(
+                    "test data", dynamicMessage.getField(descriptor.findFieldByName("c_string")));
+        }
+
+        Assertions.assertSame(fieldResolver, converter.getFieldResolver());
+        Assertions.assertEquals(1, fieldResolver.cachedDescriptorCount());
+    }
+
+    /**
+     * Two messages may declare the same field name with different types. The resolution is bound to
+     * the message that owns the field, so the plan cached for one message must not be reused for
+     * another one, which would resolve the column to a field of a foreign message type.
+     */
+    @Test
+    void testFieldResolutionPlansAreSeparatedByDescriptor() throws Exception {
+        Descriptors.Descriptor stringDescriptor = stringFieldMessage("C_String", 6);
+        Descriptors.Descriptor int32Descriptor = int32FieldMessage("C_String", 6);
+        SeaTunnelRowType stringRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType int32RowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        ProtobufToRowConverter converter =
+                new ProtobufToRowConverter(UNCOMPILED_PROTO_SOURCE, MESSAGE_NAME);
+
+        SeaTunnelRow stringRow =
+                converter.converter(
+                        stringDescriptor,
+                        singleFieldMessage(stringDescriptor, "C_String", "test data"),
+                        stringRowType);
+        SeaTunnelRow int32Row =
+                converter.converter(
+                        int32Descriptor,
+                        singleFieldMessage(int32Descriptor, "C_String", 123),
+                        int32RowType);
+
+        Assertions.assertEquals("test data", stringRow.getField(0));
+        Assertions.assertEquals(123, int32Row.getField(0));
+        Assertions.assertEquals(2, converter.getFieldResolver().cachedDescriptorCount());
+    }
+
+    /**
+     * The resolution plans hold protobuf descriptors, which are not serializable, so they must not
+     * be part of the serialized form of a converter. A converter that crossed a serialization
+     * boundary has to rebuild the plans lazily and keep resolving fields.
+     */
+    @Test
+    void testFieldResolutionIsRebuiltAfterSerialization() throws Exception {
+        Descriptors.Descriptor descriptor = stringFieldMessage("c_string", 6);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"C_STRING"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        DynamicMessage dynamicMessage = singleFieldMessage(descriptor, "c_string", "test data");
+        ProtobufToRowConverter converter =
+                new ProtobufToRowConverter(UNCOMPILED_PROTO_SOURCE, MESSAGE_NAME);
+        Assertions.assertEquals(
+                "test data", converter.converter(descriptor, dynamicMessage, rowType).getField(0));
+
+        ProtobufToRowConverter deserialized = serializeAndDeserialize(converter);
+
+        Assertions.assertEquals(
+                "test data",
+                deserialized.converter(descriptor, dynamicMessage, rowType).getField(0));
+        Assertions.assertEquals(1, deserialized.getFieldResolver().cachedDescriptorCount());
+    }
+
+    /**
+     * The exact name wins over the case-insensitive fallback, and a fallback that matches several
+     * proto fields keeps the first declared one. The message declares {@code string foo = 1;}
+     * before {@code int32 FOO = 2;}, so {@code FOO} is resolved exactly and {@code Foo} is resolved
+     * to {@code foo}.
+     */
+    @Test
+    void testFirstDeclaredFieldWinsForCaseInsensitiveMatch() throws Exception {
+        Descriptors.Descriptor descriptor =
+                buildTestMessage(
+                        testMessage()
+                                .addField(stringField("foo", 1))
+                                .addField(int32Field("FOO", 2)));
+        SeaTunnelRowType exactRowType =
+                new SeaTunnelRowType(
+                        new String[] {"FOO"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType caseVariantRowType =
+                new SeaTunnelRowType(
+                        new String[] {"Foo"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        Assertions.assertEquals(
+                123, roundTrip(descriptor, exactRowType, new Object[] {123}).getField(0));
+        Assertions.assertEquals(
+                "test data",
+                roundTrip(descriptor, caseVariantRowType, new Object[] {"test data"}).getField(0));
     }
 }

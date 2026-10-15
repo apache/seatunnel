@@ -42,6 +42,12 @@ public class ProtobufToRowConverter implements Serializable {
     private String protoContent;
     private String messageName;
 
+    /**
+     * Field resolution plans, reused for every record. Transient, because the plans hold protobuf
+     * descriptors, which are not serializable: a deserialized converter rebuilds them lazily.
+     */
+    private transient volatile ProtobufFieldResolver fieldResolver;
+
     public ProtobufToRowConverter(String protoContent, String messageName) {
         this.protoContent = protoContent;
         this.messageName = messageName;
@@ -72,9 +78,10 @@ public class ProtobufToRowConverter implements Serializable {
             SeaTunnelRowType rowType) {
         String[] fieldNames = rowType.getFieldNames();
         Object[] values = new Object[fieldNames.length];
+        ProtobufFieldResolver fieldResolver = getFieldResolver();
         for (int i = 0; i < fieldNames.length; i++) {
             Descriptors.FieldDescriptor fieldDescriptor =
-                    ProtobufFieldResolver.findField(descriptor, fieldNames[i]);
+                    fieldResolver.findField(descriptor, fieldNames[i]);
             if (fieldDescriptor == null) {
                 values[i] = null;
             } else {
@@ -86,6 +93,16 @@ public class ProtobufToRowConverter implements Serializable {
             }
         }
         return new SeaTunnelRow(values);
+    }
+
+    /** Returns the field resolution plans reused across records. */
+    ProtobufFieldResolver getFieldResolver() {
+        ProtobufFieldResolver resolver = fieldResolver;
+        if (resolver == null) {
+            resolver = ProtobufFieldResolver.create();
+            fieldResolver = resolver;
+        }
+        return resolver;
     }
 
     private Object convertField(

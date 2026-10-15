@@ -38,6 +38,9 @@ public class RowToProtobufConverter implements Serializable {
     private final Descriptors.Descriptor descriptor;
     private final SeaTunnelRowType rowType;
 
+    /** Field resolution plans reused across records and kept out of serialized state. */
+    private transient volatile ProtobufFieldResolver fieldResolver;
+
     public RowToProtobufConverter(SeaTunnelRowType rowType, Descriptors.Descriptor descriptor) {
         this.rowType = rowType;
         this.descriptor = descriptor;
@@ -65,7 +68,7 @@ public class RowToProtobufConverter implements Serializable {
 
         Descriptors.Descriptor messageDescriptor = builder.getDescriptorForType();
         Descriptors.FieldDescriptor fieldDescriptor =
-                ProtobufFieldResolver.findField(messageDescriptor, fieldName);
+                getFieldResolver().findField(messageDescriptor, fieldName);
         if (fieldDescriptor == null) {
             throw new SeaTunnelProtobufFormatException(
                     ProtobufFormatErrorCode.FIELD_NOT_FOUND,
@@ -81,6 +84,16 @@ public class RowToProtobufConverter implements Serializable {
             }
             builder.setField(fieldDescriptor, resolvedValue);
         }
+    }
+
+    /** Returns the field resolution plans reused across records. */
+    ProtobufFieldResolver getFieldResolver() {
+        ProtobufFieldResolver resolver = fieldResolver;
+        if (resolver == null) {
+            resolver = ProtobufFieldResolver.create();
+            fieldResolver = resolver;
+        }
+        return resolver;
     }
 
     private Object resolveObject(
