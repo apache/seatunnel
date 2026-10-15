@@ -171,8 +171,8 @@ public class DorisTypeConvertorV2Test {
                         .build();
         Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(20, 0), column.getDataType());
-        Assertions.assertEquals(20, column.getColumnLength());
+        Assertions.assertEquals(new DecimalType(39, 0), column.getDataType());
+        Assertions.assertEquals(39, column.getColumnLength());
         Assertions.assertEquals(0, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
@@ -414,7 +414,7 @@ public class DorisTypeConvertorV2Test {
                         .build();
         column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalArrayType(new DecimalType(20, 0)), column.getDataType());
+        Assertions.assertEquals(new DecimalArrayType(new DecimalType(39, 0)), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -544,7 +544,7 @@ public class DorisTypeConvertorV2Test {
                         .build();
         column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        mapType = new MapType<>(BasicType.SHORT_TYPE, new DecimalType(20, 0));
+        mapType = new MapType<>(BasicType.SHORT_TYPE, new DecimalType(39, 0));
         Assertions.assertEquals(mapType, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -568,7 +568,7 @@ public class DorisTypeConvertorV2Test {
                         .build();
         column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        mapType = new MapType<>(new DecimalType(20, 0), BasicType.DOUBLE_TYPE);
+        mapType = new MapType<>(new DecimalType(39, 0), BasicType.DOUBLE_TYPE);
         Assertions.assertEquals(mapType, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -1157,7 +1157,7 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals("ARRAY<DECIMALV3(10, 2)>", typeDefine.getColumnType());
         Assertions.assertEquals("ARRAY<DECIMALV3>", typeDefine.getDataType());
 
-        decimalArrayType = new DecimalArrayType(new DecimalType(20, 0));
+        decimalArrayType = new DecimalArrayType(new DecimalType(39, 0));
         column =
                 PhysicalColumn.builder()
                         .name("test")
@@ -1166,8 +1166,10 @@ public class DorisTypeConvertorV2Test {
                         .build();
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals("ARRAY<DECIMALV3(20, 0)>", typeDefine.getColumnType());
-        Assertions.assertEquals("ARRAY<DECIMALV3>", typeDefine.getDataType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_LARGEINT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_LARGEINT_ARRAY, typeDefine.getDataType());
     }
 
     @Test
@@ -1288,6 +1290,19 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals("MAP<DATETIME(6), STRING>", typeDefine.getColumnType());
         Assertions.assertEquals("MAP<DATETIME(6), STRING>", typeDefine.getDataType());
+
+        String dorisLargeintMap = "map<smallint(6),largeint>";
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(new MapType<>(BasicType.SHORT_TYPE, new DecimalType(39, 0)))
+                        .sourceType(dorisLargeintMap)
+                        .build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(dorisLargeintMap, typeDefine.getColumnType());
+        Assertions.assertEquals(dorisLargeintMap, typeDefine.getDataType());
     }
 
     @Test

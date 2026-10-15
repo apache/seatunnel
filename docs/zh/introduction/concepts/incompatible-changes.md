@@ -288,6 +288,15 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
+- **破坏性变更：Doris LARGEINT 现在映射为 DECIMAL(39,0) 而非 STRING**
+  - **受影响组件**：`seatunnel-connectors-v2/connector-doris` 源端（`AbstractDorisTypeConverter`）
+  - **变更说明**：Doris `LARGEINT` 是有符号 128 位整数，其最大值（2^127 - 1 = 170141183460469231731687303715884105727）有 39 位十进制数字。连接器之前将其暴露为 SeaTunnel schema 中的 `STRING`，导致下游 Sink 和 Transform 需要自行做字符串到数值的转换；在某些代码路径中（例如嵌套 Map 值）还被映射为 `DECIMAL(20,0)`，会静默截断超过 20 位的值。现在 LARGEINT 列统一解析为 `DECIMAL(39,0)`，Array 和 Map 等嵌套类型中的 LARGEINT 值也会沿用该精度。
+  - **影响**：之前将 Doris LARGEINT 列当作 `STRING` 处理的下游消费方，现在会收到 `DECIMAL(39,0)` 类型。显式对该列做 `CAST(... AS STRING)` 的代码或 SQL 会得到不同的运行时类型。此外，`DECIMAL(39,0)` 超出 Spark 的 38 位精度上限——通过 Spark 适配器读取 Doris LARGEINT 列时，Spark 会因精度超限而拒绝 schema。
+  - **迁移指南**：
+    - **通用**：如果希望对 Doris LARGEINT 列做数值运算，移除显式 `CAST(... AS STRING)`；该列现在已是原生 DECIMAL 类型。
+    - **Spark 用户**：如果需要将 Doris LARGEINT 列通过 Spark 适配器处理，请在 Transform 中显式转换为兼容类型（例如 `CAST(largeint_col AS STRING)` 或在值范围允许时 `CAST(largeint_col AS BIGINT)`）。Spark 精度上限问题将另行修复。
+    - **Sink 自动建表**：Doris-to-Doris 回环会保留原始 `LARGEINT` 声明；跨数据库 Sink 自动建表时会收到 `DECIMAL(39,0)`，如果目标数据库不支持 39 位精度，可能需要手动调整 DDL。
+
 ### 转换变更
 
 - **行为变更：AMAZON 向量化遵循重试选项**

@@ -307,13 +307,12 @@ public class DorisIT extends AbstractDorisIT {
                     }
 
                     if (sourceColumnType.equalsIgnoreCase("map<smallint(6),largeint>")) {
-                        Assertions.assertEquals(
-                                "map<smallint(6),decimalv3(20, 0)>", sinkColumnType);
+                        Assertions.assertEquals("map<smallint(6),largeint>", sinkColumnType);
                         continue;
                     }
 
                     if (sourceColumnType.equalsIgnoreCase("map<largeint,double>")) {
-                        Assertions.assertEquals("map<decimalv3(20, 0),double>", sinkColumnType);
+                        Assertions.assertEquals("map<largeint,double>", sinkColumnType);
                         continue;
                     }
 
@@ -588,7 +587,7 @@ public class DorisIT extends AbstractDorisIT {
         checkColumnTypeMap.put("F_ARRAY_DOUBLE", "ARRAY<double>");
         checkColumnTypeMap.put("F_ARRAY_STRING_CHAR", "ARRAY<string>");
         checkColumnTypeMap.put("F_ARRAY_STRING_VARCHAR", "ARRAY<string>");
-        checkColumnTypeMap.put("F_ARRAY_STRING_LARGEINT", "ARRAY<decimalv3(20, 0)>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_LARGEINT", "ARRAY<largeint>");
         checkColumnTypeMap.put("F_ARRAY_STRING_STRING", "ARRAY<string>");
         checkColumnTypeMap.put("F_ARRAY_DECIMAL", "ARRAY<decimalv3(10, 2)>");
         checkColumnTypeMap.put("F_ARRAY_DATE", "ARRAY<date>");

@@ -169,7 +169,8 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                 || columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIMEV2_INTER)) {
             builder.dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
         } else if (columnInterType.equalsIgnoreCase(DORIS_LARGEINT)) {
-            DecimalArrayType decimalArray = new DecimalArrayType(new DecimalType(20, 0));
+            DecimalArrayType decimalArray =
+                    new DecimalArrayType(new DecimalType(DORIS_LARGEINT_PRECISION, 0));
             builder.dataType(decimalArray);
         } else {
             throw CommonError.convertToSeaTunnelTypeError(IDENTIFIER, columnType, name);
@@ -251,6 +252,15 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
     }
 
     private void reconvertMap(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
+        String sourceType = column.getSourceType();
+        if (sourceType != null
+                && sourceType.toUpperCase(Locale.ROOT).startsWith(DORIS_MAP)
+                && sourceType.toUpperCase(Locale.ROOT).contains(DORIS_LARGEINT)) {
+            builder.dataType(sourceType);
+            builder.columnType(sourceType);
+            return;
+        }
+
         MapType dataType = (MapType) column.getDataType();
         SeaTunnelDataType keyType = dataType.getKeyType();
         SeaTunnelDataType valueType = dataType.getValueType();
