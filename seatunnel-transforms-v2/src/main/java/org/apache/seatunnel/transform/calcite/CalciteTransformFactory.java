@@ -39,12 +39,7 @@ public class CalciteTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         // The rule of a single table: the SQL query plus the optional error handling policies.
-        OptionRule tableRule =
-                OptionRule.builder()
-                        .required(CalciteTransformConfig.SQL)
-                        .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
-                        .optional(TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION)
-                        .build();
+        OptionRule tableRule = OptionRule.builder().required(CalciteTransformConfig.SQL).build();
         return OptionRule.builder()
                 .optional(
                         CalciteTransformConfig.SQL,

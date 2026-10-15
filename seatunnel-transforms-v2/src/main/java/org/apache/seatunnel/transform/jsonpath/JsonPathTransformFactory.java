@@ -54,7 +54,6 @@ public class JsonPathTransformFactory implements TableTransformFactory {
                                                 Conditions.extension(
                                                         JsonPathTransformConfig.COLUMNS,
                                                         new ColumnsValidator())))
-                        .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                         .build();
         return OptionRule.builder()
                 .optional(

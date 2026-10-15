@@ -86,11 +86,12 @@ class CalciteTransformFactoryTest {
     }
 
     @Test
-    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+    void testGlobalPolicyOptionDoesNotRequireTheTransformLevelRule() {
+        // 'row_error_handle_way' is a global policy, it must not make the per-table rule partial
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
         cfg.put("row_error_handle_way", "SKIP");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
     }
 
     /** A complete rule for a single table, used as a {@code table_transform} entry. */

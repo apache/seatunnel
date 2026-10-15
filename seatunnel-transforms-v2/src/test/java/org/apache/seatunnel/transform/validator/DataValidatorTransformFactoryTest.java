@@ -21,6 +21,11 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 class DataValidatorTransformFactoryTest {
@@ -128,11 +134,12 @@ class DataValidatorTransformFactoryTest {
     }
 
     @Test
-    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+    void testGlobalPolicyOptionDoesNotRequireTheTransformLevelRule() {
+        // 'row_error_handle_way' is a global policy, it must not make the per-table rule partial
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
         cfg.put("row_error_handle_way", "SKIP");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
     }
 
     /** A complete rule for a single table, used as a {@code table_transform} entry. */
@@ -144,5 +151,53 @@ class DataValidatorTransformFactoryTest {
         fieldRule.put("rule_type", "NOT_NULL");
         entry.put("field_rules", Arrays.asList(fieldRule));
         return entry;
+    }
+
+    /**
+     * In {@code ROUTE_TO_TABLE} mode the transform produces the validated table plus an error
+     * table. Both schemas have to be visible to the sink, otherwise the routed rows are written
+     * with the row type of the validated table and fail the assertions of the error table.
+     */
+    @Test
+    void testRouteToTableExposesErrorTableSchema() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("row_error_handle_way", "ROUTE_TO_TABLE");
+        cfg.put(TransformCommonOptions.ERROR_TABLE_OPTION.key(), "error_data");
+        Map<String, Object> fieldRule = new HashMap<>();
+        fieldRule.put("field_name", "name");
+        fieldRule.put("rule_type", "NOT_NULL");
+        cfg.put("field_rules", Arrays.asList(fieldRule));
+
+        CatalogTable catalogTable = catalogTable("db", "fake");
+        DataValidatorMultiCatalogTransform transform =
+                new DataValidatorMultiCatalogTransform(
+                        Collections.singletonList(catalogTable), ReadonlyConfig.fromMap(cfg));
+
+        Map<String, CatalogTable> producedTables = new HashMap<>();
+        transform
+                .getProducedCatalogTables()
+                .forEach(
+                        table ->
+                                producedTables.put(
+                                        table.getTableId().toTablePath().toString(), table));
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("db.fake", "db.error_data")), producedTables.keySet());
+        Assertions.assertTrue(
+                Arrays.asList(producedTables.get("db.error_data").getTableSchema().getFieldNames())
+                        .contains(DataValidatorTransform.SOURCE_TABLE_ID));
+    }
+
+    private static CatalogTable catalogTable(String database, String tableName) {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name", "age", "email"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE
+                        });
+        return CatalogTableUtil.getCatalogTable("catalog", database, null, tableName, rowType);
     }
 }

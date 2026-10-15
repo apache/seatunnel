@@ -57,8 +57,6 @@ public class DataValidatorTransformFactory implements TableTransformFactory {
                                         .and(
                                                 Conditions.extension(
                                                         FIELD_RULES, new FieldRulesValidator())))
-                        .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
-                        .optional(TransformCommonOptions.ERROR_TABLE_OPTION)
                         .build();
         return OptionRule.builder()
                 .optional(

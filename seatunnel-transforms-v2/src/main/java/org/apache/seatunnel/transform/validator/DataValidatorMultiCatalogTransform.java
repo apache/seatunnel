@@ -24,7 +24,10 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
 import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Multi-table wrapper of the {@link DataValidatorTransform}: every table matched by the
@@ -53,6 +56,32 @@ public class DataValidatorMultiCatalogTransform extends AbstractMultiCatalogMapT
     @Override
     protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
         return hasAnyOptionConfigured(config, DataValidatorTransformConfig.FIELD_RULES);
+    }
+
+    /**
+     * {@link DataValidatorTransform} produces the validated table plus an error table when {@code
+     * row_error_handle_way = ROUTE_TO_TABLE} is used. The error table schema has to reach the sink,
+     * otherwise the routed rows are written with the row type of the validated table and the
+     * assertions of the error table fail. The base wrapper only keeps the validated tables, so the
+     * extra tables of the inner transforms are appended here.
+     */
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        List<CatalogTable> producedTables = new ArrayList<>(super.getProducedCatalogTables());
+        Set<String> producedTablePaths = new HashSet<>();
+        for (CatalogTable producedTable : producedTables) {
+            producedTablePaths.add(producedTable.getTableId().toTablePath().toString());
+        }
+        for (SeaTunnelTransform<SeaTunnelRow> transform : transformMap.values()) {
+            List<CatalogTable> innerProducedTables = transform.getProducedCatalogTables();
+            for (int i = 1; i < innerProducedTables.size(); i++) {
+                CatalogTable extraTable = innerProducedTables.get(i);
+                if (producedTablePaths.add(extraTable.getTableId().toTablePath().toString())) {
+                    producedTables.add(extraTable);
+                }
+            }
+        }
+        return producedTables;
     }
 
     @Override
