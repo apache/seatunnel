@@ -30,6 +30,13 @@ If `context-path` is configured, include it before the hash route:
 http://<host>:8080/<context-path>/#/overview
 ```
 
+The route lives in the URL fragment, so it normally stays on the client. Some clients percent-encode
+the whole URL instead and send the fragment as part of the path - Safari does that when it
+re-requests a hash route, as do chat clients, wiki pages, and markdown previews - which turns
+`/#/overview` into `/%23/overview`. SeaTunnel redirects such a request back to the route it meant to
+open, so the Web UI still loads. A path without a fragment is a REST API path instead: `GET
+/overview` returns cluster JSON, not the UI.
+
 ## Overview
 
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.

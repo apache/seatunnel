@@ -1,0 +1,134 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.rest.filter;
+
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+
+/**
+ * Restores the URL fragment of Web UI routes that a client percent-encoded into the request path.
+ *
+ * <p>The Web UI is a single page application that keeps its route in the URL fragment, so a deep
+ * link looks like {@code http://host:8080/#/overview}. A client that escapes the whole URL sends
+ * the fragment as part of the path instead ({@code /%23/overview}): Safari does that when it
+ * re-requests a hash route, and so do tools that escape a whole URL, such as a chat client, a wiki
+ * page or a markdown preview. No static resource matches that path, so the Web UI answered with the
+ * bare Jetty "HTTP ERROR 404" page while the address bar still showed {@code #/overview}. This
+ * filter recognizes that shape and redirects the client to the URL it meant to open, which the Web
+ * UI router resolves as usual.
+ *
+ * <p>A fragment sent unencoded never reaches the server (the client keeps it), so only the
+ * percent-encoded form is handled here; every other request passes through untouched.
+ */
+@Slf4j
+public class WebUiFragmentRedirectFilter implements Filter {
+
+    /** A percent-encoded {@code #}, as produced by clients that escape a whole URL. */
+    private static final String ENCODED_FRAGMENT_HEADER = "/%23";
+
+    private static final String GET = "GET";
+
+    private static final String HEAD = "HEAD";
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // No initialization needed
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        if (!(request instanceof HttpServletRequest)
+                || !(response instanceof HttpServletResponse)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        String location =
+                redirectLocationFor(
+                        httpRequest.getMethod(),
+                        httpRequest.getRequestURI(),
+                        httpRequest.getContextPath(),
+                        httpRequest.getQueryString());
+        if (location == null) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        log.debug(
+                "Redirecting {} to {} to restore the Web UI route the client encoded",
+                httpRequest.getRequestURI(),
+                location);
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+        httpResponse.setStatus(HttpServletResponse.SC_FOUND);
+        httpResponse.setHeader("Location", location);
+    }
+
+    @Override
+    public void destroy() {
+        // No resources to release
+    }
+
+    /**
+     * Builds the Web UI URL a request meant to open when its fragment arrived percent-encoded.
+     *
+     * @param method the HTTP method of the request
+     * @param requestUri the raw, still percent-encoded request URI
+     * @param contextPath the context path the request was served under, empty when there is none
+     * @param queryString the query string of the request, {@code null} when there is none
+     * @return the location to redirect to, or {@code null} when the request carries no encoded
+     *     fragment and must be handled normally
+     */
+    static String redirectLocationFor(
+            String method, String requestUri, String contextPath, String queryString) {
+        if (!GET.equals(method) && !HEAD.equals(method)) {
+            return null;
+        }
+        if (requestUri == null || contextPath == null || !requestUri.startsWith(contextPath)) {
+            return null;
+        }
+        String pathInContext = requestUri.substring(contextPath.length());
+        if (!pathInContext.startsWith(ENCODED_FRAGMENT_HEADER)) {
+            return null;
+        }
+
+        StringBuilder location = new StringBuilder(contextPath).append('/');
+        String fragment = pathInContext.substring(ENCODED_FRAGMENT_HEADER.length());
+        if (!fragment.isEmpty()) {
+            // The client kept the route after the encoded separator, so it is the fragment again.
+            location.append('#').append(fragment);
+        }
+        if (StringUtils.isNotBlank(queryString)) {
+            location.append('?').append(queryString);
+        }
+        return location.toString();
+    }
+}
