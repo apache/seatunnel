@@ -37,6 +37,10 @@ re-requests a hash route, as do chat clients, wiki pages, and markdown previews 
 open, so the Web UI still loads. A path without a fragment is a REST API path instead: `GET
 /overview` returns cluster JSON, not the UI.
 
+The redirect is built from the configured `context-path`, so set `context-path` when the Web UI is
+exposed under a prefix. A prefix that a reverse proxy strips before forwarding the request is not
+part of the redirect target.
+
 ## Overview
 
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.

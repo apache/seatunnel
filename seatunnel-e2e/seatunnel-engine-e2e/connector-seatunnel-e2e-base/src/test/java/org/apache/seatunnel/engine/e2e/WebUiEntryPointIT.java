@@ -68,6 +68,9 @@ public class WebUiEntryPointIT {
 
     @BeforeAll
     static void startEngine() throws IOException {
+        Assertions.assertNotNull(
+                WebUiEntryPointIT.class.getClassLoader().getResource("ui"),
+                "This test needs the packaged Web UI resources; run it without -Dskip.ui=true");
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
         config.getHazelcastConfig().setClusterName(TestUtils.getClusterName("WebUiEntryPointIT"));
         int httpPort = getAvailablePort();
