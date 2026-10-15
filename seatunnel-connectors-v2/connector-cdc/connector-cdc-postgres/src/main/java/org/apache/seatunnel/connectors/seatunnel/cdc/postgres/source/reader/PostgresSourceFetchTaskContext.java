@@ -176,13 +176,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         new PostgresOffsetContext.Loader(connectorConfig), sourceSplitBase);
         this.partition = new PostgresPartition(connectorConfig.getLogicalName());
 
-        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
-        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
-        // use the configuration queue size.
-        final int queueSize =
-                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
-                        : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
+        final int queueSize = getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
         LoggingContext.PreviousContext previousContext =
                 taskContext.configureLoggingContext(CONTEXT_NAME);
@@ -514,16 +508,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         Map<String, String> offsetStrMap =
                 Objects.requireNonNull(offset, "offset is null for the sourceSplitBase")
                         .getOffset();
-        // Numeric offsets are stored as strings in split state; the resume operation is an enum.
+        // all the keys happen to be long type for PostgresOffsetContext.Loader.load
         Map<String, Object> offsetMap = new HashMap<>();
         for (String key : offsetStrMap.keySet()) {
             String value = offsetStrMap.get(key);
             if (value != null) {
-                offsetMap.put(
-                        key,
-                        PostgresOffsetContext.LAST_PROCESSED_MESSAGE_TYPE_KEY.equals(key)
-                                ? value
-                                : Long.parseLong(value));
+                offsetMap.put(key, Long.parseLong(value));
             }
         }
         return loader.load(offsetMap);
