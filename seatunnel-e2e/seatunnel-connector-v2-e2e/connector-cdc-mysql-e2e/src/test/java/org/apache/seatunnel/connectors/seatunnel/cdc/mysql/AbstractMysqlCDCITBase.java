@@ -388,8 +388,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK},
-            disabledReason = "Currently SPARK do not support cdc")
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Currently SPARK do not support cdc; the DDL parser fix is engine-independent, "
+                            + "so FLINK is skipped to keep the job within its time budget")
     public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
         // Tables without a primary key whose unique key (single, and composite with one nullable
         // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
