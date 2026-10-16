@@ -308,6 +308,9 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 If there is no HDFS and the cluster has only one node, you can configure it to use local files as follows:
@@ -325,12 +328,21 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: file:///
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
 intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
 avoids excessive WAL growth for observability-only state. After an engine restart, running-job
 metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+
+Note: the examples in this section also disable MapStore for `engine_finishedJobMetrics`, so after a
+full cluster restart the metrics of jobs that finished before the restart are not kept. Job recovery
+does not depend on this map. To keep these metrics, remove the `engine_finishedJobMetrics` entry: an
+exact map entry does not inherit any setting from `engine*`, so setting `enabled: true` in it does
+not work.
 
 If using OSS, you can configure it as follows:
 
@@ -351,6 +363,9 @@ map:
            fs.oss.accessKeyId: OSS access key id
            fs.oss.accessKeySecret: OSS access key secret
            fs.oss.endpoint: OSS endpoint
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.
@@ -392,6 +407,9 @@ map:
          fs.s3a.access.key: YOUR_ACCESS_KEY
          fs.s3a.secret.key: YOUR_SECRET_KEY
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+   engine_finishedJobMetrics:
+     map-store:
+       enabled: false
 ```
 
 Notice: When using S3, make sure that the following jars are in the lib directory.
