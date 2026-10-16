@@ -75,6 +75,8 @@ The transform level rule is optional when every table is selected by a `table_tr
 | Not matched by an entry, but matched by `table_match_regex` and the transform level rule is configured | The transform level rule |
 | Not matched by any entry, and no transform level rule applies | The table is passed through unchanged |
 
+**DataValidator exception**: `row_error_handle_way` and `row_error_handle_way.error_table` at the transform level also apply to entry-matched tables, unless the entry sets them itself. Other transform level options do not apply to entry-matched tables.
+
 `table_transform.table_path` uses exact table path matching. `rule_match_mode` only controls the case where multiple `table_transform` entries use the same exact `table_path`:
 
 - If `rule_match_mode` is not configured, duplicate exact `table_path` entries are rejected during config resolution.

@@ -71,6 +71,8 @@ transform {
 | 未命中条目，但被 `table_match_regex` 匹配且配置了外层规则 | 外层规则 |
 | 未命中条目，且没有生效的外层规则 | 该表不做任何转换，原样透传 |
 
+**DataValidator 例外**：外层的 `row_error_handle_way` 和 `row_error_handle_way.error_table` 也会作用于 entry 选中的表，条目自己配置时以条目为准；其他外层选项不作用于 entry 表。
+
 `table_transform.table_path` 使用精确表路径匹配。`rule_match_mode` 只控制多个 `table_transform` 配置使用相同精确 `table_path` 的场景：
 
 - 如果没有配置 `rule_match_mode`，重复的精确 `table_path` 配置会在配置解析阶段失败。

@@ -321,6 +321,7 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
   - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
   - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
+- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 - **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
   这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
   从而静默产生错误的值：
