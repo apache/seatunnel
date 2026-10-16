@@ -23,10 +23,10 @@ The Filter transform decides which fields of a table are passed to the next step
 
 | Name              | Type               | Required | Default | Description                                                                                          |
 |-------------------|--------------------|----------|---------|------------------------------------------------------------------------------------------------------|
-| include_fields    | Array<String>      | no       | -       | Fields to keep. All other fields are removed. Mutually exclusive with `exclude_fields`.              |
-| exclude_fields    | Array<String>      | no       | -       | Fields to remove. All other fields are kept. Mutually exclusive with `include_fields`.               |
+| include_fields    | Array&lt;String&gt;      | no       | -       | Fields to keep. All other fields are removed. Mutually exclusive with `exclude_fields`.              |
+| exclude_fields    | Array&lt;String&gt;      | no       | -       | Fields to remove. All other fields are kept. Mutually exclusive with `include_fields`.               |
 | table_match_regex | String             | no       | `.*`    | Regex of the table paths that the transform level rule applies to.                                   |
-| table_transform   | Array<Map>         | no       | -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
+| table_transform   | Array&lt;Map&gt;         | no       | -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
 | rule_match_mode   | String             | no       | -       | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -       | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
@@ -36,7 +36,7 @@ Exactly one of `include_fields` and `exclude_fields` must be set in every rule. 
 
 :::
 
-### include_fields [Array<String>]
+### include_fields [Array&lt;String&gt;]
 
 The fields to keep, for example `include_fields = [name, card]` keeps only those two fields. All other fields are removed.
 
@@ -48,7 +48,7 @@ For backward compatibility, the deprecated option name `fields` is still accepte
 
 :::
 
-### exclude_fields [Array<String>]
+### exclude_fields [Array&lt;String&gt;]
 
 The fields to remove, for example `exclude_fields = [age]` removes `age` and keeps everything else. This is convenient when you only want to delete a few fields from a table with many fields.
 
@@ -60,7 +60,7 @@ A regular expression matched against the upstream table path. The transform leve
 
 Note that this refers to the real upstream table name, not to `plugin_output`.
 
-### table_transform [Array<Map>]
+### table_transform [Array&lt;Map&gt;]
 
 A list of per-table rules. Each entry must contain `table_path` in the form `databaseName[.schemaName].tableName` (matched exactly) and a complete Filter rule for that table, which means exactly one of `include_fields` and `exclude_fields`.
 
@@ -84,7 +84,7 @@ When the upstream source outputs several tables (for example JDBC or MySQL-CDC),
 - Every entry must be a complete single-table rule (`table_path` plus `include_fields` or `exclude_fields`).
 - The transform level rule applies only to tables matching `table_match_regex`.
 
-The configuration below uses a transform level rule for `test.a*` tables, a per-table rule for `test.xyz`, and leaves `test.www` unchanged:
+The configuration below uses a transform level rule for test.a.* tables, a per-table rule for `test.xyz`, and leaves `test.www` unchanged:
 
 ```hocon
 env {

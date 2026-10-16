@@ -84,7 +84,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 - 每个条目必须是一条完整的单表规则（`table_path` 加上 `include_fields` 或 `exclude_fields`）。
 - 转换级别规则只应用于匹配 `table_match_regex` 的表。
 
-下面的配置对 `test.a*` 表使用转换级别规则，对 `test.xyz` 使用单表规则，并保持 `test.www` 不变：
+下面的配置对 test.a.* 表使用转换级别规则，对 `test.xyz` 使用单表规则，并保持 `test.www` 不变：
 
 ```hocon
 env {
