@@ -458,6 +458,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return isOracleDataException(sqlException);
     }
 
+    /**
+     * Returns whether the current transaction is owned by this flush and can be replayed safely.
+     * Checkpoint and XA transactions span multiple flushes, so their conflicts must be propagated
+     * to the owner that can replay the complete transaction.
+     */
     private boolean canRetryTransactionConflict() throws SQLException {
         if (!commitOnFlush) {
             return false;
@@ -470,6 +475,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         return connection != null && !connection.getAutoCommit();
     }
 
+    /**
+     * Rolls back the failed flush transaction and clears only the driver's partial batch. The
+     * executor retains its logical records so a following flush attempt can replay them.
+     */
     private void rollbackAfterTransactionConflict() throws SQLException {
         Connection connection = connectionProvider.getConnection();
         if (connection != null && !connection.getAutoCommit()) {
@@ -479,6 +488,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         jdbcStatementExecutor.resetForTransactionConflictRetry();
     }
 
+    /**
+     * Identifies database transaction conflicts using PostgreSQL SQLSTATEs 40P01/40001 and Oracle
+     * vendor code 60 with the ORA-00060 message.
+     */
     private boolean isRetryableTransactionConflict(List<SQLException> sqlExceptions) {
         for (SQLException sqlException : sqlExceptions) {
             String sqlState = sqlException.getSQLState();

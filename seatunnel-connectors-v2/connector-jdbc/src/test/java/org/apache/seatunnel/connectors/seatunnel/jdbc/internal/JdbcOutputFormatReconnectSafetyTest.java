@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,6 +31,7 @@ import org.mockito.Mockito;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.function.Function;
 
 class JdbcOutputFormatReconnectSafetyTest {
 
@@ -97,6 +100,66 @@ class JdbcOutputFormatReconnectSafetyTest {
         Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
         Assertions.assertEquals(1, executor.executeBatchCalls);
         Mockito.verify(connection, Mockito.never()).rollback();
+    }
+
+    @Test
+    void testExhaustedDeadlockRetryDoesNotReplayBufferedBatchOnClose() throws Exception {
+        JdbcBatchStatementExecutor<SeaTunnelRow> child = deadlockThenSuccessExecutor();
+        assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+                new BufferedBatchStatementExecutor(child, Function.identity()), child);
+    }
+
+    @Test
+    void testExhaustedDeadlockRetryDoesNotReplayReducedBatchOnClose() throws Exception {
+        JdbcBatchStatementExecutor<SeaTunnelRow> upsert = deadlockThenSuccessExecutor();
+        JdbcBatchStatementExecutor<SeaTunnelRow> delete =
+                Mockito.mock(JdbcBatchStatementExecutor.class);
+        assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+                new BufferReducedBatchStatementExecutor(
+                        upsert, delete, Function.identity(), Function.identity()),
+                upsert);
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> deadlockThenSuccessExecutor()
+            throws SQLException {
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                Mockito.mock(JdbcBatchStatementExecutor.class);
+        Mockito.doThrow(new SQLException("deadlock detected", "40P01"))
+                .doNothing()
+                .when(executor)
+                .executeBatch();
+        return executor;
+    }
+
+    private static void assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+            JdbcBatchStatementExecutor<SeaTunnelRow> executor,
+            JdbcBatchStatementExecutor<SeaTunnelRow> child)
+            throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:test")
+                        .batchSize(100)
+                        .batchIntervalMs(0)
+                        .maxRetries(0)
+                        .build();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+                outputFormat =
+                        new NoSleepJdbcOutputFormat<>(provider, config, () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+
+        Mockito.verify(connection).rollback();
+        Mockito.verify(child, Mockito.times(1)).executeBatch();
+        Mockito.verify(child, Mockito.atLeastOnce()).clearBatch();
     }
 
     @Test

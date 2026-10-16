@@ -118,6 +118,7 @@ public class BufferReducedBatchStatementExecutor
 
     @Override
     public void executeBatch() throws SQLException {
+        flushFailed = false;
         try {
             Boolean preChangeFlag = null;
             Collection<Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>>> entries =

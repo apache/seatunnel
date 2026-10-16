@@ -48,7 +48,10 @@ public interface JdbcBatchStatementExecutor<T> {
         return false;
     }
 
-    /** Discards a partially submitted JDBC batch while retaining the logical records for replay. */
+    /**
+     * Discards a partially submitted JDBC batch while retaining the logical records for replay.
+     * Implementations must keep the failed state until the next execute attempt starts.
+     */
     default void resetForTransactionConflictRetry() throws SQLException {
         throw new SQLException("Transaction conflict retry is not supported by this executor");
     }
