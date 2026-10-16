@@ -21,6 +21,11 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -109,5 +114,41 @@ public class CockroachDBDialect extends PostgresDialect {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "CockroachDB requires pre-created tables and does not support table_options");
         }
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, SchemaChangeEvent event) {
+        throw unsupportedSchemaChange();
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableAddColumnEvent event) {
+        throw unsupportedSchemaChange();
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableChangeColumnEvent event) {
+        throw unsupportedSchemaChange();
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event) {
+        throw unsupportedSchemaChange();
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableDropColumnEvent event) {
+        throw unsupportedSchemaChange();
+    }
+
+    private JdbcConnectorException unsupportedSchemaChange() {
+        return new JdbcConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                "CockroachDB JDBC dialect does not support schema changes; use pre-created tables");
     }
 }
