@@ -474,8 +474,8 @@ abc.*
 
 ### null_format [string]
 
-仅在 file_format_type 为 text 时使用。
-null_format 定义哪些字符串可以表示为 null。
+当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。
+对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。
 
 例如：`\N`
 

@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.csv;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -41,6 +42,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -55,6 +57,7 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -67,6 +70,7 @@ public class CsvDeserializationSchema implements Serializable {
     private final String nullFormat;
     private final CsvLineProcessor processor;
     private final CatalogTable catalogTable;
+    private final Map<String, Column> columnsByName;
 
     @SuppressWarnings("MagicNumber")
     public static final DateTimeFormatter TIME_FORMAT =
@@ -90,6 +94,12 @@ public class CsvDeserializationSchema implements Serializable {
         this.nullFormat = nullFormat;
         this.processor = processor;
         this.catalogTable = catalogTable;
+        this.columnsByName = new HashMap<>();
+        if (catalogTable != null) {
+            for (Column column : catalogTable.getTableSchema().getColumns()) {
+                columnsByName.put(column.getName(), column);
+            }
+        }
     }
 
     public static Builder builder() {
@@ -185,10 +195,11 @@ public class CsvDeserializationSchema implements Serializable {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             String fieldValue = splitsMap.get(i);
-            if (StringUtils.isBlank(fieldValue)) {
+            if (fieldValue == null || StringUtils.equals(fieldValue, nullFormat)) {
+                objects[i] = getDefaultValue(i);
                 continue;
             }
-            if (StringUtils.equals(fieldValue, nullFormat)) {
+            if (StringUtils.isBlank(fieldValue)) {
                 continue;
             }
             objects[i] =
@@ -205,6 +216,123 @@ public class CsvDeserializationSchema implements Serializable {
             seaTunnelRow.setTableId(tablePath.toString());
         }
         return seaTunnelRow;
+    }
+
+    private Object getDefaultValue(int fieldIndex) {
+        String fieldName = seaTunnelRowType.getFieldNames()[fieldIndex];
+        Column column = columnsByName.get(fieldName);
+        if (column == null || column.getDefaultValue() == null) {
+            return null;
+        }
+        SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(fieldIndex);
+        try {
+            return convertDefaultValue(column.getDefaultValue(), fieldType, fieldName);
+        } catch (RuntimeException ignored) {
+            // Parser exceptions can include the configured value in their messages.
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid defaultValue for CSV column [%s] of type [%s]",
+                            fieldName, fieldType));
+        }
+    }
+
+    private Object convertDefaultValue(
+            Object value, SeaTunnelDataType<?> fieldType, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        switch (fieldType.getSqlType()) {
+            case STRING:
+                return value.toString();
+            case BOOLEAN:
+                if (!"true".equalsIgnoreCase(value.toString())
+                        && !"false".equalsIgnoreCase(value.toString())) {
+                    throw new IllegalArgumentException("Boolean default must be true or false");
+                }
+                return Boolean.parseBoolean(value.toString());
+            case BYTES:
+                if (value instanceof byte[]) {
+                    return ((byte[]) value).clone();
+                }
+                if (value instanceof String) {
+                    return ((String) value).getBytes(StandardCharsets.UTF_8);
+                }
+                break;
+            case ARRAY:
+                if (value instanceof Collection || value.getClass().isArray()) {
+                    ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
+                    SeaTunnelDataType<?> elementType = arrayType.getElementType();
+                    int length =
+                            value instanceof Collection
+                                    ? ((Collection<?>) value).size()
+                                    : Array.getLength(value);
+                    Object result = Array.newInstance(elementType.getTypeClass(), length);
+                    int index = 0;
+                    if (value instanceof Collection) {
+                        for (Object element : (Collection<?>) value) {
+                            Array.set(
+                                    result,
+                                    index++,
+                                    convertDefaultValue(element, elementType, fieldName));
+                        }
+                    } else {
+                        for (int i = 0; i < length; i++) {
+                            Array.set(
+                                    result,
+                                    i,
+                                    convertDefaultValue(
+                                            Array.get(value, i), elementType, fieldName));
+                        }
+                    }
+                    return result;
+                }
+                break;
+            case MAP:
+                if (value instanceof Map) {
+                    MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
+                    Map<Object, Object> result = new LinkedHashMap<>();
+                    ((Map<?, ?>) value)
+                            .forEach(
+                                    (key, mapValue) ->
+                                            result.put(
+                                                    convertDefaultValue(
+                                                            key, mapType.getKeyType(), fieldName),
+                                                    convertDefaultValue(
+                                                            mapValue,
+                                                            mapType.getValueType(),
+                                                            fieldName)));
+                    return result;
+                }
+                break;
+            case ROW:
+                if (value instanceof Map || value instanceof SeaTunnelRow) {
+                    SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
+                    Object[] fields = new Object[rowType.getTotalFields()];
+                    for (int i = 0; i < fields.length; i++) {
+                        Object fieldValue =
+                                value instanceof Map
+                                        ? ((Map<?, ?>) value).get(rowType.getFieldName(i))
+                                        : ((SeaTunnelRow) value).getField(i);
+                        fields[i] =
+                                convertDefaultValue(
+                                        fieldValue,
+                                        rowType.getFieldType(i),
+                                        fieldName + "." + rowType.getFieldName(i));
+                    }
+                    return new SeaTunnelRow(fields);
+                }
+                break;
+            case NULL:
+                return null;
+            default:
+                break;
+        }
+        Object converted = convert(value.toString(), fieldType, 0, fieldName);
+        if (converted == null) {
+            throw new IllegalArgumentException(
+                    "Default value cannot be converted to CSV field type");
+        }
+        return converted;
     }
 
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
