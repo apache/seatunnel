@@ -112,7 +112,8 @@ public class JdbcOutputFormatBuilder {
                                     primaryKeys.toArray(new String[0]),
                                     jdbcSinkConfig.isEnableUpsert(),
                                     jdbcSinkConfig.isPrimaryKeyUpdated(),
-                                    jdbcSinkConfig.isSupportUpsertByInsertOnly());
+                                    jdbcSinkConfig.isSupportUpsertByInsertOnly(),
+                                    jdbcSinkConfig.isUpsertBatchKeyOrdered());
         }
 
         return new JdbcOutputFormat(
@@ -155,7 +156,8 @@ public class JdbcOutputFormatBuilder {
             String[] pkNames,
             boolean enableUpsert,
             boolean isPrimaryKeyUpdated,
-            boolean supportUpsertByInsertOnly) {
+            boolean supportUpsertByInsertOnly,
+            boolean keyOrdered) {
         int[] pkFields =
                 Arrays.stream(pkNames)
                         .mapToInt(tableSchema.toPhysicalRowDataType()::indexOf)
@@ -188,7 +190,7 @@ public class JdbcOutputFormatBuilder {
                         isPrimaryKeyUpdated,
                         supportUpsertByInsertOnly);
         return new BufferReducedBatchStatementExecutor(
-                upsertExecutor, deleteExecutor, keyExtractor, Function.identity());
+                upsertExecutor, deleteExecutor, keyExtractor, Function.identity(), keyOrdered);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createUpsertExecutor(

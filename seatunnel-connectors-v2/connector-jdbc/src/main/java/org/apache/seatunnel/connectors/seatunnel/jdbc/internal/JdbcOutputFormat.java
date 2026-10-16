@@ -215,6 +215,34 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
 
                 List<SQLException> sqlExceptions = findSqlExceptions(e);
+                boolean transactionConflict = false;
+                if (isRetryableTransactionConflict(sqlExceptions)) {
+                    transactionConflict = true;
+                    boolean canRetry;
+                    try {
+                        canRetry = canRetryTransactionConflict();
+                    } catch (SQLException transactionStateException) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Unable to inspect JDBC transaction state after a transaction conflict.",
+                                transactionStateException);
+                    }
+                    if (!canRetry) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "JDBC transaction conflict cannot be retried inside the current"
+                                        + " transaction boundary.",
+                                e);
+                    }
+                    try {
+                        rollbackAfterTransactionConflict();
+                    } catch (SQLException rollbackException) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Unable to rollback JDBC transaction after a transaction conflict.",
+                                rollbackException);
+                    }
+                }
                 SQLException nonRetryableDataException =
                         findNonRetryableDataException(sqlExceptions);
                 if (nonRetryableDataException != null) {
@@ -247,7 +275,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 try {
-                    if (shouldRefreshExecutor(findSqlExceptions(e))) {
+                    if (!transactionConflict && shouldRefreshExecutor(findSqlExceptions(e))) {
                         updateExecutor(true);
                     }
                 } catch (Exception exception) {
@@ -428,6 +456,57 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
 
         return isOracleDataException(sqlException);
+    }
+
+    /**
+     * Returns whether the current transaction is owned by this flush and can be replayed safely.
+     * Checkpoint and XA transactions span multiple flushes, so their conflicts must be propagated
+     * to the owner that can replay the complete transaction.
+     */
+    private boolean canRetryTransactionConflict() throws SQLException {
+        if (!commitOnFlush) {
+            return false;
+        }
+        if (jdbcStatementExecutor == null
+                || !jdbcStatementExecutor.supportsTransactionConflictRetry()) {
+            return false;
+        }
+        Connection connection = connectionProvider.getConnection();
+        return connection != null && !connection.getAutoCommit();
+    }
+
+    /**
+     * Rolls back the failed flush transaction and clears only the driver's partial batch. The
+     * executor retains its logical records so a following flush attempt can replay them.
+     */
+    private void rollbackAfterTransactionConflict() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (connection != null && !connection.getAutoCommit()) {
+            connection.rollback();
+        }
+        // Clear the driver's partially submitted batch while retaining the logical records.
+        jdbcStatementExecutor.resetForTransactionConflictRetry();
+    }
+
+    /**
+     * Identifies database transaction conflicts using PostgreSQL SQLSTATEs 40P01/40001 and Oracle
+     * vendor code 60 with the ORA-00060 message.
+     */
+    private boolean isRetryableTransactionConflict(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            String sqlState = sqlException.getSQLState();
+            int vendorCode = sqlException.getErrorCode();
+            if ("40P01".equals(sqlState) || "40001".equals(sqlState)) {
+                return true;
+            }
+            String message = sqlException.getMessage();
+            if (vendorCode == 60
+                    && message != null
+                    && message.toUpperCase(Locale.ROOT).contains("ORA-00060")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isOracleDataException(SQLException sqlException) {

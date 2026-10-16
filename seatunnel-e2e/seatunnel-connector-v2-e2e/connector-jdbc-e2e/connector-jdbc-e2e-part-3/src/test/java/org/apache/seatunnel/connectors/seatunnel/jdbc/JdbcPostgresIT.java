@@ -29,10 +29,15 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -65,7 +70,12 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -307,6 +317,140 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         dropTableWithAssert(postgresCatalog, targetTablePath, true);
 
         postgresCatalog.close();
+    }
+
+    @Test
+    public void testDeadlockIsRolledBackAndRetriedForIndependentFlushTransactions()
+            throws Exception {
+        executeSQL(
+                "CREATE TABLE IF NOT EXISTS jdbc_deadlock_retry_test ("
+                        + "id INTEGER PRIMARY KEY, value INTEGER NOT NULL)");
+        executeSQL(
+                "INSERT INTO jdbc_deadlock_retry_test (id, value) VALUES (1, 0), (2, 0) "
+                        + "ON CONFLICT (id) DO UPDATE SET value = 0");
+
+        CyclicBarrier firstRowBarrier = new CyclicBarrier(2);
+        AtomicInteger retryCount = new AtomicInteger();
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url(POSTGRESQL_CONTAINER.getJdbcUrl())
+                        .driverName(POSTGRESQL_CONTAINER.getDriverClassName())
+                        .username(POSTGRESQL_CONTAINER.getUsername())
+                        .password(POSTGRESQL_CONTAINER.getPassword())
+                        .autoCommit(false)
+                        .batchSize(100)
+                        .maxRetries(2)
+                        .build();
+
+        DeadlockExecutor firstExecutor =
+                new DeadlockExecutor(firstRowBarrier, retryCount, new int[] {1, 2});
+        DeadlockExecutor secondExecutor =
+                new DeadlockExecutor(firstRowBarrier, retryCount, new int[] {2, 1});
+        JdbcOutputFormat<SeaTunnelRow, DeadlockExecutor> firstOutput =
+                createDeadlockOutput(connectionConfig, firstExecutor);
+        JdbcOutputFormat<SeaTunnelRow, DeadlockExecutor> secondOutput =
+                createDeadlockOutput(connectionConfig, secondExecutor);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        try {
+            firstOutput.open();
+            secondOutput.open();
+            firstOutput.writeRecord(new SeaTunnelRow(new Object[] {1}));
+            firstOutput.writeRecord(new SeaTunnelRow(new Object[] {2}));
+            secondOutput.writeRecord(new SeaTunnelRow(new Object[] {2}));
+            secondOutput.writeRecord(new SeaTunnelRow(new Object[] {1}));
+
+            Future<?> firstFlush =
+                    executorService.submit(
+                            () -> {
+                                firstOutput.flush();
+                                return null;
+                            });
+            Future<?> secondFlush =
+                    executorService.submit(
+                            () -> {
+                                secondOutput.flush();
+                                return null;
+                            });
+            firstFlush.get(60, TimeUnit.SECONDS);
+            secondFlush.get(60, TimeUnit.SECONDS);
+            Assertions.assertTrue(retryCount.get() >= 1, "the database should report a deadlock");
+            List<List<Object>> values =
+                    querySql("SELECT id, value FROM jdbc_deadlock_retry_test ORDER BY id");
+            Assertions.assertEquals(
+                    Arrays.asList(Arrays.asList(1, 2), Arrays.asList(2, 2)), values);
+        } finally {
+            firstOutput.close();
+            secondOutput.close();
+            executorService.shutdownNow();
+            executeSQL("DROP TABLE IF EXISTS jdbc_deadlock_retry_test");
+        }
+    }
+
+    private JdbcOutputFormat<SeaTunnelRow, DeadlockExecutor> createDeadlockOutput(
+            JdbcConnectionConfig config, DeadlockExecutor executor) {
+        SimpleJdbcConnectionProvider provider = new SimpleJdbcConnectionProvider(config);
+        return new JdbcOutputFormat<>(provider, config, () -> executor, true);
+    }
+
+    private static final class DeadlockExecutor
+            implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+        private final CyclicBarrier firstRowBarrier;
+        private final AtomicInteger retryCount;
+        private final int[] rowOrder;
+        private boolean firstAttempt = true;
+        private PreparedStatement statement;
+
+        private DeadlockExecutor(
+                CyclicBarrier firstRowBarrier, AtomicInteger retryCount, int[] rowOrder) {
+            this.firstRowBarrier = firstRowBarrier;
+            this.retryCount = retryCount;
+            this.rowOrder = rowOrder;
+        }
+
+        @Override
+        public void prepareStatements(Connection connection) throws SQLException {
+            this.statement =
+                    connection.prepareStatement(
+                            "UPDATE jdbc_deadlock_retry_test SET value = value + 1 WHERE id = ?");
+        }
+
+        @Override
+        public void addToBatch(SeaTunnelRow record) {}
+
+        @Override
+        public void executeBatch() throws SQLException {
+            boolean coordinateDeadlock = firstAttempt;
+            firstAttempt = false;
+            if (!coordinateDeadlock) {
+                retryCount.incrementAndGet();
+            }
+            for (int i = 0; i < rowOrder.length; i++) {
+                statement.setInt(1, rowOrder[i]);
+                statement.executeUpdate();
+                if (coordinateDeadlock && i == 0) {
+                    try {
+                        firstRowBarrier.await(30, TimeUnit.SECONDS);
+                    } catch (Exception e) {
+                        throw new SQLException("Unable to coordinate deadlock test", e);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public boolean supportsTransactionConflictRetry() {
+            return true;
+        }
+
+        @Override
+        public void resetForTransactionConflictRetry() {}
+
+        @Override
+        public void closeStatements() throws SQLException {
+            if (statement != null) {
+                statement.close();
+            }
+        }
     }
 
     @Test
