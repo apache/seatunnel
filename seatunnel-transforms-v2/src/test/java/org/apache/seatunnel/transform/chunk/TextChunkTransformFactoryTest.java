@@ -253,6 +253,27 @@ public class TextChunkTransformFactoryTest {
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
     }
 
+    /** The entry relies on the default chunk_size, so the check has to apply the defaults. */
+    @Test
+    public void testPerTableOverlapAtOrAboveDefaultChunkSizeFails() {
+        Map<String, Object> entry = tableRule();
+        entry.put(TextChunkTransformConfig.OVERLAP_SIZE.key(), 1500); // default chunk_size is 1000
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(ex.getMessage().contains("overlap_size"), ex.getMessage());
+    }
+
+    @Test
+    public void testPerTableOverlapBelowDefaultChunkSizePasses() {
+        Map<String, Object> entry = tableRule();
+        entry.put(TextChunkTransformConfig.OVERLAP_SIZE.key(), 500);
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
     @Test
     void testTableTransformOnlyConfigPasses() {
         Map<String, Object> cfg = new HashMap<>();
