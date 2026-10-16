@@ -31,9 +31,39 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.Arrays;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 public class DmdbTypeConverterTest {
+    @Test
+    public void testMapResultSetMetadataTypes() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnLabel(1)).thenReturn("LTZ_VALUE");
+        when(metadata.getColumnTypeName(1)).thenReturn("TIMESTAMP(6) WITH LOCAL TIME ZONE");
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(metadata.getPrecision(1)).thenReturn(26);
+        when(metadata.getScale(1)).thenReturn(6);
+
+        Column localTimeZoneColumn = new DmdbTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE, localTimeZoneColumn.getDataType());
+        Assertions.assertEquals(
+                "TIMESTAMP(6) WITH LOCAL TIME ZONE", localTimeZoneColumn.getSourceType());
+
+        when(metadata.getColumnLabel(1)).thenReturn("INTERVAL_VALUE");
+        when(metadata.getColumnTypeName(1)).thenReturn("INTERVAL DAY(3) TO SECOND(6)");
+
+        Column intervalColumn = new DmdbTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, intervalColumn.getDataType());
+        Assertions.assertEquals("INTERVAL DAY(3) TO SECOND(6)", intervalColumn.getSourceType());
+    }
+
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =
