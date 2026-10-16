@@ -114,6 +114,23 @@ public class XmlWriterTest {
         Assertions.assertTrue(xml.contains("c_timestamp=\"2026-01-02 10:13:00\""), xml);
     }
 
+    @Test
+    public void testNestedRowUsesConfiguredFormats() throws IOException {
+        SeaTunnelRowType nestedRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "c_row"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, ROW_TYPE});
+        XmlWriter writer = new XmlWriter(fileSinkConfig, Arrays.asList(0, 1), nestedRowType);
+        writer.writeData(new SeaTunnelRow(new Object[] {2, ROW}));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        writer.flushAndCloseXmlWriter(output);
+        String xml = new String(output.toByteArray(), StandardCharsets.UTF_8);
+
+        // Fields of a nested row are joined with the field delimiter
+        Assertions.assertTrue(
+                xml.contains("<c_row>1,2026-01-02,10:13:00,2026-01-02 10:13:00</c_row>"), xml);
+    }
+
     private String write() throws IOException {
         XmlWriter writer = new XmlWriter(fileSinkConfig, Arrays.asList(0, 1, 2, 3), ROW_TYPE);
         writer.writeData(ROW);
