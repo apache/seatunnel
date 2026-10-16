@@ -320,6 +320,18 @@ public class PostgresJdbcRowConverterTest {
     }
 
     @Test
+    public void testNumericSpecialValueIsLoggedOncePerColumn() {
+        PostgresJdbcRowConverter converter = new PostgresJdbcRowConverter(true);
+
+        // The first occurrence per column is logged, the following ones are not
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        // Another column is logged again on its first occurrence
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(3));
+    }
+
+    @Test
     public void testToInternalWithNullGeographyType() throws SQLException {
         ResultSet rs = mock(ResultSet.class);
         TableSchema tableSchema =
