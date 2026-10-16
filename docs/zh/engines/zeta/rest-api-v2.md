@@ -77,6 +77,7 @@ seatunnel:
 - 如果同时开启 HTTP 和 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以 Jetty 启动日志 `SeaTunnel REST service started on http port xxx` 为准。`/logs` 和 `/loggers?scope=cluster` 会解析并报告各节点实际绑定的 HTTP 端口。配置中的 `port` 保持不变，即使多个节点共享同一个 HTTP 配置对象也不例外。
 - 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
 - Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
+- 如果地址栏显示的是 `/#/overview` 这类 Web UI 路由，但页面是 Jetty 的 `HTTP ERROR 404 Not Found`，且其中 `URI: /%23/overview`，说明客户端把 URL fragment 做了百分号编码后当路径发送。只要该节点带有 Web UI，SeaTunnel 就会对这类 `GET` 或 `HEAD` 请求返回 `302` 以及 `Location: <context-path>/#<route>`，浏览器会落到它本意要打开的路由。可用 `curl -i --path-as-is 'http://<host>:8080/%23/overview'` 观察该重定向；配置了 `context-path` 时，重定向会保留该前缀。
 
 ## 开启 HTTPS
 

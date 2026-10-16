@@ -82,6 +82,7 @@ seatunnel:
 - If HTTP and `enable-dynamic-port = true` are enabled, the actual listening port may not be 8080. Jetty chooses the first available port between `port` and `port + port-range`. Use the Jetty startup log `SeaTunnel REST service started on http port xxx` as the source of truth. `/logs` and `/loggers?scope=cluster` resolve and report each member's actual bound HTTP port. The configured `port` remains unchanged, including when members share an HTTP configuration object.
 - If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
 - The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
+- If the address bar shows a Web UI route such as `/#/overview` but the page is the Jetty `HTTP ERROR 404 Not Found` page with `URI: /%23/overview`, the client sent the URL fragment percent-encoded. A node that serves the Web UI answers such a `GET` or `HEAD` request with `302` and `Location: <context-path>/#<route>`, so the browser lands on the route it meant to open. `curl -i --path-as-is 'http://<host>:8080/%23/overview'` shows that redirect, and when `context-path` is configured the redirect keeps the prefix.
 
 ## Enable HTTPS
 
