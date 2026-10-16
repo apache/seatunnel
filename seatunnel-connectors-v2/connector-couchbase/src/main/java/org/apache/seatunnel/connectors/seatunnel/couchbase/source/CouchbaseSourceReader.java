@@ -35,8 +35,10 @@ import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryScanConsistency;
 import reactor.core.publisher.Sinks;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Iterator;
+import java.util.concurrent.CancellationException;
 import java.util.stream.Stream;
 
 public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -78,6 +80,9 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     /** Connect on the worker and release the client if readiness fails. */
     @Override
     public void open() {
+        if (closed) {
+            throw new CancellationException("Couchbase source reader was cancelled before opening");
+        }
         Cluster connected =
                 Cluster.connect(
                         config.get(CouchbaseSourceOptions.CONNECTION_STRING),
@@ -86,7 +91,8 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         synchronized (this) {
             if (closed) {
                 connected.disconnect();
-                return;
+                throw new CancellationException(
+                        "Couchbase source reader was cancelled while opening");
             }
             cluster = connected;
         }
@@ -95,6 +101,10 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                     .bucket(config.get(CouchbaseSourceOptions.BUCKET))
                     .waitUntilReady(
                             Duration.ofSeconds(config.get(CouchbaseSourceOptions.READY_TIMEOUT)));
+            if (closed) {
+                throw new CancellationException(
+                        "Couchbase source reader was cancelled while opening");
+            }
         } catch (RuntimeException failure) {
             closeAfterFailure(failure);
             throw failure;
@@ -136,12 +146,7 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             try (Stream<byte[]> ignored = stream) {
                 Iterator<byte[]> iterator = stream.iterator();
                 while (!closed && iterator.hasNext()) {
-                    JsonNode document = deserializer.deserializeToJsonNode(iterator.next());
-                    if (document == null || !document.isObject()) {
-                        throw new IllegalArgumentException(
-                                "Couchbase source requires JSON object documents");
-                    }
-                    SeaTunnelRow row = deserializer.convertToRowData(document);
+                    SeaTunnelRow row = convertDocument(iterator.next());
                     row.setTableId(catalogTable.getTablePath().toString());
                     synchronized (output.getCheckpointLock()) {
                         if (closed) {
@@ -164,6 +169,37 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             closeAfterFailure(failure);
             throw failure;
         }
+    }
+
+    private SeaTunnelRow convertDocument(byte[] bytes) {
+        JsonNode document;
+        try {
+            document = deserializer.deserializeToJsonNode(bytes);
+        } catch (IOException | RuntimeException ignored) {
+            throw new IllegalArgumentException(
+                    "Cannot parse JSON document from Couchbase collection " + collectionPath());
+        }
+        if (document == null || !document.isObject()) {
+            throw new IllegalArgumentException(
+                    "Couchbase source requires JSON object documents in " + collectionPath());
+        }
+        try {
+            return deserializer.convertToRowData(document);
+        } catch (RuntimeException ignored) {
+            // The shared JSON converter includes the entire document in its exception chain.
+            throw new IllegalArgumentException(
+                    "Cannot map Couchbase document from "
+                            + collectionPath()
+                            + " to the configured schema");
+        }
+    }
+
+    private String collectionPath() {
+        return quote(config.get(CouchbaseSourceOptions.BUCKET))
+                + "."
+                + quote(config.get(CouchbaseSourceOptions.SCOPE))
+                + "."
+                + quote(config.get(CouchbaseSourceOptions.COLLECTION));
     }
 
     private void closeAfterFailure(Exception failure) {
@@ -190,9 +226,15 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
     /** Cancel any in-flight query before closing its owned SDK connection. */
     @Override
-    public synchronized void close() {
+    public void cancel() {
         closed = true;
         cancellation.tryEmitEmpty();
+    }
+
+    /** Release the query subscription and SDK connection after cancellation. */
+    @Override
+    public synchronized void close() {
+        cancel();
         try {
             if (rows != null) {
                 Stream<byte[]> current = rows;

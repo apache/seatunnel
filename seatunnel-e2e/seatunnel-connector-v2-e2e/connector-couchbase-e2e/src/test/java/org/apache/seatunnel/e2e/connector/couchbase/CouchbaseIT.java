@@ -37,6 +37,7 @@ import org.testcontainers.couchbase.CouchbaseService;
 import org.testcontainers.utility.DockerImageName;
 
 import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryResult;
@@ -69,6 +70,8 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_COLLECTION = "test_collection";
     private static final String COUCHBASE_COLLECTION_TIMER_FLUSH = "test_collection_timer_flush";
     private static final String COUCHBASE_COLLECTION_SOURCE_RESULT = "test_source_result";
+    private static final String COUCHBASE_SOURCE_SCOPE = "source_scope";
+    private static final String COUCHBASE_SOURCE_COLLECTION = "source_collection";
 
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
@@ -246,6 +249,48 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         () ->
                                 cluster.query(
                                         "CREATE PRIMARY INDEX ON `test_bucket`.`_default`.`test_source_result`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE SCOPE `test_bucket`.`source_scope`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE COLLECTION `test_bucket`.`source_scope`.`source_collection`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE PRIMARY INDEX ON `test_bucket`.`source_scope`.`source_collection`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult result =
+                                    cluster.query(
+                                            "SELECT state FROM system:indexes"
+                                                    + " WHERE keyspace_id = 'source_collection'"
+                                                    + " AND scope_id = 'source_scope'"
+                                                    + " AND bucket_id = 'test_bucket'"
+                                                    + " AND `using` = 'gsi' AND is_primary = true");
+                            List<JsonObject> indexes = result.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(
+                                    indexes.isEmpty(), "Source index not created yet");
+                            Assertions.assertEquals(
+                                    "online",
+                                    indexes.get(0).getString("state"),
+                                    "Source index not yet online");
+                        });
         log.info("Couchbase cluster ready at {}", couchbaseContainer.getConnectionString());
     }
 
@@ -361,29 +406,28 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testCouchbaseSourceToAssert(TestContainer container)
             throws IOException, InterruptedException {
-        cluster.query("CREATE PRIMARY INDEX IF NOT EXISTS ON `test_bucket`.`_default`.`_default`");
         cluster.query(
                 "DELETE FROM `test_bucket`.`_default`.`test_source_result`",
                 QueryOptions.queryOptions().scanConsistency(QueryScanConsistency.REQUEST_PLUS));
-        cluster.bucket(COUCHBASE_BUCKET)
-                .defaultCollection()
-                .upsert(
-                        "source-one",
-                        JsonObject.create()
-                                .put("id", 1)
-                                .put("name", "first")
-                                .put("enabled", true)
-                                .put("amount", 12.5)
-                                .putNull("nullable"));
-        cluster.bucket(COUCHBASE_BUCKET)
-                .defaultCollection()
-                .upsert(
-                        "source-two",
-                        JsonObject.create()
-                                .put("id", 2)
-                                .put("name", "second")
-                                .put("enabled", false)
-                                .put("amount", -3.25));
+        Collection sourceCollection =
+                cluster.bucket(COUCHBASE_BUCKET)
+                        .scope(COUCHBASE_SOURCE_SCOPE)
+                        .collection(COUCHBASE_SOURCE_COLLECTION);
+        sourceCollection.upsert(
+                "source-one",
+                JsonObject.create()
+                        .put("id", 1)
+                        .put("name", "first")
+                        .put("enabled", true)
+                        .put("amount", 12.5)
+                        .putNull("nullable"));
+        sourceCollection.upsert(
+                "source-two",
+                JsonObject.create()
+                        .put("id", 2)
+                        .put("name", "second")
+                        .put("enabled", false)
+                        .put("amount", -3.25));
 
         Container.ExecResult result = container.executeJob("/couchbase_source_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());

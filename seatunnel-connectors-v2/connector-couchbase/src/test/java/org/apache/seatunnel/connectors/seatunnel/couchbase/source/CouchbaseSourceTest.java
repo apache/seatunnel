@@ -48,13 +48,16 @@ import reactor.core.publisher.Sinks;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -63,6 +66,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -89,6 +93,40 @@ class CouchbaseSourceTest {
                         verify(context, never()).signalNoMoreElement();
                     });
         }
+    }
+
+    @Test
+    void mappingFailureDoesNotExposeUnmappedDocumentFields() throws Exception {
+        withRawReader(
+                Flux.just("{\"id\":\"bad\",\"secret\":\"TOKEN\"}".getBytes(StandardCharsets.UTF_8)),
+                (reader, context, cluster) -> {
+                    IllegalArgumentException failure =
+                            assertThrows(
+                                    IllegalArgumentException.class,
+                                    () -> reader.pollNext(collector(new ArrayList<>())));
+                    assertTrue(failure.getMessage().contains("test_bucket"));
+                    assertFalse(failure.toString().contains("TOKEN"));
+                    assertNull(failure.getCause());
+                    assertEquals(0, failure.getSuppressed().length);
+                    verify(context, never()).signalNoMoreElement();
+                });
+    }
+
+    @Test
+    void invalidJsonFailureDoesNotExposeDocumentBytes() throws Exception {
+        withRawReader(
+                Flux.just("{\"secret\":\"TOKEN\",broken".getBytes(StandardCharsets.UTF_8)),
+                (reader, context, cluster) -> {
+                    IllegalArgumentException failure =
+                            assertThrows(
+                                    IllegalArgumentException.class,
+                                    () -> reader.pollNext(collector(new ArrayList<>())));
+                    assertTrue(failure.getMessage().contains("test_bucket"));
+                    assertFalse(failure.toString().contains("TOKEN"));
+                    assertNull(failure.getCause());
+                    assertEquals(0, failure.getSuppressed().length);
+                    verify(context, never()).signalNoMoreElement();
+                });
     }
 
     @Test
@@ -204,6 +242,105 @@ class CouchbaseSourceTest {
                         executor.shutdownNow();
                     }
                 });
+    }
+
+    @Test
+    void cancelWakesBlockedReaderWithoutClosingClient() throws Exception {
+        CountDownLatch subscribed = new CountDownLatch(1);
+        AtomicBoolean cancelled = new AtomicBoolean();
+        withReader(
+                Flux.<JsonObject>never()
+                        .doOnSubscribe(subscription -> subscribed.countDown())
+                        .doOnCancel(() -> cancelled.set(true)),
+                (reader, context, cluster) -> {
+                    ExecutorService executor = Executors.newSingleThreadExecutor();
+                    try {
+                        Future<?> polling =
+                                executor.submit(
+                                        () -> {
+                                            try {
+                                                reader.pollNext(collector(new ArrayList<>()));
+                                            } catch (Exception error) {
+                                                throw new RuntimeException(error);
+                                            }
+                                        });
+                        assertTrue(subscribed.await(5, TimeUnit.SECONDS));
+                        reader.cancel();
+                        reader.cancel();
+                        polling.get(5, TimeUnit.SECONDS);
+                        assertTrue(cancelled.get());
+                        verify(context, never()).signalNoMoreElement();
+                        verify(cluster, never()).disconnect();
+                    } finally {
+                        executor.shutdownNow();
+                    }
+                });
+    }
+
+    @Test
+    void cancellationBeforeOpenIsSticky() throws Exception {
+        SourceReader.Context context = mock(SourceReader.Context.class);
+        CouchbaseSourceReader reader =
+                (CouchbaseSourceReader) source(options()).createReader(context);
+        reader.cancel();
+        try (MockedStatic<Cluster> connection = Mockito.mockStatic(Cluster.class)) {
+            assertThrows(CancellationException.class, reader::open);
+            reader.pollNext(collector(new ArrayList<>()));
+            connection.verifyNoInteractions();
+            verify(context, never()).signalNoMoreElement();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void cancellationDuringReadinessClosesClientAndFailsOpen() throws Exception {
+        Cluster cluster = mock(Cluster.class);
+        Bucket bucket = mock(Bucket.class);
+        when(cluster.bucket("test_bucket")).thenReturn(bucket);
+        CouchbaseSourceReader reader =
+                (CouchbaseSourceReader)
+                        source(options()).createReader(mock(SourceReader.Context.class));
+        CountDownLatch checkingReadiness = new CountDownLatch(1);
+        CountDownLatch releaseReadiness = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            checkingReadiness.countDown();
+                            assertTrue(releaseReadiness.await(5, TimeUnit.SECONDS));
+                            return null;
+                        })
+                .when(bucket)
+                .waitUntilReady(any(Duration.class));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> opening =
+                    executor.submit(
+                            () -> {
+                                try (MockedStatic<Cluster> connection =
+                                        Mockito.mockStatic(Cluster.class)) {
+                                    connection
+                                            .when(
+                                                    () ->
+                                                            Cluster.connect(
+                                                                    "couchbase://localhost",
+                                                                    "user",
+                                                                    "pass"))
+                                            .thenReturn(cluster);
+                                    reader.open();
+                                }
+                            });
+            assertTrue(checkingReadiness.await(5, TimeUnit.SECONDS));
+            reader.cancel();
+            releaseReadiness.countDown();
+            ExecutionException failure =
+                    assertThrows(ExecutionException.class, () -> opening.get(5, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof CancellationException);
+        } finally {
+            releaseReadiness.countDown();
+            executor.shutdownNow();
+            reader.close();
+        }
+        verify(cluster, times(1)).disconnect();
     }
 
     @Test
@@ -418,6 +555,31 @@ class CouchbaseSourceTest {
                                             new SingleSplitReaderContext(
                                                     mock(SourceReader.Context.class)));
             assertThrows(IllegalStateException.class, reader::open);
+            verify(cluster).disconnect();
+        }
+    }
+
+    @Test
+    void passesTlsConnectionAndCredentialsToSdk() throws Exception {
+        String connectionString =
+                "couchbases://cb.example.test?security.trustCertificate=/worker/ca.pem";
+        Map<String, Object> options = options();
+        options.put("connection.string", connectionString);
+        Cluster cluster = mock(Cluster.class);
+        when(cluster.bucket("test_bucket")).thenReturn(mock(Bucket.class));
+        try (MockedStatic<Cluster> connection = Mockito.mockStatic(Cluster.class)) {
+            connection
+                    .when(() -> Cluster.connect(connectionString, "user", "pass"))
+                    .thenReturn(cluster);
+            CouchbaseSourceReader reader =
+                    (CouchbaseSourceReader)
+                            source(options).createReader(mock(SourceReader.Context.class));
+            try {
+                reader.open();
+                connection.verify(() -> Cluster.connect(connectionString, "user", "pass"));
+            } finally {
+                reader.close();
+            }
             verify(cluster).disconnect();
         }
     }

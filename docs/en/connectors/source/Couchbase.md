@@ -20,7 +20,7 @@ Read JSON documents from one Couchbase collection using a bounded SQL++ query. T
 - [ ] parallelism
 - [ ] schema evolution
 
-The source requires `parallelism = 1`. It uses a single query and consumes rows with backpressure instead of loading the full result into memory.
+The source requires `parallelism = 1`. It uses a single query and consumes rows with backpressure instead of loading the full result into memory. It does not partition the collection into splits or use `LIMIT`/`OFFSET` pagination.
 
 ## Options
 
@@ -41,7 +41,7 @@ The source requires `parallelism = 1`. It uses a single query and consumes rows 
 
 Enable the Couchbase Data, Query and Index services. A suitable index must exist on the collection; a primary index supports the full collection scan. Index creation and data administration are not performed by this connector.
 
-The configured account needs permission to query the selected collection. Grant only the required access; an administrator account is not required. Configure SDK TLS trust according to your Couchbase deployment when using `couchbases://`.
+The configured account needs permission to query the selected collection. Grant only the required access; an administrator account is not required. For TLS, use `couchbases://`. The SDK trusts public CAs and the bundled Capella CA; for a private CA, set `security.trustCertificate=/path/to/ca.pem` as a connection-string parameter and make that file available on every worker. Certificate hostname verification remains enabled.
 
 ## Data mapping
 
@@ -57,7 +57,7 @@ The query is read-only and uses `REQUEST_PLUS` so that indexes catch up with mut
 
 The source checkpoints no document offset. On failure or restoration, it starts a new collection query from the beginning. Rows already emitted may be replayed, and concurrent collection changes can alter the new result. Use an idempotent downstream write strategy when replay is possible. This source does not provide exactly-once delivery, CDC, or incremental reads.
 
-Cancellation closes the query subscription and SDK connection. Query, authentication and conversion failures fail the job; they do not report a successfully completed collection.
+Cancellation stops an in-flight query, and reader closure releases the SDK connection. If cancellation occurs during the synchronous initial bucket-readiness check, that check can still run until `ready.timeout` (30 seconds by default). When the reader observes cancellation after readiness, opening fails and releases the connection. Query, authentication and conversion failures fail the job; they do not report a successfully completed collection.
 
 ## Example
 
