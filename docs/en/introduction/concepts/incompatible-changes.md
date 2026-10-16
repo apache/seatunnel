@@ -5,6 +5,17 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris source: LARGEINT is declared as DECIMAL(39, 0)
+
+- **Schema change: Doris `LARGEINT` columns are now declared as `DECIMAL(39, 0)` instead of `DECIMAL(20, 0)`**
+  - **Description**: `LARGEINT` is a signed 128-bit integer with up to 39 digits, but the Doris source declared it as `DECIMAL(20, 0)`. The new type covers the whole range. This applies to scalar `LARGEINT` columns, `ARRAY<LARGEINT>` elements and `LARGEINT` map keys and values.
+  - **Impact**:
+    - A sink that auto-creates its table from the schema now creates a wider column. For example, MySQL gets `DECIMAL(39,0)` instead of `DECIMAL(20,0)`.
+    - Sinks whose decimal precision is capped at 38, such as Oracle and SQL Server, create `DECIMAL(38,0)` and log a warning that the precision was reduced. Values with 39 digits still do not fit in those columns, but values up to 38 digits now do, where the old type only held 20.
+    - Doris to Doris auto-create keeps `LARGEINT` for `ARRAY<LARGEINT>` columns and for `LARGEINT` map keys and values, where it previously created `DECIMALV3(20, 0)`. Scalar `LARGEINT` columns were already kept as `LARGEINT`.
+    - Tables that already exist downstream are not altered.
+  - **Migration Guide**: No change is needed for jobs that write into existing tables. To write values beyond 20 digits into a column that was created as `DECIMAL(20,0)`, widen that column in the sink database. To keep the old `DECIMAL(20, 0)` type in the schema, for example for auto-created tables, add an SQL transform with `CAST(col AS DECIMAL(20, 0))`.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**

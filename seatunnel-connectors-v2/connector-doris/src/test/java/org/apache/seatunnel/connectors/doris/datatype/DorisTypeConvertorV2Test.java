@@ -417,6 +417,16 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(new DecimalArrayType(new DecimalType(39, 0)), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
+        // a display width on the element type is tolerated
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("array<largeint(40)>")
+                        .dataType("ARRAY")
+                        .build();
+        column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalArrayType(new DecimalType(39, 0)), column.getDataType());
+
         typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
@@ -1168,6 +1178,20 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals("ARRAY<LARGEINT>", typeDefine.getColumnType());
         Assertions.assertEquals("ARRAY<LARGEINT>", typeDefine.getDataType());
+
+        // the source type is matched on its element type, not on one exact spelling
+        for (String sourceType :
+                new String[] {"array<largeint>", "ARRAY< LARGEINT >", "array<largeint(40)>"}) {
+            column =
+                    PhysicalColumn.builder()
+                            .name("test")
+                            .dataType(decimalArrayType)
+                            .sourceType(sourceType)
+                            .build();
+            typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+            Assertions.assertEquals("ARRAY<LARGEINT>", typeDefine.getColumnType(), sourceType);
+            Assertions.assertEquals("ARRAY<LARGEINT>", typeDefine.getDataType(), sourceType);
+        }
     }
 
     @Test
@@ -1309,6 +1333,16 @@ public class DorisTypeConvertorV2Test {
                         BasicTypeDefine.builder()
                                 .name("test")
                                 .columnType("map<largeint,double>")
+                                .dataType("MAP")
+                                .build());
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals("MAP<LARGEINT, DOUBLE>", typeDefine.getColumnType());
+
+        column =
+                DorisTypeConverterV2.INSTANCE.convert(
+                        BasicTypeDefine.builder()
+                                .name("test")
+                                .columnType("map<largeint(40),double>")
                                 .dataType("MAP")
                                 .build());
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
