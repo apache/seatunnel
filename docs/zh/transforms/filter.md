@@ -70,7 +70,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 控制当多个 `table_transform` 条目的 `table_path` 相同时的处理方式。支持的值为 `FIRST_MATCH`（只应用第一个匹配的条目）和 `ALL_MATCH`（按顺序应用所有匹配的条目，每个条目接收前一个条目的输出）。
 
-默认值为 `FIRST_MATCH`。
+默认值为 `FIRST_MATCH`。使用默认值时，如果多个 `table_transform` 条目的 `table_path` 相同，则只应用第一个匹配的条目。
 
 ### common options
 
@@ -82,7 +82,6 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 - `table_transform` 中的条目优先于转换级别规则。有对应条目的表不会再受转换级别规则影响。
 - 每个条目必须是一条完整的单表规则（`table_path` 加上 `include_fields` 或 `exclude_fields`）。
-- 如果只配置了 `table_transform`，没有对应条目的表保持不变。
 - 转换级别规则只应用于匹配 `table_match_regex` 的表。
 
 下面的配置对 `test.a*` 表使用转换级别规则，对 `test.xyz` 使用单表规则，并保持 `test.www` 不变：
@@ -268,34 +267,6 @@ transform {
   }
 }
 ```
-
-**3. 仅使用单表规则。** 只有列出的表会被修改，因此 `test.abcd` 和 `test.www` 保持不变。
-
-```hocon
-transform {
-  Filter {
-    plugin_input = "fake"
-    plugin_output = "fake1"
-    table_transform = [
-      {
-        table_path = "test.abc"
-        include_fields = [name, card]
-      },
-      {
-        table_path = "test.xyz"
-        exclude_fields = [age]
-      }
-    ]
-  }
-}
-```
-
-| 表         | 输出字段                |
-|-----------|---------------------|
-| test.abc  | name, card          |
-| test.abcd | id, name, age, card |
-| test.xyz  | id, name, card      |
-| test.www  | id, name, age, card |
 
 ## 更新日志
 
