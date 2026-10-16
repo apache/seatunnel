@@ -27,7 +27,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 | exclude_fields    | Array<String> | 否    | -     | 需要删除的字段，其余字段将被保留。与 `include_fields` 互斥。                 |
 | table_match_regex | String        | 否    | `.*`  | 转换级别规则所适用的表路径的正则表达式。                                     |
 | table_transform   | Array<Map>    | 否    | -     | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
-| rule_match_mode   | String        | 否    | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
+| rule_match_mode   | String        | 否    | -     | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -             | 否    | -     | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 
 :::caution
@@ -70,7 +70,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 控制当多个 `table_transform` 条目的 `table_path` 相同时的处理方式。支持的值为 `FIRST_MATCH`（只应用第一个匹配的条目）和 `ALL_MATCH`（按顺序应用所有匹配的条目，每个条目接收前一个条目的输出）。
 
-默认值为 `FIRST_MATCH`。使用默认值时，如果多个 `table_transform` 条目的 `table_path` 相同，则只应用第一个匹配的条目。
+如果未设置 `rule_match_mode`，重复的 `table_path` 条目会被拒绝。当多个条目使用相同的 `table_path` 时，请显式设置为 `FIRST_MATCH` 或 `ALL_MATCH`。
 
 ### common options
 
