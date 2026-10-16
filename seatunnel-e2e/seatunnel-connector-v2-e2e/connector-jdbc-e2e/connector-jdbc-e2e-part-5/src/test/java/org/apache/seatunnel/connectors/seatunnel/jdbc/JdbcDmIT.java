@@ -289,8 +289,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                                     .toInternal(resultSet, catalogTable.getTableSchema());
                     OffsetDateTime convertedTimestamp = (OffsetDateTime) row.getField(0);
                     Assertions.assertEquals(
-                            OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00")
-                                    .toInstant(),
+                            OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00").toInstant(),
                             convertedTimestamp.toInstant());
                     Assertions.assertEquals(
                             JdbcFieldTypeUtils.parseOffsetDateTimeFromString(ltzDriverString),
