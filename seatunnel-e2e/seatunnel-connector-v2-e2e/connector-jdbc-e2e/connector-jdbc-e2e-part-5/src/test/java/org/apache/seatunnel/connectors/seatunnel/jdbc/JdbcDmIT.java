@@ -234,83 +234,10 @@ public class JdbcDmIT extends AbstractJdbcIT {
     public void testLocalTimeZoneAndIntervalTypeConversion() throws Exception {
         String tableName = "E2E_DM_LOCAL_TZ_INTERVAL";
         String tableInfo = DM_USERNAME + "." + tableName;
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(
-                    "CREATE TABLE "
-                            + tableInfo
-                            + " (LTZ_VALUE TIMESTAMP(6) WITH LOCAL TIME ZONE,"
-                            + " IYM_VALUE INTERVAL YEAR TO MONTH,"
-                            + " IDS_VALUE INTERVAL DAY TO SECOND)");
-            statement.execute(
-                    "INSERT INTO "
-                            + tableInfo
-                            + " VALUES (TIMESTAMP '2024-05-06 07:08:09.123456 +08:00',"
-                            + " INTERVAL '2-3' YEAR TO MONTH,"
-                            + " INTERVAL '4 05:06:07.123456' DAY TO SECOND)");
-            connection.commit();
-
-            CatalogTable catalogTable =
-                    catalog.getTable(TablePath.of(DM_DATABASE, DM_USERNAME, tableName));
-            Assertions.assertEquals(
-                    LocalTimeType.OFFSET_DATE_TIME_TYPE,
-                    catalogTable.getTableSchema().getColumn("LTZ_VALUE").getDataType());
-            Assertions.assertEquals(
-                    "TIMESTAMP WITH LOCAL TIME ZONE",
-                    catalogTable.getTableSchema().getColumn("LTZ_VALUE").getSourceType());
-            Assertions.assertEquals(
-                    BasicType.STRING_TYPE,
-                    catalogTable.getTableSchema().getColumn("IYM_VALUE").getDataType());
-            Assertions.assertEquals(
-                    BasicType.STRING_TYPE,
-                    catalogTable.getTableSchema().getColumn("IDS_VALUE").getDataType());
-
-            try (ResultSet resultSet =
-                    statement.executeQuery(
-                            "SELECT LTZ_VALUE, IYM_VALUE, IDS_VALUE FROM " + tableInfo)) {
-                Assertions.assertTrue(resultSet.next());
-                Object ltzDriverValue = resultSet.getObject("LTZ_VALUE");
-                Object iymDriverValue = resultSet.getObject("IYM_VALUE");
-                Object idsDriverValue = resultSet.getObject("IDS_VALUE");
-                Assertions.assertEquals(
-                        "dm.jdbc.driver.DmdbTimestamp", ltzDriverValue.getClass().getName());
-                Assertions.assertEquals(
-                        "dm.jdbc.driver.DmdbIntervalYM", iymDriverValue.getClass().getName());
-                Assertions.assertEquals(
-                        "dm.jdbc.driver.DmdbIntervalDT", idsDriverValue.getClass().getName());
-
-                String ltzDriverString = resultSet.getString("LTZ_VALUE");
-                String iymDriverString = resultSet.getString("IYM_VALUE");
-                String idsDriverString = resultSet.getString("IDS_VALUE");
-                SeaTunnelRow row =
-                        new DmdbJdbcRowConverter()
-                                .toInternal(resultSet, catalogTable.getTableSchema());
-                OffsetDateTime convertedTimestamp = (OffsetDateTime) row.getField(0);
-                Assertions.assertEquals(
-                        OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00").toInstant(),
-                        convertedTimestamp.toInstant());
-                Assertions.assertEquals(
-                        JdbcFieldTypeUtils.parseOffsetDateTimeFromString(ltzDriverString),
-                        convertedTimestamp);
-                Assertions.assertEquals(iymDriverString, row.getField(1));
-                Assertions.assertEquals(idsDriverString, row.getField(2));
-                Assertions.assertFalse(resultSet.next());
-            }
-        } finally {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("DROP TABLE " + tableInfo);
-                connection.commit();
-            }
-        }
-    }
-
-    protected String buildTableInfoWithSchema(String database, String schema, String table) {
-        return buildTableInfoWithSchema(schema, table);
-    }
-
-    @Override
-    protected void initCatalog() {
+        // Build a local catalog scoped to this test so we don't inadvertently
+        // enable the inherited testCreateIndex (which fires whenever catalog != null).
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
-        catalog =
+        DamengCatalog localCatalog =
                 new DamengCatalog(
                         "dameng",
                         jdbcCase.getUserName(),
@@ -318,7 +245,73 @@ public class JdbcDmIT extends AbstractJdbcIT {
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
                         DM_USERNAME,
                         DRIVER_CLASS);
-        catalog.open();
+        localCatalog.open();
+        try {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE "
+                                + tableInfo
+                                + " (LTZ_VALUE TIMESTAMP(6) WITH LOCAL TIME ZONE,"
+                                + " IYM_VALUE INTERVAL YEAR TO MONTH,"
+                                + " IDS_VALUE INTERVAL DAY TO SECOND)");
+                statement.execute(
+                        "INSERT INTO "
+                                + tableInfo
+                                + " VALUES (TIMESTAMP '2024-05-06 07:08:09.123456 +08:00',"
+                                + " INTERVAL '2-3' YEAR TO MONTH,"
+                                + " INTERVAL '4 05:06:07.123456' DAY TO SECOND)");
+                connection.commit();
+
+                CatalogTable catalogTable =
+                        localCatalog.getTable(TablePath.of(DM_DATABASE, DM_USERNAME, tableName));
+                Assertions.assertEquals(
+                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                        catalogTable.getTableSchema().getColumn("LTZ_VALUE").getDataType());
+                Assertions.assertEquals(
+                        "TIMESTAMP WITH LOCAL TIME ZONE",
+                        catalogTable.getTableSchema().getColumn("LTZ_VALUE").getSourceType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE,
+                        catalogTable.getTableSchema().getColumn("IYM_VALUE").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE,
+                        catalogTable.getTableSchema().getColumn("IDS_VALUE").getDataType());
+
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT LTZ_VALUE, IYM_VALUE, IDS_VALUE FROM " + tableInfo)) {
+                    Assertions.assertTrue(resultSet.next());
+                    String ltzDriverString = resultSet.getString("LTZ_VALUE");
+                    String iymDriverString = resultSet.getString("IYM_VALUE");
+                    String idsDriverString = resultSet.getString("IDS_VALUE");
+                    SeaTunnelRow row =
+                            new DmdbJdbcRowConverter()
+                                    .toInternal(resultSet, catalogTable.getTableSchema());
+                    OffsetDateTime convertedTimestamp = (OffsetDateTime) row.getField(0);
+                    Assertions.assertEquals(
+                            OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00")
+                                    .toInstant(),
+                            convertedTimestamp.toInstant());
+                    Assertions.assertEquals(
+                            JdbcFieldTypeUtils.parseOffsetDateTimeFromString(ltzDriverString),
+                            convertedTimestamp);
+                    Assertions.assertEquals(iymDriverString, row.getField(1));
+                    Assertions.assertEquals(idsDriverString, row.getField(2));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            } finally {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE " + tableInfo);
+                    connection.commit();
+                }
+            }
+        } finally {
+            localCatalog.close();
+        }
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
     }
 
     protected void clearTable(String database, String schema, String table) {
