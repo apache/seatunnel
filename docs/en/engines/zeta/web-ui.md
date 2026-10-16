@@ -33,9 +33,9 @@ http://<host>:8080/<context-path>/#/overview
 The route lives in the URL fragment, so it normally stays on the client. Some clients percent-encode
 the whole URL instead and send the fragment as part of the path - Safari does that when it
 re-requests a hash route, as do chat clients, wiki pages, and markdown previews - which turns
-`/#/overview` into `/%23/overview`. SeaTunnel redirects such a request back to the route it meant to
-open, so the Web UI still loads. A path without a fragment is a REST API path instead: `GET
-/overview` returns cluster JSON, not the UI.
+`/#/overview` into `/%23/overview`. SeaTunnel answers such a `GET` or `HEAD` request with `302` and
+`Location: <context-path>/#<route>`, so the Web UI still loads. A path without a fragment is a REST
+API path instead: `GET /overview` returns cluster JSON, not the UI.
 
 The redirect is built from the configured `context-path`, so set `context-path` when the Web UI is
 exposed under a prefix. A prefix that a reverse proxy strips before forwarding the request is not

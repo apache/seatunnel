@@ -196,17 +196,17 @@ public class JettyService {
             context.addFilter(basicAuthFilterHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
         }
 
-        // The Web UI route lives in the URL fragment. Clients that escape a whole URL send that
-        // fragment as part of the path, which matches no static resource, so restore it instead of
-        // answering with the Jetty 404 page.
-        FilterHolder webUiFragmentRedirectHolder =
-                new FilterHolder(new WebUiFragmentRedirectFilter());
-        context.addFilter(webUiFragmentRedirectHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
-
         ServletHolder defaultServlet = new ServletHolder("default", DefaultServlet.class);
         URL uiResource = JettyService.class.getClassLoader().getResource("ui");
         if (uiResource != null) {
             defaultServlet.setInitParameter("resourceBase", uiResource.toExternalForm());
+            // The Web UI route lives in the URL fragment. Clients that escape a whole URL send that
+            // fragment as part of the path, which matches no static resource, so restore it instead
+            // of answering with the Jetty 404 page. Only a node that serves the UI needs this.
+            FilterHolder webUiFragmentRedirectHolder =
+                    new FilterHolder(new WebUiFragmentRedirectFilter());
+            context.addFilter(
+                    webUiFragmentRedirectHolder, "/*", EnumSet.of(DispatcherType.REQUEST));
         } else {
             log.warn("UI resources not found in classpath");
         }

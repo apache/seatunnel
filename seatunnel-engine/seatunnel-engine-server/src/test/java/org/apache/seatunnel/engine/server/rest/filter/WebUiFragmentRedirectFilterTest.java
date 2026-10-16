@@ -51,6 +51,37 @@ class WebUiFragmentRedirectFilterTest {
     }
 
     @Test
+    void shouldKeepAnEscapedRouteAndItsQuery() {
+        Assertions.assertEquals(
+                "/#/%E4%B8%AD%E6%96%87/jobs?tab=metrics&pretty=true",
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/%E4%B8%AD%E6%96%87/jobs", "", "tab=metrics&pretty=true"));
+        Assertions.assertEquals(
+                "/#/overview?from=chat%20client",
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "from=chat%20client"));
+    }
+
+    @Test
+    void shouldRefuseRoutesThatAreNotUriReferences() {
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/<script>alert(1)</script>", "", null));
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "x=%0d%0aInjected:%20yes"));
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "x=100%"));
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "x=%2"));
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "x=%zz"));
+    }
+
+    @Test
     void shouldMapAnEncodedFragmentWithoutRouteToTheWebUiRoot() {
         Assertions.assertEquals(
                 "/", WebUiFragmentRedirectFilter.redirectLocationFor("GET", "/%23", "", null));

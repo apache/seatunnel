@@ -45,13 +45,19 @@ import java.io.IOException;
  * UI router resolves as usual.
  *
  * <p>A fragment sent unencoded never reaches the server (the client keeps it), so only the
- * percent-encoded form is handled here; every other request passes through untouched.
+ * percent-encoded form is handled here. The route and the query are only re-emitted when they are
+ * well-formed URI text; a request that carries anything else is left to the normal handling, so the
+ * {@code Location} value never holds bytes the client did not send as a URI. Every other request
+ * passes through untouched.
  */
 @Slf4j
 public class WebUiFragmentRedirectFilter implements Filter {
 
     /** A percent-encoded {@code #}, as produced by clients that escape a whole URL. */
-    private static final String ENCODED_FRAGMENT_HEADER = "/%23";
+    private static final String ENCODED_FRAGMENT_PATH_PREFIX = "/%23";
+
+    /** URI characters a hash route or its query may carry without escaping. */
+    private static final String ROUTE_CHARACTERS = "-._~!$&'()*+,;=:@/?";
 
     private static final String GET = "GET";
 
@@ -116,12 +122,18 @@ public class WebUiFragmentRedirectFilter implements Filter {
             return null;
         }
         String pathInContext = requestUri.substring(contextPath.length());
-        if (!pathInContext.startsWith(ENCODED_FRAGMENT_HEADER)) {
+        if (!pathInContext.startsWith(ENCODED_FRAGMENT_PATH_PREFIX)) {
+            return null;
+        }
+
+        String fragment = pathInContext.substring(ENCODED_FRAGMENT_PATH_PREFIX.length());
+        if (!isUriText(fragment) || !isUriText(queryString)) {
+            log.debug(
+                    "Not redirecting {}: the encoded fragment is not a URI reference", requestUri);
             return null;
         }
 
         StringBuilder location = new StringBuilder(contextPath).append('/');
-        String fragment = pathInContext.substring(ENCODED_FRAGMENT_HEADER.length());
         if (!fragment.isEmpty()) {
             // The client kept the route after the encoded separator, so it is the fragment again.
             location.append('#').append(fragment);
@@ -130,5 +142,53 @@ public class WebUiFragmentRedirectFilter implements Filter {
             location.append('?').append(queryString);
         }
         return location.toString();
+    }
+
+    /**
+     * Checks that a route fragment or a query string is well-formed URI text: URI characters, with
+     * {@code %} only as part of a {@code %HH} escape that is neither a control character nor {@code
+     * DEL}.
+     *
+     * <p>A hash route never needs anything else, so a raw {@code <}, an encoded line break or a
+     * truncated escape means the caller did not send a Web UI URL and the request is answered
+     * normally. Keeping this check here means the header value is well formed regardless of what
+     * the HTTP layer accepted on the request line.
+     *
+     * @param text the raw fragment or query of the request, {@code null} when there is none
+     * @return {@code true} when the text may be re-emitted in a {@code Location} header
+     */
+    private static boolean isUriText(String text) {
+        if (text == null) {
+            return true;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+            if (character == '%') {
+                // A truncated or non-hex escape cannot be part of a URI reference.
+                if (i + 2 >= text.length()) {
+                    return false;
+                }
+                int high = Character.digit(text.charAt(i + 1), 16);
+                int low = Character.digit(text.charAt(i + 2), 16);
+                if (high < 0 || low < 0) {
+                    return false;
+                }
+                int escaped = (high << 4) + low;
+                if (escaped < 0x20 || escaped == 0x7F) {
+                    return false;
+                }
+                i += 2;
+            } else if (!isRouteCharacter(character)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isRouteCharacter(char character) {
+        return (character >= 'a' && character <= 'z')
+                || (character >= 'A' && character <= 'Z')
+                || (character >= '0' && character <= '9')
+                || ROUTE_CHARACTERS.indexOf(character) >= 0;
     }
 }

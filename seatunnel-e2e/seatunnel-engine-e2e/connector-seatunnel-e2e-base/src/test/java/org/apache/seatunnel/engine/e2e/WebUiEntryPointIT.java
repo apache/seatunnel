@@ -71,22 +71,15 @@ public class WebUiEntryPointIT {
         Assertions.assertNotNull(
                 WebUiEntryPointIT.class.getClassLoader().getResource("ui"),
                 "This test needs the packaged Web UI resources; run it without -Dskip.ui=true");
-        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName("WebUiEntryPointIT"));
         int httpPort = getAvailablePort();
-        config.getEngineConfig().getHttpConfig().setEnabled(true);
-        config.getEngineConfig().getHttpConfig().setEnableDynamicPort(false);
-        config.getEngineConfig().getHttpConfig().setPort(httpPort);
-        // Other ITs in the same JVM may leave another context path behind.
-        config.getEngineConfig().getHttpConfig().setContextPath("");
-        node = SeaTunnelServerStarter.createHazelcastInstance(config);
+        node = startNode(httpPort, "");
         baseUrl = "http://localhost:" + httpPort;
         // A fragment the client encoded is sent as a path, so the raw URL has to reach the wire
         // exactly as written here; Redirect.NEVER keeps the redirect itself observable.
         client = httpClient(HttpClient.Redirect.NEVER);
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
-                .until(() -> get(RestConstant.REST_URL_OVERVIEW).statusCode() == 200);
+                .until(() -> get(baseUrl, RestConstant.REST_URL_OVERVIEW).statusCode() == 200);
     }
 
     @AfterAll
@@ -99,7 +92,7 @@ public class WebUiEntryPointIT {
 
     @Test
     void testEncodedFragmentIsRedirectedToTheWebUiRoute() throws Exception {
-        HttpResponse<String> response = get(ENCODED_OVERVIEW_ROUTE);
+        HttpResponse<String> response = get(baseUrl, ENCODED_OVERVIEW_ROUTE);
 
         Assertions.assertEquals(302, response.statusCode());
         Assertions.assertEquals(
@@ -110,7 +103,7 @@ public class WebUiEntryPointIT {
 
     @Test
     void testEncodedFragmentDeepLinkKeepsItsRoute() throws Exception {
-        HttpResponse<String> response = get("/%23/jobs/1001");
+        HttpResponse<String> response = get(baseUrl, "/%23/jobs/1001");
 
         Assertions.assertEquals(302, response.statusCode());
         Assertions.assertEquals(
@@ -122,7 +115,7 @@ public class WebUiEntryPointIT {
         HttpResponse<String> response =
                 httpClient(HttpClient.Redirect.NORMAL)
                         .send(
-                                request(ENCODED_OVERVIEW_ROUTE),
+                                request(baseUrl, ENCODED_OVERVIEW_ROUTE),
                                 HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertEquals(200, response.statusCode());
@@ -136,7 +129,7 @@ public class WebUiEntryPointIT {
 
     @Test
     void testWebUiIsServedAtTheRootPath() throws Exception {
-        HttpResponse<String> response = get("/");
+        HttpResponse<String> response = get(baseUrl, "/");
 
         Assertions.assertEquals(200, response.statusCode());
         Assertions.assertTrue(response.body().contains(UI_ENTRY_PAGE_TITLE));
@@ -152,15 +145,67 @@ public class WebUiEntryPointIT {
 
     @Test
     void testUnknownPathIsNotRedirectedToTheWebUi() throws Exception {
-        Assertions.assertEquals(404, get("/not-a-web-ui-route").statusCode());
+        Assertions.assertEquals(404, get(baseUrl, "/not-a-web-ui-route").statusCode());
     }
 
-    private static HttpResponse<String> get(String path) throws Exception {
-        return client.send(request(path), HttpResponse.BodyHandlers.ofString());
+    /**
+     * A configured {@code context-path} moves the Web UI route and the REST endpoints under the
+     * prefix, and the restored fragment has to keep that prefix. This needs its own node, so it is
+     * the one case that does not use the node from {@link #startEngine()}.
+     */
+    @Test
+    void testEncodedFragmentRedirectKeepsTheConfiguredContextPath() throws Exception {
+        int httpPort = getAvailablePort();
+        String prefixedBaseUrl = "http://localhost:" + httpPort;
+        String contextPath = "/seatunnel";
+        HazelcastInstanceImpl prefixedNode = null;
+        try {
+            prefixedNode = startNode(httpPort, contextPath);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .until(
+                            () ->
+                                    get(
+                                                            prefixedBaseUrl,
+                                                            contextPath
+                                                                    + RestConstant
+                                                                            .REST_URL_OVERVIEW)
+                                                    .statusCode()
+                                            == 200);
+
+            HttpResponse<String> response =
+                    client.send(
+                            request(prefixedBaseUrl, contextPath + ENCODED_OVERVIEW_ROUTE),
+                            HttpResponse.BodyHandlers.ofString());
+
+            Assertions.assertEquals(302, response.statusCode());
+            Assertions.assertEquals(
+                    contextPath + "/#/overview",
+                    response.headers().firstValue("Location").orElse(null));
+        } finally {
+            if (prefixedNode != null) {
+                prefixedNode.shutdown();
+            }
+        }
     }
 
-    private static HttpRequest request(String path) {
-        return HttpRequest.newBuilder(URI.create(baseUrl + path)).GET().build();
+    private static HttpResponse<String> get(String targetBaseUrl, String path) throws Exception {
+        return client.send(request(targetBaseUrl, path), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static HttpRequest request(String targetBaseUrl, String path) {
+        return HttpRequest.newBuilder(URI.create(targetBaseUrl + path)).GET().build();
+    }
+
+    private static HazelcastInstanceImpl startNode(int httpPort, String contextPath) {
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName("WebUiEntryPointIT"));
+        config.getEngineConfig().getHttpConfig().setEnabled(true);
+        config.getEngineConfig().getHttpConfig().setEnableDynamicPort(false);
+        config.getEngineConfig().getHttpConfig().setPort(httpPort);
+        // Other ITs in the same JVM may leave another context path behind.
+        config.getEngineConfig().getHttpConfig().setContextPath(contextPath);
+        return SeaTunnelServerStarter.createHazelcastInstance(config);
     }
 
     private static HttpClient httpClient(HttpClient.Redirect redirectPolicy) {
