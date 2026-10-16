@@ -129,7 +129,8 @@ public class ExcelCellUtils implements Serializable {
             case SMALLINT:
                 return (short) Double.parseDouble(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                // Parse the text directly: going through double drops digits beyond ~15
+                return new BigDecimal(fieldValue.trim());
             case DATE:
                 return parseDate(field, fieldType);
             case TIME:
