@@ -217,8 +217,9 @@ public class ExcelGenerator {
     }
 
     /**
-     * Excel stores numbers as IEEE 754 doubles. A decimal that a double represents exactly is
-     * written as a number cell; any other decimal is written as text so that no digit is lost.
+     * Excel stores numbers as IEEE 754 doubles. A decimal that round-trips through a double (its
+     * shortest decimal form, {@link Double#toString(double)}, equals the value) is written as a
+     * number cell; any other decimal is written as text so that no digit is lost.
      */
     private void setDecimalCellValue(BigDecimal value, Cell cell) {
         double doubleValue = value.doubleValue();
