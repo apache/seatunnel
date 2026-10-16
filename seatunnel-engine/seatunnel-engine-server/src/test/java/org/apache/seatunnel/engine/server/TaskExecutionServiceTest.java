@@ -791,6 +791,72 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testFinalMetricsPreservesCanceledTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "canceled-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch releaseMetrics = new CountDownLatch(1);
+        List<Thread> metricsThreads = new CopyOnWriteArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsThreads.add(Thread.currentThread());
+                            metricsStarted.countDown();
+                            releaseMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+        // Trigger cancellation so the tracker flips isCancel and records an exception.
+        cancellationFuture.completeExceptionally(new RuntimeException("test cancel"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            AtomicBoolean isCancel = getField(tracker, "isCancel");
+                            return isCancel.get();
+                        });
+
+        Thread worker =
+                new Thread(
+                        () -> {
+                            Thread.currentThread().interrupt();
+                            tracker.taskDone(task);
+                        });
+        try {
+            worker.start();
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics should be reported before terminal state is published");
+            // Metrics still blocked — CANCELED future must not be completed yet.
+            Assertions.assertFalse(resultFuture.isDone());
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(worker.isAlive());
+            Assertions.assertEquals(1, metricsThreads.size());
+            Assertions.assertFalse(
+                    metricsThreads.contains(worker),
+                    "Metrics report must NOT run on the (interrupted) task worker");
+            Assertions.assertTrue(
+                    worker.isInterrupted(),
+                    "Scheduling the metrics report must preserve the worker interrupt flag");
+            assertEquals(CANCELED, resultFuture.get().getExecutionState());
+        } finally {
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+        }
+    }
+
+    @Test
     public void testFinalMetricsFailurePreservesFailedTerminalState() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
