@@ -23,8 +23,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
@@ -52,8 +55,29 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
                 return null;
             }
             currentRow = ((SeaTunnelMapTransform<SeaTunnelRow>) transform).map(currentRow);
+            // A transform may route a row to one of its extra tables (the DataValidator error
+            // table): that row carries the schema of the extra table and must not be processed by
+            // the remaining rules of the chain.
+            if (isExtraTableRow(transform, currentRow)) {
+                return currentRow;
+            }
         }
         return currentRow;
+    }
+
+    private static boolean isExtraTableRow(
+            SeaTunnelTransform<SeaTunnelRow> transform, SeaTunnelRow row) {
+        if (row == null) {
+            return false;
+        }
+        List<CatalogTable> producedTables = transform.getProducedCatalogTables();
+        for (int i = 1; i < producedTables.size(); i++) {
+            String producedTablePath = producedTables.get(i).getTableId().toTablePath().toString();
+            if (producedTablePath.equals(row.getTableId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -63,7 +87,22 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(getProducedCatalogTable());
+        List<CatalogTable> producedTables = new ArrayList<>();
+        producedTables.add(getProducedCatalogTable());
+        Set<String> producedTablePaths = new HashSet<>();
+        producedTablePaths.add(getProducedCatalogTable().getTableId().toTablePath().toString());
+        // The extra tables of every rule are part of the output of the chain, not only the ones of
+        // the last rule.
+        for (SeaTunnelTransform<SeaTunnelRow> transform : transforms) {
+            List<CatalogTable> innerProducedTables = transform.getProducedCatalogTables();
+            for (int i = 1; i < innerProducedTables.size(); i++) {
+                CatalogTable extraTable = innerProducedTables.get(i);
+                if (producedTablePaths.add(extraTable.getTableId().toTablePath().toString())) {
+                    producedTables.add(extraTable);
+                }
+            }
+        }
+        return producedTables;
     }
 
     @Override
