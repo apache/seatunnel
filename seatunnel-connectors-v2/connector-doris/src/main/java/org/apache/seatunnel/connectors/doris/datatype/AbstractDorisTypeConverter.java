@@ -97,6 +97,37 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
      */
     public static final int DORIS_LARGEINT_PRECISION = 39;
 
+    private static final String DORIS_ARRAY_PREFIX = "ARRAY";
+
+    /**
+     * Whether a Doris type is LARGEINT, ignoring case, whitespace and a display width such as
+     * {@code largeint(40)}.
+     */
+    protected static boolean isLargeintType(String type) {
+        if (type == null) {
+            return false;
+        }
+        return normalizeType(type).matches(DORIS_LARGEINT + "(\\(\\d+\\))?");
+    }
+
+    /**
+     * Whether a Doris type is an array whose element type is LARGEINT, see {@link #isLargeintType}.
+     */
+    protected static boolean isLargeintArrayType(String type) {
+        if (type == null) {
+            return false;
+        }
+        String normalized = normalizeType(type);
+        String prefix = DORIS_ARRAY_PREFIX + "<";
+        return normalized.startsWith(prefix)
+                && normalized.endsWith(">")
+                && isLargeintType(normalized.substring(prefix.length(), normalized.length() - 1));
+    }
+
+    private static String normalizeType(String type) {
+        return type.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+    }
+
     // Min value of LARGEINT is -170141183460469231731687303715884105728, it will use 39 bytes in
     // UTF-8.
     // Add a bit to prevent overflow
@@ -414,8 +445,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
             case ARRAY:
                 // DORIS ARRAY<LARGEINT>: its DECIMAL(39, 0) elements exceed the DECIMALV3
                 // precision limit, so keep the source type instead
-                if (column.getSourceType() != null
-                        && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT_ARRAY)) {
+                if (isLargeintArrayType(column.getSourceType())) {
                     builder.columnType(DORIS_LARGEINT_ARRAY_COLUMN_TYPE);
                     builder.dataType(DORIS_LARGEINT_ARRAY_COLUMN_TYPE);
                     break;

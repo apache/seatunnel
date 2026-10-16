@@ -168,7 +168,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
         } else if (columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIME_INTER)
                 || columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIMEV2_INTER)) {
             builder.dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
-        } else if (columnInterType.equalsIgnoreCase(DORIS_LARGEINT)) {
+        } else if (isLargeintType(columnInterType)) {
             DecimalArrayType decimalArray =
                     new DecimalArrayType(new DecimalType(DORIS_LARGEINT_PRECISION, 0));
             builder.dataType(decimalArray);
@@ -301,8 +301,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             return result;
         }
         for (int i = 0; i < result.length; i++) {
-            if (keyValueType[i] != null
-                    && keyValueType[i].trim().equalsIgnoreCase(DORIS_LARGEINT)) {
+            if (isLargeintType(keyValueType[i])) {
                 result[i] = DORIS_LARGEINT;
             }
         }

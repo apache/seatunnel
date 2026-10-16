@@ -12,6 +12,17 @@
 
 同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
 
+### Doris 源：LARGEINT 声明为 DECIMAL(39, 0)
+
+- **模式变更：Doris `LARGEINT` 列现在声明为 `DECIMAL(39, 0)`，不再是 `DECIMAL(20, 0)`**
+  - **描述**：`LARGEINT` 是有符号 128 位整数，最多 39 位数字，但 Doris 源此前把它声明为 `DECIMAL(20, 0)`。新类型可以覆盖完整取值范围。该变更适用于标量 `LARGEINT` 列、`ARRAY<LARGEINT>` 的元素，以及 MAP 中类型为 `LARGEINT` 的键和值。
+  - **影响**：
+    - 根据 schema 自动建表的 Sink 现在会建出更宽的列。例如 MySQL 会建为 `DECIMAL(39,0)`，而不是 `DECIMAL(20,0)`。
+    - 十进制精度上限为 38 的 Sink（如 Oracle、SQL Server）会建为 `DECIMAL(38,0)`，并输出精度被缩减的警告。39 位的值仍无法写入这类列，但 38 位以内的值现在可以写入，而旧类型只能容纳 20 位。
+    - Doris 到 Doris 自动建表时，`ARRAY<LARGEINT>` 列以及 MAP 中的 `LARGEINT` 键和值会保留为 `LARGEINT`，此前会建为 `DECIMALV3(20, 0)`。标量 `LARGEINT` 列此前已经保留为 `LARGEINT`。
+    - 下游已存在的表不会被修改。
+  - **迁移指南**：写入已有表的作业无需修改。如需向已按 `DECIMAL(20,0)` 建好的列写入超过 20 位的值，请在 Sink 数据库中加宽该列。如需在 schema 中保留原来的 `DECIMAL(20, 0)` 类型（例如用于自动建表），请添加 SQL Transform，使用 `CAST(col AS DECIMAL(20, 0))`。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
