@@ -46,7 +46,8 @@ import java.util.function.Function;
  * with {@link NoSuchMethodError}. On such runtimes this FileIO returns Hadoop input files whose
  * type and stream are hidden, so Parquet reads them through Iceberg's stream adapter, as it does
  * for object store FileIOs. Other input files, and all files on Hadoop 3.3 or later, are returned
- * unchanged.
+ * unchanged. The legacy path cannot use Hadoop range reads; this is limited to runtimes that cannot
+ * use Parquet's newer Hadoop path at all.
  *
  * <p>The no-argument constructor wraps a {@link HadoopFileIO}, so the class can also be set as a
  * catalog's {@code io-impl}.
@@ -144,7 +145,11 @@ public class HadoopStreamFileIO implements FileIO, HadoopConfigurable {
      * {@code FileSystem.openFile()}, otherwise the input file itself.
      */
     public static InputFile wrap(InputFile file) {
-        if (!HADOOP_OPEN_FILE_AVAILABLE && file instanceof HadoopInputFile) {
+        return wrap(file, HADOOP_OPEN_FILE_AVAILABLE);
+    }
+
+    static InputFile wrap(InputFile file, boolean hadoopOpenFileAvailable) {
+        if (!hadoopOpenFileAvailable && file instanceof HadoopInputFile) {
             return new StreamInputFile(file);
         }
         return file;

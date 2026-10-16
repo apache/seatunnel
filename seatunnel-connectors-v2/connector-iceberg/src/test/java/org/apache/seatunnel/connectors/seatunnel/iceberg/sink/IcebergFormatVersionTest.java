@@ -76,6 +76,8 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -351,6 +353,9 @@ class IcebergFormatVersionTest {
      * would open them with FileSystem.openFile(), which the Hadoop 3.1 runtime does not have.
      */
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop LocalFileSystem requires winutils on Windows")
     void readsParquetFilesOfHadoopCatalog(@TempDir Path warehouse) throws Exception {
         HadoopCatalog hadoopCatalog = new HadoopCatalog();
         hadoopCatalog.setConf(new Configuration());

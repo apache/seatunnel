@@ -274,6 +274,11 @@
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>net.sf.jsqlparser</pattern>
                                     <!--suppress UnresolvedMavenProperty -->
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.net.sf.jsqlparser</shadedPattern>
