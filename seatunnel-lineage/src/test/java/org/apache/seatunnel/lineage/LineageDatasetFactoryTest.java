@@ -86,7 +86,7 @@ class LineageDatasetFactoryTest {
     @Test
     void usesTheDorisQueryPortRatherThanTheFenodesPort() {
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("fenodes", "192.168.10.131:8030");
+        options.put("fenodes", "fe.example:8030");
         options.put("database", "ds71");
         options.put("table", "orders");
 
@@ -94,7 +94,7 @@ class LineageDatasetFactoryTest {
                 LineageDatasetFactory.fromConnectorOptions("Doris", options);
 
         assertEquals(1, datasets.size());
-        assertEquals("mysql://192.168.10.131:9030", datasets.get(0).namespace());
+        assertEquals("mysql://fe.example:9030", datasets.get(0).namespace());
         assertEquals("ds71.orders", datasets.get(0).name());
     }
 
@@ -128,7 +128,7 @@ class LineageDatasetFactoryTest {
     @Test
     void prefersDorisOverJdbcWhenOptionsAlsoCarryAUrl() {
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("fenodes", "192.168.10.131:8030");
+        options.put("fenodes", "fe.example:8030");
         options.put("database", "ds71");
         options.put("table", "orders");
         // Distinct from the Doris naming path so a JDBC-first order would fail this assertion.
@@ -138,7 +138,7 @@ class LineageDatasetFactoryTest {
                 LineageDatasetFactory.fromConnectorOptions("Doris", options);
 
         assertEquals(1, datasets.size());
-        assertEquals("mysql://192.168.10.131:9030", datasets.get(0).namespace());
+        assertEquals("mysql://fe.example:9030", datasets.get(0).namespace());
         assertEquals("ds71.orders", datasets.get(0).name());
     }
 
