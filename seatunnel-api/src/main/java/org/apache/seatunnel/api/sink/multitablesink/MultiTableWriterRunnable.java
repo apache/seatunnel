@@ -68,12 +68,33 @@ public class MultiTableWriterRunnable implements Runnable {
     /** Counts queued or dequeued row requests until their write path has fully finished. */
     private final AtomicInteger pendingRowRequests = new AtomicInteger();
 
+    /**
+     * Creates a queue worker using the historical single-writer fallback behavior.
+     *
+     * <p>The worker owns the supplied queue and dispatches rows to the writer selected by table
+     * identifier. When exactly one writer is present, rows without a matching table identifier
+     * may fall back to that writer for backward compatibility.
+     *
+     * @param tableIdWriterMap writers keyed by logical source-table identifier
+     * @param queue ordered requests consumed by this worker
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue) {
         this(tableIdWriterMap, queue, false, (tableId, error) -> {});
     }
 
+    /**
+     * Creates a queue worker with table-failure isolation enabled or disabled.
+     *
+     * <p>When continuation is enabled, a failed table can be reported through {@code
+     * failureHandler} and removed while other tables continue processing their queued rows.
+     *
+     * @param tableIdWriterMap writers keyed by logical source-table identifier
+     * @param queue ordered requests consumed by this worker
+     * @param continueOnTableFailure whether one table failure may be isolated from other tables
+     * @param failureHandler callback invoked when a table is quarantined after a write failure
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue,
@@ -82,6 +103,20 @@ public class MultiTableWriterRunnable implements Runnable {
         this(tableIdWriterMap, queue, continueOnTableFailure, failureHandler, 0, 0);
     }
 
+    /**
+     * Creates the queue worker with table-failure handling and bounded write retries.
+     *
+     * <p>Rows are processed in queue order under this runnable's monitor so schema-change barriers
+     * cannot overtake earlier writes. Retry settings apply only when table-failure continuation is
+     * enabled.
+     *
+     * @param tableIdWriterMap writers keyed by logical source-table identifier
+     * @param queue ordered requests consumed by this worker
+     * @param continueOnTableFailure whether one table failure may be isolated from other tables
+     * @param failureHandler callback invoked when a table is quarantined after a write failure
+     * @param tableRetryTimes maximum number of retries after the initial write attempt
+     * @param tableRetryIntervalSeconds delay between retry attempts
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue,
@@ -106,6 +141,14 @@ public class MultiTableWriterRunnable implements Runnable {
         this.writeSuccessHandler = writeSuccessHandler == null ? row -> {} : writeSuccessHandler;
     }
 
+    /**
+     * Continuously drains this worker's queue and processes rows or schema-change barriers.
+     *
+     * <p>Queue elements are processed while holding this runnable's monitor so {@link
+     * #writeRow(SeaTunnelRow)} and schema-change barriers remain ordered. An interruption or
+     * unrecoverable failure records the throwable, fails pending schema-change requests, and stops
+     * the worker.
+     */
     @Override
     public void run() {
         while (true) {
@@ -352,10 +395,23 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Returns the first fatal failure that stopped this worker, if any.
+     *
+     * @return the worker failure, or {@code null} while the worker has not recorded one
+     */
     public Throwable getThrowable() {
         return throwable;
     }
 
+    /**
+     * Returns the table identifier currently associated with the worker's write operation.
+     *
+     * <p>The value is intended for diagnostics and may be {@code null} while the worker is idle
+     * or between rows.
+     *
+     * @return the current table identifier, or {@code null} when no table is active
+     */
     public String getCurrentTableId() {
         return currentTableId;
     }
