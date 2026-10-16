@@ -399,6 +399,95 @@ public class CheckpointCoordinatorTest
         executor.shutdownNow();
     }
 
+@Test
+    void testRetentionPrunesAsSoonAsCompletedCheckpointsExceedMaxRetained() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            int maxRetained = 3;
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+            storageConfig.setMaxRetainedCheckpoints(maxRetained);
+            checkpointConfig.setStorage(storageConfig);
+
+            TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(Collections.singleton(taskLocation))
+                            .startingSubtasks(Collections.singleton(taskLocation))
+                            .build();
+            CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            storage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            runningJobStateIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(false).when(spy).notifyCompleted(Mockito.any());
+
+            for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
+                spy.completePendingCheckpoint(completedCheckpoint(checkpointId));
+                ArrayDeque<String> retained = completedCheckpointIds(spy);
+                Assertions.assertTrue(
+                        retained.size() <= maxRetained,
+                        "after checkpoint "
+                                + checkpointId
+                                + " retained "
+                                + retained
+                                + ", max-retained is "
+                                + maxRetained);
+            }
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> deleted = ArgumentCaptor.forClass(List.class);
+            Mockito.verify(storage, Mockito.atLeastOnce())
+                    .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), deleted.capture());
+            List<String> pruned =
+                    deleted.getAllValues().stream()
+                            .flatMap(List::stream)
+                            .collect(Collectors.toList());
+            Assertions.assertEquals(
+                    Arrays.asList("1", "2"),
+                    pruned,
+                    "oldest checkpoints must be pruned once the bound is exceeded");
+            Assertions.assertEquals(
+                    Arrays.asList("3", "4", "5"), new ArrayList<>(completedCheckpointIds(spy)));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    private static CompletedCheckpoint completedCheckpoint(long checkpointId) {
+        return new CompletedCheckpoint(
+                1L,
+                1,
+                checkpointId,
+                1_000L + checkpointId,
+                CheckpointType.CHECKPOINT_TYPE,
+                2_000L + checkpointId,
+                new HashMap<>(),
+                new HashMap<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ArrayDeque<String> completedCheckpointIds(CheckpointCoordinator coordinator) {
+        return (ArrayDeque<String>)
+                ReflectionUtils.getField(coordinator, "completedCheckpointIds")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "completedCheckpointIds field not found"));
+    }
     @Test
     void testReadyToClosePartialProgressPersistedAndRestoredCorrectly() {
         ExecutorService executorService = Executors.newCachedThreadPool();
