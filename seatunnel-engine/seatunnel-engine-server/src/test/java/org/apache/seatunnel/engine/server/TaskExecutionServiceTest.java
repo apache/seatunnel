@@ -826,11 +826,13 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                             return isCancel.get();
                         });
 
+        AtomicBoolean workerRemainedInterrupted = new AtomicBoolean();
         Thread worker =
                 new Thread(
                         () -> {
                             Thread.currentThread().interrupt();
                             tracker.taskDone(task);
+                            workerRemainedInterrupted.set(Thread.currentThread().isInterrupted());
                         });
         try {
             worker.start();
@@ -847,7 +849,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     metricsThreads.contains(worker),
                     "Metrics report must NOT run on the (interrupted) task worker");
             Assertions.assertTrue(
-                    worker.isInterrupted(),
+                    workerRemainedInterrupted.get(),
                     "Scheduling the metrics report must preserve the worker interrupt flag");
             assertEquals(CANCELED, resultFuture.get().getExecutionState());
         } finally {
