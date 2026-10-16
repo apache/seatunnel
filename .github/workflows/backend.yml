@@ -1107,7 +1107,7 @@ jobs:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Part-1 alone takes 99-107 minutes on ubuntu-latest; the UDF E2E module adds its own build and tests.
-    timeout-minutes: 135
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1143,7 +1143,7 @@ jobs:
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes about 149 minutes on ubuntu-latest, so the previous 150
     # minute budget cancelled runs that were already on their last test class.
-    timeout-minutes: 180
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
