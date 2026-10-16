@@ -117,6 +117,11 @@ public class CockroachDBDialect extends PostgresDialect {
     }
 
     @Override
+    public boolean supportsSchemaChange() {
+        return false;
+    }
+
+    @Override
     public void applySchemaChange(
             Connection connection, TablePath tablePath, SchemaChangeEvent event) {
         throw unsupportedSchemaChange();

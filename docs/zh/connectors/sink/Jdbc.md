@@ -57,7 +57,7 @@ Jdbc {
 
 生成的 upsert 使用 CockroachDB 原生 `INSERT ... ON CONFLICT (keys) DO UPDATE`，保留 `primary_keys` 指定的冲突目标，也支持匹配的非主键唯一约束。不使用简写 `UPSERT`，因为它始终选择数据库实际主键，可能改变非主键唯一键配置的语义。更新仅修改输入中的非键列，未输入的列保留已有值；仅包含键的记录使用 `DO NOTHING`。重复写入相同的非空键值不会新增记录；可为空的唯一键包含 `NULL` 时不会产生冲突，可能新增记录。配置的键必须匹配目标表的主键或唯一约束。
 
-首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在执行 DDL 前失败。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
+首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在刷新缓冲数据或执行 DDL 前被拒绝。仅支持 `data_save_mode = APPEND_DATA`；`schema_save_mode` 可以保持默认值或设为 `IGNORE`，但这两种配置都不会创建或检查目标表。其他 save mode 会被拒绝，而不会被静默忽略。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
 
 ## 选择写入模式
 
