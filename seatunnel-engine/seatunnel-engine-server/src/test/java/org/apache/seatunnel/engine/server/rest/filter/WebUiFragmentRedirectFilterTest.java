@@ -79,6 +79,10 @@ class WebUiFragmentRedirectFilterTest {
         Assertions.assertNull(
                 WebUiFragmentRedirectFilter.redirectLocationFor(
                         "GET", "/%23/overview", "", "x=%zz"));
+        // Non-ASCII digits are digits for Character.digit, but not for a URI escape.
+        Assertions.assertNull(
+                WebUiFragmentRedirectFilter.redirectLocationFor(
+                        "GET", "/%23/overview", "", "x=%\u0663\u0663"));
     }
 
     @Test

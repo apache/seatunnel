@@ -168,8 +168,8 @@ public class WebUiFragmentRedirectFilter implements Filter {
                 if (i + 2 >= text.length()) {
                     return false;
                 }
-                int high = Character.digit(text.charAt(i + 1), 16);
-                int low = Character.digit(text.charAt(i + 2), 16);
+                int high = hexValue(text.charAt(i + 1));
+                int low = hexValue(text.charAt(i + 2));
                 if (high < 0 || low < 0) {
                     return false;
                 }
@@ -183,6 +183,20 @@ public class WebUiFragmentRedirectFilter implements Filter {
             }
         }
         return true;
+    }
+
+    /** @return the value of an ASCII hex digit, or {@code -1} for anything else */
+    private static int hexValue(char character) {
+        if (character >= '0' && character <= '9') {
+            return character - '0';
+        }
+        if (character >= 'a' && character <= 'f') {
+            return character - 'a' + 10;
+        }
+        if (character >= 'A' && character <= 'F') {
+            return character - 'A' + 10;
+        }
+        return -1;
     }
 
     private static boolean isRouteCharacter(char character) {

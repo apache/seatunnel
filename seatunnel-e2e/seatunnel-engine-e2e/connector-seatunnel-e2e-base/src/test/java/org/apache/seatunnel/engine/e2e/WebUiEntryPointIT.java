@@ -199,7 +199,12 @@ public class WebUiEntryPointIT {
 
     private static HazelcastInstanceImpl startNode(int httpPort, String contextPath) {
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName("WebUiEntryPointIT"));
+        // Each node needs its own cluster: nodes in one JVM and with the same name would join each
+        // other over TCP-IP discovery, and the redirect assertions do not need that.
+        config.getHazelcastConfig()
+                .setClusterName(
+                        TestUtils.getClusterName(
+                                "WebUiEntryPointIT" + contextPath.replace('/', '_')));
         config.getEngineConfig().getHttpConfig().setEnabled(true);
         config.getEngineConfig().getHttpConfig().setEnableDynamicPort(false);
         config.getEngineConfig().getHttpConfig().setPort(httpPort);
