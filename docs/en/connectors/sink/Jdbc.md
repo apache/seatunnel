@@ -57,7 +57,7 @@ Configure the driver's trusted root certificate for your cluster. Do not disable
 
 Generated upserts use CockroachDB's native `INSERT ... ON CONFLICT (keys) DO UPDATE`, retaining the configured `primary_keys` conflict target. This also works with a matching secondary unique constraint. The shorter `UPSERT` statement is intentionally not used: it always selects the physical primary key and could change the meaning of a configured secondary key. Updates modify only incoming non-key columns; omitted columns keep their existing values. Key-only rows use `DO NOTHING`. Replaying matching non-null key values does not insert another row; nullable unique keys containing `NULL` do not produce a conflict and can insert additional rows. The configured keys must match a primary or unique constraint on the target table.
 
-The first scope is row inserts, upserts, updates, and deletes against existing tables. There is no CockroachDB catalog, automatic DDL/schema evolution, XA exactly-once support, or new transaction-retry policy. `table_options` is rejected rather than accepting PostgreSQL-only settings. Existing PostgreSQL jobs and URL matching are unchanged.
+The first scope is row inserts, upserts, updates, and deletes against existing tables. There is no CockroachDB catalog, automatic DDL/schema evolution, XA exactly-once support, or new transaction-retry policy. Schema-change events fail before executing DDL. `table_options` is rejected rather than accepting PostgreSQL-only settings. Existing PostgreSQL jobs and URL matching are unchanged.
 
 ## Choose a write mode
 

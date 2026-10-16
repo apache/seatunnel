@@ -20,6 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.cockroac
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -27,12 +32,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.util.Collections;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CockroachDBDialectTest {
@@ -104,5 +111,37 @@ class CockroachDBDialectTest {
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> dialect.validateTableOptions(Collections.singletonMap("fillfactor", "80")));
+    }
+
+    @Test
+    void rejectsSchemaChangesBeforeIssuingAnySql() {
+        Connection connection = mock(Connection.class);
+        TablePath tablePath = TablePath.of("db", "public", "target");
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () ->
+                        dialect.applySchemaChange(
+                                connection, tablePath, mock(SchemaChangeEvent.class)));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () ->
+                        dialect.applySchemaChange(
+                                connection, tablePath, mock(AlterTableAddColumnEvent.class)));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () ->
+                        dialect.applySchemaChange(
+                                connection, tablePath, mock(AlterTableChangeColumnEvent.class)));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () ->
+                        dialect.applySchemaChange(
+                                connection, tablePath, mock(AlterTableModifyColumnEvent.class)));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () ->
+                        dialect.applySchemaChange(
+                                connection, tablePath, mock(AlterTableDropColumnEvent.class)));
+        verifyNoInteractions(connection);
     }
 }
