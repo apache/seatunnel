@@ -4,6 +4,20 @@
 
 ## dev
 
+### 条件选项规则统一使用 `Condition`，并删除已废弃的 `Expression` API
+
+- **破坏性变更：删除 `Expression` 及其全部入口，条件选项规则改为完全使用 `Condition` 构建、求值和渲染**
+  - **影响范围**：`seatunnel-api`（`OptionRule`、`ConditionRule`、`RequiredOption.ConditionalRequiredOptions`、`ConfigValidator`），以及渲染同一批条件的 Zeta REST 选项规则元数据接口和 `seatunnel.sh` 元数据导出
+  - **变更说明**：`Expression` 不再是选项规则模型的一部分，`Condition` 链成为唯一表示。`A.and(B).or(C)` 这类链现在按标准布尔优先级求值和输出，即 `(A && B) || C`。旧的 `Expression` 模型对同一条链按右结合求值，即 `A && (B || C)`，且括号分组方式不同：`A.or(B).and(C)` 过去输出为 `(A || B) && C`，现在输出为 `A || (B && C)`。
+  - **影响**：
+    - **API 删除（源码不兼容）**：`Expression` 类以及所有使用它的入口都已删除：`ConfigValidator.validate(OptionRule, Expression)`、`RequiredOption.ConditionalRequiredOptions.of(Expression, List)`、`RequiredOption.ConditionalRequiredOptions.getExpression()`、`new ConditionRule(Expression, OptionRule)`、`ConditionRule.getExpression()`。仍在导入或调用它们的代码将无法编译，需要迁移到基于 `Condition` 的 API。
+    - 同时混用 AND 和 OR 的条件规则可能在新版本中命中以前不命中的分支。例如 `A.and(B).or(C)` 在 `A=false、B=false、C=true` 时，现在会触发必填校验，而旧表达式不会命中。
+    - 校验报错信息和 REST/CLI 导出的元数据会按 `Condition` 的优先级渲染混合链，括号和文本与之前版本不同。
+  - **迁移指南**：
+    - 使用 `Condition.of(...)` / `and(...)` / `or(...)` 构建条件链，并使用 `ConditionalRequiredOptions.of(Condition, List)`、`new ConditionRule(Condition, OptionRule)`、`ConditionalRequiredOptions.getCondition()`、`ConditionRule.getCondition()` 读取条件。
+    - 检查混用 AND 和 OR 的条件规则并明确期望的优先级。如果需要保留旧的右结合语义，请改写为等价的“AND 组之间取 OR”形式，例如 `A && (B || C)` 改写为 `(A && B) || (A && C)`。
+    - 由于表达式文本现在按 `Condition` 的规则渲染，请同步更新断言校验报错信息或导出元数据的测试与工具。
+
 ### CDC：可空列不再用作快照分片列
 
 - **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
