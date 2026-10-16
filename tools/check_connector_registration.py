@@ -63,6 +63,7 @@ EXCLUDED_FROM_ALL = {
     "connector-file-base-hadoop",
     "connector-file-adls-runtime",
     "connector-cdc-base",
+    "connector-cdc-pg-base",
 }
 
 # Connectors bundled into the seatunnel-dist core jar (always available,

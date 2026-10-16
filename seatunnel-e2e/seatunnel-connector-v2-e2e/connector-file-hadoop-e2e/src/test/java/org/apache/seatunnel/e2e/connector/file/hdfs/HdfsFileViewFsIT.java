@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -138,7 +140,26 @@ public class HdfsFileViewFsIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(HADOOP_IMAGE + ":datanode2")))
                         .dependsOn(nameNode2);
         Startables.deepStart(Stream.of(nameNode1, dataNode1, nameNode2, dataNode2)).join();
-        Thread.sleep(5000);
+        // The DataNodes have no wait strategy of their own; poll until each has
+        // registered with its NameNode instead of a fixed sleep, so a slow
+        // registration does not fail the first HDFS operation.
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    nameNode1
+                                            .execInContainer("hdfs", "dfsadmin", "-report")
+                                            .getStdout()
+                                            .contains("Live datanodes (1)"));
+                            Assertions.assertTrue(
+                                    nameNode2
+                                            .execInContainer("hdfs", "dfsadmin", "-report")
+                                            .getStdout()
+                                            .contains("Live datanodes (1)"));
+                        });
     }
 
     @AfterAll
