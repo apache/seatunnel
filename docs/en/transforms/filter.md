@@ -27,7 +27,7 @@ The Filter transform decides which fields of a table are passed to the next step
 | exclude_fields    | Array<String>      | no       | -       | Fields to remove. All other fields are kept. Mutually exclusive with `include_fields`.               |
 | table_match_regex | String             | no       | `.*`    | Regex of the table paths that the transform level rule applies to.                                   |
 | table_transform   | Array<Map>         | no       | -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
-| rule_match_mode   | String             | no       | `FIRST_MATCH`       | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
+| rule_match_mode   | String             | no       | -       | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -       | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
 :::caution
@@ -70,7 +70,7 @@ When a table has an entry in `table_transform`, the transform level rule is not 
 
 Controls what happens when several `table_transform` entries have the same `table_path`. Supported values are `FIRST_MATCH` (apply only the first matching entry) and `ALL_MATCH` (apply all matching entries in order, each one receiving the output of the previous one). 
 
-The default is `FIRST_MATCH`. With the default, if several `table_transform` entries have the same `table_path`, only the first matching entry is applied.
+If `rule_match_mode` is not set, duplicate `table_path` entries are rejected. Set it explicitly to `FIRST_MATCH` or `ALL_MATCH` when several entries use the same `table_path`.
 
 ### common options
 
@@ -96,6 +96,7 @@ source {
   FakeSource {
     plugin_output = "fake"
     tables_configs = [
+      {
         row.num = 2
         schema = {
           table = "test.abc"
