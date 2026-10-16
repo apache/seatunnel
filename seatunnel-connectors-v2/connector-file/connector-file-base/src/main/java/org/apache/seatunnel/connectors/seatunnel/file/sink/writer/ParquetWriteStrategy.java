@@ -262,7 +262,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case TIMESTAMP:
                 if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     LocalDateTime localDateTime = (LocalDateTime) data;
-                    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                    // Locale.ROOT is required, not cosmetic: Calendar.getInstance(TimeZone)
+                    // also consults the default locale, which selects the calendar system. Under
+                    // a Thai default locale it returns a BuddhistCalendar whose get(YEAR) is the
+                    // Buddhist year, and that value is fed to LocalDate.of below as if it were
+                    // Gregorian, writing a timestamp 543 years in the future into the file.
+                    Calendar calendar =
+                            Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
                     calendar.setTime(
                             Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant()));
                     int julianDays =
