@@ -68,6 +68,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     // Because can not get the column length from array, So the following types of arrays cannot be
     // generated properly.
     public static final String DORIS_LARGEINT_ARRAY = "ARRAY<largeint>";
+    public static final String DORIS_LARGEINT_ARRAY_COLUMN_TYPE = "ARRAY<LARGEINT>";
     public static final String DORIS_CHAR_ARRAY = "ARRAY<CHAR>";
     public static final String DORIS_CHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<CHAR(%s)>";
     public static final String DORIS_VARCHAR_ARRAY = "ARRAY<VARCHAR>";
@@ -87,6 +88,43 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final Integer MAX_DECIMALV2_SCALE = 9;
 
     public static final Integer MAX_DATETIME_SCALE = 6;
+
+    /**
+     * LARGEINT is a signed 128-bit integer: 2^127 - 1 has 39 digits, so DECIMAL(39, 0) is the
+     * smallest decimal that holds the whole range (the sign is not part of the precision).
+     */
+    public static final int DORIS_LARGEINT_PRECISION = 39;
+
+    private static final String DORIS_ARRAY_PREFIX = "ARRAY";
+
+    /**
+     * Whether a Doris type is LARGEINT, ignoring case, whitespace and a display width such as
+     * {@code largeint(40)}.
+     */
+    protected static boolean isLargeintType(String type) {
+        if (type == null) {
+            return false;
+        }
+        return normalizeType(type).matches(DORIS_LARGEINT + "(\\(\\d+\\))?");
+    }
+
+    /**
+     * Whether a Doris type is an array whose element type is LARGEINT, see {@link #isLargeintType}.
+     */
+    protected static boolean isLargeintArrayType(String type) {
+        if (type == null) {
+            return false;
+        }
+        String normalized = normalizeType(type);
+        String prefix = DORIS_ARRAY_PREFIX + "<";
+        return normalized.startsWith(prefix)
+                && normalized.endsWith(">")
+                && isLargeintType(normalized.substring(prefix.length(), normalized.length() - 1));
+    }
+
+    private static String normalizeType(String type) {
+        return type.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+    }
 
     // Min value of LARGEINT is -170141183460469231731687303715884105728, it will use 39 bytes in
     // UTF-8.
@@ -181,9 +219,9 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             case DORIS_LARGEINT:
                 DecimalType decimalType;
-                decimalType = new DecimalType(20, 0);
+                decimalType = new DecimalType(DORIS_LARGEINT_PRECISION, 0);
                 builder.dataType(decimalType);
-                builder.columnLength(20L);
+                builder.columnLength((long) DORIS_LARGEINT_PRECISION);
                 builder.scale(0);
                 break;
             case DORIS_STRING:
@@ -391,6 +429,13 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.scale(MAX_DATETIME_SCALE);
                 break;
             case ARRAY:
+                // DORIS ARRAY<LARGEINT>: its DECIMAL(39, 0) elements exceed the DECIMALV3
+                // precision limit, so keep the source type instead
+                if (isLargeintArrayType(column.getSourceType())) {
+                    builder.columnType(DORIS_LARGEINT_ARRAY_COLUMN_TYPE);
+                    builder.dataType(DORIS_LARGEINT_ARRAY_COLUMN_TYPE);
+                    break;
+                }
                 SeaTunnelDataType<?> dataType = column.getDataType();
                 SeaTunnelDataType elementType = null;
                 if (dataType instanceof ArrayType) {
