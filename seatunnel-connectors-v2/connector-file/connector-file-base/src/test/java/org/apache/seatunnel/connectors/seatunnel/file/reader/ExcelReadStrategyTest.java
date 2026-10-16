@@ -277,29 +277,32 @@ public class ExcelReadStrategyTest {
                 ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_date_string.xlsx");
         Assertions.assertNotNull(excelFile);
         for (String engine : new String[] {"POI", "EasyExcel"}) {
-            Config pluginConfig =
-                    ConfigFactory.parseString(
-                            "file_format_type = excel\n"
-                                    + "excel_engine = "
-                                    + engine
-                                    + "\n"
-                                    + "skip_header_row_number = 1\n"
-                                    + "schema { columns = [{name = c_bytes, type = string}, "
-                                    + "{name = c_int, type = int}, "
-                                    + "{name = c_string, type = string}] }\n"
-                                    + "read_columns = [c_string, c_int]");
-            ExcelReadStrategy readStrategy = new ExcelReadStrategy();
-            readStrategy.setPluginConfig(pluginConfig);
-            readStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
-            readStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+            for (String skipRows : new String[] {"", "skip_header_row_number = 2\n"}) {
+                Config pluginConfig =
+                        ConfigFactory.parseString(
+                                "file_format_type = excel\n"
+                                        + "excel_engine = "
+                                        + engine
+                                        + "\n"
+                                        + "excel_use_header_line = true\n"
+                                        + skipRows
+                                        + "schema { columns = [{name = c_bytes, type = string}, "
+                                        + "{name = c_int, type = int}, "
+                                        + "{name = c_string, type = string}] }\n"
+                                        + "read_columns = [c_string, c_int]");
+                ExcelReadStrategy readStrategy = new ExcelReadStrategy();
+                readStrategy.setPluginConfig(pluginConfig);
+                readStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+                readStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
 
-            TestCollector collector = new TestCollector();
-            readStrategy.read(Paths.get(excelFile.toURI()).toString(), "", collector);
+                TestCollector collector = new TestCollector();
+                readStrategy.read(Paths.get(excelFile.toURI()).toString(), "", collector);
 
-            Assertions.assertEquals(1, collector.getRows().size(), engine);
-            SeaTunnelRow row = collector.getRows().get(0);
-            Assertions.assertEquals("Cosmos", row.getField(0), engine);
-            Assertions.assertEquals(333, row.getField(1), engine);
+                Assertions.assertEquals(1, collector.getRows().size(), engine);
+                SeaTunnelRow row = collector.getRows().get(0);
+                Assertions.assertEquals("Cosmos", row.getField(0), engine);
+                Assertions.assertEquals(333, row.getField(1), engine);
+            }
         }
     }
 
@@ -335,7 +338,7 @@ public class ExcelReadStrategyTest {
     }
 
     @Test
-    public void testExcelHeaderMissingProjectedFieldReturnsNull()
+    public void testExcelPartialHeaderMatchWithoutOptInKeepsPositionalReading()
             throws IOException, URISyntaxException {
         URL excelFile =
                 ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_date_string.xlsx");
@@ -348,6 +351,37 @@ public class ExcelReadStrategyTest {
                                     + engine
                                     + "\n"
                                     + "skip_header_row_number = 1\n"
+                                    + "schema { columns = [{name = c_bytes, type = string}, "
+                                    + "{name = second, type = string}] }");
+            ExcelReadStrategy readStrategy = new ExcelReadStrategy();
+            readStrategy.setPluginConfig(pluginConfig);
+            readStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            readStrategy.setCatalogTable(CatalogTableUtil.buildWithConfig(pluginConfig));
+
+            TestCollector collector = new TestCollector();
+            readStrategy.read(Paths.get(excelFile.toURI()).toString(), "", collector);
+
+            Assertions.assertEquals(1, collector.getRows().size(), engine);
+            SeaTunnelRow row = collector.getRows().get(0);
+            Assertions.assertEquals("1", row.getField(0), engine);
+            Assertions.assertEquals("22", row.getField(1), engine);
+        }
+    }
+
+    @Test
+    public void testExcelHeaderMissingProjectedFieldReturnsNull()
+            throws IOException, URISyntaxException {
+        URL excelFile =
+                ExcelReadStrategyTest.class.getResource("/excel/test_read_excel_date_string.xlsx");
+        Assertions.assertNotNull(excelFile);
+        for (String engine : new String[] {"POI", "EasyExcel"}) {
+            Config pluginConfig =
+                    ConfigFactory.parseString(
+                            "file_format_type = excel\n"
+                                    + "excel_engine = "
+                                    + engine
+                                    + "\n"
+                                    + "excel_use_header_line = true\n"
                                     + "schema { columns = [{name = c_string, type = string}, "
                                     + "{name = missing_field, type = string}] }\n"
                                     + "read_columns = [c_string, missing_field]");

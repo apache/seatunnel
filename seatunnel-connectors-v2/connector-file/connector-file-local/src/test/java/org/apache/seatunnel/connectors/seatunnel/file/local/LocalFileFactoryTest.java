@@ -65,6 +65,10 @@ class LocalFileFactoryTest {
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.POST_SYNC_ACTION));
         Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.EXCEL_USE_HEADER_LINE));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BACKUP_PATH));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.RETENTION_MAX_AGE));

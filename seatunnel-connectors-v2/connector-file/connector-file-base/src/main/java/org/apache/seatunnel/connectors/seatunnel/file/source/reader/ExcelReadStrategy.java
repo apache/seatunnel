@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -76,6 +78,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     private int cellCount;
+
+    private boolean useHeaderLine;
 
     @SneakyThrows
     @Override
@@ -186,7 +190,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 EasyExcel.read(
                         inputStream,
                         new ExcelReaderListener(
-                                tableId, output, excelCellUtils, seaTunnelRowType, indexes));
+                                tableId,
+                                output,
+                                excelCellUtils,
+                                seaTunnelRowType,
+                                indexes,
+                                useHeaderLine));
         if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
             read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
                     .headRowNumber((int) skipHeaderNumber)
@@ -266,9 +275,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
         int[] cellIndexes = indexes == null ? IntStream.range(0, cellCount).toArray() : indexes;
         // Maps output field indexes to Excel column indexes.
-        // When skipHeaderNumber is positive, the last skipped row is treated as the header.
+        // Header mapping is opt-in; skipping rows alone keeps positional reads.
         Map<Integer, Integer> headerColumns = new HashMap<>();
-        if (skipHeaderNumber > 0) {
+        if (useHeaderLine) {
             Row headerRow = sheet.getRow(startRow - 1);
             if (headerRow != null) {
                 for (Cell headerCell : headerRow) {
@@ -277,6 +286,14 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     if (fieldIndex >= 0) {
                         headerColumns.put(fieldIndex, headerCell.getColumnIndex());
                     }
+                }
+            }
+            for (int i = 0; i < fieldTypes.length; i++) {
+                if (!headerColumns.containsKey(i)) {
+                    log.warn(
+                            "Excel file {} header does not contain schema field '{}'; values will be null",
+                            currentFileName,
+                            seaTunnelRowType.getFieldName(i));
                 }
             }
         }
@@ -288,11 +305,10 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                             SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
                             for (int i = 0; i < fieldTypes.length; i++) {
                                 Integer columnIndex;
-                                if (headerColumns.isEmpty()) {
-                                    columnIndex = cellIndexes[i];
-                                } else {
-                                    columnIndex = headerColumns.get(i);
-                                }
+                                columnIndex =
+                                        useHeaderLine
+                                                ? headerColumns.get(i)
+                                                : Integer.valueOf(cellIndexes[i]);
                                 Cell cell =
                                         columnIndex == null ? null : rowData.getCell(columnIndex);
                                 seaTunnelRow.setField(
@@ -402,6 +418,19 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         throw new FileConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
+    }
+
+    /**
+     * Loads the Excel header option. When enabled, the first row is used for column-name mapping
+     * and takes precedence over {@code skip_header_row_number}.
+     */
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        useHeaderLine = readonlyConfig.get(FileBaseSourceOptions.EXCEL_USE_HEADER_LINE);
+        if (useHeaderLine) {
+            skipHeaderNumber = 1L;
+        }
     }
 
     private Object getCellValue(

@@ -54,6 +54,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
 
     private SeaTunnelDataType<?>[] fieldTypes;
     private final int[] indexes;
+    private final boolean useHeaderLine;
     // Maps output field indexes to Excel column indexes.
     private final Map<Integer, Integer> headerColumns = new HashMap<>();
 
@@ -66,7 +67,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             Collector<SeaTunnelRow> output,
             ExcelCellUtils excelCellUtils,
             SeaTunnelRowType seaTunnelRowType) {
-        this(tableId, output, excelCellUtils, seaTunnelRowType, null);
+        this(tableId, output, excelCellUtils, seaTunnelRowType, null, true);
     }
 
     public ExcelReaderListener(
@@ -75,11 +76,22 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             ExcelCellUtils excelCellUtils,
             SeaTunnelRowType seaTunnelRowType,
             int[] indexes) {
+        this(tableId, output, excelCellUtils, seaTunnelRowType, indexes, true);
+    }
+
+    public ExcelReaderListener(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            ExcelCellUtils excelCellUtils,
+            SeaTunnelRowType seaTunnelRowType,
+            int[] indexes,
+            boolean useHeaderLine) {
         this.tableId = tableId;
         this.output = output;
         this.excelCellUtils = excelCellUtils;
         this.seaTunnelRowType = seaTunnelRowType;
         this.indexes = indexes;
+        this.useHeaderLine = useHeaderLine;
 
         fieldTypes = seaTunnelRowType.getFieldTypes();
     }
@@ -93,9 +105,20 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             if (StringUtils.isNotEmpty(header) && !"null".equals(header)) {
                 customHeaders.put(entry.getKey(), header);
                 // Schema fields may appear in a different order than the Excel columns.
-                int fieldIndex = seaTunnelRowType.indexOf(header, false);
-                if (fieldIndex >= 0) {
-                    headerColumns.put(fieldIndex, entry.getKey());
+                if (useHeaderLine) {
+                    int fieldIndex = seaTunnelRowType.indexOf(header, false);
+                    if (fieldIndex >= 0) {
+                        headerColumns.put(fieldIndex, entry.getKey());
+                    }
+                }
+            }
+        }
+        if (useHeaderLine) {
+            for (int i = 0; i < fieldTypes.length; i++) {
+                if (!headerColumns.containsKey(i)) {
+                    log.warn(
+                            "Excel header does not contain schema field '{}'; values will be null",
+                            seaTunnelRowType.getFieldName(i));
                 }
             }
         }
@@ -109,7 +132,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
         int i = 0;
         for (; i < fieldTypes.length; i++) {
             Integer columnIndex;
-            if (headerColumns.isEmpty()) {
+            if (!useHeaderLine) {
                 columnIndex = indexes == null ? i : indexes[i];
             } else {
                 columnIndex = headerColumns.get(i);
