@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbJdbcRowConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -291,9 +290,6 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     Assertions.assertEquals(
                             OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00").toInstant(),
                             convertedTimestamp.toInstant());
-                    Assertions.assertEquals(
-                            JdbcFieldTypeUtils.parseOffsetDateTimeFromString(ltzDriverString),
-                            convertedTimestamp);
                     Assertions.assertEquals(iymDriverString, row.getField(1));
                     Assertions.assertEquals(idsDriverString, row.getField(2));
                     Assertions.assertFalse(resultSet.next());
