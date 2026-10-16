@@ -29,16 +29,24 @@ import okhttp3.mockwebserver.RecordedRequest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class IntercomSourceReaderTest {
 
     private IntercomSourceReader newReader(MockWebServer server, int retry) {
+        return newReader(server, retry, 10, 50);
+    }
+
+    private IntercomSourceReader newReader(
+            MockWebServer server, int retry, int backoffMillis, int maxBackoffMillis) {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("base_url", server.url("/").toString());
         configMap.put("api_key", "test-token");
         configMap.put("retry", retry);
-        configMap.put("retry_backoff_multiplier_ms", 10);
-        configMap.put("retry_backoff_max_ms", 50);
+        configMap.put("retry_backoff_multiplier_ms", backoffMillis);
+        configMap.put("retry_backoff_max_ms", maxBackoffMillis);
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         IntercomSourceParameter parameter = new IntercomSourceParameter();
         parameter.buildWithConfig(config);
@@ -111,23 +119,50 @@ public class IntercomSourceReaderTest {
         try (MockWebServer server = new MockWebServer()) {
             server.enqueue(new MockResponse().setResponseCode(429));
             server.start();
-            IntercomSourceReader reader = newReader(server, 3);
+            // A long backoff keeps the worker in Thread.sleep while it is interrupted.
+            IntercomSourceReader reader = newReader(server, 3, 20_000, 30_000);
             reader.open();
 
-            Thread.currentThread().interrupt();
+            AtomicReference<Exception> thrown = new AtomicReference<>();
+            AtomicBoolean flagRestored = new AtomicBoolean(false);
+            Thread worker =
+                    new Thread(
+                            () -> {
+                                try {
+                                    reader.executeRequest();
+                                } catch (Exception e) {
+                                    thrown.set(e);
+                                    flagRestored.set(Thread.currentThread().isInterrupted());
+                                }
+                            });
             try {
-                reader.executeRequest();
-                Assertions.fail("Expected exception due to thread interruption");
-            } catch (Exception e) {
-                Assertions.assertTrue(
-                        Thread.currentThread().isInterrupted(), "Interrupt flag must be restored");
+                worker.start();
+                Assertions.assertNotNull(
+                        server.takeRequest(10, TimeUnit.SECONDS), "429 request not received");
+                // Wait until the worker has read the 429 and is sleeping in the backoff.
+                long deadline = System.currentTimeMillis() + 10_000;
+                while (worker.getState() != Thread.State.TIMED_WAITING
+                        && System.currentTimeMillis() < deadline) {
+                    Thread.sleep(5);
+                }
+                worker.interrupt();
+                worker.join(10_000);
+
+                Assertions.assertFalse(worker.isAlive(), "Worker must stop after interrupt");
+                Exception e = thrown.get();
+                Assertions.assertNotNull(e, "Expected exception due to thread interruption");
                 String msg = String.valueOf(e.getMessage());
+                Assertions.assertTrue(
+                        msg.contains("Interrupted while backing off"),
+                        "Exception must come from the backoff sleep, got: " + msg);
+                Assertions.assertTrue(flagRestored.get(), "Interrupt flag must be restored");
                 Assertions.assertFalse(
                         msg.contains("test-token"), "Message must not contain token");
                 Assertions.assertFalse(
                         msg.contains("Authorization"), "Message must not contain Authorization");
+                Assertions.assertEquals(1, server.getRequestCount());
             } finally {
-                Thread.interrupted();
+                worker.interrupt();
                 reader.close();
             }
         }

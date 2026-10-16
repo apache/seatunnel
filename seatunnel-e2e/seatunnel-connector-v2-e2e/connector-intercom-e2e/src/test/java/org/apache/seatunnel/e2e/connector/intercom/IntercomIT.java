@@ -33,7 +33,10 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +46,7 @@ public class IntercomIT extends TestSuiteBase implements TestResource {
     private static HttpServer httpServer;
     private static int serverPort;
     private static final AtomicInteger requestCount = new AtomicInteger(0);
+    private static final String PAGE_2_CURSOR = "WzE1NzE2NzIxNTUwMDAsImMyIiwyXQ==";
 
     @BeforeAll
     @Override
@@ -55,25 +59,35 @@ public class IntercomIT extends TestSuiteBase implements TestResource {
                 "/contacts",
                 exchange -> {
                     int currentReq = requestCount.incrementAndGet();
+                    String cursor = queryParam(exchange.getRequestURI(), "starting_after");
                     String responseBody;
                     int statusCode;
 
+                    // The first request gets a 429 to exercise the retry. After that the page is
+                    // chosen by the starting_after cursor, so the job only sees page 2 if the
+                    // connector sends back the cursor from page 1.
                     if (currentReq == 1) {
                         statusCode = 429;
                         responseBody = "{\"type\": \"error.list\", \"errors\": []}";
-                    } else if (currentReq == 2) {
+                    } else if (cursor == null) {
                         statusCode = 200;
                         responseBody =
                                 "{\"type\": \"list\", \"data\": ["
                                         + "{\"type\": \"contact\", \"id\": \"c1\", \"role\": \"user\", \"email\": \"a@example.com\", \"name\": \"Alice\", \"phone\": null, \"external_id\": null, \"created_at\": 1571672154, \"updated_at\": 1571672200},"
                                         + "{\"type\": \"contact\", \"id\": \"c2\", \"role\": \"lead\", \"email\": \"b@example.com\", \"name\": null, \"phone\": \"+1123456789\", \"external_id\": \"ext-2\", \"created_at\": 1571672155, \"updated_at\": 1571672201}"
-                                        + "], \"pages\": {\"type\": \"pages\", \"next\": {\"page\": 2, \"starting_after\": \"WzE1NzE2NzIxNTUwMDAsImMyIiwyXQ==\"}}}";
-                    } else {
+                                        + "], \"pages\": {\"type\": \"pages\", \"next\": {\"page\": 2, \"starting_after\": \""
+                                        + PAGE_2_CURSOR
+                                        + "\"}}}";
+                    } else if (PAGE_2_CURSOR.equals(cursor)) {
                         statusCode = 200;
                         responseBody =
                                 "{\"type\": \"list\", \"data\": ["
                                         + "{\"type\": \"contact\", \"id\": \"c3\", \"role\": \"user\", \"email\": \"c@example.com\", \"name\": \"Carol\", \"phone\": null, \"external_id\": null, \"created_at\": 1571672156, \"updated_at\": 1571672202}"
                                         + "], \"pages\": {\"type\": \"pages\"}}";
+                    } else {
+                        statusCode = 400;
+                        responseBody =
+                                "{\"type\": \"error.list\", \"errors\": [{\"code\": \"parameter_invalid\"}]}";
                     }
 
                     byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
@@ -85,6 +99,24 @@ public class IntercomIT extends TestSuiteBase implements TestResource {
                 });
 
         httpServer.start();
+    }
+
+    private static String queryParam(URI uri, String name) {
+        String query = uri.getRawQuery();
+        if (query == null) {
+            return null;
+        }
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && pair.substring(0, eq).equals(name)) {
+                try {
+                    return URLDecoder.decode(pair.substring(eq + 1), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+        return null;
     }
 
     @AfterAll

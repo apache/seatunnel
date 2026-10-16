@@ -40,6 +40,12 @@ public class IntercomSourceParameter extends HttpParameter {
         return value.trim();
     }
 
+    /**
+     * Builds the request for {@code GET {base_url}/contacts}. Validates that api_key, api_version
+     * and base_url are not blank, that per_page is within 1..150 and that the retry backoff values
+     * are not negative. Retry defaults to 3 only when the user did not set {@code retry}. Warns
+     * when the bearer token would be sent over a non-HTTPS base_url.
+     */
     public void buildWithConfig(ReadonlyConfig config) {
         super.buildWithConfig(config);
         String apiKey = requireNonBlank(config.get(IntercomSourceOptions.API_KEY), "api_key");
@@ -65,6 +71,9 @@ public class IntercomSourceParameter extends HttpParameter {
         headers.put("Authorization", "Bearer " + apiKey);
         headers.put("Intercom-Version", apiVersion);
         headers.put("Accept", "application/json");
+        // The base class runs this check before the URL and Authorization header exist, so run it
+        // again now that both are set.
+        validateCredentialScheme();
 
         params = new HashMap<>();
         params.put("per_page", String.valueOf(perPage));
