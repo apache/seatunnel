@@ -143,6 +143,15 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FilePostSyncAction.BACKUP,
                         FileBaseSourceOptions.BACKUP_PATH)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
+                .optional(
+                        FileBaseSourceOptions.READ_PARTITIONS,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_START,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_END,
+                        FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME)
+                .optional(
+                        FileBaseSourceOptions.CSV_USE_HEADER_LINE,
+                        FileBaseSourceOptions.BINARY_CHUNK_SIZE,
+                        FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE)
                 .build();
     }
 
