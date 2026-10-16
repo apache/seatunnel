@@ -21,9 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.Constants;
@@ -227,9 +225,7 @@ public final class ConfigShadeUtils {
             configMap.put(Constants.SOURCE, sources);
             configMap.put(Constants.SINK, sinks);
             configMap.put(Constants.TRANSFORM, transforms);
-            return ConfigFactory.parseString(
-                    JsonUtils.toJsonString(configMap),
-                    ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON));
+            return ConfigBuilder.rebuildWithLiteralKeys(configMap);
         } catch (Exception e) {
             // Log desensitized error information
             log.error(
