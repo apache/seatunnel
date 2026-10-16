@@ -90,6 +90,7 @@ public class BufferReducedBatchStatementExecutor
 
     @Override
     public void executeBatch() throws SQLException {
+        flushFailed = false;
         try {
             Boolean preChangeFlag = null;
             Collection<Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>>> entries =
@@ -223,7 +224,6 @@ public class BufferReducedBatchStatementExecutor
     public void resetForTransactionConflictRetry() throws SQLException {
         upsertExecutor.clearBatch();
         deleteExecutor.clearBatch();
-        flushFailed = false;
     }
 
     private boolean changeFlag(RowKind rowKind) {

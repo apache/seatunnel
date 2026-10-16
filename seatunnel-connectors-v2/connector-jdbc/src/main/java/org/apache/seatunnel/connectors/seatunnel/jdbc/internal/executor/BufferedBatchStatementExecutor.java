@@ -53,6 +53,7 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @Override
     public void executeBatch() throws SQLException {
         if (!buffer.isEmpty()) {
+            flushFailed = false;
             try {
                 for (SeaTunnelRow row : buffer) {
                     statementExecutor.addToBatch(row);
@@ -81,7 +82,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @Override
     public void resetForTransactionConflictRetry() throws SQLException {
         statementExecutor.clearBatch();
-        flushFailed = false;
     }
 
     @Override
