@@ -438,11 +438,11 @@ Transform metadata is resolved through the same path as source and sink metadata
 
 ### Memory System
 
-Credential redaction recognizes quoted JSON/HOCON keys and removes the complete quoted value, including spaces, punctuation, and escaped quotes. Assignment keys and surrounding configuration remain intact.
+Credential redaction recognizes JSON/HOCON credential keys and removes the complete value. HOCON concatenates adjacent components, so `password = ""s3cret`, `password = "ab" s3cret` and `password = ${DB_PASSWORD}s3cret` are each a single value and are redacted as a whole. Assignment keys, quote style, comments, and surrounding configuration remain intact.
 
-Matching is limited to one line: an unterminated opening quote consumes the rest of that line. HOCON triple-quoted blocks and values concatenated with spaces are not fully redacted, so check them before saving or sharing configuration.
+Matching is limited to one line: an unterminated opening quote consumes the rest of its line, and only the opening line of a multi-line triple-quoted block is redacted, so the body of such a block is not covered — check it before saving or sharing configuration. An unquoted value cannot be told apart from the prose that follows it on the same line, so `JDBC password=abc123 at localhost` is redacted through `at localhost`: keeping that text would also keep `password = correct horse battery`.
 
-Variable references such as `${DB_PASSWORD}`, `${?MYSQL_PASSWORD}`, and `${DB_PASSWORD}${?OTHER}` are preserved because they contain no literal secret. Empty quoted values are also preserved when the empty pair ends the value; the opening `""` of a triple-quoted string is not treated as an empty credential. A single matched value containing both a reference and literal text, such as `s3cret-${DB_PASSWORD}`, is redacted in full.
+Variable references such as `${DB_PASSWORD}`, `${?MYSQL_PASSWORD}`, `${ A }`, `${a."b"}` and `${DB_PASSWORD}${?OTHER}` are preserved because they contain no literal secret. Empty quoted values are also preserved, but only when the empty pair is the whole value; the `""` that opens a longer value, including a triple-quoted string, belongs to that value. A value that mixes a reference with literal text, such as `s3cret-${DB_PASSWORD}`, is redacted in full.
 
 Conversation summaries use the same credential redaction as saved history: recognized secrets are removed before the summary request and before the summary is saved.
 

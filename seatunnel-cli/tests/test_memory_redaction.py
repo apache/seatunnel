@@ -246,18 +246,19 @@ def test_keeps_empty_quoted_value(text):
     [
         (
             'private_key = """-----BEGIN RSA PRIVATE KEY-----',
-            'private_key = "***REDACTED***""-----BEGIN RSA PRIVATE KEY-----',
+            'private_key = "***REDACTED***"',
         ),
-        ('password = ""s3cret', 'password = "***REDACTED***"s3cret'),
-        ("password = ''s3cret", "password = '***REDACTED***'s3cret"),
-        ('password = "" ""', 'password = "***REDACTED***" ""'),
+        ('password = ""s3cret', 'password = "***REDACTED***"'),
+        ("password = ''s3cret", "password = '***REDACTED***'"),
+        ('password = "" ""', 'password = "***REDACTED***"'),
     ],
 )
 def test_empty_pair_that_opens_a_longer_value_is_redacted(text, expected):
-    # Only a pair that ends the value is an empty credential: a `"""` opener, a
-    # pair followed by more text on the same line, and two concatenated pairs
-    # each continue the value, so they are redacted as usual instead of being
-    # read as `nothing to hide` and left in place.
+    # Only a pair that is the whole value is an empty credential: a `"""` opener,
+    # a pair followed by more text on the same line, and two concatenated pairs
+    # each continue the value. The complete value is redacted, because HOCON
+    # concatenates the leftover text back into the secret — keeping it would
+    # store `s3cret` as the password.
     assert redact_credentials(text) == expected
 
 
@@ -341,3 +342,315 @@ def test_long_prefixed_key_is_still_redacted_within_the_run():
     assert "jdbc_password" in redacted
     assert "REDACTED" in redacted
     assert elapsed < 5.0, f"redacting a long prefixed key took {elapsed:.2f}s"
+
+
+@pytest.mark.parametrize(
+    "text, key, secret",
+    [
+        # HOCON concatenates adjacent value components into a single value, so
+        # each assignment below resolves to one credential. The resolution was
+        # checked with the engine's own parser (typesafe config 1.3.3, the
+        # version SeaTunnel pins), so every word of `secret` has to be gone from
+        # the redacted text.
+        ('password = ""s3cret', "password", "s3cret"),
+        ("password = ''s3cret", "password", "s3cret"),
+        ('password = "" "s3cret"', "password", "s3cret"),
+        ('password = "ab"s3cret', "password", "abs3cret"),
+        ('password = "ab" s3cret', "password", "ab s3cret"),
+        ('password = """s3cret"""', "password", "s3cret"),
+        ('password = "${A}"s3cret', "password", "s3cret"),
+        ("password = ${A} s3cret", "password", "s3cret"),
+        ('password = ${A}"s3cret"', "password", "s3cret"),
+        ("password = correct horse battery", "password", "correct horse battery"),
+        ('"password": ""s3cret', "password", "s3cret"),
+        ("password is \"ab\" s3cret", "password", "ab s3cret"),
+        ("client_secret = \"ab\" s3cret", "client_secret", "ab s3cret"),
+        ("api_key = 'pre' \"fix\" s3cret", "api_key", "s3cret"),
+    ],
+)
+def test_redacts_complete_concatenated_credential_value(text, key, secret):
+    # Redacting only the first component of a concatenated value left the rest
+    # of the secret in the stored config: `password = ""s3cret` was saved as
+    # `password = "***REDACTED***"s3cret`, which reloads as the real password.
+    redacted = redact_credentials(text)
+    for fragment in secret.split():
+        assert fragment not in redacted
+    assert key in redacted
+    assert "REDACTED" in redacted
+
+
+def test_concatenated_value_redaction_keeps_surrounding_config():
+    text = (
+        'source { Jdbc { url = "jdbc:mysql://db:3306/app", user = "app", '
+        'password = ""s3cret, table = "orders" } }'
+    )
+    redacted = redact_credentials(text)
+    assert "s3cret" not in redacted
+    assert '"jdbc:mysql://db:3306/app"' in redacted
+    assert 'user = "app"' in redacted
+    assert 'table = "orders"' in redacted
+    assert redacted.count("{") == text.count("{")
+    assert redacted.count("}") == text.count("}")
+
+
+def test_concatenated_value_redaction_stops_at_json_delimiter():
+    text = '{"password": ""s3cret, "host": "db.internal"}'
+    redacted = redact_credentials(text)
+    assert "s3cret" not in redacted
+    assert json.loads(redacted) == {
+        "password": "***REDACTED***",
+        "host": "db.internal",
+    }
+
+
+@pytest.mark.parametrize(
+    "text, tail",
+    [
+        ('password = ""s3cret # rotated quarterly', "# rotated quarterly"),
+        ('password = "ab" s3cret // see vault', "// see vault"),
+        ('"password": "ab" s3cret, "host": "db"', '"host": "db"'),
+        ("password = ${A} s3cret }", " }"),
+    ],
+)
+def test_concatenated_value_redaction_keeps_comment_and_separator(text, tail):
+    # A comment or a closing bracket ends the value, so it survives the
+    # redaction of the value in front of it.
+    redacted = redact_credentials(text)
+    assert "s3cret" not in redacted
+    assert redacted.endswith(tail)
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("password = abc#note", "password = ***REDACTED***#note"),
+        ("password = abc//note", "password = ***REDACTED***//note"),
+        ("password = abc#note // two", "password = ***REDACTED***#note // two"),
+        ("password = abc//note # two", "password = ***REDACTED***//note # two"),
+        ('password = ""s3cret#note', 'password = "***REDACTED***"#note'),
+        ('password = "ab" s3cret//note', 'password = "***REDACTED***"//note'),
+        ("client_secret = abc//note", "client_secret = ***REDACTED***//note"),
+    ],
+)
+def test_glued_comment_after_a_value_survives_redaction(text, expected):
+    # `#` and `//` end a HOCON value even when no space separates them from it,
+    # which is the same boundary the complete-value grammar already applied to a
+    # spaced comment. Swallowing an attached comment contradicts the documented
+    # promise that comments survive redaction.
+    assert redact_credentials(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("password = ab/cd", "ab/cd"),
+        ("password = /etc/seatunnel/passwd", "seatunnel"),
+        ("password = ab/cd/ef#note", "ab/cd/ef"),
+        ('password = "ab" s3cret/tail', "s3cret"),
+        ("password = ${A} s3cret/x", "s3cret"),
+    ],
+)
+def test_single_slash_stays_inside_the_redacted_value(text, secret):
+    # A single `/` is ordinary value text and never opens a comment, so it stays
+    # part of the value that is redacted as a whole.
+    redacted = redact_credentials(text)
+    assert secret not in redacted
+    assert "REDACTED" in redacted
+    if "#note" in text:
+        assert redacted.endswith("#note")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'password = "abc#def"',
+        'password = "abc//def"',
+        "password = 'ab # cd // ef'",
+        'password = "abc#def" // rotated',
+    ],
+)
+def test_comment_characters_inside_a_quoted_value_are_redacted(text):
+    # A quoted value may contain `#` and `//` as data, so the comment boundary
+    # must not shorten it: the whole quoted secret is still removed.
+    redacted = redact_credentials(text)
+    for fragment in ("abc", "ab #", "cd", "def", "ef"):
+        assert fragment not in redacted
+    assert "REDACTED" in redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password = ${ A }",
+        "password = ${A }",
+        "password = ${ A}",
+        "password = ${? A }",
+        'password = ${a."b"}',
+        'password = ${"a.b"}',
+        'password = "${ A }"',
+        "password = ${ A }${ B }",
+        '"password": ${ A },',
+        "password is ${? A }",
+    ],
+)
+def test_keeps_substitution_spellings_the_reference_grammar_accepts(text):
+    # The padding and quoted path elements below are all valid HOCON and all
+    # resolve to the referenced value, so the stored config has to keep them
+    # byte for byte. The earlier, narrower reference pattern rewrote them into a
+    # marker, which corrupted the config that /resume and /save see.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password = ${ A }s3cret",
+        'password = "${ A }"s3cret',
+        "password = ${ A } s3cret",
+    ],
+)
+def test_padded_substitution_next_to_literal_text_is_redacted(text):
+    # A reference is preserved only while it is the whole value: as soon as a
+    # literal joins it, the value holds a secret again.
+    redacted = redact_credentials(text)
+    assert "s3cret" not in redacted
+    assert "REDACTED" in redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'password = "${A}" "${B}"',
+        "password = '${A}' '${B}'",
+        "password = \"${A}\"'${B}'",
+        'password = " ${A} " "${?B}"',
+        'password = "${A}${B}" "${C}"',
+        'password = ${A}"${B}"',
+        'password = "${A}"${B}',
+        'password = ${A} ${B} "${C}"',
+        'password = "${ A }" "${? B }"',
+        '"password": "${A}" "${B}",',
+        "password = ${A}//note",
+        'password = "${A}"#note',
+    ],
+)
+def test_keeps_a_sequence_of_reference_components(text):
+    # A sequence of components is still nothing but references: HOCON
+    # concatenates `"${A}" "${B}"` into the referenced pair, `${A}"${B}"` into
+    # the same value, and neither holds a literal secret. Redacting such a value
+    # replaced the whole reference with a marker and corrupted the config that
+    # /resume and /save see.
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'password = "${A}" "${B}"s3cret',
+        'password = ${A}"${B}"s3cret',
+        "password = '${A}' s3cret",
+        'password = "${A}" ""s3cret',
+        'password = ${A}"${B}" "s3cret"',
+        "password = ${A} ${B}${C}s3cret",
+    ],
+)
+def test_literal_component_in_a_reference_sequence_is_redacted(text):
+    # Only a sequence whose every component is a reference is kept. One literal
+    # component in any position makes the whole value a secret again, and no
+    # reference tail may survive the redaction.
+    redacted = redact_credentials(text)
+    assert "s3cret" not in redacted
+    assert "REDACTED" in redacted
+    assert "$" not in redacted
+    assert "{" not in redacted
+
+
+def test_unquoted_value_redacts_the_rest_of_its_line():
+    # Documented policy: an unquoted value is indistinguishable from the prose
+    # that follows it, so the whole assignment value is removed — including a
+    # trailing sentence such as `at localhost`. Keeping that sentence would also
+    # keep `correct horse battery`, so the conservative choice is taken.
+    assert (
+        redact_credentials("JDBC password=directSecret789 at localhost")
+        == "JDBC password=***REDACTED***"
+    )
+
+
+def test_summary_that_assigns_a_bare_password_stays_usable(tmp_path):
+    # The same policy applies to summaries: the secret and the prose it is
+    # glued to are removed, while the sentence's own context survives.
+    manager = SessionManager(tmp_path)
+    manager.save_session([])
+    manager.update_summary("JDBC password=directSecret789 at localhost")
+    data = json.loads(
+        (manager.sessions_dir / f"{manager.current_session_id}.json").read_text()
+    )
+    assert "directSecret789" not in data["summary"]
+    assert data["summary"] == "JDBC password=***REDACTED***"
+
+
+def test_multiline_triple_quoted_value_is_redacted_on_its_first_line():
+    # Matching is line-bounded: the opening line of a triple-quoted value is
+    # redacted in full, and the lines that follow are left alone. This is the
+    # documented limit of the redaction, not an accident of the pattern.
+    text = (
+        'private_key = """-----BEGIN RSA PRIVATE KEY-----\n'
+        "MIIEowIBAAKCAQEA\n"
+        '-----END RSA PRIVATE KEY-----"""\n'
+        "host = db.internal"
+    )
+    lines = redact_credentials(text).splitlines()
+    assert lines[0] == 'private_key = "***REDACTED***"'
+    assert lines[2] == '-----END RSA PRIVATE KEY-----"""'
+    assert lines[3] == "host = db.internal"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password = " + '"' * 20000,
+        "password = " + '"a" ' * 5000,
+        "password = " + "'a\"b' " * 3000,
+        "password = " + "${" * 5000,
+        "password = " + "s3cret " * 5000,
+        "password = " + "a:b " * 5000,
+        "password=" + "x" * 50000,
+        "password = " + "'" * 20000,
+    ],
+)
+def test_adversarial_line_redacts_without_pathological_backtracking(text):
+    # A value is a repetition of components that are anchored on distinct leading
+    # characters (or guarded, like the `$` that opens a substitution), so a long
+    # malformed line must not make the engine explore exponentially many splits.
+    start = time.perf_counter()
+    redacted = redact_credentials(text)
+    elapsed = time.perf_counter() - start
+    assert redacted
+    assert elapsed < 2.0, f"redacting a {len(text)}-character line took {elapsed:.2f}s"
+
+
+@pytest.mark.parametrize(
+    "text, kept",
+    [
+        ("password = " + "${A}" * 20000, True),
+        ("password = " + '"${A}" ' * 5000, True),
+        ("password = " + '${A}"' * 5000, True),
+        ("password = " + "${A}" * 20000 + "s3cret", False),
+        ("password = " + '"${A}" ' * 5000 + "s3cret", False),
+    ],
+)
+def test_long_reference_sequence_does_not_backtrack_exponentially(text, kept):
+    # A reference cannot be a repeated chain inside a repeated component: with
+    # one unquoted reference per component and quoted components delimited by
+    # their own quote, the sequence is matched linearly. Nesting the repetition
+    # would make `${A}` repeated many times plus a literal tail take exponential
+    # time to reject.
+    start = time.perf_counter()
+    redacted = redact_credentials(text)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 2.0, f"redacting a {len(text)}-character line took {elapsed:.2f}s"
+    if kept:
+        assert redacted == text
+    else:
+        assert "s3cret" not in redacted
+        assert "REDACTED" in redacted
