@@ -1112,6 +1112,26 @@ or
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 
+### UNIX_TIMESTAMP
+
+```UNIX_TIMESTAMP() | UNIX_TIMESTAMP(string[, pattern]) | UNIX_TIMESTAMP(dateTime) -> BIGINT```
+
+将日期时间转换为自 UNIX 纪元（1970-01-01 00:00:00 UTC）起的秒数。是 `FROM_UNIXTIME` 的逆运算。
+
+- 无参数：当前 epoch 秒数。
+- 字符串参数：按给定 `pattern`（默认 `yyyy-MM-dd HH:mm:ss`）解析。格式字符参见 `java.time.format.DateTimeFormatter`。
+- `dateTime` 参数：TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE 类型的列。
+
+`dateTime` 与字符串输入按系统时区折算；TIMESTAMP WITH TIME ZONE 值使用其自身偏移。无法解析的字符串输入返回 NULL，而不会抛出错误。不支持数值输入，返回 NULL。超出范围的日（例如 `2023-02-30`）会被调整为该月最后一天，与本类其他日期函数一致。如果存在同名用户自定义函数（UDF），会被此内置函数遮蔽。
+
+示例:
+
+select UNIX_TIMESTAMP('2023-01-01 00:00:00') as ts
+
+select UNIX_TIMESTAMP('2023/01/01 00:00:00', 'yyyy/MM/dd HH:mm:ss') as ts
+
+select UNIX_TIMESTAMP(dt) as ts
+
 ### AT TIME ZONE
 
 ```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```

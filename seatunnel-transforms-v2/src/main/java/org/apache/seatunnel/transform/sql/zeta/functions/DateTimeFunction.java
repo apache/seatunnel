@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.sql.zeta.ZetaDateTimeFormat;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.text.DateFormatSymbols;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -40,10 +41,29 @@ import java.time.temporal.TemporalAccessor;
 import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DateTimeFunction {
     /** English names of months and week days. */
     private static volatile String[][] MONTHS_AND_WEEKS;
+
+    private static final int FORMATTER_CACHE_MAX_SIZE = 1024;
+
+    private static final Map<String, DateTimeFormatter> FORMATTER_CACHE =
+            new ConcurrentHashMap<>(FORMATTER_CACHE_MAX_SIZE);
+
+    private static DateTimeFormatter getFormatter(String pattern) {
+        DateTimeFormatter cached = FORMATTER_CACHE.get(pattern);
+        if (cached != null) {
+            return cached;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        if (FORMATTER_CACHE.size() < FORMATTER_CACHE_MAX_SIZE) {
+            FORMATTER_CACHE.putIfAbsent(pattern, formatter);
+        }
+        return formatter;
+    }
 
     public static LocalDate currentDate() {
         return LocalDate.now();
@@ -796,9 +816,77 @@ public class DateTimeFunction {
             String timeZone = (String) args.get(2);
             zoneId = ZoneId.of(timeZone);
         }
-        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        DateTimeFormatter df = getFormatter(format);
         LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
+    }
+
+    /**
+     * Converts a datetime to Unix epoch seconds, the inverse of {@link #fromUnixTime}.
+     *
+     * <p>Supported forms:
+     *
+     * <ul>
+     *   <li>no argument — current epoch seconds ({@code UNIX_TIMESTAMP()});
+     *   <li>a typed datetime argument ({@code OffsetDateTime} / {@code LocalDateTime} / {@code
+     *       LocalDate});
+     *   <li>a string parsed with an optional pattern (default {@code yyyy-MM-dd HH:mm:ss}).
+     * </ul>
+     *
+     * <p>{@code LocalDateTime} / {@code LocalDate} and string inputs are resolved against the
+     * system default time zone (the inverse of {@link #fromUnixTime}); {@code OffsetDateTime} uses
+     * its own offset. Unparseable string input returns {@code null} rather than raising, so a bad
+     * row value does not fail the query. An out-of-range day-of-month (for example {@code
+     * 2023-02-30}) is adjusted to the last valid day of that month by the SMART resolver,
+     * consistent with the other date functions in this class. An invalid pattern string, being a
+     * query-time error rather than row data, propagates from {@link
+     * DateTimeFormatter#ofPattern(String)}.
+     */
+    public static Long unixTimestamp(List<Object> args) {
+        // UNIX_TIMESTAMP() — current epoch seconds
+        if (args.isEmpty()) {
+            return Instant.now().getEpochSecond();
+        }
+        Object value = args.get(0);
+        if (value == null) {
+            return null;
+        }
+        // UNIX_TIMESTAMP(dateTime) — typed datetime argument
+        if (value instanceof OffsetDateTime) {
+            return ((OffsetDateTime) value).toEpochSecond();
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toEpochSecond();
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+        }
+        // UNIX_TIMESTAMP(string[, pattern]) — string parsed to epoch seconds
+        String str = value.toString();
+        String pattern;
+        if (args.size() >= 2) {
+            Object patternArg = args.get(1);
+            // An explicit NULL pattern propagates to NULL; the default
+            // pattern only applies when the argument is omitted, not when it is null.
+            if (patternArg == null) {
+                return null;
+            }
+            pattern = patternArg.toString();
+        } else {
+            pattern = "yyyy-MM-dd HH:mm:ss";
+        }
+        DateTimeFormatter formatter = getFormatter(pattern);
+        try {
+            TemporalAccessor parsed =
+                    formatter.parseBest(str, LocalDateTime::from, LocalDate::from);
+            if (parsed instanceof LocalDateTime) {
+                return ((LocalDateTime) parsed).atZone(ZoneId.systemDefault()).toEpochSecond();
+            }
+            return ((LocalDate) parsed).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+        } catch (DateTimeException e) {
+            // Unparseable input returns NULL rather than throwing
+            return null;
+        }
     }
 
     public static OffsetDateTime atTimeZone(TemporalAccessor datetime, Object timeZone) {
