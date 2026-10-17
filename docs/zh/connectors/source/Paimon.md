@@ -70,7 +70,7 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ### warehouse [string]
 
-Paimon warehouse 路径
+Paimon warehouse 路径，不能为空白字符串。
 
 ### catalog_type [string]
 

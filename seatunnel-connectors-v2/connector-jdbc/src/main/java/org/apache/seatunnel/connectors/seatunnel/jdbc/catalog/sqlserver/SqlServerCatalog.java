@@ -139,7 +139,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s", tablePath.getFullName());
+        return String.format("DROP TABLE %s", tablePath.getFullNameWithQuoted("[", "]"));
     }
 
     @Override

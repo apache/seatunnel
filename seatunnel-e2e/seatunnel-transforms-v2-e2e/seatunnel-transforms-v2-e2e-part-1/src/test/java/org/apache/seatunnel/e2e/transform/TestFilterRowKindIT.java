@@ -45,6 +45,7 @@ public class TestFilterRowKindIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult4.getExitCode());
     }
 
+    /** Verifies exact per-table totals with one assertion writer across engine parallelisms. */
     @TestTemplate
     public void testFilterRowKindMultiTable(TestContainer container)
             throws IOException, InterruptedException {

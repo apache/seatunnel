@@ -16,7 +16,7 @@ The v2 API and the Web UI are both served by the embedded Jetty server. Jetty st
 
 There are two different "default" sources that are easy to mix up:
 
-- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`, `log-response-max-size-mb = 64`
 - The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
 
 As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
@@ -73,6 +73,7 @@ seatunnel:
       port: 8080
       upload-max-file-size-mb: 10
       upload-max-request-size-mb: 10
+      log-response-max-size-mb: 64
 ```
 
 ## Web UI and Port 8080 Troubleshooting
@@ -81,6 +82,7 @@ seatunnel:
 - If HTTP and `enable-dynamic-port = true` are enabled, the actual listening port may not be 8080. Jetty chooses the first available port between `port` and `port + port-range`. Use the Jetty startup log `SeaTunnel REST service started on http port xxx` as the source of truth. `/logs` and `/loggers?scope=cluster` resolve and report each member's actual bound HTTP port. The configured `port` remains unchanged, including when members share an HTTP configuration object.
 - If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
 - The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
+- If the address bar shows a Web UI route such as `/#/overview` but the page is the Jetty `HTTP ERROR 404 Not Found` page with `URI: /%23/overview`, the client sent the URL fragment percent-encoded. A node that serves the Web UI answers such a `GET` or `HEAD` request with `302` and `Location: <context-path>/#<route>`, so the browser lands on the route it meant to open. `curl -i --path-as-is 'http://<host>:8080/%23/overview'` shows that redirect, and when `context-path` is configured the redirect keeps the prefix.
 
 ## Enable HTTPS
 
@@ -247,7 +249,7 @@ Please refer [security](security.md)
 
 ```json
 {
-    "projectVersion":"2.3.10-SNAPSHOT",
+    "projectVersion":"3.0.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -1450,6 +1452,36 @@ If you want to view the log list first, you can retrieve it via a `GET` request:
 
 Supported formats are `json` and `html`, with `html` as the default.
 
+<a id="log-response-size-limit"></a>
+
+#### Response Size Limit
+
+The limit applies only to file-content responses, not log listings. Files are decoded as UTF-8,
+including active logs and rotated files such as `seatunnel.log.*`. If your logging layout uses a
+different platform charset, configure its `layout.charset` as `UTF-8`. The shipped Log4j2 example
+rolls files at 100 MB, so the default 64 MB response cap can truncate even a rotated file.
+The notice is additional to the capped file content.
+
+Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
+(64 MB by default). A log file larger than that is represented by its last
+`log-response-max-size-mb` of content, because for a job that has been running for a long time the
+end of the log is the part that explains what happened.
+
+A truncated response opens with a line naming the actual retained bytes and the file size captured
+at the start of the same read, so that a partial log
+is not mistaken for a complete one:
+
+```
+[SeaTunnel] Log truncated: returning 67108792 bytes from the tail of 3435973836 bytes (file size at read start). A partial first line is omitted when possible; an oversized single line returns a UTF-8-safe partial tail. Raise seatunnel.engine.http.log-response-max-size-mb, or set it to 0 for no limit, to return more.
+```
+
+The content itself starts at the first complete line after the cut, so the response is slightly
+smaller than the limit. When a single line is longer than the limit there is no line boundary to
+align to and the content starts at the first whole character instead.
+
+Set the option to `0` to restore unlimited reads - be aware that a single request for a
+multi-gigabyte log file then has to fit in the node's heap.
+
 #### Examples
 
 Retrieve logs for `jobId` `733584788375666689` across all nodes: `http://localhost:8080/logs/733584788375666689`
@@ -1472,6 +1504,9 @@ Returns a list of logs from the requested node.
 
 To get a list of logs from the current node: `http://localhost:5801/log`
 To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+
+Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
+all-node endpoint above.
 
 </details>
 
