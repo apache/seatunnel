@@ -53,6 +53,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | table.identifier               | String  | No       | -                            | 已弃用的表标识，建议改用 `database` 和 `table`。                                                                                                                        |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
 | sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
+| sink.visibility-timeout-ms     | long    | No       | 300000                       | 2PC stream-load 提交成功后，等待该 load 在 Doris FE 上达到 VISIBLE 状态的最大毫秒数。ABORTED 和 CANCELLED 仍视为终态失败。必须大于 0。 |
 | sink.enable-delete             | bool    | No       | false                        | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
 | sink.check-interval            | int     | No       | 10000                        | 加载过程中检查异常时间间隔。                                                                                                                                        |
 | sink.max-retries               | int     | No       | 3                            | 向数据库写入记录失败时的最大重试次数。                                                                                                                                   |
@@ -61,6 +62,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
 | case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
+| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。 |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
@@ -79,6 +81,10 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 - 2PC 的 commit/abort 控制请求仍然走 `fenodes`
 
 这种“数据面走 BE、控制面走 FE”的混合路径可以在保持 FE 控制路径的同时，绕过不稳定的 FE redirect 场景。
+
+### 数据可见性等待（2PC）
+
+2PC stream load 提交完成后，Doris 可能先报告事务为 COMMITTED，而数据尚未对查询可见（VISIBLE）。当 `sink.enable-2pc=true` 时，提交阶段会携带 stream load 标签轮询 FE 的 `get_load_state` 接口，等待 load 达到 VISIBLE 状态后才完成 checkpoint；`ABORTED` 和 `CANCELLED` 会被视为终态失败。可通过 `sink.visibility-timeout-ms` 限制该等待时长（默认 300000 毫秒）。轮询循环和底层控制类 HTTP 请求都有超时上限，FE 无响应时不会无限阻塞 checkpoint 完成。
 
 ### schema_save_mode [Enum]
 
