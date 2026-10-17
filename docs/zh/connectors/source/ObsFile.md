@@ -96,7 +96,6 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | binary_complete_file_mode | boolean | 否 | false | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。 |
 | file_filter_pattern | string | 否 | - | 用于过滤文件的模式。 |
 | common-options            |         | 否  | -                   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
-| sheet_name                | string  | 否  | -                   | 读取 Excel 文件时要读取的工作表名称。 |
 | file_filter_modified_start | string | 否  | -                   | 按文件最后修改时间筛选文件的起始时间（包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
 | file_filter_modified_end  | string  | 否  | -                   | 按文件最后修改时间筛选文件的结束时间（不包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
 | quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
@@ -170,25 +169,22 @@ PDF 特有的解析行为如下：
 
 ### 使用 OBS STS 临时安全凭证读取
 
-生产环境建议通过 [OBS STS](https://support.huaweicloud.com/intl/zh-cn/api-obs/obs_04_0081.html) 颁发临时 AK/SK，并配合细粒度自定义策略限制只能访问指定 bucket 前缀，再通过 `hadoop_obs_properties` 传给连接器。
+生产环境建议通过 [OBS STS](https://support.huaweicloud.com/intl/zh-cn/api-obs/obs_04_0081.html) 颁发临时 AK/SK，并配合细粒度自定义策略限制只能访问指定 bucket 前缀，然后通过标准的 `access_key` / `access_secret` / `endpoint` 选项配置。
 
 ```hocon
 source {
   ObsFile {
     path = "/staging/prefix"
     bucket = "obs://target-bucket"
+    access_key = "<临时-access-key>"
+    access_secret = "<临时-secret-key>"
     endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<临时-access-key>"
-      "fs.obs.secret.key"    = "<临时-secret-key>"
-      "fs.obs.session.token" = "<临时-security-token>"
-    }
     file_format_type = "parquet"
   }
 }
 ```
 
-provider 的 jar 必须放在每个运行节点的 classpath（`${SEATUNNEL_HOME}/lib`）上。生产环境应避免在作业配置中硬编码长期 AK/SK；运行在华为云内时推荐使用 ECS 委托（Agency）或 STS 临时凭证。
+连接器只会将 `access_key`、`access_secret`、`endpoint` 三个选项映射到 Hadoop OBS 配置中，不支持透传其他 Hadoop OBS 属性（例如 session token），因此使用的 STS 临时凭证不能绑定 session token。provider 的 jar 必须放在每个运行节点的 classpath（`${SEATUNNEL_HOME}/lib`）上。生产环境应避免在作业配置中硬编码长期 AK/SK；运行在华为云内时推荐使用 ECS 委托（Agency）或 STS 临时凭证。
 
 ## 变更日志
 

@@ -237,6 +237,9 @@ schema {
 | metalake_type              | string  | 否    | gravitino         | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                            |
 | recursive_file_scan        | boolean | 否    | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                         |
 | sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| archive_compress_codec     | string  | 否    | none                | 归档文件的压缩编解码器。支持：`zip`、`tar`、`tar.gz`、`gz`、`none`。                                                                                                                                |
+| enable_file_split          | boolean | 否    | false               | 仅当 file_format_type 为 text、json、csv 或 parquet 时使用。开启文件拆分功能。当文件非常大时，文件拆分允许单个文件被多个读取任务并行读取。                                                                                        |
+| file_split_size            | long    | 否    | 134217728           | 仅在 `enable_file_split` 为 true 时使用。每个拆分的大小（字节），默认 128 MB（134217728）。                                                                                                              |
 
 ### compress_codec [string]
 
