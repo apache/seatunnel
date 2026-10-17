@@ -80,6 +80,8 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit a failed `executeBatch` call.                                                                                                                                                                                  |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
+| ducklake_bulk_write                       | Boolean | No       | false                        | For an existing DuckLake table, stage each batch in a DuckDB temporary table and write it to the lake with one `INSERT ... SELECT`. See below.                                                                                                  |
+| ducklake_bulk_write_ignore_inherited_keys | Boolean | No | false | Ignore only source PK/UNIQUE metadata for insert-only bulk append. Requires ducklake_bulk_write=true; explicit primary_keys remain unsupported. |
 | is_exactly_once                           | Boolean | No       | false                        | Generic JDBC XA option. Keep `false` for DuckDB because its JDBC driver has no XA datasource.                                                                                                                                                  |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
 | xa_data_source_class_name                 | String  | No       | -                            | Generic JDBC XA datasource class option. The DuckDB JDBC driver does not provide one, so this option cannot enable exactly-once for DuckDB.                                                                                                    |
@@ -100,6 +102,77 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
+
+### DuckLake bulk append
+
+DuckLake tables can be written through the existing JDBC sink. With the DuckDB JDBC 1.3.1 driver,
+`executeBatch` against a DuckLake table can produce one Parquet file per input row. Enable
+`ducklake_bulk_write` to stage at most `batch_size` rows in a connection-local temporary table and
+insert the batch into DuckLake with one SQL statement. The target table must already exist.
+
+For an attached lake, initialize **every writer connection**, including reconnects, with a DuckDB
+session-init SQL file. For example, `/etc/seatunnel/ducklake-init.sql` can load the matching DuckDB
+extensions, configure the metadata and object-store credentials, and attach the lake:
+
+```sql
+LOAD ducklake;
+LOAD postgres_scanner;
+LOAD httpfs;
+-- Configure PostgreSQL and S3 credentials for this worker without putting them in the job file.
+ATTACH 'ducklake:postgres:dbname=lake_metadata host=metadata.example.com port=5432'
+  AS lake (METADATA_SCHEMA 'lake_catalog', DATA_PATH 's3://my-bucket/ducklake/');
+```
+
+`lake_metadata` is the PostgreSQL **database**; `lake_catalog` is its metadata **schema**. The
+DuckLake table schema, such as `main`, is separate. Use the actual names and credentials for your
+deployment, and make the SQL file and matching extensions available on each worker.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:duckdb:;session_init_sql_file=/etc/seatunnel/ducklake-init.sql"
+    driver = "org.duckdb.DuckDBDriver"
+    database = "lake"
+    table = "main.events"
+    generate_sink_sql = true
+    ducklake_bulk_write = true
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    batch_size = 1000
+    auto_commit = true
+    max_retries = 0
+  }
+}
+```
+
+This mode accepts INSERT rows only. It does not support `query`, explicit `primary_keys`, upserts, COPY, XA,
+automatic table creation, or JDBC batch retries. Each successful flush commits one lake insert;
+replaying a job after an uncertain commit can still duplicate rows. The number of Parquet files
+also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
+general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
+
+This mode writes one configured target table and does not support multi-table routing.
+Primary or UNIQUE keys inherited from an upstream table cause rejection by default.
+For an insert-only batch source such as PostgreSQL, explicitly set
+`ducklake_bulk_write_ignore_inherited_keys = true` to ignore these keys in the Sink schema
+while retaining source metadata. The target table must already exist without enforced keys.
+Explicit `primary_keys` remain unsupported. This opt-out does not enable upsert, enforce
+uniqueness, or deduplicate replay; UPDATE and DELETE rows are still rejected. Disabling
+`enable_upsert` alone does not remove inherited keys.
+
+Choose `batch_size` for the row width and worker memory budget. For small rows, a larger batch
+than the default 1000 can reduce small files, but rows occupy both the Java buffer and the DuckDB
+stage during a flush. Checkpoints, the batch interval, and job completion can flush a partial
+batch, so increasing `batch_size` alone does not guarantee large files. Each flush recreates the
+stage to release the previous batch's storage; writer close drops the remaining stage without
+closing a pooled physical connection. This adds per-flush table creation and statement preparation. Large-batch throughput and peak
+memory have not been measured; the small regression fixtures do not establish production capacity.
+
+Parallel writers commit independently to the same target table; a checkpoint does not combine
+those commits into one lake transaction. Each successful flush is a separate commit, so small
+flushes increase metadata work and snapshot creation. The sink does not retry commit failures
+(`max_retries = 0`), including conflicts surfaced by DuckLake. Choose writer parallelism for the
+metadata backend and validate concurrent writes before increasing it.
 
 ### Simple
 
