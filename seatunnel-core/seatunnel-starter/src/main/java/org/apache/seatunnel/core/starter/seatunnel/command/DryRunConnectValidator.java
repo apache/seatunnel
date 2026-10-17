@@ -37,7 +37,10 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.core.parse.ConfigParserUtil;
+import org.apache.seatunnel.engine.core.parse.TransformDependencyScheduler;
+import org.apache.seatunnel.engine.core.parse.TransformDependencyScheduler.ScheduledTransform;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,16 +49,15 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
+import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
 
 /**
  * Performs Layer 1 ({@code --dry-run connect}) validation without creating source/sink runtime
@@ -209,57 +211,61 @@ class DryRunConnectValidator {
         if (configs.isEmpty()) {
             return;
         }
-        Queue<Config> remainingTransforms = new LinkedList<>(configs);
-        int index = 0;
-        while (!remainingTransforms.isEmpty()) {
-            Config transformConfig = remainingTransforms.poll();
-            if (!validateTransform(
-                    index++,
-                    transformConfig,
-                    remainingTransforms,
-                    classLoader,
-                    tableWithSchemas,
-                    results)) {
-                index--;
-                remainingTransforms.offer(transformConfig);
-            }
+        List<ScheduledTransform> scheduledTransforms =
+                scheduleTransforms(configs, tableWithSchemas.keySet());
+        int evaluationIndex = 0;
+        for (ScheduledTransform scheduledTransform : scheduledTransforms) {
+            results.add(
+                    validateTransform(
+                            evaluationIndex++, scheduledTransform, classLoader, tableWithSchemas));
         }
     }
 
-    private boolean validateTransform(
-            int configIndex,
-            Config transformConfig,
-            Queue<Config> remainingTransforms,
-            ClassLoader classLoader,
-            LinkedHashMap<String, SchemaInfo> tableWithSchemas,
-            List<PluginResult> results) {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transformConfig);
-        String factoryId = ConfigParserUtil.getFactoryId(readonlyConfig);
-        String outputId = readonlyConfig.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
+    static List<ScheduledTransform> scheduleTransforms(
+            List<? extends Config> configs, Set<String> initialOutputIds) {
         try {
-            List<SchemaInfo> inputSchemas =
-                    getInputIds(readonlyConfig).stream()
-                            .map(tableWithSchemas::get)
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-            if (inputSchemas.isEmpty()) {
-                if (remainingTransforms.isEmpty()) {
-                    inputSchemas = Collections.singletonList(findLast(tableWithSchemas));
-                } else {
-                    // Upstream transform not resolved yet; retry after the rest of the queue.
-                    return false;
+            return TransformDependencyScheduler.scheduleTransforms(configs, initialOutputIds);
+        } catch (JobDefineCheckException e) {
+            throw new ConfigCheckException(e.getMessage(), e);
+        }
+    }
+
+    private PluginResult validateTransform(
+            int configIndex,
+            ScheduledTransform scheduledTransform,
+            ClassLoader classLoader,
+            LinkedHashMap<String, SchemaInfo> tableWithSchemas) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(scheduledTransform.getConfig());
+        String factoryId = ConfigParserUtil.getFactoryId(readonlyConfig);
+        String outputId = scheduledTransform.getOutputId();
+        try {
+            List<String> inputIds = scheduledTransform.getInputIds();
+            List<SchemaInfo> inputSchemas;
+            if (scheduledTransform.isLegacyFallback()) {
+                inputSchemas = Collections.singletonList(findLast(tableWithSchemas));
+            } else {
+                List<String> missingInputIds =
+                        inputIds.stream()
+                                .filter(inputId -> !tableWithSchemas.containsKey(inputId))
+                                .collect(Collectors.toList());
+                if (!missingInputIds.isEmpty()) {
+                    throw new ConfigCheckException(
+                            "Transform '"
+                                    + outputId
+                                    + "' is missing scheduled inputs "
+                                    + missingInputIds);
                 }
+                inputSchemas =
+                        inputIds.stream().map(tableWithSchemas::get).collect(Collectors.toList());
             }
 
             if (inputSchemas.stream().anyMatch(SchemaInfo::isUnknown)) {
                 tableWithSchemas.put(outputId, SchemaInfo.unknown());
-                results.add(
-                        PluginResult.skipped(
-                                PluginType.TRANSFORM,
-                                configIndex,
-                                factoryId,
-                                "upstream schema not available; schema wiring NOT verified"));
-                return true;
+                return PluginResult.skipped(
+                        PluginType.TRANSFORM,
+                        configIndex,
+                        factoryId,
+                        "upstream schema not available; schema wiring NOT verified");
             }
 
             List<CatalogTable> inputCatalogTables =
@@ -277,13 +283,8 @@ class DryRunConnectValidator {
                             factoryId);
             tableWithSchemas.put(
                     outputId, SchemaInfo.trusted(transform.getProducedCatalogTables()));
-            results.add(
-                    PluginResult.validated(
-                            PluginType.TRANSFORM,
-                            configIndex,
-                            factoryId,
-                            "schema wiring validated"));
-            return true;
+            return PluginResult.validated(
+                    PluginType.TRANSFORM, configIndex, factoryId, "schema wiring validated");
         } catch (Exception e) {
             throw wrap(PluginType.TRANSFORM, configIndex, factoryId, e);
         }
@@ -436,10 +437,6 @@ class DryRunConnectValidator {
                                 + ".");
             }
         }
-    }
-
-    private List<String> getInputIds(ReadonlyConfig config) {
-        return config.getOptional(PLUGIN_INPUT).orElse(Collections.singletonList(DEFAULT_ID));
     }
 
     private <T> T findLast(LinkedHashMap<?, T> map) {
