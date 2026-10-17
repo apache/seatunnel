@@ -74,6 +74,12 @@ class SftpFileFactoryTest {
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
         Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPRESS_CODEC));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().stream()
                         .anyMatch(option -> "keyfile".equals(option.key())));
 
@@ -132,6 +138,35 @@ class SftpFileFactoryTest {
         Assertions.assertEquals(
                 "/home/seatunnel/.ssh/id_rsa",
                 hadoopConf.getExtraOptions().get(SFTPFileSystem.FS_SFTP_KEYFILE));
+    }
+
+    @Test
+    void consumedOptionsAreDeclared() {
+        OptionRule optionRule = (new SftpFileSourceFactory()).optionRule();
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.READ_PARTITIONS));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.CSV_USE_HEADER_LINE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BINARY_CHUNK_SIZE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
     }
 
     private static Map<String, Object> sourceConfig() {
