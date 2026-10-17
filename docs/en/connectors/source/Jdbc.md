@@ -306,6 +306,8 @@ For a full-table snapshot, configure `table_path` and normally leave split-key d
 
 Only the top-level combination of `query` and `partition_column` selects the legacy fixed splitter; `partition_num` then controls the number of splits. The partition column must be present in the query result. Optional lower and upper bounds avoid extra `MIN`/`MAX` queries, but incorrect bounds can omit source rows, so use them only when the full data range is known.
 
+For fixed splitting of integer keys, including BIGINT and zero-scale DECIMAL, the partitions cover the numeric range without gaps or overlaps. An uneven division by `partition_num` preserves the remaining values, and each interval stays within the lower and upper bounds.
+
 Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
 
 ### Query and primary-key caution
