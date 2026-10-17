@@ -18,6 +18,12 @@
   - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
   - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
 
+### PostgreSQL CDC pgoutput 表结构
+
+- **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
+- **影响**：下次启动或恢复作业时，快照和自动创建的目标表将不再包含这些列。依赖这些列的现有目标表和下游使用方可能需要调整表结构或字段映射；此前流式更新可能将这些列写为 NULL，或因表结构不匹配而失败。
+- **迁移指南**：升级前检查发布配置及下游表结构。在 PostgreSQL 18 中，设置 `publish_generated_columns = stored` 的发布可以保留存储生成列；虚拟生成列仍不会发布。使用发布列列表时，将所有必需列加入列表；否则请调整目标表结构和下游映射，移除未发布的列。
+
 ### 运行环境要求
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
