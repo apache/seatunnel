@@ -144,6 +144,18 @@ SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。以�
 | `finished-job-state` | 已完成、已取消或失败作业的终态 |
 | `finished-job-metrics` | 作业终止后的最终指标快照 |
 
+SeaTunnel Engine 还会创建一个短生命周期的内部 IMap：`engine_gracefulMemberRemoval`。
+当 Hazelcast 为一次进程内主动关闭发出 `SHUTTING_DOWN` 事件时，SeaTunnel 会在 Hazelcast 禁用
+分布式对象代理之前，将当前服务器成员的地址写入该 IMap。该机制同时支持 Hazelcast 默认的
+`TERMINATE` shutdown-hook 策略和 `GRACEFUL` 策略；`kill -9`、OOM kill 或网络分区等非正常退出
+不会写入标记。稳定的 Coordinator 在处理对应的 `memberRemoved` 事件后，会以尽力而为的方式移除
+该条精确标记。活跃 Master 切换期间，标记会保留到 TTL 过期，以便异步作业恢复能够正确分类
+恢复后的任务。
+
+- 如果标记存在且仍然有效，对应的 `deployed node offline` 任务失败会记录为 `WARN`。
+- 如果标记缺失、过期，或者根本没有写入，同样的离线失败仍然保持为 `ERROR`。
+- 该标记带有 5 分钟的 Hazelcast TTL，运维上应把它视为短期运行时状态，而不是长期历史数据。
+
 ### MapStore（磁盘持久化）
 
 Hazelcast MapStore 将 IMap 条目写入本地磁盘，使其在进程重启后可以恢复。这与 Checkpoint 存储**相互独立**。
