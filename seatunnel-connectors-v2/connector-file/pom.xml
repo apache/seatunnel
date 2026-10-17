@@ -39,6 +39,8 @@
         <module>connector-file-sftp</module>
         <module>connector-file-smb</module>
         <module>connector-file-s3</module>
+        <module>connector-file-adls-runtime</module>
+        <module>connector-file-adls</module>
         <module>connector-file-gcs</module>
         <module>connector-file-obs</module>
         <module>connector-file-jindo-oss</module>
