@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -1383,23 +1384,6 @@ public class CheckpointCoordinator {
                                 .states(states)
                                 .build());
             }
-            if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
-                List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
-                    needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
-                }
-                checkpointStorage.deleteCheckpoint(
-                        String.valueOf(completedCheckpoint.getJobId()),
-                        String.valueOf(completedCheckpoint.getPipelineId()),
-                        needDeleteCheckpointId);
-            }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);
             sneakyThrow(e);
@@ -1417,6 +1401,8 @@ public class CheckpointCoordinator {
         if (!notifyCompleted(completedCheckpoint)) {
             return;
         }
+        // Retention is best-effort and must not delay checkpoint completion notification.
+        pruneExcessCompletedCheckpoints(completedCheckpoint);
         PendingCheckpoint pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
         if (pendingCheckpoint != null) {
             pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
@@ -1434,6 +1420,41 @@ public class CheckpointCoordinator {
                 checkpointCoordinatorFuture.complete(
                         new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
             }
+        }
+    }
+
+    /**
+     * Drop the oldest completed ids once this coordinator's deque exceeds {@code max-retained}.
+     *
+     * <p>The bound is per coordinator lifetime. A new instance (restore or master switch) starts
+     * with an empty deque and does not reclaim files left by the previous one. A storage delete
+     * failure puts the ids back and retries on the next completion. It does not fail the checkpoint
+     * that was just stored.
+     */
+    private void pruneExcessCompletedCheckpoints(CompletedCheckpoint completedCheckpoint) {
+        int maxRetained = coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+        if (maxRetained <= 0 || completedCheckpointIds.size() <= maxRetained) {
+            return;
+        }
+        List<String> needDeleteCheckpointId = new ArrayList<>();
+        while (completedCheckpointIds.size() > maxRetained) {
+            needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
+        }
+        try {
+            checkpointStorage.deleteCheckpoint(
+                    String.valueOf(completedCheckpoint.getJobId()),
+                    String.valueOf(completedCheckpoint.getPipelineId()),
+                    needDeleteCheckpointId);
+        } catch (CheckpointStorageException e) {
+            for (int i = needDeleteCheckpointId.size() - 1; i >= 0; i--) {
+                completedCheckpointIds.addFirst(needDeleteCheckpointId.get(i));
+            }
+            LOG.warn(
+                    "Failed to prune checkpoints, will retry. job id: {}, pipeline id: {}, checkpoint ids: {}",
+                    completedCheckpoint.getJobId(),
+                    completedCheckpoint.getPipelineId(),
+                    needDeleteCheckpointId,
+                    e);
         }
     }
 
