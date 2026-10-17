@@ -36,6 +36,18 @@ You need to check this document before you upgrade to related version.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
     5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
 
+### Application Mode internal API changes
+
+- `ResourceManagerFactory` is now a single concrete class. Its no-argument constructor selects the
+  standalone manager, while the four-argument constructor creates an `ApplicationResourceManager`
+  for application mode. Platform-specific resource-manager subclasses and factory SPI are removed.
+- `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
+  executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
+  terminal outcome through `finish(...)` and release their platform clients in `close()`.
+- `AbstractResourceManager.close()` is now the `final`, idempotent lifecycle entry point, so it can no
+  longer be overridden. Move deployment-specific cleanup into `closeResourceManager()`, which `close()`
+  invokes exactly once; subclasses that overrode `close()` no longer compile and must migrate.
+
 ### User Variables(`-i` variables)
 
 - **`-i` values are no longer visible via `System.getProperties()`**
@@ -498,5 +510,17 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
     covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
     read of a multi-gigabyte log has to fit in the node's heap.
+
+- **Behavior change: part of the engine startup log output changes**
+  - **Affected component**: `seatunnel-engine-server` (`SeaTunnelServer`,
+    `AbstractResourceManager`, `StandaloneResourceManager`); only log-based monitoring is affected.
+  - **Description**: The `SeaTunnel server start...`, `Init ResourceManager` and `initWorker... `
+    lines are no longer written. Worker synchronisation now logs
+    `Synchronizing existing worker profiles`, and the standalone resource manager logs
+    `Init standalone ResourceManager`.
+  - **Impact**: Alerting or log parsing that matches the old text stops matching; runtime behaviour
+    and the cluster lifecycle are unchanged.
+  - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
+    of the exact text.
 
 ### Dependency Upgrades

@@ -35,6 +35,16 @@
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
 
+### Application Mode 内部 API 变更
+
+- `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
+  Application Mode 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+- `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
+  提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+- `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理
+  逻辑需下移到 `closeResourceManager()`，由 `close()` 保证只调用一次；此前重写 `close()` 的子类将无法
+  编译，需要迁移。
+
 ### 用户变量(`-i` 参数)
 
 - **`-i` 参数值在 `System.getProperties()`中不可见**
@@ -414,5 +424,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **迁移指南**：在 `seatunnel.engine.http` 下设置
     `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
 ### 依赖升级
