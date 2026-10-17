@@ -13,6 +13,8 @@
     - **API 删除（源码不兼容）**：`Expression` 类以及所有使用它的入口都已删除：`ConfigValidator.validate(OptionRule, Expression)`、`RequiredOption.ConditionalRequiredOptions.of(Expression, List)`、`RequiredOption.ConditionalRequiredOptions.getExpression()`、`new ConditionRule(Expression, OptionRule)`、`ConditionRule.getExpression()`。仍在导入或调用它们的代码将无法编译，需要迁移到基于 `Condition` 的 API。
     - 同时混用 AND 和 OR 的条件规则可能在新版本中命中以前不命中的分支。例如 `A.and(B).or(C)` 在 `A=false、B=false、C=true` 时，现在会触发必填校验，而旧表达式不会命中。
     - 校验报错信息和 REST/CLI 导出的元数据会按 `Condition` 的优先级渲染混合链，括号和文本与之前版本不同。
+    - REST 与 CLI 元数据会把包含多个节点的条件链导出为一条平铺链：`operator` 和 `next` 位于导出的树节点上，每个节点的 `condition` 不再重复携带。
+    - **预编译插件需要重新编译（二进制不兼容）**：基于旧版 `seatunnel-api` 编译、使用已删除 API 的插件 jar 会在加载时抛出 `NoClassDefFoundError` 或 `NoSuchMethodError`，因为这些类和方法已从运行时移除。
   - **迁移指南**：
     - 使用 `Condition.of(...)` / `and(...)` / `or(...)` 构建条件链，并使用 `ConditionalRequiredOptions.of(Condition, List)`、`new ConditionRule(Condition, OptionRule)`、`ConditionalRequiredOptions.getCondition()`、`ConditionRule.getCondition()` 读取条件。
     - 检查混用 AND 和 OR 的条件规则并明确期望的优先级。如果需要保留旧的右结合语义，请改写为等价的“AND 组之间取 OR”形式，例如 `A && (B || C)` 改写为 `(A && B) || (A && C)`。
