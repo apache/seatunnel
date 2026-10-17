@@ -352,8 +352,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             case DECIMAL:
                 // DORIS LARGEINT
-                if (column.getSourceType() != null
-                        && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
+                if (isLargeintType(column.getSourceType())) {
                     builder.dataType(DORIS_LARGEINT);
                     builder.columnType(DORIS_LARGEINT);
                     break;
