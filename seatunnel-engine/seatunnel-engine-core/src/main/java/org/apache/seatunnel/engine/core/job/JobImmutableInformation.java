@@ -151,6 +151,7 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         return jobId;
     }
 
+    /** Returns the legacy savepoint flag. Use {@link #getRestoreMode()} for restore decisions. */
     public boolean isStartWithSavePoint() {
         return isStartWithSavePoint;
     }
@@ -165,6 +166,14 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     public boolean isRestoreJob() {
         return restoreMode != null && restoreMode.isRestore();
+    }
+
+    public boolean isSavepointRestore() {
+        return restoreMode == RestoreMode.SAVEPOINT;
+    }
+
+    public boolean isCheckpointRestore() {
+        return restoreMode == RestoreMode.CHECKPOINT;
     }
 
     public long getCreateTime() {

@@ -166,7 +166,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                restoreMode.isRestore(),
+                restoreMode,
                 pipelineCheckpoints,
                 metaDataConfig);
     }
