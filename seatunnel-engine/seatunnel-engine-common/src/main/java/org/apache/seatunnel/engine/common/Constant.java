@@ -61,6 +61,8 @@ public class Constant {
 
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
+    public static final String IMAP_METADATA_DATASOURCE = "engine_metadataDatasource";
+
     /**
      * @deprecated Use {@code EngineStateStoreNames.CHECKPOINT_ID} via the engine state-store
      *     abstraction instead.

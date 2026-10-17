@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -67,6 +68,8 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.engine.common.Constant.IMAP_METADATA_DATASOURCE;
 
 @Slf4j
 public class SeaTunnelServer
@@ -191,9 +194,21 @@ public class SeaTunnelServer
             jettyService.createJettyServer();
         }
 
+        if (isDynamicMetadataEnabled()) {
+            DynamicMetadataProvider.setMetadataDatasourceImap(
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_METADATA_DATASOURCE));
+        }
+
         // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
         // see https://issues.apache.org/jira/browse/HADOOP-19049
         FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
+    }
+
+    private boolean isDynamicMetadataEnabled() {
+        return seaTunnelConfig.getEngineConfig().getMetadataConfig() != null
+                && seaTunnelConfig.getEngineConfig().getMetadataConfig().isEnabled()
+                && DynamicMetadataProvider.KIND.equalsIgnoreCase(
+                        seaTunnelConfig.getEngineConfig().getMetadataConfig().getKind());
     }
 
     private void startMaster() {
