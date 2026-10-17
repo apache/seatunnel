@@ -124,8 +124,19 @@ public class ConfigValueUtilsTest {
     }
 
     @Test
-    void testParseValueThrowsForBalancedNonJson() {
+    void testParseValueThrowsForBalancedNonStructure() {
         String value = "{k1,k2,[k3,k4]}";
+        boolean isStructured = ConfigValueUtils.isStructured(value);
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        Assertions.assertFalse(isStructured);
+        Assertions.assertTrue(result instanceof String);
+    }
+
+    @Test
+    void testParseValueThrowsForStructuredNonJson() {
+        String value = "{\"k1\":}";
+        boolean isStructured = ConfigValueUtils.isStructured(value);
+        Assertions.assertTrue(isStructured);
         Assertions.assertThrows(ConfigException.class, () -> ConfigValueUtils.parseValue(value));
     }
 
