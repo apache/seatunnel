@@ -38,8 +38,11 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
@@ -268,5 +271,42 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(
                 checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
                 "Checkpoint should be cleaned up after cancel when retain is disabled (default)");
+    }
+
+    @Test
+    public void testCheckpointRetentionAfterCoordinatorRecreation() throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        for (long checkpointId = 1; checkpointId <= 5; checkpointId++) {
+            storeCompletedCheckpoint(checkpointStorage, jobId, checkpointId);
+        }
+
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(3);
+        CheckpointConfig config = new CheckpointConfig();
+        config.setStorage(storageConfig);
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, false, checkpointStorage, config);
+
+        checkpointManager
+                .getCheckpointCoordinator(1)
+                .completePendingCheckpoint(
+                        new CompletedCheckpoint(
+                                jobId,
+                                1,
+                                6L,
+                                Instant.now().toEpochMilli(),
+                                CheckpointType.CHECKPOINT_TYPE,
+                                Instant.now().toEpochMilli(),
+                                new HashMap<>(),
+                                new HashMap<>()));
+
+        List<Long> retainedCheckpointIds =
+                checkpointStorage.getCheckpointsByJobIdAndPipelineId(String.valueOf(jobId), "1")
+                        .stream()
+                        .map(PipelineState::getCheckpointId)
+                        .sorted()
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(Arrays.asList(4L, 5L, 6L), retainedCheckpointIds);
     }
 }
