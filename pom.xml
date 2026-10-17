@@ -58,7 +58,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>3.0.0-SNAPSHOT</revision>
+        <revision>3.0.1-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
         <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
