@@ -62,8 +62,20 @@ service.interceptors.response.use((res: AxiosResponse) => {
 export const get = <R>(url: string, params?: Record<string, any>) => {
   return <Promise<R>>service.get<R>(url, { params })
 }
-export const post = <R>(url: string, data: Record<string, any>) => {
-  return <Promise<R>>service.post<R>(url, data)
+export const post = <R>(url: string, data?: any, config?: AxiosRequestConfig) => {
+  return <Promise<R>>service.post<R>(url, data, config)
+}
+
+export const isRequestOutcomeUnknown = (error: unknown) =>
+  axios.isAxiosError(error) && !error.response
+
+// The engine answers rejected operations with { status: 'fail', message } and an HTTP error
+// status; the message is the only operator-facing explanation (for example a restore refused
+// because the source job is still running), so callers append it to their generic failure text.
+export const requestFailureMessage = (error: unknown): string | undefined => {
+  if (!axios.isAxiosError(error)) return undefined
+  const message = (error.response?.data as { message?: unknown } | undefined)?.message
+  return typeof message === 'string' && message.trim() ? message.trim() : undefined
 }
 
 export { service as axios }

@@ -61,6 +61,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -1046,6 +1047,144 @@ public class RestApiIT {
                 .body("projectVersion", notNullValue())
                 .body("totalSlot", equalTo("20"))
                 .body("workers", equalTo("1"));
+    }
+
+    /**
+     * The status endpoint must report the port Jetty actually bound (node2 is forced onto a dynamic
+     * port because both members share the configured one) and must never echo credentials or key
+     * material.
+     */
+    @Test
+    public void testHttpServiceStatusReportsEffectivePortsWithoutSecrets() {
+        ports.forEach(
+                (hazelcastPort, jettyPort) -> {
+                    String body =
+                            given().get(
+                                            HOST
+                                                    + jettyPort
+                                                    + node1Config
+                                                            .getEngineConfig()
+                                                            .getHttpConfig()
+                                                            .getContextPath()
+                                                    + RestConstant.REST_URL_HTTP_SERVICE_STATUS)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("httpEnabled", equalTo(true))
+                                    .body("httpsEnabled", equalTo(false))
+                                    .body("configuredHttpPort", equalTo(8080))
+                                    .body("httpPort", equalTo(jettyPort))
+                                    .body("dynamicPortEnabled", equalTo(true))
+                                    .body("basicAuthEnabled", equalTo(false))
+                                    .body("mutualTlsEnabled", equalTo(false))
+                                    .extract()
+                                    .asString();
+                    String normalized = body.toLowerCase(Locale.ROOT);
+                    for (String secret :
+                            Arrays.asList("password", "username", "keystore", "truststore")) {
+                        Assertions.assertFalse(
+                                normalized.contains(secret),
+                                () -> "status response leaks " + secret + ": " + body);
+                    }
+                });
+    }
+
+    /**
+     * The target-validated tag endpoint only mutates the member serving the request: a foreign UUID
+     * is rejected without side effects, the serving member's UUID applies the tags on both the
+     * Jetty and the legacy Hazelcast REST port, and an empty map clears them.
+     */
+    @Test
+    public void testUpdateLocalMemberTagsOnlyMutatesTheServingMember() {
+        int node1HazelcastPort = node1.getCluster().getLocalMember().getAddress().getPort();
+        String jettyBase =
+                HOST
+                        + ports.get(node1HazelcastPort)
+                        + node1Config.getEngineConfig().getHttpConfig().getContextPath();
+        String hazelcastBase = HOST + node1HazelcastPort + CONTEXT_PATH;
+
+        List<Map<String, Object>> members =
+                given().get(jettyBase + RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+        Map<String, Object> localMember =
+                members.stream()
+                        .filter(member -> Boolean.TRUE.equals(member.get("localMember")))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new AssertionError("no localMember entry in " + members));
+        String localUuid = String.valueOf(localMember.get("uuid"));
+        Assertions.assertEquals(
+                node1.getCluster().getLocalMember().getUuid().toString(), localUuid);
+        Assertions.assertEquals("node1", ((Map<?, ?>) localMember.get("tags")).get("node"));
+        Assertions.assertEquals(
+                1, members.stream().filter(m -> Boolean.TRUE.equals(m.get("localMember"))).count());
+        String remoteUuid = node2.getCluster().getLocalMember().getUuid().toString();
+
+        given().body(tagRequest(remoteUuid, "{\"zone\": \"prod\"}"))
+                .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(400)
+                .body("status", equalTo("fail"))
+                .body(
+                        "message",
+                        equalTo(
+                                "Target member uuid must match the REST node serving this request."));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("0"));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?node=node1")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("1"));
+
+        given().body(tagRequest(localUuid, "{\"zone\": \"prod\"}"))
+                .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("success"))
+                .body("message", equalTo("update node tags done."));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
+                .then()
+                .statusCode(200)
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+
+        given().body(tagRequest(localUuid, "{\"zone\": \"legacy-port\"}"))
+                .post(hazelcastBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=legacy-port")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("1"));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=prod")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("0"));
+
+        given().body(tagRequest(localUuid, "{}"))
+                .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("update node tags done."));
+        given().get(jettyBase + RestConstant.REST_URL_OVERVIEW + "?zone=legacy-port")
+                .then()
+                .statusCode(200)
+                .body("workers", equalTo("0"));
+
+        given().body(tagRequest(localUuid, "\"not-an-object\""))
+                .post(jettyBase + RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS)
+                .then()
+                .statusCode(400)
+                .body("message", equalTo("The tags field must be an object."));
+    }
+
+    private static String tagRequest(String uuid, String tagsJson) {
+        return "{\"uuid\": \"" + uuid + "\", \"tags\": " + tagsJson + "}";
     }
 
     @Test
