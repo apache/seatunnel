@@ -150,6 +150,41 @@ public class ZetaSQLEngineTest {
         Assertions.assertEquals(1, failedUdf.getCloseCount());
     }
 
+    @Test
+    public void testDirectColumnProjection() {
+        SeaTunnelRowType rowType = simpleRowType();
+        ZetaSQLEngine engine = new ZetaSQLEngine();
+        engine.init("test", "test", rowType, "select id as id2, name as name2 from test");
+
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+        Assertions.assertArrayEquals(new String[] {"id2", "name2"}, outType.getFieldNames());
+
+        List<SeaTunnelRow> outRows =
+                engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+
+        Assertions.assertNotNull(outRows);
+        Assertions.assertEquals(1, outRows.size());
+        Assertions.assertArrayEquals(new Object[] {1, "Alice"}, outRows.get(0).getFields());
+        engine.close();
+    }
+
+    @Test
+    public void testDirectColumnProjectionReordersAndQuotesColumns() {
+        SeaTunnelRowType rowType = simpleRowType();
+        ZetaSQLEngine engine = new ZetaSQLEngine();
+        engine.init("test", "test", rowType, "select `name`, id from test");
+
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        List<SeaTunnelRow> outRows =
+                engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+
+        Assertions.assertNotNull(outRows);
+        Assertions.assertEquals(1, outRows.size());
+        Assertions.assertArrayEquals(new Object[] {"Alice", 1}, outRows.get(0).getFields());
+        engine.close();
+    }
+
     private static final class TestableZetaSQLEngine extends ZetaSQLEngine {
 
         private final List<ZetaUDF> testUdfs;
