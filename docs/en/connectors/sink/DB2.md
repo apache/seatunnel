@@ -52,12 +52,12 @@ Write data to DB2 through JDBC. Supports batch and streaming jobs, concurrent wr
 | DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)      |
 | REAL                                                                                                 | FLOAT               |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB | STRING              |
-| BLOB                                                                                                 | BYTES               |
+| CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB<br/>XML | STRING              |
+| BLOB<br/>BINARY<br/>VARBINARY                                                                        | BYTES               |
 | DATE                                                                                                 | DATE                |
 | TIME                                                                                                 | TIME                |
 | TIMESTAMP                                                                                            | TIMESTAMP           |
-| ROWID<br/>XML                                                                                        | Not supported yet   |
+| ROWID                                                                                                | Not supported yet   |
 
 ## Sink Options
 
