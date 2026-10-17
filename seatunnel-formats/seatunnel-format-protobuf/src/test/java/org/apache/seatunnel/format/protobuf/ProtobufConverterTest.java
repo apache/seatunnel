@@ -28,6 +28,7 @@ import org.apache.seatunnel.format.protobuf.exception.SeaTunnelProtobufFormatExc
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -533,8 +534,12 @@ class ProtobufConverterTest {
     /**
      * Name resolution must not depend on the JVM default locale: {@code "C_INT32".toLowerCase()} is
      * {@code "c_ınt32"} (dotless i) under the Turkish locale, which no proto field can match.
+     *
+     * <p>The default locale is process-wide; tests sharing it coordinate through the same resource
+     * lock.
      */
     @Test
+    @ResourceLock("java.util.Locale")
     void testFieldNameResolutionDoesNotDependOnDefaultLocale() throws Exception {
         Descriptors.Descriptor descriptor = int32FieldMessage("c_int32", 1);
         SeaTunnelRowType rowType =
@@ -596,7 +601,12 @@ class ProtobufConverterTest {
         Assertions.assertEquals(address, convertedRow.getField(0));
     }
 
-    /** A null ROW column must not throw while writing nor disturb its populated sibling. */
+    /**
+     * A null ROW column must not throw while writing nor disturb its populated sibling.
+     *
+     * <p>Proto3 reads an unset message field as its default instance, whose unset {@code street}
+     * string is empty.
+     */
     @Test
     void testNullNestedRowColumnNextToPopulatedOne() throws Exception {
         Descriptors.Descriptor descriptor = twoNestedRowFieldsMessage("address", "backup_address");
@@ -613,9 +623,19 @@ class ProtobufConverterTest {
         SeaTunnelRow convertedRow = roundTrip(descriptor, rowType, new Object[] {address, null});
 
         Assertions.assertEquals(address, convertedRow.getField(0));
-        // proto3 has no set-but-null message, so the column written as null reads back as the
-        // default instance of the nested message instead of as the value of its sibling.
-        Assertions.assertNotEquals(address, convertedRow.getField(1));
+
+        // Reference value: what the protobuf runtime itself reports for the unset message field.
+        DynamicMessage defaultBackupAddress =
+                DynamicMessage.getDefaultInstance(
+                        descriptor.findFieldByName("backup_address").getMessageType());
+        Object defaultStreet =
+                defaultBackupAddress.getField(
+                        defaultBackupAddress.getDescriptorForType().findFieldByName("street"));
+        Assertions.assertEquals("", defaultStreet);
+
+        SeaTunnelRow defaultBackupAddressRow = new SeaTunnelRow(1);
+        defaultBackupAddressRow.setField(0, defaultStreet);
+        Assertions.assertEquals(defaultBackupAddressRow, convertedRow.getField(1));
     }
 
     /** A schema column missing from the proto must fail the write with {@code PROTOBUF-03}. */
