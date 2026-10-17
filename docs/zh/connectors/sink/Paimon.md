@@ -666,7 +666,7 @@ sink {
 
 ### Paimon Sink 连接器是否支持自动建表？
 
-支持。当配置 `paimon.auto-create-table = true` 或 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
+支持。当配置 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
 
 ### Paimon Sink 如何保证精确一次（Exactly-Once）写入？
 

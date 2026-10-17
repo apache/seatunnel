@@ -25,6 +25,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 - [x] 文件格式类型
   - [x] text
   - [x] csv
+  - [x] parquet
+  - [x] orc
   - [x] json
   - [x] excel
   - [x] xml
