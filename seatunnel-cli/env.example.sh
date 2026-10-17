@@ -30,6 +30,7 @@
 #                                    #   (GPT-5.6 Terra/Sol; needs ".[bedrock-mantle]" extra;
 #                                    #    model via OPENAI_MODEL, e.g. openai.gpt-5.6-terra)
 # export AI_PROVIDER=orcarouter   # Option D: OrcaRouter AI gateway (needs ".[openai]" extra)
+# export AI_PROVIDER=cheaperinference   # Option E: Cheaper Inference LLM gateway (needs ".[openai]" extra)
 
 # ─── Option A: Anthropic API (AI_PROVIDER=anthropic) ───
 # export ANTHROPIC_API_KEY=sk-ant-...
@@ -59,6 +60,15 @@
 # export ORCAROUTER_MODEL=orcarouter/auto                  # optional override
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto       # optional override
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true            # optional: keep true to replay reasoning_content for reasoning models
+
+# ─── Option E: Cheaper Inference LLM gateway (AI_PROVIDER=cheaperinference) ───
+# OpenAI-compatible gateway: many models behind one endpoint, model IDs are bare
+# (e.g. gpt-5.4-mini, gpt-5.4, claude-sonnet-5).
+# Requires: pip install -e ".[openai]"
+# export CHEAPER_INFERENCE_API_KEY=ci_live_...
+# export CHEAPER_INFERENCE_MODEL=gpt-5.4-mini                # optional override
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini     # optional override
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true       # optional: keep true to replay reasoning_content for reasoning models
 
 # ─── SeaTunnel Engine (optional) ───
 # export SEATUNNEL_HOME=/path/to/seatunnel
