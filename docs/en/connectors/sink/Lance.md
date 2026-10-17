@@ -151,6 +151,8 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | ARRAY               | list                    |
 | MAP                 | map                     |
 
+`MAP` columns use Arrow's canonical layout: the map has one non-nullable `entries` struct child, which contains a non-nullable `key` and a nullable `value`. Map keys must not be null.
+
 :::tip
 
 The sink does not interpret `UPDATE` / `DELETE` row kinds as CDC operations — every upstream row is appended to the Lance dataset using the configured `lance.write.mode`. In streaming mode, the writer flushes the in-memory row buffer to Lance when `lance.write.batch-size` is reached and on every checkpoint.

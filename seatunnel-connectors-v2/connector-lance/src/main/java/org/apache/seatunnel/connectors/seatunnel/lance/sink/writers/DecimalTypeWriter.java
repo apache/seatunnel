@@ -79,12 +79,17 @@ public class DecimalTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.key().decimal().writeDecimal(convertToBigDecimal(value, arrowType));
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.value().decimal().writeDecimal(convertToBigDecimal(value, arrowType));
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        writer.value().decimal().writeNull();
     }
 }

@@ -82,28 +82,54 @@ public class IntTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        ArrowType.Int intType = (ArrowType.Int) arrowType;
-        int bitWidth = intType.getBitWidth();
-        Number numValue = (Number) value;
-        switch (bitWidth) {
-            case 8:
-                writer.key().writeTinyInt(numValue.byteValue());
-                break;
-            case 16:
-                writer.key().writeSmallInt(numValue.shortValue());
-                break;
-            case 32:
-                writer.key().writeInt(numValue.intValue());
-                break;
-            case 64:
-                writer.key().writeBigInt(numValue.longValue());
-                break;
-        }
+        writeMapInt(writer.key(), arrowType, value);
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapInt(writer.value(), arrowType, value);
+    }
+
+    private void writeMapInt(UnionMapWriter writer, ArrowType arrowType, Object value) {
+        int bitWidth = ((ArrowType.Int) arrowType).getBitWidth();
+        Number numValue = (Number) value;
+        switch (bitWidth) {
+            case 8:
+                writer.tinyInt().writeTinyInt(numValue.byteValue());
+                break;
+            case 16:
+                writer.smallInt().writeSmallInt(numValue.shortValue());
+                break;
+            case 32:
+                writer.integer().writeInt(numValue.intValue());
+                break;
+            case 64:
+                writer.bigInt().writeBigInt(numValue.longValue());
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported Int bit width: " + bitWidth);
+        }
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        int bitWidth = ((ArrowType.Int) arrowType).getBitWidth();
+        switch (bitWidth) {
+            case 8:
+                writer.value().tinyInt().writeNull();
+                break;
+            case 16:
+                writer.value().smallInt().writeNull();
+                break;
+            case 32:
+                writer.value().integer().writeNull();
+                break;
+            case 64:
+                writer.value().bigInt().writeNull();
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported Int bit width: " + bitWidth);
+        }
     }
 }

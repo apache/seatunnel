@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -27,11 +28,14 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -51,7 +55,9 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 class FragmentConverterTest {
 
@@ -177,6 +183,139 @@ class FragmentConverterTest {
         } finally {
             deleteRecursively(tempDir);
         }
+    }
+
+    @Test
+    void shouldWriteCanonicalMapIntoVectorSchemaRoot() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"attributes"},
+                        new SeaTunnelDataType<?>[] {
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+        Schema schema = canonicalMapSchema();
+        Map<String, Integer> attributes = new LinkedHashMap<>();
+        attributes.put("a", 1);
+        attributes.put("b", 2);
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                new SeaTunnelRow(new Object[] {attributes}),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(1, root.getRowCount());
+            MapVector vector = (MapVector) root.getVector("attributes");
+            Assertions.assertEquals(attributes, readMap(vector, 0));
+        }
+    }
+
+    @Test
+    void shouldWriteMapRowsWithEmptyNullAndNullableValues() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"attributes"},
+                        new SeaTunnelDataType<?>[] {
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+        Schema schema = canonicalMapSchema();
+        Map<String, Integer> withValues = new LinkedHashMap<>();
+        withValues.put("a", 1);
+        Map<String, Integer> withNullValue = new LinkedHashMap<>();
+        withNullValue.put("a", null);
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                Arrays.asList(
+                                        new SeaTunnelRow(new Object[] {withValues}),
+                                        new SeaTunnelRow(new Object[] {Collections.emptyMap()}),
+                                        new SeaTunnelRow(new Object[] {null}),
+                                        new SeaTunnelRow(new Object[] {withNullValue})),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(4, root.getRowCount());
+            MapVector vector = (MapVector) root.getVector("attributes");
+            Assertions.assertEquals(withValues, readMap(vector, 0));
+            Assertions.assertFalse(vector.isNull(1));
+            Assertions.assertEquals(Collections.emptyMap(), readMap(vector, 1));
+            Assertions.assertTrue(vector.isNull(2));
+            Assertions.assertEquals(withNullValue, readMap(vector, 3));
+        }
+    }
+
+    @Test
+    void shouldGenerateCanonicalMapSchemaForNewDataset() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"attributes"},
+                        new SeaTunnelDataType<?>[] {
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+        Map<String, Integer> attributes = new LinkedHashMap<>();
+        attributes.put("a", 1);
+        Schema schema =
+                SchemaUtils.convertSchema(new SeaTunnelRow(new Object[] {attributes}), rowType);
+
+        Assertions.assertEquals(1, schema.getFields().size());
+        Field mapField = schema.getFields().get(0);
+        Assertions.assertTrue(mapField.getType() instanceof ArrowType.Map);
+        Assertions.assertEquals(Collections.singletonList("entries"), childNames(mapField));
+        Field entries = mapField.getChildren().get(0);
+        Assertions.assertTrue(entries.getType() instanceof ArrowType.Struct);
+        Assertions.assertFalse(entries.isNullable());
+        Assertions.assertEquals(Arrays.asList("key", "value"), childNames(entries));
+        Assertions.assertFalse(entries.getChildren().get(0).isNullable());
+        Assertions.assertTrue(entries.getChildren().get(1).isNullable());
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                new SeaTunnelRow(new Object[] {attributes}),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(
+                    attributes, readMap((MapVector) root.getVector("attributes"), 0));
+        }
+    }
+
+    private static Schema canonicalMapSchema() {
+        Field entries =
+                new Field(
+                        "entries",
+                        FieldType.notNullable(new ArrowType.Struct()),
+                        Arrays.asList(
+                                Field.notNullable("key", new ArrowType.Utf8()),
+                                Field.nullable("value", new ArrowType.Int(32, true))));
+        Field mapField =
+                new Field(
+                        "attributes",
+                        FieldType.nullable(new ArrowType.Map(false)),
+                        Collections.singletonList(entries));
+        return new Schema(Collections.singletonList(mapField));
+    }
+
+    private static List<String> childNames(Field field) {
+        return field.getChildren().stream()
+                .map(Field::getName)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private static Map<Object, Object> readMap(MapVector vector, int rowIndex) {
+        if (vector.isNull(rowIndex)) {
+            return null;
+        }
+        UnionMapReader reader = new UnionMapReader(vector);
+        reader.setPosition(rowIndex);
+        Map<Object, Object> map = new LinkedHashMap<>();
+        while (reader.next()) {
+            Object key = reader.key().readObject();
+            map.put(key instanceof Text ? key.toString() : key, reader.value().readObject());
+        }
+        return map;
     }
 
     private static void createEmptyDataset(

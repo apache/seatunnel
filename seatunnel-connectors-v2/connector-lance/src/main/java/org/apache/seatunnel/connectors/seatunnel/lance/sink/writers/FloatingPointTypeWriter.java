@@ -62,18 +62,38 @@ public class FloatingPointTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) arrowType;
-        Number numValue = (Number) value;
-        if (fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
-            writer.key().writeFloat4(numValue.floatValue());
-        } else if (fpType.getPrecision() == FloatingPointPrecision.DOUBLE) {
-            writer.key().writeFloat8(numValue.doubleValue());
-        }
+        writeMapFloat(writer.key(), arrowType, value);
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapFloat(writer.value(), arrowType, value);
+    }
+
+    private void writeMapFloat(UnionMapWriter writer, ArrowType arrowType, Object value) {
+        ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) arrowType;
+        Number numValue = (Number) value;
+        if (fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
+            writer.float4().writeFloat4(numValue.floatValue());
+        } else if (fpType.getPrecision() == FloatingPointPrecision.DOUBLE) {
+            writer.float8().writeFloat8(numValue.doubleValue());
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported FloatingPoint precision: " + fpType.getPrecision());
+        }
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) arrowType;
+        if (fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
+            writer.value().float4().writeNull();
+        } else if (fpType.getPrecision() == FloatingPointPrecision.DOUBLE) {
+            writer.value().float8().writeNull();
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported FloatingPoint precision: " + fpType.getPrecision());
+        }
     }
 }

@@ -54,12 +54,17 @@ public class BinaryTypeWriter extends BaseTypeWriter {
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
         // Binary type is typically not used as map key, but handle it anyway
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.key().varBinary().writeVarBinary(getBytes(value));
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.value().varBinary().writeVarBinary(getBytes(value));
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        writer.value().varBinary().writeNull();
     }
 }

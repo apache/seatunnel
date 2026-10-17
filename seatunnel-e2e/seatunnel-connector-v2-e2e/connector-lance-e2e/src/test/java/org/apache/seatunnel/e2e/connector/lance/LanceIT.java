@@ -24,6 +24,10 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -34,7 +38,9 @@ import com.lancedb.lance.Dataset;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.given;
 
@@ -89,6 +95,7 @@ public class LanceIT extends TestSuiteBase {
         log.info("Lance dataset write succeeded!");
         log.info("Dataset path: {}", datasetPath);
         logDatasetVersion(datasetPath);
+        assertCanonicalMapSchema(datasetPath);
 
         given().ignoreExceptions()
                 .await()
@@ -124,6 +131,41 @@ public class LanceIT extends TestSuiteBase {
             log.error("Error loading Lance table: {}", ex.getMessage(), ex);
         }
         return count;
+    }
+
+    private void assertCanonicalMapSchema(String datasetPath) {
+        try (Dataset dataset = Dataset.open(datasetPath)) {
+            Schema schema = dataset.getSchema();
+            Field mapField = schema.findField("c_map");
+            Assertions.assertNotNull(mapField, "The Lance dataset must contain the c_map column");
+            Assertions.assertTrue(
+                    mapField.getType() instanceof ArrowType.Map,
+                    "c_map must be stored as an Arrow Map, but was " + mapField.getType());
+            List<String> children =
+                    mapField.getChildren().stream()
+                            .map(Field::getName)
+                            .collect(Collectors.toList());
+            Assertions.assertEquals(
+                    java.util.Collections.singletonList("entries"),
+                    children,
+                    "The Map must use Arrow's canonical entries child");
+            Field entries = mapField.getChildren().get(0);
+            Assertions.assertTrue(entries.getType() instanceof ArrowType.Struct);
+            Assertions.assertFalse(entries.isNullable());
+            Assertions.assertEquals(
+                    java.util.Arrays.asList("key", "value"),
+                    entries.getChildren().stream()
+                            .map(Field::getName)
+                            .collect(Collectors.toList()));
+            Assertions.assertFalse(entries.getChildren().get(0).isNullable());
+        } catch (NoClassDefFoundError | ExceptionInInitializerError e) {
+            log.warn(
+                    "JNI library initialization failed in test JVM (this is expected in E2E tests). "
+                            + "The dataset schema was not verified in this JVM. Error: {}",
+                    e.getMessage());
+        } catch (Exception ex) {
+            throw new AssertionError("Failed to verify the Lance dataset map schema", ex);
+        }
     }
 
     private boolean checkTableExists() {

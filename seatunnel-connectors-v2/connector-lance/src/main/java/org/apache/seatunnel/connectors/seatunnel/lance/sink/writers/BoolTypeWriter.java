@@ -45,12 +45,17 @@ public class BoolTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writer.key().writeBit(toBoolean(value) ? 1 : 0);
+        writer.key().bit().writeBit(toBoolean(value) ? 1 : 0);
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.value().bit().writeBit(toBoolean(value) ? 1 : 0);
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        writer.value().bit().writeNull();
     }
 }
