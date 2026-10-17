@@ -76,6 +76,8 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
+For `table_path` schema discovery, the catalog retains the declared precision and scale of DECIMAL and NUMERIC columns. A table created from an inferred `DECIMAL(10,2)` schema therefore keeps `DECIMAL(10,2)`. A plain `DECIMAL` or `NUMERIC` declaration without an explicit precision and scale is reported as `DECIMAL(18,3)`, which is DuckDB's default for that declaration.
+
 > Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
 ## Source Options
