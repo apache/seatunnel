@@ -4,6 +4,20 @@
 
 ## dev
 
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### CDC：可空列不再用作快照分片列
+
+- **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
+  - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
+  - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
+  - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
 ### Engine / Zeta
 
 - **破坏性变更：默认 Slot 模式由动态改为静态**
