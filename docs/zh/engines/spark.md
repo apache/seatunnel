@@ -10,6 +10,31 @@
 - [Spark 引擎快速开始](../getting-started/locally/quick-start-spark.md)
 - [作业配置指南](../getting-started/job-configuration-guide.md)
 
+SeaTunnel 提供独立的 Spark 3 启动器。现有 Spark 3.3 部署可以继续使用原有运行时，
+Spark 3.5 部署则可以使用 Spark 3.5.8 启动器：
+
+- `seatunnel-spark-3-starter.jar` 用于 Spark 3.3.x
+- `seatunnel-spark-3.5-starter.jar` 用于 Spark 3.5.x
+
+现有 Spark 3.4 部署应继续使用原来的 `seatunnel-spark-3-starter.jar` 和
+`start-seatunnel-spark-3-connector-v2` 启动脚本。本次变更不新增独立的 Spark 3.4
+启动器，也不扩展其兼容性验证范围。
+
+Spark 3.5 启动器复用了基于 Spark 3.3 编译的转换层。行编码器和批量写入测试在
+Spark 3.5.8 上验证了部分路径，但不能证明所有 Catalyst 或 DataSource V2 路径均兼容。
+其他二进制兼容性问题可能仅在目标运行时执行相关路径时暴露。升级前请验证所用连接器
+和部署模式；Spark 3.5 的专项微批流处理测试仍待补充。
+
+Spark 3.5 Windows `.cmd` 启动器仍将命令字符串传递给 `spark-submit.cmd`，未采用 Unix
+启动器的参数文件协议。不支持包含嵌入引号或 Windows 命令解释器元字符的任意参数，
+且尚未验证原生 Windows 启动器行为。请勿通过此启动器传入不可信的值；需要精确保留
+参数时，请使用 Unix 启动器。
+
+Windows 打包测试覆盖帮助输出、JVM 启动失败，以及打开包含空格、`!` 和 `&` 的带引号
+配置路径。路径测试在配置解析错误处停止，不会提交 Spark 作业，因此不能证明
+`spark-submit.cmd` 会精确保留参数。只有待验证版本的原生 Windows CI 通过后，
+才能将这些启动器场景视为已验证。
+
 ## 什么时候选择 Spark
 
 以下场景通常更适合使用 Spark：
@@ -48,6 +73,8 @@ Spark on YARN 客户端模式：
 ```shell
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
+
+使用 Spark 3.5 时，请使用 `start-seatunnel-spark-3.5-connector-v2.sh`，其他参数保持不变。
 
 ## 最小示例作业
 
