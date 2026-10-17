@@ -69,8 +69,7 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
 - **Unbalanced `{}` or `[]` are partially parsed into maps and lists**
 
   - In `-i k=[a,b],c]`, `[a,b]` is parsed as an array, and `c]` is ignored because it has no = (it is not kept as a string).
-  - Balanced values that start with `{` or `[` but are not valid HOCON/JSON now fail with a `BadValue` error at parse time. This includes previously working unquoted values such as `-i pattern={a,b}`. To keep them as plain strings, wrap the value in escaped double quotes:
-    `-i pattern=\"{a,b}\"`
+  - Balanced values that start with `{` or `[` but are not valid HOCON/JSON now fail with a `BadValue` error at parse time. Previously, parameter values inside `{}` that contained no key-value pairs, such as `-i pattern='{a,b}'`, still worked; however, values with incomplete key-value pairs, such as `-i pattern='{"k"=}'` or `-i pattern='{"k":}'`, would throw a `BadValue` error.
 
 - **`-i` keys and values are now trimmed, and empty keys are rejected**
   - `-i 'k1= , k2=v2'` now explicitly removes whitespace: `k1` becomes an empty string, and the key of the second pair becomes `k2` instead of ` k2`.
@@ -82,8 +81,8 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
 - **Breaking change: The same placeholder key can no longer have multiple different default values**
   - When the same placeholder key is used multiple times, older versions used the default value from its last occurrence as the unified default value. Starting from this version, the same placeholder key is no longer allowed to have multiple different default values.
   - **Migration guide:**
-    - For keys whose placeholders appear multiple times, the default values must be kept consistent. If they are inconsistent, they must be changed to be consistent.
-    - If you need to keep the default value so that it takes effect, you need to change the placeholder key, and change the key overridden via the -i parameter to the modified key in the configuration file.
+    - For keys whose placeholders appear multiple times, either none of the occurrences has a default value, or all default values must be identical. Existing configuration files with inconsistent defaults must be updated to be consistent.
+    - If you need to keep the default value so that it takes effect, you need to change the placeholder key, and change the key overridden via the `-i` parameter to the modified key in the configuration file.
 
 
 ### SQL TINYINT array schema
