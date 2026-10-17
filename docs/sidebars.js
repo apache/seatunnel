@@ -349,7 +349,8 @@ const sidebars = {
                     "type": "category",
                     "label": "Features",
                     "items": [
-                        "architecture/features/multi-table"
+                        "architecture/features/multi-table",
+                        "architecture/features/dynamic-lookup"
                     ]
                 }
             ]
