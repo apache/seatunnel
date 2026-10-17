@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | BIGINT             | 写为 InfluxDB field；配置为 `key_time` 时也可以作为时间戳。 |
 | FLOAT              | 写为 InfluxDB field。 |
 | DOUBLE             | 写为 InfluxDB field。 |
-| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为时间戳字符串。 |
+| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为数字时间戳字符串。 |
 | TIMESTAMP          | 可用于 `key_time`，连接器会按 UTC 时区转换成 epoch 毫秒。 |
 
 当前 InfluxDB sink 序列化器不支持其他 SeaTunnel 类型。
@@ -85,7 +85,8 @@ InfluxDB 用户密码。
 ### key_time [string]
 
 指定 SeaTunnelRow 中作为 InfluxDB measurement 时间戳的字段名。
-如果未指定，则使用处理时间作为时间戳；支持数值类型或 ISO-8601 时间戳字符串。
+如果未指定，则使用处理时间作为时间戳；该字段必须是 `BIGINT`（epoch 毫秒数值）、内容为数字的 `STRING`，
+或 `TIMESTAMP` 类型（按 UTC 时区转换为 epoch 毫秒），不支持 ISO-8601 时间戳字符串。
 
 ### key_tags [array]
 
