@@ -121,6 +121,12 @@ seatunnel:
       report-non-terminal-job-state: false
 ```
 
+Configure the final event-report URL directly: redirects are not followed, so configured headers
+are not forwarded to a redirect target. The endpoint must accept POST requests and return a
+successful 2xx response. HTTPS endpoints must support TLS 1.2 or TLS 1.3 with a protocol and cipher
+suite supported by the SeaTunnel JVM. Upgrade TLS 1.0/1.1-only collectors or gateways; the client
+keeps its stronger TLS defaults. Plain HTTP endpoints are unaffected by the TLS requirement.
+
 #### report-non-terminal-job-state
 
 - Type: boolean
