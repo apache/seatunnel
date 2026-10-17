@@ -110,6 +110,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -2107,6 +2108,14 @@ public class CoordinatorService {
         return isActive;
     }
 
+    /**
+     * Resolves every task vertex deployed on a member that just left the cluster, because that
+     * worker can no longer report a terminal state itself.
+     *
+     * <p>Despite the name, this does not always fail the task: a vertex of a job the user is
+     * cancelling resolves to CANCELED instead of FAILED, see {@link
+     * #resolveLostMemberState(ExecutionState, JobStatus)}.
+     */
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
         Address lostAddress = event.getMember().getAddress();
         runningJobMasterMap.forEach(
@@ -2116,36 +2125,128 @@ public class CoordinatorService {
                             .getPipelineList()
                             .forEach(
                                     subPlan -> {
-                                        makeTasksFailed(
-                                                subPlan.getCoordinatorVertexList(), lostAddress);
-                                        makeTasksFailed(
-                                                subPlan.getPhysicalVertexList(), lostAddress);
+                                        resolveTasksOnLostMember(
+                                                subPlan.getCoordinatorVertexList(),
+                                                lostAddress,
+                                                jobMaster);
+                                        resolveTasksOnLostMember(
+                                                subPlan.getPhysicalVertexList(),
+                                                lostAddress,
+                                                jobMaster);
                                     });
                 });
     }
 
-    private void makeTasksFailed(
-            @NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
+    private void resolveTasksOnLostMember(
+            @NonNull List<PhysicalVertex> physicalVertexList,
+            @NonNull Address lostAddress,
+            @NonNull JobMaster jobMaster) {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     Address deployAddress = physicalVertex.getCurrentExecutionAddress();
-                    ExecutionState executionState = physicalVertex.getExecutionState();
-                    if (null != deployAddress
-                            && deployAddress.equals(lostAddress)
-                            && (executionState.equals(ExecutionState.DEPLOYING)
-                                    || executionState.equals(ExecutionState.RUNNING)
-                                    || executionState.equals(ExecutionState.CANCELING))) {
+                    if (null == deployAddress || !deployAddress.equals(lostAddress)) {
+                        return;
+                    }
+                    // Every state transition of a vertex runs under the vertex's own monitor
+                    // (PhysicalVertex#updateTaskState, #cancel and #stateProcess are synchronized),
+                    // so the state read, the decision and the transition below must share that
+                    // monitor. Otherwise a cancel that moves the vertex between the read and the
+                    // transition would be resolved from a stale state.
+                    synchronized (physicalVertex) {
+                        ExecutionState currentState = physicalVertex.getExecutionState();
+                        // Read the job status per vertex, inside the monitor: SubPlan cancels its
+                        // vertices one by one, so a cancel request may arrive while this loop is
+                        // still walking the vertices of the lost member.
+                        JobStatus jobStatus = jobMaster.getJobStatus();
+                        Optional<ExecutionState> terminalState =
+                                resolveLostMemberState(currentState, jobStatus);
+                        if (!terminalState.isPresent()) {
+                            return;
+                        }
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                        if (ExecutionState.CANCELED.equals(terminalState.get())) {
+                            // SubPlan only records the throwable message of FAILED tasks, so
+                            // without this line a cancel completed by a member loss could not be
+                            // told apart from a clean one.
+                            logger.warning(
+                                    String.format(
+                                            "The taskGroup(%s) deployed node(%s) offline while the job is %s, "
+                                                    + "resolve the task from %s to %s instead of %s",
+                                            taskGroupLocation,
+                                            lostAddress,
+                                            jobStatus,
+                                            currentState,
+                                            ExecutionState.CANCELED,
+                                            ExecutionState.FAILED));
+                        }
                         physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
                                         taskGroupLocation,
-                                        ExecutionState.FAILED,
+                                        terminalState.get(),
                                         new JobException(
                                                 String.format(
                                                         "The taskGroup(%s) deployed node(%s) offline",
                                                         taskGroupLocation, lostAddress))));
                     }
                 });
+    }
+
+    /**
+     * Decides the terminal state the master assigns to a task vertex whose worker left the cluster
+     * before reporting one itself.
+     *
+     * <p>Only a vertex that is DEPLOYING, RUNNING or CANCELING still has work on the lost worker;
+     * any other state is left alone. Which terminal state such a vertex gets depends on why the job
+     * is where it is, not on the vertex state alone:
+     *
+     * <ul>
+     *   <li>The job is {@link JobStatus#CANCELING}: the user asked for the cancel (or a stop), so
+     *       the outcome the request was going to produce anyway is CANCELED. This holds for a
+     *       vertex that already entered CANCELING (the worker acknowledged the {@code
+     *       CancelTaskOperation}, which happens as soon as the task's cancellation future is
+     *       cancelled, and was lost before the terminal callback) and equally for a sibling that is
+     *       still DEPLOYING or RUNNING because {@code SubPlan#stateProcess} cancels vertices
+     *       sequentially and has not reached it yet. Resolving either one as FAILED would turn a
+     *       user-cancelled job into a failed one purely because a worker went away while the cancel
+     *       was in flight. {@code PhysicalVertex#noticeTaskExecutionServiceCancel} only
+     *       self-resolves the narrower case where the member leaves before the ack arrives.
+     *   <li>Any other job status: the vertex resolves to FAILED, exactly as before. That includes a
+     *       CANCELING vertex whose cancel was started by the engine rather than the user, for
+     *       example {@code SubPlan#restorePipelineState} cancelling a not-yet-running pipeline
+     *       after a master switch, {@code SubPlan#handleCheckpointError}, or a FAILING pipeline or
+     *       job cancelling its siblings. Those jobs were never cancelled by the user, so the member
+     *       loss must stay visible as a failure with its "node offline" reason.
+     * </ul>
+     *
+     * <p>Restore is unaffected: {@code PhysicalPlan#stateProcess} disables restore through {@code
+     * JobMaster#neverNeedRestore} as soon as the job turns CANCELING, so the pipeline that ends
+     * CANCELED here is not rescheduled. A pipeline that turned FAILING without any failed task (for
+     * example when it could not get enough slots) still ends FAILED even though its tasks complete
+     * CANCELED, because {@code SubPlan#getPipelineEndState} checks the FAILING pipeline status
+     * explicitly.
+     *
+     * @param executionState the vertex's state at the time the member was removed, may be null
+     * @param jobStatus the status of the job owning the vertex, may be null when the job state has
+     *     already been removed
+     * @return the terminal state to assign, or {@link Optional#empty()} when the vertex has no work
+     *     on the lost member and must be left alone
+     */
+    static Optional<ExecutionState> resolveLostMemberState(
+            ExecutionState executionState, JobStatus jobStatus) {
+        if (executionState == null) {
+            return Optional.empty();
+        }
+        switch (executionState) {
+            case DEPLOYING:
+            case RUNNING:
+            case CANCELING:
+                return Optional.of(
+                        JobStatus.CANCELING.equals(jobStatus)
+                                ? ExecutionState.CANCELED
+                                : ExecutionState.FAILED);
+            default:
+                return Optional.empty();
+        }
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
