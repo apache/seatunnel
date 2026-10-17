@@ -801,6 +801,28 @@ public class DorisTypeConvertorV2Test {
                 String.format("%s(%s,%s)", DorisTypeConverterV2.DORIS_DECIMALV3, 20, 10),
                 typeDefine.getColumnType());
         Assertions.assertEquals(10, typeDefine.getScale());
+
+        // a LARGEINT source column is written back as LARGEINT, whatever its spelling
+        for (String sourceType :
+                new String[] {
+                    "LARGEINT", "largeint", " LargeInt ", "largeint(40)", "LARGEINT (40)"
+                }) {
+            column =
+                    PhysicalColumn.builder()
+                            .name("test")
+                            .dataType(new DecimalType(39, 0))
+                            .sourceType(sourceType)
+                            .build();
+            typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+            Assertions.assertEquals(
+                    AbstractDorisTypeConverter.DORIS_LARGEINT,
+                    typeDefine.getColumnType(),
+                    sourceType);
+            Assertions.assertEquals(
+                    AbstractDorisTypeConverter.DORIS_LARGEINT,
+                    typeDefine.getDataType(),
+                    sourceType);
+        }
     }
 
     @Test
