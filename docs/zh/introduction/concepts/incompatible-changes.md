@@ -4,6 +4,20 @@
 
 ## dev
 
+### JDBC MySQL DECIMAL 精度映射
+
+- **行为变更：MySQL JDBC source 的 DECIMAL 元数据现在保留声明的精度和小数位数**
+  - **影响组件**：`connector-jdbc` MySQL 类型转换和自动生成的 MySQL sink DDL
+  - **说明**：精度大于 38 的 MySQL `DECIMAL(p, s)` 列此前会被转换为 `DECIMAL(38, 18)`，现在会在 MySQL
+    限制范围内保留 `p` 和 `s`，最大精度为 65，最大小数位数为 30。`UNSIGNED` 不会增加一位数字：
+    `DECIMAL(p, s) UNSIGNED` 映射为相同的 SeaTunnel decimal 精度和小数位数，因为 MySQL 的 precision
+    表示总位数，`UNSIGNED` 只改变符号范围。
+  - **影响**：宽精度 decimal 的 source schema 会发生变化，自动生成的 MySQL sink 表会使用声明的类型，
+    例如 `DECIMAL(65, 0)` 或 `DECIMAL(50, 30)`。现有目标表不会被修改。依赖旧有缩窄行为或其舍入结果的
+    作业可能看到更宽的值，或出现不同的 sink 兼容性结果。
+  - **迁移指南**：升级前检查下游 schema 和现有目标表。如果必须保留旧的 `DECIMAL(38, 18)` schema，
+    请显式创建目标表，或将 source value cast 为所需的精度和小数位数。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**

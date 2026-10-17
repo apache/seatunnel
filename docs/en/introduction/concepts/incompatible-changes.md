@@ -5,6 +5,22 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC MySQL DECIMAL precision mapping
+
+- **Behavior change: MySQL JDBC source DECIMAL metadata now preserves the declared precision and scale**
+  - **Affected component**: `connector-jdbc` MySQL type conversion and automatically generated MySQL sink DDL
+  - **Description**: MySQL `DECIMAL(p, s)` columns with precision above 38 were previously exposed as
+    `DECIMAL(38, 18)`. They now preserve `p` and `s` up to MySQL's limits of precision 65 and scale 30.
+    `UNSIGNED` does not add a digit: `DECIMAL(p, s) UNSIGNED` maps to the same SeaTunnel decimal precision
+    and scale because MySQL precision is the total digit count; `UNSIGNED` changes the sign range only.
+  - **Impact**: Source schemas for wide decimals change, and automatically generated MySQL sink tables now use
+    the declared type, for example `DECIMAL(65, 0)` or `DECIMAL(50, 30)`. Existing target tables are not altered.
+    Jobs that depended on the previous narrowing or on its rounded values may observe wider values or different
+    sink compatibility results.
+  - **Migration Guide**: Review downstream schemas and existing target tables before upgrading. If the previous
+    `DECIMAL(38, 18)` schema is required, define the target table explicitly or cast the source value to the
+    intended precision and scale.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
