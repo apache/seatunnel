@@ -71,6 +71,7 @@ connector-graphql
 connector-hive
 connector-http-base
 connector-mem0
+connector-http-asana
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
@@ -141,3 +142,4 @@ connector-snmp
 connector-python
 connector-bigquery
 connector-nats-jetstream
+connector-websocket

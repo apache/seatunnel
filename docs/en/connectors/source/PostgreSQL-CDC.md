@@ -299,7 +299,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {
@@ -385,6 +386,24 @@ When `startup.mode` is `committed-offset`, the replication slot must already exi
 uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### Why does the job fail with "replication slot ... has been invalidated"?
+
+PostgreSQL 13 and later can invalidate a replication slot, for example when it falls behind
+`max_slot_wal_keep_size`, stays inactive longer than `idle_replication_slot_timeout` (PostgreSQL 18),
+or, on a standby, conflicts with recovery. `pg_replication_slots` then shows `wal_status = 'lost'`,
+`conflicting = true` (PostgreSQL 16 and later) or `invalidation_reason` (PostgreSQL 17 and later).
+The changes after the slot's confirmed position are gone, so SeaTunnel fails a job that reads changes from the slot
+with error `POSTGRES-04`; `snapshot-only` jobs do not use the slot and are not affected.
+Drop the slot with `SELECT pg_drop_replication_slot('<slot.name>')` and start the job
+again without restoring from a checkpoint or savepoint; use `startup.mode = initial` to take a new snapshot.
+
+### How are transaction boundaries handled during savepoint recovery?
+
+Recovery distinguishes a saved transaction commit from a processed row, because a commit and the
+next transaction's first row can share the same LSN. Rows committed while the job is stopped remain
+eligible for replay. Existing savepoints without the saved operation type remain readable; recovery
+may replay a row at an ambiguous boundary to avoid losing it.
 
 ### Why does PostgreSQL CDC fall behind?
 
