@@ -665,9 +665,8 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Surfaces a failure of an asynchronously submitted job instead of masking it as a data
-     * comparison timeout; inside an Awaitility block it retries until the timeout expires and is
-     * then reported as the root cause.
+     * Surfaces an async job failure immediately (via the uncaught {@code CompletionException}
+     * thrown by {@code join()}) instead of masking it as a data comparison timeout.
      */
     private void assertJobHasNoAsyncFailure(CompletableFuture<?> job) {
         if (job.isDone()) {
