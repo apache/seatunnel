@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 // reference
 // https://help.sap.com/docs/SAP_HANA_PLATFORM/4fe29514fd584807ac9f2a04f6754767/20a1569875191014b507cf392724b7eb.html?locale=en-US
@@ -55,6 +56,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String HANA_VARCHAR = "VARCHAR";
     public static final String HANA_NCHAR = "NCHAR";
     public static final String HANA_NVARCHAR = "NVARCHAR";
+    public static final String HANA_CHAR = "CHAR";
     public static final String HANA_ALPHANUM = "ALPHANUM";
     public static final String HANA_SHORTTEXT = "SHORTTEXT";
 
@@ -106,6 +108,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                     HANA_VARCHAR,
                     HANA_NCHAR,
                     HANA_NVARCHAR,
+                    HANA_CHAR,
                     HANA_ALPHANUM,
                     HANA_SHORTTEXT);
 
@@ -197,6 +200,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case HANA_VARCHAR:
+            case HANA_CHAR:
             case HANA_ALPHANUM:
             case HANA_CLOB:
             case HANA_NCLOB:
@@ -413,7 +417,14 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(HANA_BLOB);
                 break;
             case STRING:
-                if (column.getColumnLength() == null
+                if (column.getSourceType() != null
+                        && HANA_CHAR.equals(
+                                removeColumnSizeIfNeed(
+                                        column.getSourceType().toUpperCase(Locale.ROOT)))) {
+                    builder.columnType(HANA_CHAR);
+                    builder.dataType(HANA_CHAR);
+                    builder.length(column.getColumnLength());
+                } else if (column.getColumnLength() == null
                         || column.getColumnLength() <= MAX_NVARCHAR_LENGTH) {
                     builder.columnType(HANA_NVARCHAR);
                     builder.dataType(HANA_NVARCHAR);
