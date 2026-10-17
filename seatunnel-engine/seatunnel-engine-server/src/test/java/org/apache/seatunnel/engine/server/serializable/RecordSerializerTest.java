@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.serializable;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -46,6 +48,7 @@ class RecordSerializerTest {
     private static final String TABLE_ID = "test_table";
     private static final byte TYPE_CHECKPOINT_BARRIER = 0;
     private static final byte TYPE_SEATUNNEL_ROW_V1 = 1;
+    private static final byte TYPE_CLOSE_TABLE_EVENT_V1 = 5;
     private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
 
     private final RecordSerializer serializer = new RecordSerializer();
@@ -103,6 +106,35 @@ class RecordSerializerTest {
 
         assertExtendedEncodingHeader(bytes, Byte.MAX_VALUE + 1);
         assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
+    }
+
+    @Test
+    void testSerializeDeserializeCloseTableEvent() throws IOException {
+        CloseTableEvent event =
+                new CloseTableEvent(TablePath.of("catalog", "schema", "table"), 2, 3);
+
+        byte[] bytes = serializeRecordWithCurrentSerializer(event);
+
+        Assertions.assertEquals(TYPE_CLOSE_TABLE_EVENT_V1, bytes[0]);
+        Assertions.assertEquals(event, deserializeWithCurrentSerializer(bytes).getData());
+    }
+
+    @Test
+    void testSerializeDeserializeCloseTableEventWithNullableFields() throws IOException {
+        CloseTableEvent eventWithoutCoordination =
+                new CloseTableEvent(TablePath.of("catalog", "schema", "table"));
+        CloseTableEvent eventWithoutTable = new CloseTableEvent(null, 1, 2);
+
+        Assertions.assertEquals(
+                eventWithoutCoordination,
+                deserializeWithCurrentSerializer(
+                                serializeRecordWithCurrentSerializer(eventWithoutCoordination))
+                        .getData());
+        Assertions.assertEquals(
+                eventWithoutTable,
+                deserializeWithCurrentSerializer(
+                                serializeRecordWithCurrentSerializer(eventWithoutTable))
+                        .getData());
     }
 
     @Test
@@ -322,9 +354,9 @@ class RecordSerializerTest {
         return row;
     }
 
-    private byte[] serializeRecordWithCurrentSerializer(SeaTunnelRow row) throws IOException {
+    private byte[] serializeRecordWithCurrentSerializer(Object data) throws IOException {
         BufferObjectDataOutput out = serializationService.createObjectDataOutput();
-        serializer.write(out, new Record<>(row));
+        serializer.write(out, new Record<>(data));
         return out.toByteArray();
     }
 

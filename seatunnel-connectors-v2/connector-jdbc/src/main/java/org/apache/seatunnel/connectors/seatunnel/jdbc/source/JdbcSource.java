@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 
 public class JdbcSource
         implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>,
+                SupportCoordinate,
                 SupportParallelism,
                 SupportColumnProjection {
     protected static final Logger LOG = LoggerFactory.getLogger(JdbcSource.class);

@@ -828,4 +828,4 @@ public class ConnectorTest {
 ### Further Reading
 
 - [Apache Flink Source API](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/sources/)
-- [Apache Spark Data Source V2](https://spark.apache.org/docs/latest/sql-data-sources.html)
+- [Apache Spark Data Source V2](https://archive.apache.org/dist/spark/docs/3.5.6/sql-data-sources.html)

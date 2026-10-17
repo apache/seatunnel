@@ -698,4 +698,4 @@ class GoodSourceReader {
 ### Further Reading
 
 - [Apache Flink Checkpointing](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/fault-tolerance/checkpointing/)
-- [Spark Structured Streaming Checkpointing](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#recovering-from-failures-with-checkpointing)
+- [Spark Structured Streaming Checkpointing](https://archive.apache.org/dist/spark/docs/3.5.6/structured-streaming-programming-guide.html#recovering-from-failures-with-checkpointing)
