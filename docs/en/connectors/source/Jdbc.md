@@ -292,6 +292,8 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 
+Dameng `NVARCHAR2` source columns are mapped to SeaTunnel `STRING` (recognized alongside `NVARCHAR`, preserving the original type name in the generated DDL).
+
 ## Parallel Reader
 
 Parallelism determines how many readers can run at the same time; the split configuration determines how many independent splits are available.
