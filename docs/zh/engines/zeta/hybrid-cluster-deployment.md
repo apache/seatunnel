@@ -390,6 +390,38 @@ gcs-connector-hadoop3-2.2.33-shaded.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
+如果您使用 Azure Blob Storage，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: azure
+        azure.container: wasbs://your-container@your-account.blob.core.windows.net
+        # 或使用容器 SAS token：fs.azure.sas.your-container.your-account.blob.core.windows.net
+        fs.azure.account.key.your-account.blob.core.windows.net: your-account-key
+```
+
+注意：WASB 的块 blob 只有在关闭后才可见，因此 `hdfs` 存储类型无法在 Azure 上安全地保存 IMap 数据。使用 `storage.type: azure` 时，IMap 的 WAL 写入器每次更新都会重写并关闭当前对象（与 S3、OSS、GCS 相同），达到 `block.size`（默认 1 MB）后切换到新对象。每次更新都会上传整个当前对象，因此 Azure 作为 IMap 持久化存储更适合 IMap 更新频率较低或中等的场景。容器必须预先创建。
+
+注意：使用 Azure Blob Storage 时，确保 lib 目录下有这几个jar。
+
+```
+hadoop-azure-3.1.4.jar
+azure-storage-7.0.0.jar
+azure-keyvault-core-1.0.0.jar
+jetty-util-ajax-9.4.20.v20190813.jar
+jetty-util-9.4.20.v20190813.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
 ## 6. 配置 SeaTunnel Engine 客户端
 
 所有 SeaTunnel Engine 客户端的配置都在 `hazelcast-client.yaml` 里。

@@ -34,7 +34,7 @@ import java.util.Map;
  * following configuration in the configuration file:
  *
  * <pre>
- *      storage.type = hdfs # hdfs, local(default), s3, oss, cos, gcs
+ *      storage.type = hdfs # hdfs, local(default), s3, oss, cos, gcs, azure
  *  </pre>
  *
  * then you need to configure the following parameters by the storage.type: hdfs {@link
@@ -66,6 +66,15 @@ import java.util.Map;
  *      storage.type = "gcs"
  *      gcs.bucket = "gs://your bucket"
  *      fs.gs.auth.service.account.json.keyfile = "/path/to/key.json" # optional, ADC if absent
+ *  </pre>
+ *
+ * azure {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AzureConfiguration} eg:
+ * azure
+ *
+ * <pre>
+ *      storage.type = "azure"
+ *      azure.container = "wasbs://your-container@your-account.blob.core.windows.net"
+ *      fs.azure.account.key.your-account.blob.core.windows.net = "your account key"
  *  </pre>
  */
 @AutoService(CheckpointStorageFactory.class)
