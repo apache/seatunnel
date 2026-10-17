@@ -30,11 +30,11 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] excel
   - [x] xml
   - [x] binary
-- [x] compress codec
-  - [x] lzo
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [x] compress codec
+  - [x] lzo
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description

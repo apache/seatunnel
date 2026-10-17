@@ -388,24 +388,6 @@ rows = [
 ]
 ```
 
-### `table-names` 选项示例
-
-```hocon
-source {
-  # 这是一个示例源插件，**仅用于测试和演示源插件功能**
-  FakeSource {
-    table-names = ["test.table1", "test.table2", "test.table3"]
-    parallelism = 1
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
-```
-
 ### `defaultValue` 选项示例
 
 可以通过 `row` 和 `columns` 生成自定义数据。对于时间类型，可以通过 `CURRENT_TIMESTAMP`、`CURRENT_TIME`、`CURRENT_DATE` 获取当前时间。

@@ -43,8 +43,8 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | database                    | string  | 是    | -                            | 目标 StarRocks 表所在的数据库名称                                                                                             |
 | table                       | string  | 否    | -                            | 目标 StarRocks 表名。如果没有设置，则表名与上游表名相同                                                                                 |
 | labelPrefix                 | string  | 否    | -                            | StarRocks Stream Load 作业标签前缀                                                                                        |
-| batch_max_rows              | long    | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
-| batch_max_bytes             | int     | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_rows              | int     | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_bytes             | long    | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
 | max_retries                 | int     | 否    | -                            | 数据写入 StarRocks 失败后的重试次数                                                                                           |
 | retry_backoff_multiplier_ms | int     | 否    | -                            | 用作生成下一次退避延迟的乘数                                                                                                      |
 | max_retry_backoff_ms        | int     | 否    | -                            | 向 StarRocks 发送重试请求前的等待时长                                                                                            |
@@ -54,6 +54,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
+| multi_table_sink_replica    | int     | 否    | 1                            | 多表作业中每张表的 sink writer 副本数                                                                                          |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
 | custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
 
