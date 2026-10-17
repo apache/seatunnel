@@ -80,6 +80,25 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
 
     private static final List<String> SINK_TABLES =
             TABLES.stream().map(table -> SINK_DATABASE + "." + table).collect(Collectors.toList());
+    // Dedicated fixture for the multi_table_config phase. Its key columns are NOT NULL because
+    // MySQL rejects a column that is explicitly declared NULL and is part of a PRIMARY KEY; the
+    // shared source.table1/source.table2 fixture used by the other tests is left untouched.
+    private static final List<String> MULTI_TABLE_CONFIG_TABLES =
+            Arrays.asList("mtc_table1", "mtc_table2");
+    private static final List<String> MULTI_TABLE_CONFIG_SOURCE_TABLES =
+            MULTI_TABLE_CONFIG_TABLES.stream()
+                    .map(table -> SOURCE_DATABASE + "." + table)
+                    .collect(Collectors.toList());
+    private static final int MULTI_TABLE_CONFIG_ROW_COUNT = 3;
+    private static final String CREATE_MULTI_TABLE_CONFIG_TABLE_SQL =
+            "CREATE TABLE IF NOT EXISTS %s\n"
+                    + "(\n"
+                    + "    `id`          bigint(20)   NOT NULL,\n"
+                    + "    `c_int`       int(11)      NOT NULL,\n"
+                    + "    `c_integer`   int(11)      NOT NULL,\n"
+                    + "    `c_mediumint` mediumint(9) NOT NULL,\n"
+                    + "    `c_varchar`   varchar(64)  DEFAULT NULL\n"
+                    + ");";
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -146,6 +165,8 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         createTables(SOURCE_DATABASE, TABLES);
         createTables(SINK_DATABASE, TABLES);
         initSourceTablesData();
+        createMultiTableConfigSourceTables();
+        initMultiTableConfigSourceTablesData();
     }
 
     @TestTemplate
@@ -197,6 +218,43 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.sql");
         Assertions.assertEquals(
                 0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
+
+        // The dedicated sink tables are dropped so that the job creates them itself: only then the
+        // primary keys resolved from multi_table_config.primary_keys end up in the generated
+        // create-table DDL and can be asserted below.
+        dropMultiTableConfigSinkTables();
+        try {
+            Container.ExecResult multiTableConfigExecResult =
+                    container.executeJob(
+                            "/jdbc_mysql_source_and_sink_with_multi_table_config.conf");
+            Assertions.assertEquals(
+                    0,
+                    multiTableConfigExecResult.getExitCode(),
+                    multiTableConfigExecResult.getStderr());
+
+            // The catch-all pattern is declared last on purpose, so first-match-wins gives
+            // mtc_table1 a composite key and mtc_table2 a single key instead of the catch-all or
+            // the fallback key.
+            Assertions.assertAll(
+                    () ->
+                            Assertions.assertIterableEquals(
+                                    Arrays.asList("c_int", "c_integer"),
+                                    queryPrimaryKeyColumns(SINK_DATABASE, "mtc_table1")),
+                    () ->
+                            Assertions.assertIterableEquals(
+                                    Arrays.asList("c_mediumint"),
+                                    queryPrimaryKeyColumns(SINK_DATABASE, "mtc_table2")),
+                    () ->
+                            Assertions.assertEquals(
+                                    MULTI_TABLE_CONFIG_ROW_COUNT,
+                                    queryRowCount(SINK_DATABASE, "mtc_table1")),
+                    () ->
+                            Assertions.assertEquals(
+                                    MULTI_TABLE_CONFIG_ROW_COUNT,
+                                    queryRowCount(SINK_DATABASE, "mtc_table2")));
+        } finally {
+            dropMultiTableConfigSinkTables();
+        }
     }
 
     @TestTemplate
@@ -328,6 +386,44 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         }
     }
 
+    private void createMultiTableConfigSourceTables() throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("create database if not exists " + SOURCE_DATABASE);
+            for (String table : MULTI_TABLE_CONFIG_TABLES) {
+                statement.execute(
+                        String.format(
+                                CREATE_MULTI_TABLE_CONFIG_TABLE_SQL,
+                                SOURCE_DATABASE + "." + table));
+            }
+        }
+    }
+
+    private void initMultiTableConfigSourceTablesData() throws SQLException {
+        String sql =
+                "INSERT INTO %s (`id`, `c_int`, `c_integer`, `c_mediumint`, `c_varchar`)"
+                        + " VALUES (?, ?, ?, ?, ?)";
+        for (String table : MULTI_TABLE_CONFIG_SOURCE_TABLES) {
+            try (PreparedStatement statement =
+                    connection.prepareStatement(String.format(sql, table))) {
+                for (int i = 0; i < MULTI_TABLE_CONFIG_ROW_COUNT; i++) {
+                    statement.setLong(1, i + 1);
+                    statement.setInt(2, 100 + i);
+                    statement.setInt(3, 200 + i);
+                    statement.setInt(4, 300 + i);
+                    statement.setString(5, "row_" + i);
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+            }
+        }
+    }
+
+    private void dropMultiTableConfigSinkTables() throws SQLException {
+        for (String table : MULTI_TABLE_CONFIG_TABLES) {
+            dropTable(SINK_DATABASE, table);
+        }
+    }
+
     private List<List<Object>> query(String sql) {
         try (Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql)) {
@@ -345,6 +441,24 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private List<String> queryPrimaryKeyColumns(String database, String table) {
+        return query(
+                        String.format(
+                                "SELECT COLUMN_NAME FROM information_schema.STATISTICS"
+                                        + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+                                        + " AND INDEX_NAME = 'PRIMARY' ORDER BY SEQ_IN_INDEX",
+                                database, table))
+                .stream()
+                .map(row -> String.valueOf(row.get(0)))
+                .collect(Collectors.toList());
+    }
+
+    private int queryRowCount(String database, String table) {
+        List<List<Object>> result =
+                query(String.format("SELECT COUNT(*) FROM %s.%s", database, table));
+        return Integer.parseInt(String.valueOf(result.get(0).get(0)));
     }
 
     private void clearSinkTables() throws SQLException {

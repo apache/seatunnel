@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -29,6 +36,76 @@ import java.util.List;
 import java.util.Map;
 
 public class ConfigBuilderTest {
+
+    /**
+     * Every starter loads a job config through {@code ConfigBuilder.of(path, variables)}, which
+     * rebuilds the config after substituting user variables. That rebuild must keep option keys
+     * literal: a regex key such as {@code ^t_nova_.*$}, used by {@code
+     * multi_table_config.primary_keys}, is not a valid HOCON path, so rebuilding the map with
+     * {@code ConfigFactory.parseMap} rejected the whole config with {@code ConfigException.BadPath}
+     * (see #12491).
+     */
+    @Test
+    public void testOfPreservesLiteralRegexOptionKeys(@TempDir Path tempDir) throws IOException {
+        Path conf = writeMultiTableConfigConf(tempDir);
+
+        // The starters pass null when no -i variable is given.
+        assertLoadedConfig(conf, ConfigBuilder.of(conf, null), "jdbc:mysql://${db_host}/sink");
+
+        // A -i variable is substituted, and must not disturb the shape of the config.
+        assertLoadedConfig(
+                conf,
+                ConfigBuilder.of(conf, Arrays.asList("db_host=localhost:3306")),
+                "jdbc:mysql://localhost:3306/sink");
+    }
+
+    private static void assertLoadedConfig(Path conf, Config config, String expectedUrl) {
+        Assertions.assertEquals(expectedUrl, config.getConfigList("sink").get(0).getString("url"));
+
+        // Ordinary dotted keys keep the shape the file parser produced, so nothing changes for the
+        // options that already worked.
+        Assertions.assertEquals(
+                ConfigFactory.parseFile(conf.toFile()).getConfig("env").root().unwrapped(),
+                config.getConfig("env").root().unwrapped());
+
+        // The regex key survives as one literal key, instead of being rejected as an invalid path
+        // expression.
+        Map<?, ?> primaryKeys =
+                config.getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi_table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), primaryKeys.get("^t_nova_.*$"));
+    }
+
+    private static Path writeMultiTableConfigConf(Path tempDir) throws IOException {
+        Path conf = tempDir.resolve("multi_table_config.conf");
+        Files.write(
+                conf,
+                Arrays.asList(
+                        "env {",
+                        "  job.mode = \"BATCH\"",
+                        "}",
+                        "source {",
+                        "  FakeSource {",
+                        "    plugin_output = \"fake\"",
+                        "  }",
+                        "}",
+                        "sink {",
+                        "  Jdbc {",
+                        "    url = \"jdbc:mysql://${db_host}/sink\"",
+                        "    multi_table_config {",
+                        "      primary_keys {",
+                        "        \"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"]",
+                        "      }",
+                        "    }",
+                        "  }",
+                        "}"));
+        return conf;
+    }
 
     @Test
     public void testConfigDesensitizationSort() {
