@@ -91,6 +91,8 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DM_TIMESTAMP = "TIMESTAMP";
     public static final String DM_DATETIME = "DATETIME";
     public static final String DM_DATETIME_WITH_TIME_ZONE = "DATETIME WITH TIME ZONE";
+    public static final String DM_TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
+    private static final String DM_INTERVAL_PREFIX = "INTERVAL ";
 
     public static final int DEFAULT_PRECISION = 38;
     public static final int MAX_PRECISION = 38;
@@ -124,6 +126,14 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String dmType = typeDefine.getDataType().toUpperCase();
+        if (dmType.startsWith("TIMESTAMP(") && dmType.endsWith(" WITH LOCAL TIME ZONE")) {
+            dmType = DM_TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+        }
+        // Interval variants can include precision, so match their shared type prefix.
+        if (dmType.startsWith(DM_INTERVAL_PREFIX)) {
+            builder.sourceType(typeDefine.getColumnType()).dataType(BasicType.STRING_TYPE);
+            return builder.build();
+        }
         switch (dmType) {
             case DM_BIT:
                 builder.sourceType(DM_BIT);
@@ -317,6 +327,11 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.sourceType(
                             String.format("DATETIME(%s) WITH TIME ZONE", typeDefine.getScale()));
                 }
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case DM_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                builder.sourceType(typeDefine.getColumnType());
                 builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;

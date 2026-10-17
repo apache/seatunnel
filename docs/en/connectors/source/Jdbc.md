@@ -291,6 +291,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | YashanDB  |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
+Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
 
 ## Parallel Reader
 
