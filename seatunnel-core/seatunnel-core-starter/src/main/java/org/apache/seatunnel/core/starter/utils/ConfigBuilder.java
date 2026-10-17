@@ -38,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,7 +45,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -389,9 +387,16 @@ public class ConfigBuilder {
                                                 TablePlaceholder::isSystemPlaceholder,
                                                 userConfigMap,
                                                 defaultConfigMap);
-
+                                Object variableValue;
                                 if (!replacedValue.equals(variableString)) {
-                                    return ConfigValueUtils.parseValue(replacedValue);
+                                    if (ConfigValueUtils.isStructured(replacedValue)) {
+                                        variableValue =
+                                                ConfigValueUtils.parseStructured(replacedValue)
+                                                        .unwrapped();
+                                    } else {
+                                        variableValue = replacedValue;
+                                    }
+                                    return variableValue;
                                 }
                             } else if (variable instanceof Map) {
                                 processVariablesMap(
@@ -426,21 +431,13 @@ public class ConfigBuilder {
                         defaultConfigMap);
 
         if (!replacedValue.equals(variableString)) {
-            variableValue = ConfigValueUtils.parseValue(replacedValue);
+            if (ConfigValueUtils.isStructured(replacedValue)) {
+                variableValue = ConfigValueUtils.parseStructured(replacedValue).unwrapped();
+            } else {
+                variableValue = replacedValue;
+            }
         }
         parentMap.put(variableKey, variableValue);
-    }
-
-    public static List<String> extractPlaceholder(String input) {
-        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
-        Matcher matcher = pattern.matcher(input);
-        List<String> placeholders = new ArrayList<>();
-
-        while (matcher.find()) {
-            placeholders.add(matcher.group(1));
-        }
-
-        return placeholders;
     }
 
     public static String mapToString(Map<String, Object> configMap) {
