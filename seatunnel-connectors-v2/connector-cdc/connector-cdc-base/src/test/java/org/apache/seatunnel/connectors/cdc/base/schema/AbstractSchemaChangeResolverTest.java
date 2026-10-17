@@ -80,14 +80,14 @@ public class AbstractSchemaChangeResolverTest {
     @Test
     void testCompletionEventFillsTableComment() {
         AbstractSchemaChangeResolver resolver = createResolver();
+        TableIdentifier resolvedTableIdentifier =
+                TableIdentifier.of("mysql", "test_db", "test_table");
         AlterTableCommentEvent tableCommentEvent =
                 AlterTableCommentEvent.of(
-                        TableIdentifier.of(null, "test_db", "test_table"),
-                        null,
-                        "new table comment");
+                        TableIdentifier.of(null, null, "test_table"), null, "new table comment");
         CatalogTable catalogTable =
                 CatalogTable.of(
-                        TableIdentifier.of(null, "test_db", "test_table"),
+                        resolvedTableIdentifier,
                         TableSchema.builder().build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
@@ -102,6 +102,7 @@ public class AbstractSchemaChangeResolverTest {
 
         AlterTableCommentEvent completedEvent = (AlterTableCommentEvent) events.get(0);
         Assertions.assertEquals("mysql", completedEvent.getSourceDialectName());
+        Assertions.assertEquals(resolvedTableIdentifier, completedEvent.getTableIdentifier());
         Assertions.assertEquals("old table comment", completedEvent.getOldComment());
         Assertions.assertEquals("new table comment", completedEvent.getNewComment());
     }

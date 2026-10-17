@@ -158,6 +158,18 @@ connector-<name>/
 - [CDC Pipeline 架构概览](../architecture/cdc-pipeline-architecture.md)
 - [Sink 架构](../architecture/api-design/sink-architecture.md)
 
+### 协调式模式演进
+
+如果 Sink 能把外部 DDL 和 writer 本地 schema 状态更新分开处理，就可以选择支持协调式模式演进：
+
+- `SupportCoordinatedSchemaEvolutionSink` 声明该能力，并为解析后的物理下游表创建
+  `SchemaChangeApplier`。
+- `SchemaChangeApplier` 只负责应用外部 schema 变更。同一事件可能在恢复后重放，因此实现必须幂等；同时必须通过目标系统的 dialect 或 identifier API 校验并引用事件中的所有标识符。
+- 该 Sink 创建的每个 writer 都必须实现 `SupportSchemaRefreshSinkWriter`，使用完整的演进后
+  `CatalogTable` 重建本地 serializer、statement、descriptor 或字段映射。重复刷新同一个 schema 必须安全。
+
+Flink 会只执行一次外部变更，并在 schema 变更后的数据继续流动前刷新所有并行 writer。未实现协调能力的连接器继续使用原有的模式演进路径。
+
 ## 常见坑点
 
 ### 在 `prepareCommit` 里直接做最终提交

@@ -18,6 +18,8 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportCoordinatedSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.CommitWrapperSerializer;
@@ -80,15 +82,41 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new FlinkSinkWriterContext(context, parallelism);
+        org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
+        long checkpointId;
         if (states == null || states.isEmpty()) {
-            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
+            sinkWriter = sink.createWriter(stContext);
+            checkpointId = 1;
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
-            return new FlinkSinkWriter<>(
-                    sink.restoreWriter(stContext, restoredState),
-                    states.get(0).getCheckpointId() + 1,
-                    stContext);
+            sinkWriter = sink.restoreWriter(stContext, restoredState);
+            checkpointId = states.get(0).getCheckpointId() + 1;
+        }
+        validateCoordinatedSchemaEvolutionWriter(sinkWriter);
+        return new FlinkSinkWriter<>(sinkWriter, checkpointId, stContext);
+    }
+
+    private void validateCoordinatedSchemaEvolutionWriter(
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter)
+            throws IOException {
+        if (sink instanceof SupportCoordinatedSchemaEvolutionSink
+                && ((SupportCoordinatedSchemaEvolutionSink) sink)
+                        .supportsCoordinatedSchemaEvolution()
+                && !(sinkWriter instanceof SupportSchemaRefreshSinkWriter)) {
+            IOException error =
+                    new IOException(
+                            "Sink "
+                                    + sink.getPluginName()
+                                    + " declares coordinated schema evolution support, but writer "
+                                    + sinkWriter.getClass().getName()
+                                    + " does not implement SupportSchemaRefreshSinkWriter");
+            try {
+                sinkWriter.close();
+            } catch (Exception closeError) {
+                error.addSuppressed(closeError);
+            }
+            throw error;
         }
     }
 
