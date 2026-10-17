@@ -183,12 +183,9 @@ public class FragmentConverter {
         writer.startMap();
 
         java.util.Map<?, ?> mapValue = (java.util.Map<?, ?>) value;
-        List<Field> children = field.getChildren();
-        if (children.size() < 2) {
-            throw new IllegalArgumentException("Map field must have key and value child fields");
-        }
-        Field keyField = children.get(0);
-        Field valueField = children.get(1);
+        List<Field> keyValueFields = resolveMapKeyValueFields(field);
+        Field keyField = keyValueFields.get(0);
+        Field valueField = keyValueFields.get(1);
         ArrowType keyType = keyField.getType();
         ArrowType valueType = valueField.getType();
 
@@ -199,6 +196,21 @@ public class FragmentConverter {
             writer.endEntry();
         }
         writer.endMap();
+    }
+
+    /**
+     * Resolves the key and value fields of a Map. Arrow's canonical layout stores them inside a
+     * non-nullable {@code entries} Struct, while earlier schemas declared them as direct children.
+     */
+    private static List<Field> resolveMapKeyValueFields(Field field) {
+        List<Field> children = field.getChildren();
+        if (children.size() == 1 && children.get(0).getType() instanceof ArrowType.Struct) {
+            children = children.get(0).getChildren();
+        }
+        if (children.size() < 2) {
+            throw new IllegalArgumentException("Map field must have key and value child fields");
+        }
+        return children;
     }
 
     private static void writeListElement(
@@ -228,7 +240,7 @@ public class FragmentConverter {
     private static void writeMapValue(
             UnionMapWriter writer, ArrowType valueType, Object value, BufferAllocator allocator) {
         if (value == null) {
-            writer.value().writeNull();
+            TypeWriterFactory.getWriter(valueType).writeNullToMapValue(writer, valueType);
             return;
         }
 

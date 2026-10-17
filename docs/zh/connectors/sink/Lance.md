@@ -143,6 +143,8 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | ARRAY              | list                   |
 | MAP                | map                    |
 
+`MAP` 列使用 Arrow 的标准布局：Map 只有一个非空的 `entries` struct 子字段，其中包含非空的 `key` 和可空的 `value`。Map 的 key 不能为 null。
+
 :::tip
 
 Sink 不会按 `UPDATE` / `DELETE` 行类型执行 CDC 语义 —— 每条上游记录都会按 `lance.write.mode` 追加到 Lance 数据集中。在流式模式下，Writer 会在达到 `lance.write.batch-size` 以及每个 checkpoint 时把内存中的行缓冲写入 Lance。

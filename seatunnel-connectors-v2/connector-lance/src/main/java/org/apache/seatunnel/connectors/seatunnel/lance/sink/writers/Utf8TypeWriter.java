@@ -54,18 +54,17 @@ public class Utf8TypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        byte[] bytes = value.toString().getBytes(StandardCharsets.UTF_8);
-        ArrowBuf buffer = createArrowBuf(bytes, allocator);
-        try {
-            writer.key().writeVarChar(0, bytes.length, buffer);
-        } finally {
-            buffer.close();
-        }
+        writer.key().varChar().writeVarChar(value.toString());
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writer.value().varChar().writeVarChar(value.toString());
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        writer.value().varChar().writeNull();
     }
 }

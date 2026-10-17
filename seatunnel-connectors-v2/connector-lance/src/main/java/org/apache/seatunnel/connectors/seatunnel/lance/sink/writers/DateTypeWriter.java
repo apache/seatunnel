@@ -89,12 +89,35 @@ public class DateTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapDate(writer.key(), arrowType, value);
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapDate(writer.value(), arrowType, value);
+    }
+
+    private void writeMapDate(UnionMapWriter writer, ArrowType arrowType, Object value) {
+        ArrowType.Date dateType = (ArrowType.Date) arrowType;
+        if (dateType.getUnit() == DateUnit.DAY) {
+            writer.dateDay().writeDateDay((int) convertToEpochDay(value));
+        } else if (dateType.getUnit() == DateUnit.MILLISECOND) {
+            writer.dateMilli().writeDateMilli(convertToEpochMilli(value));
+        } else {
+            throw new IllegalArgumentException("Unsupported Date unit: " + dateType.getUnit());
+        }
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        ArrowType.Date dateType = (ArrowType.Date) arrowType;
+        if (dateType.getUnit() == DateUnit.DAY) {
+            writer.value().dateDay().writeNull();
+        } else if (dateType.getUnit() == DateUnit.MILLISECOND) {
+            writer.value().dateMilli().writeNull();
+        } else {
+            throw new IllegalArgumentException("Unsupported Date unit: " + dateType.getUnit());
+        }
     }
 }

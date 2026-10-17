@@ -39,4 +39,6 @@ public interface TypeWriter {
 
     void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator);
+
+    void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType);
 }

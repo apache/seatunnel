@@ -21,10 +21,13 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.data.LanceTypeMapper;
@@ -34,6 +37,7 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.lancedb.lance.namespace.model.JsonArrowDataType;
@@ -43,6 +47,8 @@ import com.lancedb.lance.namespace.util.ArrowIpcUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -127,7 +133,7 @@ public class SchemaUtils {
                         fieldList.add(field);
                         break;
                     case MAP:
-                        field = Field.nullable(fieldName, new ArrowType.Map(true));
+                        field = toMapField(fieldName, fieldTypes[i], true);
                         fieldList.add(field);
                         break;
                     case ARRAY:
@@ -144,6 +150,95 @@ public class SchemaUtils {
         }
 
         return new Schema(fieldList);
+    }
+
+    /**
+     * Builds a Map field following Arrow's canonical Map layout: a non-nullable {@code entries}
+     * Struct that contains a non-nullable {@code key} and a nullable {@code value}.
+     */
+    private static Field toMapField(
+            String fieldName, SeaTunnelDataType<?> dataType, boolean nullable) {
+        if (!(dataType instanceof MapType)) {
+            throw CommonError.unsupportedDataType(
+                    LanceCommonConfig.CONNECTOR_IDENTITY, "MAP", fieldName);
+        }
+        MapType<?, ?> mapType = (MapType<?, ?>) dataType;
+        Field keyField = toArrowField("key", mapType.getKeyType(), false);
+        Field valueField = toArrowField("value", mapType.getValueType(), true);
+        Field entriesField =
+                new Field(
+                        "entries",
+                        FieldType.notNullable(new ArrowType.Struct()),
+                        Arrays.asList(keyField, valueField));
+        return new Field(
+                fieldName,
+                new FieldType(nullable, new ArrowType.Map(false), null),
+                Collections.singletonList(entriesField));
+    }
+
+    private static Field toArrowField(
+            String fieldName, SeaTunnelDataType<?> dataType, boolean nullable) {
+        if (dataType.getSqlType() == SqlType.MAP) {
+            return toMapField(fieldName, dataType, nullable);
+        }
+        if (dataType.getSqlType() == SqlType.ARRAY) {
+            if (!(dataType instanceof ArrayType)) {
+                throw CommonError.unsupportedDataType(
+                        LanceCommonConfig.CONNECTOR_IDENTITY,
+                        dataType.getSqlType().toString(),
+                        fieldName);
+            }
+            ArrayType<?, ?> arrayType = (ArrayType<?, ?>) dataType;
+            Field elementField = toArrowField("element", arrayType.getElementType(), true);
+            return new Field(
+                    fieldName,
+                    new FieldType(nullable, new ArrowType.List(), null),
+                    Collections.singletonList(elementField));
+        }
+        return new Field(
+                fieldName,
+                new FieldType(nullable, toArrowScalarType(fieldName, dataType), null),
+                null);
+    }
+
+    private static ArrowType toArrowScalarType(String fieldName, SeaTunnelDataType<?> dataType) {
+        switch (dataType.getSqlType()) {
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+                return new ArrowType.Int(32, true);
+            case FLOAT:
+            case DOUBLE:
+                return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+            case STRING:
+                return new ArrowType.Utf8();
+            case BOOLEAN:
+                return new ArrowType.Bool();
+            case NULL:
+                return new ArrowType.Null();
+            case DECIMAL:
+                int precision = 38;
+                int scale = 10;
+                if (dataType instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) dataType;
+                    precision = decimalType.getPrecision();
+                    scale = decimalType.getScale();
+                }
+                return new ArrowType.Decimal(precision, scale, 128);
+            case BYTES:
+                return new ArrowType.Binary();
+            case DATE:
+                return new ArrowType.Date(DateUnit.DAY);
+            case TIME:
+                return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+            case TIMESTAMP:
+                return new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Asia/Shanghai");
+            default:
+                break;
+        }
+        throw CommonError.unsupportedDataType(
+                LanceCommonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString(), fieldName);
     }
 
     public static JsonArrowSchema convertJsonArrowSchema(TableSchema schema) {

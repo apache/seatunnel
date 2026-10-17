@@ -75,12 +75,33 @@ public class TimestampTypeWriter extends BaseTypeWriter {
     @Override
     public void writeToMapKey(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapTimestamp(writer.key(), arrowType, value);
     }
 
     @Override
     public void writeToMapValue(
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
-        writeToListWriter(writer, arrowType, value, allocator);
+        writeMapTimestamp(writer.value(), arrowType, value);
+    }
+
+    private void writeMapTimestamp(UnionMapWriter writer, ArrowType arrowType, Object value) {
+        ArrowType.Timestamp timestampType = (ArrowType.Timestamp) arrowType;
+        long epochMicro = convertToEpochMicro(value);
+        TimeUnit unit = timestampType.getUnit();
+        if (unit == TimeUnit.MICROSECOND) {
+            writer.timeStampMicro().writeTimeStampMicro(epochMicro);
+        } else if (unit == TimeUnit.MILLISECOND) {
+            writer.timeStampMilli().writeTimeStampMilli(epochMicro / 1000);
+        }
+    }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        TimeUnit unit = ((ArrowType.Timestamp) arrowType).getUnit();
+        if (unit == TimeUnit.MICROSECOND) {
+            writer.value().timeStampMicro().writeNull();
+        } else if (unit == TimeUnit.MILLISECOND) {
+            writer.value().timeStampMilli().writeNull();
+        }
     }
 }

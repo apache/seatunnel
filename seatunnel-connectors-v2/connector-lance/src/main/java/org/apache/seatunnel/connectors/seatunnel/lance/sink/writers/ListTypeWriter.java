@@ -53,4 +53,9 @@ public class ListTypeWriter extends BaseTypeWriter {
             UnionMapWriter writer, ArrowType arrowType, Object value, BufferAllocator allocator) {
         throw new UnsupportedOperationException("List as map value not yet implemented");
     }
+
+    @Override
+    public void writeNullToMapValue(UnionMapWriter writer, ArrowType arrowType) {
+        throw new UnsupportedOperationException("List as map value not yet implemented");
+    }
 }
