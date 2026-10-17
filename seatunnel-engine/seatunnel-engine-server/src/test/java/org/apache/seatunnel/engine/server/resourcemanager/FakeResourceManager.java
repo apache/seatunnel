@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -35,7 +36,11 @@ import java.util.Collections;
 /** Used to test ResourceManager, override init method to register more workers. */
 public class FakeResourceManager extends AbstractResourceManager {
     public FakeResourceManager(NodeEngine nodeEngine) {
-        super(nodeEngine, new EngineConfig());
+        this(nodeEngine, AutoscalerConfig.defaults());
+    }
+
+    public FakeResourceManager(NodeEngine nodeEngine, AutoscalerConfig autoscalerConfig) {
+        super(nodeEngine, new EngineConfig(), autoscalerConfig);
         init();
     }
 
