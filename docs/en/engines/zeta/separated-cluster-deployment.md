@@ -570,6 +570,10 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
 
+> A Worker started before any Master will keep retrying the configured master addresses for up to
+> `hazelcast.max.join.seconds` (default 300s) and log `This lite member cannot assume the master
+> role ...` while waiting.
+
 ## 8. Submit And Manage Jobs
 
 ### 8.1 Submit Jobs With The SeaTunnel Engine Client
