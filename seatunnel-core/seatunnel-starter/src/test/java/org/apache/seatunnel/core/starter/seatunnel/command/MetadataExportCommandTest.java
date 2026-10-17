@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MetadataExportCommandTest {
@@ -87,5 +89,42 @@ class MetadataExportCommandTest {
         assertEquals("extension", conditionTree.get("compareOperator").asText());
         assertEquals("EXTENSION", conditionTree.get("conditionOperator").asText());
         assertEquals("EXTENSION", conditionTree.get("conditionOperatorCategory").asText());
+    }
+
+    /**
+     * A mixed AND/OR chain is exported as one flat chain: the operator and the next link stay on
+     * the expression-tree level, and the node's own condition does not repeat them.
+     */
+    @Test
+    void shouldExportMixedConditionChainAsOneFlatExpressionTree() throws Exception {
+        Option<String> a = Options.key("a").stringType().noDefaultValue();
+        Option<String> b = Options.key("b").stringType().noDefaultValue();
+        Option<String> c = Options.key("c").stringType().noDefaultValue();
+        Condition<?> chain =
+                Condition.of(a, "1").and(Condition.of(b, "2")).or(Condition.of(c, "3"));
+
+        MetadataExportCommand command = new MetadataExportCommand(new MetadataExportCommandArgs());
+        Method exportExpression =
+                MetadataExportCommand.class.getDeclaredMethod("exportExpression", Condition.class);
+        exportExpression.setAccessible(true);
+        ObjectNode tree = (ObjectNode) exportExpression.invoke(command, chain);
+
+        // (A && B) || C renders as A -AND-> B -OR-> C
+        JsonNode first = tree.get("condition");
+        assertEquals("a", first.get("key").asText());
+        assertFalse(first.has("operator"));
+        assertFalse(first.has("next"));
+        assertEquals("AND", tree.get("operator").asText());
+
+        JsonNode second = tree.get("next");
+        assertEquals("b", second.get("condition").get("key").asText());
+        assertFalse(second.get("condition").has("operator"));
+        assertFalse(second.get("condition").has("next"));
+        assertEquals("OR", second.get("operator").asText());
+
+        JsonNode third = second.get("next");
+        assertEquals("c", third.get("condition").get("key").asText());
+        assertFalse(third.has("operator"));
+        assertFalse(third.has("next"));
     }
 }
