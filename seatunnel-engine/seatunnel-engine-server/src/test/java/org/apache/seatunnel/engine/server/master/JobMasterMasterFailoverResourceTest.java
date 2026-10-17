@@ -70,13 +70,16 @@ public class JobMasterMasterFailoverResourceTest
         Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
         JobMaster original = newJobMaster(jobId, jobImmutableInformationData);
         original.init(System.currentTimeMillis(), false);
+        Assertions.assertNull(original.getLineageAttempt());
         Assertions.assertTrue(original.preApplyResources());
         persistPreAppliedSlots(original);
 
         List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
 
         JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
-        restored.init(System.currentTimeMillis(), true);
+        long restoreTimestamp = System.currentTimeMillis();
+        restored.init(restoreTimestamp, true);
+        Assertions.assertEquals("restart-" + restoreTimestamp, restored.getLineageAttempt());
 
         try {
             Assertions.assertTrue(restored.preApplyResources());

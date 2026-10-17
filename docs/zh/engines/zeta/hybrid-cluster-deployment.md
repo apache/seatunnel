@@ -116,6 +116,26 @@ seatunnel:
 
 有关检查点存储的信息，您可以查看 [Checkpoint Storage](checkpoint-storage.md)
 
+### OpenLineage 血缘上报
+
+表级 OpenLineage 上报在 `seatunnel.yaml` 的集群级 `openlineage` 节点下配置，默认关闭：
+
+```yaml
+seatunnel:
+  engine:
+    openlineage:
+      enabled: true
+      transport: http
+      url: http://lineage.example/api/lineage
+      namespace: seatunnel
+      heartbeat_min_interval_ms: 3600000
+```
+
+完整配置表、环境变量映射、Flink 配置、数据集命名和已知限制请查看
+[OpenLineage 血缘上报](../../introduction/concepts/lineage.md)。接收端 token 必须来自
+`OPENLINEAGE_AUTH_TOKEN` 或集群配置；作业 `env {}` 中配置 token 会在启动时被拒绝。
+血缘发送失败始终不会使数据处理作业失败。
+
 ### 4.4 历史作业过期配置
 
 每个完成的作业的信息，如状态、计数器和错误日志，都存储在 IMap 对象中。随着运行作业数量的增加，内存会增加，最终内存将溢出。因此，您可以调整 `history-job-expire-minutes` 参数来解决这个问题。此参数的时间单位是分钟。默认值是 1440 分钟，即一天。

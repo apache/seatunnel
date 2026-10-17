@@ -227,6 +227,11 @@ public class CheckpointManager {
         }
     }
 
+    /** Reports a completed-checkpoint lineage heartbeat through the owning job master. */
+    public void reportLineageHeartbeat() {
+        jobMaster.reportLineageHeartbeat();
+    }
+
     protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
         jobMaster.handleCheckpointError(pipelineId, neverRestore);
     }

@@ -151,4 +151,78 @@ public class EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
+
+    public static Option<Boolean> OPENLINEAGE_ENABLED =
+            Options.key("openlineage_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether OpenLineage lineage reporting is enabled.");
+
+    public static Option<String> OPENLINEAGE_TRANSPORT =
+            Options.key("openlineage_transport")
+                    .stringType()
+                    .defaultValue("http")
+                    .withDescription(
+                            "Transport name selected from the LineageBackend service provider interface.");
+
+    public static Option<String> OPENLINEAGE_URL =
+            Options.key("openlineage_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Base URL of the OpenLineage receiver, for example: http://host:8090/api/lineage");
+
+    public static Option<String> OPENLINEAGE_NAMESPACE =
+            Options.key("openlineage_namespace")
+                    .stringType()
+                    .defaultValue("seatunnel")
+                    .withDescription("OpenLineage job namespace.");
+
+    public static Option<String> OPENLINEAGE_AUTH_TOKEN =
+            Options.key("openlineage_auth_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Bearer token for the OpenLineage receiver. It may only come from the "
+                                    + "OPENLINEAGE_AUTH_TOKEN environment variable or from cluster configuration; "
+                                    + "declaring it in a job env block is rejected at startup.");
+
+    public static Option<Integer> OPENLINEAGE_TIMEOUT_MS =
+            Options.key("openlineage_timeout_ms")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription("Timeout of one send attempt, in milliseconds.");
+
+    public static Option<Integer> OPENLINEAGE_RETRY_TIMES =
+            Options.key("openlineage_retry_times")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("Number of retries after a failed send attempt.");
+
+    public static Option<String> OPENLINEAGE_RUN_FACET =
+            Options.key("openlineage_run_facet")
+                    .stringType()
+                    .defaultValue("seatunnel_properties")
+                    .withDescription("Name of the run facet carrying the custom run properties.");
+
+    public static Option<Map<String, String>> OPENLINEAGE_RUN_PROPERTIES =
+            Options.key("openlineage_run_properties")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("Custom properties copied into the run facet.");
+
+    public static Option<Long> OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS =
+            Options.key("openlineage_heartbeat_min_interval_ms")
+                    .longType()
+                    .defaultValue(3600000L)
+                    .withDescription(
+                            "Minimum interval between streaming-job heartbeat events, in milliseconds.");
+
+    public static Option<String> OPENLINEAGE_PRODUCER =
+            Options.key("openlineage_producer")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "OpenLineage producer identifier. When unset it defaults to "
+                                    + "https://seatunnel.apache.org/ followed by the running SeaTunnel version.");
 }
