@@ -106,6 +106,23 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
     }
 
+    /**
+     * Closes the reader and any deserialization schema that holds a resource, such as the Oracle
+     * LOB re-select connection.
+     */
+    @Override
+    public void close() {
+        try {
+            if (debeziumDeserializationSchema instanceof AutoCloseable) {
+                ((AutoCloseable) debeziumDeserializationSchema).close();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to close the CDC deserialization schema", e);
+        } finally {
+            super.close();
+        }
+    }
+
     @Override
     public void pollNext(Collector<T> output) throws Exception {
         if (!running) {
