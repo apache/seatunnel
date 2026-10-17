@@ -46,7 +46,7 @@ network:
 
 > |  name  |   type   | data type |                            description                             |
 > |--------|----------|-----------|--------------------------------------------------------------------|
-> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | type   | required | string    | plugin type, currently supports `source`, `sink` and `transform`   |
 > | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
 
 #### Responses
@@ -150,8 +150,9 @@ network:
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
+    "pendingJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
     "cancelledJobs":"0"
@@ -160,7 +161,7 @@ network:
 
 **Notes:**
 - If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
-- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+- If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
@@ -258,6 +259,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -277,8 +279,8 @@ None.
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
@@ -307,6 +309,7 @@ None.
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -323,10 +326,10 @@ None.
     "pipelineEdges": {}
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "SourceReceivedCount": "",
+    "SinkWriteCount": ""
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -336,9 +339,9 @@ None.
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
 see [REST API V2](rest-api-v2.md) for its fields. Only this endpoint returns it, `/running-jobs` does
 not.
@@ -396,6 +399,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -437,7 +441,7 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -447,9 +451,9 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 
 When we can't get the job info, the response will be:
 
@@ -484,6 +488,7 @@ When we can't get the job info, the response will be:
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -592,6 +597,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 #### Body
 
@@ -650,6 +658,9 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | restoreMode          | optional     | string  | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional     | string  | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | format               | optional     | string  | config format, support json, hocon and sql, default json |
 
 #### Request Body
 
@@ -766,7 +777,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 

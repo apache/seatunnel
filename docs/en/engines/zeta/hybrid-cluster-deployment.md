@@ -193,9 +193,11 @@ The max job count can be executed at same time
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 Job Metrics Partition Count (This parameter is invalid on the Worker node)

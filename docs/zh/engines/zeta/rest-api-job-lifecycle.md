@@ -148,7 +148,7 @@ curl http://<master>:8080/job-info/<jobId>
 |---|---|
 | `jobId` | 作业唯一标识 |
 | `jobName` | 作业名称 |
-| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELLED` |
+| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELED` |
 | `envOptions` | 生效的 env 配置 |
 | `createTime` | 作业创建时间戳 |
 | `jobDag` | DAG 拓扑结构 |
@@ -224,12 +224,7 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 路径会打印在作业日志中，也可通过查询已完成作业获取：
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+Savepoint 路径会打印在作业日志中。它并不包含在 `/job-info/:jobId` 的响应里；如需获取该路径，请在 Master 节点日志中检索该作业的 `savepoint` 相关日志。
 
 ### 5.3 强制取消
 
@@ -317,24 +312,11 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 从指定 Savepoint 路径恢复
+### 6.3 关于从指定 Savepoint 路径恢复
 
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
-
+不支持选择指定的 Savepoint 路径。不存在 `restore.mode` 或 `savepoint.path` 这样的 env 配置：
+恢复来源完全由 `restoreMode`/`restoreSourceJobId` 查询参数（或 CLI 的 `--restore` / `--restore-with-checkpoint` 参数）控制。
+`restoreMode=SAVEPOINT` 总是从源作业最新的 Savepoint 恢复，`restoreMode=CHECKPOINT` 总是从源作业最新的可恢复 Checkpoint 恢复。
 ---
 
 ## 7. 认证与授权

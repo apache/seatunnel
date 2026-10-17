@@ -253,7 +253,7 @@ Please refer [security](security.md)
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
-    "works":"1",
+    "workers":"1",
     "runningJobs":"0",
     "pendingJobs":"0",
     "finishedJobs":"0",
@@ -264,7 +264,7 @@ Please refer [security](security.md)
 
 **Notes:**
 - If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
-- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
+- If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
@@ -355,6 +355,7 @@ None.
     "envOptions": {
     },
     "createTime": "",
+    "startTime": "",
     "jobDag": {
       "jobId": "",
       "envOptions": [],
@@ -374,8 +375,8 @@ None.
     ],
     "isStartWithSavePoint": false,
     "metrics": {
-      "sourceReceivedCount": "",
-      "sinkWriteCount": ""
+      "SourceReceivedCount": "",
+      "SinkWriteCount": ""
     }
   }
 ]
@@ -562,6 +563,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -604,7 +606,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
     "TableSinkCommittedBytes": {},
     "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -640,9 +642,9 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
@@ -715,6 +717,7 @@ This API has been deprecated, please use /job-info/:jobId instead
   "jobName": "",
   "jobStatus": "",
   "createTime": "",
+  "startTime": "",
   "jobDag": {
     "jobId": "",
     "envOptions": [],
@@ -740,6 +743,10 @@ This API has been deprecated, please use /job-info/:jobId instead
     "SinkWriteQPS": "",
     "SinkWriteBytes": "",
     "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -747,9 +754,13 @@ This API has been deprecated, please use /job-info/:jobId instead
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
-  "finishedTime": "",
+  "finishTime": "",
   "errorMsg": null,
   "envOptions": {
   },
@@ -759,9 +770,9 @@ This API has been deprecated, please use /job-info/:jobId instead
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `startTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
-`finishedTime`, `errorMsg` will return when job is finished.
+`finishTime`, `errorMsg` will return when job is finished.
 
 When we can't get the job info, the response will be:
 
@@ -806,6 +817,7 @@ starting beyond the end of the result set also returns `400`, while a page start
     "jobStatus": "",
     "errorMsg": null,
     "createTime": "",
+    "startTime": "",
     "finishTime": "",
     "jobDag": {
       "jobId": "",
@@ -1212,7 +1224,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 ```json
 {
-"jobId": 733584788375666689
+"jobId": "733584788375666689"
 }
 ```
 

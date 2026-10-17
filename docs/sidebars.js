@@ -31,8 +31,12 @@ const sidebars = {
                     "type": "category",
                     "label": "Concepts",
                     "items": [
+                        "introduction/concepts/config",
                         "introduction/concepts/connector-v2-features",
-                        "introduction/concepts/schema-feature"
+                        "introduction/concepts/schema-feature",
+                        "introduction/concepts/incompatible-changes",
+                        "introduction/concepts/metadata-spi",
+                        "introduction/concepts/gravitino-type-mapping"
                     ]
                 }
             ]
@@ -169,6 +173,7 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/jdbc-to-jdbc",
                         "getting-started/recipes/mysql-to-hdfs",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
@@ -286,9 +291,12 @@ const sidebars = {
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/live-metrics-chart",
+                        "engines/zeta/realtime-observability",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/benchmark",
-                        "engines/zeta/tuning-guide"
+                        "engines/zeta/tuning-guide",
+                        "engines/zeta/stain-trace",
+                        "engines/zeta/stain-trace-quickstart"
                     ]
                 },
                 {
