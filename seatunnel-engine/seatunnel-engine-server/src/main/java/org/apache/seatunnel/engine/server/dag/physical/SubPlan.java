@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -216,7 +218,13 @@ public class SubPlan {
                             failedTaskNum.incrementAndGet();
                             errorByPhysicalVertex.compareAndSet(
                                     null, executionState.getThrowableMsg());
-                            updatePipelineState(PipelineStatus.FAILING);
+                            // A worker failure must not overwrite a cancellation that has
+                            // already started: keep CANCELING until the end-state
+                            // computation so the pipeline resolves to CANCELED instead of
+                            // FAILED (#12353).
+                            if (!PipelineStatus.CANCELING.equals(getPipelineState())) {
+                                updatePipelineState(PipelineStatus.FAILING);
+                            }
                         }
 
                         if (finishedTaskNum.incrementAndGet()
@@ -241,14 +249,12 @@ public class SubPlan {
     }
 
     private PipelineStatus getPipelineEndState() {
-        PipelineStatus pipelineStatus = null;
-        if (failedTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.FAILED;
+        PipelineStatus pipelineStatus = determinePipelineEndState();
+        if (PipelineStatus.FAILED.equals(pipelineStatus)) {
             // we don't care the checkpoint error reason when the task is
             // failed.
             jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
-        } else if (canceledTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.CANCELED;
+        } else if (PipelineStatus.CANCELED.equals(pipelineStatus)) {
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
             if (CheckpointCoordinatorStatus.FAILED.equals(
@@ -257,17 +263,7 @@ public class SubPlan {
                 errorByPhysicalVertex.compareAndSet(
                         null, checkpointCoordinatorState.getThrowableMsg());
             }
-
-            // Because the pipeline state must update by tasks, If the pipeline can not get enough
-            // slot, the pipeline state will turn to Failing and then cancel all tasks in this
-            // pipeline.
-            // Because the tasks never run, so the tasks will complete with CANCELED. But the actual
-            // status of the pipeline should be FAILED
-            if (getPipelineState().equals(PipelineStatus.FAILING)) {
-                pipelineStatus = PipelineStatus.FAILED;
-            }
         } else {
-            pipelineStatus = PipelineStatus.FINISHED;
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster
                             .getCheckpointManager()
@@ -287,6 +283,46 @@ public class SubPlan {
             }
         }
         return pipelineStatus;
+    }
+
+    /**
+     * Decides the terminal {@link PipelineStatus} of this pipeline from the task counters and the
+     * current pipeline state.
+     *
+     * <p>Precedence: once cancellation has started and a task has actually failed or been canceled,
+     * {@code CANCELING} wins over the failure and the pipeline resolves to {@code CANCELED} — the
+     * cancellation requested by the user must not be overwritten by a worker failure racing it
+     * (#12353). A pipeline whose tasks all completed naturally still resolves to {@code FINISHED}
+     * even if the pipeline state has not left {@code CANCELING} yet, so a finished pipeline is
+     * never reclassified as {@code CANCELED} (which would make it restore-eligible). Otherwise
+     * {@code failedTaskNum} wins over {@code canceledTaskNum}, with the {@code FAILING} carve-out
+     * (e.g. slot allocation failure before any task ran) still mapping canceled tasks to {@code
+     * FAILED}.
+     *
+     * <p>Runs on the vertex-callback executor, outside the {@code synchronized} monitor of this
+     * SubPlan, reading the pipeline state and the task counters without holding it.
+     */
+    @VisibleForTesting
+    PipelineStatus determinePipelineEndState() {
+        if ((failedTaskNum.get() > 0 || canceledTaskNum.get() > 0)
+                && PipelineStatus.CANCELING.equals(getPipelineState())) {
+            // Once cancellation has started, a worker failure must not overwrite the
+            // cancellation requested by the user.
+            return PipelineStatus.CANCELED;
+        }
+        if (failedTaskNum.get() > 0) {
+            return PipelineStatus.FAILED;
+        }
+        if (canceledTaskNum.get() > 0) {
+            // Because the pipeline state must update by tasks, if the pipeline cannot get enough
+            // slots, the pipeline state turns to FAILING and then cancels all tasks in this
+            // pipeline. Because the tasks never run, they complete with CANCELED, but the actual
+            // status of the pipeline should be FAILED.
+            return PipelineStatus.FAILING.equals(getPipelineState())
+                    ? PipelineStatus.FAILED
+                    : PipelineStatus.CANCELED;
+        }
+        return PipelineStatus.FINISHED;
     }
 
     private boolean checkNeedRestore(PipelineStatus pipelineStatus) {
