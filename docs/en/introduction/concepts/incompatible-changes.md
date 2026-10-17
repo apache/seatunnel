@@ -499,4 +499,18 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
     read of a multi-gigabyte log has to fit in the node's heap.
 
+- **Behavior change: Flink Paimon fixed-bucket routing now assigns each physical bucket to one writer**
+  - **Affected component**: `connector-paimon` and the Flink 1.13, 1.15 and 2.0 starters.
+  - **Description**: Fixed-bucket sinks route each physical partition and bucket to one writer. The
+    routing capability is resolved through the runtime `MultiTableSink` wrapper, and schema-control
+    rows retain their destination subtask without data-row conversion. The partitioner uses the
+    initial source and target schemas; this change does not add full online DDL handling.
+  - **Impact**: `multi_table_sink_replica` values other than `1`, mixed fixed and non-fixed bucket
+    sinks, and multiple source tables targeting the same physical table are rejected at
+    initialization. Checkpoint serialization is unchanged; this routing fix provides no additional
+    global recovery or rescaling guarantees.
+  - **Migration Guide**: Set `multi_table_sink_replica = 1`, separate fixed and non-fixed bucket
+    sink definitions, and merge source streams before one sink when they target the same physical
+    table.
+
 ### Dependency Upgrades

@@ -201,3 +201,7 @@ connector-<name>/
 3. 再读 [Exactly-Once](../architecture/fault-tolerance/exactly-once.md)
 4. 再读 [插件发现与类加载](../architecture/plugin-discovery-and-class-loading.md)
 5. 最后结合 [开发自己的 Connector](./how-to-create-your-connector.md)
+
+### Sink 数据分发
+
+实现 `SupportSinkDataPartition<T>`，返回可选、可序列化并绑定 Writer 数量的 `SinkDataPartitioner<T>`。`select(record)` 必须返回 `[0, writerCount)` 内的 Writer 索引，仅处理数据行；Flink adapter 单独保留 schema 控制行的目标 subtask。当多个独立 Writer 指向同一物理目标不安全时，实现 `targetIdentifier()`。`MultiTableSink` 在初始化时解析各表策略，逐行按源表 ID 查找，避免扫描表集合。该能力不改变提交和恢复协议。

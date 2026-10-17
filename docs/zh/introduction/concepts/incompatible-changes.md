@@ -415,4 +415,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
 
+- **行为变更：Flink Paimon 固定桶路由现在将每个物理 bucket 分配给一个 Writer**
+  - **受影响组件**：`connector-paimon` 以及 Flink 1.13、1.15 和 2.0 starter。
+  - **说明**：固定桶 Sink 会将每个物理分区和 bucket 路由到一个 Writer。路由能力通过运行时的
+    `MultiTableSink` 包装器解析，Schema 控制行保留目标 subtask，不经过数据行转换。分区器使用启动时的源表和目标表 schema；本次修改不新增完整在线 DDL 处理。
+  - **影响**：`multi_table_sink_replica` 不为 `1`、固定桶与非固定桶 Sink 混用，以及多个源表指向同一物理表的配置，都会在初始化时被拒绝。Checkpoint 序列化格式不变，本修复不提供额外的全局恢复或扩缩容保证。
+  - **迁移指南**：设置 `multi_table_sink_replica = 1`，拆开固定桶与非固定桶 Sink 定义；多个源流指向同一物理表时，应先合并再写入一个 Sink。
+
 ### 依赖升级
