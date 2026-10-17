@@ -279,13 +279,19 @@ public class ParquetWriteStrategyTest {
         Locale previous = Locale.getDefault();
         LocalDateTime underUs;
         LocalDateTime underTh;
+        LocalDateTime underJa;
         try {
             Locale.setDefault(Locale.US);
             underUs = int96RoundTrip("locale-us", value);
             // Plain th_TH is enough; no -u-ca-buddhist extension is needed. This is what an OS
-            // locale or -Duser.language=th -Duser.country=TH gives.
+            // locale or -Duser.language=th -Duser.country=TH gives. BuddhistCalendar reports
+            // get(Calendar.YEAR) as 2567 for 2024.
             Locale.setDefault(new Locale("th", "TH"));
             underTh = int96RoundTrip("locale-th", value);
+            // A second, differently shaped calendar system: JapaneseImperialCalendar reports
+            // get(Calendar.YEAR) as the era year, 6 for Reiwa 6, rather than an offset year.
+            Locale.setDefault(Locale.forLanguageTag("ja-JP-u-ca-japanese"));
+            underJa = int96RoundTrip("locale-ja", value);
         } finally {
             Locale.setDefault(previous);
         }
@@ -296,6 +302,18 @@ public class ParquetWriteStrategyTest {
                 underTh,
                 "the th_TH round trip must be exact; a Buddhist year written as a Gregorian one "
                         + "shifts the persisted timestamp by 543 years");
+        Assertions.assertEquals(
+                value,
+                underJa,
+                "the ja-JP-u-ca-japanese round trip must be exact; an imperial era year written "
+                        + "as a Gregorian one moves the persisted timestamp to year 6");
+
+        // The time of day travels through the same Calendar and is asserted in its own right,
+        // not only as part of the value above.
+        Assertions.assertEquals(value.toLocalTime(), underUs.toLocalTime(), "en_US time of day");
+        Assertions.assertEquals(value.toLocalTime(), underTh.toLocalTime(), "th_TH time of day");
+        Assertions.assertEquals(
+                value.toLocalTime(), underJa.toLocalTime(), "ja-JP-u-ca-japanese time of day");
     }
 
     /** Writes one timestamp as INT96 and reads it back, returning the round-tripped value. */
