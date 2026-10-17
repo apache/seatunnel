@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
 import org.apache.seatunnel.api.state.CheckpointListener;
 
 import java.io.IOException;
@@ -50,7 +51,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      * </ol>
      *
      * <p>{@implNote The engine guarantees this invocation order and ensures there are no
-     * concurrency issues between these calls.}
+     * concurrency issues between these calls. When {@link Context#isManagedCoordinatorRuntime()}
+     * returns {@code true}, this method must return promptly and move any blocking discovery to the
+     * engine-owned {@link CoordinatorScheduler}.}
      */
     void run() throws Exception;
 
@@ -147,5 +150,36 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Returns the engine-owned scheduler for managed coordinator work.
+         *
+         * <p>The legacy lane does not provide this service. Connectors must only call this method
+         * after declaring {@code supportsManagedCoordinator} in their managed capability.
+         */
+        default CoordinatorScheduler getCoordinatorScheduler() {
+            throw new UnsupportedOperationException(
+                    "CoordinatorScheduler is only available in the managed Source runtime");
+        }
+
+        /**
+         * Returns whether the current enumerator is running inside the managed coordinator lane.
+         *
+         * <p>Connectors should use this capability probe instead of catching {@link
+         * UnsupportedOperationException} from {@link #getCoordinatorScheduler()}.
+         */
+        default boolean isManagedCoordinatorRuntime() {
+            return false;
+        }
+
+        /**
+         * Returns whether the engine-owned assignment tracker is below its soft capacity watermark.
+         *
+         * <p>Managed async discovery should defer new work while this method returns {@code false}.
+         * The legacy lane always returns {@code true}.
+         */
+        default boolean isAssignmentCapacityAvailable() {
+            return true;
+        }
     }
 }
