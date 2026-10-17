@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
@@ -149,6 +150,15 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
  */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
+    /**
+     * Hard upper bound (milliseconds) after which a terminal future is completed even if the final
+     * metrics report has not yet returned. Prevents CANCELED/FAILED task groups from waiting
+     * indefinitely on an un-timed Hazelcast invocation when the master is slow or in failover. The
+     * report still runs to completion in the background; {@code future.complete} is idempotent, so
+     * whichever finishes first wins.
+     */
+    static final long FINAL_METRICS_FALLBACK_TIMEOUT_MS = 15_000L;
+
     /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
 
@@ -249,7 +259,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     private final ExecutorService finalMetricsExecutorService;
 
-    {
+    /**
+     * Dedicated single-thread scheduler for the 15 s fallback that completes terminal futures when
+     * the final metrics report hangs. Kept separate from {@link #scheduledExecutorService} so the
+     * fallback fires on time even if the periodic metrics backup is blocked inside its un-timed
+     * Hazelcast invocation.
+     */
+    private final ScheduledThreadPoolExecutor finalMetricsFallbackExecutorService;
+
+    /** Client for managing connector packages on the server. */
+    private final ScheduledThreadPoolExecutor timerFlushWorker;
+
+    private final ServerConnectorPackageClient serverConnectorPackageClient;
+
+    /** Service for reporting events. */
+    private final EventService eventService;
+
+    /**
+     * Creates the cached daemon thread pool that runs terminal task-group metrics reports outside
+     * the task worker (which may have its interrupt flag set). Wrapped with {@link MDCTracer} so
+     * each report retains the scheduling worker's MDC context.
+     */
+    private static ExecutorService createFinalMetricsExecutor() {
         ThreadFactory namedFactory =
                 new ThreadFactory() {
                     private final AtomicInteger counter = new AtomicInteger(0);
@@ -276,25 +307,36 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         TimeUnit.SECONDS,
                         new SynchronousQueue<>(),
                         namedFactory);
-        finalMetricsExecutorService = MDCTracer.tracing(pool);
+        return MDCTracer.tracing(pool);
     }
 
     /**
-     * Hard upper bound (milliseconds) after which a terminal future is completed even if the final
-     * metrics report has not yet returned. Prevents CANCELED/FAILED task groups from waiting
-     * indefinitely on an un-timed Hazelcast invocation when the master is slow or in failover. The
-     * report still runs to completion in the background; {@code future.complete} is idempotent, so
-     * whichever finishes first wins.
+     * Creates a single-thread scheduler dedicated to the 15 s terminal-fallback task. Kept separate
+     * from the periodic metrics-backup scheduler so the fallback fires on time even when the
+     * periodic run is blocked inside its un-timed Hazelcast invocation.
      */
-    private static final long FINAL_METRICS_FALLBACK_TIMEOUT_MS = 15_000L;
-
-    /** Client for managing connector packages on the server. */
-    private final ScheduledThreadPoolExecutor timerFlushWorker;
-
-    private final ServerConnectorPackageClient serverConnectorPackageClient;
-
-    /** Service for reporting events. */
-    private final EventService eventService;
+    private static ScheduledThreadPoolExecutor createFinalMetricsFallbackExecutor() {
+        AtomicInteger counter = new AtomicInteger(0);
+        ScheduledThreadPoolExecutor scheduler =
+                new ScheduledThreadPoolExecutor(
+                        1,
+                        new ThreadFactory() {
+                            @Override
+                            public Thread newThread(Runnable r) {
+                                Thread thread =
+                                        new Thread(
+                                                r,
+                                                "seatunnel.final-metrics-fallback-"
+                                                        + counter.incrementAndGet());
+                                thread.setDaemon(true);
+                                thread.setContextClassLoader(
+                                        TaskExecutionService.class.getClassLoader());
+                                return thread;
+                            }
+                        });
+        scheduler.setRemoveOnCancelPolicy(true);
+        return scheduler;
+    }
 
     /**
      * Creates a new TaskExecutionService.
@@ -338,6 +380,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
         timerFlushWorker.setRemoveOnCancelPolicy(true);
         timerFlushWorker.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
+        finalMetricsExecutorService = createFinalMetricsExecutor();
+        finalMetricsFallbackExecutorService = createFinalMetricsFallbackExecutor();
     }
 
     /**
@@ -363,6 +408,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
         finalMetricsExecutorService.shutdown();
+        finalMetricsFallbackExecutorService.shutdown();
         timerFlushWorker.shutdown();
     }
 
@@ -993,7 +1039,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    // Visible for testing (Mockito spy in TaskExecutionServiceTest).
+    @VisibleForTesting
     void updateMetricsContextInImap() {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
@@ -1732,6 +1778,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             : new TaskExecutionState(
                                     taskGroupLocation, executionState, executionFailure);
             try {
+                // Safety net: even if the report hangs in an un-timed Hazelcast invoke, the
+                // terminal future must still resolve so CANCELED/FAILED task groups do not stall
+                // when the master is slow or in failover. Whichever finishes first wins; there is
+                // no issue with both the scheduled fallback and the finally block racing. The
+                // fallback is scheduled on its own dedicated single-thread scheduler (not on
+                // scheduledExecutorService shared with the periodic metrics backup) so it fires
+                // even when the periodic run is blocked inside an un-timed invoke.
+                ScheduledFuture<?> fallbackFuture =
+                        finalMetricsFallbackExecutorService.schedule(
+                                () -> future.complete(terminalState),
+                                FINAL_METRICS_FALLBACK_TIMEOUT_MS,
+                                TimeUnit.MILLISECONDS);
                 finalMetricsExecutorService.submit(
                         () -> {
                             try {
@@ -1740,16 +1798,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 logger.severe("update metrics context in imap failed", t);
                             } finally {
                                 future.complete(terminalState);
+                                // Cancel the fallback if the report beat the timeout. The
+                                // scheduler has setRemoveOnCancelPolicy(true) so the cancelled
+                                // task does not linger in the queue.
+                                fallbackFuture.cancel(false);
                             }
                         });
-                // Safety net: even if the report hangs in an un-timed Hazelcast invoke, the
-                // terminal future must still resolve so CANCELED/FAILED task groups do not stall
-                // when the master is slow or in failover. Whichever finishes first wins; there is
-                // no issue with both the scheduled fallback and the finally block racing.
-                scheduledExecutorService.schedule(
-                        () -> future.complete(terminalState),
-                        FINAL_METRICS_FALLBACK_TIMEOUT_MS,
-                        TimeUnit.MILLISECONDS);
             } catch (Throwable t) {
                 logger.warning(
                         "failed to schedule final metrics report for taskGroup "
