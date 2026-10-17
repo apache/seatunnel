@@ -154,7 +154,8 @@ public class ServerConfigOptions {
                 Options.key("print-job-metrics-info-interval")
                         .intType()
                         .defaultValue(60)
-                        .withDescription("The interval (in seconds) of job print metrics info");
+                        .withDescription(
+                                "The interval (in seconds) of periodic running-job metrics logging; 0 disables it.");
 
         public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
                 Options.key("job-metrics-backup-interval")
