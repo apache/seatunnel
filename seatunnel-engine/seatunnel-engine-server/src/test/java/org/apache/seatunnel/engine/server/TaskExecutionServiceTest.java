@@ -918,6 +918,101 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testFinalMetricsFallbackFiresWhenReportHangs() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        // Shorten the fallback timeout so the test is fast (200 ms instead of 15 s).
+        ReflectionUtils.setField(
+                serviceSpy, TaskExecutionService.class, "finalMetricsFallbackTimeoutMs", 200L);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "fallback-timeout-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch holdMetrics = new CountDownLatch(1);
+        // Make updateMetricsContextInImap block forever (until the test releases it).
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsStarted.countDown();
+                            holdMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+
+        tracker.taskDone(task);
+
+        try {
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics report should start on its own pool thread");
+            // The terminal future must complete within a short window after the 200 ms fallback
+            // timeout, proving the fallback actually fires. If the timeout were not injectable,
+            // this test would need to wait the full default 15 s.
+            await().atMost(2, TimeUnit.SECONDS).until(resultFuture::isDone);
+            assertEquals(FINISHED, resultFuture.get().getExecutionState());
+        } finally {
+            holdMetrics.countDown();
+        }
+    }
+
+    @Test
+    public void testFinalMetricsFallbackFiresOnCanceledState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        ReflectionUtils.setField(
+                serviceSpy, TaskExecutionService.class, "finalMetricsFallbackTimeoutMs", 200L);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "canceled-fallback-metrics", Lists.newArrayList(task)));
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch holdMetrics = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsStarted.countDown();
+                            holdMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+        cancellationFuture.completeExceptionally(new RuntimeException("test cancel"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            AtomicBoolean isCancel = getField(tracker, "isCancel");
+                            return isCancel.get();
+                        });
+
+        tracker.taskDone(task);
+
+        try {
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics report should start on its own pool thread");
+            // The fallback must still fire and complete the terminal future with CANCELED.
+            await().atMost(2, TimeUnit.SECONDS).until(resultFuture::isDone);
+            assertEquals(CANCELED, resultFuture.get().getExecutionState());
+        } finally {
+            holdMetrics.countDown();
+        }
+    }
+
+    @Test
     public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation location = newTaskGroupLocation();
