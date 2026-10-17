@@ -59,5 +59,11 @@ public class OssJindoFactoryTest {
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPRESS_CODEC));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC));
     }
 }

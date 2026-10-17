@@ -101,6 +101,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | xml_use_attr_format        | Boolean | 否   | -                             | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用                                  |
 | csv_use_header_line | boolean | 否 | false | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用 |
 | compress_codec             | String  | 否   | None                          | 文件的压缩编解码器                                                                      |
+| archive_compress_codec     | String  | 否   | none                          | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding                   | String  | 否   | UTF-8                         | 读取文件时使用的编码                                                                      |
 | null_format                | String  | 否   | -                             | 仅在 file_format_type 为 text 时使用。定义哪些字符串可以表示为 null，例如 `\N`                  |
 | binary_chunk_size | int | 否 | 1024 | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。较大的值可能会提高大文件的性能，但会使用更多内存。 |

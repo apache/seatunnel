@@ -29,7 +29,8 @@ public class ObsFileFactoryTest {
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new ObsFileSourceFactory()).optionRule());
+        OptionRule optionRule = (new ObsFileSourceFactory()).optionRule();
+        Assertions.assertNotNull(optionRule);
         Assertions.assertNotNull((new ObsFileSinkFactory()).optionRule());
     }
 
@@ -60,5 +61,11 @@ public class ObsFileFactoryTest {
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPRESS_CODEC));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC));
     }
 }

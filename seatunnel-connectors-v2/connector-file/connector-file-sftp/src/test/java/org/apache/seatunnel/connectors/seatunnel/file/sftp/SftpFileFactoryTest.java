@@ -74,6 +74,12 @@ class SftpFileFactoryTest {
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
         Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPRESS_CODEC));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().stream()
                         .anyMatch(option -> "keyfile".equals(option.key())));
 
