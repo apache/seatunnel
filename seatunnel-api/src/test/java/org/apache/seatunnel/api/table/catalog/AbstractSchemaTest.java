@@ -65,6 +65,14 @@ public class AbstractSchemaTest {
     }
 
     @Test
+    void testNullColumnsFailsFast() {
+        // A null columns list is a caller bug; this constructor failed fast with an NPE before
+        // the defensive copy was introduced and must keep doing so.
+        Assertions.assertThrows(
+                NullPointerException.class, () -> new TableSchema(null, null, null));
+    }
+
+    @Test
     void testDefensivelyCopiesConstructorColumns() {
         List<Column> columns = new ArrayList<>();
         columns.add(column("id"));

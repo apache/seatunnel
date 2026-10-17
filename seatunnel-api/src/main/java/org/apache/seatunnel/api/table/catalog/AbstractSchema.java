@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Represent a physical table schema. */
@@ -52,11 +53,13 @@ public class AbstractSchema implements Serializable {
     private transient volatile Map<String, Integer> columnIndexCache;
 
     public AbstractSchema(List<Column> columns) {
+        // Reject null up front: a null list is a caller bug, and this constructor failed fast
+        // with an NPE before the defensive copy was introduced.
         // Copy the lists so later mutation of the caller's list cannot change this schema or
         // invalidate the lazily built lookup caches.
         // Kryo populates collections during deserialization. Keep the internal copy mutable;
         // getColumns() still exposes a read-only view.
-        this.columns = columns == null ? new ArrayList<>() : new ArrayList<>(columns);
+        this.columns = new ArrayList<>(Objects.requireNonNull(columns, "columns"));
         this.columnNames = this.columns.stream().map(Column::getName).collect(Collectors.toList());
     }
 
