@@ -25,6 +25,11 @@ import java.io.Serializable;
 
 @Data
 public class TaskDeployState implements Serializable {
+    // Same as the previously computed value. Keep this UID for compatible field additions; new
+    // fields must be nullable and read with a null-safe default because old instances omit them.
+    // Incompatible state changes need an explicit versioned serialization contract.
+    private static final long serialVersionUID = 2646079648150626562L;
+
     private final boolean success;
     private final String throwableMsg;
 
