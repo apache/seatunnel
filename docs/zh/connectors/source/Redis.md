@@ -77,7 +77,7 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
 | read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
 | key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
+| single_field_name   | string  | read_key_enabled = true 时必填 | -     | Redis value 的字段名称                              |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
@@ -168,7 +168,7 @@ keys 模式
 
 默认值为 `false`，也就是只读取 value。
 
-如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，必须配置 `single_field_name`，指定 Redis value 写入哪一列。`key_field_name` 是可选项，默认字段名为 `key`。
+单表配置下开启 `read_key_enabled` 时，必须同时配置 `single_field_name`，与 `data_type` 无关。对于 `string`、`list`、`set`、`zset` 这类单值类型，该选项指定 Redis value 写入哪一列，缺失时读取会直接失败。`key_field_name` 是可选项，默认字段名为 `key`。`tables_configs` 中的表级配置不受该校验限制：此时仅单值类型需要配置 `single_field_name`。
 
 配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
 
@@ -197,9 +197,9 @@ schema {
 
 ### single_field_name [string]
 
-读取单值类型并且 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
+`read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
 
-该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。
+单表配置下，只要 `read_key_enabled = true`，无论 `data_type` 是什么，配置校验都要求该选项必填。对于 `string`、`list`、`set`、`zset` 这类单值类型，该字段就是 value 映射到的 schema 列，缺失时读取会直接失败；对于 `hash` 这类可以直接映射成多列对象的数据，value 字段来自 hash 结构本身，但单表配置校验仍会要求填写该选项。
 
 ### batch_size [int]
 
