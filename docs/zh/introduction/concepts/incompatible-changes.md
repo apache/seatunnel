@@ -29,7 +29,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 DuckDB 的 `TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS` Source 值现在映射为 SeaTunnel `TIMESTAMP`，不再回退为 `STRING`。四种时间戳类型均上报其原生小数秒精度（`TIMESTAMP` 6、`TIMESTAMP_S` 0、`TIMESTAMP_MS` 3、`TIMESTAMP_NS` 9）。MySQL 自动建表会使用该精度，最多保留 6 位小数，因此 `TIMESTAMP_NS` 源列会生成 `DATETIME(6)`，无法保留源值的全部 9 位小数。升级时请检查下游 schema，并移除此前为这些值额外应用的时区补偿。
 
-DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 列分别生成 `TIMESTAMP_S`、`TIMESTAMP_MS`、`TIMESTAMP`、`TIMESTAMP_NS`。中间的正数精度使用下一个更宽的原生精度；未指定精度时保留默认的 `TIMESTAMP` 映射。对于带有微秒以下小数位的值，DuckDB 写入器使用文本绑定，避免测试所用 JDBC 驱动将其截断到微秒，使 `TIMESTAMP_NS` 目标列能够保留全部 9 位小数。已有表不会自动迁移，其列类型仍限制实际存储精度。
+DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 列分别生成 `TIMESTAMP_S`、`TIMESTAMP_MS`、`TIMESTAMP`、`TIMESTAMP_NS`。中间的正数精度使用下一个更宽的原生精度；未指定精度时保留默认的 `TIMESTAMP` 映射。显式精度 0 表示整秒：这类列此前自动生成为微秒精度的 `TIMESTAMP`，现在改为 `TIMESTAMP_S`。已有目标表不会自动迁移；依赖小数秒之前，请检查源列声明的精度和目标列类型。
+
+写入器将本地 `TIMESTAMP` 值按时间戳文本绑定，保留 `LocalDateTime` 的原始时刻及目标列支持的小数位数。这避免了测试所用 DuckDB JDBC 驱动（1.3.1.0）的类型化时间戳绑定对夏令时缺失区间、公历切换日期产生偏移，以及丢失微秒以下小数位的问题。SQL `NULL` 仍写为 `NULL`，其他数据类型保留原有 JDBC 绑定方式。
+
+标准 DuckDB `TIMESTAMP` Source 现在上报精度 6，因此自动建表语句可显式声明小数秒精度，例如 MySQL `DATETIME(6)`、PostgreSQL `timestamp(6)`、SQL Server `DATETIME2(6)` 和 Oracle `TIMESTAMP(6)`，而不再依赖目标数据库的默认精度。对于精度 0，当前 MySQL、PostgreSQL、SQL Server 和 Oracle 转换器会省略精度参数；这是连接器的映射策略，并非这些数据库不支持精度 0。已有目标表不会自动调整，升级时请检查生成的 DDL 和现有列定义。
 
 标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
 

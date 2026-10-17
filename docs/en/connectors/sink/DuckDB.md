@@ -63,7 +63,9 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | TIMESTAMP                                                           | TIMESTAMP        |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
 
-When the DuckDB sink creates a table, SeaTunnel `TIMESTAMP` columns with scales 0, 3, 6 and 9 become `TIMESTAMP_S`, `TIMESTAMP_MS`, `TIMESTAMP` and `TIMESTAMP_NS`, respectively. Intermediate positive scales use the next wider native precision; an unspecified scale retains the default `TIMESTAMP` mapping. For values with sub-microsecond digits, the DuckDB writer uses a text binding to avoid the tested JDBC driver's microsecond truncation, allowing a `TIMESTAMP_NS` target to retain all nine digits. Existing tables are not migrated: their declared type still limits stored precision.
+When the DuckDB sink creates a table, SeaTunnel `TIMESTAMP` columns with scales 0, 3, 6 and 9 become `TIMESTAMP_S`, `TIMESTAMP_MS`, `TIMESTAMP` and `TIMESTAMP_NS`, respectively. Intermediate positive scales use the next wider native precision; an unspecified scale retains the default `TIMESTAMP` mapping. An explicit scale 0 means whole seconds: automatic DDL now creates `TIMESTAMP_S` where it previously created a microsecond `TIMESTAMP`. Existing target tables are not migrated; check the declared source scale and target type before relying on fractional seconds.
+
+The writer binds local `TIMESTAMP` values as timestamp text, preserving the wall clock of `LocalDateTime` and every fractional digit the target column supports. This avoids the tested DuckDB JDBC driver (1.3.1.0) shifting DST-gap values and Gregorian-cutover dates through its typed timestamp binding, or dropping sub-microsecond digits. SQL `NULL` remains `NULL`; other data types retain their existing JDBC binding.
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 

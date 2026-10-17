@@ -390,6 +390,148 @@ public class DuckDBSourceAndSinkTest {
                         table, "id = 4 AND c_ts_ns = TIMESTAMP_NS '1970-01-01 00:00:00'"));
     }
 
+    /**
+     * Regression: the sink stores the wall clock of a {@code LocalDateTime} unchanged, in every JVM
+     * default time zone.
+     *
+     * <p>The tested DuckDB JDBC driver (1.3.1.0) interprets a typed {@code setTimestamp} binding
+     * through the JVM default zone. A local time that does not exist in that zone is therefore
+     * moved forward by the DST transition, and the 1582 Julian-to-Gregorian cutover is normalized
+     * even in UTC. Most rows are exact to the microsecond and exercise the typed binding used
+     * before this fix. Rows 1 and 2 are the same logical clock: they differ only in the digits
+     * below the microsecond, which must not decide whether the stored clock is correct. The stored
+     * values are verified with DuckDB's own text rendering and its own timestamp literals instead
+     * of the connector read path, so a matching defect on both sides cannot make this test pass.
+     */
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testSinkTimestampKeepsWallClockAcrossDstGapsAndCutover() throws Exception {
+        String tableName = "ts_sink_wall_clock";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format("DROP TABLE IF EXISTS \"%s\".\"%s\"", SCHEMA_NAME, tableName));
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE \"%s\".\"%s\" (id INTEGER, value TIMESTAMP)",
+                            SCHEMA_NAME, tableName));
+        }
+        // JVM default zone, bound value and expected stored wall clock. Cases cover US and
+        // Lord Howe DST gaps, the Gregorian cutover, a normal control and NULL.
+        String[] zones = {
+            "America/New_York",
+            "America/New_York",
+            "America/Los_Angeles",
+            "Australia/Lord_Howe",
+            "UTC",
+            "UTC",
+            "UTC"
+        };
+        String[] bound = {
+            "2024-03-10 02:30:00.123456",
+            "2024-03-10 02:30:00.123456789",
+            "2024-03-10 02:30:00.123456",
+            "2024-10-06 02:15:00.123456",
+            "1582-10-10 12:34:56.123456",
+            "2024-01-01 12:34:56.123456",
+            null
+        };
+        // A TIMESTAMP column keeps six fractional digits, so row 2 is narrowed by DuckDB. The
+        // narrowing is asserted, not the precision: row 1 and row 2 must still agree.
+        String[] stored = {
+            "2024-03-10 02:30:00.123456",
+            "2024-03-10 02:30:00.123456",
+            "2024-03-10 02:30:00.123456",
+            "2024-10-06 02:15:00.123456",
+            "1582-10-10 12:34:56.123456",
+            "2024-01-01 12:34:56.123456",
+            null
+        };
+        CatalogTable sinkTable =
+                CatalogTable.of(
+                        TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, SCHEMA_NAME, tableName),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .column(
+                                        timestampColumn(
+                                                "value", DuckDBTypeConverter.TIMESTAMP_SCALE))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        null);
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", jdbcUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put(
+                "query",
+                String.format("INSERT INTO \"%s\".\"%s\" VALUES (?, ?)", SCHEMA_NAME, tableName));
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        ReadonlyConfig sinkConfig = ReadonlyConfig.fromMap(sinkOptions);
+        // 1. Write every row through the production sink while its own zone is the JVM default.
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (int index = 0; index < zones.length; index++) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zones[index]));
+                LocalDateTime value =
+                        bound[index] == null
+                                ? null
+                                : LocalDateTime.parse(bound[index].replace(' ', 'T'));
+                List<SeaTunnelRow> rows = new ArrayList<>();
+                rows.add(new SeaTunnelRow(new Object[] {index + 1, value}));
+                SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                        sinkTable, sinkConfig, new JdbcSinkFactory(), rows);
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+
+        // 2. Verify against DuckDB's own literals. Reading the rows back needs no particular JVM
+        // zone, and the readback only makes a failure readable - the expectation is the literal.
+        List<String> mismatches = new ArrayList<>();
+        for (int index = 0; index < zones.length; index++) {
+            int id = index + 1;
+            String where =
+                    stored[index] == null
+                            ? "id = " + id + " AND value IS NULL"
+                            : "id = " + id + " AND value = TIMESTAMP '" + stored[index] + "'";
+            if (countTimestampRows(tableName, where) != 1) {
+                mismatches.add(
+                        zones[index]
+                                + ", id "
+                                + id
+                                + ", bound '"
+                                + bound[index]
+                                + "', expected '"
+                                + stored[index]
+                                + "' but stored '"
+                                + readTimestampText(tableName, id)
+                                + "'");
+            }
+        }
+        Assertions.assertTrue(mismatches.isEmpty(), String.join("; ", mismatches));
+    }
+
+    /** Reads one stored timestamp through DuckDB's own text rendering. */
+    private String readTimestampText(String table, int id) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                String.format(
+                                        "SELECT value::VARCHAR FROM \"%s\".\"%s\" WHERE id = %d",
+                                        SCHEMA_NAME, table, id))) {
+            Assertions.assertTrue(result.next(), table + ", id " + id);
+            String text = result.getString(1);
+            Assertions.assertFalse(result.next(), table + ", id " + id + ", duplicate row");
+            return text;
+        }
+    }
+
     /** A timestamp column whose declared precision is the only information the sink DDL gets. */
     private Column timestampColumn(String name, int scale) {
         return PhysicalColumn.builder()

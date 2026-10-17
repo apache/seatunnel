@@ -37,7 +37,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.Calendar;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.TimeZone;
 
@@ -46,7 +51,19 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
-    private static final int NANOS_PER_MICROSECOND = 1_000;
+    /**
+     * Renders a local timestamp as text that the tested DuckDB JDBC driver parses exactly: always
+     * with seconds and an optional fraction, and never with the {@code +} sign the formatter would
+     * otherwise add to a year of more than four digits, because DuckDB rejects that form.
+     */
+    private static final DateTimeFormatter ISO_LOCAL_TIMESTAMP =
+            new DateTimeFormatterBuilder()
+                    .appendValue(ChronoField.YEAR, 4, 10, SignStyle.NORMAL)
+                    .appendPattern("-MM-dd HH:mm:ss")
+                    .optionalStart()
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .optionalEnd()
+                    .toFormatter(Locale.ROOT);
 
     /** Set once per reader so the remaining historical limitation is not logged per row. */
     private transient boolean aliasTimestampFallbackWarned;
@@ -142,13 +159,16 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     /**
-     * Binds a timestamp that carries sub-microsecond digits as ISO-8601 text.
+     * Binds a local timestamp as timestamp text, which the tested DuckDB JDBC driver (1.3.1.0)
+     * stores unchanged.
      *
-     * <p>The tested DuckDB JDBC driver (1.3.1.0) binds {@code setTimestamp} and the typed {@code
-     * setObject} through a microsecond conversion, so such a value loses its last digits even in a
-     * {@code TIMESTAMP_NS} column. Text reaches DuckDB unchanged and is cast to the target column
-     * type, which keeps all nine digits. Values a microsecond binding already represents exactly,
-     * and all other data types, keep the base behaviour.
+     * <p>The driver converts both {@code setTimestamp} and the typed {@code setObject} binding
+     * through the JVM default zone. A local time inside a DST gap is therefore moved forward by the
+     * transition, the 1582 Gregorian cutover is normalized even when the JVM runs in UTC, and the
+     * conversion is lossy below the microsecond. Text reaches DuckDB unchanged and is cast to the
+     * target column type, which leaves the stored wall clock intact and keeps every digit up to the
+     * target column's precision. A SQL {@code NULL} is bound by the base class before this method
+     * is called, and every other data type keeps the base behaviour.
      */
     @Override
     protected void setValueToStatementByDataType(
@@ -158,10 +178,8 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
             int statementIndex,
             @Nullable String sourceType)
             throws SQLException {
-        if (value instanceof LocalDateTime
-                && seaTunnelDataType.getSqlType() == SqlType.TIMESTAMP
-                && ((LocalDateTime) value).getNano() % NANOS_PER_MICROSECOND != 0) {
-            statement.setString(statementIndex, value.toString());
+        if (value instanceof LocalDateTime && seaTunnelDataType.getSqlType() == SqlType.TIMESTAMP) {
+            statement.setString(statementIndex, ISO_LOCAL_TIMESTAMP.format((LocalDateTime) value));
             return;
         }
         super.setValueToStatementByDataType(
