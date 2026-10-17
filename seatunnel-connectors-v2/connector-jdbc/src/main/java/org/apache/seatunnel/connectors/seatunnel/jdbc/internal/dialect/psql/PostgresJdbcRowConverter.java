@@ -61,8 +61,11 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOMETRY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_JSON;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_JSONB;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR8;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_UUID;
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
@@ -241,6 +244,14 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             networkTypeObject.setType(sourceType);
                             networkTypeObject.setValue(String.valueOf(row.getField(fieldIndex)));
                             statement.setObject(statementIndex, networkTypeObject);
+                        } else if (PG_JSON.equalsIgnoreCase(sourceType)
+                                || PG_JSONB.equalsIgnoreCase(sourceType)
+                                || PG_UUID.equalsIgnoreCase(sourceType)) {
+                            setJsonOrUuid(
+                                    statement,
+                                    statementIndex,
+                                    sourceType,
+                                    String.valueOf(row.getField(fieldIndex)));
                         } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
                             PGobject intervalObject = new PGobject();
                             intervalObject.setType(PG_INTERVAL);
@@ -457,6 +468,15 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             return null;
         }
         return parsePostgresTimestampTz(str);
+    }
+
+    protected void setJsonOrUuid(
+            PreparedStatement statement, int index, String sourceType, String value)
+            throws SQLException {
+        PGobject typedObject = new PGobject();
+        typedObject.setType(sourceType.toLowerCase(Locale.ROOT));
+        typedObject.setValue(value);
+        statement.setObject(index, typedObject);
     }
 
     private String normalizeIsoTimestamp(String value) {
