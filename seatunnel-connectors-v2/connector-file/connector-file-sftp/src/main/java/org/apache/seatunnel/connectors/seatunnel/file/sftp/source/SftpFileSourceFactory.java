@@ -94,6 +94,7 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(
                         FileBaseSourceOptions.SHEET_NAME,
                         FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.EXCEL_USE_HEADER_LINE,
                         FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
