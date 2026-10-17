@@ -59,7 +59,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Real PostgreSQL-driver and CockroachDB coverage; run with -DskipIT=false. */
-class CockroachDBDialectIT {
+class TestCockroachDBDialectIT {
     private static GenericContainer<?> database;
     private static String url;
     private final JdbcDialect dialect = new CockroachDBDialect();
