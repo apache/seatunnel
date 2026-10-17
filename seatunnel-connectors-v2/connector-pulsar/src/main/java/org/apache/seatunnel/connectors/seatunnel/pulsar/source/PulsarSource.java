@@ -267,8 +267,7 @@ public class PulsarSource
         String format = tableConfig.getFormat();
         switch (format.toUpperCase()) {
             case "JSON":
-                return new JsonDeserializationSchema(
-                        false, false, catalogTable.getSeaTunnelRowType());
+                return new JsonDeserializationSchema(catalogTable, false, false);
             case "CANAL_JSON":
                 return new PulsarCanalDecorator(
                         CanalJsonDeserializationSchema.builder(catalogTable)
