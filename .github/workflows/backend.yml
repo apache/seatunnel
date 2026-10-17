@@ -207,6 +207,12 @@ jobs:
     timeout-minutes: 20
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      shared: ${{ steps.filter.outputs.shared }}
+      translation: ${{ steps.filter.outputs.translation }}
+      translation-base: ${{ steps.filter.outputs.translation-base }}
+      translation-flink: ${{ steps.filter.outputs.translation-flink }}
+      translation-spark: ${{ steps.filter.outputs.translation-spark }}
+      run-engines: ${{ steps.run-engines.outputs.engines || '["flink","spark","zeta"]' }}
       engine: ${{ steps.filter.outputs.engine }}
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
@@ -319,23 +325,86 @@ jobs:
           echo "standalone=$true_or_false" >> $GITHUB_OUTPUT
           echo "standalone_files=$file_list" >> $GITHUB_OUTPUT
 
-          api_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-translation/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
-          true_or_false=${api_files%%$'\n'*}
-          file_list=${api_files#*$'\n'}
+          shared_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
+          shared=${shared_files%%$'\n'*}
+          shared_file_list=${shared_files#*$'\n'}
+
+          # Broad probe: any translation change keeps the API trigger.
+          translation_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/**"`
+          translation=${translation_files%%$'\n'*}
+
+          # The broad glob also matches the engine sub-modules, so the engine scope uses narrowed
+          # probes: the base module is shared by the Flink and Spark translators, while the Flink
+          # and Spark translators are engine specific.
+          translation_base_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/pom.xml" "seatunnel-translation/seatunnel-translation-base/**"`
+          translation_base=${translation_base_files%%$'\n'*}
+
+          translation_flink_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/seatunnel-translation-flink/**"`
+          translation_flink=${translation_flink_files%%$'\n'*}
+
+          translation_spark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/seatunnel-translation-spark/**"`
+          translation_spark=${translation_spark_files%%$'\n'*}
+
           # Apache dev, main, master, and numeric *-release pushes force full API coverage.
           # On fork pushes, workflow files, tools/update_modules_check, seatunnel-dist, and
           # bin/install-plugin.sh do not trigger the full connector matrix by themselves.
           ci_scope_ref="${GITHUB_BASE_REF:-$GITHUB_REF}"
-          if ! true_or_false=$(python tools/update_modules_check/ci_scope.py "$repository_owner" "$ci_scope_ref" --api-changed "$true_or_false" --api-files-json "$file_list"); then
+          if ! shared=$(python tools/update_modules_check/ci_scope.py "$repository_owner" "$ci_scope_ref" --api-changed "$shared" --api-files-json "$shared_file_list"); then
             echo "::warning::CI scope helper failed; forcing full API coverage"
-            true_or_false='true'
+            shared='true'
           fi
-          if [[ $true_or_false != 'true' && $true_or_false != 'false' ]]; then
+          if [[ $shared != 'true' && $shared != 'false' ]]; then
             echo "::warning::CI scope helper returned an invalid value; forcing full API coverage"
+            shared='true'
+          fi
+          # The translation adapters are the only API-scoped code that is not shared by every
+          # engine, so the API trigger is the union of the shared and the translation groups.
+          true_or_false='false'
+          if [[ $shared == 'true' || $translation == 'true' ]]; then
             true_or_false='true'
           fi
+          echo "shared=$shared" >> $GITHUB_OUTPUT
+          echo "shared_files=$shared_file_list" >> $GITHUB_OUTPUT
+          echo "translation=$translation" >> $GITHUB_OUTPUT
+          echo "translation-base=$translation_base" >> $GITHUB_OUTPUT
+          echo "translation-flink=$translation_flink" >> $GITHUB_OUTPUT
+          echo "translation-spark=$translation_spark" >> $GITHUB_OUTPUT
           echo "api=$true_or_false" >> $GITHUB_OUTPUT
-          echo "api_files=$file_list" >> $GITHUB_OUTPUT
+          echo "api_files=$shared_file_list" >> $GITHUB_OUTPUT
+
+      - name: Decide engines to run
+        id: run-engines
+        env:
+          SHARED: ${{ steps.filter.outputs.shared }}
+          CONNECTORS: ${{ steps.filter.outputs.cv2 }}
+          CONNECTOR_E2E: ${{ steps.filter.outputs.cv2-e2e }}
+          DIST: ${{ steps.filter.outputs.dist }}
+          STANDALONE: ${{ steps.filter.outputs.standalone }}
+          TRANSLATION_BASE: ${{ steps.filter.outputs.translation-base }}
+          TRANSLATION_FLINK: ${{ steps.filter.outputs.translation-flink }}
+          TRANSLATION_SPARK: ${{ steps.filter.outputs.translation-spark }}
+          ENGINE: ${{ steps.filter.outputs.engine }}
+          ENGINE_E2E: ${{ steps.filter.outputs.engine-e2e }}
+        run: |
+          # Every E2E job passes this list to the tests as RUN_ENGINES, so a job only starts the
+          # containers of the engines the change can affect. Unknown or empty scopes keep every
+          # engine, and tools/update_modules_check/run_engines.py owns the mapping rules.
+          if ! engines=$(python tools/update_modules_check/run_engines.py \
+              --shared "${SHARED:-false}" \
+              --connectors "${CONNECTORS:-false}" \
+              --connector-e2e "${CONNECTOR_E2E:-false}" \
+              --dist "${DIST:-false}" \
+              --standalone "${STANDALONE:-false}" \
+              --translation-base "${TRANSLATION_BASE:-false}" \
+              --translation-flink "${TRANSLATION_FLINK:-false}" \
+              --translation-spark "${TRANSLATION_SPARK:-false}" \
+              --engine "${ENGINE:-false}" \
+              --engine-e2e "${ENGINE_E2E:-false}"); then
+            echo "::warning::Engine scope helper failed; running every engine"
+            engines='["flink","spark","zeta"]'
+          fi
+          echo "Run engines: $engines"
+          echo "engines=$engines" >> "$GITHUB_OUTPUT"
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -695,12 +764,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-1')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -733,12 +804,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-2')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -771,6 +844,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-3')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -809,12 +884,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-4')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 200
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -846,12 +923,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-5')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -883,12 +962,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-6')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -920,12 +1001,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-7')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -958,12 +1041,14 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-8')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1101,6 +1186,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1136,6 +1222,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1174,6 +1261,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1211,6 +1299,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1248,6 +1337,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1285,6 +1375,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1322,6 +1413,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1359,6 +1451,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1396,6 +1489,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1433,6 +1527,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1467,6 +1562,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1501,6 +1597,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1538,6 +1635,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1572,6 +1670,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1606,6 +1705,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1640,6 +1740,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1674,6 +1775,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1708,6 +1810,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1742,6 +1845,7 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1773,6 +1877,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1805,6 +1911,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1836,6 +1944,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-google-pubsub-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1867,6 +1977,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1898,6 +2010,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1929,6 +2043,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-elasticsearch-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1960,6 +2076,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-mysql-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -1991,6 +2109,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2022,6 +2142,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2053,6 +2175,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2089,6 +2213,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-local-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2120,6 +2246,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-sftp-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2151,6 +2279,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
@@ -2182,6 +2312,8 @@ jobs:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-sensorsdata-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
