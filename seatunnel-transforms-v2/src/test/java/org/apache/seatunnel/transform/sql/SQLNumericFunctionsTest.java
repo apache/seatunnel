@@ -71,6 +71,34 @@ public class SQLNumericFunctionsTest {
     }
 
     @Test
+    public void testSmallIntegerNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ABS(tiny_v) as abs_tiny,"
+                                + " SIGN(small_v) as sign_small,"
+                                + " ROUND(tiny_v, -1) as round_tiny,"
+                                + " CEIL(tiny_v, -1) as ceil_tiny,"
+                                + " FLOOR(tiny_v, -1) as floor_tiny,"
+                                + " TRUNC(tiny_v, -1) as trunc_tiny"
+                                + " from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -12);
+
+        Assertions.assertEquals((byte) 44, outRow.getField(0));
+        Assertions.assertEquals(-1, outRow.getField(1));
+        Assertions.assertEquals((byte) -40, outRow.getField(2));
+        Assertions.assertEquals((byte) -40, outRow.getField(3));
+        Assertions.assertEquals((byte) -50, outRow.getField(4));
+        Assertions.assertEquals((byte) -40, outRow.getField(5));
+    }
+
+    @Test
     public void testModAndRound() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
