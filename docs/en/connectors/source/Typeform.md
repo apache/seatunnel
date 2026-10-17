@@ -102,4 +102,7 @@ use to deduplicate or upsert, but the connector provides no delivery guarantee.
 
 Typeform notes that responses from roughly the last 30 minutes may not be returned yet.
 
+The whole form is read in one uninterrupted pass, with a short pause between requests, so on a very
+large form checkpoint triggering waits until the read finishes.
+
 <ChangeLog />

@@ -19,12 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.typeform;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
@@ -80,7 +80,7 @@ public class TypeformSourceReader extends HttpSourceReader {
             }
             if (attempt > maxRetries) {
                 throw new HttpConnectorException(
-                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        HttpConnectorErrorCode.REQUEST_FAILED,
                         String.format(
                                 "Typeform request failed with HTTP %d after %d attempt(s) (retry=%d)",
                                 code, attempt, maxRetries));
