@@ -1371,6 +1371,9 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
         final long checkpointId = completedCheckpoint.getCheckpointId();
+        if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
+            checkAcknowledgedStatesPresent(completedCheckpoint);
+        }
         completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
@@ -1434,6 +1437,47 @@ public class CheckpointCoordinator {
                 checkpointCoordinatorFuture.complete(
                         new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
             }
+        }
+    }
+
+    /**
+     * Fails the checkpoint instead of storing it when a task that acknowledged it has no state in
+     * it: restoring from such a checkpoint would silently start that subtask without its state.
+     */
+    private void checkAcknowledgedStatesPresent(CompletedCheckpoint completedCheckpoint) {
+        PendingCheckpoint pendingCheckpoint =
+                pendingCheckpoints.get(completedCheckpoint.getCheckpointId());
+        if (pendingCheckpoint == null) {
+            return;
+        }
+        Set<Long> acknowledgedTasks = pendingCheckpoint.getAcknowledgedTasks();
+        List<String> missingStates = new ArrayList<>();
+        for (Map.Entry<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> entry :
+                plan.getSubtaskActions().entrySet()) {
+            if (!acknowledgedTasks.contains(entry.getKey().getTaskID())) {
+                continue;
+            }
+            for (Tuple2<ActionStateKey, Integer> action : entry.getValue()) {
+                ActionState actionState = completedCheckpoint.getTaskStates().get(action.f0());
+                if (actionState == null) {
+                    continue;
+                }
+                ActionSubtaskState state =
+                        COORDINATOR_INDEX.equals(action.f1())
+                                ? actionState.getCoordinatorState()
+                                : actionState.getSubtaskStates().get(action.f1());
+                if (state == null) {
+                    missingStates.add(action.f0().getName() + "[" + action.f1() + "]");
+                }
+            }
+        }
+        if (!missingStates.isEmpty()) {
+            sneakyThrow(
+                    new CheckpointException(
+                            String.format(
+                                    "Checkpoint %s has no state for acknowledged subtasks %s.",
+                                    completedCheckpoint.getCheckpointId(), missingStates),
+                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR));
         }
     }
 

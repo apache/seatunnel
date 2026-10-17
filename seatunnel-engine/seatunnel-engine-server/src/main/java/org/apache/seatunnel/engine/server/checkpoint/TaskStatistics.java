@@ -47,16 +47,15 @@ public class TaskStatistics implements Serializable {
         this.subtaskCompleted = new boolean[parallelism];
     }
 
-    boolean reportSubtaskStatistics(SubtaskStatistics subtask) {
+    boolean reportSubtaskStatistics(int slot, SubtaskStatistics subtask) {
         checkNotNull(subtask, "Subtask stats");
-        int subtaskIndex = subtask.getSubtaskIndex();
 
-        if (subtaskIndex < 0 || subtaskIndex >= subtaskStats.size()) {
+        if (slot < 0 || slot >= subtaskStats.size()) {
             return false;
         }
 
-        if (subtaskStats.get(subtaskIndex) == null) {
-            subtaskStats.set(subtaskIndex, subtask);
+        if (subtaskStats.get(slot) == null) {
+            subtaskStats.set(slot, subtask);
             numAcknowledgedSubtasks++;
             latestAckedSubtaskStatistics = subtask;
             return true;
