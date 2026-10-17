@@ -47,7 +47,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | key_value                   | String | 是       | -      | 上游数据中保存 Prometheus 指标值的字段名。推荐使用 `double` 类型字段。 |
 | key_timestamp               | String | 否       | -      | 上游数据中保存 Prometheus 指标时间戳的字段名。不配置时使用当前系统时间。 |
 | headers                     | Map    | 否       | -      | HTTP 请求头。 |
-| retry                       | Int    | 否       | 3      | remote-write 请求失败时的最大重试次数。会重试传输层 `IOException` 以及可重试的 HTTP 状态码（`5xx` 和 `429`）；其他 `4xx` 响应会快速失败。设为 `0` 可禁用重试。 |
+| retry                       | Int    | 否       | -      | remote-write 请求失败时的最大重试次数。默认未设置：请求只尝试一次，不进行重试。重试会覆盖传输层 `IOException` 以及可重试的 HTTP 状态码（`5xx` 和 `429`）；其他 `4xx` 响应会快速失败。设为 `0` 可显式禁用重试。 |
 | retry_backoff_multiplier_ms | Int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
 | batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前缓存的行数，必须大于 0。 |

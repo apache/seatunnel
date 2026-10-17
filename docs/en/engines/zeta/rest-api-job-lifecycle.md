@@ -149,7 +149,7 @@ Response fields:
 |---|---|
 | `jobId` | Unique job identifier |
 | `jobName` | Human-readable job name |
-| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELLED` |
+| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELED` |
 | `envOptions` | Env configuration applied |
 | `createTime` | Job creation timestamp |
 | `jobDag` | DAG structure |
@@ -225,12 +225,9 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log and returned in the job final state:
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+The savepoint data is written to the checkpoint storage under the directory of the given job
+(`jobId`). The exact location depends on the configured `checkpoint.storage` namespace; the savepoint
+trigger is also recorded in the engine server log.
 
 ### 5.3 Cancel (force)
 
@@ -325,22 +322,12 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 Restart from a specific savepoint path
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+### 6.3 About choosing a specific savepoint
+
+Restoring from an arbitrary savepoint path is not supported. The engine always restores a job from
+the latest savepoint (or latest completed checkpoint with `restoreMode=CHECKPOINT`) of the source
+job selected via `restoreSourceJobId`, as shown in sections 6.1 and 6.2. Older state data of the
+source job can be cleaned up manually from the checkpoint storage if no longer needed.
 
 ---
 

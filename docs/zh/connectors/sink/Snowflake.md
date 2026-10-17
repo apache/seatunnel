@@ -43,14 +43,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT<br/>INTEGER                                                             | INT                |
 | BIGINT                                                                      | LONG               |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
-| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
+| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, s)     |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES              |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP          |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ       |
+| BINARY<br/>VARBINARY                                                        | BYTES              |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
 
 ## 选项
 

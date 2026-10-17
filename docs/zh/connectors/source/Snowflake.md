@@ -45,16 +45,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | INT<br/>INTEGER                                                             | INT                |
 | BIGINT                                                                      | LONG               |
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
-| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
+| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, s)     |
 | REAL<br/>FLOAT4                                                             | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
 | DATE                                                                        | DATE               |
 | TIME                                                                        | TIME               |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP          |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ       |
 | BINARY<br/>VARBINARY                                                        | BYTES              |
-| GEOGRAPHY (WKB 或 EWKB)<br/>GEOMETRY (WKB 或 EWKB)                          | BYTES              |
-| GEOGRAPHY (GeoJSON, WKT 或 EWKT)<br/>GEOMETRY (GeoJSON, WKB 或 EWKB)        | STRING             |
+| GEOGRAPHY<br/>GEOMETRY                                                      | STRING             |
 
 ## 源选项
 
@@ -64,7 +64,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver                       | String     | 是      | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
 | username                     | String     | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
 | password                     | String     | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
-| query                        | String     | 是      | -       | 读取数据的 SELECT 语句。SELECT 的列列表决定输出 schema，只选择需要的列即可。                                                                                                          |
+| query                        | String     | 否      | -       | 读取数据的 SELECT 语句。未配置 `table_path` 或 `table_list` 时必填。SELECT 的列列表决定输出 schema，只选择需要的列即可。                                                                                                          |
 | connection_check_timeout_sec | Int        | 否       | 30      | 连接校验超时时间（秒），超过该时间未完成则失败。                                                                                                                                    |
 | partition_column             | String     | 否       | -       | 用于并行拆分读取的列。支持数值列和字符串列（配合 `split.string_split_mode` 使用）；只能配置一列。                                                                                    |
 | partition_lower_bound        | String     | 否       | -       | `partition_column` 的下界，用于范围拆分；不设置时 SeaTunnel 查询最小值。                                                                                                            |
