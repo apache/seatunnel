@@ -280,7 +280,6 @@ public class JdbcDmIT extends AbstractJdbcIT {
                         statement.executeQuery(
                                 "SELECT LTZ_VALUE, IYM_VALUE, IDS_VALUE FROM " + tableInfo)) {
                     Assertions.assertTrue(resultSet.next());
-                    String ltzDriverString = resultSet.getString("LTZ_VALUE");
                     String iymDriverString = resultSet.getString("IYM_VALUE");
                     String idsDriverString = resultSet.getString("IDS_VALUE");
                     SeaTunnelRow row =
