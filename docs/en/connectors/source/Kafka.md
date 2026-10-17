@@ -68,7 +68,14 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional formats include text, canal_json, debezium_json, maxwell_json, ogg_json, avro, protobuf, native, and custom_cdc_json. See [formats](../formats) for format details. |
+| schema_list                         | List                                                                       | Yes for `custom_cdc_json` | -       | Output table definitions for `custom_cdc_json`. Each entry requires `table` and `columns`, and can set `json_field` to map an output column to a JSONPath in the before/after image. |
+| schema_path                         | String                                                                     | No       | -                        | JSONPath for the schema name in a `custom_cdc_json` message. Use it when configured table names are schema-qualified. |
+| table_path                          | String                                                                     | Yes for `custom_cdc_json` | -       | JSONPath for the table name in a `custom_cdc_json` message. |
+| operation_path                      | String                                                                     | Yes for `custom_cdc_json` | -       | JSONPath for the change operation in a `custom_cdc_json` message. |
+| custom_cdc_operation_type_mapping   | Map                                                                        | No       | built-in mapping         | Maps the operation value to `INSERT`, `UPDATE`, `DELETE`, `UPDATE_BEFORE`, or `UPDATE_AFTER`. By default, `c`/`r`/`create`/`insert`, `u`/`update`, and `d`/`delete` are recognized. |
+| before_path                         | String                                                                     | Yes for `custom_cdc_json` | -       | JSONPath for the before image in a `custom_cdc_json` message. |
+| after_path                          | String                                                                     | Yes for `custom_cdc_json` | -       | JSONPath for the after image in a `custom_cdc_json` message. |
 | avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
 | value_converter_schema_enabled      | Boolean                                                                    | No       | true                     | Effective only when `format = compatible_kafka_connect_json`. Whether the Kafka Connect value converter carries its schema in the JSON payload.                                                                                                                                                                                                                                                                                                                                                       |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
@@ -128,6 +135,37 @@ debezium_record_table_filter {
 ```
 
 Only the data of the `test.public.products` table will be consumed.
+
+### custom_cdc_json
+
+`custom_cdc_json` reads CDC envelopes whose field names and nesting do not match a built-in CDC format. It routes each record to the matching table in `schema_list`, maps fields with JSONPath, and emits the appropriate row kind. `UPDATE` emits an `UPDATE_BEFORE` row followed by an `UPDATE_AFTER` row. Messages for unconfigured tables are skipped.
+
+`kafka_headers_fields` is not supported for this format because the output schema is table-specific.
+
+```hocon
+source {
+  Kafka {
+    topic = "custom-cdc"
+    bootstrap.servers = "kafka:9092"
+    format = "custom_cdc_json"
+    schema_path = "$.schema"
+    table_path = "$.table"
+    operation_path = "$.operation"
+    before_path = "$.payload.before"
+    after_path = "$.payload.after"
+    schema_list = [
+      {
+        table = "public.customer"
+        columns = [
+          { name = "id", type = "int", nullable = false },
+          { name = "name", type = "string", nullable = true }
+        ]
+        json_field = { name = "$.customer_name" }
+      }
+    ]
+  }
+}
+```
 
 ## Metadata Support
 

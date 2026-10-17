@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.MetadataColumn;
 import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -49,6 +50,7 @@ import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJso
 import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.customcdc.CustomCdcJsonSourceDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -64,13 +66,16 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.HEADERS;
@@ -80,28 +85,38 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseCo
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.VALUE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.AFTER_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.AVRO_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.BEFORE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.CUSTOM_CDC_OPERATION_TYPE_MAPPING;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.JSON_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_POLL_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.OPERATION_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PROTOBUF_MESSAGE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PROTOBUF_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.READER_CACHE_QUEUE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.SCHEMA_LIST;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.SCHEMA_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_END_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TABLE_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TOPIC;
 
 public class KafkaSourceConfig implements Serializable {
@@ -174,28 +189,51 @@ public class KafkaSourceConfig implements Serializable {
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
         consumerMetadata.setProperties(new Properties());
 
-        CatalogTable baseCatalogTable = createCatalogTable(readonlyConfig);
+        MessageFormat format = readonlyConfig.get(FORMAT);
         List<String> headerFields =
                 readonlyConfig
                         .getOptional(KafkaSourceOptions.KAFKA_HEADERS_FIELDS)
                         .orElse(Collections.emptyList());
-        MessageFormat format = readonlyConfig.get(FORMAT);
+
+        List<CatalogTable> catalogTables;
+        Map<TablePath, Map<String, String>> jsonFieldMappings = Collections.emptyMap();
+        Set<TablePath> simpleTablePaths = Collections.emptySet();
+        if (format == MessageFormat.CUSTOM_CDC_JSON) {
+            if (!headerFields.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "kafka_headers_fields cannot be used with CUSTOM_CDC_JSON because its output schemas are table-specific.");
+            }
+            CustomCdcTopicMetadata customCdcTopicMetadata =
+                    createCustomCdcTopicMetadata(readonlyConfig);
+            catalogTables = customCdcTopicMetadata.getCatalogTables();
+            jsonFieldMappings = customCdcTopicMetadata.getJsonFieldMappings();
+            simpleTablePaths = customCdcTopicMetadata.getSimpleTablePaths();
+        } else {
+            catalogTables = Collections.singletonList(createCatalogTable(readonlyConfig));
+        }
 
         boolean applyHeaderFields = !headerFields.isEmpty() && format != MessageFormat.NATIVE;
 
         DeserializationSchema<SeaTunnelRow> schema =
-                createDeserializationSchema(baseCatalogTable, readonlyConfig, headerFields);
+                createDeserializationSchema(
+                        catalogTables,
+                        readonlyConfig,
+                        headerFields,
+                        jsonFieldMappings,
+                        simpleTablePaths);
 
-        CatalogTable outputCatalogTable =
+        List<CatalogTable> outputCatalogTables =
                 applyHeaderFields
-                        ? extendCatalogTableWithHeaderFields(baseCatalogTable, headerFields)
-                        : baseCatalogTable;
+                        ? Collections.singletonList(
+                                extendCatalogTableWithHeaderFields(
+                                        catalogTables.get(0), headerFields))
+                        : catalogTables;
 
         if (!headerFields.isEmpty() && format == MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON) {
             consumerMetadata.setKafkaHeaderFields(headerFields);
         }
 
-        consumerMetadata.setCatalogTable(outputCatalogTable);
+        consumerMetadata.setCatalogTables(outputCatalogTables);
         consumerMetadata.setDeserializationSchema(schema);
 
         // parse start mode
@@ -258,6 +296,89 @@ public class KafkaSourceConfig implements Serializable {
         return consumerMetadata;
     }
 
+    private CustomCdcTopicMetadata createCustomCdcTopicMetadata(ReadonlyConfig readonlyConfig) {
+        validateCustomCdcConfig(readonlyConfig);
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        Map<TablePath, Map<String, String>> jsonFieldMappings = new HashMap<>();
+        Set<TablePath> simpleTablePaths = new HashSet<>();
+        Set<TablePath> configuredTablePaths = new HashSet<>();
+
+        for (Map<String, Object> schemaMap : readonlyConfig.get(SCHEMA_LIST)) {
+            ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
+            String rawTableName = schemaConfig.get(TABLE);
+            if (StringUtils.isBlank(rawTableName)) {
+                throw new IllegalArgumentException(
+                        "Each CUSTOM_CDC_JSON schema_list entry must define a non-blank table.");
+            }
+
+            TablePath tablePath = TablePath.of(rawTableName);
+            if (tablePath.getDatabaseName() == null) {
+                tablePath = TablePath.of("default", tablePath.getTableName());
+            }
+            if (!configuredTablePaths.add(tablePath)) {
+                throw new IllegalArgumentException(
+                        "CUSTOM_CDC_JSON schema_list contains duplicate table: " + tablePath);
+            }
+            if (isSimpleTableName(rawTableName)) {
+                simpleTablePaths.add(tablePath);
+            }
+
+            List<Map<String, Object>> columnConfigs = schemaConfig.get(COLUMNS);
+            if (columnConfigs == null || columnConfigs.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "CUSTOM_CDC_JSON schema_list entry "
+                                + rawTableName
+                                + " must define non-empty columns.");
+            }
+            Map<String, Object> schemaDefinition = new HashMap<>();
+            schemaDefinition.put(COLUMNS.key(), columnConfigs);
+            Map<String, Object> schemaWrapper = new HashMap<>();
+            schemaWrapper.put(ConnectorCommonOptions.SCHEMA.key(), schemaDefinition);
+            List<Column> columns =
+                    new ReadonlyConfigParser()
+                            .parse(ReadonlyConfig.fromMap(schemaWrapper))
+                            .getColumns();
+            CatalogTable catalogTable =
+                    addKafkaEventTimeMetadata(
+                            CatalogTable.of(
+                                    TableIdentifier.of("", tablePath),
+                                    TableSchema.builder().columns(columns).build(),
+                                    Collections.emptyMap(),
+                                    Collections.emptyList(),
+                                    null));
+            catalogTables.add(catalogTable);
+            jsonFieldMappings.put(
+                    tablePath,
+                    new HashMap<>(
+                            schemaConfig.getOptional(JSON_FIELD).orElse(Collections.emptyMap())));
+        }
+        return new CustomCdcTopicMetadata(catalogTables, jsonFieldMappings, simpleTablePaths);
+    }
+
+    private void validateCustomCdcConfig(ReadonlyConfig readonlyConfig) {
+        List<Map<String, Object>> schemaList = readonlyConfig.get(SCHEMA_LIST);
+        if (schemaList == null || schemaList.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "CUSTOM_CDC_JSON requires a non-empty schema_list configuration.");
+        }
+        requireNonBlankCustomCdcOption(readonlyConfig, TABLE_PATH);
+        requireNonBlankCustomCdcOption(readonlyConfig, OPERATION_PATH);
+        requireNonBlankCustomCdcOption(readonlyConfig, BEFORE_PATH);
+        requireNonBlankCustomCdcOption(readonlyConfig, AFTER_PATH);
+    }
+
+    private void requireNonBlankCustomCdcOption(
+            ReadonlyConfig readonlyConfig,
+            org.apache.seatunnel.api.configuration.Option<String> option) {
+        if (!readonlyConfig.getOptional(option).filter(StringUtils::isNotBlank).isPresent()) {
+            throw new IllegalArgumentException("CUSTOM_CDC_JSON requires " + option.key());
+        }
+    }
+
+    private boolean isSimpleTableName(String rawTableName) {
+        return StringUtils.countMatches(rawTableName, ".") == 0;
+    }
+
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(KafkaSourceOptions.SCHEMA);
@@ -296,7 +417,10 @@ public class KafkaSourceConfig implements Serializable {
                         Collections.emptyList(),
                         null);
 
-        // Expose Kafka record timestamp as metadata 'EventTime' for Metadata transform
+        return addKafkaEventTimeMetadata(catalogTable);
+    }
+
+    private CatalogTable addKafkaEventTimeMetadata(CatalogTable catalogTable) {
         MetadataSchema metadataSchema =
                 MetadataSchema.builder()
                         .column(
@@ -309,7 +433,6 @@ public class KafkaSourceConfig implements Serializable {
                                         null,
                                         null))
                         .build();
-
         return CatalogTable.withMetadata(catalogTable, metadataSchema);
     }
 
@@ -333,7 +456,12 @@ public class KafkaSourceConfig implements Serializable {
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
-            CatalogTable catalogTable, ReadonlyConfig readonlyConfig, List<String> headerFields) {
+            List<CatalogTable> catalogTables,
+            ReadonlyConfig readonlyConfig,
+            List<String> headerFields,
+            Map<TablePath, Map<String, String>> jsonFieldMappings,
+            Set<TablePath> simpleTablePaths) {
+        CatalogTable catalogTable = catalogTables.get(0);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         MessageFormat format = readonlyConfig.get(FORMAT);
 
@@ -343,7 +471,8 @@ public class KafkaSourceConfig implements Serializable {
             schema =
                     new NativeKafkaConnectDeserializationSchema(
                             catalogTable, false, false, false, false);
-        } else if (!readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+        } else if (format != MessageFormat.CUSTOM_CDC_JSON
+                && !readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             schema =
                     TextDeserializationSchema.builder()
                             .seaTunnelRowType(seaTunnelRowType)
@@ -446,6 +575,23 @@ public class KafkaSourceConfig implements Serializable {
                         schema = new ProtobufDeserializationSchema(catalogTable);
                     }
                     break;
+                case CUSTOM_CDC_JSON:
+                    schema =
+                            CustomCdcJsonSourceDeserializationSchema.builder(catalogTables)
+                                    .setJsonFieldMappings(jsonFieldMappings)
+                                    .setSimpleTablePaths(simpleTablePaths)
+                                    .setSchemaPath(
+                                            readonlyConfig.getOptional(SCHEMA_PATH).orElse(null))
+                                    .setTablePath(readonlyConfig.get(TABLE_PATH))
+                                    .setOperationPath(readonlyConfig.get(OPERATION_PATH))
+                                    .setOperationTypeMapping(
+                                            readonlyConfig
+                                                    .getOptional(CUSTOM_CDC_OPERATION_TYPE_MAPPING)
+                                                    .orElse(Collections.emptyMap()))
+                                    .setBeforePath(readonlyConfig.get(BEFORE_PATH))
+                                    .setAfterPath(readonlyConfig.get(AFTER_PATH))
+                                    .build();
+                    break;
                 default:
                     throw new SeaTunnelJsonFormatException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -507,6 +653,22 @@ public class KafkaSourceConfig implements Serializable {
                 catalogTable.getComment(),
                 catalogTable.getCatalogName(),
                 catalogTable.getMetadataSchema());
+    }
+
+    @Getter
+    private static class CustomCdcTopicMetadata {
+        private final List<CatalogTable> catalogTables;
+        private final Map<TablePath, Map<String, String>> jsonFieldMappings;
+        private final Set<TablePath> simpleTablePaths;
+
+        private CustomCdcTopicMetadata(
+                List<CatalogTable> catalogTables,
+                Map<TablePath, Map<String, String>> jsonFieldMappings,
+                Set<TablePath> simpleTablePaths) {
+            this.catalogTables = catalogTables;
+            this.jsonFieldMappings = jsonFieldMappings;
+            this.simpleTablePaths = simpleTablePaths;
+        }
     }
 
     private TableSchema nativeTableSchema() {

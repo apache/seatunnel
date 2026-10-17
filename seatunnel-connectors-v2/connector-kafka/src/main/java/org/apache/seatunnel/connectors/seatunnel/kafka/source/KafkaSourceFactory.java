@@ -67,6 +67,13 @@ public class KafkaSourceFactory implements TableSourceFactory, SupportSourceDryR
                         KafkaSourceOptions.AVRO_SCHEMA,
                         KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA,
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
+                        KafkaSourceOptions.SCHEMA_PATH,
+                        KafkaSourceOptions.TABLE_PATH,
+                        KafkaSourceOptions.OPERATION_PATH,
+                        KafkaSourceOptions.CUSTOM_CDC_OPERATION_TYPE_MAPPING,
+                        KafkaSourceOptions.BEFORE_PATH,
+                        KafkaSourceOptions.AFTER_PATH,
+                        KafkaSourceOptions.SCHEMA_LIST,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         KafkaSourceOptions.READER_CACHE_QUEUE_SIZE,
                         KafkaSourceOptions.KAFKA_HEADERS_FIELDS)
@@ -123,7 +130,8 @@ public class KafkaSourceFactory implements TableSourceFactory, SupportSourceDryR
     public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
         return new KafkaSourceConfig(context.getOptions())
                 .getMapMetadata().values().stream()
-                        .map(ConsumerMetadata::getCatalogTable)
+                        .map(ConsumerMetadata::getCatalogTables)
+                        .flatMap(List::stream)
                         .collect(Collectors.toList());
     }
 
