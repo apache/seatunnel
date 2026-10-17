@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Triple;
 
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,8 +30,6 @@ import lombok.RequiredArgsConstructor;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
@@ -42,7 +40,12 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
 
-    @NonNull private final LinkedHashMap<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> buffer =
+    /**
+     * Buffered rows by key, so that only the last change of a key is written. The value holds the
+     * change flag, the key row and the value row. A key with a NULL field is buffered under a
+     * unique identity instead, see {@link #bufferKey(SeaTunnelRow)}.
+     */
+    @NonNull private final LinkedHashMap<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> buffer =
             new LinkedHashMap<>();
 
     private boolean flushFailed;
@@ -63,26 +66,40 @@ public class BufferReducedBatchStatementExecutor
         SeaTunnelRow key = keyExtractor.apply(record);
         boolean changeFlag = changeFlag(record.getRowKind());
         SeaTunnelRow value = valueTransform.apply(record);
-        buffer.put(key, Pair.of(changeFlag, value));
+        buffer.put(bufferKey(key), Triple.of(changeFlag, key, value));
+    }
+
+    /**
+     * Returns the key a row is buffered under. In SQL a NULL key value never equals another value,
+     * so the database treats rows with a NULL key field (possible for a key taken from a nullable
+     * unique key) as different rows, and an upsert or delete by that key never matches them. Such
+     * rows get a unique identity so that they are not merged into one row within a batch.
+     */
+    private static Object bufferKey(SeaTunnelRow key) {
+        for (Object field : key.getFields()) {
+            if (field == null) {
+                return new Object();
+            }
+        }
+        return key;
     }
 
     @Override
     public void executeBatch() throws SQLException {
         try {
             Boolean preChangeFlag = null;
-            Set<Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>>> entrySet = buffer.entrySet();
-            for (Map.Entry<SeaTunnelRow, Pair<Boolean, SeaTunnelRow>> entry : entrySet) {
-                Boolean currentChangeFlag = entry.getValue().getKey();
+            for (Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow : buffer.values()) {
+                Boolean currentChangeFlag = bufferedRow.getLeft();
                 if (currentChangeFlag) {
                     if (preChangeFlag != null && !preChangeFlag) {
                         deleteExecutor.executeBatch();
                     }
-                    upsertExecutor.addToBatch(entry.getValue().getValue());
+                    upsertExecutor.addToBatch(bufferedRow.getRight());
                 } else {
                     if (preChangeFlag != null && preChangeFlag) {
                         upsertExecutor.executeBatch();
                     }
-                    deleteExecutor.addToBatch(entry.getKey());
+                    deleteExecutor.addToBatch(bufferedRow.getMiddle());
                 }
                 preChangeFlag = currentChangeFlag;
             }
