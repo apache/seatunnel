@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -25,6 +27,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PlaceholderUtilsTest {
 
@@ -69,7 +72,6 @@ public class PlaceholderUtilsTest {
         String result =
                 PlaceholderUtils.processPlaceholders(
                         input, key -> false, userConfigMap, new LinkedHashMap<String, String>());
-        System.out.println(result);
         assertNotEquals(
                 "[{\"table_path\":\"seatunnel_test.*_test\",\"use_regex\":\"true\"},{\"table_path\":\"seatunnel_test.tags_test2\"}]",
                 result);
@@ -82,5 +84,37 @@ public class PlaceholderUtilsTest {
                 PlaceholderUtils.processPlaceholders(
                         input, key -> false, Collections.emptyMap(), new LinkedHashMap<>());
         assertEquals("host_[a,b,c]:3306", result);
+    }
+
+    @Test
+    void testPlaceholderWithEscapedQuotes() {
+        // config file content: a="""${msg:\"5 screen\"}""";
+        String input = "${msg:5\\\" screen}";
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
+
+        assertEquals("5\\\" screen", result);
+    }
+
+    @Test
+    void testPlaceholderWithQuotesWrapped() {
+        // config file content: a="""${msg:"5 screen"}""";
+        String input = "${msg:\"5 screen\"}";
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
+
+        assertEquals("\"5 screen\"", result);
+    }
+
+    @Test
+    void testMissingClosingBraceThrows() {
+        String input = "${key:default";
+        assertThrows(
+                ConfigException.BadValue.class,
+                () ->
+                        PlaceholderUtils.processPlaceholders(
+                                input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>()));
     }
 }
