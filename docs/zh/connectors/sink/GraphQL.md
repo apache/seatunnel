@@ -157,6 +157,55 @@ sink {
 }
 ```
 
+### 以流式模式向 GraphQL 服务发送 Mutation
+
+在流式模式下持续执行同一条 mutation。Sink 会为每一行数据发送一次 mutation 请求，
+并通过 `retry` 与指数退避来吸收短暂的 HTTP 故障。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "events"
+    schema = {
+      fields {
+        id = int
+        val_string = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "first"] }
+      { kind = INSERT, fields = [2, "second"] }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "events"
+    url = "http://graphql:8080/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+  }
+}
+```
+
 ### 写入多张上游表
 
 ```hocon
