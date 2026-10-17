@@ -294,6 +294,15 @@ public class KubernetesIT {
                 Paths.get(targetPath + "/custom_config/hazelcast-client.yaml"),
                 Paths.get(targetPath + "/config/hazelcast-client.yaml"),
                 StandardCopyOption.REPLACE_EXISTING);
+        // replace seatunnel.yaml with the e2e variant: keep the shipped static-slot
+        // default but pin slot-num, so a single registered worker already has enough
+        // static slots for the batch template job. The submit happens right after the
+        // StatefulSet turns Ready, when the second worker may not have registered
+        // with the master yet (see the comment in custom_config/seatunnel.yaml).
+        Files.copy(
+                Paths.get(targetPath + "/custom_config/seatunnel.yaml"),
+                Paths.get(targetPath + "/config/seatunnel.yaml"),
+                StandardCopyOption.REPLACE_EXISTING);
         // Copy the Hadoop3 Uber JAR from the local Maven repository to the Docker build context,
         // and rename it to an unversioned name (seatunnel-shade-hadoop3-uber.jar).
         //

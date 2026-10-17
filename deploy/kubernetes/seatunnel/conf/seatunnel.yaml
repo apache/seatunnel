@@ -24,7 +24,7 @@ seatunnel:
     print-job-metrics-info-interval: 60
     classloader-cache-mode: true
     slot-service:
-      dynamic-slot: true
+      dynamic-slot: false
     http:
       enable-http: true
       port: 8080

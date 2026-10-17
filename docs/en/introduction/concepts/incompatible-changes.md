@@ -19,6 +19,19 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
   - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
 
+### Engine / Zeta
+
+- **Breaking Change: Default slot mode changed from dynamic to static**
+  - **Affected component**: Zeta engine slot service (`seatunnel-engine`, `ServerConfigOptions.DYNAMIC_SLOT`, shipped `seatunnel.yaml` templates)
+  - **Description**: The default value of `dynamic-slot` has changed from `true` to `false`. Zeta now defaults to static slots: each worker pre-creates a fixed number of slots at startup (defaulting to `2 × availableProcessors()` when `slot-num` is not set), instead of minting slots on demand. The shipped `seatunnel.yaml` templates (`seatunnel-engine-common`, `config/`, `deploy/kubernetes/`) have been flipped to `dynamic-slot: false` to match.
+  - **Impact**:
+    - Jobs that previously fit via on-demand slot minting may now fail at submit with `NoEnoughResourceException` once the fixed slot cap is reached. Under the default `job-schedule-strategy: REJECT`, such jobs fail immediately instead of running.
+    - If you explicitly set `job-schedule-strategy: WAIT`, it now takes effect (the job queues and retries every 3s) instead of being silently overridden to `REJECT` (which happened whenever `dynamic-slot: true`). This is a cluster-wide submit-time behavior change for users who never realized `WAIT` was being ignored.
+    - During a rolling restart, mixed dynamic/static workers may advertise inconsistent `dynamicSlot` in heartbeats; prefer a coordinated (non-rolling) restart.
+    - `seatunnel.sh -e local` loads the shipped `config/seatunnel.yaml`, so the single embedded master-worker node now starts with a fixed pool of `2 × availableProcessors()` slots. Under the default `job-schedule-strategy: REJECT`, a job that needs more slots than that (N = 2 + P > slot-num) fails at submit with `NoEnoughResourceException` instead of running unbounded. For local runs that need more parallelism, raise `slot-num` in `config/seatunnel.yaml` or set `dynamic-slot: true` there.
+    - After an upgrade or a master active-switch, jobs restored from `runningJobInfoIMap` are re-queued through the same fixed-cap resource check as new submits, not resumed unconditionally. Jobs that previously fit via on-demand slot minting can therefore be marked `FAILED` on the first restart with the new default (their checkpoints stay intact). Size `slot-num` for the jobs that must keep running (N = 2 + Σ job parallelism) or set `dynamic-slot: true` before restarting.
+  - **Migration Guide**: To preserve the previous behavior, set `seatunnel.engine.slot-service.dynamic-slot: true` in your `seatunnel.yaml`. If you keep static slots, size `slot-num` to your peak parallelism (N = 2 + Σ job parallelism) and size the worker JVM heap (`-Xmx`) to hold that many concurrent task-group working sets. Also audit any packaged/helm/docker `seatunnel.yaml` that may hardcode `dynamic-slot: true`.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
