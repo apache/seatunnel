@@ -65,6 +65,22 @@ You need to check this document before you upgrade to related version.
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
 
+### DuckDB timestamp source values
+
+DuckDB `TIMESTAMP_S`, `TIMESTAMP_MS` and `TIMESTAMP_NS` source values now map to SeaTunnel `TIMESTAMP` instead of falling back to `STRING`. All four DuckDB timestamp types report their native fractional-second precision (`TIMESTAMP` 6, `TIMESTAMP_S` 0, `TIMESTAMP_MS` 3, `TIMESTAMP_NS` 9). MySQL automatic DDL uses this precision up to its 6-digit limit, so a `TIMESTAMP_NS` source column becomes `DATETIME(6)` and cannot retain all 9 source digits. Review downstream schemas and remove any time-zone compensation previously applied to these values.
+
+When the DuckDB sink creates a table, SeaTunnel `TIMESTAMP` columns with scales 0, 3, 6 and 9 become `TIMESTAMP_S`, `TIMESTAMP_MS`, `TIMESTAMP` and `TIMESTAMP_NS`, respectively. Intermediate positive scales use the next wider native precision; an unspecified scale retains the default `TIMESTAMP` mapping. An explicit scale 0 means whole seconds: automatic DDL now creates `TIMESTAMP_S` where it previously created a microsecond `TIMESTAMP`. Existing target tables are not migrated; check the declared source scale and target type before relying on fractional seconds.
+
+The writer binds local `TIMESTAMP` values as timestamp text, preserving the wall clock of `LocalDateTime` and every fractional digit the target column supports. This avoids the tested DuckDB JDBC driver (1.3.1.0) shifting DST-gap values and Gregorian-cutover dates through its typed timestamp binding, or dropping sub-microsecond digits. SQL `NULL` remains `NULL`; other data types retain their existing JDBC binding.
+
+A standard DuckDB `TIMESTAMP` source now reports scale 6. Generated DDL can therefore explicitly declare fractional precision, such as MySQL `DATETIME(6)`, PostgreSQL `timestamp(6)`, SQL Server `DATETIME2(6)` and Oracle `TIMESTAMP(6)`, where it previously relied on the target default. For scale 0, the current MySQL, PostgreSQL, SQL Server and Oracle converters omit the precision; this is their mapping policy, not a restriction of those databases. Existing target tables are not resized automatically; review generated DDL and existing column definitions during upgrade.
+
+Standard `TIMESTAMP` values are read as `LocalDateTime`, avoiding JVM time-zone and Gregorian-cutover normalization. With SeaTunnel's tested DuckDB JDBC version (1.3.1.0), the three aliases reconcile UTC-calendar and plain timestamp reads across DST boundaries, preferring the UTC value only when it falls in a spring-forward gap in the JVM default zone. Earlier alias values before 1970-01-01 retain the previous timestamp-getter behavior. This applies to `table_path`, `table_list` and `query` reads. Errors reading a standard `TIMESTAMP` are reported instead of silently switching to a lossy fallback.
+
+Historical alias dates, pre-1970 fractional-second values and `infinity` remain subject to driver limitations. The typed path does not make these edge cases lossless. In the tested driver, `getString` renders a `java.sql.Timestamp`, so reading text and parsing it does not recover the original value.
+
+If you project a timestamp as a string in the source query and keep it a `STRING` downstream, validate that conversion on your DuckDB version first. With the tested engine v1.3.1, `CAST(TIMESTAMP_NS AS VARCHAR)` can emit NUL bytes in place of leading fractional zeros; for example, `2024-06-15 12:34:56.000000001` produces six NUL bytes before `001`. Do not assume this cast is lossless.
+
 ### DuckDB BIT and ENUM automatic DDL
 
 - Scalar `BIT` and `ENUM` columns with no catalog length now retain an unspecified STRING length
