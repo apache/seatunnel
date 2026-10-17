@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -1109,15 +1110,16 @@ public class CheckpointCoordinator {
                         pendingCheckpoint -> {
                             pendingCheckpoints.put(
                                     pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
-                            if (checkpointMonitorService != null) {
-                                checkpointMonitorService.onCheckpointTriggered(
-                                        jobId,
-                                        plan.getPipelineId(),
-                                        pendingCheckpoint.getCheckpointId(),
-                                        pendingCheckpoint.getCheckpointType(),
-                                        pendingCheckpoint.getCheckpointTimestamp(),
-                                        pendingCheckpoint.getTotalSubtasks());
-                            }
+                            notifyCheckpointMonitor(
+                                    "onCheckpointTriggered",
+                                    () ->
+                                            checkpointMonitorService.onCheckpointTriggered(
+                                                    jobId,
+                                                    plan.getPipelineId(),
+                                                    pendingCheckpoint.getCheckpointId(),
+                                                    pendingCheckpoint.getCheckpointType(),
+                                                    pendingCheckpoint.getCheckpointTimestamp(),
+                                                    pendingCheckpoint.getTotalSubtasks()));
                             return pendingCheckpoint;
                         },
                         executorService);
@@ -1217,18 +1219,20 @@ public class CheckpointCoordinator {
                         .values()
                         .forEach(
                                 pendingCheckpoint -> {
-                                    if (checkpointMonitorService != null
-                                            && closedReason
-                                                    != CheckpointCloseReason
-                                                            .CHECKPOINT_COORDINATOR_RESET) {
-                                        checkpointMonitorService.onCheckpointFailed(
-                                                jobId,
-                                                plan.getPipelineId(),
-                                                pendingCheckpoint.getCheckpointId(),
-                                                pendingCheckpoint.getCheckpointType(),
-                                                closedReason,
-                                                null,
-                                                pendingCheckpoint.getCheckpointTimestamp());
+                                    if (closedReason
+                                            != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                                        final PendingCheckpoint toAbort = pendingCheckpoint;
+                                        notifyCheckpointMonitor(
+                                                "onCheckpointFailed",
+                                                () ->
+                                                        checkpointMonitorService.onCheckpointFailed(
+                                                                jobId,
+                                                                plan.getPipelineId(),
+                                                                toAbort.getCheckpointId(),
+                                                                toAbort.getCheckpointType(),
+                                                                closedReason,
+                                                                null,
+                                                                toAbort.getCheckpointTimestamp()));
                                     }
                                     pendingCheckpoint.abortCheckpoint(closedReason, null);
                                 });
@@ -1259,9 +1263,10 @@ public class CheckpointCoordinator {
                                 return thread;
                             });
         }
-        if (checkpointMonitorService != null
-                && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
-            checkpointMonitorService.clearInProgress(jobId, pipelineId);
+        if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+            notifyCheckpointMonitor(
+                    "clearInProgress",
+                    () -> checkpointMonitorService.clearInProgress(jobId, pipelineId));
         }
     }
     /**
@@ -1308,14 +1313,15 @@ public class CheckpointCoordinator {
                         ? SubtaskStatus.SAVEPOINT_PREPARE_CLOSE
                         : SubtaskStatus.RUNNING);
 
-        if (checkpointMonitorService != null) {
-            checkpointMonitorService.onCheckpointAcknowledge(
-                    jobId,
-                    plan.getPipelineId(),
-                    pendingCheckpoint.getCheckpointId(),
-                    pendingCheckpoint.getAcknowledgedSubtasks(),
-                    pendingCheckpoint.getTotalSubtasks());
-        }
+        notifyCheckpointMonitor(
+                "onCheckpointAcknowledge",
+                () ->
+                        checkpointMonitorService.onCheckpointAcknowledge(
+                                jobId,
+                                plan.getPipelineId(),
+                                pendingCheckpoint.getCheckpointId(),
+                                pendingCheckpoint.getAcknowledgedSubtasks(),
+                                pendingCheckpoint.getTotalSubtasks()));
 
         if (ackOperation.getBarrier().getCheckpointType().notFinalCheckpoint()
                 && ackOperation.getBarrier().prepareClose(location)) {
@@ -1410,10 +1416,16 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getCheckpointId());
         latestCompletedCheckpoint = completedCheckpoint;
-        if (checkpointMonitorService != null) {
-            long stateSize = CheckpointMonitorService.calculateStateSize(completedCheckpoint);
-            checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
-        }
+        // Monitoring / overview IMap writes are auxiliary. After FileMapStore started
+        // failing loudly on WAL errors, an exception here must not abort bookkeeping for a
+        // checkpoint whose real payload was already persisted above.
+        notifyCheckpointMonitor(
+                "onCheckpointCompleted",
+                () -> {
+                    long stateSize =
+                            CheckpointMonitorService.calculateStateSize(completedCheckpoint);
+                    checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
+                });
         if (!notifyCompleted(completedCheckpoint)) {
             return;
         }
@@ -1621,6 +1633,38 @@ public class CheckpointCoordinator {
                     jobId,
                     pipelineId,
                     checkpoint.getCheckpointId());
+        }
+    }
+
+    /**
+     * Invokes an auxiliary checkpoint-monitor write, isolating only monitor-map durability
+     * failures.
+     *
+     * <p>After {@code FileMapStore} began throwing on WAL durability failures, monitor/overview
+     * IMap updates can throw {@link IMapStorageException} even when the real checkpoint payload was
+     * already persisted. Only that exception is swallowed (log loudly and continue) so a sticky
+     * fail-closed monitor map cannot escalate into a repeating coordinator {@code FAILED} loop.
+     *
+     * <p>Everything else — most importantly {@code HazelcastInstanceNotActiveException} while this
+     * node is shutting down — propagates exactly as on {@code dev}, so a dying master stops
+     * processing the ack instead of completing a checkpoint that the new master will redo after
+     * failover.
+     */
+    private void notifyCheckpointMonitor(String action, Runnable notification) {
+        if (checkpointMonitorService == null) {
+            return;
+        }
+        try {
+            notification.run();
+        } catch (IMapStorageException e) {
+            // Only isolate auxiliary monitor-map durability failures; node-shutdown and other
+            // lifecycle signals must propagate so failover semantics match dev.
+            LOG.error(
+                    "Checkpoint monitor {} failed for job {}, pipeline {}; continuing coordinator bookkeeping",
+                    action,
+                    jobId,
+                    pipelineId,
+                    e);
         }
     }
 
