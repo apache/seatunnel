@@ -26,7 +26,9 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,8 +36,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TimeZone;
@@ -413,5 +417,216 @@ public class TextFormatSchemaTest {
 
     private String formatDecimalWithToPlainString(BigDecimal bd) {
         return bd.toPlainString();
+    }
+
+    /**
+     * A single deserializer instance is shared by every row of a file, so a field whose text
+     * precision changes (seconds -> millis -> micros -> nanos -> back to seconds) must parse on
+     * every row instead of being pinned to the formatter matched by the first row.
+     */
+    @Test
+    void testMixedTimestampPrecisionWithinOneField() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "a\u00012023-01-01 00:00:00"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_000_000),
+                deserializeTimestamp(deserializationSchema, "b\u00012023-01-01 00:00:00.123"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_000),
+                deserializeTimestamp(deserializationSchema, "c\u00012023-01-01 00:00:00.123456"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_789),
+                deserializeTimestamp(
+                        deserializationSchema, "d\u00012023-01-01 00:00:00.123456789"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "e\u00012023-01-01 00:00:00"));
+    }
+
+    /**
+     * The text of one timestamp field can also walk <em>backwards</em> in precision (nanos ->
+     * micros -> millis -> seconds -> nanos). Every row must still parse to the exact instant even
+     * though the cached formatter is replaced on each row.
+     */
+    @Test
+    void testTimestampPrecisionDowngradeWithinOneField() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_789),
+                deserializeTimestamp(
+                        deserializationSchema, "a\u00012023-01-01 00:00:00.123456789"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_456_000),
+                deserializeTimestamp(deserializationSchema, "b\u00012023-01-01 00:00:00.123456"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 123_000_000),
+                deserializeTimestamp(deserializationSchema, "c\u00012023-01-01 00:00:00.123"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 0),
+                deserializeTimestamp(deserializationSchema, "d\u00012023-01-01 00:00:00"));
+        Assertions.assertEquals(
+                LocalDateTime.of(2023, 1, 1, 0, 0, 0, 987_654_321),
+                deserializeTimestamp(
+                        deserializationSchema, "e\u00012023-01-01 00:00:00.987654321"));
+    }
+
+    /**
+     * After valid values warmed up the per-field formatter cache, a value matching no known pattern
+     * must still fail with the explicit datetime format error instead of a raw parse error.
+     */
+    @Test
+    void testMalformedTimestampAfterValidWarmupFailsWithFormatError() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        deserializationSchema.deserialize("2023-01-01 00:00:00.123456789".getBytes());
+
+        String malformed = "2022-09-24-22:45:00";
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema.deserialize(malformed.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'ts' is not supported. Please check the datetime format.]",
+                exception.getMessage());
+    }
+
+    /**
+     * An explicit {@code datetime_format} chosen by the user keeps writing the configured
+     * precision, and the default deserializer still reads that output back unchanged.
+     */
+    @Test
+    void testExplicitTimestampFormatRoundTripIsUnaffected() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        TextSerializationSchema serializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .dateTimeFormatter(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS)
+                        .build();
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_456_000);
+        byte[] serialized =
+                serializationSchema.serialize(new SeaTunnelRow(new Object[] {timestamp}));
+
+        Assertions.assertEquals("2022-09-24 22:45:00.123456", new String(serialized));
+        Assertions.assertEquals(
+                timestamp, deserializationSchema.deserialize(serialized).getField(0));
+    }
+
+    /**
+     * A value that matches a supported pattern but is not a valid calendar date must keep the field
+     * name and value in the error, even when the same 19-character shape already warmed up the
+     * per-field formatter cache.
+     */
+    @Test
+    void testInvalidCalendarTimestampAfterValidWarmupKeepsFieldContext() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        deserializeTimestamp(deserializationSchema, "a\u00012023-01-01 00:00:00");
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                deserializeTimestamp(
+                                        deserializationSchema, "b\u00012023-01-01 25:00:00"));
+        Assertions.assertEquals(
+                CommonErrorCode.FORMAT_DATETIME_ERROR, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("2023-01-01 25:00:00"), exception.getMessage());
+        Assertions.assertTrue(exception.getMessage().contains("'ts'"), exception.getMessage());
+        Assertions.assertTrue(
+                exception.getCause() instanceof DateTimeParseException, exception.getMessage());
+    }
+
+    /**
+     * The same invalid calendar date must also keep the field context when the formatter is
+     * re-matched first, that is when the cached formatter came from a value with another precision.
+     */
+    @Test
+    void testInvalidCalendarTimestampAfterPrecisionChangeKeepsFieldContext() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "ts"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+
+        // warm the cache with a nanos value, so the invalid value below forces a re-match
+        deserializeTimestamp(deserializationSchema, "a\u00012023-01-01 00:00:00.123456789");
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                deserializeTimestamp(
+                                        deserializationSchema, "b\u00012023-13-01 00:00:00"));
+        Assertions.assertEquals(
+                CommonErrorCode.FORMAT_DATETIME_ERROR, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("2023-13-01 00:00:00"), exception.getMessage());
+        Assertions.assertTrue(exception.getMessage().contains("'ts'"), exception.getMessage());
+        Assertions.assertTrue(
+                exception.getCause() instanceof DateTimeParseException, exception.getMessage());
+    }
+
+    private LocalDateTime deserializeTimestamp(
+            TextDeserializationSchema deserializationSchema, String line) throws IOException {
+        return (LocalDateTime) deserializationSchema.deserialize(line.getBytes()).getField(1);
     }
 }

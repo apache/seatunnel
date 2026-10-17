@@ -125,6 +125,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | recursive_file_scan        | Boolean | No       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                        |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.               |
 
+> For CSV and Text files the `TIMESTAMP` layout is auto-detected, so the source `datetime_format` option does not select it, and the sink `datetime_format` option only controls the output format. See the [LocalFile note](LocalFile.md#datetime_format-string) for details.
+
 ## How to Create a SMB Data Synchronization Job
 
 The following example demonstrates how to create a data synchronization job that reads data from a SMB share and prints it on the local client:

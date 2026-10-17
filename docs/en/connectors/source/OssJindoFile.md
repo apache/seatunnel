@@ -316,6 +316,8 @@ Datetime type format, used to tell connector how to convert string to datetime, 
 
 default `yyyy-MM-dd HH:mm:ss`
 
+For CSV and Text files the `TIMESTAMP` layout is auto-detected, so the source `datetime_format` option does not select it, and the sink `datetime_format` option only controls the output format. See the [LocalFile note](LocalFile.md#datetime_format-string) for details.
+
 ### time_format [string]
 
 Time type format, used to tell connector how to convert string to time, supported as the following formats:

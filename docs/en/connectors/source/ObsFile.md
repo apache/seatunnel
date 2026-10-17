@@ -134,6 +134,8 @@ It only supports hadoop version **2.9.X+**.
 > `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
 >
 > default `yyyy-MM-dd HH:mm:ss`
+>
+> For CSV and Text files the `TIMESTAMP` layout is auto-detected, so the source `datetime_format` option does not select it, and the sink `datetime_format` option only controls the output format. See the [LocalFile note](LocalFile.md#datetime_format-string) for details.
 
 ### <span id="time_format"> time_format </span>
 
