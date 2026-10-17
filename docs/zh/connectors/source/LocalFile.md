@@ -304,7 +304,7 @@ PDF 特有的解析行为如下：
 
 默认 `yyyy-MM-dd HH:mm:ss`
 
-读取 CSV 和 Text 文件时，`TIMESTAMP` 列会自动匹配支持的时间戳格式。同一列各行的小数秒精度可以不同，例如 `2023-01-01 00:00:00`、`2023-01-01 00:00:00.123` 和 `2023-01-01 00:00:00.123456789`。无法匹配支持格式的值会报错。Source 的 `datetime_format` 选项不用于选择 CSV 或 Text `TIMESTAMP` 列的解析格式（格式会按每个值自动匹配），Sink 的 `datetime_format` 选项只控制写出格式。
+读取 CSV 和 Text 文件时，`TIMESTAMP` 列会自动匹配支持的时间戳格式。同一列各行的小数秒精度可以不同，例如 `2023-01-01 00:00:00`、`2023-01-01 00:00:00.123` 和 `2023-01-01 00:00:00.123456789`。无法匹配支持格式的值会报错。Source 的 `datetime_format` 选项不用于选择 CSV 或 Text `TIMESTAMP` 列的解析格式（解析格式会自动识别），Sink 的 `datetime_format` 选项只控制写出格式。
 
 ### time_format [string]
 

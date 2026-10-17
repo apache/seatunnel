@@ -139,6 +139,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | recursive_file_scan        | boolean | no       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                         |
 | sort_files_by_modification_time | boolean | no       | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
+> For CSV and Text files the `TIMESTAMP` layout is auto-detected, so the source `datetime_format` option does not select it, and the sink `datetime_format` option only controls the output format. See the [LocalFile note](LocalFile.md#datetime_format-string) for details.
+
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.  If you only want to filter based on file names, simply write the regular file names; If you want to filter based on the file directory at the same time, the expression needs to start with `path`.

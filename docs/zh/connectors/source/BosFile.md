@@ -92,6 +92,8 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | sort_files_by_modification_time | boolean | 否   | false                       |
 | common-options             |         | 否   | -                           |
 
+> 读取 CSV 和 Text 文件时，`TIMESTAMP` 的格式会自动识别，因此 Source 的 `datetime_format` 选项不用于选择该格式，Sink 的 `datetime_format` 选项只控制输出格式。 详见 [LocalFile 说明](LocalFile.md#datetime_format-string)。
+
 ## 示例
 
 ```hocon

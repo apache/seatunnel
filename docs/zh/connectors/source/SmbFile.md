@@ -125,6 +125,8 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | recursive_file_scan        | Boolean | 否   | true                          | 是否递归扫描子目录。如果为 `false`，将忽略子目录                                               |
 | common-options             |         | 否   | -                             | 源插件通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md)    |
 
+> 读取 CSV 和 Text 文件时，`TIMESTAMP` 的格式会自动识别，因此 Source 的 `datetime_format` 选项不用于选择该格式，Sink 的 `datetime_format` 选项只控制输出格式。 详见 [LocalFile 说明](LocalFile.md#datetime_format-string)。
+
 ## 如何创建 SMB 数据同步作业
 
 以下示例演示了如何创建一个从 SMB 共享读取数据并在本地客户端打印的数据同步作业：

@@ -92,6 +92,8 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | recursive_file_scan        | boolean | no       | true                        |
 | sort_files_by_modification_time | boolean | no       | false                       |
 
+> For CSV and Text files the `TIMESTAMP` layout is auto-detected, so the source `datetime_format` option does not select it, and the sink `datetime_format` option only controls the output format. See the [LocalFile note](LocalFile.md#datetime_format-string) for details.
+
 ### path [string]
 
 The source file path under the bucket.

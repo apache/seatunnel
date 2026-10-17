@@ -378,6 +378,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 // The value matched a supported pattern but is not a valid calendar date.
                 throw formatDateTimeErrorWithCause(field, fieldName, parseException);
             }
+            // Keep one cached formatter per field. Switching layouts triggers an exception
+            // and re-matches the value instead of maintaining a multi-layout cache.
             fieldFormatterMap.put(fieldName, refreshedFormatter);
             try {
                 return refreshedFormatter.parse(field);
