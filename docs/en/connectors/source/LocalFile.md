@@ -296,6 +296,8 @@ Date type format, used to tell connector how to convert string to date, supporte
 
 default `yyyy-MM-dd`
 
+For `text` and `csv` file types, a `date` value can also be an ISO-8601 date time such as `2024-12-16T15:33:45` or `2024-12-16T15:33:45.123Z`; the fraction part accepts one to nine digits and the trailing `Z` is optional, and only the date part is used.
+
 ### datetime_format [string]
 
 Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:

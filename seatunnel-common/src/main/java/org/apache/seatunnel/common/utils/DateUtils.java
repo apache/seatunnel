@@ -144,7 +144,10 @@ public class DateUtils {
                                         .appendValue(SECOND_OF_MINUTE, 2)
                                         .optionalStart()
                                         .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                        .optionalEnd()
+                                        .optionalStart()
                                         .appendLiteral('Z')
+                                        .optionalEnd()
                                         .toFormatter())
                         .toFormatter());
         DATE_FORMATTER_MAP.put(PATTERN_ARRAY[6], ISO_OFFSET_TIME);
