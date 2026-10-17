@@ -50,6 +50,7 @@
         <module>connector-http-paypal</module>
         <module>connector-http-linear</module>
         <module>connector-http-splunk</module>
+        <module>connector-http-asana</module>
         <module>connector-mem0</module>
     </modules>
 

@@ -86,7 +86,7 @@ virtual host，连接 broker 使用的 vhost
 
 ### queue_name [string]
 
-数据写入的队列名。如果没有配置 `routing_key`，连接器会通过默认 exchange 将消息直接写入该队列。
+数据写入的队列名。该值不能为空或仅包含空白字符。如果没有配置 `routing_key`，连接器会通过默认 exchange 将消息直接写入该队列。
 
 ### format [string]
 

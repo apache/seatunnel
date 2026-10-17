@@ -26,7 +26,9 @@ on:
         default: 'true'
 
 concurrency:
-  group: backend-${{ github.event.pull_request.number || github.ref }}
+  # Include the caller's event so the scheduled run on dev and push builds of dev
+  # do not share a group and cancel each other.
+  group: backend-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -34,6 +36,17 @@ env:
   # GitHub-hosted runners are ephemeral, so CI does not need Ryuk to reap containers after tests.
   # Disabling it avoids transient Docker Hub pulls for testcontainers/ryuk that can fail unrelated PRs.
   TESTCONTAINERS_RYUK_DISABLED: 'true'
+  # The JDK 9+ module-opens flags Hazelcast and this project's reflective helpers need (see
+  # config/jvm_options) no longer live here. Surefire/Failsafe-forked test JVMs get them from the
+  # surefire.module.args property in the root pom.xml (appended to the argLine next to
+  # surefire.jvm.args; modules that define their own argLine, such as connector-lance, still need
+  # the unit-test step's SUREFIRE_JVM_ARGS below), which also keeps a contributor's local
+  # `./mvnw test`/`./mvnw verify` on JDK 11/17 in parity with CI. The packaged launcher scripts
+  # (seatunnel.sh, seatunnel-cluster.sh) inject the same flags themselves for the e2e Docker
+  # containers this workflow spins up, independent of this workflow's own environment. Setting
+  # JAVA_TOOL_OPTIONS here applied the flags to every process every job happened to run, including
+  # non-test jobs and non-JVM tools, and printed a "Picked up JAVA_TOOL_OPTIONS" line from every
+  # child process; scoping it to the two places that actually need it removes both problems.
 
 jobs:
   license-header:
@@ -132,11 +145,51 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - run: sudo npm install -g markdown-link-check@3.8.7
-      - run: |
-          for file in $(find . -name "*.md"); do
-            markdown-link-check -c .dlc.json -q "$file"
-          done
+        with:
+          fetch-depth: '2000'
+      - name: Collect markdown files to check
+        env:
+          # The nightly run and pushes to apache/seatunnel dev check every file.
+          # Other pushes only check markdown files changed against apache/seatunnel dev.
+          FULL_SCAN: ${{ github.event_name == 'schedule' || (github.repository_owner == 'apache' && github.ref == 'refs/heads/dev') }}
+        run: |
+          md_files="${RUNNER_TEMP}/md-files.txt"
+          if [[ "$FULL_SCAN" != 'true' ]]; then
+            git remote add apache https://github.com/apache/seatunnel
+            if git fetch --no-tags --depth=2000 apache dev && base=$(git merge-base FETCH_HEAD HEAD); then
+              git -c core.quotePath=false diff --name-only --diff-filter=d "$base" HEAD -- '*.md' > "$md_files"
+            else
+              echo "::warning::Could not find the merge base with apache/seatunnel dev; checking all markdown files"
+              FULL_SCAN='true'
+            fi
+          fi
+          if [[ "$FULL_SCAN" == 'true' ]]; then
+            find . -name "*.md" > "$md_files"
+          fi
+          echo "Markdown files to check: $(wc -l < "$md_files")"
+          echo "MD_FILES=$md_files" >> "$GITHUB_ENV"
+      - name: Check links
+        run: |
+          if [[ ! -s "$MD_FILES" ]]; then
+            echo "No markdown files to check."
+            exit 0
+          fi
+          sudo npm install -g markdown-link-check@3.8.7
+          failed=()
+          while IFS= read -r file; do
+            if ! markdown-link-check -c .dlc.json -q -- "$file" < /dev/null; then
+              # markdown-link-check 3.8.7 only retries HTTP 429, so give
+              # transient 5xx responses and timeouts one more chance.
+              echo "Retrying $file in 30 seconds ..."
+              sleep 30
+              markdown-link-check -c .dlc.json -q -- "$file" < /dev/null || failed+=("$file")
+            fi
+          done < "$MD_FILES"
+          if (( ${#failed[@]} > 0 )); then
+            echo "Dead links found in:"
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
 
   sanity-check:
     name: Sanity check results
@@ -154,6 +207,12 @@ jobs:
     timeout-minutes: 20
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      shared: ${{ steps.filter.outputs.shared }}
+      translation: ${{ steps.filter.outputs.translation }}
+      translation-base: ${{ steps.filter.outputs.translation-base }}
+      translation-flink: ${{ steps.filter.outputs.translation-flink }}
+      translation-spark: ${{ steps.filter.outputs.translation-spark }}
+      run-engines: ${{ steps.run-engines.outputs.engines || '["flink","spark","zeta"]' }}
       engine: ${{ steps.filter.outputs.engine }}
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
@@ -164,6 +223,7 @@ jobs:
       helm: ${{ steps.filter.outputs.helm }}
       ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}
       it-modules: ${{ steps.it-modules.outputs.modules || '[]' }}
+      updated-it-shards: ${{ steps.updated-it-shards.outputs.shards || '[]' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -265,23 +325,86 @@ jobs:
           echo "standalone=$true_or_false" >> $GITHUB_OUTPUT
           echo "standalone_files=$file_list" >> $GITHUB_OUTPUT
 
-          api_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-translation/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
-          true_or_false=${api_files%%$'\n'*}
-          file_list=${api_files#*$'\n'}
+          shared_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
+          shared=${shared_files%%$'\n'*}
+          shared_file_list=${shared_files#*$'\n'}
+
+          # Broad probe: any translation change keeps the API trigger.
+          translation_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/**"`
+          translation=${translation_files%%$'\n'*}
+
+          # The broad glob also matches the engine sub-modules, so the engine scope uses narrowed
+          # probes: the base module is shared by the Flink and Spark translators, while the Flink
+          # and Spark translators are engine specific.
+          translation_base_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/pom.xml" "seatunnel-translation/seatunnel-translation-base/**"`
+          translation_base=${translation_base_files%%$'\n'*}
+
+          translation_flink_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/seatunnel-translation-flink/**"`
+          translation_flink=${translation_flink_files%%$'\n'*}
+
+          translation_spark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-translation/seatunnel-translation-spark/**"`
+          translation_spark=${translation_spark_files%%$'\n'*}
+
           # Apache dev, main, master, and numeric *-release pushes force full API coverage.
           # On fork pushes, workflow files, tools/update_modules_check, seatunnel-dist, and
           # bin/install-plugin.sh do not trigger the full connector matrix by themselves.
           ci_scope_ref="${GITHUB_BASE_REF:-$GITHUB_REF}"
-          if ! true_or_false=$(python tools/update_modules_check/ci_scope.py "$repository_owner" "$ci_scope_ref" --api-changed "$true_or_false" --api-files-json "$file_list"); then
+          if ! shared=$(python tools/update_modules_check/ci_scope.py "$repository_owner" "$ci_scope_ref" --api-changed "$shared" --api-files-json "$shared_file_list"); then
             echo "::warning::CI scope helper failed; forcing full API coverage"
-            true_or_false='true'
+            shared='true'
           fi
-          if [[ $true_or_false != 'true' && $true_or_false != 'false' ]]; then
+          if [[ $shared != 'true' && $shared != 'false' ]]; then
             echo "::warning::CI scope helper returned an invalid value; forcing full API coverage"
+            shared='true'
+          fi
+          # The translation adapters are the only API-scoped code that is not shared by every
+          # engine, so the API trigger is the union of the shared and the translation groups.
+          true_or_false='false'
+          if [[ $shared == 'true' || $translation == 'true' ]]; then
             true_or_false='true'
           fi
+          echo "shared=$shared" >> $GITHUB_OUTPUT
+          echo "shared_files=$shared_file_list" >> $GITHUB_OUTPUT
+          echo "translation=$translation" >> $GITHUB_OUTPUT
+          echo "translation-base=$translation_base" >> $GITHUB_OUTPUT
+          echo "translation-flink=$translation_flink" >> $GITHUB_OUTPUT
+          echo "translation-spark=$translation_spark" >> $GITHUB_OUTPUT
           echo "api=$true_or_false" >> $GITHUB_OUTPUT
-          echo "api_files=$file_list" >> $GITHUB_OUTPUT
+          echo "api_files=$shared_file_list" >> $GITHUB_OUTPUT
+
+      - name: Decide engines to run
+        id: run-engines
+        env:
+          SHARED: ${{ steps.filter.outputs.shared }}
+          CONNECTORS: ${{ steps.filter.outputs.cv2 }}
+          CONNECTOR_E2E: ${{ steps.filter.outputs.cv2-e2e }}
+          DIST: ${{ steps.filter.outputs.dist }}
+          STANDALONE: ${{ steps.filter.outputs.standalone }}
+          TRANSLATION_BASE: ${{ steps.filter.outputs.translation-base }}
+          TRANSLATION_FLINK: ${{ steps.filter.outputs.translation-flink }}
+          TRANSLATION_SPARK: ${{ steps.filter.outputs.translation-spark }}
+          ENGINE: ${{ steps.filter.outputs.engine }}
+          ENGINE_E2E: ${{ steps.filter.outputs.engine-e2e }}
+        run: |
+          # Every E2E job passes this list to the tests as RUN_ENGINES, so a job only starts the
+          # containers of the engines the change can affect. Unknown or empty scopes keep every
+          # engine, and tools/update_modules_check/run_engines.py owns the mapping rules.
+          if ! engines=$(python tools/update_modules_check/run_engines.py \
+              --shared "${SHARED:-false}" \
+              --connectors "${CONNECTORS:-false}" \
+              --connector-e2e "${CONNECTOR_E2E:-false}" \
+              --dist "${DIST:-false}" \
+              --standalone "${STANDALONE:-false}" \
+              --translation-base "${TRANSLATION_BASE:-false}" \
+              --translation-flink "${TRANSLATION_FLINK:-false}" \
+              --translation-spark "${TRANSLATION_SPARK:-false}" \
+              --engine "${ENGINE:-false}" \
+              --engine-e2e "${ENGINE_E2E:-false}"); then
+            echo "::warning::Engine scope helper failed; running every engine"
+            engines='["flink","spark","zeta"]'
+          fi
+          echo "Run engines: $engines"
+          echo "engines=$engines" >> "$GITHUB_OUTPUT"
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -431,6 +554,20 @@ jobs:
           modules_json=$(python tools/update_modules_check/update_modules_check.py json "$build_modules")
           echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
 
+      - name: Make updated integration test shards
+        id: updated-it-shards
+        if: ${{ steps.it-modules.outputs.modules != '' && steps.it-modules.outputs.modules != '[]' }}
+        env:
+          IT_MODULES: ${{ steps.it-modules.outputs.modules }}
+        run: |
+          # Only start the updated-modules-integration-test-part-N jobs that have modules to test.
+          if ! shards=$(python tools/update_modules_check/update_modules_check.py sub_update_it_shards "$IT_MODULES" 8); then
+            echo "::warning::Could not compute updated integration test shards; running all shards"
+            shards='["part-1","part-2","part-3","part-4","part-5","part-6","part-7","part-8"]'
+          fi
+          echo "$shards"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
@@ -444,7 +581,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '17'
           cache: 'maven'
       - name: Install
         uses: nick-fields/retry@v3
@@ -479,6 +616,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18.20.7
+      # PR changes reach the current docs and the shared images only. Building every released
+      # docs snapshot as well, in both locales, pushes this job past its timeout, so keep only
+      # the newest snapshot, which the website config requires.
+      - name: Build only the current and latest released docs
+        run: |
+          cd seatunnel-website
+          node -e "const fs = require('fs'); const v = JSON.parse(fs.readFileSync('versions.json')); fs.writeFileSync('versions.json', JSON.stringify(v.slice(0, 1), null, 2) + '\n');"
       - name: Run docusaurus build
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -522,7 +666,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
     # The all-modules unit test build now takes 70-88 minutes on ubuntu-latest and keeps growing
     # with every new connector; a 90 minute budget left so little headroom that ordinary runner
@@ -540,14 +684,30 @@ jobs:
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          # This CLI -Dsurefire.jvm.args replaces surefire.jvm.args in every module. The JDK 9+
+          # --add-opens/--add-exports flags (needed by JDK 17 unit tests, JEP 396) are repeated
+          # here on purpose: the root pom carries them in surefire.module.args, but a module that
+          # defines its own surefire <argLine> bypasses the root argLine and only sees
+          # surefire.jvm.args. connector-lance does exactly that (Arrow needs
+          # --add-opens=java.base/java.nio on JDK 17), and its unit tests failed with
+          # InaccessibleObjectException when these flags were removed from this step.
+          # Keep this list in sync with surefire.module.args in the root pom.xml. The duplication
+          # is tracked in apache/seatunnel#12655; do not remove these flags before that is fixed.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
-          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          # Keep in sync with the non-Windows step above; see its comment for why the module
+          # flags must be repeated here as well as in the pom.xml surefire.module.args property.
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
         if: runner.os == 'Windows'
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   benchmark-test:
     needs: [ changes, sanity-check ]
@@ -557,7 +717,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -584,6 +744,11 @@ jobs:
             '.*' \
             -f 1 -wi 0 -i 1 -r 1s -foe true
           find "${result_dir}" -name '*.json' -print -quit | grep -q .
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   benchmark-tools-test:
     needs: [ changes, sanity-check ]
@@ -597,12 +762,14 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-1')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -627,15 +794,22 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-2')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -660,15 +834,22 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-3')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -693,15 +874,22 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-4')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 200
     steps:
@@ -726,14 +914,21 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-5')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -758,14 +953,21 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-6')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -790,14 +992,21 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-7')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -822,15 +1031,22 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-8')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -855,6 +1071,11 @@ jobs:
         env:
           IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -863,7 +1084,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -881,6 +1102,11 @@ jobs:
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   edge-agent-it:
     needs: [ changes, sanity-check ]
@@ -889,7 +1115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -907,6 +1133,11 @@ jobs:
           ./mvnw -T 1 -B verify -DskipUT=false -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   engine-k8s-it:
     needs: [ changes, sanity-check ]
@@ -915,7 +1146,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -942,6 +1173,11 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
@@ -950,10 +1186,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Part-1 alone takes 99-107 minutes on ubuntu-latest; the UDF E2E module adds its own build and tests.
     timeout-minutes: 135
@@ -972,6 +1209,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1,:seatunnel-transforms-v2-e2e-udf -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
@@ -980,10 +1222,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes about 149 minutes on ubuntu-latest, so the previous 150
     # minute budget cancelled runs that were already on their last test class.
@@ -1006,6 +1249,11 @@ jobs:
 
   # Dedicated connector ownership and shard rebalancing guidance are maintained in
   # tools/update_modules_check/update_modules_check.py.
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
@@ -1013,10 +1261,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1037,6 +1286,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -1045,10 +1299,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1069,6 +1324,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -1077,10 +1337,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1101,6 +1362,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
@@ -1109,10 +1375,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1133,6 +1400,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
@@ -1141,10 +1413,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1165,6 +1438,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
@@ -1173,10 +1451,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1197,6 +1476,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
@@ -1205,10 +1489,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1229,6 +1514,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   iceberg-connector-it:
     needs: [ changes, sanity-check ]
@@ -1237,10 +1527,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1258,6 +1549,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   hbase-connector-it:
     needs: [ changes, sanity-check ]
@@ -1266,10 +1562,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1287,6 +1584,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-hbase-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
@@ -1295,10 +1597,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # A green run of this job takes 113-115 minutes on ubuntu-latest (JdbcOracleIT alone is
     # about 25 minutes), so the previous 120 minute budget left ordinary runner variance no
@@ -1319,6 +1622,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-1 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
@@ -1327,10 +1635,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1348,6 +1657,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-2 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
@@ -1356,10 +1670,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1377,6 +1692,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-3 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
@@ -1385,10 +1705,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1406,6 +1727,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-4 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
@@ -1414,10 +1740,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1435,6 +1762,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-5 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-6:
     needs: [ changes, sanity-check ]
@@ -1443,10 +1775,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1464,6 +1797,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-6 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-part-7:
     needs: [ changes, sanity-check ]
@@ -1472,10 +1810,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1493,6 +1832,11 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-7 -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   jdbc-connectors-it-ddl:
     needs: [ changes, sanity-check ]
@@ -1501,10 +1845,11 @@ jobs:
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1522,15 +1867,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-ddl -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Kudu E2E expands each @TestTemplate case across several PR test containers.
     timeout-minutes: 90
@@ -1549,15 +1901,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1575,14 +1934,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-amazonsqs-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   google-pubsub-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-google-pubsub-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
+      fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1600,15 +1967,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-google-pubsub-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1626,15 +2000,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kafka-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1652,15 +2033,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-rocketmq-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   elasticsearch-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-elasticsearch-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1678,15 +2066,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-elasticsearch-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   mysql-cdc-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-mysql-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1704,15 +2099,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-mysql-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   doris-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1730,15 +2132,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   paimon-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1756,15 +2165,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-paimon-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1787,15 +2203,22 @@ jobs:
           command: |
             echo 'running oracle cdc connector integration test...' && \
             ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-file-local-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-local-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1813,15 +2236,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-file-sftp-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-sftp-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1839,15 +2269,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-sftp-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-redis-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1865,15 +2302,22 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-redis-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
 
   connector-sensorsdata-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-sensorsdata-e2e')
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_ENGINES: ${{ needs.changes.outputs.run-engines }}
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1891,3 +2335,8 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-sensorsdata-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+      - name: Upload test reports
+        if: failure()
+        uses: ./.github/actions/upload-test-reports
+        with:
+          id: ${{ matrix.java }}-${{ matrix.os }}
