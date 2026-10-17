@@ -23,10 +23,10 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 | 名称                | 类型            | 是否必须 | 默认值   | 描述                                                       |
 |-------------------|---------------|------|-------|----------------------------------------------------------|
-| include_fields    | Array<String> | 否    | -     | 需要保留的字段，其余字段将被删除。与 `exclude_fields` 互斥。                 |
-| exclude_fields    | Array<String> | 否    | -     | 需要删除的字段，其余字段将被保留。与 `include_fields` 互斥。                 |
+| include_fields    | Array&lt;String&gt; | 否    | -     | 需要保留的字段，其余字段将被删除。与 `exclude_fields` 互斥。                 |
+| exclude_fields    | Array&lt;String&gt; | 否    | -     | 需要删除的字段，其余字段将被保留。与 `include_fields` 互斥。                 |
 | table_match_regex | String        | 否    | `.*`  | 转换级别规则所适用的表路径的正则表达式。                                     |
-| table_transform   | Array<Map>    | 否    | -     | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
+| table_transform   | Array&lt;Map&gt;    | 否    | -     | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
 | rule_match_mode   | String        | 否    | -     | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -             | 否    | -     | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 
@@ -36,7 +36,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 :::
 
-### include_fields [Array<String>]
+### include_fields [Array&lt;String&gt;]
 
 需要保留的字段，例如 `include_fields = [name, card]` 表示只保留这两个字段，其余字段将被删除。
 
@@ -48,7 +48,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 :::
 
-### exclude_fields [Array<String>]
+### exclude_fields [Array&lt;String&gt;]
 
 需要删除的字段，例如 `exclude_fields = [age]` 表示删除 `age`，保留其余所有字段。当你只想从字段很多的表中删除少数几个字段时，这个选项会很方便。
 
@@ -60,7 +60,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 
 注意，这里匹配的是真实的上游表名，而不是 `plugin_output`。
 
-### table_transform [Array<Map>]
+### table_transform [Array&lt;Map&gt;]
 
 针对单表的规则列表。每个条目必须包含 `table_path`（格式为 `databaseName[.schemaName].tableName`，精确匹配），以及该表的一条完整的 Filter 规则，即 `include_fields` 和 `exclude_fields` 中恰好设置一个。
 
