@@ -39,6 +39,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 public class SystemFunction {
     /**
@@ -272,7 +273,8 @@ public class SystemFunction {
                                 String.format("Unsupported CAST AS Boolean: %s", v1));
                     }
                 } else if (v1 instanceof String) {
-                    if (Arrays.asList("TRUE", "FALSE").contains(v1.toString().toUpperCase())) {
+                    if (Arrays.asList("TRUE", "FALSE")
+                            .contains(v1.toString().toUpperCase(Locale.ROOT))) {
                         return Boolean.parseBoolean(v1.toString());
                     } else {
                         throw new TransformException(
