@@ -527,6 +527,65 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
+    void testRestoreCoordinatorRebuildsClosedIdleTasksAfterMasterSwitch() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TaskGroupLocation enumeratorGroup = new TaskGroupLocation(1L, 1, 1);
+            TaskGroupLocation runningGroup = new TaskGroupLocation(1L, 1, 2);
+            TaskGroupLocation idleClosedGroup = new TaskGroupLocation(1L, 1, 3);
+            TaskLocation enumerator = new TaskLocation(enumeratorGroup, 1, 1);
+            TaskLocation runningReader = new TaskLocation(runningGroup, 2, 2);
+            TaskLocation runningWriter = new TaskLocation(runningGroup, 3, 2);
+            TaskLocation closedReader = new TaskLocation(idleClosedGroup, 2, 3);
+            TaskLocation closedWriter = new TaskLocation(idleClosedGroup, 3, 3);
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(
+                                    new HashSet<>(
+                                            Arrays.asList(
+                                                    enumerator,
+                                                    runningReader,
+                                                    runningWriter,
+                                                    closedReader,
+                                                    closedWriter)))
+                            .startingSubtasks(Collections.singleton(enumerator))
+                            .build();
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            spy.restoreCoordinator(true, Collections.singleton(idleClosedGroup));
+
+            Assertions.assertEquals(
+                    new HashSet<>(Arrays.asList(closedReader, closedWriter)),
+                    spy.getClosedIdleTask());
+            Mockito.verify(spy).tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
     void testRestoreCoordinatorShouldBeIdempotentWithPartialReadyToCloseProgress() {
         ExecutorService executorService = Executors.newCachedThreadPool();
         try {

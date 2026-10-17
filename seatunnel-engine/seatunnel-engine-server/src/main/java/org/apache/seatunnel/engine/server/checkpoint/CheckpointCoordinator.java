@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -60,6 +61,7 @@ import lombok.SneakyThrows;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -689,7 +691,15 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator(boolean alreadyStarted) {
-        LOG.info("received restore CheckpointCoordinator with alreadyStarted: {}", alreadyStarted);
+        restoreCoordinator(alreadyStarted, Collections.emptySet());
+    }
+
+    protected void restoreCoordinator(
+            boolean alreadyStarted, Set<TaskGroupLocation> closedIdleTaskGroups) {
+        LOG.info(
+                "received restore CheckpointCoordinator with alreadyStarted: {}, closed idle task groups: {}",
+                alreadyStarted,
+                closedIdleTaskGroups);
         errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
@@ -709,6 +719,12 @@ public class CheckpointCoordinator {
                     jobId,
                     pipelineId);
         }
+
+        // closedIdleTask is in-memory only and was lost with the old master; rebuild it so the
+        // barrier skips these subtasks and checkpoints don't wait for their ACK.
+        plan.getPipelineSubtasks().stream()
+                .filter(task -> closedIdleTaskGroups.contains(task.getTaskGroupLocation()))
+                .forEach(closedIdleTask::add);
 
         if (alreadyStarted) {
             isAllTaskReady.set(true);
