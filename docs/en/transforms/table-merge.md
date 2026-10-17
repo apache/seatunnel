@@ -4,7 +4,7 @@
 
 ## Description
 
-TableMerge transform plugin for merge sharding-tables.
+TableMerge transform plugin for merge sharding-tables. Only the output row is assigned the merged table id, while each source row keeps its original metadata for sibling branches.
 
 ## Options
 

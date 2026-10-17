@@ -55,9 +55,11 @@ public class TableMergeTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-        if (inputRow.getTableId() == null || !outputTableId.equals(inputRow.getTableId())) {
-            inputRow.setTableId(outputTableId);
+        if (outputTableId.equals(inputRow.getTableId())) {
+            return inputRow;
         }
-        return inputRow;
+        SeaTunnelRow outputRow = inputRow.copy();
+        outputRow.setTableId(outputTableId);
+        return outputRow;
     }
 }
