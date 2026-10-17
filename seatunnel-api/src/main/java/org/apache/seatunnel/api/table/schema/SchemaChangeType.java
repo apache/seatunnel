@@ -18,6 +18,8 @@
 package org.apache.seatunnel.api.table.schema;
 
 public enum SchemaChangeType {
+    /** Create table in downstream. */
+    CREATE_TABLE,
     /** Add column to table. */
     ADD_COLUMN,
     /** Drop column from table. */
