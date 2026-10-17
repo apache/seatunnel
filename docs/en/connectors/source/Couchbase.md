@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-couchbase.md';
+
 # Couchbase
 
 > Couchbase source connector
@@ -35,7 +37,7 @@ The source requires `parallelism = 1`. It uses a single query and consumes rows 
 | schema | Config | Yes | - | Explicit output schema; fields refer to document fields with matching names. |
 | ready.timeout | Int | No | 30 | Bucket readiness timeout, in seconds. Must be positive. |
 | query.timeout | Int | No | 300 | Collection query timeout, in seconds. Must be positive. |
-| common-options | Config | No | - | See [Source Common Options](../source-common-options.md). |
+| common-options | Config | No | - | See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Prerequisites
 
@@ -97,4 +99,4 @@ sink {
 
 ## Changelog
 
-For changes, see [connector-couchbase](../changelog/connector-couchbase.md).
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-couchbase.md';
+
 # Couchbase
 
 > Couchbase 数据源连接器
@@ -35,7 +37,7 @@
 | schema | Config | 是 | - | 显式输出 Schema，字段名称与文档字段对应。 |
 | ready.timeout | Int | 否 | 30 | 等待桶就绪的超时时间，单位秒，必须为正数。 |
 | query.timeout | Int | 否 | 300 | 集合查询超时时间，单位秒，必须为正数。 |
-| common-options | Config | 否 | - | 请参阅 [Source 通用配置](../source-common-options.md)。 |
+| common-options | Config | 否 | - | 请参阅 [Source 通用配置](../common-options/source-common-options.md)。 |
 
 ## 前置条件
 
@@ -97,4 +99,4 @@ sink {
 
 ## 更新日志
 
-请参阅 [connector-couchbase](../changelog/connector-couchbase.md)。
+<ChangeLog />
