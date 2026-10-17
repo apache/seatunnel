@@ -50,6 +50,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -96,7 +97,8 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)))
+                        .withStartupTimeout(Duration.ofMinutes(6));
         Startables.deepStart(Stream.of(oracleContainer)).join();
         Class.forName("oracle.jdbc.OracleDriver");
         given().ignoreExceptions()
