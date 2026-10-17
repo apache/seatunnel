@@ -18,6 +18,8 @@
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
@@ -26,6 +28,8 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.isEscapedQuote;
 
 public class PlaceholderUtils {
 
@@ -130,16 +134,25 @@ public class PlaceholderUtils {
             result.append(input, i, start);
 
             int keyStart = start + 2;
-            boolean optional = false;
+            boolean optional;
             if (keyStart < input.length() && input.charAt(keyStart) == '?') {
                 keyStart++;
                 optional = true;
+            } else {
+                optional = false;
             }
 
-            int closePos = ConfigValueUtils.findClosePos(input, keyStart);
+            int closePos = findPlaceholderClosePos(input, keyStart);
             if (closePos == -1) {
-                result.append(input.substring(start));
-                break;
+                throw new ConfigException.BadValue(
+                        ConfigOriginFactory.newSimple(),
+                        "",
+                        String.format(
+                                "Unterminated placeholder starting at index %d: '%s'. "
+                                        + "Please check for unbalanced quotes or missing closing brace.",
+                                start,
+                                input.substring(start, Math.min(start + 30, input.length()))),
+                        null);
             }
 
             int colonPos = input.indexOf(':', keyStart);
@@ -148,11 +161,12 @@ public class PlaceholderUtils {
             }
 
             String key;
-            String defaultValue = null;
+            String defaultValue;
             if (colonPos > 0) {
                 key = input.substring(keyStart, colonPos).trim();
                 defaultValue = input.substring(colonPos + 1, closePos);
             } else {
+                defaultValue = null;
                 key = input.substring(keyStart, closePos).trim();
             }
 
@@ -197,15 +211,63 @@ public class PlaceholderUtils {
             }
 
             String replacement =
-                    Stream.of(resolvedValue, System.getProperty(key), defaultValue)
-                            .filter(Objects::nonNull)
+                    Stream.of(resolvedValue, System.getProperty(key))
+                            .filter(v -> v != null && !v.isEmpty())
                             .findFirst()
-                            .orElse(optional ? "" : input.substring(start, closePos + 1));
+                            .orElseGet(
+                                    () ->
+                                            defaultValue != null
+                                                    ? defaultValue
+                                                    : (optional
+                                                            ? ""
+                                                            : input.substring(
+                                                                    start, closePos + 1)));
 
             result.append(replacement);
             i = closePos + 1;
         }
 
         return result.toString();
+    }
+
+    /**
+     * Finds the index of the '}' that closes the placeholder whose opening "${" precedes {@code
+     * start}.
+     *
+     * <p>Brace depth starts at 1 to account for the placeholder's opening '{'. The scan ignores '}'
+     * inside quotes and counts nested '{' / '}'. Square brackets are not tracked: a placeholder is
+     * always closed by '}'.
+     *
+     * @param input the input string to scan
+     * @param start the index of the first character after "${"
+     * @return the index of the closing '}', or {@code -1} if not found
+     */
+    private static int findPlaceholderClosePos(String input, int start) {
+        int braceDepth = 1;
+        boolean insideQuotes = false;
+
+        for (int i = start; i < input.length(); i++) {
+            char c = input.charAt(i);
+
+            if (c == '"') {
+                if (isEscapedQuote(input, i)) {
+                    continue;
+                }
+                insideQuotes = !insideQuotes;
+                continue;
+            }
+
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}') {
+                    braceDepth--;
+                    if (braceDepth == 0) {
+                        return i;
+                    }
+                }
+            }
+        }
+        return -1;
     }
 }
