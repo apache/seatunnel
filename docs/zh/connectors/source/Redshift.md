@@ -59,7 +59,7 @@ Redshift 兼容 PostgreSQL，因此连接器可以读取 JDBC 用户有权访问
 | partition_column | String | 否 | - | 用于并行读取的拆分列，仅支持数值类型的主键列。 |
 | partition_lower_bound | BigDecimal | 否 | - | `partition_column` 的最小扫描值。未配置时连接器从数据库中查询最小值。 |
 | partition_upper_bound | BigDecimal | 否 | - | `partition_column` 的最大扫描值。未配置时连接器从数据库中查询最大值。 |
-| partition_num | Int | 否 | 作业并行度 | 分片数量，仅支持正整数，默认与作业并行度相同。 |
+| partition_num | Int | 否 | 10 | 分片数量，仅支持正整数，默认值为 10。 |
 | fetch_size | Int | 否 | 0 | 大结果集查询时的 JDBC 拉取行数，`0` 表示使用驱动默认。 |
 | where_condition | String | 否 | - | 对所有表/查询生效的统一行过滤条件，必须以 `where` 开头，例如 `where id > 100`。 |
 | split.size | Int | 否 | 8096 | 使用 `table_path` 或 `table_list` 时自动分片的行数。 |

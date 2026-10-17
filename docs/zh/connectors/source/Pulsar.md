@@ -393,7 +393,7 @@ source {
 
 ### 支持哪些消费游标（Cursor）位点恢复与订阅模式？
 
-通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早未消费位点）或 `LATEST`（从最新位点开始消费）。消费者以配置的订阅类型（如 `Failover` 或 `Exclusive`）注册，并在 Checkpoint 时同步保存消息 ID，确保故障时精准回溯。
+通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早未消费位点）、`LATEST`（从最新位点开始消费）、`SUBSCRIPTION`（配合 `cursor.reset.mode`，从订阅已提交位点开始消费）或 `TIMESTAMP`（配合 `cursor.startup.timestamp`，从指定时间戳开始消费）。消费者以配置的订阅类型（如 `Failover` 或 `Exclusive`）注册，并在 Checkpoint 时同步保存消息 ID，确保故障时精准回溯。
 
 ### 如何在连接受安全防护的 Pulsar 集群时配置身份认证？
 

@@ -59,7 +59,7 @@ reads via `table_list` are supported.
 | partition_column   | String   | No       | -               | The column name used to split the data for parallel reading. Only numeric primary key columns are supported.                               |
 | partition_lower_bound | BigDecimal | No   | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum value.                       |
 | partition_upper_bound | BigDecimal | No   | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum value.                       |
-| partition_num      | Int      | No       | job parallelism | Number of partitions. Only positive integers are supported. Default value is the job parallelism.                                            |
+| partition_num      | Int      | No       | 10              | Number of partitions. Only positive integers are supported. Default value is 10.                                                             |
 | fetch_size         | Int      | No       | 0               | For queries that return a large number of rows, configure the row fetch size used in the query to improve performance. `0` uses the driver default. |
 | where_condition    | String   | No       | -               | Common row filter applied to all tables/queries. Must start with `where`, for example `where id > 100`.                                     |
 | split.size         | Int      | No       | 8096            | The split size (rows) for auto-split when `table_path` or `table_list` is used.                                                              |

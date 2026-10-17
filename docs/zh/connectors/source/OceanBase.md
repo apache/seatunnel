@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |---------------|------------------|
 | BIT(1)<br/>TINYINT(1) | BOOLEAN |
 | TINYINT | BYTE |
-| TINYINT<br/>TINYINT UNSIGNED | SMALLINT |
+| TINYINT UNSIGNED | SMALLINT |
 | SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | BIGINT |
 | BIGINT UNSIGNED | DECIMAL(20,0) |
@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | Integer | DECIMAL(38,0) |
 | Number(p), p <= 9 | INT |
 | Number(p), p <= 18 | BIGINT |
-| Number(p), p > 18 | DECIMAL(38,18) |
+| Number(p), p > 18 | DECIMAL(min(p,38), 0) |
 | Number(p,s) | DECIMAL(p,s) |
 | Float | DECIMAL(38,18) |
 | REAL<br/> BINARY_FLOAT | FLOAT |
@@ -93,7 +93,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型列和字符串类型列。 |
 | partition_lower_bound | BigDecimal | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound | BigDecimal | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
-| partition_num | Int | 否 | job parallelism | 分片数量，仅支持正整数。使用 `table_path` 读取时，推荐通过 `split.size` 控制单个分片大小。 |
+| partition_num | Int | 否 | 10 | 分片数量，仅支持正整数。使用 `table_path` 读取时，推荐通过 `split.size` 控制单个分片大小。 |
 | fetch_size | Int | 否 | 0 | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，以通过减少满足选择条件所需的数据库命中次数来提高性能。零表示使用 jdbc 默认值。 |
 | split.size | Int | 否 | 8096 | 使用 `table_path` 读取时，每个分片包含的行数。 |
 | split.even-distribution.factor.lower-bound | Double | 否 | 0.05 | 判断分片键数据是否均匀分布的下限。 |

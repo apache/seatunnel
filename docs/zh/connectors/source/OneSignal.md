@@ -113,7 +113,6 @@ source {
     pageing = {
       page_field = "offset"
       start_page_number = 0
-      page_step = 50
       total_page_size = 10
       use_placeholder_replacement = false
     }

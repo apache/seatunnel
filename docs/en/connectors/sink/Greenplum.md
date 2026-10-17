@@ -46,6 +46,26 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 | Greenplum by PostgreSQL driver | `org.postgresql.Driver` | `jdbc:postgresql://localhost:5432/testdb` | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | Greenplum native driver | `com.pivotal.jdbc.GreenplumDriver` | `jdbc:pivotal:greenplum://localhost:5432;DatabaseName=testdb` | Download from Greenplum |
 
+## Data Type Mapping
+
+Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
+
+| Greenplum Data Type | SeaTunnel Data Type |
+|---------------------|---------------------|
+| BOOLEAN | BOOLEAN |
+| SMALLINT / INT2 | SMALLINT |
+| INT / INT4 / SERIAL | INT |
+| BIGINT / INT8 / BIGSERIAL | BIGINT |
+| NUMERIC(p, s) / DECIMAL(p, s) | DECIMAL(p, s) |
+| MONEY | DECIMAL(30,2) |
+| REAL / FLOAT4 | FLOAT |
+| DOUBLE PRECISION / FLOAT8 | DOUBLE |
+| CHAR / VARCHAR / TEXT / JSON / JSONB | STRING |
+| DATE | DATE |
+| TIME | TIME |
+| TIMESTAMP / TIMESTAMPTZ | TIMESTAMP |
+| BYTEA | BYTES |
+
 ## Options
 
 Only Greenplum-specific commonly used options are listed here. Other JDBC sink options, such as `batch_size`, `max_retries`, `generate_sink_sql`, `database`, `table`, `primary_keys`, and `properties`, are inherited from [Jdbc Sink](Jdbc.md).
