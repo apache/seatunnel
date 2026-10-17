@@ -86,8 +86,10 @@ The InfluxDB user password. Configure it together with `username` when authentic
 ### key_time [string]
 
 The field name in the upstream row that supplies the InfluxDB point timestamp. When omitted, the
-sink uses the current processing time. Values configured here are accepted as numeric timestamps
-or as an ISO-8601 timestamp string.
+sink uses the current processing time. `BIGINT` values and numeric `STRING` values are interpreted
+in the unit configured by `epoch`. `TIMESTAMP` values are converted to epoch milliseconds in UTC.
+Processing time and `TIMESTAMP` values retain their actual time regardless of the configured unit;
+the client converts them when generating line protocol. ISO-8601 strings are not parsed by the sink.
 
 ### key_tags [array]
 
