@@ -19,12 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrock
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
+import java.sql.DatabaseMetaData;
+
 public class StarRocksDialect extends MysqlDialect {
 
     public StarRocksDialect() {}
 
     public StarRocksDialect(String fieldIde) {
         this.fieldIde = fieldIde;
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Composite splitting has not been validated for this dialect by official E2E.
+        return false;
     }
 
     @Override
