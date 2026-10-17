@@ -63,7 +63,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`ERROR_WHEN_DATA_EXISTS`**：当存在数据时，报错。
 
   目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum)
-  注意：对于 JDBC sink，当 sink 配置了 `query`（自定义写入 SQL）时，当前不会执行 save mode 处理，因此 `CUSTOM_PROCESSING`/`custom_sql` 不会生效。
+  注意：对于 JDBC sink，在 `query` 模式下基于 Catalog 的 save mode 不会生效，但 `CUSTOM_PROCESSING`/`custom_sql` 仍会在写入前执行一次。
   具体 connector 支持边界，以及 File/Object Storage Sink 的差异，请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
 
 ## JDBC Sink 应该使用 `generate_sink_sql` 还是 `query`？
