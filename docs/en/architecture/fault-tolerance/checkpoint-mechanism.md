@@ -513,6 +513,24 @@ env {
 
 Checkpoint storage is configured on the engine side (e.g., `config/seatunnel.yaml` under `seatunnel.engine.checkpoint.storage`), rather than as job-level `env` options.
 
+The size of the checkpoint history the monitor retains is also engine-side:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      monitor-history-size: 32   # default
+```
+
+This is how many completed checkpoints are kept per pipeline for the
+`/jobs/checkpoints/{jobId}` REST endpoint. The window bounds how far back a
+client can compare a job against its own past, which matters for spotting a
+gradual slowdown: at the default interval of 300000ms the default of 32 covers
+roughly 2.5 hours, but on a job checkpointing every 10000ms it covers only
+about 5 minutes. Raise it for jobs with a short interval. The history is held
+in memory per pipeline, so the cost of a larger window scales with the number
+of running pipelines.
+
 ### 5.2 Tuning Guidelines
 
 **Checkpoint Interval**:

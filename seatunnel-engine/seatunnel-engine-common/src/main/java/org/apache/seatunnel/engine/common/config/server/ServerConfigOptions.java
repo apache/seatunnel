@@ -215,6 +215,21 @@ public class ServerConfigOptions {
                         .defaultValue(30000)
                         .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+        public static final Option<Integer> CHECKPOINT_MONITOR_HISTORY_SIZE =
+                Options.key("monitor-history-size")
+                        .intType()
+                        .defaultValue(32)
+                        .withDescription(
+                                "How many completed checkpoints the monitor keeps per pipeline for "
+                                        + "the /jobs/checkpoints endpoint. The window bounds how far "
+                                        + "back a client can compare a job against its own past, so "
+                                        + "raise it on jobs with a short checkpoint interval: at the "
+                                        + "default interval of 300000ms the default of 32 covers "
+                                        + "about 2.5 hours, but at an interval of 10000ms it covers "
+                                        + "only about 5 minutes. Retained in memory per pipeline, so "
+                                        + "the cost of a larger window scales with the number of "
+                                        + "running pipelines.");
+
         public static final Option<Integer> CHECKPOINT_MIN_PAUSE =
                 Options.key("min-pause")
                         .intType()
