@@ -103,27 +103,23 @@ public class KafkaPartitionSplitReader
         KafkaPartitionSplitRecords recordsBySplits =
                 new KafkaPartitionSplitRecords(consumerRecords);
         List<TopicPartition> finishedPartitions = new ArrayList<>();
-        for (TopicPartition tp : consumerRecords.partitions()) {
+        for (TopicPartition tp : consumer.assignment()) {
             long stoppingOffset = getStoppingOffset(tp);
-            final List<ConsumerRecord<byte[], byte[]>> recordsFromPartition =
-                    consumerRecords.records(tp);
+            if (stoppingOffset == Long.MAX_VALUE) {
+                continue;
+            }
+            long currentOffset =
+                    retryOnWakeup(
+                            () -> consumer.position(tp),
+                            "getting current position to finish split");
 
-            if (recordsFromPartition.size() > 0) {
-                final ConsumerRecord<byte[], byte[]> lastRecord =
-                        recordsFromPartition.get(recordsFromPartition.size() - 1);
-
-                // After processing a record with offset of "stoppingOffset - 1", the split reader
-                // should not continue fetching because the record with stoppingOffset may not
-                // exist. Keep polling will just block forever.
-                if (lastRecord.offset() >= stoppingOffset - 1) {
-                    recordsBySplits.setPartitionStoppingOffset(tp, stoppingOffset);
-                    finishSplitAtRecord(
-                            tp,
-                            stoppingOffset,
-                            lastRecord.offset(),
-                            finishedPartitions,
-                            recordsBySplits);
-                }
+            // Consumer positions advance across Kafka transaction control records, although those
+            // records are not returned by poll(). Use the position instead of the last returned
+            // record so a batch split can finish after consuming the visible records.
+            if (currentOffset >= stoppingOffset) {
+                recordsBySplits.setPartitionStoppingOffset(tp, stoppingOffset);
+                finishSplitAtRecord(
+                        tp, stoppingOffset, currentOffset, finishedPartitions, recordsBySplits);
             }
         }
 
