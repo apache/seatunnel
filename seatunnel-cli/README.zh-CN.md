@@ -263,10 +263,9 @@ SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 8523626707716669
 
 ```
 Job 852362670771666945 mysql-to-doris — RUNNING
-  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
-            It is failing and being restored repeatedly, so the job looks alive while
-            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
-            since the last restore)
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
 ```
 
 它会报告：失败作业解析出的错误码与根因、反复重启的 pipeline（以及是否已用尽
@@ -313,9 +312,12 @@ acknowledged it`），指向具体的某一环而不是整个作业。
 - checkpoint 卡住的判定阈值是进行中超过 2 分钟，高于打包配置里的
   `checkpoint.timeout`（60 秒）。默认配置下挂死的 checkpoint 会先超时、以失败
   的形式报出，因此这条规则主要服务于调高了该超时的集群。
-- 时长以引擎自己的时钟为基准计算（作业规则用 `diagnostics.generatedAt`，
-  checkpoint 规则用 `updatedAt`），客户端时钟与集群不一致时不会凭空造出一个
-  "卡住"的作业。
+- 时长以引擎自己的时钟为基准计算：作业规则和 checkpoint 规则都使用
+  `/job-info` 响应里的 `diagnostics.generatedAt`（由 master 在构造响应时打上），
+  因此客户端时钟与集群不一致时不会凭空造出一个"卡住"的作业。checkpoint
+  overview 自带的 `updatedAt` 刻意不使用——引擎只在记录 checkpoint 事件时才
+  写入它，所以当某个 checkpoint 卡在最后一个 subtask 上时它就不再前进，反而
+  会把这条规则本该发现的卡死隐藏掉。
 
 ### CLI 参数
 
