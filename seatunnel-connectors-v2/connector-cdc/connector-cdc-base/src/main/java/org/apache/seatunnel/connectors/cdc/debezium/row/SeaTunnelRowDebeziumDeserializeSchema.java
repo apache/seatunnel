@@ -395,6 +395,10 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
     }
 
+    /**
+     * Emits restored table schemas before deserializing the first subsequent record. Clear the
+     * pending batch before delivery so later records do not emit the same restore events again.
+     */
     private void emitPendingRestoreSchemaEvents(Collector<SeaTunnelRow> collector) {
         List<CatalogTable> restoreTables = pendingRestoreTables;
         if (restoreTables.isEmpty()) {
