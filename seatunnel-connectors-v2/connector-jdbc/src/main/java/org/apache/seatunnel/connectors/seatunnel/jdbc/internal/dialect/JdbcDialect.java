@@ -519,6 +519,11 @@ public interface JdbcDialect extends Serializable {
         return columnName;
     }
 
+    /** Whether this dialect can apply schema-change events to a physical sink table. */
+    default boolean supportsSchemaChange() {
+        return true;
+    }
+
     /**
      * Refresh physical table schema by schema change event
      *
