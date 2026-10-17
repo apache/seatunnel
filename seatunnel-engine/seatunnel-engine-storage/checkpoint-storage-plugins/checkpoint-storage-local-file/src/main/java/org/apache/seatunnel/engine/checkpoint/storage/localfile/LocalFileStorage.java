@@ -371,23 +371,21 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException(
                     "No checkpoint found for job, job id is: " + jobId);
         }
-        fileList.forEach(
-                file -> {
-                    String fileName = file.getName();
-                    String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
-                    if (pipelineId.equals(getPipelineIdByFileName(fileName))
-                            && checkpointIdList.contains(checkpointIdByFileName)) {
-                        try {
-                            FileUtils.delete(file);
-                        } catch (Exception e) {
-                            log.error(
-                                    "Failed to delete checkpoint {} for job {}, pipeline {}",
-                                    checkpointIdByFileName,
-                                    jobId,
-                                    pipelineId,
-                                    e);
-                        }
-                    }
-                });
+        for (File file : fileList) {
+            String fileName = file.getName();
+            String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
+            if (pipelineId.equals(getPipelineIdByFileName(fileName))
+                    && checkpointIdList.contains(checkpointIdByFileName)) {
+                try {
+                    FileUtils.delete(file);
+                } catch (Exception e) {
+                    throw new CheckpointStorageException(
+                            String.format(
+                                    "Failed to delete checkpoint %s for job %s, pipeline %s",
+                                    checkpointIdByFileName, jobId, pipelineId),
+                            e);
+                }
+            }
+        }
     }
 }
