@@ -29,23 +29,33 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.Mockito;
 
 import com.hazelcast.map.IMap;
 
 import java.net.MalformedURLException;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
+import static org.awaitility.Awaitility.await;
 
 @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
@@ -146,15 +156,93 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    void testCancellationWinsOverWorkerFailure() throws Exception {
+    void testWorkerFailureDuringCancelKeepsPipelineCanceling() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
 
         SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
+        subPlan.initStateFuture();
         subPlan.updatePipelineState(PipelineStatus.CANCELING);
-        subPlan.getFailedTaskNum().set(1);
 
-        Assertions.assertEquals(PipelineStatus.CANCELED, subPlan.determinePipelineEndState());
+        // A vertex the cancel loop has not reached yet (still CREATED) is reported FAILED
+        // by CoordinatorService.makeTasksFailed() once the worker is lost. This drives the
+        // real callback path in SubPlan.addPhysicalVertexCallBack().
+        PhysicalVertex workerLostVertex = subPlan.getPhysicalVertexList().get(0);
+        workerLostVertex.startPhysicalVertex();
+        workerLostVertex.updateStateByExecutionService(
+                new TaskExecutionState(
+                        workerLostVertex.getTaskGroupLocation(),
+                        ExecutionState.FAILED,
+                        "worker lost"));
+
+        await().atMost(Duration.ofSeconds(10)).until(() -> subPlan.getFinishedTaskNum().get() == 1);
+        // Moving the pipeline to FAILING here is exactly the race that made a
+        // user-requested cancel end up FAILED (#12353).
+        Assertions.assertEquals(PipelineStatus.CANCELING, subPlan.getPipelineState());
+    }
+
+    @Test
+    void testWorkerFailureDuringCancelResolvesToCanceled() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
+        subPlan.setJobMaster(mockJobMaster());
+
+        subPlan.initStateFuture();
+        subPlan.updatePipelineState(PipelineStatus.CANCELING);
+
+        // One task fails with the lost worker; every other task (including the
+        // coordinator vertices) is canceled.
+        List<PhysicalVertex> allVertices = new ArrayList<>(subPlan.getPhysicalVertexList());
+        allVertices.addAll(subPlan.getCoordinatorVertexList());
+        for (PhysicalVertex vertex : allVertices) {
+            vertex.startPhysicalVertex();
+        }
+        allVertices
+                .get(0)
+                .updateStateByExecutionService(
+                        new TaskExecutionState(
+                                allVertices.get(0).getTaskGroupLocation(),
+                                ExecutionState.FAILED,
+                                "worker lost"));
+        for (int i = 1; i < allVertices.size(); i++) {
+            allVertices
+                    .get(i)
+                    .updateStateByExecutionService(
+                            new TaskExecutionState(
+                                    allVertices.get(i).getTaskGroupLocation(),
+                                    ExecutionState.CANCELED));
+        }
+
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> PipelineStatus.CANCELED.equals(subPlan.getPipelineState()));
+    }
+
+    @Test
+    void testAllTasksFinishedNaturallyDuringCancelResolvesToFinished() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
+        subPlan.setJobMaster(mockJobMaster());
+
+        subPlan.initStateFuture();
+        subPlan.updatePipelineState(PipelineStatus.CANCELING);
+
+        // Every task (including the coordinator vertices) completes FINISHED while the
+        // pipeline state has not left CANCELING yet: the pipeline must still end FINISHED,
+        // not be reclassified as CANCELED.
+        List<PhysicalVertex> allVertices = new ArrayList<>(subPlan.getPhysicalVertexList());
+        allVertices.addAll(subPlan.getCoordinatorVertexList());
+        for (PhysicalVertex vertex : allVertices) {
+            vertex.startPhysicalVertex();
+            vertex.updateStateByExecutionService(
+                    new TaskExecutionState(vertex.getTaskGroupLocation(), ExecutionState.FINISHED));
+        }
+
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> PipelineStatus.FINISHED.equals(subPlan.getPipelineState()));
     }
 
     @Test
@@ -167,6 +255,23 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    private JobMaster mockJobMaster() {
+        CheckpointCoordinatorState coordinatorState =
+                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null);
+        CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
+        Mockito.when(checkpointManager.cancelCheckpoint(Mockito.anyInt()))
+                .thenReturn(
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(coordinatorState)));
+        Mockito.when(checkpointManager.waitCheckpointCoordinatorComplete(Mockito.anyInt()))
+                .thenReturn(
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(coordinatorState)));
+        JobMaster jobMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        return jobMaster;
     }
 
     private PlanWithStateMaps createPhysicalPlan(long jobId) throws MalformedURLException {
