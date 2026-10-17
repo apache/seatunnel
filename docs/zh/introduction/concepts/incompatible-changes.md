@@ -4,6 +4,20 @@
 
 ## dev
 
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
+### CDC：可空列不再用作快照分片列
+
+- **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
+  - **描述**：对于没有主键的表，此前即使唯一键列可空，也会将其作为快照分片列。该列为 NULL 的行不会匹配任何快照分片，会被静默跳过。现在会跳过可空列，无论它来自唯一键、`snapshotSplitColumn`，还是 `table-names-config.primaryKeys` 中配置的主键；如果没有可用的非空键列，则整张表作为单个分片读取。可空性从数据库元数据中读取。
+  - **影响**：这类表现在会被完整读取，但快照只有一个分片而不是多个。开启 `exactly_once = true` 时，若表唯一的键是可空唯一键，或 `table-names-config.primaryKeys` 中配置的是可空列，作业会在启动时报错 `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...`，而不是继续运行并丢失数据。对于已有作业，即使配置的 `primaryKeys` 列中实际没有 NULL，只要该列在数据库中可空，也会如此。
+  - **迁移指南**：如需保持快照并行读取，请声明一个 NOT NULL 的唯一列，或通过 `table-names-config.primaryKeys` / `snapshotSplitColumn` 配置非空列。对于 `exactly_once = true`，请为表添加主键或非空唯一键，或将配置的 `primaryKeys` 列在数据库中改为 NOT NULL。
+
 ### PostgreSQL CDC pgoutput 表结构
 
 - **行为变更**：使用 `decoding.plugin.name = "pgoutput"` 的流式作业会从源表结构中排除 PostgreSQL 发布未发布的列，包括 PostgreSQL 18 之前的生成列、虚拟生成列以及发布列列表中省略的列。仅快照作业和其他解码插件不受影响。
@@ -26,6 +40,29 @@
     3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### 用户变量(`-i` 参数)
+
+- **`-i` 参数值在 `System.getProperties()`中不可见**
+
+  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过 `System.getProperties()` 访问。
+
+- **`-i` 参数不再允许重复key**
+  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
+  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
+
+- **双引号包裹的 `-i` 值会被解包**
+  - 例如 `-i k="v"` 现在等价于 `-i k=v`（引号被剥掉）。双引号主要针对包含逗号(`,`),花括号(`{}`)和方括号(`[]`)等包含结构化定界符的字符串参数值使用，其他普通字符可不用双引号。
+
+- **不平衡的`{}`或`[]`会被部分解析成map和list**
+  - `-i k=[a,b],c]` 中`[a,b]`会当成数组解析，`c]` 因为没有 `=` 会被忽略（不会作为字符串保留）
+  - 以 `{` 或 `[` 开头、括号平衡但不是合法 HOCON/JSON 的参数值，现在会在解析阶段抛出 BadValue 错误。之前能正常工作的未加引号的值（如 `-i pattern={a,b} `）会因此失败。如需保留为普通字符串，请用转义双引号包裹：
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` key 和 value 现在会 trim，空 key 会被拒绝**
+  - `-i 'k1= , k2=v2'` 现在会明确将空格去掉，k1的会变为空字符串，第二个键值对的key会变为`k2`而不是带空格的` k2`。
+  - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
+  - 有意义的首尾空白会被静默去除。
 
 ### SQL TINYINT 数组模式
 
