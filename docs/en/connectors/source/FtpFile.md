@@ -59,7 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
-| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
 | read_partitions | list | no | - |
