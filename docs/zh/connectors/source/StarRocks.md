@@ -19,6 +19,10 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户定义拆分](../../introduction/concepts/connector-v2-features.md)
 
+## 数据类型映射
+
+StarRocks 原生 `JSON` 列映射为 SeaTunnel `JSON` 逻辑类型。JSON 值在 SeaTunnel 内部以合法 JSON 文本表示。
+
 ## 配置选项
 
 | 名称                      | 类型     | 是否必须 | 默认值               | 说明                                                            |

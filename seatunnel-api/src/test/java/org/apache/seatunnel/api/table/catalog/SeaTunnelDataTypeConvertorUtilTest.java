@@ -167,6 +167,20 @@ public class SeaTunnelDataTypeConvertorUtilTest {
         Assertions.assertEquals(BasicType.BYTE_TYPE, byteRow.getFieldType(0));
     }
 
+    /** Verifies JSON type declaration parsing, including nested array declarations. */
+    @Test
+    public void testJsonTypeDeclare() {
+        SeaTunnelDataType<?> jsonType =
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("payload", "json");
+        Assertions.assertEquals(BasicType.JSON_TYPE, jsonType);
+
+        ArrayType<?, ?> jsonArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "payloads", "array<json>");
+        Assertions.assertEquals(BasicType.JSON_TYPE, jsonArrayType.getElementType());
+    }
+
     @Test
     public void testNestedArrayType() {
         // Test array<array<string>>

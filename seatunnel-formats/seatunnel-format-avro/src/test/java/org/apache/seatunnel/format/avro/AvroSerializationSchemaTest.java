@@ -189,6 +189,29 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(localDateTime1.compareTo(localDateTime), 0);
     }
 
+    /**
+     * Verifies that Avro represents JSON logical values as nullable strings without data loss.
+     *
+     * <p>The test covers both nested JSON text and SQL null through the complete Avro serde path.
+     */
+    @Test
+    public void testJsonSerializationRoundTrip() throws IOException {
+        String json = "{\"id\":1,\"nested\":[true,2]}";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload", "nullable_payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.JSON_TYPE, BasicType.JSON_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        AvroSerializationSchema serializer = new AvroSerializationSchema(rowType);
+        AvroDeserializationSchema deserializer = new AvroDeserializationSchema(catalogTable);
+
+        byte[] bytes = serializer.serialize(new SeaTunnelRow(new Object[] {json, null}));
+        SeaTunnelRow result = deserializer.deserialize(bytes);
+
+        Assertions.assertEquals(json, result.getField(0));
+        Assertions.assertNull(result.getField(1));
+    }
+
     private SeaTunnelRow buildSeaTunnelRowValueNull() {
         SeaTunnelRow subSeaTunnelRow = new SeaTunnelRow(14);
         subSeaTunnelRow.setField(0, null);

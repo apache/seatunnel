@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -164,6 +165,8 @@ public class StarRocksCatalog implements Catalog {
         try {
             Optional<PrimaryKey> primaryKey =
                     getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
+            Map<String, String> nativeColumnTypes =
+                    getNativeColumnTypes(tablePath.getDatabaseName(), tablePath.getTableName());
 
             try (PreparedStatement ps =
                     conn.prepareStatement(
@@ -179,10 +182,16 @@ public class StarRocksCatalog implements Catalog {
                         IntStream.range(1, tableMetaData.getColumnCount() + 1).iterator(),
                         i -> {
                             try {
-                                SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
+                                String columnName = tableMetaData.getColumnName(i);
+                                SeaTunnelDataType<?> type =
+                                        fromJdbcType(
+                                                tableMetaData,
+                                                i,
+                                                nativeColumnTypes.get(
+                                                        columnName.toLowerCase(Locale.ROOT)));
                                 // TODO add default value and test it
                                 return PhysicalColumn.of(
-                                        tableMetaData.getColumnName(i),
+                                        columnName,
                                         type,
                                         tableMetaData.getColumnDisplaySize(i),
                                         tableMetaData.isNullable(i)
@@ -311,8 +320,11 @@ public class StarRocksCatalog implements Catalog {
     }
 
     /** @see com.mysql.cj.MysqlType */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
+    private SeaTunnelDataType<?> fromJdbcType(
+            ResultSetMetaData metadata, int colIndex, String nativeColumnType) throws SQLException {
+        if ("json".equalsIgnoreCase(nativeColumnType)) {
+            return BasicType.JSON_TYPE;
+        }
         MysqlType starrocksType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
         switch (starrocksType) {
             case NULL:
@@ -352,9 +364,10 @@ public class StarRocksCatalog implements Catalog {
             case TEXT:
             case MEDIUMTEXT:
             case LONGTEXT:
-            case JSON:
             case ENUM:
                 return BasicType.STRING_TYPE;
+            case JSON:
+                return BasicType.JSON_TYPE;
             case BINARY:
             case VARBINARY:
             case TINYBLOB:
@@ -376,6 +389,26 @@ public class StarRocksCatalog implements Catalog {
                                 "Doesn't support Starrocks type '%s' yet",
                                 starrocksType.getName()));
         }
+    }
+
+    private Map<String, String> getNativeColumnTypes(String schema, String table)
+            throws SQLException {
+        Map<String, String> nativeColumnTypes = new HashMap<>();
+        try (PreparedStatement ps =
+                conn.prepareStatement(
+                        "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns "
+                                + "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?")) {
+            ps.setString(1, schema);
+            ps.setString(2, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    nativeColumnTypes.put(
+                            rs.getString("COLUMN_NAME").toLowerCase(Locale.ROOT),
+                            rs.getString("DATA_TYPE"));
+                }
+            }
+        }
+        return nativeColumnTypes;
     }
 
     @SuppressWarnings("MagicNumber")
