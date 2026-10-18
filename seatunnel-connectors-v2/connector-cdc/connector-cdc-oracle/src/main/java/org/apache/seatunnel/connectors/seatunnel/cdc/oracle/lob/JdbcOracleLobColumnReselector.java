@@ -58,8 +58,7 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
     private transient Connection connection;
     private transient boolean pdbSelected;
     private transient Map<String, PreparedStatement> statementCache;
-    private transient Set<String> flashbackUnavailableTables =
-            Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+    private transient Set<String> flashbackUnavailableTables;
 
     public JdbcOracleLobColumnReselector(
             String url, String username, String password, String pdbName) {
@@ -85,7 +84,7 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
         return query(
                 openConnection(),
                 statementCache(),
-                flashbackUnavailableTables,
+                flashbackUnavailableTables(),
                 schema,
                 table,
                 lobColumns,
@@ -239,6 +238,14 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
             statementCache = new HashMap<String, PreparedStatement>();
         }
         return statementCache;
+    }
+
+    private Set<String> flashbackUnavailableTables() {
+        if (flashbackUnavailableTables == null) {
+            flashbackUnavailableTables =
+                    Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+        }
+        return flashbackUnavailableTables;
     }
 
     private void closeCachedStatements() {
