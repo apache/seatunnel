@@ -47,6 +47,17 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
   - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
 
+### Spark: DECIMAL with precision above 38
+
+- **Behavior change: on the Spark engine, `DECIMAL(p, s)` with `p > 38` no longer fails at schema creation when it is a top-level column or a field inside a `ROW`**
+  - **Description**: Spark's decimal type stops at precision 38, so any such column failed with `decimal can only support precision up to 38` before any row was read. SeaTunnel now carries these values through Spark as plain decimal text, with the declared precision and scale in the column metadata, and restores `DECIMAL(p, s)` for transforms and sinks.
+  - **Impact**:
+    - Jobs that read such columns on Spark 2.4 or 3.3 now run and keep every digit.
+    - A `DECIMAL(p > 38)` inside an `ARRAY` or `MAP` now fails at job start with error `SPARK-TRANSLATION-01`, which names the table, the column path and the workarounds. If the Doris source declares `LARGEINT` as `DECIMAL(39, 0)`, this applies to Doris `ARRAY<LARGEINT>` columns and `LARGEINT` map keys and values on Spark, which could overflow above 20 digits with the old `DECIMAL(20, 0)` type.
+    - A value that does not fit the declared precision or scale fails the job with `SPARK-TRANSLATION-02` instead of being rounded.
+    - In Spark's own view of the data, such as the Dataset schema or a temporary view, these columns are `STRING`.
+  - **Migration Guide**: No change is needed for top-level or `ROW` columns. For an `ARRAY` or `MAP` column, leave it out at the source, cast it in the source query, or run the job on the Zeta or Flink engine. A `Sql` transform cannot help here, because on Spark the source schema is built before any transform runs. See [SeaTunnel With Spark](../../engines/spark.md#decimal-precision-above-38).
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

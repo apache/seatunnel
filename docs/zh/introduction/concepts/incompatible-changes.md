@@ -46,6 +46,17 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
 
+### Spark：精度超过 38 的 DECIMAL
+
+- **行为变更：在 Spark 引擎上，作为顶层列或 `ROW` 内字段的 `DECIMAL(p, s)`（`p > 38`）不再在构建 schema 时失败**
+  - **描述**：Spark 的 decimal 类型精度最大为 38，因此此前这类列会在读取任何数据之前报错 `decimal can only support precision up to 38`。现在 SeaTunnel 在 Spark 中把这些值作为普通十进制文本传递，在列的 metadata 中记录声明的精度和小数位数，并为 Transform 和 Sink 还原为 `DECIMAL(p, s)`。
+  - **影响**：
+    - 在 Spark 2.4 或 3.3 上读取这类列的作业现在可以运行，且不丢失任何数字。
+    - `ARRAY` 或 `MAP` 内的 `DECIMAL(p > 38)` 现在会在作业启动时以错误 `SPARK-TRANSLATION-01` 失败，报错中给出表名、列路径和绕过办法。如果 Doris 源把 `LARGEINT` 声明为 `DECIMAL(39, 0)`，这也适用于 Spark 上 Doris 的 `ARRAY<LARGEINT>` 列以及 MAP 中的 `LARGEINT` 键和值；此前它们使用 `DECIMAL(20, 0)`，超过 20 位的值会溢出。
+    - 值超出声明的精度或小数位数时，作业会以 `SPARK-TRANSLATION-02` 失败，不会被四舍五入。
+    - 在 Spark 自己看到的数据中（例如 Dataset 的 schema 或临时视图），这些列是 `STRING`。
+  - **迁移指南**：顶层列和 `ROW` 内的列无需修改。对于 `ARRAY` 或 `MAP` 列，请在 Source 端不读取该列、在 Source 查询中转换它，或改用 Zeta 或 Flink 引擎运行作业。`Sql` Transform 在这里无效，因为在 Spark 上 Source 的 schema 在任何 Transform 运行之前就已构建。参见 [SeaTunnel 运行在 Spark 上](../../engines/spark.md#精度超过-38-的-decimal)。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
