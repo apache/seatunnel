@@ -43,6 +43,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 import com.hazelcast.map.IMap;
 
@@ -51,7 +52,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
@@ -245,6 +248,86 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                 .until(() -> PipelineStatus.FINISHED.equals(subPlan.getPipelineState()));
     }
 
+    /**
+     * Sibling-vertex ordering (#12353): the job-level cancel loop processes pipelines one by one
+     * and is still cancelling the checkpoint coordinator of the first pipeline when the worker
+     * hosting every vertex of a later pipeline is removed. {@code
+     * CoordinatorService.makeTasksFailed()} completes the vertices of that pipeline — including its
+     * coordinator vertex, also deployed on the crashed member — as {@code FAILED} before the cancel
+     * loop has ever reached the pipeline, so the pipeline state has not become {@code CANCELING}
+     * yet. The pipeline must still end {@code CANCELED}: the user-requested cancel must not be
+     * overwritten to {@code FAILED}.
+     */
+    @Test
+    void testSiblingWorkerFailureWhileCancelInFlightResolvesToCanceled() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        PhysicalPlan physicalPlan = planWithStateMaps.physicalPlan;
+
+        // A second pipeline the job-level cancel loop has not reached while it is still stuck
+        // cancelling the first pipeline's checkpoint coordinator.
+        SubPlan notYetReachedPipeline =
+                createPhysicalPlan(
+                                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
+                                        .newId())
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0);
+        physicalPlan.getPipelineList().add(notYetReachedPipeline);
+
+        // The first pipeline's checkpoint cancellation blocks the job-level cancel loop.
+        CompletableFuture<CheckpointCoordinatorState> firstPipelineCancelFuture =
+                new CompletableFuture<>();
+        CountDownLatch cancelLoopBlockedOnFirstPipeline = new CountDownLatch(1);
+        physicalPlan.setJobMaster(
+                mockJobMaster(
+                        invocation -> {
+                            cancelLoopBlockedOnFirstPipeline.countDown();
+                            return new PassiveCompletableFuture<>(firstPipelineCancelFuture);
+                        }));
+        // The not-yet-reached pipeline must not block while computing its end state.
+        notYetReachedPipeline.setJobMaster(mockJobMaster());
+
+        physicalPlan.initStateFuture();
+        // Move every pipeline to RUNNING before starting the job state machine, so the
+        // SCHEDULED branch of PhysicalPlan.stateProcess() skips them (no resource
+        // application) and cancelJob() walks the CANCELING branch.
+        for (SubPlan subPlan : physicalPlan.getPipelineList()) {
+            subPlan.updatePipelineState(PipelineStatus.RUNNING);
+        }
+        physicalPlan.startJob();
+
+        Thread cancelJobThread = new Thread(physicalPlan::cancelJob);
+        cancelJobThread.start();
+        Assertions.assertTrue(
+                cancelLoopBlockedOnFirstPipeline.await(10, TimeUnit.SECONDS),
+                "the job-level cancel loop must reach the first pipeline");
+
+        // The crashed worker hosted every vertex of the not-yet-reached pipeline (task
+        // vertices and coordinator vertex, all still RUNNING when the member is removed).
+        List<PhysicalVertex> crashedVertices =
+                new ArrayList<>(notYetReachedPipeline.getPhysicalVertexList());
+        crashedVertices.addAll(notYetReachedPipeline.getCoordinatorVertexList());
+        Assertions.assertTrue(
+                crashedVertices.size() >= 2,
+                "the pipeline must host at least two vertices on the crashed member");
+        for (PhysicalVertex vertex : crashedVertices) {
+            vertex.startPhysicalVertex();
+            vertex.updateStateByExecutionService(
+                    new TaskExecutionState(
+                            vertex.getTaskGroupLocation(), ExecutionState.FAILED, "worker lost"));
+        }
+
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> notYetReachedPipeline.getPipelineState().isEndState());
+        Assertions.assertEquals(PipelineStatus.CANCELED, notYetReachedPipeline.getPipelineState());
+
+        // Let the blocked job-level cancel loop finish.
+        firstPipelineCancelFuture.complete(
+                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
+        cancelJobThread.join(5000);
+    }
+
     @Test
     void testPhysicalPlanIgnoresLateTransitionWhenJobStateAlreadyTerminal() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
@@ -258,19 +341,28 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     private JobMaster mockJobMaster() {
-        CheckpointCoordinatorState coordinatorState =
-                new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null);
+        return mockJobMaster(
+                invocation ->
+                        new PassiveCompletableFuture<>(
+                                CompletableFuture.completedFuture(
+                                        new CheckpointCoordinatorState(
+                                                CheckpointCoordinatorStatus.FINISHED, null))));
+    }
+
+    private JobMaster mockJobMaster(
+            Answer<PassiveCompletableFuture<CheckpointCoordinatorState>> cancelCheckpointAnswer) {
         CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
         Mockito.when(checkpointManager.cancelCheckpoint(Mockito.anyInt()))
-                .thenReturn(
-                        new PassiveCompletableFuture<>(
-                                CompletableFuture.completedFuture(coordinatorState)));
+                .thenAnswer(cancelCheckpointAnswer);
         Mockito.when(checkpointManager.waitCheckpointCoordinatorComplete(Mockito.anyInt()))
                 .thenReturn(
                         new PassiveCompletableFuture<>(
-                                CompletableFuture.completedFuture(coordinatorState)));
+                                CompletableFuture.completedFuture(
+                                        new CheckpointCoordinatorState(
+                                                CheckpointCoordinatorStatus.FINISHED, null))));
         JobMaster jobMaster = Mockito.mock(JobMaster.class);
         Mockito.when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        Mockito.when(jobMaster.getExecutorService()).thenReturn(Executors.newCachedThreadPool());
         return jobMaster;
     }
 

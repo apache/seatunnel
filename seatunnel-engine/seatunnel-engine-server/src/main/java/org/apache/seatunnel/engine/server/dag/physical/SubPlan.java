@@ -107,6 +107,16 @@ public class SubPlan {
 
     private volatile PipelineStatus currPipelineStatus;
 
+    /**
+     * Set as soon as cancellation of this pipeline is requested, before any blocking work in {@link
+     * #cancelPipeline()}. While the pipeline state has not left {@code RUNNING} yet (the cancel
+     * loop has not reached this pipeline, or {@code cancelPipeline()} is still cancelling the
+     * checkpoint coordinator), {@code CoordinatorService.makeTasksFailed()} may complete the
+     * remaining vertices as FAILED; this flag lets the failed-task callback and the end-state
+     * computation honor the in-flight cancel so the pipeline resolves to CANCELED (#12353).
+     */
+    private volatile boolean cancelRequested = false;
+
     public volatile boolean isRunning = false;
 
     private Map<TaskGroupLocation, SlotProfile> slotProfiles;
@@ -221,8 +231,12 @@ public class SubPlan {
                             // A worker failure must not overwrite a cancellation that has
                             // already started: keep CANCELING until the end-state
                             // computation so the pipeline resolves to CANCELED instead of
-                            // FAILED (#12353).
-                            if (!PipelineStatus.CANCELING.equals(getPipelineState())) {
+                            // FAILED (#12353). The request may still be in flight while the
+                            // pipeline state has not left RUNNING (e.g. cancelPipeline() is
+                            // still cancelling the checkpoint coordinator), hence the
+                            // cancelRequested check.
+                            if (!cancelRequested
+                                    && !PipelineStatus.CANCELING.equals(getPipelineState())) {
                                 updatePipelineState(PipelineStatus.FAILING);
                             }
                         }
@@ -292,12 +306,15 @@ public class SubPlan {
      * <p>Precedence: once cancellation has started and a task has actually failed or been canceled,
      * {@code CANCELING} wins over the failure and the pipeline resolves to {@code CANCELED} — the
      * cancellation requested by the user must not be overwritten by a worker failure racing it
-     * (#12353). A pipeline whose tasks all completed naturally still resolves to {@code FINISHED}
-     * even if the pipeline state has not left {@code CANCELING} yet, so a finished pipeline is
-     * never reclassified as {@code CANCELED} (which would make it restore-eligible). Otherwise
-     * {@code failedTaskNum} wins over {@code canceledTaskNum}, with the {@code FAILING} carve-out
-     * (e.g. slot allocation failure before any task ran) still mapping canceled tasks to {@code
-     * FAILED}.
+     * (#12353). Cancellation counts as started as soon as it has been requested ({@code
+     * cancelRequested}), even while the pipeline state has not left {@code RUNNING} yet because the
+     * cancel loop has not reached this pipeline or {@code cancelPipeline()} is still cancelling the
+     * checkpoint coordinator. A pipeline whose tasks all completed naturally still resolves to
+     * {@code FINISHED} even if the pipeline state has not left {@code CANCELING} yet, so a finished
+     * pipeline is never reclassified as {@code CANCELED} (which would make it restore-eligible).
+     * Otherwise {@code failedTaskNum} wins over {@code canceledTaskNum}, with the {@code FAILING}
+     * carve-out (e.g. slot allocation failure before any task ran) still mapping canceled tasks to
+     * {@code FAILED}.
      *
      * <p>Runs on the vertex-callback executor, outside the {@code synchronized} monitor of this
      * SubPlan, reading the pipeline state and the task counters without holding it.
@@ -305,7 +322,7 @@ public class SubPlan {
     @VisibleForTesting
     PipelineStatus determinePipelineEndState() {
         if ((failedTaskNum.get() > 0 || canceledTaskNum.get() > 0)
-                && PipelineStatus.CANCELING.equals(getPipelineState())) {
+                && (cancelRequested || PipelineStatus.CANCELING.equals(getPipelineState()))) {
             // Once cancellation has started, a worker failure must not overwrite the
             // cancellation requested by the user.
             return PipelineStatus.CANCELED;
@@ -439,7 +456,21 @@ public class SubPlan {
         }
     }
 
+    /**
+     * Marks this pipeline as cancel-requested before any vertex can be failed by member removal.
+     * Must be called before {@code cancelPipeline()} starts any blocking work (checkpoint
+     * cancellation), so a concurrent {@code CoordinatorService.makeTasksFailed()} cannot end the
+     * pipeline as FAILED while the cancel is still in flight (#12353).
+     */
+    public void markCancelRequested() {
+        this.cancelRequested = true;
+    }
+
     public synchronized void cancelPipeline() {
+        // Record the request before cancelCheckpointCoordinator() can block, so the
+        // failed-task callback and the end-state computation honor this cancel even though
+        // the pipeline state has not left RUNNING yet (#12353).
+        markCancelRequested();
         cancelCheckpointCoordinator();
         if (!getPipelineState().isEndState()) {
             updatePipelineState(PipelineStatus.CANCELING);
@@ -464,6 +495,9 @@ public class SubPlan {
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
         failedTaskNum.set(0);
+        // The restored run starts from a clean slate: a cancel request from the previous
+        // run must not leak into it (#12353).
+        cancelRequested = false;
 
         coordinatorVertexList.forEach(PhysicalVertex::reset);
 
