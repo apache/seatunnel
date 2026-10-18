@@ -210,6 +210,7 @@ schema {
 | xml_row_tag                | string  | 否    | -                  | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                               |
 | xml_use_attr_format        | boolean | 否    | -                  | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。                                                                                                               |
 | compress_codec             | string  | 否    | none               | 文件使用的压缩编解码器。                                                                                                                                         |
+| archive_compress_codec     | string  | 否    | none               | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。                                                                                                   |
 | encoding                   | string  | 否    | UTF-8 | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
 | null_format                | string  | 否    | -                  | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                     |
 | binary_chunk_size          | int     | 否    | 1024               | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                 |

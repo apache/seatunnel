@@ -87,6 +87,8 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | archive_compress_codec    | string  | 否  | none                        | 读取归档文件时使用的归档压缩格式。 |
 | encoding                  | string  | 否  | UTF-8                       | 读取 `json`、`text`、`csv` 或 `xml` 文件时使用的字符编码。 |
 | null_format               | string  | 否  | -                           | 仅用于 `text` 格式，指定应解析为 `null` 的字符串。 |
+| binary_chunk_size         | int     | 否  | 1024                        | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
+| binary_complete_file_mode | boolean | 否  | false                       | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。 |
 | common-options            |         | 否  | -                           | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
 | file_filter_modified_start | string | 否  | -                           | 按文件最后修改时间筛选文件的起始时间（包含该时间）。 |
 | file_filter_modified_end  | string  | 否  | -                           | 按文件最后修改时间筛选文件的结束时间（不包含该时间）。 |

@@ -88,6 +88,8 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.TIME_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
@@ -131,6 +133,15 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                         FilePostSyncAction.BACKUP,
                         FileBaseSourceOptions.BACKUP_PATH)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
+                .optional(
+                        FileBaseSourceOptions.READ_PARTITIONS,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_START,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_END,
+                        FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME)
+                .optional(
+                        FileBaseSourceOptions.CSV_USE_HEADER_LINE,
+                        FileBaseSourceOptions.BINARY_CHUNK_SIZE,
+                        FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE)
                 .build();
     }
 

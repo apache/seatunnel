@@ -87,6 +87,8 @@ It only supports hadoop version **2.9.X+**.
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |
 | null_format                | string  | no       | -                           |
+| binary_chunk_size          | int     | no       | 1024                        |
+| binary_complete_file_mode  | boolean | no       | false                       |
 | common-options             |         | no       | -                           |
 | file_filter_modified_start | string  | no       | -                           | 
 | file_filter_modified_end   | string  | no       | -                           | 

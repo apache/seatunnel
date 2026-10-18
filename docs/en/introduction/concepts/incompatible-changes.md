@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sink: XML applies `date_format`, `datetime_format` and `time_format`
+
+- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
+  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
+  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
+  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### CDC: nullable columns are no longer used as the snapshot split column
+
+- **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
+  - **Description**: For a table without a primary key, the snapshot split column was taken from a unique key even when that column was nullable. Rows with NULL in it matched no snapshot chunk and were silently skipped. A nullable column is now skipped, whether it comes from a unique key, from `snapshotSplitColumn` or from a primary key configured in `table-names-config.primaryKeys`; if no non-nullable key column remains, the table is read as a single split. Nullability is read from the database metadata.
+  - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
+  - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
+
 ### Markdown file source `child_ids` array
 
 The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
@@ -25,6 +39,31 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
     3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
     5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
+
+### User Variables(`-i` variables)
+
+- **`-i` values are no longer visible via `System.getProperties()`**
+
+  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. Starting from this version, `-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
+
+- **Duplicate keys via `-i` are no longer supported**
+  - Duplicate keys passed via `-i` are now rejected with an error.
+    Previously, duplicate keys were silently overridden, which could cause unexpected data sync errors due to mistakes such as copy-paste typo.
+  - If your code generation or CLI produces duplicated keys, please remove the unused ones.
+
+- **Double-quoted `-i` values are now unwrapped**
+  - For example, `-i k="v"` is now equivalent to `-i k=v` (quotes are stripped). Double quotes are mainly intended for string values that contain structural delimiters such as commas (`,`), curly braces (`{}`), and square brackets (`[]`). Plain values without such characters do not need double quotes.
+
+- **Unbalanced `{}` or `[]` are partially parsed into maps and lists**
+
+  - In `-i k=[a,b],c]`, `[a,b]` is parsed as an array, and `c]` is ignored because it has no = (it is not kept as a string).
+  - Balanced values that start with `{` or `[` but are not valid HOCON/JSON now fail with a `BadValue` error at parse time. This includes previously working unquoted values such as `-i pattern={a,b}`. To keep them as plain strings, wrap the value in escaped double quotes:
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` keys and values are now trimmed, and empty keys are rejected**
+  - `-i 'k1= , k2=v2'` now explicitly removes whitespace: `k1` becomes an empty string, and the key of the second pair becomes `k2` instead of ` k2`.
+  - `-i ' =v1 , k2=v2'` now reports an error, because the key for `v1` is empty after trimming.
+  - `-i`: Meaningful leading and trailing whitespace is silently removed.
 
 ### SQL TINYINT array schema
 
@@ -356,6 +395,12 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` without a non-blank `absolute_path` | Runtime file-read failure | Provide `absolute_path` when using `ABSOLUTE_PATH` pattern |
 
   **Migration Guide**: Review your transform configs against the table above. If any of your existing configs match a "Newly Rejected" pattern, update them before upgrading. The error messages at submission time now clearly identify which option is invalid and why.
+- **Behavior change: every `table_transform` entry is validated at submission time**
+  - **Affected component**: all transforms that support `table_transform`: `Copy`, `Calcite`, `DataValidator`, `DefineSinkType`, `DynamicCompile`, `FieldEncrypt`, `FieldMapper`, `Filter`, `FilterRowKind`, `JsonPath`, `Metadata`, `Python`, `RegexExtract`, `Replace`, `Sql`, `Split`, `TableMerge` and `TextChunk`.
+  - **Description**: An entry without a non-blank `table_path` used to be filtered out silently, so the entry was ignored and the job ran anyway; entries were not checked against the per-table rule until a row was processed. Entries are now validated before the job starts: each one has to select its table with a non-blank `table_path` and to be a complete single-table rule of that transform, and the transform-level rule has to be either absent or complete.
+  - **Impact**: A config that still carries a stale entry - for example `table_transform = [{ field_rules = [...] }]` without `table_path` - was accepted before and now fails at submission with `Each 'table_transform' entry must select its table with a non-blank 'table_path'`, or with `Invalid 'table_transform' entry for table [...]` when a mandatory option of the entry is missing. Single-table jobs (without `table_transform`) are not affected.
+  - **Migration Guide**: Add `table_path` to every entry and complete it like a single-table config of the same transform. Entries that are no longer needed can also be removed, because a `table_transform`-only config is valid.
+- **[BREAKING]** Assert sink: `sink_type` in `column_rule` is now checked against the actual column type. It was ignored before, so a mismatching declaration fails the job while an omitted one stays unchecked; remove the key or set the actual type when upgrading.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
