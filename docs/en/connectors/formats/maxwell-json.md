@@ -24,6 +24,8 @@ UPDATE messages must contain a complete row image; partial updates containing on
 | maxwell_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern. |
 | maxwell_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the MaxWell record. The pattern string is compatible with Java's Pattern.       |
 
+The Kafka source skips Maxwell messages whose JSON cannot be parsed, without emitting a row for those messages. It continues processing subsequent messages.
+
 # How To Use MaxWell format
 
 ## Kafka Uses Example
