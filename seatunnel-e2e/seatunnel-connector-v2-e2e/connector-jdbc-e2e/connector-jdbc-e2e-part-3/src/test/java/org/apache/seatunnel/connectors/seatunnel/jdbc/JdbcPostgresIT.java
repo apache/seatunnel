@@ -595,8 +595,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         Assertions.assertNull(rows.get(1).get(1));
         Assertions.assertNull(rows.get(2).get(1));
         Assertions.assertNull(rows.get(4).get(1));
-        // Regular values are unaffected
-        Assertions.assertEquals("123.45", String.valueOf(rows.get(3).get(1)));
+        // Regular values are unaffected. Compare numerically to ignore BigDecimal scale
+        // differences (e.g. 123.45 vs 123.450000000000000000).
+        Object actual = rows.get(3).get(1);
+        Assertions.assertNotNull(actual);
+        Assertions.assertEquals(
+                0,
+                new java.math.BigDecimal("123.45")
+                        .compareTo(new java.math.BigDecimal(String.valueOf(actual))));
     }
 
     @Test
