@@ -1122,7 +1122,7 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 - 字符串参数：按给定 `pattern`（默认 `yyyy-MM-dd HH:mm:ss`）解析。格式字符参见 `java.time.format.DateTimeFormatter`。
 - `dateTime` 参数：TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE 类型的列。
 
-`dateTime` 与字符串输入按系统时区折算；TIMESTAMP WITH TIME ZONE 值使用其自身偏移。无法解析的字符串输入返回 NULL，而不会抛出错误。不支持数值输入，返回 NULL。超出范围的日（例如 `2023-02-30`）会被调整为该月最后一天，与本类其他日期函数一致。如果存在同名用户自定义函数（UDF），会被此内置函数遮蔽。
+`dateTime` 与字符串输入按系统时区折算；TIMESTAMP WITH TIME ZONE 值使用其自身偏移。若字符串的 pattern 携带时区偏移（例如 `yyyy-MM-dd HH:mm:ssXXX`），则使用该偏移而非系统时区。无法解析的字符串输入返回 NULL，而不会抛出错误。显式传入 NULL pattern 或非法 pattern 字符串时，对所有输入类型均返回 NULL。`pattern` 参数仅对字符串输入生效，对 typed datetime 参数会被忽略。不含完整日期的 pattern（例如 `HH:mm:ss` 或 `yyyy-MM`）会导致每行都返回 NULL，因为解析器至少需要日期分量。不支持数值输入，返回 NULL；其他非时间类型（例如 TIME、BOOLEAN、BYTES）会抛出错误。超出范围的日（例如 `2023-02-30`）会被调整为该月最后一天，与本类其他日期函数一致。与 `FROM_UNIXTIME` 不同，`UNIX_TIMESTAMP` 不接受时区参数。如需按指定时区转换 datetime，请先用 `AT TIME ZONE` 得到 TIMESTAMP_TZ 值。如果存在同名用户自定义函数（UDF），会被此内置函数遮蔽。
 
 示例:
 
@@ -1131,6 +1131,10 @@ select UNIX_TIMESTAMP('2023-01-01 00:00:00') as ts
 select UNIX_TIMESTAMP('2023/01/01 00:00:00', 'yyyy/MM/dd HH:mm:ss') as ts
 
 select UNIX_TIMESTAMP(dt) as ts
+
+-- 按非默认时区转换 TIMESTAMP
+select UNIX_TIMESTAMP(dt AT TIME ZONE 'UTC+8') as ts
+
 
 ### AT TIME ZONE
 

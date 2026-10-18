@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -540,6 +541,112 @@ public class SQLDateTimeFunctionsTest {
                             strType,
                             "2023-01-01 00:00:00");
             Assertions.assertEquals("2023-01-01 00:00:00", outRow.getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
+
+    @Test
+    public void testUnixTimestampInvalidPattern() {
+        // An invalid pattern returns NULL rather than raising, so a bad pattern
+        // value (including one sourced from a row column) does not fail the query.
+        SeaTunnelRowType strType =
+                new SeaTunnelRowType(
+                        new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        Assertions.assertNull(
+                runSql(
+                                "select UNIX_TIMESTAMP(s, 'yyyy-MM-dd HHH:mm:ss') as ts from dual",
+                                strType,
+                                "2023-01-01 00:00:00")
+                        .getField(0));
+    }
+
+    @Test
+    public void testUnixTimestampOffsetString() {
+        // A string whose pattern carries a zone offset uses that offset rather
+        // than the JVM default zone. Under Asia/Shanghai (UTC+8), the string
+        // '2023-01-01 00:00:00+00:00' with pattern 'yyyy-MM-dd HH:mm:ssXXX'
+        // denotes 2023-01-01 00:00:00 UTC = epoch 1672531200. If the offset
+        // were discarded, the result would be 1672502400 (Shanghai midnight).
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        try {
+            SeaTunnelRowType strType =
+                    new SeaTunnelRowType(
+                            new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+            Assertions.assertEquals(
+                    1672531200L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(s, 'yyyy-MM-dd HH:mm:ssXXX') as ts from dual",
+                                    strType,
+                                    "2023-01-01 00:00:00+00:00")
+                            .getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
+    }
+
+    @Test
+    public void testUnixTimestampNullPatternTypedInput() {
+        // An explicit NULL pattern returns NULL for all input types, not only
+        // for string input. UNIX_TIMESTAMP(dt, null) where dt is a typed
+        // LocalDateTime returns NULL rather than ignoring the pattern.
+        SeaTunnelRowType dtType =
+                new SeaTunnelRowType(
+                        new String[] {"dt"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        Assertions.assertNull(
+                runSql(
+                                "select UNIX_TIMESTAMP(dt, null) as ts from dual",
+                                dtType,
+                                LocalDateTime.of(2023, 1, 1, 0, 0, 0))
+                        .getField(0));
+    }
+
+    @Test
+    public void testUnixTimestampUnsupportedType() {
+        // Non-temporal, non-string types raise a TransformException so a
+        // schema/type mistake is not silent. A TIME column (LocalTime) has no
+        // date component, so converting it to epoch seconds is meaningless.
+        SeaTunnelRowType timeType =
+                new SeaTunnelRowType(
+                        new String[] {"t"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_TIME_TYPE});
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        runSql(
+                                "select UNIX_TIMESTAMP(t) as ts from dual",
+                                timeType,
+                                LocalTime.of(0, 0, 0)));
+    }
+
+    @Test
+    public void testUnixTimestampAtTimeZoneExample() {
+        // Pins the documented example:
+        //   select UNIX_TIMESTAMP(dt AT TIME ZONE 'UTC+8') as ts
+        // (docs/{en,zh}/transforms/sql-functions.md). Without a time-zone
+        // argument on UNIX_TIMESTAMP, AT TIME ZONE is the supported way to
+        // convert a TIMESTAMP in a non-default zone. Under Asia/Shanghai
+        // (UTC+8), LocalDateTime 2023-01-01 00:00:00 is rebased to
+        // OffsetDateTime 2023-01-01 00:00:00+08:00, whose epoch is
+        // 2022-12-31 16:00:00 UTC = 1672502400. If the AT TIME ZONE argument
+        // were ever ignored, the result would instead be 1672531200 (Shanghai
+        // midnight 2023-01-01).
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        try {
+            SeaTunnelRowType dtType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+            Assertions.assertEquals(
+                    1672502400L,
+                    runSql(
+                                    "select UNIX_TIMESTAMP(dt AT TIME ZONE 'UTC+8') as ts from dual",
+                                    dtType,
+                                    LocalDateTime.of(2023, 1, 1, 0, 0, 0))
+                            .getField(0));
         } finally {
             TimeZone.setDefault(originalTz);
         }
