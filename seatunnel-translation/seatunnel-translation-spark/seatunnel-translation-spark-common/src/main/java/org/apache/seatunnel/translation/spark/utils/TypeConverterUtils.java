@@ -99,18 +99,26 @@ public class TypeConverterUtils {
             case TIMESTAMP_TZ:
                 return OffsetDateTimeUtils.OFFSET_DATETIME_WITH_DECIMAL;
             case ARRAY:
+                WideDecimalUtils.checkCollectionType(dataType);
                 return DataTypes.createArrayType(
                         convert(((ArrayType<?, ?>) dataType).getElementType()));
             case MAP:
+                WideDecimalUtils.checkCollectionType(dataType);
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 return DataTypes.createMapType(
                         convert(mapType.getKeyType()), convert(mapType.getValueType()));
             case DECIMAL:
+                if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    // Spark stops at precision 38; the field metadata keeps the declared type.
+                    return DataTypes.StringType;
+                }
                 DecimalType decimalType = (DecimalType) dataType;
                 return new org.apache.spark.sql.types.DecimalType(
                         decimalType.getPrecision(), decimalType.getScale());
             case ROW:
-                return convert((SeaTunnelRowType) dataType);
+                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
+                WideDecimalUtils.checkNoWideDecimalInCollection(null, rowType);
+                return convert(rowType);
             default:
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
@@ -131,6 +139,8 @@ public class TypeConverterUtils {
                                         OffsetDateTimeUtils.LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG,
                                         true)
                                 .build();
+            } else if (WideDecimalUtils.isWideDecimal(fieldType)) {
+                metadata = WideDecimalUtils.metadata((DecimalType) fieldType);
             } else {
                 metadata = Metadata.empty();
             }
@@ -210,7 +220,10 @@ public class TypeConverterUtils {
         for (int i = 0; i < structFields.length; i++) {
             fieldNames[i] = structFields[i].name();
             Metadata metadata = structFields[i].metadata();
-            if (metadata != null
+            DecimalType wideDecimalType = WideDecimalUtils.fromMetadata(structFields[i]);
+            if (wideDecimalType != null) {
+                fieldTypes[i] = wideDecimalType;
+            } else if (metadata != null
                     && metadata.contains(LOGICAL_TIME_TYPE_FLAG)
                     && metadata.getBoolean(LOGICAL_TIME_TYPE_FLAG)) {
                 fieldTypes[i] = LocalTimeType.LOCAL_TIME_TYPE;
