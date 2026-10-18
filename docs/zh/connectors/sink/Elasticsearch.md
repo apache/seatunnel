@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_type             | string  | 否    |                              |
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |
-| auth_type              | string  | 否    | basic                        |
+| auth_type              | enum    | 否    | basic                        |
 | username               | string  | 否    |                              |
 | password               | string  | 否    |                              |
 | auth.api_key_id        | string  | 否    | -                            |

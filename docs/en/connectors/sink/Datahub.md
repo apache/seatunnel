@@ -14,9 +14,9 @@ import ChangeLog from '../changelog/connector-datahub.md';
 
 The DataHub sink writes SeaTunnel rows to Alibaba Cloud DataHub.
 
-The connector supports single-table writes and multi-table writes. In multi-table
-jobs, use placeholders such as `${table}` in `topic` to route records from
-different input tables to different DataHub topics.
+The connector supports single-table writes and multi-table writes. The `topic`
+value is used literally: in multi-table jobs, records from all input tables are
+written to the same configured topic.
 
 ## Key features
 
@@ -39,7 +39,7 @@ SeaTunnel schema fields, because the sink writes values by field name.
 | accessId       | string | yes      | -             | Alibaba Cloud access ID used to access DataHub. |
 | accessKey      | string | yes      | -             | Alibaba Cloud access key used to access DataHub. |
 | project        | string | yes      | -             | DataHub project name. |
-| topic          | string | yes      | -             | DataHub topic name. Supports placeholders in multi-table jobs. |
+| topic          | string | yes      | -             | DataHub topic name. Used literally in both single-table and multi-table jobs. |
 | timeout        | int    | no       | 3000          | Maximum client connection timeout in milliseconds. |
 | retryTimes     | int    | no       | 3             | Maximum retry count when writing a record fails. |
 | common-options | config | no       | -             | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
@@ -62,9 +62,9 @@ The DataHub project name.
 
 ### topic [string]
 
-The DataHub topic name. For multi-table writes, this value can contain
-placeholders such as `${table}`. `${table_name}` is only kept as a
-deprecated compatibility alias; use `${table}` for new jobs.
+The DataHub topic name. The value is used as-is; no placeholder substitution is
+performed. In multi-table jobs, records from all input tables are written to
+this single topic.
 
 The SeaTunnel field names must match the DataHub topic fields, because the sink
 writes fields by name according to the topic schema.
@@ -121,10 +121,11 @@ sink {
 }
 ```
 
-### Write Multiple Input Tables to Matching Topics
+### Write Multiple Input Tables to One Topic
 
-When the upstream source provides multiple tables, configure `topic` with the
-`${table}` placeholder so each input table is routed to a topic with the same name.
+The sink writes to the single `topic` configured on the sink; there is no
+per-table topic routing. In multi-table jobs, rows from every input table go to
+that topic, so the topic schema must contain the fields of all upstream tables.
 
 ```hocon
 env {
@@ -167,7 +168,7 @@ sink {
     accessId = "your-access-id"
     accessKey = "your-access-key"
     project = "demo_project"
-    topic = "${table}"
+    topic = "user_topic"
     timeout = 3000
     retryTimes = 3
   }
@@ -182,7 +183,10 @@ No. The connector performs best-effort writes with bounded retries (`retryTimes`
 
 ### How does multi-table routing work?
 
-When the upstream source emits more than one table, set `topic` to a value containing the `${table}` placeholder (for example `topic = "${table}"`). Each input table is then routed to a DataHub topic that shares its name. `${table_name}` is still recognized as a deprecated alias — prefer `${table}` in new jobs. The connector does not automatically create the target topic; create it in the DataHub project beforehand and ensure its schema field names match the upstream SeaTunnel schema.
+There is no per-table routing: all rows are written to the single `topic`
+configured on the sink. The connector does not automatically create the target
+topic; create it in the DataHub project beforehand and ensure its schema field
+names match the upstream SeaTunnel schema fields.
 
 ### Why is `topic` a required field even for single-table jobs?
 

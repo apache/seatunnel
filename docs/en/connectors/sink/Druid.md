@@ -35,7 +35,7 @@ Write data to Apache Druid through the Druid indexing task API.
 | name           | type   | required | default value | description |
 |----------------|--------|----------|---------------|-------------|
 | coordinatorUrl | string | yes      | -             | Druid coordinator or router host and port. |
-| datasource     | string | yes      | -             | Druid datasource name. Supports placeholders such as `${table_name}`. |
+| datasource     | string | yes      | -             | Druid datasource name. Used literally in both single-table and multi-table jobs. |
 | batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. Must be greater than `0`. |
 | common-options |        | no       | -             | Sink common options. |
 
@@ -47,9 +47,9 @@ SeaTunnel sends indexing tasks to `http://{coordinatorUrl}/druid/indexer/v1/task
 
 ### datasource [string]
 
-The Druid datasource name to write.
-
-When the upstream source has multiple tables, you can use placeholders such as `${table_name}` to route each upstream table to a different Druid datasource.
+The Druid datasource name to write. The value is used as-is; no placeholder
+substitution is performed. In multi-table jobs, rows from all input tables are
+written to this single datasource.
 
 ### batchSize [int]
 
@@ -130,7 +130,9 @@ sink {
 
 ### Write Multiple Tables
 
-Use `${table_name}` to write each upstream table to a Druid datasource with the same table name.
+The sink has no per-table datasource routing: all rows are written to the single
+`datasource` configured below, so the datasource schema must be able to accept
+the fields of every upstream table.
 
 ```hocon
 env {
@@ -193,7 +195,7 @@ source {
 sink {
   Druid {
     coordinatorUrl = "router:8888"
-    datasource = "${table_name}"
+    datasource = "testDataSource"
   }
 }
 ```
