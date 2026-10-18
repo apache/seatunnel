@@ -320,7 +320,7 @@ public final class MetadataProviderManager {
         // Create merged map
         Map<String, Object> mergedMap = new HashMap<>(originalMap);
 
-        // Merge datasource config - values from datasourceConfig will override
+        // Merge datasource config - job-level options have higher priority.
         for (Map.Entry<String, Object> entry : datasourceConfig.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
@@ -331,14 +331,14 @@ public final class MetadataProviderManager {
 
             if (isFlatStructure) {
                 // Flat structure: merge directly into the map
-                mergedMap.put(key, value);
+                mergedMap.putIfAbsent(key, value);
             } else {
                 // Nested structure: merge into the nested map
                 @SuppressWarnings("unchecked")
                 Map<String, Object> nestedMap =
                         (Map<String, Object>) mergedMap.get(connectorIdentifier);
                 if (nestedMap != null) {
-                    nestedMap.put(key, value);
+                    nestedMap.putIfAbsent(key, value);
                 }
             }
         }

@@ -48,3 +48,6 @@ seatunnel:
         test_config1: http://127.0.0.1:8090
         test_config2: test_metalake
         test_config3: test
+        sensitive_keys:
+          - password
+          - token
