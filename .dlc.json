@@ -1,4 +1,10 @@
 {
+  "replacementPatterns": [
+    {
+      "pattern": "^@site/docs/",
+      "replacement": "{{BASEURL}}/docs/en/"
+    }
+  ],
   "ignorePatterns": [
     {
       "pattern": "^http://localhost"
