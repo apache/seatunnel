@@ -6,7 +6,13 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ## 描述
 
-用于将数据写入 Hudi。
+Hudi Sink 连接器把 SeaTunnel 的行写入到 Apache Hudi 表中，表可以放在 HDFS 或兼容 S3 的文件系统上。
+它既支持单表作业，也支持多表作业，并提供 CDC 变更日志持久化、可配置的 commit 清理策略以及
+可插拔的索引。
+
+当需要把 SeaTunnel 的 CDC 输入（例如 MySQL-CDC、PostgreSQL-CDC）或批处理源落到 copy-on-write 或
+merge-on-read 的 Hudi 表时，可以使用该连接器。它会写入 Hudi 数据文件以及 `.hoodie` 元数据，并允许通过
+`op_type` 在 `INSERT`、`UPSERT`、`BULK_INSERT` 三种写入模式之间选择。
 
 ## 主要特性
 
