@@ -60,5 +60,5 @@ Then the data in result table `fake1` will like this
 
 ### new version
 
-- Add Copy Transform Connector
+- Add FieldMapper Transform Connector
 

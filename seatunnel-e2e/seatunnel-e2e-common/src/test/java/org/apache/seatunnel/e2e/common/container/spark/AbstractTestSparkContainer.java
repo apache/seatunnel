@@ -86,12 +86,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     @Override
     public void tearDown() throws Exception {
-        if (master != null) {
-            // delete the volume
-            master.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            master.stop();
-        }
-        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+        stopContainersAndDeleteVolume(master);
     }
 
     @Override

@@ -75,6 +75,27 @@ _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
 ) - {"connector-jdbc-e2e"}
 
 
+# Paths that no other change filter in backend.yml covers, mapped to the module whose
+# tests exercise them. These tests only run in the unit-test job.
+STANDALONE_MODULE_PATHS = (
+    ("seatunnel-trace/", "seatunnel-trace-analyzer"),
+    ("seatunnel-e2e/seatunnel-core-e2e/", "seatunnel-starter-e2e"),
+)
+
+
+def build_standalone_modules(files):
+    modules = []
+    for file in json.loads(files):
+        for path_prefix, module in STANDALONE_MODULE_PATHS:
+            if file.startswith(path_prefix) and module not in modules:
+                modules.append(module)
+    return modules
+
+
+def get_standalone_modules(files):
+    print("".join("," + module for module in build_standalone_modules(files)))
+
+
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
@@ -270,7 +291,7 @@ def get_sub_it_modules(modules, total_num, current_num):
     print(build_sub_it_modules(modules, total_num, current_num))
 
 
-def get_sub_update_it_modules(modules, total_num, current_num):
+def build_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
     module_names = json.loads(modules)
     module_list = _filter_shared_it_modules(
@@ -285,7 +306,27 @@ def get_sub_update_it_modules(modules, total_num, current_num):
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
-    print(",".join(final_modules))
+    return final_modules
+
+
+def get_sub_update_it_modules(modules, total_num, current_num):
+    print(",".join(build_sub_update_it_modules(modules, total_num, current_num)))
+
+
+def build_sub_update_it_shards(modules, total_num):
+    """Return the 1-based updated-modules shards that have at least one module."""
+    total_num = int(total_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    return [
+        f"part-{current_num + 1}"
+        for current_num in range(total_num)
+        if build_sub_update_it_modules(modules, total_num, current_num)
+    ]
+
+
+def get_sub_update_it_shards(modules, total_num):
+    print(json.dumps(build_sub_update_it_shards(modules, total_num)))
 
 
 def main(argv):
@@ -295,6 +336,8 @@ def main(argv):
         get_cv2_e2e_modules(argv[2])
     elif argv[1] == "engine":
         get_engine_modules(argv[2])
+    elif argv[1] == "standalone":
+        get_standalone_modules(argv[2])
     elif argv[1] == "engine-e2e":
         get_engine_e2e_modules(argv[2])
     elif argv[1] == "tree":
@@ -317,6 +360,8 @@ def main(argv):
         get_sub_it_modules(argv[2], argv[3], argv[4])
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
+    elif argv[1] == "sub_update_it_shards":
+        get_sub_update_it_shards(argv[2], argv[3])
 
 
 if __name__ == "__main__":

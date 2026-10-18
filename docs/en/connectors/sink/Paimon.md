@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Sink connector for Apache Paimon. It supports CDC mode and auto-create table.
@@ -64,12 +70,12 @@ libfb303-xxx.jar
 
 | name                         | type    | required | default value                | Description                                                                                                                                                      |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| warehouse                    | String  | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
+| warehouse                    | String  | Yes      | -                            | Paimon warehouse path. Must not be blank.                                                                                                                        |
 | catalog_name                 | String  | No       | paimon                       | The name of Paimon catalog                                                                                                                                       |
 | catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
 | catalog_uri                  | String  | Yes when `catalog_type` is `hive` | -                            | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                                                  |
-| database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
-| table                        | String  | Yes      | -                            | The table you want to access                                                                                                                                     |
+| database                     | String  | Yes      | -                            | The database you want to access. Must not be blank.                                                                                                              |
+| table                        | String  | Yes      | -                            | The table you want to access. Must not be blank.                                                                                                                 |
 | user                         | String  | No       | -                            | Paimon user to access table                                                                                                                                      |
 | password                     | String  | No      | -                            | Paimon user password to access table                                                                                                                             |
 | hdfs_site_path               | String  | No       | -                            | Deprecated. The path of hdfs-site.xml. Prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs                                                     |
@@ -83,6 +89,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
 | branch                       | String  | No       | -                            | The branch name of Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
+| multi_table_sink_replica     | int     | No       | 1                            | The replica number of multi table sink writer. Use this when one upstream job writes to multiple Paimon tables and each table needs more than one sink writer.                                       |
 
 ### table_options [Map]
 
@@ -134,7 +141,7 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 > **Note**
 >
 > When you use a streaming mode to read a Paimon table, different `changelog-producer` modes will
-> produce [different results](../source/Paimon.md#changelog). Pick `input` for the most faithful
+> produce [different results](../source/Paimon.md#read-paimon-table-changelog). Pick `input` for the most faithful
 > pass-through of upstream CDC events, or `lookup` / `full-compaction` if the upstream does not emit
 > full changelog records.
 
@@ -730,6 +737,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Paimon sink support automatic table creation and schema evolution?
+
+Yes. When `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
+
+### How does Paimon sink achieve exactly-once writes?
+
+Paimon sink integrates with engine two-phase commit (2PC) checkpoint mechanisms across SeaTunnel Zeta, Flink, and Spark. Data written during a checkpoint interval is committed as a formal Paimon snapshot only after checkpoint barriers are fully acknowledged.
+
+### Which table types (Primary Key vs Append-Only) are supported?
+
+Both table types are supported. If the target table defines primary keys (`paimon.table.primary-keys`), the sink performs upsert/delete operations. If no primary keys are defined, the table operates in append-only mode.
 
 ## Changelog
 
