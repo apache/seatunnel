@@ -141,10 +141,37 @@ public class ConfigValueUtilsTest {
     }
 
     @Test
+    void testParseValueThrowsForStructuredNonJson2() {
+        // value of table_path option must be inside quotes
+        String tableList = "[{\"table_path\":db.t_*,\"use_regex\":\"true\"}]";
+        boolean isStructured = ConfigValueUtils.isStructured(tableList);
+        Assertions.assertTrue(isStructured);
+        Assertions.assertThrows(
+                ConfigException.class, () -> ConfigValueUtils.parseValue(tableList));
+    }
+
+    @Test
     void testParseValueAsStringWithJsonStringFormatLike() {
         String value = "\"{k1,k2,[k3,k4]}\"";
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertEquals(result, "{k1,k2,[k3,k4]}");
+    }
+
+    @Test
+    void testListValueWithPlaceholder() {
+        String value = "[v1,v2,${v3}_aaa]";
+
+        Assertions.assertThrows(
+                ConfigException.NotResolved.class,
+                () -> ConfigValueUtils.parseValue(value).unwrapped());
+    }
+
+    @Test
+    void testListValueWithQuotedPlaceholder() {
+        String value = "[\"v1\",\"v2\",\"${v3}\",\"${v4}_aaa\"]";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        assertTrue(result instanceof List);
+        Assertions.assertEquals(result, List.of("v1", "v2", "${v3}", "${v4}_aaa"));
     }
 
     @Test
