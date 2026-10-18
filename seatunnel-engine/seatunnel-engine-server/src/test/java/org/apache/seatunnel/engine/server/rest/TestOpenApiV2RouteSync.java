@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceDiagnostic;
 import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
@@ -24,9 +28,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 
 import org.junit.jupiter.api.Test;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.gson.Gson;
 import com.hazelcast.internal.util.JsonUtil;
 
