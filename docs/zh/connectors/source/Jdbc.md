@@ -287,6 +287,7 @@ int_type_narrowing = false
 | YashanDB  |          |          |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
+达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
 
 ## 并行读取器
 

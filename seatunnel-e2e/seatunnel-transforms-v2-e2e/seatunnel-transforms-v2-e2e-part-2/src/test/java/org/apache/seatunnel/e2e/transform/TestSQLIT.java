@@ -145,4 +145,13 @@ public class TestSQLIT extends TestSuiteBase {
                 container.executeJob("/sql_transform/spark_nested_arrays.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/sql_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
