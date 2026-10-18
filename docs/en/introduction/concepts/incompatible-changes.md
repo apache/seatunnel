@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sink: XML applies `date_format`, `datetime_format` and `time_format`
+
+- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
+  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
+  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
+  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
@@ -28,6 +35,18 @@ You need to check this document before you upgrade to related version.
     3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
     5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
+
+### Application Mode internal API changes
+
+- `ResourceManagerFactory` is now a single concrete class. Its no-argument constructor selects the
+  standalone manager, while the four-argument constructor creates an `ApplicationResourceManager`
+  for application mode. Platform-specific resource-manager subclasses and factory SPI are removed.
+- `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
+  executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
+  terminal outcome through `finish(...)` and release their platform clients in `close()`.
+- `AbstractResourceManager.close()` is now the `final`, idempotent lifecycle entry point, so it can no
+  longer be overridden. Move deployment-specific cleanup into `closeResourceManager()`, which `close()`
+  invokes exactly once; subclasses that overrode `close()` no longer compile and must migrate.
 
 ### User Variables(`-i` variables)
 
@@ -57,6 +76,45 @@ You need to check this document before you upgrade to related version.
 ### SQL TINYINT array schema
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
+### Zeta SQL Transform: CAST to INT rejects out-of-range numeric values
+
+- **Behavior change: `CAST` to `INT` from a numeric source now fails instead of silently wrapping**
+  - **Affected component**: `seatunnel-transforms-v2`, `SystemFunction.castAs` (Zeta SQL transform)
+  - **Description**: Converting a numeric value to `INT` | `INTEGER` went through
+    `Number.intValue()`, which keeps only the low-order 32 bits, so `CAST(bigint_col AS INT)` on
+    `3000000000` returned `-1294967296` and a value just below `Integer.MIN_VALUE` came back as
+    `2147483647`, flipping sign. A string source already went through `Integer.parseInt` and
+    reported the overflow, so the same expression either failed or corrupted the value depending
+    only on the source column type. The numeric path now reports it too. `TINYINT`, `SMALLINT` and
+    `BYTE` are unchanged, because they convert with `Byte.parseByte` and `Short.parseShort`, which
+    already rejected an out-of-range value. Planner acceptance is unchanged: the set of source
+    types allowed for each target is exactly what it was.
+  - **Impact**: A job that relied on the wraparound, deliberately or not, now fails at the row that
+    overflows rather than writing a wrong number. In-range values, widening casts and identity casts
+    are unaffected. `FLOAT` and `DOUBLE` are out of scope for this change and still return
+    `Infinity` for values they cannot represent.
+  - **Also affects `COALESCE` and `IFNULL`**: these reach the same conversion boundary, and their
+    result type is inferred from the first non-null argument rather than the widest one. So
+    `COALESCE(int_col, bigint_col)` targets `INT`, and an out-of-range value taken from the
+    `BIGINT` argument was silently truncated in the same way. It now fails too. `CASE` expressions
+    are not affected, because their type is inferred as the widest branch, so no narrowing occurs.
+  - **Covers wide and non-finite numeric sources**: the range check runs per numeric family rather
+    than after a single widening step, because `Number.longValue()` is itself lossy for some of
+    them. A `DECIMAL` beyond 64 bits (reachable as `COALESCE(int_col, decimal_col)`), a
+    `BigInteger`, and `NaN` or an infinity from a `DOUBLE` are each rejected now instead of
+    arriving as a truncated value.
+  - **Fractional sources are unchanged**: reached through `COALESCE` or `IFNULL`, a value such as
+    `5.7` is still truncated towards zero rather than rejected, which is what this conversion has
+    always done. Only the range behaviour changes. A floating-point source written as an explicit
+    `CAST` to an integral target is rejected while the statement is prepared, both before and after
+    this change. Note the truncating path still differs from a string source, where
+    `Integer.parseInt("5.7")` fails; aligning those is a separate decision.
+  - **Unchanged targets**: `BIGINT` | `LONG` keeps its existing conversion and is not range-checked
+    by this change; that gap is tracked separately in #12612.
+  - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
+    cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
+    compute it explicitly rather than relying on `CAST`.
 
 ### DuckDB BIT and ENUM automatic DDL
 
@@ -176,6 +234,14 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     parser/listener error. Review the source DDL and update it to syntax supported by the
     connector before restarting the job. This change does not alter checkpoint or savepoint
     formats.
+
+### MySQL-CDC: NULL in a nullable unique key column is emitted as NULL
+
+- **Behavior change: MySQL-CDC emits NULL instead of the type default for nullable unique key columns of tables without a primary key**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **Description**: For a table without a primary key, the MySQL DDL parser (Debezium 1.9.8) promoted the first unique key to the primary key and marked its columns NOT NULL, although the database allows NULL in them. NULL values in these columns were emitted as the type default (for example `0`, `''` or the epoch) in the snapshot and binlog phases, including after a binlog DDL such as `ALTER TABLE ... ADD UNIQUE KEY` or `CREATE UNIQUE INDEX`. These columns now keep their declared nullability and NULL is emitted as NULL. Real primary key columns are unchanged. This relies on nullable columns no longer being used as the snapshot split column (see "CDC: nullable columns are no longer used as the snapshot split column"): with `exactly_once = true`, a NULL in the split column would otherwise fail the split range check.
+  - **Impact**: Sinks now receive NULL where they previously received the type default. A sink column declared `NOT NULL`, or a sink `primary_keys` that includes such a column, can reject these rows.
+  - **Migration Guide**: Make the affected sink columns nullable, and do not use a nullable column as the sink primary key. A job restored from a checkpoint that already holds the schema of such a table (saved after a binlog DDL on it) keeps the old behavior for that table until it is started without that checkpoint.
 
 ### JDBC Connector
 
@@ -384,6 +450,12 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` without a non-blank `absolute_path` | Runtime file-read failure | Provide `absolute_path` when using `ABSOLUTE_PATH` pattern |
 
   **Migration Guide**: Review your transform configs against the table above. If any of your existing configs match a "Newly Rejected" pattern, update them before upgrading. The error messages at submission time now clearly identify which option is invalid and why.
+- **Behavior change: every `table_transform` entry is validated at submission time**
+  - **Affected component**: all transforms that support `table_transform`: `Copy`, `Calcite`, `DataValidator`, `DefineSinkType`, `DynamicCompile`, `FieldEncrypt`, `FieldMapper`, `Filter`, `FilterRowKind`, `JsonPath`, `Metadata`, `Python`, `RegexExtract`, `Replace`, `Sql`, `Split`, `TableMerge` and `TextChunk`.
+  - **Description**: An entry without a non-blank `table_path` used to be filtered out silently, so the entry was ignored and the job ran anyway; entries were not checked against the per-table rule until a row was processed. Entries are now validated before the job starts: each one has to select its table with a non-blank `table_path` and to be a complete single-table rule of that transform, and the transform-level rule has to be either absent or complete.
+  - **Impact**: A config that still carries a stale entry - for example `table_transform = [{ field_rules = [...] }]` without `table_path` - was accepted before and now fails at submission with `Each 'table_transform' entry must select its table with a non-blank 'table_path'`, or with `Invalid 'table_transform' entry for table [...]` when a mandatory option of the entry is missing. Single-table jobs (without `table_transform`) are not affected.
+  - **Migration Guide**: Add `table_path` to every entry and complete it like a single-table config of the same transform. Entries that are no longer needed can also be removed, because a `table_transform`-only config is valid.
+- **[BREAKING]** Assert sink: `sink_type` in `column_rule` is now checked against the actual column type. It was ignored before, so a mismatching declaration fails the job while an omitted one stays unchecked; remove the key or set the actual type when upgrading.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
@@ -491,5 +563,17 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
     covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
     read of a multi-gigabyte log has to fit in the node's heap.
+
+- **Behavior change: part of the engine startup log output changes**
+  - **Affected component**: `seatunnel-engine-server` (`SeaTunnelServer`,
+    `AbstractResourceManager`, `StandaloneResourceManager`); only log-based monitoring is affected.
+  - **Description**: The `SeaTunnel server start...`, `Init ResourceManager` and `initWorker... `
+    lines are no longer written. Worker synchronisation now logs
+    `Synchronizing existing worker profiles`, and the standalone resource manager logs
+    `Init standalone ResourceManager`.
+  - **Impact**: Alerting or log parsing that matches the old text stops matching; runtime behaviour
+    and the cluster lifecycle are unchanged.
+  - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
+    of the exact text.
 
 ### Dependency Upgrades

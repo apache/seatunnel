@@ -4,6 +4,13 @@
 
 ## dev
 
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
 ### CDC：可空列不再用作快照分片列
 
 - **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
@@ -27,6 +34,16 @@
     3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
     4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
     5. 无需把新增的 JDK 模块参数手工复制到保留下来的配置目录中。`seatunnel.sh` 和 `seatunnel-cluster.sh` 会自行追加必需的 `--add-opens`/`--add-exports` 参数（`java.base/java.lang`、`java.net`、`java.nio`、`java.util`、`sun.nio.ch`，以及 `java.security.jgss/sun.security.krb5`），并跳过您的 `jvm_*_options` 中已有的同名参数，因此原地升级并保留旧的 `config/` 目录（挂载的 Docker 卷或 Kubernetes ConfigMap）时，这些参数依然生效。当检测到的 JVM 版本低于 11 时，同样的脚本会直接以明确的 `SeaTunnel requires Java 11 or newer` 提示退出，而不是让 Java 8 启动器输出原始的 `Unrecognized option` 错误。
+
+### Application Mode 内部 API 变更
+
+- `ResourceManagerFactory` 现在是单一具体类：无参构造器选择 standalone 资源管理器，四参构造器为
+  Application Mode 创建 `ApplicationResourceManager`。平台专属的资源管理器子类和工厂 SPI 已移除。
+- `ResourceManagerDriver` 初始化时接收 `ResourceEventHandler`、主线程执行器、IO 执行器和 Master 地址
+  提供函数，不再接收 `ResourceManagerContext`。Driver 现在通过 `finish(...)` 发布终态，并在 `close()` 中释放平台客户端。
+- `AbstractResourceManager.close()` 现在是 `final` 的幂等生命周期入口，子类不再能重写。部署相关的清理
+  逻辑需下移到 `closeResourceManager()`，由 `close()` 保证只调用一次；此前重写 `close()` 的子类将无法
+  编译，需要迁移。
 
 ### 用户变量(`-i` 参数)
 
@@ -54,6 +71,35 @@
 ### SQL TINYINT 数组模式
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。
+
+### Zeta SQL Transform：数值来源转换为 INT 时拒绝超出范围的值
+
+- **行为变更：数值来源转换为 `INT` 时不再静默回绕，而是直接失败**
+  - **受影响组件**：`seatunnel-transforms-v2`，`SystemFunction.castAs`（Zeta SQL transform）
+  - **说明**：将数值转换为 `INT` | `INTEGER` 时会经由 `Number.intValue()`，它只保留低 32 位，
+    因此 `CAST(bigint_col AS INT)` 对 `3000000000` 返回 `-1294967296`，略小于 `Integer.MIN_VALUE`
+    的值会变成 `2147483647`，符号发生翻转。而字符串来源已经经由 `Integer.parseInt` 报告溢出，
+    所以同一个表达式究竟是失败还是损坏数据，仅取决于来源列的类型。现在数值路径也会报告该情况。
+    `TINYINT`、`SMALLINT` 与 `BYTE` 不受影响，因为它们使用 `Byte.parseByte` 与 `Short.parseShort`
+    转换，本来就会拒绝超出范围的值。规划阶段的接受范围保持不变：每个目标类型允许的来源类型与此前完全一致。
+  - **影响**：如果作业（有意或无意地）依赖了回绕行为，现在会在溢出的那一行失败，而不是写入错误的数字。
+    范围内的值、扩宽转换和同类型转换均不受影响。本次变更不涉及 `FLOAT` 与 `DOUBLE`，它们对无法表示的值
+    仍返回 `Infinity`。
+  - **同样影响 `COALESCE` 与 `IFNULL`**：它们会走到同一个转换边界，且其结果类型是按第一个非空参数推断的，
+    而不是按最宽的类型推断。因此 `COALESCE(int_col, bigint_col)` 的目标类型是 `INT`，取自 `BIGINT`
+    参数的超范围值此前同样会被静默截断，现在也会失败。`CASE` 表达式不受影响，因为它的类型按最宽的分支推断，
+    不会发生收窄。
+  - **覆盖宽类型与非有限数值来源**：范围检查按数值族分别进行，而不是先统一加宽再检查，因为
+    `Number.longValue()` 本身对部分类型是有损的。超过 64 位的 `DECIMAL`（可通过
+    `COALESCE(int_col, decimal_col)` 到达）、`BigInteger`，以及来自 `DOUBLE` 的 `NaN` 或无穷，
+    现在都会被拒绝，而不是以截断后的值通过。
+  - **小数来源的行为不变**：通过 `COALESCE` 或 `IFNULL` 到达时，例如 `5.7` 仍然向零截断，而不是被拒绝，
+    这是该转换一直以来的行为，本次只改变范围相关的行为。而显式写成 `CAST` 到整型目标的浮点来源，在语句准备
+    阶段就会被拒绝，本次变更前后都是如此。注意截断这条路径与字符串来源仍然不同，`Integer.parseInt("5.7")`
+    会失败；是否统一两者是另一个决定。
+  - **未改变的目标类型**：`BIGINT` | `LONG` 保持原有转换方式，本次变更不对其做范围检查；该问题单独记录在 #12612。
+  - **迁移指南**：若希望在目标类型无法容纳该值时得到 `NULL` 而不是报错，请使用 `TRY_CAST`；或将目标类型
+    扩宽到足以容纳该值。如果确实需要截断语义，请显式计算，而不要依赖 `CAST`。
 
 ### DuckDB BIT 和 ENUM 自动建表
 
@@ -117,6 +163,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响范围**：`connector-cdc-mysql`
   - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
   - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
+### MySQL-CDC：可空唯一键列中的 NULL 按 NULL 输出
+
+- **行为变更：对于没有主键的表，MySQL-CDC 对可空唯一键列输出 NULL，而不是类型默认值**
+  - **影响组件**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **描述**：对于没有主键的表，MySQL DDL 解析器（Debezium 1.9.8）会把第一个唯一键提升为主键，并把其中的列标记为 NOT NULL，尽管数据库允许这些列为 NULL。这些列中的 NULL 值在快照阶段和 binlog 阶段会被输出为类型默认值（例如 `0`、`''` 或纪元时间），在 binlog 中出现 `ALTER TABLE ... ADD UNIQUE KEY` 或 `CREATE UNIQUE INDEX` 等 DDL 之后也是如此。现在这些列保持声明时的可空性，NULL 按 NULL 输出。真正的主键列不受影响。这一变更依赖于可空列不再被用作快照分片列（见“CDC：可空列不再用作快照分片列”）：否则在 `exactly_once = true` 时，分片列中的 NULL 会导致分片范围检查失败。
+  - **影响**：Sink 现在会在原来收到类型默认值的位置收到 NULL。如果 Sink 列声明为 `NOT NULL`，或 Sink 的 `primary_keys` 包含这样的列，这些行可能会被拒绝。
+  - **迁移指南**：将受影响的 Sink 列改为可空，并且不要使用可空列作为 Sink 主键。如果作业从一个已经保存了此类表结构的 checkpoint 恢复（该表在 binlog 中出现过 DDL 之后保存），该表会保持旧行为，直到作业不使用该 checkpoint 重新启动。
 
 ### JDBC Connector
 
@@ -316,6 +370,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+- **行为变更：每个 `table_transform` 条目都会在提交时校验**
+  - **影响范围**：所有支持 `table_transform` 的转换：`Copy`、`Calcite`、`DataValidator`、`DefineSinkType`、`DynamicCompile`、`FieldEncrypt`、`FieldMapper`、`Filter`、`FilterRowKind`、`JsonPath`、`Metadata`、`Python`、`RegexExtract`、`Replace`、`Sql`、`Split`、`TableMerge` 和 `TextChunk`。
+  - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
+  - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
+  - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
+- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 - **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
   这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
   从而静默产生错误的值：
@@ -407,5 +467,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **迁移指南**：在 `seatunnel.engine.http` 下设置
     `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
     足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
 
 ### 依赖升级

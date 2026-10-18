@@ -89,6 +89,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
 | paimon.table.non-primary-key | Boolean | 否    | false                        | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
 | branch                       | 字符串  | 否    | -                            | 要写入数据的 Paimon 表分支名称。不配置时写入 main 分支。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
+| multi_table_sink_replica     | int    | 否    | 1                            | 多表写入模式下每张表的 writer 副本数。当一个上游作业写入多张 Paimon 表、且每张表需要多个 sink writer 时使用。                                      |
 
 ### table_options [Map]
 
@@ -134,7 +135,7 @@ Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/mast
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
 > 注意：
-> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#changelog)。
+> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#读取-paimon-表的-changelog)。
 
 ## 文件系统
 Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs和s3。
@@ -666,7 +667,7 @@ sink {
 
 ### Paimon Sink 连接器是否支持自动建表？
 
-支持。当配置 `paimon.auto-create-table = true` 或 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
+支持。当配置 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
 
 ### Paimon Sink 如何保证精确一次（Exactly-Once）写入？
 

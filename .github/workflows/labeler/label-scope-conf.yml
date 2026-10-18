@@ -465,6 +465,15 @@ firebase:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
+
+application:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/**'
+
+application-k8s:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/kubernetes/**'
+
 websocket:
   - all:
       - changed-files:
