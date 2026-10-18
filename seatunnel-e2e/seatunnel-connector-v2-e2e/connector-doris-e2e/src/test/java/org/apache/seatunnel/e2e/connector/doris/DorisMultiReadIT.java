@@ -46,8 +46,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -56,7 +56,6 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
@@ -131,102 +130,100 @@ public class DorisMultiReadIT extends AbstractDorisIT {
         batchInsertUniqueTableData(SOURCE_DB_1, UNIQUE_TABLE_1);
         // test assert row num
         Container.ExecResult execResult =
-                container.executeJob("/doris_multi_source_to_assert.conf");
+                container.executeJob(jobConfig(container, "/doris_multi_source_to_assert.conf"));
         Assertions.assertEquals(0, execResult.getExitCode());
         // execute multi read with 2pc enable
-        execResult = container.executeJob("/doris_multi_source_to_sink.conf");
+        execResult = container.executeJob(jobConfig(container, "/doris_multi_source_to_sink.conf"));
         Assertions.assertEquals(0, execResult.getExitCode());
-        checkSinkData(SOURCE_DB_0, UNIQUE_TABLE_0, "where F_ID >= 50");
-        checkSinkData(SOURCE_DB_1, UNIQUE_TABLE_1, "where F_ID < 40");
+        checkSinkData(container, SOURCE_DB_0, UNIQUE_TABLE_0, "where F_ID >= 50");
+        checkSinkData(container, SOURCE_DB_1, UNIQUE_TABLE_1, "where F_ID < 40");
         // clean sink database data
         clearSinkUniqueTable();
         // execute multi read without 2pc enable
         Container.ExecResult execResult2 =
-                container.executeJob("/doris_multi_source_to_sink_2pc_false.conf");
+                container.executeJob(
+                        jobConfig(container, "/doris_multi_source_to_sink_2pc_false.conf"));
         Assertions.assertEquals(0, execResult2.getExitCode());
-        checkSinkData(SOURCE_DB_0, UNIQUE_TABLE_0, "where F_ID >= 50");
-        checkSinkData(SOURCE_DB_1, UNIQUE_TABLE_1, "where F_ID < 40");
+        checkSinkData(container, SOURCE_DB_0, UNIQUE_TABLE_0, "where F_ID >= 50");
+        checkSinkData(container, SOURCE_DB_1, UNIQUE_TABLE_1, "where F_ID < 40");
         // clean all data
         clearSourceUniqueTable();
         clearSinkUniqueTable();
     }
 
-    protected void checkSinkData(String database, String tableName, String sqlCondition) {
+    protected void checkSinkData(
+            TestContainer container, String database, String tableName, String sqlCondition) {
         try {
+            // The sink table is recreated from the columns the job read, so compare by name.
+            List<String> columns = readColumns(container, UNIQUE_TABLE_COLUMN_STRING);
+            String columnList = String.join(", ", columns);
             String sourceSql =
                     String.format(
-                            "select * from %s.%s %s order by F_ID ",
-                            database, tableName, sqlCondition);
-            String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, tableName);
+                            "select %s from %s.%s %s order by F_ID ",
+                            columnList, database, tableName, sqlCondition);
+            String sinkSql =
+                    String.format(
+                            "select %s from %s.%s order by F_ID", columnList, sinkDB, tableName);
 
             assertHasData(database, tableName);
             awaitSinkTableReady(sourceSql, sinkSql);
             assertHasData(sinkDB, tableName);
 
-            PreparedStatement sourcePre =
-                    conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
-            sourcePre.setString(1, database);
-            sourcePre.setString(2, tableName);
-            ResultSet sourceResultSet = sourcePre.executeQuery();
+            Map<String, String> sourceColumnTypes = columnTypes(database, tableName);
+            Map<String, String> sinkColumnTypes = columnTypes(sinkDB, tableName);
+            Assertions.assertEquals(columns, new ArrayList<>(sinkColumnTypes.keySet()));
 
-            PreparedStatement sinkPre = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
-            sinkPre.setString(1, sinkDB);
-            sinkPre.setString(2, tableName);
-            ResultSet sinkResultSet = sinkPre.executeQuery();
-
-            while (sourceResultSet.next()) {
-                if (sinkResultSet.next()) {
-                    String sourceColumnType = sourceResultSet.getString("COLUMN_TYPE");
-                    String sinkColumnType = sinkResultSet.getString("COLUMN_TYPE");
-                    // because seatunnel type can not save the scale and length of the key type and
-                    // value type in the MapType,
-                    // so we use the longest scale on the doris sink to prevent data overflow.
-                    if (sourceColumnType.equalsIgnoreCase("map<varchar(200),tinyint(1)>")) {
-                        Assertions.assertEquals("map<string,tinyint(1)>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<char(1),tinyint(4)>")) {
-                        Assertions.assertEquals("map<string,tinyint(4)>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<smallint(6),largeint>")) {
-                        Assertions.assertEquals("map<smallint(6),largeint>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<largeint,double>")) {
-                        Assertions.assertEquals("map<largeint,double>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<date,datetime>")) {
-                        Assertions.assertEquals("map<date,datetime(6)>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<datetime,char(20)>")) {
-                        Assertions.assertEquals("map<datetime(6),string>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<char(20),varchar(255)>")) {
-                        Assertions.assertEquals("map<string,string>", sinkColumnType);
-                        continue;
-                    }
-
-                    if (sourceColumnType.equalsIgnoreCase("map<varchar(255),string>")) {
-                        Assertions.assertEquals("map<string,string>", sinkColumnType);
-                        continue;
-                    }
-
-                    Assertions.assertEquals(
-                            sourceColumnType.toUpperCase(Locale.ROOT),
-                            sinkColumnType.toUpperCase(Locale.ROOT));
+            for (String column : columns) {
+                String sourceColumnType = sourceColumnTypes.get(column);
+                String sinkColumnType = sinkColumnTypes.get(column);
+                // because seatunnel type can not save the scale and length of the key type and
+                // value type in the MapType,
+                // so we use the longest scale on the doris sink to prevent data overflow.
+                if (sourceColumnType.equalsIgnoreCase("map<varchar(200),tinyint(1)>")) {
+                    Assertions.assertEquals("map<string,tinyint(1)>", sinkColumnType);
+                    continue;
                 }
+
+                if (sourceColumnType.equalsIgnoreCase("map<char(1),tinyint(4)>")) {
+                    Assertions.assertEquals("map<string,tinyint(4)>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<smallint(6),largeint>")) {
+                    Assertions.assertEquals("map<smallint(6),largeint>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<largeint,double>")) {
+                    Assertions.assertEquals("map<largeint,double>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<date,datetime>")) {
+                    Assertions.assertEquals("map<date,datetime(6)>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<datetime,char(20)>")) {
+                    Assertions.assertEquals("map<datetime(6),string>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<char(20),varchar(255)>")) {
+                    Assertions.assertEquals("map<string,string>", sinkColumnType);
+                    continue;
+                }
+
+                if (sourceColumnType.equalsIgnoreCase("map<varchar(255),string>")) {
+                    Assertions.assertEquals("map<string,string>", sinkColumnType);
+                    continue;
+                }
+
+                Assertions.assertEquals(
+                        sourceColumnType.toUpperCase(Locale.ROOT),
+                        sinkColumnType.toUpperCase(Locale.ROOT));
             }
-            checkSourceAndSinkTableDate(sourceSql, sinkSql, UNIQUE_TABLE_COLUMN_STRING);
+            checkSourceAndSinkTableDate(sourceSql, sinkSql, columns);
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
@@ -243,12 +240,23 @@ public class DorisMultiReadIT extends AbstractDorisIT {
                         () -> Assertions.assertEquals(expectedRowCount, queryRowCount(sinkSql)));
     }
 
-    private void checkSourceAndSinkTableDate(String sourceSql, String sinkSql, String columnsString)
-            throws Exception {
-        List<String> columnList =
-                Arrays.stream(columnsString.split(","))
-                        .map(x -> x.trim())
-                        .collect(Collectors.toList());
+    private Map<String, String> columnTypes(String db, String table) throws SQLException {
+        Map<String, String> columnTypes = new LinkedHashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
+            ps.setString(1, db);
+            ps.setString(2, table);
+            try (ResultSet resultSet = ps.executeQuery()) {
+                while (resultSet.next()) {
+                    columnTypes.put(
+                            resultSet.getString("COLUMN_NAME"), resultSet.getString("COLUMN_TYPE"));
+                }
+            }
+        }
+        return columnTypes;
+    }
+
+    private void checkSourceAndSinkTableDate(
+            String sourceSql, String sinkSql, List<String> columnList) throws Exception {
         Statement sourceStatement =
                 conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
         Statement sinkStatement =
