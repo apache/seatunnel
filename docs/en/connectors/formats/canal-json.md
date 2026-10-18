@@ -13,6 +13,10 @@ SeaTunnel supports to interpret Canal JSON messages as INSERT/UPDATE/DELETE mess
 
 SeaTunnel also supports to encode the INSERT/UPDATE/DELETE messages in SeaTunnel as Canal JSON messages, and emit to storage like Kafka. However, currently SeaTunnel can’t combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, SeaTunnel encodes UPDATE_BEFORE and UPDATE_AFTER as DELETE and INSERT Canal messages.
 
+## Record metadata
+
+When SeaTunnel encodes a record, the `database`, `table` and `ts` fields are taken from that record only: `database` and `table` come from the record's table id, and `ts` from the record's event time. If a record carries no table id or no event time, the corresponding fields are written as `null` for that record; metadata of previously encoded records is never reused.
+
 ## Limitations
 
 UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
