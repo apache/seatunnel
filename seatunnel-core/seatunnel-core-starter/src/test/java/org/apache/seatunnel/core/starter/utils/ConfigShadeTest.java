@@ -550,12 +550,26 @@ public class ConfigShadeTest {
                 ConfigShadeTest.class.getResource("/config_with_duplicate_placeholder_keys.conf");
         Assertions.assertNotNull(resource);
         Assertions.assertThrows(
-                IllegalArgumentException.class,
+                ConfigException.BadValue.class,
                 () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
     }
 
     @Test
     public void testDuplicatePlaceholderKeysWithDifferentDefaults() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+
+        URL resource =
+                ConfigShadeTest.class.getResource(
+                        "/config_with_duplicate_placeholder_keys_diff_defaults.conf");
+        Assertions.assertNotNull(resource);
+
+        Assertions.assertThrows(
+                ConfigException.BadValue.class,
+                () -> ConfigBuilder.of(Paths.get(resource.toURI()), variables));
+    }
+
+    @Test
+    public void testPlaceholders() throws URISyntaxException {
         List<String> variables = new ArrayList<>();
 
         URL resource =
