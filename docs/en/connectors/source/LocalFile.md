@@ -214,6 +214,8 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
+For Markdown, headings form a hierarchy based on their levels. A heading is a child of the nearest preceding heading with a lower level, and subsequent top-level content is a child of the current heading. Lists and block quotes retain their nested element relationships.
+
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`

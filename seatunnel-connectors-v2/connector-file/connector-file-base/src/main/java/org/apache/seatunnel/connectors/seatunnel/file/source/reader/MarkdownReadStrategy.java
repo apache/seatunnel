@@ -56,7 +56,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -218,6 +220,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         List<SeaTunnelRow> rows = new ArrayList<>();
 
         assignIdsAndCollectTree(document, null, nodeInfoMap, DEFAULT_POSITION, typeCounters);
+        assignHeadingParents(document, nodeInfoMap);
         generateRows(
                 document,
                 rows,
@@ -257,6 +260,31 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
             NodeInfo childInfo = nodeInfoMap.get(child);
             if (childInfo.elementId != null) {
                 nodeInfo.childIds.add(childInfo.elementId);
+            }
+        }
+    }
+
+    /** Assigns section parents to top-level blocks after preserving nested AST relationships. */
+    private void assignHeadingParents(Node document, Map<Node, NodeInfo> nodeInfoMap) {
+        Deque<Heading> headings = new ArrayDeque<>();
+        for (Node node = document.getFirstChild(); node != null; node = node.getNext()) {
+            if (!isEligibleForRow(node)) {
+                continue;
+            }
+            if (node instanceof Heading) {
+                Heading heading = (Heading) node;
+                while (!headings.isEmpty() && headings.peek().getLevel() >= heading.getLevel()) {
+                    headings.pop();
+                }
+            }
+            if (!headings.isEmpty()) {
+                NodeInfo parentInfo = nodeInfoMap.get(headings.peek());
+                NodeInfo nodeInfo = nodeInfoMap.get(node);
+                nodeInfo.parentId = parentInfo.elementId;
+                parentInfo.childIds.add(nodeInfo.elementId);
+            }
+            if (node instanceof Heading) {
+                headings.push((Heading) node);
             }
         }
     }

@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -89,7 +90,9 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(1, tempCollector.getRows().get(0).getField(4));
         Assertions.assertEquals(1, tempCollector.getRows().get(0).getField(5));
         Assertions.assertNull(tempCollector.getRows().get(0).getField(6));
-        Assertions.assertNull(tempCollector.getRows().get(0).getField(7));
+        Assertions.assertEquals(
+                "Paragraph_1,Heading_2,Heading_3,Heading_4,Heading_5,Heading_6,Heading_7,Heading_8,Heading_9,Heading_10,Heading_11",
+                tempCollector.getRows().get(0).getField(7));
 
         Assertions.assertEquals("OrderedList_1", tempCollector.getRows().get(3).getField(0));
         Assertions.assertEquals("OrderedList", tempCollector.getRows().get(3).getField(1));
@@ -107,7 +110,7 @@ class MarkdownReadStrategyTest {
                 tempCollector.getRows().get(3).getField(3));
         Assertions.assertEquals(1, tempCollector.getRows().get(3).getField(4));
         Assertions.assertEquals(5, tempCollector.getRows().get(3).getField(5));
-        Assertions.assertNull(tempCollector.getRows().get(3).getField(6));
+        Assertions.assertEquals("Heading_2", tempCollector.getRows().get(3).getField(6));
         Assertions.assertEquals(
                 "OrderedListItem_1,OrderedListItem_2,OrderedListItem_3,OrderedListItem_4,OrderedListItem_5,OrderedListItem_6,OrderedListItem_7,OrderedListItem_8,OrderedListItem_9",
                 tempCollector.getRows().get(3).getField(7));
@@ -121,6 +124,66 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(1, tempCollector.getRows().get(4).getField(5));
         Assertions.assertEquals("OrderedList_1", tempCollector.getRows().get(4).getField(6));
         Assertions.assertNull(tempCollector.getRows().get(4).getField(7));
+    }
+
+    @Test
+    public void testHeadingHierarchyKeepsOriginalRowFields() throws Exception {
+        Path markdownFile = tempDir.resolve("heading-hierarchy.md");
+        Files.write(
+                markdownFile,
+                ("# Data Source Configuration\n\n"
+                                + "## Kafka Configuration\n"
+                                + "Users can configure Kafka.\n\n"
+                                + "## MySQL Configuration\n"
+                                + "MySQL requires a JDBC URL.\n\n"
+                                + "### Notes\n"
+                                + "Test the connection before deploying.\n")
+                        .getBytes(StandardCharsets.UTF_8));
+
+        TempCollector collector = new TempCollector();
+        createMarkdownReadStrategy().read(markdownFile.toString(), "", collector);
+        List<SeaTunnelRow> rows = collector.getRows();
+
+        Assertions.assertEquals(7, rows.size());
+        Assertions.assertEquals("Heading_1", rows.get(0).getField(0));
+        Assertions.assertEquals("Heading", rows.get(0).getField(1));
+        Assertions.assertEquals(1, rows.get(0).getField(4));
+        Assertions.assertEquals(1, rows.get(0).getField(5));
+        Assertions.assertNull(rows.get(0).getField(6));
+        Assertions.assertEquals("Heading_2,Heading_3", rows.get(0).getField(7));
+
+        Assertions.assertEquals("Heading_1", rows.get(1).getField(6));
+        Assertions.assertEquals("Paragraph_1", rows.get(1).getField(7));
+        Assertions.assertEquals("Heading_2", rows.get(2).getField(6));
+        Assertions.assertNull(rows.get(2).getField(7));
+        Assertions.assertEquals("Heading_1", rows.get(3).getField(6));
+        Assertions.assertEquals("Paragraph_2,Heading_4", rows.get(3).getField(7));
+        Assertions.assertEquals("Heading_3", rows.get(4).getField(6));
+        Assertions.assertEquals("Heading_3", rows.get(5).getField(6));
+        Assertions.assertEquals("Paragraph_3", rows.get(5).getField(7));
+        Assertions.assertEquals("Heading_4", rows.get(6).getField(6));
+    }
+
+    @Test
+    public void testHeadingHierarchyPreservesNestedAstRelations() throws Exception {
+        Path markdownFile = tempDir.resolve("nested-heading.md");
+        Files.write(
+                markdownFile,
+                ("# Main\n\n- First\n- Second\n\n> ## Quoted\n\nAfter quote\n")
+                        .getBytes(StandardCharsets.UTF_8));
+
+        TempCollector collector = new TempCollector();
+        createMarkdownReadStrategy().read(markdownFile.toString(), "", collector);
+        List<SeaTunnelRow> rows = collector.getRows();
+
+        Assertions.assertEquals("BulletList_1,BlockQuote_1,Paragraph_1", rows.get(0).getField(7));
+        Assertions.assertEquals("Heading_1", rows.get(1).getField(6));
+        Assertions.assertEquals("BulletListItem_1,BulletListItem_2", rows.get(1).getField(7));
+        Assertions.assertEquals("BulletList_1", rows.get(2).getField(6));
+        Assertions.assertEquals("Heading_1", rows.get(4).getField(6));
+        Assertions.assertEquals("Heading_2", rows.get(4).getField(7));
+        Assertions.assertEquals("BlockQuote_1", rows.get(5).getField(6));
+        Assertions.assertEquals("Heading_1", rows.get(6).getField(6));
     }
 
     @Test
