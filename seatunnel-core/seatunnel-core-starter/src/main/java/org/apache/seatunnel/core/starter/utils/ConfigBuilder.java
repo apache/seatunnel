@@ -56,7 +56,6 @@ public class ConfigBuilder {
     public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
 
-    private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
     private static final String MASKED_VALUE = "******";
     private static final String CONFIG_PATH_SEPARATOR = ".";
     // Treat common option separators as equivalent when matching config paths in logs.
@@ -251,6 +250,8 @@ public class ConfigBuilder {
     }
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
+        // TODO: disallow placeholders in list: field=[${name}]
+
         Map<String, String> userConfigMap = extractUserVariables(variables);
         Config resolvedConfig = substituteUserConfig(config, userConfigMap);
 
@@ -391,16 +392,8 @@ public class ConfigBuilder {
                                                 TablePlaceholder::isSystemPlaceholder,
                                                 userConfigMap,
                                                 defaultConfigMap);
-                                Object variableValue;
                                 if (!replacedValue.equals(variableString)) {
-                                    if (ConfigValueUtils.isStructured(replacedValue)) {
-                                        variableValue =
-                                                ConfigValueUtils.parseStructured(replacedValue)
-                                                        .unwrapped();
-                                    } else {
-                                        variableValue = replacedValue;
-                                    }
-                                    return variableValue;
+                                    return ConfigValueUtils.parseValue(replacedValue);
                                 }
                             } else if (variable instanceof Map) {
                                 processVariablesMap(
@@ -435,11 +428,7 @@ public class ConfigBuilder {
                         defaultConfigMap);
 
         if (!replacedValue.equals(variableString)) {
-            if (ConfigValueUtils.isStructured(replacedValue)) {
-                variableValue = ConfigValueUtils.parseStructured(replacedValue).unwrapped();
-            } else {
-                variableValue = replacedValue;
-            }
+            variableValue = ConfigValueUtils.parseValue(replacedValue);
         }
         parentMap.put(variableKey, variableValue);
     }
