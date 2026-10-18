@@ -35,7 +35,7 @@ DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 
 
 标准 DuckDB `TIMESTAMP` Source 现在上报精度 6，因此自动建表语句可显式声明小数秒精度，例如 MySQL `DATETIME(6)`、PostgreSQL `timestamp(6)`、SQL Server `DATETIME2(6)` 和 Oracle `TIMESTAMP(6)`，而不再依赖目标数据库的默认精度。对于精度 0，当前 MySQL、PostgreSQL、SQL Server 和 Oracle 转换器会省略精度参数；这是连接器的映射策略，并非这些数据库不支持精度 0。已有目标表不会自动调整，升级时请检查生成的 DDL 和现有列定义。
 
-标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
+标准 `TIMESTAMP` 以 `LocalDateTime` 读取，避免 JVM 时区和公历切换日期的规范化。对于 SeaTunnel 测试使用的 DuckDB JDBC 版本（1.3.1.0），三种时间戳别名会协调 UTC Calendar 与普通时间戳接口的读取结果，以保留夏令时切换前后的原始时刻；仅当 UTC 结果落在 JVM 默认时区春季跳时产生的缺失时刻内时，才优先采用该结果。1970-01-01 之前的别名值保留原有时间戳接口的行为：落在 JVM 默认时区春季跳时缺失区间内的 1970 年之前时刻仍会被顺移，公历切换之前的日期仍会偏移。这部分 1970 年之前的别名值属于延后处理项，不在上面的写入器改动范围内，该改动只影响写入。`table_path`、`table_list` 和 `query` 三种读取方式均适用。标准 `TIMESTAMP` 的读取错误会被报出，不再静默降级为有损的读取。
 
 历史别名日期、1970 年之前带小数秒的值和 `infinity` 仍受驱动限制，类型化读取也不能保证这些边界值无损。在测试使用的驱动中，`getString` 返回的是 `java.sql.Timestamp` 渲染的文本，因此读取文本再解析也无法恢复原始值。
 

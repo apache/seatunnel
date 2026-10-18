@@ -60,6 +60,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -1208,6 +1209,169 @@ public class DuckDBSourceAndSinkTest {
                         "UTC", "America/Los_Angeles", "Europe/Paris", "Australia/Lord_Howe"
                     }) {
                 TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                for (boolean useQuery : new boolean[] {false, true}) {
+                    String mode = useQuery ? "query" : "table_path";
+                    Map<String, Object> sourceOptions = new HashMap<>();
+                    sourceOptions.put("url", jdbcUrl);
+                    sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+                    sourceOptions.put(
+                            useQuery ? "query" : "table_path", useQuery ? query : tablePath);
+                    List<SeaTunnelRow> rows =
+                            SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                                    ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+                    Assertions.assertEquals(expected.length, rows.size(), zone + ", " + mode);
+                    // `table_path` reads do not guarantee row order, so index the rows by their
+                    // `id` column and assert the count and uniqueness of the ids.
+                    Map<Integer, SeaTunnelRow> rowsById = new HashMap<>();
+                    for (SeaTunnelRow row : rows) {
+                        Integer id = (Integer) row.getField(0);
+                        Assertions.assertNotNull(id, zone + ", " + mode);
+                        Assertions.assertNull(
+                                rowsById.put(id, row), zone + ", " + mode + ", duplicate id " + id);
+                    }
+                    Assertions.assertEquals(expected.length, rowsById.size(), zone + ", " + mode);
+                    for (int id = 1; id <= expected.length; id++) {
+                        SeaTunnelRow row = rowsById.get(id);
+                        String message = zone + ", " + mode + ", id " + id;
+                        Assertions.assertNotNull(row, message);
+                        for (int column = 0; column < expected[id - 1].length; column++) {
+                            Assertions.assertEquals(
+                                    expected[id - 1][column],
+                                    row.getField(column + 1),
+                                    message + ", column " + column);
+                        }
+                    }
+                }
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testPreEpochAliasReadsKeepTheLegacyGetterForDstGapAndCutover() throws Exception {
+        // Regression pin for the read path that the sink-side wall-clock fix does not change: alias
+        // values before the epoch still go through the legacy plain timestamp getter, whose
+        // historical-offset and DST-gap normalization stays a known, deferred limitation.
+        String table = "ts_alias_pre_epoch_legacy";
+        String tablePath = SCHEMA_NAME + "." + table;
+        // Stored SQL literals, independent of the read path under test. Row 1 falls inside the
+        // 1918-03-31 02:00 -> 03:00 spring-forward gap of the US zones, row 2 is the same era
+        // outside that gap, and row 3 falls inside the 1582 Gregorian cutover. The
+        // `TIMESTAMP_NS` column is NULL for the cutover row because 1582 is outside the range of
+        // that type.
+        String[][] literals = {
+            {
+                "1918-03-31 02:30:00",
+                "1918-03-31 02:30:00",
+                "1918-03-31 02:30:00.123",
+                "1918-03-31 02:30:00"
+            },
+            {
+                "1918-06-15 12:00:00",
+                "1918-06-15 12:00:00",
+                "1918-06-15 12:00:00.123",
+                "1918-06-15 12:00:00"
+            },
+            {"1582-10-10 12:34:56", "1582-10-10 12:34:56", "1582-10-10 12:34:56.123", null}
+        };
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE \"%s\".\"%s\" (id INTEGER, c_ts TIMESTAMP, "
+                                    + "c_ts_s TIMESTAMP_S, c_ts_ms TIMESTAMP_MS, "
+                                    + "c_ts_ns TIMESTAMP_NS)",
+                            SCHEMA_NAME, table));
+            for (int i = 0; i < literals.length; i++) {
+                statement.execute(
+                        String.format(
+                                "INSERT INTO \"%s\".\"%s\" VALUES (%d, TIMESTAMP '%s', "
+                                        + "TIMESTAMP_S '%s', TIMESTAMP_MS '%s', %s)",
+                                SCHEMA_NAME,
+                                table,
+                                i + 1,
+                                literals[i][0],
+                                literals[i][1],
+                                literals[i][2],
+                                literals[i][3] == null
+                                        ? "NULL"
+                                        : "TIMESTAMP_NS '" + literals[i][3] + "'"));
+            }
+            // Independent oracle: the wall clocks that actually reached the file, read back with
+            // plain SQL instead of through the converter under test.
+            try (ResultSet stored =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT id, CAST(c_ts AS VARCHAR), CAST(c_ts_s AS VARCHAR), "
+                                            + "CAST(c_ts_ms AS VARCHAR), CAST(c_ts_ns AS VARCHAR) "
+                                            + "FROM \"%s\".\"%s\" ORDER BY id",
+                                    SCHEMA_NAME, table))) {
+                int storedRows = 0;
+                while (stored.next()) {
+                    storedRows++;
+                    Assertions.assertEquals(storedRows, stored.getInt(1));
+                    for (int column = 0; column < 4; column++) {
+                        Assertions.assertEquals(
+                                literals[storedRows - 1][column],
+                                stored.getString(column + 2),
+                                "stored value, id " + storedRows + ", column " + column);
+                    }
+                }
+                Assertions.assertEquals(literals.length, storedRows);
+            }
+        }
+        // Expected read results, one entry per zone, pinned to what the tested driver
+        // (duckdb_jdbc 1.3.1.0 on JDK 17) reports today. The plain `TIMESTAMP` column is the
+        // control: its typed getter keeps every stored wall clock (02:30, 12:00, 1582-10-10). The
+        // alias columns go through the legacy getter before the epoch: UTC and Asia/Shanghai have
+        // no spring-forward gap in 1918, so they keep 02:30, while the US zones move it forward to
+        // 03:30 by that gap; the pre-cutover date comes back ten days later in every zone, the
+        // Julian reading of the 1582-10-10 literal. Both alias deviations are pinned here as
+        // deferred; the sink-side wall-clock fix does not address them.
+        LocalDateTime gapStoredValue = LocalDateTime.of(1918, 3, 31, 2, 30);
+        LocalDateTime gapAfterSpringForward = LocalDateTime.of(1918, 3, 31, 3, 30);
+        LocalDateTime cutoverStoredValue = LocalDateTime.of(1582, 10, 10, 12, 34, 56);
+        LocalDateTime cutoverAliasValue = LocalDateTime.of(1582, 10, 20, 12, 34, 56);
+        LocalDateTime cutoverMsAliasValue = LocalDateTime.of(1582, 10, 20, 12, 34, 56, 123_000_000);
+        Map<String, LocalDateTime[][]> expectedByZone = new HashMap<>();
+        for (String zone :
+                new String[] {"UTC", "Asia/Shanghai", "America/New_York", "America/Los_Angeles"}) {
+            // The JDK time-zone database decides whether the stored wall clock is inside that
+            // zone's 1918 gap, independently of the read path under test.
+            boolean inSpringForwardGap =
+                    ZoneId.of(zone).getRules().getValidOffsets(gapStoredValue).isEmpty();
+            LocalDateTime gapAliasValue =
+                    inSpringForwardGap ? gapAfterSpringForward : gapStoredValue;
+            expectedByZone.put(
+                    zone,
+                    new LocalDateTime[][] {
+                        {
+                            gapStoredValue,
+                            gapAliasValue,
+                            gapAliasValue.withNano(123_000_000),
+                            gapAliasValue
+                        },
+                        {
+                            LocalDateTime.of(1918, 6, 15, 12, 0),
+                            LocalDateTime.of(1918, 6, 15, 12, 0),
+                            LocalDateTime.of(1918, 6, 15, 12, 0, 0, 123_000_000),
+                            LocalDateTime.of(1918, 6, 15, 12, 0)
+                        },
+                        {cutoverStoredValue, cutoverAliasValue, cutoverMsAliasValue, null}
+                    });
+        }
+        String query =
+                "SELECT id, c_ts, c_ts_s, c_ts_ms, c_ts_ns FROM main." + table + " ORDER BY id";
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (String zone :
+                    new String[] {
+                        "UTC", "Asia/Shanghai", "America/New_York", "America/Los_Angeles"
+                    }) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                LocalDateTime[][] expected = expectedByZone.get(zone);
                 for (boolean useQuery : new boolean[] {false, true}) {
                     String mode = useQuery ? "query" : "table_path";
                     Map<String, Object> sourceOptions = new HashMap<>();
