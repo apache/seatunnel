@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -87,7 +88,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         BasicType.INT_TYPE,
         BasicType.INT_TYPE,
         BasicType.STRING_TYPE,
-        BasicType.STRING_TYPE
+        ArrayType.STRING_ARRAY_TYPE
     };
     /** Stable metadata fields appended for downstream RAG/document indexing pipelines. */
     private static final String[] RAG_METADATA_FIELD_NAMES = {
@@ -316,7 +317,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                         pageNumber,
                         nodeInfo.positionIndex,
                         nodeInfo.parentId,
-                        nodeInfo.childIds.isEmpty() ? null : String.join(",", nodeInfo.childIds)
+                        nodeInfo.childIds.toArray(new String[0])
                     };
             String contentHash = null;
             if (markdownRagMetadataEnabled) {
