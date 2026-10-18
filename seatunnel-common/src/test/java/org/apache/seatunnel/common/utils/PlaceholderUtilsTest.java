@@ -159,7 +159,7 @@ public class PlaceholderUtilsTest {
                 PlaceholderUtils.processPlaceholders(
                         value, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
 
-        Assertions.assertEquals("[k1,k2,\"${k3}\",\"${k4}_aaa\"]", result);
+        Assertions.assertEquals("[v1,v2,\"${v3}\",\"${v4}_aaa\"]", result);
     }
 
     @Test
