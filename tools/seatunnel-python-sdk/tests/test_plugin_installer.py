@@ -212,21 +212,71 @@ class TestInstallPlugins(_PluginConfigTestCase):
             ["/usr/bin/bash", self.script_path, "3.0.1"], cwd=self.home, check=False
         )
 
-    def test_nonzero_exit_raises(self):
-        """A failing install script raises with its exit code and the connectors."""
+    def test_successful_install_keeps_new_selection(self):
+        """After a successful install, plugin_config keeps the requested selection."""
+        with self._patch_which(), self._patch_run(returncode=0):
+            install_plugins(self.home, ["jdbc"], "3.0.1")
+        self.assertEqual(["connector-jdbc"], self._enabled())
+
+    def test_nonzero_exit_raises_and_restores_plugin_config(self):
+        """A failing install script raises and plugin_config is restored byte for byte."""
         with self._patch_which(), self._patch_run(returncode=1):
             with self.assertRaises(PluginInstallError) as ctx:
                 install_plugins(self.home, ["jdbc"], "3.0.1")
         self.assertIn("exited with code 1", str(ctx.exception))
         self.assertIn("connector-jdbc", str(ctx.exception))
+        self.assertEqual(PLUGIN_CONFIG, self._read())
 
-    def test_oserror_raises(self):
-        """An OSError starting the script is wrapped in PluginInstallError."""
+    def test_failed_install_restores_previous_selection_and_line_endings(self):
+        """Restoring returns the file to its state before the call, not to the default list."""
+        self._write(PLUGIN_CONFIG.replace("\n", "\r\n"))
+        select_plugins(self.config_path, ["kafka"])
+        with open(self.config_path, "rb") as f:
+            before = f.read()
+
+        with self._patch_which(), self._patch_run(returncode=1):
+            with self.assertRaises(PluginInstallError):
+                install_plugins(self.home, ["jdbc"], "3.0.1")
+
+        with open(self.config_path, "rb") as f:
+            self.assertEqual(before, f.read())
+
+    def test_oserror_raises_and_restores_plugin_config(self):
+        """An OSError starting the script is wrapped and plugin_config is restored."""
         with self._patch_which(), self._patch_run(side_effect=OSError("exec format error")):
             with self.assertRaises(PluginInstallError) as ctx:
                 install_plugins(self.home, ["jdbc"], "3.0.1")
         self.assertIn("exec format error", str(ctx.exception))
         self.assertIsInstance(ctx.exception.__cause__, OSError)
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_interrupt_restores_plugin_config_and_propagates(self):
+        """Ctrl+C during the download restores plugin_config and still interrupts."""
+        with self._patch_which(), self._patch_run(side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                install_plugins(self.home, ["jdbc"], "3.0.1")
+        self.assertEqual(PLUGIN_CONFIG, self._read())
+
+    def test_restore_failure_reports_both_errors(self):
+        """If restoring fails too, the error mentions the script failure and the restore failure."""
+        from seatunnel import plugin_installer
+
+        real_write = plugin_installer._write_atomically
+        calls = []
+
+        def write_then_fail(path, content):
+            calls.append(path)
+            if len(calls) > 1:
+                raise PluginInstallError("disk full")
+            real_write(path, content)
+
+        with self._patch_which(), self._patch_run(returncode=1):
+            with mock.patch.object(plugin_installer, "_write_atomically", write_then_fail):
+                with self.assertRaises(PluginInstallError) as ctx:
+                    install_plugins(self.home, ["jdbc"], "3.0.1")
+        self.assertIn("exited with code 1", str(ctx.exception))
+        self.assertIn("Restoring the original plugin config also failed: disk full",
+                      str(ctx.exception))
 
     def test_missing_bash_raises_before_rewriting(self):
         """Without bash, nothing is rewritten and nothing is run."""
