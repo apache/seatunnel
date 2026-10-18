@@ -37,15 +37,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import lombok.SneakyThrows;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -207,6 +211,91 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @Test
+    public void testQuerySourceNativeValues() {
+        String query =
+                "SELECT CAST(12345678901234567890 AS DECIMAL(20,0)) AS amount, "
+                        + "TIMESTAMPTZ '2024-01-01 12:34:56.123456+08' AS tz, "
+                        + "UUID '550e8400-e29b-41d4-a716-446655440000' AS uuid, "
+                        + "JSON '{\"key\":1}' AS json, INTERVAL '1 day' AS interval_value, "
+                        + "12345678901234567890::HUGEINT AS huge, "
+                        + "[1, 2] AS list_value, {'key': 1} AS struct_value, MAP(['key'], [1]) AS map_value";
+        List<SeaTunnelRow> rows = readQuery(query);
+        Assertions.assertEquals(1, rows.size());
+        Object[] fields = rows.get(0).getFields();
+        Assertions.assertEquals(new BigDecimal("12345678901234567890"), fields[0]);
+        Assertions.assertEquals(
+                OffsetDateTime.parse("2024-01-01T04:34:56.123456Z").toInstant(),
+                ((OffsetDateTime) fields[1]).toInstant());
+        Assertions.assertEquals("550e8400-e29b-41d4-a716-446655440000", fields[2]);
+        Assertions.assertEquals("{\"key\":1}", fields[3]);
+        Assertions.assertEquals("1 day", fields[4]);
+        Assertions.assertEquals(new BigDecimal("12345678901234567890"), fields[5]);
+        Assertions.assertEquals("[1, 2]", fields[6]);
+        Assertions.assertEquals("{key=1}", fields[7]);
+        Assertions.assertEquals("{key=1}", fields[8]);
+    }
+
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testQuerySourceTimestampAndUnsignedBoundariesInUtc() {
+        TimeZone originalTimeZone = TimeZone.getDefault();
+        try {
+            // Local-value timezone handling is independent of metadata discovery (#12592).
+            // Validate the existing timestamp alias contract in a deterministic UTC JVM.
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            List<SeaTunnelRow> rows =
+                    readQuery(
+                            "SELECT CAST('2024-01-01 12:34:56' AS TIMESTAMP_S) AS seconds, "
+                                    + "CAST('2024-01-01 12:34:56.123' AS TIMESTAMP_MS) AS millis, "
+                                    + "CAST('2024-01-01 12:34:56.123456789' AS TIMESTAMP_NS) AS nanos, "
+                                    + "255::UTINYINT AS u8, 65535::USMALLINT AS u16, "
+                                    + "4294967295::UINTEGER AS u32, 18446744073709551615::UBIGINT AS u64, "
+                                    + "340282366920938463463374607431768211455::UHUGEINT AS u128");
+            Assertions.assertEquals(1, rows.size());
+            Object[] fields = rows.get(0).getFields();
+            Assertions.assertEquals(LocalDateTime.parse("2024-01-01T12:34:56"), fields[0]);
+            Assertions.assertEquals(LocalDateTime.parse("2024-01-01T12:34:56.123"), fields[1]);
+            Assertions.assertEquals(
+                    LocalDateTime.parse("2024-01-01T12:34:56.123456789"), fields[2]);
+            Assertions.assertEquals((short) 255, fields[3]);
+            Assertions.assertEquals(65535, fields[4]);
+            Assertions.assertEquals(4294967295L, fields[5]);
+            Assertions.assertEquals(new BigDecimal("18446744073709551615"), fields[6]);
+            Assertions.assertEquals("340282366920938463463374607431768211455", fields[7]);
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+    }
+
+    @Test
+    public void testQuerySourceUnsignedZeroAndNull() {
+        Object[] zero =
+                readQuery(
+                                "SELECT 0::UTINYINT AS u8, 0::USMALLINT AS u16, "
+                                        + "0::UINTEGER AS u32, 0::UBIGINT AS u64, 0::UHUGEINT AS u128")
+                        .get(0)
+                        .getFields();
+        Assertions.assertArrayEquals(new Object[] {(short) 0, 0, 0L, BigDecimal.ZERO, "0"}, zero);
+        Object[] nulls =
+                readQuery(
+                                "SELECT NULL::UTINYINT AS u8, NULL::USMALLINT AS u16, "
+                                        + "NULL::UINTEGER AS u32, NULL::UBIGINT AS u64, NULL::UHUGEINT AS u128")
+                        .get(0)
+                        .getFields();
+        Assertions.assertArrayEquals(new Object[5], nulls);
+    }
+
+    @SneakyThrows
+    private List<SeaTunnelRow> readQuery(String query) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", jdbcUrl);
+        options.put("driver", "org.duckdb.DuckDBDriver");
+        options.put("query", query);
+        return SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                ReadonlyConfig.fromMap(options), new JdbcSourceFactory());
     }
 
     @AfterAll

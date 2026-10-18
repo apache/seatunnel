@@ -59,7 +59,7 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | USMALLINT<br/>INTEGER                                    | INT            |
 | UINTEGER<br/>BIGINT                                      | BIGINT         |
 | UBIGINT                                                  | DECIMAL(20,0)  |
-| HUGEINT                                                  | DECIMAL(38,0)  |
+| HUGEINT<br/>BIGNUM                                                  | DECIMAL(38,0)  |
 | FLOAT                                                    | FLOAT          |
 | DOUBLE                                                   | DOUBLE         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
@@ -69,11 +69,30 @@ MySQL 自动建表无法在 `LONGTEXT` 上创建使用完整列值的主键。�
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+| BLOB | BYTES |
+| ARRAY<br/>STRUCT<br/>MAP | STRING |
 
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 > 类型名识别不区分大小写，也不受 JVM 默认区域设置影响。例如，在 `tr-TR` 下，`integer` 和 `INTEGER` 均映射为 `INT`。
+
+DuckDB 的 `HUGEINT` 和 `BIGNUM` 映射为 `DECIMAL(38,0)`，即 SeaTunnel 的最大小数精度。需要超过 38 位十进制数字的值超出此精度。请将这些值投影为 `VARCHAR`（例如 `CAST(col AS VARCHAR)`），并在下游保持 `STRING` 类型，以保留完整范围。
+
+## 查询模式发现
+
+`query` 的所有列现在均使用 DuckDB 原生类型名和 DuckDB 类型映射。下面的无符号类型扩宽仅适用于 `query`；`table_path` 模式发现保留现有映射。
+
+`query`（包括别名和表达式）使用 DuckDB 原生结果元数据推断模式。
+`DECIMAL(p,s)` 保留精度和小数位数，`TIMESTAMP WITH TIME ZONE` 输出
+`TIMESTAMP_TZ` / `OffsetDateTime`。`TIMESTAMP_S`、`TIMESTAMP_MS` 和 `TIMESTAMP_NS`
+仍输出 `TIMESTAMP` / `LocalDateTime`。UUID、JSON、INTERVAL、ARRAY/LIST、STRUCT 和 MAP
+以 DuckDB 提供的文本（`STRING`）输出，而非 SeaTunnel 嵌套类型。
+
+查询中的无符号类型 UTINYINT、USMALLINT、UINTEGER 和 UBIGINT 分别映射为
+`SMALLINT`、`INT`、`BIGINT` 和 `DECIMAL(20,0)`。UHUGEINT 使用 `STRING`，因为完整范围
+需要 39 位数字，超过 SeaTunnel 的最大小数精度。查询映射不改变现有的 `table_path`
+模式发现。升级查询作业时，请同步下游的小数及带时区类型；如需旧输出类型，请在 SQL
+中显式转换表达式。
 
 ## 源选项
 
