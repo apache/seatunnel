@@ -20,6 +20,7 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.common.utils.ConfigValueUtils.isEscapedQuote;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
 
 public class PlaceholderUtils {
 
@@ -80,7 +82,7 @@ public class PlaceholderUtils {
      * Processes placeholders in the given input string and replaces them with resolved values.
      *
      * <p>A placeholder is defined as {@code ${key}} or {@code ${key:default}}. The resolution
-     * priority is: user-provided value > default value > system property > original placeholder.
+     * priority is: user-provided value > system property > default value > original placeholder.
      *
      * <p>This method also collects placeholder default values into {@code defaultConfigMap} for
      * consistency validation:
@@ -122,25 +124,18 @@ public class PlaceholderUtils {
         }
 
         StringBuilder result = new StringBuilder();
-        int i = 0;
+        int cursor = 0;
 
-        while (i < input.length()) {
-            int start = input.indexOf(PLACEHOLDER_STARTER, i);
+        while (cursor < input.length()) {
+            int start = input.indexOf(PLACEHOLDER_STARTER, cursor);
             if (start == -1) {
-                result.append(input.substring(i));
+                result.append(input.substring(cursor));
                 break;
             }
 
-            result.append(input, i, start);
+            result.append(input, cursor, start);
 
             int keyStart = start + 2;
-            boolean optional;
-            if (keyStart < input.length() && input.charAt(keyStart) == '?') {
-                keyStart++;
-                optional = true;
-            } else {
-                optional = false;
-            }
 
             int closePos = findPlaceholderClosePos(input, keyStart);
             if (closePos == -1) {
@@ -164,7 +159,9 @@ public class PlaceholderUtils {
             String defaultValue;
             if (colonPos > 0) {
                 key = input.substring(keyStart, colonPos).trim();
-                defaultValue = input.substring(colonPos + 1, closePos);
+                defaultValue = input.substring(colonPos + 1, closePos).trim();
+                // check if defaultValue is static literal
+                checkNotResolvedDefaultValue(key, defaultValue);
             } else {
                 defaultValue = null;
                 key = input.substring(keyStart, closePos).trim();
@@ -177,12 +174,17 @@ public class PlaceholderUtils {
                 boolean prevHasDefault = (existingDefault != null);
 
                 if (prevHasDefault != hasDefault) {
-                    throw new IllegalArgumentException(
+                    throw new ConfigException.BadValue(
+                            ConfigOriginFactory.newSimple(),
+                            key,
                             String.format(
                                     "Inconsistent placeholder usage for key '%s'. "
                                             + "It is used with a default value in one place and without a default value in another. "
-                                            + "Please ensure consistent usage across the configuration.",
-                                    key));
+                                            + "Please ensure consistent usage across the configuration."
+                                            + "This check runs even when -i provides a value, because the configuration "
+                                            + "itself is inconsistent.",
+                                    key),
+                            null);
                 }
 
                 if (hasDefault) {
@@ -191,11 +193,15 @@ public class PlaceholderUtils {
                         Object currObj = ConfigValueUtils.parseValue(defaultValue);
 
                         if (!existingObj.equals(currObj)) {
-                            throw new IllegalArgumentException(
+                            throw new ConfigException.BadValue(
+                                    ConfigOriginFactory.newSimple(),
+                                    key,
                                     String.format(
                                             "Duplicate placeholder key '%s' with conflicting default values. "
-                                                    + "Existing: '%s', New: '%s'. Please ensure the exact same default value is used.",
-                                            key, existingDefault, defaultValue));
+                                                    + "Existing: '%s', New: '%s'. The values differ after parsing; "
+                                                    + "please ensure the exact same default value is used.",
+                                            key, existingDefault, defaultValue),
+                                    null);
                         }
                     }
                 }
@@ -204,10 +210,9 @@ public class PlaceholderUtils {
             }
 
             String resolvedValue = null;
-
             // Priority: input > system > default
             if (!isSystemPlaceholder.test(key)) {
-                resolvedValue = userConfigMap.get(key);
+                resolvedValue = StringUtils.unwrap(userConfigMap.get(key), "\"");
             }
 
             String replacement =
@@ -218,13 +223,10 @@ public class PlaceholderUtils {
                                     () ->
                                             defaultValue != null
                                                     ? defaultValue
-                                                    : (optional
-                                                            ? ""
-                                                            : input.substring(
-                                                                    start, closePos + 1)));
+                                                    : input.substring(start, closePos + 1));
 
             result.append(replacement);
-            i = closePos + 1;
+            cursor = closePos + 1;
         }
 
         return result.toString();
@@ -269,5 +271,44 @@ public class PlaceholderUtils {
             }
         }
         return -1;
+    }
+
+    public static boolean isSinglePlaceholder(String input) {
+        String trimmedInput = input.trim();
+        if (trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
+            return false;
+        }
+        int closePos = findPlaceholderClosePos(input, trimmedInput.length());
+        return closePos == trimmedInput.length() - 1;
+    }
+
+    public static void checkNotResolvedDefaultValue(String key, String defaultValue) {
+        if (defaultValue != null) {
+
+            if (ConfigValueUtils.isStructured(defaultValue)) {
+                ConfigValue parsedDefaultConfigValue = parseStructured(defaultValue);
+                try {
+                    parsedDefaultConfigValue.unwrapped();
+                } catch (Exception e) {
+                    if (e instanceof ConfigException.NotResolved) {
+                        throwBadValueException(key, defaultValue);
+                    }
+                }
+            } else if (!(defaultValue.startsWith("\"") && defaultValue.endsWith("\""))
+                    && defaultValue.contains(PLACEHOLDER_STARTER)) {
+                throwBadValueException(key, defaultValue);
+            }
+        }
+    }
+
+    private static void throwBadValueException(String key, String defaultValue) {
+        throw new ConfigException.BadValue(
+                ConfigOriginFactory.newSimple(),
+                key,
+                String.format(
+                        "Structured default value for '%s' contains a placeholder: '%s'. "
+                                + "Default values must be static literals; pass the whole value via -i.",
+                        key, defaultValue),
+                null);
     }
 }
