@@ -12,6 +12,17 @@
 
 同样的严格校验也适用于未忽略解析错误而使用共享 JSON 转行转换的地方：`JsonPath` 转换（列的 `dest_type`）、`Python` 转换（声明的输出列及其声明类型），以及 Assert 的 `equals_to` 对 `ARRAY`、`MAP` 值的比较。这些调用方不会读取 JSON 格式的 `ignore-parse-errors` 选项，因此该开关对它们不生效：与声明的 `ARRAY` 或 `MAP` 类型不匹配的值在那里仍会失败，而这些转换插件自身的错误处理行为保持不变。
 
+### Spark：精度超过 38 的 DECIMAL
+
+- **行为变更：在 Spark 引擎上，作为顶层列或 `ROW` 内字段的 `DECIMAL(p, s)`（`p > 38`）不再在构建 schema 时失败**
+  - **描述**：Spark 的 decimal 类型精度最大为 38，因此此前这类列会在读取任何数据之前报错 `decimal can only support precision up to 38`。现在 SeaTunnel 在 Spark 中把这些值作为普通十进制文本传递，在列的 metadata 中记录声明的精度和小数位数，并为 Transform 和 Sink 还原为 `DECIMAL(p, s)`。
+  - **影响**：
+    - 在 Spark 2.4 或 3.3 上读取这类列的作业现在可以运行，且不丢失任何数字。
+    - `ARRAY` 或 `MAP` 内的 `DECIMAL(p > 38)` 现在会在作业启动时以错误 `SPARK-TRANSLATION-01` 失败，报错中给出表名、列路径和绕过办法。如果 Doris 源把 `LARGEINT` 声明为 `DECIMAL(39, 0)`，这也适用于 Spark 上 Doris 的 `ARRAY<LARGEINT>` 列以及 MAP 中的 `LARGEINT` 键和值；此前它们使用 `DECIMAL(20, 0)`，超过 20 位的值会溢出。
+    - 值超出声明的精度或小数位数时，作业会以 `SPARK-TRANSLATION-02` 失败，不会被四舍五入。
+    - 在 Spark 自己看到的数据中（例如 Dataset 的 schema 或临时视图），这些列是 `STRING`。
+  - **迁移指南**：顶层列和 `ROW` 内的列无需修改。对于 `ARRAY` 或 `MAP` 列，请在 Source 端不读取该列、在 Source 查询中转换它，或改用 Zeta 或 Flink 引擎运行作业。`Sql` Transform 在这里无效，因为在 Spark 上 Source 的 schema 在任何 Transform 运行之前就已构建。参见 [SeaTunnel 运行在 Spark 上](../../engines/spark.md#精度超过-38-的-decimal)。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
