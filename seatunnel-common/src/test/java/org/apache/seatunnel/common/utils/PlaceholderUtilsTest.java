@@ -19,6 +19,7 @@ package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -116,5 +117,93 @@ public class PlaceholderUtilsTest {
                 () ->
                         PlaceholderUtils.processPlaceholders(
                                 input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testDefaultListString() {
+        String input = "${key:[0-9]}";
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
+
+        assertEquals("[0-9]", result);
+    }
+
+    @Test
+    void testDefaultRegexString() {
+        // config file content pattern="""${key:"[0-9]"}"""
+        // in order to distinguash list,string must be inside quotes
+        String input = "${key:\"[0-9]\"}";
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
+
+        assertEquals("\"[0-9]\"", result);
+    }
+
+    @Test
+    void testDefaultListValueWithNotResolvedPlaceholder() {
+        String value = "${k:[v1,v2,${v3}_aaa]}";
+
+        Assertions.assertThrows(
+                ConfigException.BadValue.class,
+                () ->
+                        PlaceholderUtils.processPlaceholders(
+                                value, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testDefaultListValueWithQuotedPlaceholder() {
+        String value = "${\"k\":[v1,v2,\"${v3}\",\"${v4}_aaa\"]}";
+        Object result =
+                PlaceholderUtils.processPlaceholders(
+                        value, key -> false, new LinkedHashMap<>(), new LinkedHashMap<>());
+
+        Assertions.assertEquals("[k1,k2,\"${k3}\",\"${k4}_aaa\"]", result);
+    }
+
+    @Test
+    void testDefaultWithExternalPlaceholderThrows() {
+        assertThrows(
+                ConfigException.BadValue.class,
+                () ->
+                        PlaceholderUtils.processPlaceholders(
+                                "${k:${x}}",
+                                key -> false,
+                                new LinkedHashMap<>(),
+                                new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testDefaultWithSystemPlaceholderThrows() {
+        assertThrows(
+                ConfigException.BadValue.class,
+                () ->
+                        PlaceholderUtils.processPlaceholders(
+                                "${k:${table_name}}",
+                                key -> false,
+                                new LinkedHashMap<>(),
+                                new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testWithWithoutDefaultThrows() {
+        assertThrows(
+                ConfigException.BadValue.class,
+                () ->
+                        PlaceholderUtils.processPlaceholders(
+                                "${x:def} ${x}",
+                                key -> false,
+                                new LinkedHashMap<>(),
+                                new LinkedHashMap<>()));
+    }
+
+    @Test
+    void testEmptyUserValueFallsBackToDefault() {
+        Map<String, String> userVars = Map.of("k", "");
+        assertEquals(
+                "default",
+                PlaceholderUtils.processPlaceholders(
+                        "${k:default}", userVars::containsKey, userVars, new LinkedHashMap<>()));
     }
 }
