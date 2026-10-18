@@ -85,6 +85,8 @@ seatunnel:
 
 ## API参考
 
+[REST v2 只读接口的 OpenAPI 3.1 规范](@site/docs/engines/zeta/openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
+
 ### 获取 Connector 的 OptionRule
 
 <details>
