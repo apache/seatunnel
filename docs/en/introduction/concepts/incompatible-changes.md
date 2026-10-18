@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### File sink: XML applies `date_format`, `datetime_format` and `time_format`
+
+- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
+  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
+  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
+  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
 ### CDC: nullable columns are no longer used as the snapshot split column
 
 - **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
@@ -384,6 +391,12 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` without a non-blank `absolute_path` | Runtime file-read failure | Provide `absolute_path` when using `ABSOLUTE_PATH` pattern |
 
   **Migration Guide**: Review your transform configs against the table above. If any of your existing configs match a "Newly Rejected" pattern, update them before upgrading. The error messages at submission time now clearly identify which option is invalid and why.
+- **Behavior change: every `table_transform` entry is validated at submission time**
+  - **Affected component**: all transforms that support `table_transform`: `Copy`, `Calcite`, `DataValidator`, `DefineSinkType`, `DynamicCompile`, `FieldEncrypt`, `FieldMapper`, `Filter`, `FilterRowKind`, `JsonPath`, `Metadata`, `Python`, `RegexExtract`, `Replace`, `Sql`, `Split`, `TableMerge` and `TextChunk`.
+  - **Description**: An entry without a non-blank `table_path` used to be filtered out silently, so the entry was ignored and the job ran anyway; entries were not checked against the per-table rule until a row was processed. Entries are now validated before the job starts: each one has to select its table with a non-blank `table_path` and to be a complete single-table rule of that transform, and the transform-level rule has to be either absent or complete.
+  - **Impact**: A config that still carries a stale entry - for example `table_transform = [{ field_rules = [...] }]` without `table_path` - was accepted before and now fails at submission with `Each 'table_transform' entry must select its table with a non-blank 'table_path'`, or with `Invalid 'table_transform' entry for table [...]` when a mandatory option of the entry is missing. Single-table jobs (without `table_transform`) are not affected.
+  - **Migration Guide**: Add `table_path` to every entry and complete it like a single-table config of the same transform. Entries that are no longer needed can also be removed, because a `table_transform`-only config is valid.
+- **[BREAKING]** Assert sink: `sink_type` in `column_rule` is now checked against the actual column type. It was ignored before, so a mismatching declaration fails the job while an omitted one stays unchecked; remove the key or set the actual type when upgrading.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).

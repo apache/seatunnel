@@ -4,6 +4,13 @@
 
 ## dev
 
+### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
+
+- **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**
+  - **描述**：使用 `file_format_type = "xml"` 时，此前 DATE、TIME 和 TIMESTAMP 直接用 Java `toString()` 写出，忽略 `date_format`、`datetime_format` 和 `time_format`。时间戳会写成 `2026-01-02T10:13:45.123`，秒为 0 时写成 `2026-01-02T10:13`，同一个文件里可能混有多种格式，无法用同一个 `datetime_format` 读回。现在会按配置的格式输出，与 CSV、Text、Excel 写入器一致。
+  - **影响**：使用默认配置时，时间戳写成 `yyyy-MM-dd HH:mm:ss`（`T` 改为空格，丢弃小数秒），时间写成 `HH:mm:ss`。依赖原 ISO 格式的下游需要调整。
+  - **迁移指南**：如需保留 ISO 格式，请在 Sink 上配置 `datetime_format`，例如 `YYYY_MM_DD_HH_MM_SS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss`），或使用 `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601`（`yyyy-MM-dd'T'HH:mm:ss.SSS`）保留毫秒，并在读取时为 Source 配置对应的 `datetime_format`。
+
 ### CDC：可空列不再用作快照分片列
 
 - **行为变更：基于 JDBC 的 CDC 源（MySQL、PostgreSQL、Oracle、SQL Server、DB2）不再使用可空列切分快照**
@@ -316,6 +323,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+- **行为变更：每个 `table_transform` 条目都会在提交时校验**
+  - **影响范围**：所有支持 `table_transform` 的转换：`Copy`、`Calcite`、`DataValidator`、`DefineSinkType`、`DynamicCompile`、`FieldEncrypt`、`FieldMapper`、`Filter`、`FilterRowKind`、`JsonPath`、`Metadata`、`Python`、`RegexExtract`、`Replace`、`Sql`、`Split`、`TableMerge` 和 `TextChunk`。
+  - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
+  - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
+  - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
+- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 - **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
   这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
   从而静默产生错误的值：

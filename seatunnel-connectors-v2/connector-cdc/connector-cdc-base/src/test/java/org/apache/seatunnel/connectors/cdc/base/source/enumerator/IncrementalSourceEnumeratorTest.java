@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportCoordinate;
@@ -49,23 +52,70 @@ import io.debezium.relational.TableId;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/**
- * Runs the real enumerator and hybrid split assigner through the coordinated source that the Spark
- * engine uses, where all readers share one enumerator and no engine checkpoint is ever taken.
- */
-class IncrementalSourceEnumeratorTest {
+public class IncrementalSourceEnumeratorTest {
 
     private static final TableId TABLE_ID = TableId.parse("db1.table1");
 
+    @Test
+    public void shouldAssignRestoredSplitsToWaitingReader() throws Exception {
+        TestingEnumeratorContext context = new TestingEnumeratorContext();
+        TestingSplitAssigner splitAssigner = new TestingSplitAssigner();
+        SourceSplitBase restoredSplit = new SnapshotSplit("restored", null, null, null, null);
+
+        IncrementalSourceEnumerator enumerator =
+                new IncrementalSourceEnumerator(context, splitAssigner);
+        enumerator.open();
+        enumerator.run();
+        enumerator.handleSplitRequest(0);
+        enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+
+        Assertions.assertEquals(
+                Collections.singletonList(restoredSplit), splitAssigner.restoredSplits);
+        Assertions.assertEquals(Collections.singletonList(restoredSplit), context.assignedSplits);
+    }
+
+    @Test
+    public void shouldAssignSplitsAddedBackBeforeRunExactlyOnce() throws Exception {
+        TestingEnumeratorContext context = new TestingEnumeratorContext();
+        TestingSplitAssigner splitAssigner = new TestingSplitAssigner();
+        SourceSplitBase restoredSplit = new SnapshotSplit("restored", null, null, null, null);
+
+        IncrementalSourceEnumerator enumerator =
+                new IncrementalSourceEnumerator(context, splitAssigner);
+        enumerator.open();
+        // Mirror the engine's restore ordering: the reader's split request and the restored
+        // splits are delivered before the first run() invocation. Nothing is dispatched yet
+        // because the enumerator is not running.
+        enumerator.handleSplitRequest(0);
+        enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+        Assertions.assertEquals(Collections.emptyList(), context.allAssignedSplits);
+
+        enumerator.run();
+
+        Assertions.assertEquals(
+                Collections.singletonList(restoredSplit), splitAssigner.restoredSplits);
+        Assertions.assertEquals(Collections.singletonList(restoredSplit), context.assignedSplits);
+        Assertions.assertEquals(
+                Collections.singletonList(restoredSplit), context.allAssignedSplits);
+    }
+
+    /**
+     * Runs the real enumerator and hybrid split assigner through the coordinated source that the
+     * Spark engine uses, where all readers share one enumerator and no engine checkpoint is ever
+     * taken.
+     */
     @Test
     void shouldEnterIncrementalPhaseWithMultipleReadersAndEnumeratorCheckpoints() throws Exception {
         int parallelism = 2;
@@ -95,6 +145,85 @@ class IncrementalSourceEnumeratorTest {
         expected.add("incremental-split-0");
         Assertions.assertEquals(
                 expected, collector.records.stream().sorted().collect(Collectors.toList()));
+    }
+
+    private static final class TestingSplitAssigner implements SplitAssigner {
+        private List<SourceSplitBase> addedSplits = Collections.emptyList();
+        private List<SourceSplitBase> restoredSplits = Collections.emptyList();
+
+        @Override
+        public void open() {}
+
+        @Override
+        public Optional<SourceSplitBase> getNext() {
+            if (addedSplits.isEmpty()) {
+                return Optional.empty();
+            }
+            SourceSplitBase split = addedSplits.get(0);
+            addedSplits = Collections.emptyList();
+            return Optional.of(split);
+        }
+
+        @Override
+        public boolean waitingForCompletedSplits() {
+            return true;
+        }
+
+        @Override
+        public void onCompletedSplits(
+                List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks) {}
+
+        @Override
+        public void addSplits(Collection<SourceSplitBase> splits) {
+            restoredSplits = Collections.unmodifiableList(new ArrayList<>(splits));
+            addedSplits = restoredSplits;
+        }
+
+        @Override
+        public PendingSplitsState snapshotState(long checkpointId) {
+            return null;
+        }
+
+        @Override
+        public void notifyCheckpointComplete(long checkpointId) {}
+    }
+
+    private static final class TestingEnumeratorContext
+            implements SourceSplitEnumerator.Context<SourceSplitBase> {
+        private List<SourceSplitBase> assignedSplits = Collections.emptyList();
+        private final List<SourceSplitBase> allAssignedSplits = new ArrayList<>();
+
+        @Override
+        public int currentParallelism() {
+            return 1;
+        }
+
+        @Override
+        public Set<Integer> registeredReaders() {
+            return Collections.singleton(0);
+        }
+
+        @Override
+        public void assignSplit(int subtaskId, List<SourceSplitBase> splits) {
+            assignedSplits = splits;
+            allAssignedSplits.addAll(splits);
+        }
+
+        @Override
+        public void signalNoMoreSplits(int subtask) {}
+
+        @Override
+        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
+        }
     }
 
     private static final class RecordCollector implements Collector<String> {
