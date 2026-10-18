@@ -76,6 +76,8 @@ MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a 
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
+Unsigned integers are widened to preserve their full range: UTINYINT → SMALLINT, USMALLINT → INT, UINTEGER → BIGINT, and UBIGINT → DECIMAL(20,0). Signed integer mappings remain unchanged.
+
 > Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
 ## Source Options
