@@ -108,17 +108,17 @@ def select_plugins(plugin_config_path: str, connectors: Iterable[str]) -> List[s
 
     updated = "".join(lines)
     if updated != original:
-        _write_atomically(plugin_config_path, updated)
+        _write_atomically(plugin_config_path, updated.encode("utf-8"))
     return artifact_ids
 
 
-def _write_atomically(path: str, content: str) -> None:
+def _write_atomically(path: str, content: bytes) -> None:
     """Write *content* to *path* through a temporary file, so a failure never leaves it half written."""
     directory = os.path.dirname(os.path.abspath(path))
     try:
         fd, temp_path = tempfile.mkstemp(dir=directory, prefix=".plugin_config.")
         try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            with os.fdopen(fd, "wb") as f:
                 f.write(content)
             shutil.copymode(path, temp_path)
             os.replace(temp_path, path)
@@ -136,6 +136,9 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
     The script's output is not captured, so download progress is shown to the user.
     Environment variables such as ``SEATUNNEL_PLUGIN_DOWNLOAD_METHOD`` and
     ``SEATUNNEL_MAVEN_REPOSITORY`` are passed through to it.
+
+    If the script fails, cannot be started or is interrupted, ``plugin_config`` is restored
+    to its exact content before the call, so a failed install leaves no changed selection.
 
     :param seatunnel_home: Root of an extracted SeaTunnel distribution.
     :param connectors: Short names (``"jdbc"``) or artifact IDs (``"connector-jdbc"``).
@@ -162,16 +165,34 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
     if bash is None:
         raise PluginInstallError("bash is required to run 'bin/install-plugin.sh'.")
 
+    try:
+        with open(plugin_config, "rb") as f:
+            original = f.read()
+    except OSError as exc:
+        raise PluginInstallError(
+            f"Cannot read plugin config '{plugin_config}': {exc}"
+        ) from exc
+
     artifact_ids = select_plugins(plugin_config, connectors)
 
     try:
-        result = subprocess.run([bash, script, version], cwd=seatunnel_home, check=False)
-    except OSError as exc:
-        raise PluginInstallError(f"Failed to run '{script}': {exc}") from exc
+        try:
+            result = subprocess.run([bash, script, version], cwd=seatunnel_home, check=False)
+        except OSError as exc:
+            raise PluginInstallError(f"Failed to run '{script}': {exc}") from exc
 
-    if result.returncode != 0:
-        raise PluginInstallError(
-            f"'{script} {version}' exited with code {result.returncode} while installing "
-            f"{', '.join(artifact_ids)}. See the output above for details."
-        )
+        if result.returncode != 0:
+            raise PluginInstallError(
+                f"'{script} {version}' exited with code {result.returncode} while installing "
+                f"{', '.join(artifact_ids)}. See the output above for details."
+            )
+    except BaseException as exc:
+        # Also covers KeyboardInterrupt during a long download.
+        try:
+            _write_atomically(plugin_config, original)
+        except PluginInstallError as restore_error:
+            raise PluginInstallError(
+                f"{exc} Restoring the original plugin config also failed: {restore_error}"
+            ) from exc
+        raise
     return artifact_ids
