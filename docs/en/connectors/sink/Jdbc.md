@@ -310,6 +310,7 @@ multi_table_config {
 }
 ```
 
+- `primary_keys` is required once `multi_table_config` is set. If it is missing, empty, or not a map, the job fails during option validation instead of falling back to the top-level `primary_keys` / catalog logic.
 - Each key is a Java regular expression matched against the upstream table name using full match semantics (`tableName.matches(pattern)`). For example, use `"^t_nova_.*$"` or `"t_nova_.*"`, not a glob such as `"t_nova_*"`.
 - Each value is a list of column names. The `${primary_key}` and `${unique_key}` placeholders are supported inside this option only, and can be mixed with static columns. `${primary_key}` expands to the upstream primary key columns, `${unique_key}` expands to the first upstream unique key columns.
 - If a table matches multiple patterns, the first pattern in declaration order wins.

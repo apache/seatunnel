@@ -291,6 +291,63 @@ class JdbcSinkFactoryTest {
     }
 
     @Test
+    void testMultiTableConfigWithoutPrimaryKeysFailsOptionValidation() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_key", Collections.singletonMap("^TEST_.*$", "id"));
+        cfg.put("multi_table_config", multiTableConfig);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> createSinkViaFactoryContext(cfg, true));
+        Assertions.assertTrue(
+                exception.getMessage().contains("multi_table_config.primary_keys"),
+                "The error must name the missing option, but was: " + exception.getMessage());
+    }
+
+    @Test
+    void testMultiTableConfigWithEmptyPrimaryKeysFailsOptionValidation() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", Collections.emptyMap());
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testMultiTableConfigWithNonMapPrimaryKeysFailsOptionValidation() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", Collections.singletonList("id"));
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testMultiTableConfigWithPrimaryKeysPassesOptionValidation() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put(
+                "primary_keys",
+                Collections.singletonMap("^TEST_.*$", Collections.singletonList("id")));
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testEmptyMultiTableConfigSkipsOptionValidation() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("multi_table_config", Collections.emptyMap());
+
+        Assertions.assertDoesNotThrow(
+                () -> validate(cfg), "An empty multi_table_config is not a customization request");
+    }
+
+    @Test
     void testResolveMultiTablePrimaryKeysMapped() {
         Map<String, Object> primaryKeys = new LinkedHashMap<>();
         primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));

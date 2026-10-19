@@ -311,6 +311,7 @@ multi_table_config {
 }
 ```
 
+- 一旦配置了 `multi_table_config`，就必须配置 `primary_keys`。若缺失、为空或不是 map，任务会在选项校验阶段直接失败，而不会回退到顶层 `primary_keys` / catalog 逻辑。
 - 每个 key 是匹配上游表名的 Java 正则表达式，使用全匹配语义（`tableName.matches(pattern)`）。例如使用 `"^t_nova_.*$"` 或 `"t_nova_.*"`，不要使用 `"t_nova_*"` 这类 glob 写法。
 - 每个 value 是列名列表。仅在该选项内支持 `${primary_key}` 和 `${unique_key}` 占位符，且可与静态列混用。`${primary_key}` 展开为上游主键列，`${unique_key}` 展开为上游第一组唯一键列。
 - 若一张表同时匹配多个模式，按声明顺序取第一个匹配。

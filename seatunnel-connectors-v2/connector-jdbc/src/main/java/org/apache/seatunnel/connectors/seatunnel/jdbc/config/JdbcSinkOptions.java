@@ -118,7 +118,8 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                                     + "When a table matches one of the patterns under primary_keys, "
                                     + "that mapping takes precedence over the top-level `primary_keys` "
                                     + "option. Value shape: { primary_keys = { \"<regex>\" = "
-                                    + "[\"col1\", \"${primary_key}\"] } }.");
+                                    + "[\"col1\", \"${primary_key}\"] } }. `primary_keys` is required "
+                                    + "once this option is set.");
 
     public static final Option<Boolean> IS_PRIMARY_KEY_UPDATED =
             Options.key("is_primary_key_updated")

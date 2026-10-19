@@ -67,6 +67,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
@@ -365,7 +366,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         }
         try {
             compiled = Pattern.compile(pattern);
-        } catch (java.util.regex.PatternSyntaxException e) {
+        } catch (PatternSyntaxException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
                     String.format(
@@ -510,7 +511,6 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
-                        JdbcSinkOptions.MULTI_TABLE_CONFIG,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
@@ -521,6 +521,11 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.TABLE_SUFFIX,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         JdbcSinkOptions.DIALECT)
+                .optional(
+                        JdbcSinkOptions.MULTI_TABLE_CONFIG,
+                        Conditions.extension(
+                                JdbcSinkOptions.MULTI_TABLE_CONFIG,
+                                JdbcMultiTableConfigConditionExtension.INSTANCE))
                 .optional(
                         SinkConnectorCommonOptions.TABLE_OPTIONS,
                         Conditions.extension(
