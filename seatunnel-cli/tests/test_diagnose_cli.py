@@ -304,6 +304,18 @@ def test_an_unknown_job_id_is_reported_from_the_response_the_engine_really_sends
     assert "Nothing to report" not in out
 
 
+def test_an_unknown_job_marked_by_found_false_is_reported(engine):
+    # Newer engines add an explicit marker to the same 200 response.
+    engine.script = lambda h: (200, json.dumps({"jobId": "999999999999999999", "found": False}))
+
+    code, out = _run("999999999999999999")
+
+    assert code == 1
+    assert "No job 999999999999999999" in out
+    assert "marked it as unknown" in out
+    assert "Nothing to report" not in out
+
+
 def test_a_non_object_json_body_does_not_crash(engine):
     # A bare `null` or a list (a proxy, or a future response shape) reaches
     # the same path and must not raise AttributeError.
@@ -314,6 +326,58 @@ def test_a_non_object_json_body_does_not_crash(engine):
 
         assert code == 1
         assert "No job 852" in out
+
+
+@pytest.mark.parametrize(
+    "info, expected_calls, expected_message",
+    [
+        ({"jobId": "852", "found": False}, 1, "no longer present"),
+        ({"jobId": "852"}, 2, "returned no job status"),
+    ],
+    ids=["new-server-marker", "old-server-status-less"],
+)
+def test_polling_stops_when_the_job_is_not_known(
+    monkeypatch, info, expected_calls, expected_message
+):
+    cli = object.__new__(cli_module.SeaTunnelCLI)
+    console = Console(theme=cli_module.THEME, width=200, record=True)
+    cli.console = console
+    calls = {"count": 0}
+
+    def fake_request_json(url, timeout=10):
+        calls["count"] += 1
+        return info
+
+    monkeypatch.setattr(cli_module.rest, "request_json", fake_request_json)
+    monkeypatch.setattr(cli_module.time, "sleep", lambda seconds: None)
+
+    cli._poll_job_status("http://127.0.0.1:8080", "852")
+
+    out = " ".join(console.export_text().split())
+    assert calls["count"] == expected_calls
+    assert expected_message in out
+
+
+def test_polling_recovers_from_one_status_less_response(monkeypatch):
+    cli = object.__new__(cli_module.SeaTunnelCLI)
+    console = Console(theme=cli_module.THEME, width=200, record=True)
+    cli.console = console
+    responses = iter([{"jobId": "852"}, {"jobId": "852", "jobStatus": "FINISHED"}])
+    calls = {"count": 0}
+
+    def fake_request_json(url, timeout=10):
+        calls["count"] += 1
+        return next(responses)
+
+    monkeypatch.setattr(cli_module.rest, "request_json", fake_request_json)
+    monkeypatch.setattr(cli_module.time, "sleep", lambda seconds: None)
+
+    cli._poll_job_status("http://127.0.0.1:8080", "852")
+
+    out = " ".join(console.export_text().split())
+    assert calls["count"] == 2
+    assert "Status: FINISHED" in out
+    assert "not known" not in out
 
 
 def test_a_real_404_is_still_handled(engine):

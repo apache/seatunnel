@@ -674,7 +674,8 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` are returned for a job the
+cluster knows. An unknown id returns the `found: false` response described below.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
@@ -716,13 +717,20 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
-When we can't get the job info, the response contains only the requested `jobId`:
+An unknown id is still an HTTP 200 response. It contains the requested id and an explicit
+`found: false` marker:
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "733584788375093248",
+  "found" : false
 }
 ```
+
+`found: false` means the cluster has no retained record for the id: the id may be wrong, or the
+job may have expired from the finished-job history. Successful payloads keep their existing shape
+and do not contain `found`. Older engines return only `jobId` for an unknown id; clients should
+treat a missing `jobStatus` as the compatibility fallback.
 
 </details>
 
@@ -798,17 +806,21 @@ This API has been deprecated, please use /job-info/:jobId instead
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` are returned for a job the cluster knows; an unknown id returns the `found: false` response below.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
-When we can't get the job info, the response contains only the requested `jobId`:
+An unknown id is still an HTTP 200 response with `found: false`:
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+See the `/job-info/:jobId` section in [REST API V2](rest-api-v2.md) for details and the
+older-server fallback.
 
 </details>
 
