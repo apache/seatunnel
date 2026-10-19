@@ -171,10 +171,8 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         SeaTunnelRow stringEleven = new SeaTunnelRow(new Object[] {"11"});
 
         int twoToTen = BufferReducedBatchStatementExecutor.compareKeys(integerTwo, integerTen);
-        int tenToString =
-                BufferReducedBatchStatementExecutor.compareKeys(integerTen, stringEleven);
-        int twoToString =
-                BufferReducedBatchStatementExecutor.compareKeys(integerTwo, stringEleven);
+        int tenToString = BufferReducedBatchStatementExecutor.compareKeys(integerTen, stringEleven);
+        int twoToString = BufferReducedBatchStatementExecutor.compareKeys(integerTwo, stringEleven);
 
         Assertions.assertTrue(twoToTen < 0);
         Assertions.assertTrue(tenToString < 0);
@@ -281,7 +279,7 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         }
 
         @Override
-        public void executeBatch() {
+        public void executeBatch() throws SQLException {
             recorder.add(tag + ":flush");
         }
 

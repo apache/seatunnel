@@ -319,7 +319,7 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 ### max_retries [int]
 
-JDBC `executeBatch` 失败后的重试次数。对于 PostgreSQL `40P01` 等事务冲突，只有在 sink 能够回滚并完整重放本次 flush 事务时才会重试。当一个 checkpoint 事务跨越多个 flush 时，冲突会直接抛出，由 checkpoint 恢复机制安全重放整个事务。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
+JDBC `executeBatch` 失败后的重试次数。在自动提交模式下，PostgreSQL `40P01` 等事务冲突保持原有的通用重试行为。在手动提交连接上，只有 sink 能够回滚并完整重放本次 flush 事务时才会重试，否则会直接抛出。当一个 checkpoint 事务跨越多个 flush 时，由 checkpoint 恢复机制安全重放完整事务。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
 ### batch_size [int]
 
@@ -577,7 +577,7 @@ sink {
 
 ### upsert_batch_key_ordered [boolean]
 
-在每次 flush 前，按确定性的主键顺序执行标准主键 upsert 和 delete 条目，降低并发 JDBC writer 之间因加锁顺序不同导致死锁的概率。为保持兼容，默认值为 `false`，仅作用于自动生成的主键 upsert 路径；自定义 `query` 仍按其配置顺序执行。排序只覆盖一次 flush，不能替代事务冲突处理。
+在每次 flush 前，按确定性的主键顺序执行标准主键 upsert 和 delete 条目，降低并发 JDBC writer 之间因加锁顺序不同导致死锁的概率。当 batch 同时包含 upsert 和 delete 且变更类型交替时，可能执行更多子 batch。为保持兼容，默认值为 `false`，仅作用于自动生成的主键 upsert 路径；自定义 `query` 仍按其配置顺序执行。排序只覆盖一次 flush，不能替代事务冲突处理。
 
 ### use_copy_statement [boolean]
 

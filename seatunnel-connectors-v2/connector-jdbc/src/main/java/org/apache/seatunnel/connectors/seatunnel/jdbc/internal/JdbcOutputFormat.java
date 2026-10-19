@@ -40,6 +40,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -215,32 +216,36 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
 
                 List<SQLException> sqlExceptions = findSqlExceptions(e);
+                boolean retryableTransactionConflict =
+                        isRetryableTransactionConflict(sqlExceptions);
                 boolean transactionConflict = false;
-                if (isRetryableTransactionConflict(sqlExceptions)) {
-                    transactionConflict = true;
+                if (retryableTransactionConflict) {
                     boolean canRetry;
                     try {
                         canRetry = canRetryTransactionConflict();
+                        if (!canRetry && !isAutoCommitConnection()) {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "JDBC transaction conflict cannot be retried inside the current"
+                                            + " transaction boundary.",
+                                    e);
+                        }
                     } catch (SQLException transactionStateException) {
                         throw new JdbcConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Unable to inspect JDBC transaction state after a transaction conflict.",
                                 transactionStateException);
                     }
-                    if (!canRetry) {
-                        throw new JdbcConnectorException(
-                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "JDBC transaction conflict cannot be retried inside the current"
-                                        + " transaction boundary.",
-                                e);
-                    }
-                    try {
-                        rollbackAfterTransactionConflict();
-                    } catch (SQLException rollbackException) {
-                        throw new JdbcConnectorException(
-                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "Unable to rollback JDBC transaction after a transaction conflict.",
-                                rollbackException);
+                    if (canRetry) {
+                        transactionConflict = true;
+                        try {
+                            rollbackAfterTransactionConflict();
+                        } catch (SQLException rollbackException) {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "Unable to rollback JDBC transaction after a transaction conflict.",
+                                    rollbackException);
+                        }
                     }
                 }
                 SQLException nonRetryableDataException =
@@ -288,7 +293,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             exception);
                 }
                 try {
-                    sleepBeforeFlushRetry((long) sleepMs * i);
+                    long retrySleepMs = (long) sleepMs * i;
+                    if (retryableTransactionConflict) {
+                        retrySleepMs =
+                                (long) sleepMs * (i + 1)
+                                        + ThreadLocalRandom.current().nextLong(sleepMs);
+                    }
+                    sleepBeforeFlushRetry(retrySleepMs);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
@@ -473,6 +484,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
         Connection connection = connectionProvider.getConnection();
         return connection != null && !connection.getAutoCommit();
+    }
+
+    /** Returns whether the current connection keeps each JDBC statement in its own transaction. */
+    private boolean isAutoCommitConnection() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        return connection != null && connection.getAutoCommit();
     }
 
     /**
