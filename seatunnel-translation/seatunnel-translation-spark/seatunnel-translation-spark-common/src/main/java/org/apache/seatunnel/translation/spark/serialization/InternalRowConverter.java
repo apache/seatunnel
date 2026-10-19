@@ -95,8 +95,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return convert(field, dataType, null);
     }
 
-    /** @param path the column path, used in error messages; {@code null} inside an ARRAY or MAP */
-    private static Object convert(Object field, SeaTunnelDataType<?> dataType, String path) {
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private static Object convert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
@@ -104,7 +107,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                return convert(seaTunnelRow, rowType, path);
+                try {
+                    return convert(seaTunnelRow, rowType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
+                }
             case DATE:
                 return (int) ((LocalDate) field).toEpochDay();
             case TIME:
@@ -122,7 +129,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (WideDecimalUtils.isWideDecimal(dataType)) {
                     return UTF8String.fromString(
                             WideDecimalUtils.toCarrierText(
-                                    (BigDecimal) field, (DecimalType) dataType, path));
+                                    (BigDecimal) field, (DecimalType) dataType, column));
                 }
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
@@ -159,8 +166,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
-    private static InternalRow convert(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType, String path) {
+    private static InternalRow convert(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
         MutableValue[] values = new MutableValue[arity];
         for (int i = 0; i < arity; i++) {
@@ -172,7 +178,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                         convert(
                                 seaTunnelRow.getField(i),
                                 rowType.getFieldType(i),
-                                childPath(path, rowType.getFieldName(i)));
+                                rowType.getFieldName(i));
                 if (fieldValue != null) {
                     values[i].update(fieldValue);
                 }
@@ -314,14 +320,21 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return reconvert(field, dataType, null);
     }
 
-    /** @param path the column path, used in error messages; {@code null} inside an ARRAY or MAP */
-    private static Object reconvert(Object field, SeaTunnelDataType<?> dataType, String path) {
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private static Object reconvert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
             case ROW:
-                return reconvert((InternalRow) field, (SeaTunnelRowType) dataType, path);
+                try {
+                    return reconvert((InternalRow) field, (SeaTunnelRowType) dataType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
+                }
             case DATE:
                 if (field instanceof Date) {
                     return ((Date) field).toLocalDate();
@@ -363,7 +376,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 if (WideDecimalUtils.isWideDecimal(dataType)
                         && (field instanceof UTF8String || field instanceof String)) {
                     return WideDecimalUtils.fromCarrierText(
-                            field.toString(), (DecimalType) dataType, path);
+                            field.toString(), (DecimalType) dataType, column);
                 } else if (field instanceof Decimal) {
                     return ((Decimal) field).toJavaBigDecimal();
                 } else if (field instanceof BigDecimal) {
@@ -390,21 +403,16 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         }
     }
 
-    private static SeaTunnelRow reconvert(
-            InternalRow engineRow, SeaTunnelRowType rowType, String path) {
+    private static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
             fields[i] =
                     reconvert(
                             engineRow.get(i, TypeConverterUtils.convert(rowType.getFieldType(i))),
                             rowType.getFieldType(i),
-                            childPath(path, rowType.getFieldName(i)));
+                            rowType.getFieldName(i));
         }
         return new SeaTunnelRow(fields);
-    }
-
-    static String childPath(String parentPath, String fieldName) {
-        return parentPath == null ? fieldName : parentPath + "." + fieldName;
     }
 
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
