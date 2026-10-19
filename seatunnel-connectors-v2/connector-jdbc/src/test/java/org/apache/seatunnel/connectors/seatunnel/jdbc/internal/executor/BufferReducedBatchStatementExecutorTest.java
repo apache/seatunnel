@@ -239,7 +239,7 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         }
 
         @Override
-        public void executeBatch() {
+        public void executeBatch() throws SQLException {
             recorder.add(tag + ":flush");
         }
 
