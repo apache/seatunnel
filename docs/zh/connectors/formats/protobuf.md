@@ -4,6 +4,14 @@ Protobuf（Protocol Buffers）是一种由Google开发的语言中立、平台�
 
 目前支持在 Kafka 中使用 protobuf 格式。
 
+## 编译器可用性
+
+SeaTunnel 在运行时编译 `protobuf_schema`。macOS ARM64（Apple Silicon）使用 protoc `3.25.3`，因为 protoc-jar 自带的旧版本没有该平台的原生编译器。
+
+当 protoc-jar 的临时缓存中没有该编译器时，编译 schema 需要联网从 Maven Central 下载。临时缓存可能被清理，因此之后仍可能需要重新下载。其他平台保持原有的编译器选择方式。
+
+跨平台使用的 schema 应采用所有目标平台编译器都支持的语法；较新 macOS ARM64 编译器接受的 schema，不一定能由其他平台的旧版编译器编译。
+
 ## Kafka 使用示例
 
 - 模拟随机生成数据源,并以 protobuf 的格式 写入 kafka 的实例

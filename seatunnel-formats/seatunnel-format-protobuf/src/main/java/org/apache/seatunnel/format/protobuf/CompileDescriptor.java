@@ -28,9 +28,15 @@ import com.google.protobuf.Descriptors;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class CompileDescriptor {
+
+    // The bundled protoc has no macOS ARM64 binary. Keep other platforms on their existing
+    // compiler so working offline installations do not require a new download.
+    private static final String MACOS_ARM64_PROTOC_VERSION = "3.25.3";
 
     public static Descriptors.Descriptor compileDescriptorTempFile(
             String protoContent, String messageName)
@@ -75,13 +81,17 @@ public class CompileDescriptor {
         String targetDesc = tmpDir + "/.desc";
         new File(targetDesc).deleteOnExit();
 
-        int exitCode =
-                Protoc.runProtoc(
-                        new String[] {
-                            "--proto_path=" + protoFile.getParent(),
-                            "--descriptor_set_out=" + targetDesc,
-                            protoFile.getPath()
-                        });
+        List<String> protocArgs = new ArrayList<>();
+        if (isMacOsArm64()) {
+            // protoc-jar consumes "-v<version>" itself and resolves that exact compiler release
+            // instead of its bundled one, which has no macOS ARM64 binary.
+            protocArgs.add("-v" + MACOS_ARM64_PROTOC_VERSION);
+        }
+        protocArgs.add("--proto_path=" + protoFile.getParent());
+        protocArgs.add("--descriptor_set_out=" + targetDesc);
+        protocArgs.add(protoFile.getPath());
+
+        int exitCode = Protoc.runProtoc(protocArgs.toArray(new String[0]));
 
         if (exitCode != 0) {
             throw new SeaTunnelProtobufFormatException(
@@ -89,6 +99,17 @@ public class CompileDescriptor {
                     "Protoc compile error, exit code: " + exitCode);
         }
         return targetDesc;
+    }
+
+    /** macOS JVMs may report either arm64 or aarch64 for Apple Silicon. */
+    private static boolean isMacOsArm64() {
+        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        boolean macOs = osName.startsWith("mac os x") || osName.startsWith("macosx");
+        if (!macOs) {
+            return false;
+        }
+        String osArch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        return "arm64".equals(osArch) || "aarch64".equals(osArch);
     }
 
     private static Descriptors.FileDescriptor[] buildFileDescriptors(

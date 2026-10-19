@@ -4,6 +4,14 @@ Protobuf (Protocol Buffers) is a language-neutral, platform-independent data ser
 
 Currently, Protobuf format can be used with Kafka.
 
+## Compiler availability
+
+SeaTunnel compiles `protobuf_schema` at runtime. On macOS ARM64 (Apple Silicon), it uses protoc `3.25.3` because the older compiler bundled by protoc-jar has no native binary for that platform.
+
+When the binary is missing from protoc-jar's temporary cache, schema compilation needs network access to download it from Maven Central. The temporary cache can be cleared, so a later compilation may need to download it again. Compiler selection on other platforms is unchanged.
+
+For schemas shared across platforms, use features accepted by the compiler on every target platform; a schema accepted by the newer macOS ARM64 compiler may not compile with the older compiler elsewhere.
+
 ## Kafka Usage Example
 
 - Example of simulating a randomly generated data source and writing it to Kafka in Protobuf format

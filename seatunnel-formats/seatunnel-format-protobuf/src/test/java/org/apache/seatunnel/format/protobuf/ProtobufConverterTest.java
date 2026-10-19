@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.format.protobuf.exception.ProtobufFormatErrorCode;
+import org.apache.seatunnel.format.protobuf.exception.SeaTunnelProtobufFormatException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -151,5 +153,91 @@ class ProtobufConverterTest {
                 protobufToRowConverter.converter(descriptor, dynamicMessage, rowType);
 
         Assertions.assertEquals(originalRow, convertedRow);
+    }
+
+    /** Guards that the compiled descriptor keeps the typed presence declared in a proto2 schema. */
+    @Test
+    public void testProto2RequiredAndOptionalFieldPresence()
+            throws Descriptors.DescriptorValidationException, IOException, InterruptedException {
+        String protoContent =
+                "syntax = \"proto2\";\n"
+                        + "\n"
+                        + "message Order {\n"
+                        + "  required int32 id = 1;\n"
+                        + "  optional string note = 2;\n"
+                        + "  repeated string tags = 3;\n"
+                        + "}";
+
+        Descriptors.Descriptor descriptor =
+                CompileDescriptor.compileDescriptorTempFile(protoContent, "Order");
+
+        Descriptors.FieldDescriptor idField = descriptor.findFieldByName("id");
+        Assertions.assertTrue(idField.isRequired(), "proto2 required field stays required");
+        Assertions.assertTrue(idField.hasPresence(), "proto2 field tracks presence");
+        Assertions.assertFalse(idField.isRepeated());
+
+        Descriptors.FieldDescriptor noteField = descriptor.findFieldByName("note");
+        Assertions.assertTrue(noteField.isOptional());
+        Assertions.assertFalse(noteField.isRequired());
+        Assertions.assertTrue(noteField.hasPresence(), "proto2 optional scalar has presence");
+
+        Descriptors.FieldDescriptor tagsField = descriptor.findFieldByName("tags");
+        Assertions.assertTrue(tagsField.isRepeated());
+        Assertions.assertFalse(tagsField.hasPresence(), "repeated field has no presence");
+    }
+
+    /** Guards the exact proto3 wire bytes and the row -> bytes -> row round trip. */
+    @Test
+    public void testProto3SimpleMessageWireBytesAndRoundTrip()
+            throws Descriptors.DescriptorValidationException, IOException, InterruptedException {
+        String protoContent =
+                "syntax = \"proto3\";\n" + "\n" + "message Simple {\n" + "  int32 id = 1;\n" + "}";
+
+        String messageName = "Simple";
+        Descriptors.Descriptor descriptor =
+                CompileDescriptor.compileDescriptorTempFile(protoContent, messageName);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+
+        SeaTunnelRow originalRow = new SeaTunnelRow(1);
+        originalRow.setField(0, 7);
+
+        RowToProtobufConverter rowToProtobufConverter =
+                new RowToProtobufConverter(rowType, descriptor);
+        byte[] protobufMessage = rowToProtobufConverter.convertRowToGenericRecord(originalRow);
+
+        // field 1 as varint: tag 0x08 followed by the value 0x07
+        Assertions.assertArrayEquals(new byte[] {8, 7}, protobufMessage);
+
+        DynamicMessage dynamicMessage = DynamicMessage.parseFrom(descriptor, protobufMessage);
+        ProtobufToRowConverter protobufToRowConverter =
+                new ProtobufToRowConverter(protoContent, messageName);
+        SeaTunnelRow convertedRow =
+                protobufToRowConverter.converter(descriptor, dynamicMessage, rowType);
+
+        Assertions.assertEquals(originalRow, convertedRow);
+    }
+
+    /** Guards that a malformed schema keeps the existing DESCRIPTOR_CONVERT_FAILED contract. */
+    @Test
+    public void testInvalidProtoSchemaKeepsDescriptorConvertFailedContract() {
+        String badProto =
+                "syntax = \"proto3\";\n" + "\n" + "message Broken {\n" + "  int32 id = 1\n" + "}";
+        String messageName = "Broken";
+
+        SeaTunnelProtobufFormatException exception =
+                Assertions.assertThrows(
+                        SeaTunnelProtobufFormatException.class,
+                        () -> CompileDescriptor.compileDescriptorTempFile(badProto, messageName));
+
+        Assertions.assertEquals(
+                ProtobufFormatErrorCode.DESCRIPTOR_CONVERT_FAILED,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertEquals("PROTOBUF-01", exception.getSeaTunnelErrorCode().getCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("Protoc compile error, exit code: "),
+                exception.getMessage());
     }
 }
