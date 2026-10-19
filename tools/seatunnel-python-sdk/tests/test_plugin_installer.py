@@ -257,8 +257,8 @@ class TestInstallPlugins(_PluginConfigTestCase):
                 install_plugins(self.home, ["jdbc"], "3.0.1")
         self.assertEqual(PLUGIN_CONFIG, self._read())
 
-    def test_restore_failure_reports_both_errors(self):
-        """If restoring fails too, the error mentions the script failure and the restore failure."""
+    def _patch_failing_restore(self):
+        """Let the selection write succeed, then make the restore write fail."""
         from seatunnel import plugin_installer
 
         real_write = plugin_installer._write_atomically
@@ -270,13 +270,36 @@ class TestInstallPlugins(_PluginConfigTestCase):
                 raise PluginInstallError("disk full")
             real_write(path, content)
 
+        return mock.patch.object(plugin_installer, "_write_atomically", write_then_fail)
+
+    def test_restore_failure_reports_both_errors(self):
+        """If restoring fails too, the error mentions the script failure and the restore failure."""
         with self._patch_which(), self._patch_run(returncode=1):
-            with mock.patch.object(plugin_installer, "_write_atomically", write_then_fail):
+            with self._patch_failing_restore():
                 with self.assertRaises(PluginInstallError) as ctx:
                     install_plugins(self.home, ["jdbc"], "3.0.1")
         self.assertIn("exited with code 1", str(ctx.exception))
         self.assertIn("Restoring the original plugin config also failed: disk full",
                       str(ctx.exception))
+
+    def test_restore_failure_during_interrupt_keeps_the_interrupt(self):
+        """KeyboardInterrupt / SystemExit are re-raised, with the restore failure attached."""
+        for interrupt in (KeyboardInterrupt, SystemExit):
+            with self.subTest(interrupt=interrupt.__name__):
+                with self._patch_which(), self._patch_run(side_effect=interrupt):
+                    with self._patch_failing_restore():
+                        with self.assertRaises(interrupt) as ctx:
+                            install_plugins(self.home, ["jdbc"], "3.0.1")
+
+                restore_error = ctx.exception.__context__
+                self.assertIsInstance(restore_error, PluginInstallError)
+                self.assertIn("disk full", str(restore_error))
+                if hasattr(ctx.exception, "add_note"):
+                    self.assertIn(
+                        "Restoring the original plugin config also failed: disk full",
+                        ctx.exception.__notes__,
+                    )
+                self._write(PLUGIN_CONFIG)
 
     def test_missing_bash_raises_before_rewriting(self):
         """Without bash, nothing is rewritten and nothing is run."""
