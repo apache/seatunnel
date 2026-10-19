@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Kafka sink: a failed send fails the task under `NON` semantics
+
+- **Behavior change: with the default `semantics = NON`, the Kafka sink fails the task when a record cannot be sent, instead of dropping it**
+  - **Description**: Records were sent without a callback and the checkpoint only flushed the producer, so a record that failed asynchronously was lost and the checkpoint completed past it. Examples are a missing topic when `auto.create.topics.enable=false`, a record larger than `max.request.size`, an authorization failure, or `delivery.timeout.ms` expiring. The task now fails with `KAFKA-09` (`PRODUCE_DATA_FAILED`) and restores from the last completed checkpoint.
+  - **Impact**: A job that used to keep running while losing records now fails. A permanent cause, such as a record that is always too large or a missing ACL, keeps the job failing until it is fixed. Records sent after the last completed checkpoint can be delivered twice after the restore.
+  - **Migration Guide**: Create every target topic before starting the job when topic auto-creation is disabled, grant write access to the sink principal, and size `max.request.size` and the broker's `message.max.bytes` for the largest record. Consumers should tolerate duplicates.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
