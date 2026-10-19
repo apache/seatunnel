@@ -665,7 +665,8 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+对于集群中存在的 Job，会返回 `jobId`、`jobName`、`jobStatus`、`createTime`、`jobDag`、`metrics` 字段。
+未知 id 会返回下方描述的 `found: false` 响应。
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
@@ -704,13 +705,19 @@ seatunnel:
 | pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
 | totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
-当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
+当查询的 Job 不存在时，仍然返回 HTTP 200，但响应中只包含请求的 id 和显式的
+`found: false` 标记：
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "733584788375093248",
+  "found" : false
 }
 ```
+
+`found: false` 表示当前集群没有保留该 id 的记录：可能是 id 写错了，也可能是作业已从已完成作业历史中过期。
+成功查询的响应保持原有结构，不包含 `found` 字段。旧版本引擎对未知 id 只返回 `jobId`；客户端可以将
+缺少 `jobStatus` 作为兼容判断。
 
 </details>
 
@@ -786,17 +793,20 @@ seatunnel:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+对于集群中存在的 Job，会返回 `jobId`、`jobName`、`jobStatus`、`createTime`、`jobDag`、`metrics` 字段；未知 id 会返回下方的 `found: false` 响应。
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 
-当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
+未知 id 仍会返回 HTTP 200，并带有 `found: false`：
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+完整说明及旧版本引擎的兼容方式请参阅 [REST API V2](rest-api-v2.md) 的 `/job-info/:jobId` 章节。
 
 </details>
 

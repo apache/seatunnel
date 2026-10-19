@@ -19,6 +19,16 @@ export default {
   id: 'ID',
   createTime: 'Create Time',
   duration: 'Duration',
+  notFound: {
+    title: 'Job not found',
+    description:
+      'Job {jobId} is unknown to this cluster, or it has expired from the finished-job history.'
+  },
+  loadError: {
+    title: 'Could not load job',
+    description: 'Could not load job {jobId}: {error}',
+    refresh: 'Could not refresh job {jobId}: {error}. Retrying.'
+  },
   tabs: {
     overview: 'Overview',
     exception: 'Exception',
