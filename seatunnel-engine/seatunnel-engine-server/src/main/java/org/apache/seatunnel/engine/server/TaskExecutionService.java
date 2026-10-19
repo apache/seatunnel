@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
@@ -83,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -147,6 +149,32 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
  * execution state and handles completion/cancellation.
  */
 public class TaskExecutionService implements DynamicMetricsProvider {
+
+    /** Maximum number of terminal metrics reports that can run concurrently. */
+    static final int FINAL_METRICS_MAX_CONCURRENT_REPORTS = 4;
+
+    /**
+     * Maximum number of terminal metrics reports waiting for a worker before reports are rejected.
+     */
+    static final int FINAL_METRICS_QUEUE_CAPACITY = 128;
+
+    /**
+     * Default hard upper bound (milliseconds) after which a terminal future is completed even if
+     * the final metrics report has not yet returned. Prevents CANCELED/FAILED task groups from
+     * waiting indefinitely on an un-timed Hazelcast invocation when the master is slow or in
+     * failover. The report still runs to completion in the background; {@code future.complete} is
+     * idempotent, so whichever finishes first wins.
+     *
+     * <p>Package-private and overridable in tests to allow short timeout values without waiting the
+     * full default duration.
+     */
+    static final long DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS = 15_000L;
+
+    /**
+     * The configured fallback timeout in milliseconds. Defaults to {@link
+     * #DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS}; set in the constructor or directly in tests.
+     */
+    long finalMetricsFallbackTimeoutMs = DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS;
 
     /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
@@ -240,6 +268,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
+    /**
+     * Runs terminal task-group metrics reports concurrently without inheriting task interrupts. The
+     * bounded pool limits outstanding report work during master outages. It is wrapped with {@link
+     * MDCTracer} so the report's MDC context matches the task worker that scheduled it.
+     */
+    private final ExecutorService finalMetricsExecutorService;
+
+    /**
+     * Dedicated single-thread scheduler for the 15 s fallback that completes terminal futures when
+     * the final metrics report hangs. Kept separate from {@link #scheduledExecutorService} so the
+     * fallback fires on time even if the periodic metrics backup is blocked inside its un-timed
+     * Hazelcast invocation.
+     */
+    private final ScheduledThreadPoolExecutor finalMetricsFallbackExecutorService;
+
     /** Client for managing connector packages on the server. */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
 
@@ -247,6 +290,72 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /** Service for reporting events. */
     private final EventService eventService;
+
+    /**
+     * Creates a bounded daemon thread pool that runs terminal task-group metrics reports outside
+     * the task worker (which may have its interrupt flag set). At saturation, {@link
+     * ThreadPoolExecutor.AbortPolicy} rejects further best-effort reports; the caller handles
+     * rejection by publishing the terminal task state without waiting for metrics. Wrapped with
+     * {@link MDCTracer} so each report retains the scheduling worker's MDC context.
+     */
+    private static ExecutorService createFinalMetricsExecutor() {
+        ThreadFactory namedFactory =
+                new ThreadFactory() {
+                    private final AtomicInteger counter = new AtomicInteger(0);
+
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        Thread thread =
+                                new Thread(
+                                        r, "seatunnel.final-metrics-" + counter.incrementAndGet());
+                        thread.setDaemon(true);
+                        // Fix the context classloader so pool threads do not accidentally inherit
+                        // a task worker's SeaTunnelChildFirstClassLoader (which may have been
+                        // recycled already or belong to a different job by the time the pooled
+                        // thread is reused).
+                        thread.setContextClassLoader(TaskExecutionService.class.getClassLoader());
+                        return thread;
+                    }
+                };
+        ThreadPoolExecutor pool =
+                new ThreadPoolExecutor(
+                        FINAL_METRICS_MAX_CONCURRENT_REPORTS,
+                        FINAL_METRICS_MAX_CONCURRENT_REPORTS,
+                        0L,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(FINAL_METRICS_QUEUE_CAPACITY),
+                        namedFactory,
+                        new ThreadPoolExecutor.AbortPolicy());
+        return MDCTracer.tracing(pool);
+    }
+
+    /**
+     * Creates a single-thread scheduler dedicated to the 15 s terminal-fallback task. Kept separate
+     * from the periodic metrics-backup scheduler so the fallback fires on time even when the
+     * periodic run is blocked inside its un-timed Hazelcast invocation.
+     */
+    private static ScheduledThreadPoolExecutor createFinalMetricsFallbackExecutor() {
+        AtomicInteger counter = new AtomicInteger(0);
+        ScheduledThreadPoolExecutor scheduler =
+                new ScheduledThreadPoolExecutor(
+                        1,
+                        new ThreadFactory() {
+                            @Override
+                            public Thread newThread(Runnable r) {
+                                Thread thread =
+                                        new Thread(
+                                                r,
+                                                "seatunnel.final-metrics-fallback-"
+                                                        + counter.incrementAndGet());
+                                thread.setDaemon(true);
+                                thread.setContextClassLoader(
+                                        TaskExecutionService.class.getClassLoader());
+                                return thread;
+                            }
+                        });
+        scheduler.setRemoveOnCancelPolicy(true);
+        return scheduler;
+    }
 
     /**
      * Creates a new TaskExecutionService.
@@ -290,6 +399,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
         timerFlushWorker.setRemoveOnCancelPolicy(true);
         timerFlushWorker.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
+        finalMetricsExecutorService = createFinalMetricsExecutor();
+        finalMetricsFallbackExecutorService = createFinalMetricsFallbackExecutor();
     }
 
     /**
@@ -314,6 +426,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        // Use shutdownNow so in-flight final-metrics reports do not block server shutdown if
+        // their Hazelcast invocation hangs. The reports run on their own daemon threads but would
+        // otherwise keep the cached pool alive indefinitely. This mirrors the shutdownNow() used
+        // for executorService, which originally ran the same report inline on task workers.
+        finalMetricsExecutorService.shutdownNow();
+        finalMetricsFallbackExecutorService.shutdownNow();
         timerFlushWorker.shutdown();
     }
 
@@ -944,7 +1062,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private void updateMetricsContextInImap() {
+    @VisibleForTesting
+    void updateMetricsContextInImap() {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -1636,30 +1755,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 finishExecution(taskGroupLocation);
-                try {
-                    updateMetricsContextInImap();
-                } catch (Throwable t) {
-                    logger.severe("update metrics context in imap failed", t);
-                }
                 if (ex == null) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with FINISHED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FINISHED, null);
                     return;
                 } else if (isCancel.get()) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with CANCELED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.CANCELED, null);
                     return;
                 } else {
                     logger.info(
                             String.format("taskGroup %s complete with FAILED", taskGroupLocation));
-                    future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                    completeAfterFinalMetrics(taskGroupLocation, ExecutionState.FAILED, ex);
                 }
             }
             if (!isCancel.get() && ex != null) {
@@ -1668,6 +1779,75 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 "task %s error with exception: [%s], cancel other task in taskGroup %s.",
                                 task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask();
+            }
+        }
+
+        /**
+         * Reports final metrics off the task worker, then publishes the terminal state for
+         * FINISHED, CANCELED, or FAILED task groups. Applying the same ordering to every terminal
+         * state keeps completion behavior consistent. The report is best-effort: if submission
+         * races with shutdown or reporting itself fails, the terminal state is still completed. A
+         * scheduled fallback guarantees the terminal future never waits indefinitely on the
+         * un-timed Hazelcast RPC ({@code future.complete} is idempotent so whichever finishes first
+         * wins).
+         */
+        private void completeAfterFinalMetrics(
+                TaskGroupLocation taskGroupLocation,
+                ExecutionState executionState,
+                Throwable executionFailure) {
+            TaskExecutionState terminalState =
+                    executionFailure == null
+                            ? new TaskExecutionState(taskGroupLocation, executionState)
+                            : new TaskExecutionState(
+                                    taskGroupLocation, executionState, executionFailure);
+            // Use an AtomicReference so both the async report lambda and the catch block can
+            // cancel the fallback future. Plain local variables are not visible from lambdas
+            // unless effectively final, but the catch block needs to cancel a fallback that was
+            // scheduled before submit() threw.
+            AtomicReference<ScheduledFuture<?>> fallbackFutureRef = new AtomicReference<>();
+            try {
+                // Safety net: even if the report hangs in an un-timed Hazelcast invoke, the
+                // terminal future must still resolve so CANCELED/FAILED task groups do not stall
+                // when the master is slow or in failover. Whichever finishes first wins; there is
+                // no issue with both the scheduled fallback and the finally block racing. The
+                // fallback is scheduled on its own dedicated single-thread scheduler (not on
+                // scheduledExecutorService shared with the periodic metrics backup) so it fires
+                // even when the periodic run is blocked inside an un-timed invoke.
+                fallbackFutureRef.set(
+                        finalMetricsFallbackExecutorService.schedule(
+                                () -> future.complete(terminalState),
+                                finalMetricsFallbackTimeoutMs,
+                                TimeUnit.MILLISECONDS));
+                finalMetricsExecutorService.submit(
+                        () -> {
+                            try {
+                                updateMetricsContextInImap();
+                            } catch (Throwable t) {
+                                logger.severe("update metrics context in imap failed", t);
+                            } finally {
+                                future.complete(terminalState);
+                                // Cancel the fallback if the report beat the timeout. The
+                                // scheduler has setRemoveOnCancelPolicy(true) so the cancelled
+                                // task does not linger in the queue.
+                                ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
+                                if (fallbackFuture != null) {
+                                    fallbackFuture.cancel(false);
+                                }
+                            }
+                        });
+            } catch (Throwable t) {
+                logger.warning(
+                        "failed to schedule final metrics report for taskGroup "
+                                + taskGroupLocation
+                                + "; completing terminal state directly",
+                        t);
+                // Cancel the already-scheduled fallback if submit threw — it holds the terminal
+                // state and failure throwable so we don't want it lingering for the full timeout.
+                ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
+                if (fallbackFuture != null) {
+                    fallbackFuture.cancel(false);
+                }
+                future.complete(terminalState);
             }
         }
 

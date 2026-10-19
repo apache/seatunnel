@@ -72,6 +72,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -706,6 +707,372 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         stop.set(true);
         taskExecutionService.cancelTaskGroup(location);
+    }
+
+    @Test
+    public void testFinalMetricsRunOutsideInterruptedTaskWorker() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupLocation firstLocation = newTaskGroupLocation();
+        TaskGroupLocation secondLocation = newTaskGroupLocation();
+        TaskGroupContext firstContext =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                firstLocation, "first-final-metrics", Lists.newArrayList(task)));
+        TaskGroupContext secondContext =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                secondLocation,
+                                "second-final-metrics",
+                                Lists.newArrayList(
+                                        new TestTask(new AtomicBoolean(true), 0, true))));
+        CompletableFuture<TaskExecutionState> firstResultFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> secondResultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(2);
+        CountDownLatch releaseMetrics = new CountDownLatch(1);
+        List<Thread> metricsThreads = new CopyOnWriteArrayList<>();
+        AtomicBoolean firstWorkerRemainedInterrupted = new AtomicBoolean();
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsThreads.add(Thread.currentThread());
+                            metricsStarted.countDown();
+                            releaseMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker firstTracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(), firstContext, firstResultFuture);
+        TaskExecutionService.TaskGroupExecutionTracker secondTracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(), secondContext, secondResultFuture);
+
+        Thread firstWorker =
+                new Thread(
+                        () -> {
+                            Thread.currentThread().interrupt();
+                            firstTracker.taskDone(task);
+                            firstWorkerRemainedInterrupted.set(
+                                    Thread.currentThread().isInterrupted());
+                        });
+        Thread secondWorker = new Thread(() -> secondTracker.taskDone(task));
+        try {
+            firstWorker.start();
+            secondWorker.start();
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Each task group should report metrics independently");
+            Assertions.assertFalse(firstResultFuture.isDone());
+            Assertions.assertFalse(secondResultFuture.isDone());
+            releaseMetrics.countDown();
+            firstWorker.join(TimeUnit.SECONDS.toMillis(5));
+            secondWorker.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(firstWorker.isAlive());
+            Assertions.assertFalse(secondWorker.isAlive());
+            Assertions.assertEquals(2, metricsThreads.size());
+            Assertions.assertFalse(metricsThreads.contains(firstWorker));
+            Assertions.assertFalse(metricsThreads.contains(secondWorker));
+            Assertions.assertTrue(
+                    firstWorkerRemainedInterrupted.get(),
+                    "Scheduling the metrics report must preserve the worker interrupt flag");
+            assertEquals(FINISHED, firstResultFuture.get().getExecutionState());
+            assertEquals(FINISHED, secondResultFuture.get().getExecutionState());
+        } finally {
+            releaseMetrics.countDown();
+            firstWorker.join(TimeUnit.SECONDS.toMillis(5));
+            secondWorker.join(TimeUnit.SECONDS.toMillis(5));
+        }
+    }
+
+    @Test
+    public void testFinalMetricsPreservesCanceledTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "canceled-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch releaseMetrics = new CountDownLatch(1);
+        List<Thread> metricsThreads = new CopyOnWriteArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsThreads.add(Thread.currentThread());
+                            metricsStarted.countDown();
+                            releaseMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+        // Trigger cancellation so the tracker flips isCancel and records an exception.
+        cancellationFuture.completeExceptionally(new RuntimeException("test cancel"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            AtomicBoolean isCancel = getField(tracker, "isCancel");
+                            return isCancel.get();
+                        });
+
+        AtomicBoolean workerRemainedInterrupted = new AtomicBoolean();
+        Thread worker =
+                new Thread(
+                        () -> {
+                            Thread.currentThread().interrupt();
+                            tracker.taskDone(task);
+                            workerRemainedInterrupted.set(Thread.currentThread().isInterrupted());
+                        });
+        try {
+            worker.start();
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics should be reported before terminal state is published");
+            // Metrics still blocked — CANCELED future must not be completed yet.
+            Assertions.assertFalse(resultFuture.isDone());
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(worker.isAlive());
+            Assertions.assertEquals(1, metricsThreads.size());
+            Assertions.assertFalse(
+                    metricsThreads.contains(worker),
+                    "Metrics report must NOT run on the (interrupted) task worker");
+            Assertions.assertTrue(
+                    workerRemainedInterrupted.get(),
+                    "Scheduling the metrics report must preserve the worker interrupt flag");
+            assertEquals(CANCELED, resultFuture.get().getExecutionState());
+        } finally {
+            releaseMetrics.countDown();
+            worker.join(TimeUnit.SECONDS.toMillis(5));
+        }
+    }
+
+    @Test
+    public void testFinalMetricsFailurePreservesFailedTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "failed-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        RuntimeException taskFailure = new RuntimeException("task failed");
+        Mockito.doThrow(new RuntimeException("metrics unavailable"))
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+        tracker.exception(taskFailure);
+
+        tracker.taskDone(task);
+
+        await().atMost(5, TimeUnit.SECONDS).until(resultFuture::isDone);
+        assertEquals(FAILED, resultFuture.get().getExecutionState());
+        Assertions.assertTrue(resultFuture.get().getThrowableMsg().contains("task failed"));
+    }
+
+    @Test
+    public void testFinalMetricsExecutorRejectionStillCompletesTerminalState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        ExecutorService rejectingExecutor = Mockito.mock(ExecutorService.class);
+        Mockito.doThrow(new RejectedExecutionException("executor stopped"))
+                .when(rejectingExecutor)
+                .submit(Mockito.any(Runnable.class));
+        ReflectionUtils.setField(
+                serviceSpy,
+                TaskExecutionService.class,
+                "finalMetricsExecutorService",
+                rejectingExecutor);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "rejected-final-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+
+        tracker.taskDone(task);
+
+        Assertions.assertTrue(resultFuture.isDone());
+        assertEquals(FINISHED, resultFuture.get().getExecutionState());
+    }
+
+    @Test
+    public void testFinalMetricsFallbackFiresWhenReportHangs() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        // Shorten the fallback timeout so the test is fast (200 ms instead of 15 s).
+        ReflectionUtils.setField(
+                serviceSpy, TaskExecutionService.class, "finalMetricsFallbackTimeoutMs", 200L);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "fallback-timeout-metrics", Lists.newArrayList(task)));
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch holdMetrics = new CountDownLatch(1);
+        // Make updateMetricsContextInImap block forever (until the test releases it).
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsStarted.countDown();
+                            holdMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy
+                .new TaskGroupExecutionTracker(new CompletableFuture<>(), context, resultFuture);
+
+        tracker.taskDone(task);
+
+        try {
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics report should start on its own pool thread");
+            // The terminal future must complete within a short window after the 200 ms fallback
+            // timeout, proving the fallback actually fires. If the timeout were not injectable,
+            // this test would need to wait the full default 15 s.
+            await().atMost(2, TimeUnit.SECONDS).until(resultFuture::isDone);
+            assertEquals(FINISHED, resultFuture.get().getExecutionState());
+        } finally {
+            holdMetrics.countDown();
+        }
+    }
+
+    @Test
+    public void testFinalMetricsReportsRemainBoundedWhenInvocationHangs() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        int maxConcurrentReports = TaskExecutionService.FINAL_METRICS_MAX_CONCURRENT_REPORTS;
+        int queuedReports = TaskExecutionService.FINAL_METRICS_QUEUE_CAPACITY;
+        int reportCount = maxConcurrentReports + queuedReports + 1;
+        CountDownLatch reportsStarted = new CountDownLatch(maxConcurrentReports);
+        CountDownLatch releaseReports = new CountDownLatch(1);
+        AtomicInteger activeReports = new AtomicInteger();
+        AtomicInteger maximumActiveReports = new AtomicInteger();
+        Mockito.doAnswer(
+                        invocation -> {
+                            int active = activeReports.incrementAndGet();
+                            maximumActiveReports.accumulateAndGet(active, Math::max);
+                            reportsStarted.countDown();
+                            try {
+                                releaseReports.await();
+                            } finally {
+                                activeReports.decrementAndGet();
+                            }
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+
+        List<CompletableFuture<TaskExecutionState>> resultFutures = new ArrayList<>();
+        try {
+            for (int i = 0; i < reportCount; i++) {
+                TaskGroupLocation location = newTaskGroupLocation();
+                Task task = new TestTask(new AtomicBoolean(true), 0, true);
+                TaskGroupContext context =
+                        newTaskGroupContext(
+                                FLAKE_ID_GENERATOR.newId(),
+                                new TaskGroupDefaultImpl(
+                                        location,
+                                        "bounded-final-metrics-" + i,
+                                        Lists.newArrayList(task)));
+                CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+                resultFutures.add(resultFuture);
+                serviceSpy
+                        .new TaskGroupExecutionTracker(
+                                new CompletableFuture<>(), context, resultFuture)
+                        .taskDone(task);
+            }
+
+            Assertions.assertTrue(
+                    reportsStarted.await(5, TimeUnit.SECONDS),
+                    "the configured reporting workers should start");
+            assertEquals(
+                    1L,
+                    resultFutures.stream().filter(CompletableFuture::isDone).count(),
+                    "only the report rejected after the bounded workers and queue fill should "
+                            + "complete immediately");
+            assertEquals(maxConcurrentReports, maximumActiveReports.get());
+        } finally {
+            releaseReports.countDown();
+        }
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .until(() -> resultFutures.stream().allMatch(CompletableFuture::isDone));
+    }
+
+    @Test
+    public void testFinalMetricsFallbackFiresOnCanceledState() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        ReflectionUtils.setField(
+                serviceSpy, TaskExecutionService.class, "finalMetricsFallbackTimeoutMs", 200L);
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroupContext context =
+                newTaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        new TaskGroupDefaultImpl(
+                                location, "canceled-fallback-metrics", Lists.newArrayList(task)));
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        CountDownLatch metricsStarted = new CountDownLatch(1);
+        CountDownLatch holdMetrics = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            metricsStarted.countDown();
+                            holdMetrics.await();
+                            return null;
+                        })
+                .when(serviceSpy)
+                .updateMetricsContextInImap();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                serviceSpy.new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+        cancellationFuture.completeExceptionally(new RuntimeException("test cancel"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            AtomicBoolean isCancel = getField(tracker, "isCancel");
+                            return isCancel.get();
+                        });
+
+        tracker.taskDone(task);
+
+        try {
+            Assertions.assertTrue(
+                    metricsStarted.await(5, TimeUnit.SECONDS),
+                    "Metrics report should start on its own pool thread");
+            // The fallback must still fire and complete the terminal future with CANCELED.
+            await().atMost(2, TimeUnit.SECONDS).until(resultFuture::isDone);
+            assertEquals(CANCELED, resultFuture.get().getExecutionState());
+        } finally {
+            holdMetrics.countDown();
+        }
     }
 
     @Test
