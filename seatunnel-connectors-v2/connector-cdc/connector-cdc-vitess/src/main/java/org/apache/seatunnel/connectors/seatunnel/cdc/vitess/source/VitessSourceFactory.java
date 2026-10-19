@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.vitess.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.options.table.ColumnOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.vitess.config.VitessSchemaMetadataGuards;
 import org.apache.seatunnel.connectors.seatunnel.cdc.vitess.config.VitessSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.vitess.config.VitessSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.vitess.source.split.VitessSourceSplit;
@@ -60,7 +61,25 @@ public class VitessSourceFactory implements ChangeStreamTableSourceFactory {
                 .required(VitessSourceOptions.HOSTNAME, VitessSourceOptions.KEYSPACE)
                 .exclusive(ConnectorCommonOptions.SCHEMA, ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(
+                        ConnectorCommonOptions.SCHEMA,
+                        Conditions.extension(
+                                ConnectorCommonOptions.SCHEMA,
+                                VitessSchemaMetadataGuards.rootSchemaGuard(
+                                        ConnectorCommonOptions.SCHEMA)))
+                .optional(
+                        ConnectorCommonOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                ConnectorCommonOptions.TABLE_CONFIGS,
+                                VitessSchemaMetadataGuards.tableConfigsGuard(
+                                        ConnectorCommonOptions.TABLE_CONFIGS)))
+                .optional(
                         ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.extension(
+                                ConnectorCommonOptions.TABLE_NAMES,
+                                VitessSchemaMetadataGuards.tableNamesGuard(
+                                        ConnectorCommonOptions.TABLE_PATTERN)))
+                .optional(
                         ConnectorCommonOptions.TABLE_PATTERN,
                         ConnectorCommonOptions.METALAKE_TYPE,
                         VitessSourceOptions.PORT,
@@ -125,6 +144,11 @@ public class VitessSourceFactory implements ChangeStreamTableSourceFactory {
         return filterDeclaredTables(context, discoverTableSchemas(context));
     }
 
+    /**
+     * The declarative rule already covers this contract, including an empty {@code tables_configs}
+     * and a config that sets neither {@code schema} nor {@code tables_configs}. The checks below
+     * stay as a second line of defence for callers that build the source without running the rule.
+     */
     private void validateSchemaMetadataContract(TableSourceFactoryContext context) {
         Optional<Map<String, Object>> singleSchema =
                 context.getOptions().getOptional(ConnectorCommonOptions.SCHEMA);
@@ -148,14 +172,10 @@ public class VitessSourceFactory implements ChangeStreamTableSourceFactory {
                 "Vitess CDC requires explicit schema metadata through either 'schema' or 'tables_configs'.");
     }
 
-    @SuppressWarnings("unchecked")
     private void validateRootSchemaDefinition(Map<String, Object> schema, String optionName) {
-        if (!schema.containsKey(ColumnOptions.COLUMNS.key())
-                && !schema.containsKey(ColumnOptions.METADATA_TABLE_ID.key())) {
+        if (!VitessSchemaMetadataGuards.declaresSchemaMetadata(schema)) {
             throw new IllegalArgumentException(
-                    String.format(
-                            "Vitess CDC requires explicit columns or metadata_table_id in '%s' so table schemas stay deterministic.",
-                            optionName));
+                    VitessSchemaMetadataGuards.missingMetadataMessage(optionName));
         }
     }
 
@@ -164,13 +184,12 @@ public class VitessSourceFactory implements ChangeStreamTableSourceFactory {
         Object schemaValue = config.get(ConnectorCommonOptions.SCHEMA.key());
         if (!(schemaValue instanceof Map)) {
             throw new IllegalArgumentException(
-                    String.format(
-                            "Vitess CDC requires explicit schema metadata. '%s' must contain a schema block.",
-                            optionName));
+                    VitessSchemaMetadataGuards.missingSchemaBlockMessage(optionName));
         }
         validateRootSchemaDefinition((Map<String, Object>) schemaValue, optionName + ".schema");
     }
 
+    /** The rule rejects both selectors together, this keeps the runtime path equally explicit. */
     private void validateSelectionOptions(TableSourceFactoryContext context) {
         if (context.getOptions().getOptional(ConnectorCommonOptions.TABLE_NAMES).isPresent()
                 && context.getOptions()

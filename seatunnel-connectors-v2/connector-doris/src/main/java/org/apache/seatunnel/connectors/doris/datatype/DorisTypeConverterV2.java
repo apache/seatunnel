@@ -292,6 +292,16 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             builder.dataType(DORIS_VARIANT);
             return;
         }
+        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_IPV4)) {
+            builder.columnType(DORIS_IPV4);
+            builder.dataType(DORIS_IPV4);
+            return;
+        }
+        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_IPV6)) {
+            builder.columnType(DORIS_IPV6);
+            builder.dataType(DORIS_IPV6);
+            return;
+        }
 
         super.sampleReconvertString(column, builder);
     }
