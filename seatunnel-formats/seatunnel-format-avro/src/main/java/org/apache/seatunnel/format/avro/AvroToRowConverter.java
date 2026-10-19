@@ -75,6 +75,17 @@ public class AvroToRowConverter implements Serializable {
         return datumReader;
     }
 
+    /**
+     * Converts an Avro {@link GenericRecord} into a {@link SeaTunnelRow}.
+     *
+     * <p>{@code BYTES} field values are interpreted according to the {@link ByteBuffer#position()}
+     * and {@link ByteBuffer#limit()} of the supplied buffer, so only the remaining logical bytes
+     * are returned. The supplied buffer is neither consumed nor modified by this conversion.
+     *
+     * @param record the Avro record to convert
+     * @param rowType the target row type
+     * @return the converted row
+     */
     public SeaTunnelRow converter(GenericRecord record, SeaTunnelRowType rowType) {
         String[] fieldNames = rowType.getFieldNames();
 
@@ -107,7 +118,17 @@ public class AvroToRowConverter implements Serializable {
             case TIMESTAMP:
                 return val;
             case BYTES:
-                return ((ByteBuffer) val).array();
+                ByteBuffer buffer = (ByteBuffer) val;
+                if (buffer.hasArray()
+                        && buffer.arrayOffset() == 0
+                        && buffer.remaining() == buffer.array().length) {
+                    // Zero-copy fast path: the buffer exposes its whole backing array.
+                    return buffer.array();
+                }
+                // Copy exactly the remaining bytes without consuming the supplied buffer.
+                byte[] bytes = new byte[buffer.remaining()];
+                buffer.duplicate().get(bytes);
+                return bytes;
             case SMALLINT:
                 return ((Integer) val).shortValue();
             case TINYINT:
