@@ -169,6 +169,21 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testHelpExitsZeroBeforeValidation() throws Exception {
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                CommandLineUtils.parse(
+                                        new String[] {"--help"},
+                                        new ClientCommandArgs(),
+                                        "seatunnel-client",
+                                        true,
+                                        ClientCommandArgs::validateCommandOptions));
+
+        Assertions.assertEquals(0, statusCode);
+    }
+
+    @Test
     public void testSampleDryRunRejectsJobControlOptions() {
         String[] args = {"-c", "app.conf", "--master", "local", "--dry-run", "sample", "--check"};
         ClientCommandArgs clientCommandArgs =
