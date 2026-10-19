@@ -42,12 +42,16 @@ import java.util.Collections;
  *
  * <p>Each iteration verifies the whole growth batch stays resident in the IMaps. {@code
  * FileMapStore.loadAll} always replays the full append-only WAL and materializes every stored
- * entry, so mid-trial durable reloads are limited to the empty-pressure fixture ({@code
- * initialStoredJobCount=0}) on the first iteration. The last measured sample is always checked at
- * trial tear-down by reloading one representative key (same WAL cost as any key set) and asserting
- * the rest of the batch remains resident. Iterations between the first empty-pressure sample and
- * trial tear-down are not durability-sampled: a write-through WAL append that starts failing in
- * that window would surface only at tear-down (or via the resident-size checks each iteration).
+ * entry, so durable reloads are sampled only on the first iteration of the empty-pressure fixture
+ * ({@code initialStoredJobCount=0}) and again at trial tear-down. Every other iteration is
+ * resident-only. {@code initialStoredJobCount=1000} has no mid-trial durable sample at all, because
+ * a full WAL replay under that pressure OOMs the diagnostic / JMH fork.
+ *
+ * <p>The unsampled window cannot hide a missing resident entry, but it can hide a write-through WAL
+ * append that starts failing after the first sample: that failure is not caught until trial
+ * tear-down. Tear-down reloads one representative key, not the whole last batch in one {@code
+ * loadAll}; the other keys are resident checks only. Widening that sample to a full-batch {@code
+ * loadAll} is tracked in <a href="https://github.com/apache/seatunnel/issues/12266">#12266</a>.
  * Cleanup failures are attached with {@code addSuppressed} and do not replace a durability failure.
  */
 @State(Scope.Thread)
@@ -158,11 +162,11 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     /**
-     * Verifies that the non-timed fixture pressure grew by exactly one controlled phase. Most
-     * iterations only check resident IMap state; durability is sampled only on the first
-     * empty-pressure iteration (and again at trial tear-down) because {@code FileMapStore.loadAll}
-     * always replays the full WAL. Mid-trial iterations therefore do not detect a newly failing WAL
-     * append until tear-down.
+     * Verifies that the non-timed fixture pressure grew by exactly one controlled phase. Only the
+     * first {@code initialStoredJobCount=0} iteration samples durability here; every later
+     * iteration is resident-only, and {@code initialStoredJobCount=1000} is never sampled here. A
+     * write-through WAL append that starts failing in that unsampled window is not caught until
+     * trial tear-down.
      */
     @TearDown(Level.Iteration)
     public void verifyGrowthPhase() {
@@ -292,12 +296,13 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     private boolean shouldSampleGrowthDurability() {
-        // FileMapStore.loadAll replays the full WAL into heap. Under initialStoredJobCount=1000
-        // that
-        // OOM's the diagnostic / JMH fork when stacked on resident pressure, so mid-trial sampling
-        // is limited to the empty-pressure fixture's first iteration. Later iterations rely on
-        // resident checks only; trial tear-down always samples the last batch. A WAL append that
-        // begins failing after the first sample is therefore only caught at tear-down.
+        // FileMapStore.loadAll replays the full WAL into heap and OOMs the diagnostic / JMH fork
+        // under initialStoredJobCount=1000, so only the first empty-pressure iteration is sampled
+        // here. Later iterations, and every initialStoredJobCount=1000 iteration, are
+        // resident-only.
+        // A WAL append that starts failing in that window is caught at trial tear-down, not here.
+        // Tear-down reloads one key; full-batch loadAll is
+        // https://github.com/apache/seatunnel/issues/12266.
         return growthPhase != GrowthPhase.NONE
                 && growthIterationIndex == 0
                 && initialStoredJobCount == 0;
@@ -339,10 +344,10 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     /**
-     * Samples MapStore durability for the current growth batch. Reloads one representative key
-     * ({@code FileMapStore.loadAll} still replays the full WAL) and then asserts the whole batch
-     * remains resident. Only the reloaded key is a true durable round-trip; the other keys are not
-     * independently re-verified from the store.
+     * Samples MapStore durability for one representative key of the current growth batch, not the
+     * whole batch. {@code FileMapStore.loadAll} still replays the full WAL, so this is not a
+     * full-batch reload; the other keys are resident checks only. Widening the sample is tracked in
+     * <a href="https://github.com/apache/seatunnel/issues/12266">#12266</a>.
      */
     private void verifyGrowthBatchDurability() {
         if (batchJobIds == null || growthPhase == GrowthPhase.NONE) {
