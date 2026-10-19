@@ -76,21 +76,22 @@ public class CommandLineUtils {
             jCommander.parse(args);
             // The args is not belongs to SeaTunnel, add into engine original parameters
             obj.setOriginalParameters(jCommander.getUnknownOptions());
+            // Help must short-circuit before command validation: a bare --help has no
+            // operation/id, and validating it would report an unrelated argument error.
+            if (obj.isHelp()) {
+                exit(jCommander, 0);
+            }
             commandValidator.accept(obj);
         } catch (ParameterException e) {
             System.err.println(e.getLocalizedMessage());
-            exit(jCommander);
-        }
-
-        if (obj.isHelp()) {
-            exit(jCommander);
+            exit(jCommander, USAGE_EXIT_CODE);
         }
         return obj;
     }
 
-    private static void exit(JCommander jCommander) {
+    private static void exit(JCommander jCommander, int exitCode) {
         jCommander.setUsageFormatter(new UsageFormatter(jCommander));
         jCommander.usage();
-        System.exit(USAGE_EXIT_CODE);
+        System.exit(exitCode);
     }
 }

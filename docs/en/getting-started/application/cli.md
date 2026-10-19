@@ -106,13 +106,14 @@ often the status is polled. The platform-independent states are:
 | `CANCELED` | The platform reported a cancellation |
 | `UNKNOWN` | A known application has a platform state that cannot yet be mapped |
 
-`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `FAILED`, `CANCELED` and
-`UNKNOWN` make `status` exit non-zero, which turns the command into a completion gate for
-schedulers and CI:
+`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `--wait` also stops at
+`UNKNOWN`, because the platform can no longer report the application. Only `FAILED` makes `status`
+exit non-zero, which turns the command into a failure gate for schedulers and CI; `CANCELED` and
+`UNKNOWN` are reported normally:
 
 ```bash
 if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+  echo "application $APP_ID failed"
 fi
 ```
 

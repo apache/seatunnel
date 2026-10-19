@@ -104,12 +104,13 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 | `CANCELED` | 平台报告已取消 |
 | `UNKNOWN` | 已知 application 的平台状态暂时无法映射 |
 
-`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止。`FAILED`、`CANCELED` 和
-`UNKNOWN` 会让 `status` 以非零码退出，因此可以直接作为调度器或 CI 的完成判定：
+`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止；平台无法再报告 application
+时（`UNKNOWN`）也会停止。只有 `FAILED` 会让 `status` 以非零码退出，因此可以直接作为调度器或
+CI 的失败判定；`CANCELED` 和 `UNKNOWN` 会正常打印：
 
 ```bash
 if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+  echo "application $APP_ID failed"
 fi
 ```
 
