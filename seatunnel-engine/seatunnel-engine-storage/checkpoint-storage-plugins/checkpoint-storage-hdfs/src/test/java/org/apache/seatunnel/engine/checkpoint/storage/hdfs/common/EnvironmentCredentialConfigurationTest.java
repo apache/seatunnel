@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.cosn.CosNUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import com.aliyun.oss.common.auth.Credentials;
 import com.aliyun.oss.common.auth.CredentialsProvider;
@@ -36,6 +37,12 @@ import java.util.Map;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.withEnvironmentVariable;
 
+/**
+ * Tests mutate process-wide environment variables through {@code SystemLambda}. The shared resource
+ * lock keeps them serialized when JUnit parallel execution is enabled, because two concurrent tests
+ * would otherwise observe each other's temporary credentials.
+ */
+@ResourceLock("system-environment")
 public class EnvironmentCredentialConfigurationTest {
 
     private static final String S3_PROVIDER_KEY = "fs.s3a.aws.credentials.provider";
