@@ -5,6 +5,32 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### ORC sink: a decimal that does not fit the target column now fails instead of being written as NULL
+
+- **Behavior change: an out-of-range `DECIMAL` fails the write rather than silently becoming `NULL`**
+  - **Affected component**: `seatunnel-connectors-v2`, `connector-file-base`, `OrcWriteStrategy`
+  - **Description**: The ORC sink converted a `BigDecimal` with
+    `decimalColumnVector.set(row, HiveDecimal.create(value))`. Both halves of that return `null`
+    rather than reporting an error: `HiveDecimal.create` returns `null` above ORC's maximum
+    precision of 38, and `DecimalColumnVector.set` internally calls `enforcePrecisionScale`, which
+    returns `null` when the value does not fit the precision and scale the column actually
+    declares. Neither result was checked, so the row was written with the value replaced by
+    `NULL`, with no exception, no warning and no log line. The conversion now reports a failure
+    naming the value and the target column.
+  - **Impact**: A job that silently dropped values now fails at the offending row. The reachable
+    case is a value merely wider than its declared column, which arises from a narrow or inferred
+    JDBC precision, a sampled schema, a schema-less source, or a SQL transform that multiplies
+    decimals. In-range values are unaffected and are written exactly as before.
+  - **Consistency with the Parquet sink**: the Parquet sink in the same module already refused the
+    same overflow loudly, with `AvroTypeException: Cannot encode decimal with precision 39 as max
+    precision 38`. The two sinks no longer disagree about whether losing a value is acceptable.
+  - **Unchanged**: a declared precision above 38 was already rejected when the schema was built,
+    so this entry is about VALUES rather than DECLARATIONS. No option, schema or file layout
+    changes.
+  - **Migration Guide**: Widen the declared precision or scale so the value fits, or round the
+    value before it reaches the sink. To find affected rows before upgrading, compare the written
+    ORC data against the source for unexpected `NULL` decimals.
+
 ### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
 
 When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
