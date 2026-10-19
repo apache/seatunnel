@@ -351,18 +351,17 @@ ResourceManager 侧的典型处理步骤:
 
 ### 8.1 槽位配置
 
-```hocon
-seatunnel {
-  engine {
-    slot-service {
-      # 是否启用动态槽位（默认为静态槽位）
-      dynamic-slot = false
+示例（`config/seatunnel.yaml`，SeaTunnel Engine / Zeta）。默认使用静态槽位：
 
-      # 固定槽位数（仅在 dynamic-slot = false 时生效）
-      slot-num = 2
-    }
-  }
-}
+```yaml
+seatunnel:
+  engine:
+    slot-service:
+      # 是否启用动态槽位（默认为静态槽位）
+      dynamic-slot: false
+
+      # 固定槽位数（仅在 dynamic-slot: false 时生效）
+      slot-num: 2
 ```
 
 ### 8.2 资源策略
