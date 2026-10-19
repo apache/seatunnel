@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Run with {@code ./mvnw -pl seatunnel-lineage-flink -DskipUT -DskipIT=false verify}.
  */
-class ShadedArtifactIT {
+class TestShadedArtifactIT {
 
     @Test
     void emitsAValidEventWithNothingButTheShadedArtifact() throws Exception {

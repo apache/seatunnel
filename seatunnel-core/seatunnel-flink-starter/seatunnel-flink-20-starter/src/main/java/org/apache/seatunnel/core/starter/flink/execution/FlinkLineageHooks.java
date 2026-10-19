@@ -73,14 +73,45 @@ final class FlinkLineageHooks {
             LineageConfig config,
             List<LineageEvent> events,
             boolean clientReportsTerminalEvent) {
-        streamGraph.registerJobStatusHook(
-                new LineageJobStatusHook(config, events, clientReportsTerminalEvent));
+        try {
+            streamGraph.registerJobStatusHook(
+                    new LineageJobStatusHook(config, events, clientReportsTerminalEvent));
+        } catch (Throwable error) {
+            // START events are already on the wire (FlinkLineageSupport.register emits them before
+            // calling here). Without a correcting terminal event the receiver keeps those runs
+            // open until its abandoned-run timeout, so close them as ABORT and refuse registration.
+            LOGGER.warn("Failed to register Flink lineage job status hook", error);
+            emitAbort(config, events);
+            return false;
+        }
         try {
             environment.registerJobListener(new OutputStatisticsListener(config, events));
         } catch (Throwable error) {
             LOGGER.warn("Failed to register Flink lineage result listener", error);
         }
         return true;
+    }
+
+    /**
+     * Closes runs whose START events were already emitted when hook registration fails.
+     *
+     * <p>Uses ABORT rather than FAIL: the job never reached the JobManager, so there is no failed
+     * execution to report — only an abandoned attempt to attach lineage to a submission that will
+     * fall back to a plain {@code execute(jobName)}.
+     */
+    private static void emitAbort(LineageConfig config, List<LineageEvent> events) {
+        try {
+            LineageConfig runtimeConfig =
+                    config.withAuthToken(
+                            LineageConfig.resolveToken(
+                                    FlinkClusterOptions.load(), System.getenv()));
+            for (LineageEvent event : events) {
+                LineageRuntime.emit(
+                        runtimeConfig, event.withEventType(LineageEventType.ABORT));
+            }
+        } catch (Throwable error) {
+            LOGGER.warn("Failed to abort Flink lineage runs after hook registration failed", error);
+        }
     }
 
     /**
