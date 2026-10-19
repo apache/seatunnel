@@ -18,17 +18,29 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ConfigBuilderTest {
 
@@ -78,6 +90,78 @@ public class ConfigBuilderTest {
 
         assertWhitespacePaddedKeys(ConfigBuilder.of(configMap));
         assertWhitespacePaddedKeys(ConfigShadeUtils.decryptConfig(ConfigBuilder.of(configMap)));
+    }
+
+    @Test
+    public void testQuotedLiteralKeysSurviveConfigFileLoad(@TempDir Path tempDir)
+            throws IOException {
+        Config config = ConfigBuilder.of(writeLiteralKeyConfigFile(tempDir, false));
+
+        Assertions.assertEquals("BATCH", config.getConfig("env").getString("job.mode"));
+        assertLiteralSchemaFields(config);
+    }
+
+    @Test
+    public void testQuotedLiteralKeysSurviveConfigFileLoadWithUserVariables(@TempDir Path tempDir)
+            throws IOException {
+        Config config =
+                ConfigBuilder.of(
+                        writeLiteralKeyConfigFile(tempDir, true),
+                        Arrays.asList("jobName=quoted_key_job"));
+
+        Assertions.assertEquals("quoted_key_job", config.getConfig("env").getString("job.name"));
+        assertLiteralSchemaFields(config);
+    }
+
+    /** The distinct fallback value exposes an unintended fallback after a valid adapter result. */
+    @Test
+    public void testConfigAdapterPathKeepsLiteralKeysAndValues(@TempDir Path tempDir)
+            throws IOException {
+        Path configFile = tempDir.resolve("fallback.conf");
+        Files.write(
+                configFile,
+                "origin = \"fallback\"\nsource { FakeSource {} }\nsink { Console {} }\n"
+                        .getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> adapterConfig = new LinkedHashMap<>();
+        adapterConfig.put("origin", "adapter");
+        adapterConfig.put(
+                "source",
+                Arrays.asList(
+                        Collections.singletonMap(
+                                "schema",
+                                Collections.singletonMap("fields", literalSchemaFields()))));
+        adapterConfig.put(
+                "sink", Arrays.asList(Collections.singletonMap("plugin_name", "Console")));
+
+        ConfigAdapter adapter = mock(ConfigAdapter.class);
+        when(adapter.loadConfig(configFile)).thenReturn(adapterConfig);
+
+        Config config = ConfigBuilder.of(adapter, configFile, Collections.<String>emptyList());
+
+        Assertions.assertEquals("adapter", config.getString("origin"));
+        assertLiteralSchemaFields(config);
+    }
+
+    /** Quoted values remain literal for ConfigBuilder's variable substitution. */
+    @Test
+    public void testQuotedPlaceholderIsSubstitutedFromUserVariables(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "env { job.name = \"prefix-${jobName$}\" }\nsource { FakeSource {} }\nsink { Console {} }\n";
+
+        // HOCON leaves quoted placeholders for ConfigBuilder to resolve.
+        Assertions.assertEquals(
+                "prefix-${jobName$}",
+                ConfigFactory.parseString(configText).getConfig("env").getString("job.name"));
+
+        Path configFile = tempDir.resolve("variables.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("jobName$=quoted_key_job"));
+
+        Assertions.assertEquals(
+                "prefix-quoted_key_job", config.getConfig("env").getString("job.name"));
     }
 
     @Test
@@ -303,6 +387,53 @@ public class ConfigBuilderTest {
         Assertions.assertFalse(fields.containsKey("^t_nova_.*$"));
         Assertions.assertEquals("literal", fields.get("  ${FOO}  "));
         Assertions.assertFalse(fields.containsKey("${FOO}"));
+    }
+
+    private static void assertLiteralSchemaFields(Config config) {
+        Assertions.assertEquals(
+                literalSchemaFields(),
+                config.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped());
+    }
+
+    private static Map<String, Object> literalSchemaFields() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("^t_nova_.*$", "string");
+        fields.put("a:b", "long");
+        fields.put("${FOO}", "boolean");
+        fields.put("a\"b\\c", "int");
+        return fields;
+    }
+
+    /** Quotes literal field keys while leaving the optional value substitution active. */
+    private static Path writeLiteralKeyConfigFile(Path tempDir, boolean withJobNamePlaceholder)
+            throws IOException {
+        StringBuilder content = new StringBuilder();
+        content.append("env {\n");
+        content.append("  job.mode = BATCH\n");
+        if (withJobNamePlaceholder) {
+            content.append("  job.name = ${jobName}\n");
+        }
+        content.append("}\n");
+        content.append("source {\n  FakeSource {\n    schema {\n");
+        content.append("  fields {\n");
+        for (Map.Entry<String, Object> field : literalSchemaFields().entrySet()) {
+            content.append(literalKeyLine(field.getKey(), (String) field.getValue()));
+        }
+        content.append("  }\n");
+        content.append("    }\n  }\n}\nsink { Console {} }\n");
+
+        Path configFile = tempDir.resolve("literal_path_keys.conf");
+        Files.write(configFile, content.toString().getBytes(StandardCharsets.UTF_8));
+        return configFile;
+    }
+
+    private static String literalKeyLine(String key, String type) {
+        return "    " + ConfigUtil.quoteString(key) + " = " + type + "\n";
     }
 
     @Test
