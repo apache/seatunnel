@@ -46,6 +46,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -253,7 +254,7 @@ class ZetaLineageReporterTest {
     void shouldRunLineageEmissionsOffTheCallerThreadInSubmissionOrder() throws Exception {
         JobMaster jobMaster = mock(JobMaster.class, CALLS_REAL_METHODS);
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        setField(jobMaster, "executorService", executor);
+        setField(jobMaster, "lineageEmissionExecutor", executor);
         setField(jobMaster, "lineageEmissions", new ArrayDeque<Runnable>());
         setField(jobMaster, "lineageEmissionLock", new Object());
         try {
@@ -283,6 +284,36 @@ class ZetaLineageReporterTest {
             Assertions.assertTrue(
                     lastEmitted.await(30, TimeUnit.SECONDS), "queued emissions must still run");
             Assertions.assertEquals(Arrays.asList("first", "third"), emitted);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldDropLineageEmissionsWhenPerJobQueueIsFull() throws Exception {
+        JobMaster jobMaster = mock(JobMaster.class, CALLS_REAL_METHODS);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        setField(jobMaster, "lineageEmissionExecutor", executor);
+        setField(jobMaster, "lineageEmissions", new ArrayDeque<Runnable>());
+        setField(jobMaster, "lineageEmissionLock", new Object());
+        setField(jobMaster, "jobId", 42L);
+        // Pretend a drain is already running so submit only enqueues and never calls execute.
+        setField(jobMaster, "drainingLineageEmissions", true);
+        try {
+            for (int i = 0; i < 64; i++) {
+                jobMaster.submitLineageEmission(() -> {});
+            }
+            Field field = JobMaster.class.getDeclaredField("lineageEmissions");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Deque<Runnable> emissions = (Deque<Runnable>) field.get(jobMaster);
+            Assertions.assertEquals(64, emissions.size());
+
+            jobMaster.submitLineageEmission(() -> {});
+            Assertions.assertEquals(
+                    64,
+                    emissions.size(),
+                    "a full per-job queue must refuse the newest emission");
         } finally {
             executor.shutdownNow();
         }

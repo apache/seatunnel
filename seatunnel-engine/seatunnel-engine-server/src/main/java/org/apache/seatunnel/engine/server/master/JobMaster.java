@@ -142,6 +142,14 @@ public class JobMaster {
 
     private final ExecutorService executorService;
 
+    /**
+     * Isolated pool for OpenLineage HTTP emission; see {@link
+     * org.apache.seatunnel.engine.server.CoordinatorService#getLineageEmissionExecutor()}. Must not
+     * be the shared coordinator executor — a slow receiver must not starve PlanUtils or checkpoint
+     * scheduling.
+     */
+    private final ExecutorService lineageEmissionExecutor;
+
     private final FlakeIdGenerator flakeIdGenerator;
 
     private final ResourceManager resourceManager;
@@ -190,6 +198,14 @@ public class JobMaster {
     /** Resolved once on first use; see {@link #resolveLineageConfig()}. */
     private volatile LineageConfig lineageConfig;
 
+    /**
+     * Cap on {@link #lineageEmissions}. Under a low heartbeat interval and a degraded receiver,
+     * heartbeats can outpace the drain; without a bound the deque grows for the life of the job.
+     * New events are refused (and logged) when the queue is full so earlier START/COMPLETE stay
+     * ahead of late heartbeats.
+     */
+    private static final int MAX_LINEAGE_EMISSIONS = 64;
+
     /** Lineage emissions waiting to be sent; see {@link #submitLineageEmission(Runnable)}. */
     private final Deque<Runnable> lineageEmissions = new ArrayDeque<>();
 
@@ -223,6 +239,7 @@ public class JobMaster {
             @NonNull Data jobImmutableInformationData,
             @NonNull NodeEngine nodeEngine,
             @NonNull ExecutorService executorService,
+            @NonNull ExecutorService lineageEmissionExecutor,
             @NonNull ResourceManager resourceManager,
             @NonNull JobHistoryService jobHistoryService,
             @NonNull IMap runningJobStateIMap,
@@ -235,6 +252,7 @@ public class JobMaster {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
+        this.lineageEmissionExecutor = lineageEmissionExecutor;
         flakeIdGenerator =
                 this.nodeEngine
                         .getHazelcastInstance()
@@ -1211,19 +1229,30 @@ public class JobMaster {
      * <p>Emission performs a blocking HTTP request whose worst case is {@code timeoutMs} times one
      * more than {@code retryTimes}. Its two call sites are a completed checkpoint and a job state
      * transition, both of which hold engine state that must not wait on an unreachable lineage
-     * receiver, so the send is handed to the coordinator executor instead.
+     * receiver, so the send is handed to the dedicated lineage emission executor instead of the
+     * shared coordinator pool.
      *
      * <p>Emissions are queued and drained by a single task rather than submitted independently
      * because OpenLineage runs are ordered: a COMPLETE that overtakes its own START, or a heartbeat
      * that overtakes a COMPLETE, leaves the receiver holding the wrong final state for the run. The
      * queue keeps one job's events in submission order without serializing different jobs against
-     * each other, and occupies at most one executor thread per job.
+     * each other, and occupies at most one lineage-emission thread per draining job.
      *
      * @param emission the emission to run; a failure it raises is logged rather than propagated, so
      *     the next queued emission still runs
      */
     public void submitLineageEmission(Runnable emission) {
         synchronized (lineageEmissionLock) {
+            if (lineageEmissions.size() >= MAX_LINEAGE_EMISSIONS) {
+                // Refuse the newest event so earlier START/COMPLETE stay ahead of late heartbeats.
+                LOGGER.warning(
+                        "Dropped a lineage emission for job "
+                                + jobId
+                                + ": the per-job lineage queue is full ("
+                                + MAX_LINEAGE_EMISSIONS
+                                + ")");
+                return;
+            }
             lineageEmissions.add(emission);
             if (drainingLineageEmissions) {
                 return;
@@ -1231,7 +1260,7 @@ public class JobMaster {
             drainingLineageEmissions = true;
         }
         try {
-            executorService.execute(this::drainLineageEmissions);
+            lineageEmissionExecutor.execute(this::drainLineageEmissions);
         } catch (RejectedExecutionException rejected) {
             int dropped;
             synchronized (lineageEmissionLock) {
@@ -1246,7 +1275,7 @@ public class JobMaster {
                             + dropped
                             + " lineage event(s) for job "
                             + jobId
-                            + ": the coordinator executor is no longer accepting work");
+                            + ": the lineage emission executor is no longer accepting work");
         }
     }
 

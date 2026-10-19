@@ -185,6 +185,7 @@ public class JobMasterMasterFailoverResourceTest
                 jobImmutableInformationData,
                 nodeEngine,
                 ForkJoinPool.commonPool(),
+                ForkJoinPool.commonPool(),
                 server.getCoordinatorService().getResourceManager(),
                 server.getCoordinatorService().getJobHistoryService(),
                 runningJobStateIMap,
