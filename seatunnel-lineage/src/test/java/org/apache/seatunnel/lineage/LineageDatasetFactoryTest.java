@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.lineage;
 
+import org.apache.seatunnel.lineage.extractor.DorisLineageDatasetExtractor;
+import org.apache.seatunnel.lineage.extractor.JdbcLineageDatasetExtractor;
+import org.apache.seatunnel.lineage.extractor.PaimonLineageDatasetExtractor;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -79,7 +86,7 @@ class LineageDatasetFactoryTest {
     @Test
     void usesTheDorisQueryPortRatherThanTheFenodesPort() {
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("fenodes", "192.168.10.131:8030");
+        options.put("fenodes", "fe.example:8030");
         options.put("database", "ds71");
         options.put("table", "orders");
 
@@ -87,8 +94,22 @@ class LineageDatasetFactoryTest {
                 LineageDatasetFactory.fromConnectorOptions("Doris", options);
 
         assertEquals(1, datasets.size());
-        assertEquals("mysql://192.168.10.131:9030", datasets.get(0).namespace());
+        assertEquals("mysql://fe.example:9030", datasets.get(0).namespace());
         assertEquals("ds71.orders", datasets.get(0).name());
+    }
+
+    @Test
+    void extractsJdbcIdentityFromUrlAndTableOptions() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("url", "jdbc:postgresql://db.example.com:5432/warehouse");
+        options.put("database", "sales");
+        options.put("table", "orders");
+
+        List<LineageDataset> datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("postgresql://db.example.com:5432", datasets.get(0).namespace());
+        assertEquals("sales.orders", datasets.get(0).name());
     }
 
     @Test
@@ -97,6 +118,63 @@ class LineageDatasetFactoryTest {
         options.put("row.num", 10);
 
         assertTrue(LineageDatasetFactory.fromConnectorOptions("FakeSource", options).isEmpty());
+    }
+
+    /**
+     * Doris options may also carry a {@code url}-like key. The named Doris extractor (order 20)
+     * must still win over the JDBC heuristic (order 100), otherwise Doris tables would be named as
+     * JDBC datasets.
+     */
+    @Test
+    void prefersDorisOverJdbcWhenOptionsAlsoCarryAUrl() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("fenodes", "fe.example:8030");
+        options.put("database", "ds71");
+        options.put("table", "orders");
+        // Distinct from the Doris naming path so a JDBC-first order would fail this assertion.
+        options.put("url", "jdbc:postgresql://other-host:5432/other_db");
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("Doris", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://fe.example:9030", datasets.get(0).namespace());
+        assertEquals("ds71.orders", datasets.get(0).name());
+    }
+
+    @Test
+    void builtInExtractorOrdersKeepNamedConnectorsBeforeJdbc() {
+        Map<Class<?>, Integer> orders =
+                StreamSupport.stream(
+                                ServiceLoader.load(LineageDatasetExtractor.class).spliterator(),
+                                false)
+                        .collect(
+                                Collectors.toMap(
+                                        extractor -> extractor.getClass(),
+                                        LineageDatasetExtractor::order));
+
+        // Named connectors (10, 20) must stay ahead of the JDBC heuristic (100).
+        assertEquals(10, orders.get(PaimonLineageDatasetExtractor.class));
+        assertEquals(20, orders.get(DorisLineageDatasetExtractor.class));
+        assertEquals(100, orders.get(JdbcLineageDatasetExtractor.class));
+    }
+
+    @Test
+    void discoversBuiltInExtractorsThroughServiceLoader() {
+        List<String> names =
+                StreamSupport.stream(
+                                ServiceLoader.load(LineageDatasetExtractor.class).spliterator(),
+                                false)
+                        .map(extractor -> extractor.getClass().getSimpleName())
+                        .sorted()
+                        .collect(Collectors.toList());
+
+        assertEquals(
+                List.of(
+                        "DorisLineageDatasetExtractor",
+                        "JdbcLineageDatasetExtractor",
+                        "PaimonLineageDatasetExtractor"),
+                names);
     }
 
     private static Map<String, Object> paimonOptions() {
