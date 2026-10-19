@@ -29,9 +29,14 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.GenericTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -61,6 +66,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -687,6 +693,61 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             } finally {
                 postgresCatalog.close();
             }
+        }
+    }
+
+    /**
+     * Generic JDBC type mapping, which applies when no vendor dialect handles the source, must
+     * report result columns whose native types have no mapping during schema discovery instead of
+     * silently returning a column without a data type. The metadata here comes from real PostgreSQL
+     * expressions; PostgreSQL itself normally uses its vendor dialect unless a dialect is
+     * configured explicitly.
+     */
+    @Test
+    public void testGenericTypeMappingReportsUnsupportedColumnType() throws SQLException {
+        String unsupportedQuery =
+                "SELECT 1 AS id, to_tsvector('simple', 'hello') AS payload, 'ok'::varchar AS name";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement statement = connection.prepareStatement(unsupportedQuery)) {
+            ResultSetMetaData metadata = statement.getMetaData();
+            Assertions.assertNotNull(metadata);
+
+            SeaTunnelRuntimeException exception =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class,
+                            () ->
+                                    CatalogUtils.getCatalogTable(
+                                            metadata, new GenericTypeMapper(), unsupportedQuery));
+
+            Assertions.assertEquals(
+                    CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR,
+                    exception.getSeaTunnelErrorCode());
+            Assertions.assertEquals(unsupportedQuery, exception.getParams().get("tableName"));
+
+            String unsupportedFields = exception.getParams().get("fieldWithDataTypes");
+            Assertions.assertNotNull(unsupportedFields);
+            Assertions.assertTrue(unsupportedFields.contains("\"payload\""), unsupportedFields);
+            Assertions.assertTrue(unsupportedFields.contains("tsvector"), unsupportedFields);
+            Assertions.assertFalse(unsupportedFields.contains("\"id\""), unsupportedFields);
+            Assertions.assertFalse(unsupportedFields.contains("\"name\""), unsupportedFields);
+        }
+
+        // Control: supported native types still map, so the failure above cannot come from
+        // breaking ordinary type mapping.
+        String supportedQuery = "SELECT 1 AS id, 'ok'::varchar AS name";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement statement = connection.prepareStatement(supportedQuery)) {
+            ResultSetMetaData metadata = statement.getMetaData();
+            Assertions.assertNotNull(metadata);
+
+            CatalogTable catalogTable =
+                    CatalogUtils.getCatalogTable(metadata, new GenericTypeMapper(), supportedQuery);
+            List<Column> columns = catalogTable.getTableSchema().getColumns();
+            Assertions.assertEquals(2, columns.size());
+            Assertions.assertEquals("id", columns.get(0).getName());
+            Assertions.assertEquals(BasicType.INT_TYPE, columns.get(0).getDataType());
+            Assertions.assertEquals("name", columns.get(1).getName());
+            Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(1).getDataType());
         }
     }
 

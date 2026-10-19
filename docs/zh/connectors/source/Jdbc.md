@@ -537,6 +537,10 @@ sink {
 
 检查数据库对应的 `table_path` 格式、标识符大小写，以及账号是否具有元数据和 `SELECT` 权限。使用自定义 query 时，先在数据库客户端中用同一账号执行完全相同的 SQL。
 
+### 发现 schema 时报错不支持的字段类型
+
+当 URL 和 `dialect` 选项都没有匹配到对应方言时，schema 发现会使用通用 JDBC 映射，并读取驱动返回的原生类型。对于没有 SeaTunnel 映射的原生类型，会直接报错并指出字段名和该原生类型，而不是以缺失数据类型的方式继续读取。如果源数据库允许，可以在 query 中把该字段转换为受支持的类型；或者为该数据库配置受支持的方言，让该字段由对应方言映射。
+
 ### 提高 parallelism 后 Reader 数量没有增加
 
 使用动态分片时，确认表存在受支持的主键或唯一索引，或者显式配置 `partition_column`。要让顶层 `query` 使用旧版 fixed splitter，需要同时配置 `partition_column` 和合适的 `partition_num`。没有安全分片键的表会有意使用单个 split 读取。
