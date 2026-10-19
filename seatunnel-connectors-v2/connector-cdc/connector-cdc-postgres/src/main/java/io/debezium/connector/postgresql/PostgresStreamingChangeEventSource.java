@@ -434,7 +434,22 @@ public class PostgresStreamingChangeEventSource
     }
 
     private void probeConnectionIfNeeded() throws SQLException {
-        if (connectionProbeTimer.hasElapsed()) {
+        if (!connectionProbeTimer.hasElapsed()) {
+            return;
+        }
+        try {
+            connection.prepareQuery("SELECT 1");
+            connection.commit();
+        } catch (SQLException e) {
+            LOGGER.warn(
+                    "Postgres JDBC data connection probe failed; reconnecting in-place once",
+                    e);
+            try {
+                connection.close();
+            } catch (Exception closeEx) {
+                LOGGER.debug("Exception closing dead JDBC data connection", closeEx);
+            }
+            connection.connect();
             connection.prepareQuery("SELECT 1");
             connection.commit();
         }
