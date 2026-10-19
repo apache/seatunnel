@@ -48,12 +48,14 @@ public class ReportMetricsOperationExports extends AbstractCollector {
         CounterMetricFamily totalMetricFamily =
                 new CounterMetricFamily(
                         "report_metrics_operation",
-                        "The total number of ReportMetricsOperation invocations sent by a worker",
+                        "The total number of ReportMetricsOperation invocations attempted by a "
+                                + "worker, by outcome",
                         clusterLabelNames(ADDRESS, "result"));
         totalMetricFamily.addMetric(labelValues(address, "success"), stats.getSuccessCount());
         totalMetricFamily.addMetric(labelValues(address, "failure"), stats.getFailureCount());
         totalMetricFamily.addMetric(
                 labelValues(address, "interrupted"), stats.getInterruptedCount());
+        totalMetricFamily.addMetric(labelValues(address, "rejected"), stats.getRejectedCount());
         mfs.add(totalMetricFamily);
 
         GaugeMetricFamily payloadMetricFamily =

@@ -890,6 +890,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void testFinalMetricsExecutorRejectionStillCompletesTerminalState() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        long rejectedCountBefore = serviceSpy.getReportMetricsOperationStats().getRejectedCount();
         ExecutorService rejectingExecutor = Mockito.mock(ExecutorService.class);
         Mockito.doThrow(new RejectedExecutionException("executor stopped"))
                 .when(rejectingExecutor)
@@ -915,6 +916,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertTrue(resultFuture.isDone());
         assertEquals(FINISHED, resultFuture.get().getExecutionState());
+        assertEquals(
+                rejectedCountBefore + 1,
+                serviceSpy.getReportMetricsOperationStats().getRejectedCount(),
+                "rejected final metrics reports should be observable");
     }
 
     @Test
@@ -967,6 +972,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void testFinalMetricsReportsRemainBoundedWhenInvocationHangs() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskExecutionService serviceSpy = Mockito.spy(taskExecutionService);
+        long rejectedCountBefore = serviceSpy.getReportMetricsOperationStats().getRejectedCount();
         int maxConcurrentReports = TaskExecutionService.FINAL_METRICS_MAX_CONCURRENT_REPORTS;
         int queuedReports = TaskExecutionService.FINAL_METRICS_QUEUE_CAPACITY;
         int reportCount = maxConcurrentReports + queuedReports + 1;
@@ -1018,6 +1024,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     "only the report rejected after the bounded workers and queue fill should "
                             + "complete immediately");
             assertEquals(maxConcurrentReports, maximumActiveReports.get());
+            assertEquals(
+                    rejectedCountBefore + 1,
+                    serviceSpy.getReportMetricsOperationStats().getRejectedCount(),
+                    "the report rejected after the bounded queue fills should be counted");
         } finally {
             releaseReports.countDown();
         }

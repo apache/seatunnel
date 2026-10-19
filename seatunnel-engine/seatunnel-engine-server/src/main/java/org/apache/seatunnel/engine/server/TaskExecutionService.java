@@ -172,7 +172,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /**
      * The configured fallback timeout in milliseconds. Defaults to {@link
-     * #DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS}; set in the constructor or directly in tests.
+     * #DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS}; tests may adjust it before task execution.
      */
     long finalMetricsFallbackTimeoutMs = DEFAULT_FINAL_METRICS_FALLBACK_TIMEOUT_MS;
 
@@ -261,6 +261,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationFailureCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationInterruptedCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationRejectedCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationLastPayloadTaskCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationLastInvocationLatencyMs = new AtomicLong();
     private final AtomicLong reportMetricsOperationMaxInvocationLatencyMs = new AtomicLong();
@@ -1145,6 +1146,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 reportMetricsOperationSuccessCount.get(),
                 reportMetricsOperationFailureCount.get(),
                 reportMetricsOperationInterruptedCount.get(),
+                reportMetricsOperationRejectedCount.get(),
                 reportMetricsOperationLastPayloadTaskCount.get(),
                 reportMetricsOperationLastInvocationLatencyMs.get(),
                 reportMetricsOperationMaxInvocationLatencyMs.get());
@@ -1788,8 +1790,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * state keeps completion behavior consistent. The report is best-effort: if submission
          * races with shutdown or reporting itself fails, the terminal state is still completed. A
          * scheduled fallback guarantees the terminal future never waits indefinitely on the
-         * un-timed Hazelcast RPC ({@code future.complete} is idempotent so whichever finishes first
-         * wins).
+         * un-timed Hazelcast RPC. If the fallback expires first, terminal state is published before
+         * the report returns; the report continues in the background. {@code future.complete} is
+         * idempotent so whichever finishes first wins.
          */
         private void completeAfterFinalMetrics(
                 TaskGroupLocation taskGroupLocation,
@@ -1818,23 +1821,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 () -> future.complete(terminalState),
                                 finalMetricsFallbackTimeoutMs,
                                 TimeUnit.MILLISECONDS));
-                finalMetricsExecutorService.submit(
-                        () -> {
-                            try {
-                                updateMetricsContextInImap();
-                            } catch (Throwable t) {
-                                logger.severe("update metrics context in imap failed", t);
-                            } finally {
-                                future.complete(terminalState);
-                                // Cancel the fallback if the report beat the timeout. The
-                                // scheduler has setRemoveOnCancelPolicy(true) so the cancelled
-                                // task does not linger in the queue.
-                                ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
-                                if (fallbackFuture != null) {
-                                    fallbackFuture.cancel(false);
+                try {
+                    finalMetricsExecutorService.submit(
+                            () -> {
+                                try {
+                                    updateMetricsContextInImap();
+                                } catch (Throwable t) {
+                                    logger.severe("update metrics context in imap failed", t);
+                                } finally {
+                                    future.complete(terminalState);
+                                    // Cancel the fallback if the report beat the timeout. The
+                                    // scheduler has setRemoveOnCancelPolicy(true) so the cancelled
+                                    // task does not linger in the queue.
+                                    ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
+                                    if (fallbackFuture != null) {
+                                        fallbackFuture.cancel(false);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                } catch (RejectedExecutionException e) {
+                    reportMetricsOperationRejectedCount.incrementAndGet();
+                    throw e;
+                }
             } catch (Throwable t) {
                 logger.warning(
                         "failed to schedule final metrics report for taskGroup "
