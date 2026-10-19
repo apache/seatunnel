@@ -15,15 +15,17 @@
 # limitations under the License.
 #
 
-# Same as the shipped config/seatunnel.yaml (static slots stay the default), with one
-# addition for this e2e: an explicit slot-num. The statefulset pods are limited to
-# 1 CPU each, so the default static slot pool would be 2 slots per worker, while the
-# batch template job needs 4 slots. KubernetesIT submits right after the StatefulSet
-# reports both pods Ready - at that point the second worker may not have registered
-# with the master yet, so the job can transiently face a single 2-slot worker and
-# fail with NoEnoughResourceException under the default REJECT strategy. A pinned
-# slot-num of 8 keeps the cluster on static slots (the shipped default) while giving
-# a single registered worker enough headroom for the job.
+# Same as the shipped config/seatunnel.yaml, with the slot-service block deliberately
+# omitting the dynamic-slot key so this e2e exercises the engine's static default
+# (the flipped DYNAMIC_SLOT option) end-to-end, plus one addition for this e2e: an
+# explicit slot-num. The statefulset pods are limited to 1 CPU each, so the default
+# static slot pool would be 2 slots per worker, while the batch template job needs
+# 4 slots. KubernetesIT submits right after the StatefulSet reports both pods Ready -
+# at that point the second worker may not have registered with the master yet, so the
+# job can transiently face a single 2-slot worker and fail with
+# NoEnoughResourceException under the default REJECT strategy. A pinned slot-num of 8
+# keeps the cluster on the static default while giving a single registered worker
+# enough headroom for the job.
 seatunnel:
   engine:
     classloader-cache-mode: true
@@ -33,7 +35,6 @@ seatunnel:
     print-execution-info-interval: 60
     print-job-metrics-info-interval: 60
     slot-service:
-      dynamic-slot: false
       slot-num: 8
     checkpoint:
       interval: 10000

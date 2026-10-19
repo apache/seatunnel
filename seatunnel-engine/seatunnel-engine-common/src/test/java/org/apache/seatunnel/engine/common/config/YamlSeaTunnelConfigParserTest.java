@@ -195,6 +195,35 @@ public class YamlSeaTunnelConfigParserTest {
     }
 
     @Test
+    public void testSlotServiceFallsBackToStaticWhenDynamicSlotKeyAbsent() throws IOException {
+        // Guards the flipped default from the other direction than the no-slot-service yaml:
+        // a slot-service block that omits only the dynamic-slot key must resolve to the
+        // static default, while the remaining keys in the block (slot-num) are still honored.
+        YamlSeaTunnelConfigLocator yamlConfigLocator =
+                new YamlSeaTunnelConfigLocator() {
+                    @Override
+                    protected boolean locateInWorkDir() {
+                        return loadFromWorkingDirectory(
+                                "no-dynamic-slot-key-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+
+                    @Override
+                    protected boolean locateOnClasspath() {
+                        return loadConfigurationFromClasspath(
+                                "no-dynamic-slot-key-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+                };
+        if (!yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
+            throw new RuntimeException("can't find yaml in resources");
+        }
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+
+        Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+        Assertions.assertEquals(7, config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+    }
+
+    @Test
     public void testCustomizeHttpsServerConfig() throws IOException {
         YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
         ReflectionUtils.invoke(
