@@ -27,10 +27,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -173,5 +177,59 @@ class AvroConverterTest {
         SeaTunnelRow converterRow = avroToRowConverter.converter(record, rowType);
 
         Assertions.assertEquals(converterRow, seaTunnelRow);
+    }
+
+    // The default mode is the legacy mode, so the GenericRecord shape built for a nested ROW must
+    // stay exactly the shape that existed before the nullable ROW option was introduced: the nested
+    // record still carries the historic top level record name and the same values. The explicit
+    // false mode is the same public mode, so it has to produce that identical shape as well.
+    @Test
+    public void testLegacyNestedRecordShapeAndValuesUnchanged() {
+        SeaTunnelRowType rowType = buildSeaTunnelRowType();
+        SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
+        SeaTunnelRowType nestedRowType = (SeaTunnelRowType) rowType.getFieldType(14);
+
+        GenericRecord defaultRecord =
+                new RowToAvroConverter(rowType).convertRowToGenericRecord(seaTunnelRow);
+        GenericRecord explicitFalseRecord =
+                new RowToAvroConverter(rowType, false).convertRowToGenericRecord(seaTunnelRow);
+
+        Assertions.assertEquals(
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType)
+                        .toString(),
+                defaultRecord.getSchema().toString());
+
+        GenericRecord defaultNested = (GenericRecord) defaultRecord.get("c_row");
+        GenericRecord explicitFalseNested = (GenericRecord) explicitFalseRecord.get("c_row");
+        String legacyNestedSchema =
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(nestedRowType)
+                        .toString();
+        Assertions.assertEquals("SeaTunnelRecord", defaultNested.getSchema().getName());
+        Assertions.assertEquals(legacyNestedSchema, defaultNested.getSchema().toString());
+        Assertions.assertEquals("SeaTunnelRecord", explicitFalseNested.getSchema().getName());
+        Assertions.assertEquals(legacyNestedSchema, explicitFalseNested.getSchema().toString());
+        Assertions.assertEquals(defaultNested.toString(), explicitFalseNested.toString());
+        Assertions.assertEquals("strVal", defaultNested.get("c_string"));
+        Assertions.assertEquals(Integer.valueOf(3), defaultNested.get("c_int"));
+    }
+
+    // With the opt-in nullable layout a ROW field is a [null, record] union, so a present nested
+    // row must be built under the name the enclosing schema gave the field, otherwise the write
+    // fails with UnresolvedUnionException.
+    @Test
+    public void testPresentNestedRowSerializesWithNullableRow() throws IOException {
+        SeaTunnelRowType rowType = buildSeaTunnelRowType();
+        SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
+
+        RowToAvroConverter converter = new RowToAvroConverter(rowType, true);
+        GenericRecord record = converter.convertRowToGenericRecord(seaTunnelRow);
+        Assertions.assertEquals(
+                "c_row", ((GenericRecord) record.get("c_row")).getSchema().getName());
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+        converter.getWriter().write(record, encoder);
+        encoder.flush();
+        Assertions.assertTrue(out.size() > 0);
     }
 }
