@@ -270,4 +270,3 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         }
     }
 }
-

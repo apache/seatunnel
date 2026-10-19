@@ -1050,4 +1050,3 @@ SeaTunnel does not bundle all JDBC drivers. For Spark and Flink, place the JAR i
 ## Changelog
 
 <ChangeLog />
-
