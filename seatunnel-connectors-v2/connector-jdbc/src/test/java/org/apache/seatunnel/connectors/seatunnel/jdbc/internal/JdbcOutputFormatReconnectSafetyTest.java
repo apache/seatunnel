@@ -84,6 +84,27 @@ class JdbcOutputFormatReconnectSafetyTest {
     }
 
     @Test
+    void testAutoCommitDeadlockKeepsGenericRetryBehavior() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        Mockito.when(connection.getAutoCommit()).thenReturn(true);
+
+        TestDeadlockThenSuccessExecutor executor = new TestDeadlockThenSuccessExecutor();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, TestDeadlockThenSuccessExecutor> outputFormat =
+                new NoSleepJdbcOutputFormat<>(
+                        provider, buildConnectionConfig(), () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertDoesNotThrow(outputFormat::flush);
+        Mockito.verify(connection, Mockito.never()).rollback();
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+    }
+
+    @Test
     void testDeadlockDoesNotReplayOnlyCurrentFlushInsideCheckpointTransaction() throws Exception {
         JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
         Connection connection = Mockito.mock(Connection.class);
@@ -159,7 +180,7 @@ class JdbcOutputFormatReconnectSafetyTest {
 
         Mockito.verify(connection).rollback();
         Mockito.verify(child, Mockito.times(1)).executeBatch();
-        Mockito.verify(child, Mockito.atLeastOnce()).clearBatch();
+        Mockito.verify(child, Mockito.times(2)).clearBatch();
     }
 
     @Test
@@ -338,3 +359,4 @@ class JdbcOutputFormatReconnectSafetyTest {
         }
     }
 }
+

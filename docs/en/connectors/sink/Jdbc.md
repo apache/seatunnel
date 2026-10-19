@@ -310,7 +310,7 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 
 ### max_retries [int]
 
-The number of retries after a failed JDBC `executeBatch`. Transaction conflicts such as PostgreSQL `40P01` are retried only when the sink can roll back and replay the complete flush transaction. When a checkpoint transaction spans multiple flushes, the conflict is propagated so checkpoint recovery can replay the whole transaction safely. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
+The number of retries after a failed JDBC `executeBatch`. In auto-commit mode, transaction conflicts such as PostgreSQL `40P01` keep the existing generic retry behavior. On manual-commit connections, conflicts are retried only when the sink can roll back and replay the complete flush transaction; otherwise they are propagated. When a checkpoint transaction spans multiple flushes, checkpoint recovery replays the complete transaction safely. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
 ### batch_size [int]
 
@@ -561,7 +561,7 @@ Whether to support upsert behavior through insert-only statements for compatible
 
 ### upsert_batch_key_ordered [boolean]
 
-Sorts standard primary-key upsert and delete entries in each flush by a deterministic primary-key order before executing them. This reduces lock-order deadlocks between concurrent JDBC writers. The option defaults to `false` for compatibility and applies to the generated primary-key upsert path; custom `query` statements keep their configured ordering. Sorting only orders records within one flush and cannot replace transaction conflict handling.
+Sorts standard primary-key upsert and delete entries in each flush by a deterministic primary-key order before executing them. This reduces lock-order deadlocks between concurrent JDBC writers. A batch that mixes upserts and deletes may execute more child batches when the change flag alternates. The option defaults to `false` for compatibility and applies to the generated primary-key upsert path; custom `query` statements keep their configured ordering. Sorting only orders records within one flush and cannot replace transaction conflict handling.
 
 ### use_copy_statement [boolean]
 
@@ -1050,3 +1050,4 @@ SeaTunnel does not bundle all JDBC drivers. For Spark and Flink, place the JAR i
 ## Changelog
 
 <ChangeLog />
+
