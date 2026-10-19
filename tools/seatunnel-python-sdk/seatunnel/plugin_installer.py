@@ -13,6 +13,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Select connector plugins in ``config/plugin_config`` and run ``bin/install-plugin.sh``.
+
+Ownership boundary: these helpers rewrite ``config/plugin_config`` in place. Only pass them
+a SeaTunnel copy that the caller owns and manages, such as the launcher's per-user,
+per-version cache directory. Never point them at a source checkout or at a shared
+installation, because the connector selection there would be changed for everyone using it.
+"""
 
 import os
 import re
@@ -68,7 +75,8 @@ def select_plugins(plugin_config_path: str, connectors: Iterable[str]) -> List[s
     blank lines and line endings are kept as they are. Running it again with the same
     connectors leaves the file unchanged.
 
-    :param plugin_config_path: Path to ``config/plugin_config``.
+    :param plugin_config_path: Path to ``config/plugin_config`` in a caller-managed copy
+        (see the module docstring); never a source checkout or a shared installation.
     :param connectors: Short names (``"jdbc"``) or artifact IDs (``"connector-jdbc"``).
     :returns: The enabled artifact IDs, in request order.
     :raises PluginInstallError: If a name is invalid, a connector is not listed in the
@@ -140,7 +148,9 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
     If the script fails, cannot be started or is interrupted, ``plugin_config`` is restored
     to its exact content before the call, so a failed install leaves no changed selection.
 
-    :param seatunnel_home: Root of an extracted SeaTunnel distribution.
+    :param seatunnel_home: Root of a caller-managed SeaTunnel distribution, such as the
+        launcher's per-user, per-version cache (see the module docstring); never a source
+        checkout or a shared installation.
     :param connectors: Short names (``"jdbc"``) or artifact IDs (``"connector-jdbc"``).
     :param version: Connector version to install; it should match the engine version.
     :returns: The installed artifact IDs, in request order.
@@ -191,8 +201,13 @@ def install_plugins(seatunnel_home: str, connectors: Iterable[str], version: str
         try:
             _write_atomically(plugin_config, original)
         except PluginInstallError as restore_error:
-            raise PluginInstallError(
-                f"{exc} Restoring the original plugin config also failed: {restore_error}"
-            ) from exc
+            message = f"Restoring the original plugin config also failed: {restore_error}"
+            if not isinstance(exc, Exception):
+                # Keep KeyboardInterrupt / SystemExit as they are, so the caller still stops.
+                # Raising it here records the restore failure as its __context__.
+                if hasattr(exc, "add_note"):
+                    exc.add_note(message)
+                raise exc
+            raise PluginInstallError(f"{exc} {message}") from exc
         raise
     return artifact_ids
