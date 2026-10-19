@@ -30,8 +30,11 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.avro.Avro;
+import org.apache.iceberg.data.BaseDeleteLoader;
 import org.apache.iceberg.data.DeleteFilter;
+import org.apache.iceberg.data.DeleteLoader;
 import org.apache.iceberg.data.GenericDeleteFilter;
 import org.apache.iceberg.data.IdentityPartitionConverters;
 import org.apache.iceberg.data.Record;
@@ -51,11 +54,16 @@ import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.DateTimeUtil;
 import org.apache.iceberg.util.PartitionUtil;
+import org.apache.iceberg.util.StructLikeSet;
+import org.apache.iceberg.util.StructLikeUtil;
 
 import lombok.Builder;
 import lombok.NonNull;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.Map;
 
 import static org.apache.iceberg.data.parquet.GenericParquetReaders.buildReader;
@@ -77,10 +85,66 @@ public class IcebergFileScanTaskReader implements Closeable {
     private CloseableIterable<Record> icebergGenericRead(FileScanTask task) {
         DeleteFilter<Record> deletes =
                 new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema) {
+                    private final IcebergInternalRecordWrapper wrapper =
+                            new IcebergInternalRecordWrapper(requiredSchema().asStruct());
+
+                    @Override
+                    protected StructLike asStructLike(Record record) {
+                        return wrapper.wrap(record);
+                    }
+
                     @Override
                     protected InputFile loadInputFile(DeleteFile deleteFile) {
                         return parquetInputFile(
                                 deleteFile.format(), super.loadInputFile(deleteFile));
+                    }
+
+                    @Override
+                    protected DeleteLoader newDeleteLoader() {
+                        return new BaseDeleteLoader(this::loadInputFile) {
+                            @Override
+                            public StructLikeSet loadEqualityDeletes(
+                                    Iterable<DeleteFile> files, Schema projection) {
+                                // Iceberg 1.10's generic loader does not normalize timestamp_ns
+                                // equality keys. Keep its loader for every other key schema.
+                                boolean hasNanos =
+                                        TypeUtil.find(
+                                                        projection,
+                                                        type ->
+                                                                type.typeId()
+                                                                        == Type.TypeID
+                                                                                .TIMESTAMP_NANO)
+                                                != null;
+                                if (!hasNanos) {
+                                    return super.loadEqualityDeletes(files, projection);
+                                }
+                                StructLikeSet keys = StructLikeSet.create(projection.asStruct());
+                                IcebergInternalRecordWrapper keyWrapper =
+                                        new IcebergInternalRecordWrapper(projection.asStruct());
+                                for (DeleteFile file : files) {
+                                    try (CloseableIterable<Record> records =
+                                            readFile(
+                                                    file.format(),
+                                                    loadInputFile(file),
+                                                    projection,
+                                                    Collections.emptyMap(),
+                                                    0,
+                                                    file.fileSizeInBytes(),
+                                                    Expressions.alwaysTrue())) {
+                                        for (Record record : records) {
+                                            // Readers may reuse binary buffers between records.
+                                            keys.add(
+                                                    StructLikeUtil.copy(
+                                                            keyWrapper.wrap(record.copy())));
+                                        }
+                                    } catch (IOException e) {
+                                        throw new UncheckedIOException(
+                                                "Failed to read Iceberg equality deletes", e);
+                                    }
+                                }
+                                return keys;
+                            }
+                        };
                     }
                 };
         Schema readSchema = deletes.requiredSchema();
@@ -130,8 +194,25 @@ public class IcebergFileScanTaskReader implements Closeable {
                         task.file().format(), fileIO.newInputFile(task.file().path().toString()));
         Map<Integer, ?> partition =
                 PartitionUtil.constantsMap(task, IcebergFileScanTaskReader::convertConstant);
+        return readFile(
+                task.file().format(),
+                input,
+                fileProjection,
+                partition,
+                task.start(),
+                task.length(),
+                task.residual());
+    }
 
-        switch (task.file().format()) {
+    private CloseableIterable<Record> readFile(
+            FileFormat format,
+            InputFile input,
+            Schema fileProjection,
+            Map<Integer, ?> partition,
+            long start,
+            long length,
+            Expression residual) {
+        switch (format) {
             case AVRO:
                 Avro.ReadBuilder avro =
                         Avro.read(input)
@@ -140,7 +221,7 @@ public class IcebergFileScanTaskReader implements Closeable {
                                         avroSchema ->
                                                 DataReader.create(
                                                         fileProjection, avroSchema, partition))
-                                .split(task.start(), task.length());
+                                .split(start, length);
                 if (reuseContainers) {
                     avro.reuseContainers();
                 }
@@ -153,8 +234,8 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 .createReaderFunc(
                                         fileSchema ->
                                                 buildReader(fileProjection, fileSchema, partition))
-                                .split(task.start(), task.length())
-                                .filter(task.residual());
+                                .split(start, length)
+                                .filter(residual);
                 if (reuseContainers) {
                     parquet.reuseContainers();
                 }
@@ -172,15 +253,13 @@ public class IcebergFileScanTaskReader implements Closeable {
                                         fileSchema ->
                                                 GenericOrcReader.buildReader(
                                                         fileProjection, fileSchema, partition))
-                                .split(task.start(), task.length())
-                                .filter(task.residual());
+                                .split(start, length)
+                                .filter(residual);
                 return orc.build();
             default:
                 throw new IcebergConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Cannot read %s file: %s",
-                                task.file().format().name(), task.file().path()));
+                        String.format("Cannot read %s file: %s", format.name(), input.location()));
         }
     }
 

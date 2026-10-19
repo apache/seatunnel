@@ -103,7 +103,15 @@ iceberg.table.auto-create-props = {
 }
 ```
 
-Format version 3 tables support append writes. Upsert and CDC writes are rejected with error `ICEBERG-04` before any data is written, because the sink writes position delete files, which format version 3 replaces with deletion vectors. This covers `iceberg.table.primary-keys`, `iceberg.table.upsert-mode-enabled` and existing tables with identifier fields, and also creating a format version 3 table for a source table with a primary key, which would otherwise become the identifier fields. Use a format version 2 table for upsert and CDC pipelines.
+Format version 3 tables support append, upsert and CDC writes. The sink uses equality deletes for previously committed rows and Puffin deletion vectors for rows invalidated in the current task writer's new data files, for example when the same key changes repeatedly before a checkpoint. It does not scan existing data files to locate deleted rows or rewrite their deletion vectors. Parquet, ORC and Avro data files are supported; the deletion vectors always use Puffin. Format version 2 keeps its existing equality and position delete writers, and remains the default for newly created tables.
+
+For partitioned upsert tables, include all partition source columns in the primary key, as required by Iceberg equality deletes. Keep updates for a key on the same sink writer and in source order. A partition-changing update must delete the old key/partition as well as insert the new one; `UPDATE_BEFORE` is ignored in upsert mode, just as for format version 2. Checkpoints commit the new data, equality delete files and deletion vectors together. Enable checkpointing for streaming jobs.
+
+Checkpoint replay is checked in both ordinary and restore commits. The sink records versioned fingerprints of the immutable writer results in the same Iceberg snapshot as their data and delete files. Checkpoint IDs remain diagnostic metadata: different jobs may reuse a number without losing their new files. The check is scoped to the configured table branch. For older snapshots without fingerprints, the complete set of files must be found; a partial match fails rather than silently dropping or duplicating data. Manifest-read errors are propagated.
+
+Legacy publication checks can read historical manifests. For an unmatched payload without a positive checkpoint ID, a gap in snapshot ancestry additionally requires scanning live manifests; this compatibility check can scale with the table's file count, including for a fresh batch payload. Fingerprint-matched replay and fresh positive-ID commits do not require this live-file scan.
+
+Retain the snapshot ancestry, manifests and pending data/delete files needed by every checkpoint that may still be restored. Snapshot expiration, branch rollback, or orphan-file cleanup must not remove that recovery evidence. Replay after the relevant history has expired is not covered by this guarantee. As with the engine's single aggregated committer, only one active attempt may publish a given checkpoint payload; concurrent independent jobs with different files are supported, but overlapping attempts for the same payload require engine fencing. No checkpoint serialization or configuration change is required.
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 

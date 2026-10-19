@@ -40,7 +40,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class IcebergAggregatedCommitterTest {
@@ -141,9 +140,23 @@ class IcebergAggregatedCommitterTest {
     }
 
     @Test
-    void testRestoreCommitSkipsCheckpointAlreadyCommittedToIceberg() throws Exception {
-        when(filesCommitter.isAlreadyCommitted(eq(5L), any())).thenReturn(true);
+    void testNativeRebatchingRetainsCheckpointBoundaries() throws Exception {
+        WriteResult first = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        WriteResult second =
+                new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        IcebergAggregatedCommitInfo batch =
+                committer.combine(
+                        Arrays.asList(
+                                new IcebergCommitInfo(Collections.singletonList(first), 1L),
+                                new IcebergCommitInfo(Collections.singletonList(second), 2L)));
+        committer.commit(Collections.singletonList(batch));
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(filesCommitter);
+        order.verify(filesCommitter).doCommit(Collections.singletonList(first), 1L);
+        order.verify(filesCommitter).doCommit(Collections.singletonList(second), 2L);
+    }
 
+    @Test
+    void testRestoreUsesSameReplaySafeFileCommitterAsOrdinaryCommit() throws Exception {
         WriteResult r0 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
         IcebergAggregatedCommitInfo aggregated =
                 committer.combine(
@@ -152,13 +165,11 @@ class IcebergAggregatedCommitterTest {
 
         committer.restoreCommit(Collections.singletonList(aggregated));
 
-        verify(filesCommitter, never()).doCommit(any(), anyLong());
+        verify(filesCommitter).doCommit(any(), eq(5L));
     }
 
     @Test
     void testRestoreCommitRecommitsCheckpointNotYetInIceberg() throws Exception {
-        when(filesCommitter.isAlreadyCommitted(eq(5L), any())).thenReturn(false);
-
         WriteResult r0 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
         IcebergAggregatedCommitInfo aggregated =
                 committer.combine(
@@ -178,28 +189,25 @@ class IcebergAggregatedCommitterTest {
                         Collections.singletonList(
                                 new IcebergCommitInfo(Collections.singletonList(r0), 0L)));
 
-        when(filesCommitter.isAlreadyCommitted(eq(0L), any())).thenReturn(false);
-
         committer.restoreCommit(Collections.singletonList(aggregated));
 
-        verify(filesCommitter, times(1)).isAlreadyCommitted(eq(0L), any());
         verify(filesCommitter, times(1)).doCommit(any(), eq(0L));
     }
 
     @Test
-    void testRestoreCommitWithUnknownCheckpointIdSkipsWhenFilesAlreadyPresent() throws Exception {
+    void testRestoreCommitWithUnknownCheckpointIdPropagatesPublicationFailure() throws Exception {
         WriteResult r0 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
         IcebergAggregatedCommitInfo aggregated =
                 new IcebergAggregatedCommitInfo(
                         Collections.singletonList(
                                 new IcebergCommitInfo(Collections.singletonList(r0), 0L)));
 
-        when(filesCommitter.isAlreadyCommitted(eq(0L), any())).thenReturn(true);
-
-        committer.restoreCommit(Collections.singletonList(aggregated));
-
-        verify(filesCommitter, times(1)).isAlreadyCommitted(eq(0L), any());
-        verify(filesCommitter, never()).doCommit(any(), anyLong());
+        doThrow(new IllegalStateException("publication failure"))
+                .when(filesCommitter)
+                .doCommit(any(), eq(0L));
+        assertThrows(
+                IllegalStateException.class,
+                () -> committer.restoreCommit(Collections.singletonList(aggregated)));
     }
 
     @Test
@@ -215,8 +223,6 @@ class IcebergAggregatedCommitterTest {
 
     @Test
     void testRestoreCommitMergesAllWorkersIntoSingleSnapshot() throws Exception {
-        when(filesCommitter.isAlreadyCommitted(eq(3L), any())).thenReturn(false);
-
         WriteResult r0 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
         WriteResult r1 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
         WriteResult r2 = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);

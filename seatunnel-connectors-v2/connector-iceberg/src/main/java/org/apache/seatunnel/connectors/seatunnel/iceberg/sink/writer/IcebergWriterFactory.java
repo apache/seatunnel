@@ -26,7 +26,6 @@ import org.apache.seatunnel.shade.com.google.common.primitives.Ints;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
@@ -124,10 +123,6 @@ public class IcebergWriterFactory {
                             .collect(toSet());
         }
 
-        if (!identifierFieldIds.isEmpty() || config.isUpsertModeEnabled()) {
-            checkDeltaWriteSupported(table);
-        }
-
         FileAppenderFactory<Record> appenderFactory;
         if (identifierFieldIds == null || identifierFieldIds.isEmpty()) {
             appenderFactory =
@@ -152,6 +147,35 @@ public class IcebergWriterFactory {
                         .operationId(UUID.randomUUID().toString())
                         .format(format)
                         .build();
+
+        boolean deltaWrite = !identifierFieldIds.isEmpty() || config.isUpsertModeEnabled();
+        int formatVersion = TableUtil.formatVersion(table);
+        if (deltaWrite && formatVersion > 3) {
+            throw new IcebergConnectorException(
+                    IcebergConnectorErrorCode.UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION,
+                    "Upsert and CDC writes are not supported for Iceberg table format version "
+                            + formatVersion
+                            + ", table: "
+                            + table.name());
+        }
+        if (deltaWrite && formatVersion == 3) {
+            OutputFileFactory dvFileFactory =
+                    OutputFileFactory.builderFor(table, 1, System.currentTimeMillis())
+                            .operationId(UUID.randomUUID().toString())
+                            .format(FileFormat.PUFFIN)
+                            .build();
+            return new DeletionVectorTaskWriter(
+                    table.spec(),
+                    format,
+                    appenderFactory,
+                    fileFactory,
+                    dvFileFactory,
+                    table.io(),
+                    targetFileSize,
+                    table.schema(),
+                    identifierFieldIds,
+                    config.isUpsertModeEnabled());
+        }
 
         TaskWriter<Record> writer;
         if (table.spec().isUnpartitioned()) {
@@ -207,27 +231,5 @@ public class IcebergWriterFactory {
             }
         }
         return writer;
-    }
-
-    /**
-     * The delta writers emit position delete files for rows that change more than once before a
-     * commit. Format version 3 only accepts deletion vectors for position deletes, so such a commit
-     * would fail; reject the write before any data file is produced.
-     */
-    private static void checkDeltaWriteSupported(Table table) {
-        int formatVersion = TableUtil.formatVersion(table);
-        if (formatVersion >= 3) {
-            throw new IcebergConnectorException(
-                    IcebergConnectorErrorCode.UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION,
-                    String.format(
-                            "Upsert and CDC writes are not supported for Iceberg tables with format"
-                                    + " version %d yet, table: %s. They need deletion vectors, which"
-                                    + " this connector does not write. Use a format version 2 table,"
-                                    + " or append without %s, %s and table identifier fields.",
-                            formatVersion,
-                            table.name(),
-                            IcebergSinkOptions.TABLE_PRIMARY_KEYS.key(),
-                            IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP.key()));
-        }
     }
 }

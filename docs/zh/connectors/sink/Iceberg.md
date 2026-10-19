@@ -103,7 +103,15 @@ iceberg.table.auto-create-props = {
 }
 ```
 
-格式版本 3 的表支持追加写入。Upsert 和 CDC 写入会在写入任何数据前以错误 `ICEBERG-04` 拒绝，因为 Sink 写出的是 position delete 文件，而格式版本 3 要求使用 deletion vector。这包括配置了 `iceberg.table.primary-keys` 或 `iceberg.table.upsert-mode-enabled`、写入带有 identifier fields 的已有表，以及为带主键的源表创建格式版本 3 的表（源表主键会成为 identifier fields）。Upsert 和 CDC 场景请使用格式版本 2 的表。
+格式版本 3 的表支持追加、Upsert 和 CDC 写入。Sink 使用 equality delete 删除已提交的行，并使用 Puffin deletion vector 删除当前任务写入器新数据文件中已失效的行，例如同一个主键在检查点之前被多次更新。Sink 不会扫描已有数据文件来定位删除行，也不会重写这些文件已有的 deletion vector。数据文件支持 Parquet、ORC 和 Avro；deletion vector 始终使用 Puffin。格式版本 2 保持原有的 equality delete 和 position delete 写入方式，且仍然是新建表的默认版本。
+
+对于分区表的 Upsert，请按照 Iceberg equality delete 的要求，将所有分区源列包含在主键中。同一个主键的更新应按源顺序交给同一个 Sink 写入器。跨分区更新需要显式删除旧主键和旧分区中的行，并插入新行；与格式版本 2 一样，Upsert 模式会忽略 `UPDATE_BEFORE`。检查点会原子提交新增数据文件、equality delete 文件和 deletion vector。流式作业应启用检查点。
+
+普通提交和恢复提交都会检查检查点重放。Sink 在发布数据和删除文件的同一个 Iceberg 快照中记录不可变写入结果的版本化指纹。检查点 ID 仅用于诊断：不同作业复用同一个编号时，不会丢弃新文件。检查仅使用配置分支的快照历史。对于没有指纹的旧快照，必须确认全部文件已发布；部分匹配会失败，而不是静默丢失或重复数据。读取 manifest 失败也会向上传播。
+
+兼容旧版本的发布检查可能读取历史 manifest。对于没有正检查点 ID 且指纹未匹配的负载，如果快照祖先存在缺口，还需要扫描当前存活文件的 manifest；包括新批处理负载在内，这项兼容检查的开销可能随表的文件数增长。指纹已匹配的重放和新的正 ID 检查点提交不需要这项存活文件扫描。
+
+对于仍可能恢复的检查点，必须保留其所需的快照祖先、manifest 和待提交的数据及删除文件。快照过期、分支回滚或孤立文件清理不能删除这些恢复证据；相关历史已经过期后的重放不在保证范围内。与引擎的单一聚合提交器一致，同一个检查点负载只能由一个活动尝试发布；不同文件的独立作业可以并发写入，但同一负载的重叠尝试需要引擎进行 fencing。无需修改检查点序列化或配置。
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 
