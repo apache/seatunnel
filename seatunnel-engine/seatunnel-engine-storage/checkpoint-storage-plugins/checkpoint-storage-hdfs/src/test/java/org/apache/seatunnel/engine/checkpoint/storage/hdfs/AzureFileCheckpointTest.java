@@ -24,7 +24,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledIf;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +38,11 @@ import java.util.Map;
 @EnabledIf(
         value = "isDockerAvailable",
         disabledReason = "The Azure storage tests run Azurite and need Docker")
+@DisabledOnOs(
+        value = OS.WINDOWS,
+        disabledReason =
+                "Azurite is a Linux image, and the fixed 127.0.0.1:10000 binding that"
+                        + " hadoop-azure's emulator mode requires is often taken on Windows hosts")
 public class AzureFileCheckpointTest extends AbstractFileCheckPointTest {
 
     private static AzuriteEmulator azurite;

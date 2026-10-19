@@ -35,6 +35,9 @@ import com.microsoft.azure.storage.CloudStorageAccount;
  * therefore binds exactly that host address and port for the lifetime of the test class, and fails
  * with an explicit message when it cannot. Only the public development storage account is used: no
  * real credential or endpoint is configured, read or printed.
+ *
+ * <p>An identical copy lives in {@code checkpoint-storage-hdfs} ({@code
+ * org.apache.seatunnel.engine.checkpoint.storage.hdfs.AzuriteEmulator}). Keep the two in sync.
  */
 final class AzuriteEmulator implements AutoCloseable {
 
@@ -44,6 +47,8 @@ final class AzuriteEmulator implements AutoCloseable {
     private static final String CONTAINER_NAME = "seatunnel";
     private static final String HOST = "127.0.0.1";
     private static final int PORT = 10000;
+    private static final int CONTAINER_CREATE_ATTEMPTS = 10;
+    private static final long CONTAINER_CREATE_RETRY_MILLIS = 500L;
     private static final DockerImageName IMAGE =
             DockerImageName.parse("mcr.microsoft.com/azure-storage/azurite:3.33.0");
 
@@ -100,21 +105,37 @@ final class AzuriteEmulator implements AutoCloseable {
                             + " so the port must be free while the Azure storage tests run.",
                     e);
         }
-        try {
-            CloudStorageAccount.getDevelopmentStorageAccount()
-                    .createCloudBlobClient()
-                    .getContainerReference(CONTAINER_NAME)
-                    .createIfNotExists();
-        } catch (Exception e) {
-            azurite.close();
-            throw new IllegalStateException(
-                    "Azurite started but the test container could not be created on "
-                            + HOST
-                            + ":"
-                            + PORT,
-                    e);
+        // The port can accept connections shortly before the blob service is ready.
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= CONTAINER_CREATE_ATTEMPTS; attempt++) {
+            try {
+                CloudStorageAccount.getDevelopmentStorageAccount()
+                        .createCloudBlobClient()
+                        .getContainerReference(CONTAINER_NAME)
+                        .createIfNotExists();
+                return new AzuriteEmulator(azurite);
+            } catch (Exception e) {
+                lastError = e;
+                if (attempt < CONTAINER_CREATE_ATTEMPTS) {
+                    try {
+                        Thread.sleep(CONTAINER_CREATE_RETRY_MILLIS);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
         }
-        return new AzuriteEmulator(azurite);
+        azurite.close();
+        throw new IllegalStateException(
+                "Azurite started but the test container could not be created on "
+                        + HOST
+                        + ":"
+                        + PORT
+                        + " after "
+                        + CONTAINER_CREATE_ATTEMPTS
+                        + " attempts",
+                lastError);
     }
 
     @Override

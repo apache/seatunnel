@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.imap.storage.file.wal.writer.CloudWriter;
 
 import org.apache.hadoop.conf.Configuration;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,6 +38,12 @@ import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 public class AzureConfigurationTest {
 
     private static final String CONTAINER = "wasbs://seatunnel@account.blob.core.windows.net";
+
+    @AfterEach
+    void resetSharedBlockSize() {
+        // The AZURE configuration is a shared instance; do not leak block.size to other tests.
+        FileConfiguration.AZURE.getConfiguration().setBlockSize(1024 * 1024L);
+    }
 
     @Test
     public void testBuildConfiguration() throws Exception {
