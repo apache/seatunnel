@@ -717,6 +717,8 @@ sink {
 }
 ```
 
+写入 PostgreSQL 的 `interval` 列时，JDBC Sink 会将十进制整数字符串作为微秒数处理，例如 `"1500000"` 表示 1.5 秒。转换会保留负数、零值及微秒精度，并支持 64 位有符号整数范围。已有的 interval 文本（如 `1 day 02:03:04.5`）会原样传递；空值写入为 SQL NULL。
+
 ### 自动创建不存在的目标表
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表

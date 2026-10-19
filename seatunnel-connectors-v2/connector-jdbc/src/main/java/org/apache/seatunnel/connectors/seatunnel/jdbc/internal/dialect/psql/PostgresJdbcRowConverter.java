@@ -47,7 +47,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -68,6 +67,12 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    /** Number of microseconds in one day, used to split an interval value into days and seconds. */
+    private static final long MICROSECONDS_PER_DAY = 86_400_000_000L;
+
+    /** Scale of the seconds part of a generated interval literal, i.e. microseconds precision. */
+    private static final int SECONDS_SCALE = 6;
 
     private final boolean numericSpecialValueAsNull;
 
@@ -423,21 +428,24 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         return null;
     }
 
+    /**
+     * Converts a PostgreSQL interval value expressed as a number of microseconds into a PostgreSQL
+     * interval literal, e.g. {@code 1500000} becomes {@code 0 days 1.500000 seconds}.
+     *
+     * <p>The value is split into a signed number of days plus the remaining part of a day in
+     * seconds, which keeps sub-second values, negative values and the whole {@code long} range
+     * exact; the seconds part is a plain decimal number because older PostgreSQL versions reject
+     * interval literals with a large integer number of seconds.
+     *
+     * @param intervalVal the interval value as a number of microseconds
+     * @return the equivalent PostgreSQL interval literal
+     */
     public String microsecondsToIntervalFormatVal(String intervalVal) {
-        Duration duration = Duration.ofNanos(Long.parseLong(intervalVal) * 1000);
-        int days = (int) duration.toDays();
-        duration = duration.minusDays(days);
-        int hours = (int) duration.toHours();
-        duration = duration.minusHours(hours);
-        int minutes = (int) duration.toMinutes();
-        duration = duration.minusMinutes(minutes);
-        int seconds = (int) duration.getSeconds();
-        StringBuilder sb = new StringBuilder();
-        if (days > 0) sb.append(days).append(" days ");
-        if (hours > 0) sb.append(hours).append(" hours ");
-        if (minutes > 0) sb.append(minutes).append(" minutes ");
-        if (seconds > 0) sb.append(seconds).append(" seconds");
-        return sb.toString().trim();
+        long microseconds = Long.parseLong(intervalVal);
+        long days = microseconds / MICROSECONDS_PER_DAY;
+        long remainingMicroseconds = microseconds % MICROSECONDS_PER_DAY;
+        String seconds = BigDecimal.valueOf(remainingMicroseconds, SECONDS_SCALE).toPlainString();
+        return days + " days " + seconds + " seconds";
     }
 
     private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
