@@ -166,7 +166,9 @@ public class MultipleTableJobConfigParser {
                 new MetadataConfig());
     }
 
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
     @VisibleForTesting
+    @Deprecated
     public MultipleTableJobConfigParser(
             String jobDefineFilePath,
             IdGenerator idGenerator,
@@ -199,6 +201,48 @@ public class MultipleTableJobConfigParser {
                 jobConfig,
                 commonPluginJars,
                 restoreMode,
+                pipelineCheckpoints,
+                metaDataConfig);
+    }
+
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
+    public MultipleTableJobConfigParser(
+            String jobDefineFilePath,
+            List<String> variables,
+            IdGenerator idGenerator,
+            JobConfig jobConfig,
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint,
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            MetadataConfig metaDataConfig) {
+        this(
+                jobDefineFilePath,
+                variables,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                pipelineCheckpoints,
+                metaDataConfig);
+    }
+
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
+    public MultipleTableJobConfigParser(
+            Config seaTunnelJobConfig,
+            IdGenerator idGenerator,
+            JobConfig jobConfig,
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint,
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            MetadataConfig metaDataConfig) {
+        this(
+                seaTunnelJobConfig,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
                 pipelineCheckpoints,
                 metaDataConfig);
     }

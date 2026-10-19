@@ -777,6 +777,12 @@ public class JobMaster {
         }
     }
 
+    /** @deprecated Use {@link #handleSaveMode(SeaTunnelSink, RestoreMode)}. */
+    @Deprecated
+    public static void handleSaveMode(SeaTunnelSink sink, boolean isStartWithSavePoint) {
+        handleSaveMode(sink, isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE);
+    }
+
     public static void handleSaveMode(SeaTunnelSink sink, RestoreMode restoreMode) {
         boolean isRestoreJob = restoreMode != null && restoreMode.isRestore();
         if (sink instanceof SupportSaveMode) {

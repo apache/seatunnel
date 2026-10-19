@@ -44,6 +44,9 @@ public abstract class AbstractJobEnvironment {
 
     protected final RestoreMode restoreMode;
 
+    /** @deprecated Use {@link #restoreMode} to distinguish restore modes. */
+    @Deprecated protected final boolean isStartWithSavePoint;
+
     protected final List<Action> actions = new ArrayList<>();
 
     protected final Set<URL> jarUrls = new HashSet<>();
@@ -56,6 +59,8 @@ public abstract class AbstractJobEnvironment {
 
     protected final List<URL> commonPluginJars = new ArrayList<>();
 
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
     public AbstractJobEnvironment(JobConfig jobConfig, boolean isStartWithSavePoint) {
         this(jobConfig, isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE);
     }
@@ -64,6 +69,7 @@ public abstract class AbstractJobEnvironment {
         LOGGER = Logger.getLogger(getClass().getName());
         this.jobConfig = jobConfig;
         this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.isStartWithSavePoint = this.restoreMode == RestoreMode.SAVEPOINT;
         this.idGenerator = new IdGenerator();
         this.commonPluginJars.addAll(searchPluginJars());
     }
