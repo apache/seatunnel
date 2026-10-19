@@ -392,50 +392,69 @@ public final class ContainerUtil {
     }
 
     public static List<TestContainer> discoverTestContainers() {
+        return applyEngineSelection(discoverAllTestContainers());
+    }
+
+    /**
+     * Discovers every {@link TestContainer} registered in the context class loader, without the
+     * engine selection of the build. {@link
+     * org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension} compares these containers
+     * with the selected ones to tell a suite the engine selection left without containers apart
+     * from a suite whose containers are empty for its own reasons.
+     */
+    public static List<TestContainer> discoverAllTestContainers() {
         try {
             final List<TestContainer> result = new LinkedList<>();
             ServiceLoader.load(TestContainer.class, Thread.currentThread().getContextClassLoader())
                     .iterator()
                     .forEachRemaining(result::add);
-            boolean isTestInPR =
-                    Boolean.parseBoolean(System.getenv().getOrDefault("TEST_IN_PR", "true"));
-            boolean testAllContainer =
-                    Boolean.parseBoolean(System.getenv().getOrDefault("RUN_ALL_CONTAINER", "true"));
-            boolean testZetaContainer =
-                    Boolean.parseBoolean(
-                            System.getenv().getOrDefault("RUN_ZETA_CONTAINER", "true"));
-            log.info(
-                    "Test in PR: {}, Run all container: {}, Run zeta container: {}",
-                    isTestInPR,
-                    testAllContainer,
-                    testZetaContainer);
-            if (isTestInPR) {
-                return filterByRunEngines(
-                        result.stream()
-                                .filter(container -> container.identifier().isTestInPR())
-                                .filter(
-                                        container -> {
-                                            if (testAllContainer
-                                                    || container.identifier().equals(FLINK_1_18)
-                                                    || container.identifier().equals(FLINK_1_20)
-                                                    || container.identifier().equals(SPARK_3_3)) {
-                                                return true;
-                                            }
-                                            if (testZetaContainer) {
-                                                return container
-                                                        .identifier()
-                                                        .getEngineType()
-                                                        .equals(EngineType.SEATUNNEL);
-                                            }
-                                            return true;
-                                        })
-                                .collect(Collectors.toList()));
-            } else {
-                return filterByRunEngines(result);
-            }
+            return result;
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for containers.", e);
             throw new FactoryException("Could not load service provider for containers.", e);
+        }
+    }
+
+    /**
+     * Applies the engine selection of the build: {@code TEST_IN_PR}, {@code RUN_ALL_CONTAINER},
+     * {@code RUN_ZETA_CONTAINER} and {@code RUN_ENGINES}. When the variables are unset the defaults
+     * keep every container a PR build runs.
+     */
+    public static List<TestContainer> applyEngineSelection(List<TestContainer> containers) {
+        boolean isTestInPR =
+                Boolean.parseBoolean(System.getenv().getOrDefault("TEST_IN_PR", "true"));
+        boolean testAllContainer =
+                Boolean.parseBoolean(System.getenv().getOrDefault("RUN_ALL_CONTAINER", "true"));
+        boolean testZetaContainer =
+                Boolean.parseBoolean(System.getenv().getOrDefault("RUN_ZETA_CONTAINER", "true"));
+        log.info(
+                "Test in PR: {}, Run all container: {}, Run zeta container: {}",
+                isTestInPR,
+                testAllContainer,
+                testZetaContainer);
+        if (isTestInPR) {
+            return filterByRunEngines(
+                    containers.stream()
+                            .filter(container -> container.identifier().isTestInPR())
+                            .filter(
+                                    container -> {
+                                        if (testAllContainer
+                                                || container.identifier().equals(FLINK_1_18)
+                                                || container.identifier().equals(FLINK_1_20)
+                                                || container.identifier().equals(SPARK_3_3)) {
+                                            return true;
+                                        }
+                                        if (testZetaContainer) {
+                                            return container
+                                                    .identifier()
+                                                    .getEngineType()
+                                                    .equals(EngineType.SEATUNNEL);
+                                        }
+                                        return true;
+                                    })
+                            .collect(Collectors.toList()));
+        } else {
+            return filterByRunEngines(containers);
         }
     }
 
