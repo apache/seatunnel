@@ -20,6 +20,16 @@ The old configuration name `source_table_name` is deprecated, please migrate to 
 | plugin_input  | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.                                                                   |
 | metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information. |
 
+### plugin_input [string]
+
+When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file.
+
+When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.
+
+### metadata_datasource_id [string]
+
+The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information.
+
 # Important note
 
 When the job configuration `plugin_input` you must set the `plugin_output` parameter

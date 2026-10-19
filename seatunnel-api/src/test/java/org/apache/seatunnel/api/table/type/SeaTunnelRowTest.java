@@ -248,4 +248,27 @@ public class SeaTunnelRowTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
         Assertions.assertEquals(8, row.getBytesSize());
     }
+
+    @Test
+    void testRowTypeCopiesConstructorArrays() {
+        String[] fieldNames = new String[] {"id", "name"};
+        SeaTunnelDataType<?>[] fieldTypes =
+                new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.STRING_TYPE};
+        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+
+        Assertions.assertEquals(0, rowType.indexOf("id", false));
+        Assertions.assertEquals(1, rowType.indexOf("name", false));
+
+        // Mutating the arrays passed to the constructor must not change the row type.
+        fieldNames[0] = "name";
+        fieldNames[1] = "id";
+        fieldTypes[0] = BasicType.STRING_TYPE;
+        fieldTypes[1] = BasicType.INT_TYPE;
+
+        Assertions.assertEquals(0, rowType.indexOf("id", false));
+        Assertions.assertEquals(1, rowType.indexOf("name", false));
+        Assertions.assertEquals(BasicType.INT_TYPE, rowType.getFieldType(0));
+        Assertions.assertEquals(BasicType.STRING_TYPE, rowType.getFieldType(1));
+        Assertions.assertArrayEquals(new String[] {"id", "name"}, rowType.getFieldNames());
+    }
 }
