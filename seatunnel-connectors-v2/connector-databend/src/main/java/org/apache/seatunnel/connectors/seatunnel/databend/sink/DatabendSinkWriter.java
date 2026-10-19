@@ -88,6 +88,9 @@ public class DatabendSinkWriter
     private String streamName;
     private String targetTableName;
     private PreparedStatement cdcPreparedStatement;
+    // Set once a CDC batch reaches the raw table, cleared after it is merged into the target table.
+    // executeBatch() resets batchCount, so batchCount cannot tell whether a merge is still needed.
+    private boolean hasUnmergedCdcRows = false;
     private String conflictKey;
     private boolean enableDelete;
 
@@ -224,7 +227,7 @@ public class DatabendSinkWriter
     }
 
     private void performMerge() {
-        if (batchCount <= 0) {
+        if (!hasUnmergedCdcRows) {
             log.debug("No data to merge, skipping");
             return;
         }
@@ -235,7 +238,7 @@ public class DatabendSinkWriter
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(mergeSql);
             log.info("Merge operation completed successfully");
-            batchCount = 0; // Reset batch count after successful merge
+            hasUnmergedCdcRows = false;
         } catch (SQLException e) {
             log.error("Failed to execute merge operation: {}", e.getMessage(), e);
         }
@@ -738,6 +741,7 @@ public class DatabendSinkWriter
                     log.info(
                             "CDC batch executed successfully, total affected rows: {}",
                             totalAffected);
+                    hasUnmergedCdcRows = true;
                     verifyRawTableData(rawTableName, sinkTablePath.getDatabaseName());
                 } else {
                     int[] results = preparedStatement.executeBatch();

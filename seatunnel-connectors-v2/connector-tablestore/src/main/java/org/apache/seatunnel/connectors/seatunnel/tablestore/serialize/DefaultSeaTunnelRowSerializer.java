@@ -147,11 +147,12 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case STRING:
                 return new Column(columnName, ColumnValue.fromString(String.valueOf(value)));
             case INTEGER:
-                return new Column(columnName, ColumnValue.fromLong((long) value));
+                return new Column(columnName, ColumnValue.fromLong(((Number) value).longValue()));
             case BOOLEAN:
                 return new Column(columnName, ColumnValue.fromBoolean((boolean) value));
             case DOUBLE:
-                return new Column(columnName, ColumnValue.fromDouble((Double) value));
+                return new Column(
+                        columnName, ColumnValue.fromDouble(((Number) value).doubleValue()));
             case BINARY:
                 return new Column(columnName, ColumnValue.fromBinary((byte[]) value));
             default:
@@ -171,7 +172,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 return new PrimaryKeyColumn(
                         columnName, PrimaryKeyValue.fromString(String.valueOf(value)));
             case INTEGER:
-                return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromLong((long) value));
+                return new PrimaryKeyColumn(
+                        columnName, PrimaryKeyValue.fromLong(((Number) value).longValue()));
             case BINARY:
                 return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromBinary((byte[]) value));
             default:

@@ -34,7 +34,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -76,6 +78,12 @@ class SmbFileFactoryTest {
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPRESS_CODEC));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC));
     }
 
     @Test
@@ -222,6 +230,42 @@ class SmbFileFactoryTest {
 
         Assertions.assertEquals("smb://192.168.1.100:445", hadoopConf.getHdfsNameKey());
         Assertions.assertEquals("smb", hadoopConf.getSchema());
+    }
+
+    @Test
+    void consumedOptionsAcceptedByValidateUnknownKeys() {
+        // These options are consumed by AbstractReadStrategy / CsvReadStrategy /
+        // BinaryReadStrategy at runtime. They MUST be declared in the factory's
+        // optionRule() so that ConfigValidator.validateUnknownKeys (called by
+        // --check / --dry-run at SeaTunnelConfValidateCommand:325) does not
+        // reject them as "unknown option keys".
+        Map<String, Object> consumedOptions = new LinkedHashMap<>();
+        consumedOptions.put(
+                FileBaseSourceOptions.READ_PARTITIONS.key(),
+                Collections.singletonList("year=2024"));
+        consumedOptions.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), true);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key(), 2048);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key(), true);
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key(), "2024-01-01 00:00:00");
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key(), "2024-12-31 23:59:59");
+        consumedOptions.put(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key(), true);
+        consumedOptions.put(FileBaseSourceOptions.COMPRESS_CODEC.key(), "gzip");
+        consumedOptions.put(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key(), "zip");
+
+        OptionRule optionRule = (new SmbFileSourceFactory()).optionRule();
+
+        for (Map.Entry<String, Object> entry : consumedOptions.entrySet()) {
+            Map<String, Object> config = sourceConfig();
+            config.put(entry.getKey(), entry.getValue());
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            ConfigValidator.validateUnknownKeys(
+                                    ReadonlyConfig.fromMap(config), optionRule, "SmbFile"),
+                    "validateUnknownKeys should accept declared option: " + entry.getKey());
+        }
     }
 
     private static Map<String, Object> sourceConfig() {

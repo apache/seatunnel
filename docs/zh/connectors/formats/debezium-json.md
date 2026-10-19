@@ -14,6 +14,10 @@ SeaTunnel 支持将 Debezium JSON 消息解析为 INSERT/UPDATE/DELETE 消息并
 
 SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息解析为 Debezium JSON 消息，并将其发送到类似 Kafka 这样的存储中
 
+## 限制
+
+更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
+
 # 格式选项
 
 |                选项                 |  默认值   | 是否需要 |                  描述                  |
