@@ -20,6 +20,9 @@ limitations under the License.
 `JdbcIngresIT` 默认跳过。它使用已有的、已获许可的 Ingres 实例和本地驱动，
 不下载数据库镜像、不接受商业许可，也不将驱动加入 Maven 依赖。
 
+没有现成实例时，可以申请 [Actian Ingres 12.1 的 30 天评估版](https://esd.actian.com/product/Ingres/12.1/Linux_X86_64-bit/Actian_Ingres_12.1_Evaluation_Edition)。
+官方要求先向 `eval@actian.com` 申请评估许可证才能激活。获取许可并启动实例后，再使用下列参数运行测试。
+
 运行前需要：
 
 - 可运行 SeaTunnel E2E 的 Docker 环境，以及已构建的引擎和连接器。

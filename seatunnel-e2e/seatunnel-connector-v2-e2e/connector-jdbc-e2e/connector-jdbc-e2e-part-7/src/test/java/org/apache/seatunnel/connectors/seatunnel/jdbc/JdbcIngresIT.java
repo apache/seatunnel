@@ -47,7 +47,6 @@ import java.sql.Statement;
 import java.util.Properties;
 import java.util.UUID;
 
-/** 使用用户提供的驱动和已获许可的 Ingres 实例验证 JDBC Source。 */
 @EnabledIfEnvironmentVariable(named = "INGRES_E2E", matches = "(?i)true")
 public class JdbcIngresIT extends TestSuiteBase {
     private URLClassLoader driverLoader;
@@ -128,7 +127,6 @@ public class JdbcIngresIT extends TestSuiteBase {
                             "/tmp/seatunnel/plugins/Jdbc/lib/iijdbc.jar");
                 });
         try {
-            // 分别验证两行，避免总行数正确但 NULL 或主键值错误时误通过。
             for (int id = 1; id <= 2; id++) {
                 byte[] config =
                         connectionConfig
@@ -143,7 +141,6 @@ public class JdbcIngresIT extends TestSuiteBase {
                                 .root()
                                 .render(ConfigRenderOptions.concise())
                                 .getBytes(StandardCharsets.UTF_8);
-                // 配置仅写入测试容器，不将凭据放入命令行或资源目录。
                 container.executeExtraCommands(
                         engine ->
                                 engine.copyFileToContainer(

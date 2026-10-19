@@ -52,7 +52,6 @@ public class IngresDialect extends GenericDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        // 数据库由 JDBC URL 指定，SQL 中只使用 owner.table。
         String owner = tablePath.getSchemaName();
         String table = quoteDatabaseIdentifier(tablePath.getTableName());
         return owner == null || owner.isEmpty()
@@ -73,7 +72,6 @@ public class IngresDialect extends GenericDialect {
 
     @Override
     public boolean supportHashSplitter() {
-        // 通用 MD5 取模表达式未经 Ingres 验证，使用现有的单分片回退。
         return false;
     }
 }
