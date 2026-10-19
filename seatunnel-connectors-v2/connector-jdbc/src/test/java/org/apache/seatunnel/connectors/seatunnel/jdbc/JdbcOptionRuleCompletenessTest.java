@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
@@ -40,12 +41,19 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Every option the Jdbc connector defines must be declared in the factory option rule.
+ * Every applicable Jdbc option must be declared in its source or sink factory option rule.
  *
  * <p>{@code --check}, {@code --dry-run} and the Flink/Spark config validation reject any key that
  * is not declared in the rule ({@link ConfigValidator#validateUnknownKeys}), so a defined but
  * undeclared option makes a valid config fail validation. The options are collected by reflection,
  * so an option added later is covered without changing this test.
+ *
+ * <p>The source and sink factories each own the options that are applicable to their own side, so a
+ * field declared in the shared {@link JdbcCommonOptions} is not automatically a member of both
+ * rules: the source reads some options the sink never consumes and vice versa. {@link
+ * #NOT_SOURCE_OPTIONS} and {@link #NOT_SINK_OPTIONS} hold exactly those documented scoped
+ * exceptions, so every other option visible from an options class stays declared by the matching
+ * factory.
  */
 class JdbcOptionRuleCompletenessTest {
 
@@ -53,6 +61,12 @@ class JdbcOptionRuleCompletenessTest {
     private static final Set<String> NOT_SOURCE_OPTIONS =
             Collections.unmodifiableSet(
                     new HashSet<>(Arrays.asList(JdbcCommonOptions.SCHEMA.key())));
+
+    /** Source-only options that the sink does not read. */
+    private static final Set<String> NOT_SINK_OPTIONS =
+            Collections.unmodifiableSet(
+                    new HashSet<>(
+                            Arrays.asList(JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key())));
 
     @Test
     void testSourceRuleDeclaresAllSourceOptions() {
@@ -65,7 +79,32 @@ class JdbcOptionRuleCompletenessTest {
     void testSinkRuleDeclaresAllSinkOptions() {
         assertAllDeclared(
                 new JdbcSinkFactory().optionRule(),
-                collectOptionKeys(JdbcSinkOptions.class, Collections.emptySet()));
+                collectOptionKeys(JdbcSinkOptions.class, NOT_SINK_OPTIONS));
+    }
+
+    /** The source-only key must remain accepted by the source and rejected by the sink. */
+    @Test
+    void testSourceOnlyOptionRejectedBySinkRule() {
+        String key = JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key();
+        // Only key membership matters here.
+        Map<String, Object> config = Collections.singletonMap(key, true);
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config),
+                                new JdbcSourceFactory().optionRule(),
+                                "Jdbc"));
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        ReadonlyConfig.fromMap(config),
+                                        new JdbcSinkFactory().optionRule(),
+                                        "Jdbc"));
+        Assertions.assertTrue(
+                exception.getMessage().contains(key),
+                "Sink rejection must name '" + key + "', but was: " + exception.getMessage());
     }
 
     private static void assertAllDeclared(OptionRule rule, Set<String> optionKeys) {
