@@ -68,6 +68,16 @@ public class TypeConverterUtils {
     }
 
     public static DataType convert(SeaTunnelDataType<?> dataType) {
+        return convert(dataType, null);
+    }
+
+    /**
+     * @param collectionPart {@code "element"}, {@code "key"} or {@code "value"} inside an ARRAY or
+     *     MAP, else {@code null}. A wide decimal there fails. {@code MultiTableManager} already
+     *     rejects it with the table and column at job start; this only keeps other callers safe
+     *     without walking the type tree again.
+     */
+    private static DataType convert(SeaTunnelDataType<?> dataType, String collectionPart) {
         checkNotNull(dataType, "The SeaTunnel's data type is required.");
         switch (dataType.getSqlType()) {
             case NULL:
@@ -99,16 +109,19 @@ public class TypeConverterUtils {
             case TIMESTAMP_TZ:
                 return OffsetDateTimeUtils.OFFSET_DATETIME_WITH_DECIMAL;
             case ARRAY:
-                WideDecimalUtils.checkCollectionType(dataType);
                 return DataTypes.createArrayType(
-                        convert(((ArrayType<?, ?>) dataType).getElementType()));
+                        convert(((ArrayType<?, ?>) dataType).getElementType(), "element"));
             case MAP:
-                WideDecimalUtils.checkCollectionType(dataType);
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 return DataTypes.createMapType(
-                        convert(mapType.getKeyType()), convert(mapType.getValueType()));
+                        convert(mapType.getKeyType(), "key"),
+                        convert(mapType.getValueType(), "value"));
             case DECIMAL:
                 if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    if (collectionPart != null) {
+                        throw WideDecimalUtils.collectionError(
+                                null, collectionPart, (DecimalType) dataType);
+                    }
                     // Spark stops at precision 38; the field metadata keeps the declared type.
                     return DataTypes.StringType;
                 }
@@ -116,15 +129,13 @@ public class TypeConverterUtils {
                 return new org.apache.spark.sql.types.DecimalType(
                         decimalType.getPrecision(), decimalType.getScale());
             case ROW:
-                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                WideDecimalUtils.checkNoWideDecimalInCollection(null, rowType);
-                return convert(rowType);
+                return convert((SeaTunnelRowType) dataType, collectionPart);
             default:
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
 
-    private static StructType convert(SeaTunnelRowType rowType) {
+    private static StructType convert(SeaTunnelRowType rowType, String collectionPart) {
         // TODO: row kind
         StructField[] fields = new StructField[rowType.getFieldNames().length];
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
@@ -146,7 +157,11 @@ public class TypeConverterUtils {
             }
 
             fields[i] =
-                    new StructField(rowType.getFieldNames()[i], convert(fieldType), true, metadata);
+                    new StructField(
+                            rowType.getFieldNames()[i],
+                            convert(fieldType, collectionPart),
+                            true,
+                            metadata);
         }
         return new StructType(fields);
     }

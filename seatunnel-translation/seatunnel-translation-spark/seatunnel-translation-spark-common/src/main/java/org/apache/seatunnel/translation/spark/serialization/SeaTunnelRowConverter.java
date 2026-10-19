@@ -94,8 +94,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         return convert(field, dataType, null);
     }
 
-    /** @param path the column path, used in error messages; {@code null} inside an ARRAY or MAP */
-    private Object convert(Object field, SeaTunnelDataType<?> dataType, String path) {
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private Object convert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
@@ -103,11 +106,15 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                return convertRow(seaTunnelRow, rowType, path);
+                try {
+                    return convertRow(seaTunnelRow, rowType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
+                }
             case DECIMAL:
                 if (WideDecimalUtils.isWideDecimal(dataType)) {
                     return WideDecimalUtils.toCarrierText(
-                            (BigDecimal) field, (DecimalType) dataType, path);
+                            (BigDecimal) field, (DecimalType) dataType, column);
                 }
                 return field;
             case DATE:
@@ -151,8 +158,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         }
     }
 
-    private GenericRow convertRow(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType, String path) {
+    private GenericRow convertRow(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         int arity = rowType.getTotalFields();
         Object[] values = new Object[arity];
         for (int i = 0; i < arity; i++) {
@@ -160,7 +166,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                     convert(
                             seaTunnelRow.getField(i),
                             rowType.getFieldType(i),
-                            childPath(path, rowType.getFieldName(i)));
+                            rowType.getFieldName(i));
             if (fieldValue != null) {
                 values[i] = fieldValue;
             }
@@ -235,23 +241,30 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         return reconvert(field, dataType, null);
     }
 
-    /** @param path the column path, used in error messages; {@code null} inside an ARRAY or MAP */
-    private Object reconvert(Object field, SeaTunnelDataType<?> dataType, String path) {
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private Object reconvert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
             case ROW:
-                if (field instanceof GenericRow) {
-                    return createFromGenericRow(
-                            (GenericRow) field, (SeaTunnelRowType) dataType, path);
+                try {
+                    if (field instanceof GenericRow) {
+                        return createFromGenericRow(
+                                (GenericRow) field, (SeaTunnelRowType) dataType);
+                    }
+                    return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
                 }
-                return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType, path);
             case DECIMAL:
                 if (WideDecimalUtils.isWideDecimal(dataType)
                         && (field instanceof String || field instanceof UTF8String)) {
                     return WideDecimalUtils.fromCarrierText(
-                            field.toString(), (DecimalType) dataType, path);
+                            field.toString(), (DecimalType) dataType, column);
                 }
                 return field;
             case DATE:
@@ -276,20 +289,16 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         }
     }
 
-    private SeaTunnelRow createFromGenericRow(GenericRow row, SeaTunnelRowType type, String path) {
+    private SeaTunnelRow createFromGenericRow(GenericRow row, SeaTunnelRowType type) {
         Object[] fields = row.values();
         Object[] newFields = new Object[fields.length];
         for (int idx = 0; idx < fields.length; idx++) {
-            newFields[idx] =
-                    reconvert(
-                            fields[idx],
-                            type.getFieldType(idx),
-                            childPath(path, type.getFieldName(idx)));
+            newFields[idx] = reconvert(fields[idx], type.getFieldType(idx), type.getFieldName(idx));
         }
         return new SeaTunnelRow(newFields);
     }
 
-    private SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType, String path) {
+    private SeaTunnelRow reconvert(SeaTunnelRow engineRow, SeaTunnelRowType rowType) {
         int num = engineRow.getFields().length;
         Object[] fields = new Object[num];
         for (int i = 0; i < num; i++) {
@@ -297,13 +306,9 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                     reconvert(
                             engineRow.getFields()[i],
                             rowType.getFieldType(i),
-                            childPath(path, rowType.getFieldName(i)));
+                            rowType.getFieldName(i));
         }
         return new SeaTunnelRow(fields);
-    }
-
-    private static String childPath(String parentPath, String fieldName) {
-        return InternalRowConverter.childPath(parentPath, fieldName);
     }
 
     /**

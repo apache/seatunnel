@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.translation.spark.exception.SparkTranslationErrorCode;
 
@@ -122,20 +121,6 @@ public final class WideDecimalUtils {
         }
     }
 
-    /**
-     * Fails if the element, key or value type of an {@code ARRAY} or {@code MAP} contains a wide
-     * decimal. The path in the error is relative to the collection.
-     */
-    static void checkCollectionType(SeaTunnelDataType<?> collectionType) {
-        if (collectionType.getSqlType() == SqlType.ARRAY) {
-            check(null, "element", ((ArrayType<?, ?>) collectionType).getElementType(), true);
-        } else if (collectionType.getSqlType() == SqlType.MAP) {
-            MapType<?, ?> mapType = (MapType<?, ?>) collectionType;
-            check(null, "key", mapType.getKeyType(), true);
-            check(null, "value", mapType.getValueType(), true);
-        }
-    }
-
     private static void check(
             String tablePath, String path, SeaTunnelDataType<?> dataType, boolean inCollection) {
         switch (dataType.getSqlType()) {
@@ -219,7 +204,7 @@ public final class WideDecimalUtils {
         return String.format("DECIMAL(%d, %d)", decimalType.getPrecision(), decimalType.getScale());
     }
 
-    private static SeaTunnelRuntimeException collectionError(
+    static SeaTunnelRuntimeException collectionError(
             String tablePath, String columnPath, DecimalType decimalType) {
         String table = tablePath == null ? "" : String.format(" of table `%s`", tablePath);
         return new SeaTunnelRuntimeException(
@@ -235,13 +220,9 @@ public final class WideDecimalUtils {
                         columnPath, table, typeName(decimalType), SPARK_MAX_PRECISION));
     }
 
-    private static SeaTunnelRuntimeException invalidValue(
+    private static InvalidWideDecimalException invalidValue(
             String column, DecimalType decimalType, String value, String reason) {
-        return new SeaTunnelRuntimeException(
-                SparkTranslationErrorCode.INVALID_WIDE_DECIMAL_VALUE,
-                String.format(
-                        "Column `%s` declared as %s: value '%s' is rejected because %s.",
-                        column, typeName(decimalType), abbreviate(value), reason));
+        return new InvalidWideDecimalException(column, decimalType, abbreviate(value), reason);
     }
 
     private static SeaTunnelRuntimeException invalidMetadata(StructField field, String reason) {
@@ -250,6 +231,49 @@ public final class WideDecimalUtils {
                 String.format(
                         "Field `%s` of type %s has metadata %s, but %s.",
                         field.name(), field.dataType().sql(), field.metadata().json(), reason));
+    }
+
+    /**
+     * A wide decimal value that cannot be carried. The converters pass only the field name down and
+     * each enclosing {@code ROW} adds its name on the way up, so the column path is built only when
+     * a value fails.
+     */
+    public static final class InvalidWideDecimalException extends SeaTunnelRuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        private final String column;
+        private final DecimalType decimalType;
+        private final String value;
+        private final String reason;
+
+        private InvalidWideDecimalException(
+                String column, DecimalType decimalType, String value, String reason) {
+            super(
+                    SparkTranslationErrorCode.INVALID_WIDE_DECIMAL_VALUE,
+                    String.format(
+                            "Column `%s` declared as %s: value '%s' is rejected because %s.",
+                            column, typeName(decimalType), value, reason));
+            this.column = column;
+            this.decimalType = decimalType;
+            this.value = value;
+            this.reason = reason;
+        }
+
+        /** @return the same error with {@code parent} prepended to the column path */
+        public InvalidWideDecimalException withParent(String parent) {
+            if (parent == null) {
+                return this;
+            }
+            InvalidWideDecimalException e =
+                    new InvalidWideDecimalException(
+                            column == null ? parent : parent + "." + column,
+                            decimalType,
+                            value,
+                            reason);
+            e.setStackTrace(getStackTrace());
+            return e;
+        }
     }
 
     private static String abbreviate(String value) {
