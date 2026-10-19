@@ -387,6 +387,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
 
+目标表的完整路径指定数据库（`database.schema.table`）时，`DROP_DATA` 会连接到该数据库执行 `TRUNCATE TABLE`。
+
 ### table_options [Map]
 
 Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_save_mode` 触发建表时生效，例如 `CREATE_SCHEMA_WHEN_NOT_EXIST`、`RECREATE_SCHEMA`；**不影响**数据写入阶段的 INSERT/UPSERT，也**不会**对已存在表执行 `ALTER TABLE`。
