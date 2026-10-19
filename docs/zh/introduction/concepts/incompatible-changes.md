@@ -4,6 +4,14 @@
 
 ## dev
 
+### Format：配置的表所写入的 `tableId` 为纯表路径
+
+- **行为变更：七个 Format 反序列化器写入 `database.schema.table`，不再是 `Optional[database.schema.table]`**
+  - **影响范围**：`seatunnel-formats` — Avro、JSON、CSV、Text 与 Protobuf 的 `DeserializationSchema`，以及 `seatunnel-format-compatible-connect-json` 中 Kafka Connect 原生（native）与兼容（compatible）的 `DeserializationSchema`（#12901）
+  - **变更说明**：配置了 Catalog 表时，行的 `tableId` 现在使用实际的 `TablePath` 文本，例如 `database.schema.table`，取代错误的 `Optional[database.schema.table]` 字符串。JSON 的变化适用于收集后的行；直接调用 `deserialize(byte[])` 时仍保留原有元数据行为。
+  - **影响**：解码后的字段值、未配置 Catalog 表时的行为以及连接器路由优先级均不变。自行设置表标识的连接器仍会覆盖 Format 写入的值。从行的 `tableId` 推导数据库名与表名的下游 Sink 与 CDC 编码器现在读到的是正确的纯表路径，因此其生成的元数据可能随之变化。依赖错误 `Optional[...]` 字符串进行匹配的下游需要调整。
+  - **迁移指南**：原先匹配 `Optional[...]` 文本的地方，改为匹配纯 `database.schema.table` 值或 `TablePath#getFullName()`。
+
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
 - **行为变更：文件类 Sink 的 XML 写入器按配置的格式输出 DATE、TIME 和 TIMESTAMP**

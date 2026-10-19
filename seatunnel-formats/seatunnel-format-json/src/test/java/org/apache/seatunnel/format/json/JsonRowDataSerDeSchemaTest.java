@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.json.maxwell.MaxWellJsonSerializationSchema;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,7 +55,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalQueries;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -905,5 +909,73 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(
                 LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
                 fractionalPrecisionRow.getField(0));
+    }
+
+    /** A collected row must carry the plain table path of the configured catalog table. */
+    @Test
+    public void testCollectStampsPlainTablePathAsTableId() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {INT_TYPE, STRING_TYPE});
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "json_catalog", "json_database", "json_schema", "json_table", rowType);
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        deserializationSchema.collect(
+                "{\"id\":1,\"name\":\"seatunnel\"}".getBytes(StandardCharsets.UTF_8),
+                collectingInto(rows));
+
+        assertEquals(1, rows.size());
+        SeaTunnelRow row = rows.get(0);
+        assertEquals(catalogTable.getTablePath().toString(), row.getTableId());
+        assertEquals("json_database.json_schema.json_table", row.getTableId());
+        assertEquals(1, row.getField(0));
+        assertEquals("seatunnel", row.getField(1));
+
+        JsonNode maxwellJson =
+                new ObjectMapper()
+                        .readTree(new MaxWellJsonSerializationSchema(rowType).serialize(row));
+        assertEquals("json_database", maxwellJson.get("database").asText());
+        assertEquals("json_table", maxwellJson.get("table").asText());
+    }
+
+    /** Without a catalog table the collected row keeps the default empty tableId. */
+    @Test
+    public void testCollectWithoutCatalogTableKeepsDefaultTableId() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {INT_TYPE, STRING_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        deserializationSchema.collect(
+                "{\"id\":2,\"name\":\"control\"}".getBytes(StandardCharsets.UTF_8),
+                collectingInto(rows));
+
+        assertEquals(1, rows.size());
+        SeaTunnelRow row = rows.get(0);
+        assertEquals("", row.getTableId());
+        assertEquals(2, row.getField(0));
+        assertEquals("control", row.getField(1));
+    }
+
+    private static Collector<SeaTunnelRow> collectingInto(List<SeaTunnelRow> rows) {
+        return new Collector<SeaTunnelRow>() {
+            @Override
+            public void collect(SeaTunnelRow record) {
+                rows.add(record);
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return this;
+            }
+        };
     }
 }

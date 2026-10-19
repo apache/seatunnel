@@ -126,7 +126,7 @@ public class CompatibleKafkaConnectDeserializationSchema
                 row.setRowKind(rowKind);
                 attachEventTime(row, msg.timestamp());
                 if (tablePath.isPresent()) {
-                    row.setTableId(tablePath.toString());
+                    row.setTableId(tablePath.get().toString());
                 }
                 out.collect(row);
             }
@@ -135,7 +135,7 @@ public class CompatibleKafkaConnectDeserializationSchema
             row.setRowKind(rowKind);
             attachEventTime(row, msg.timestamp());
             if (tablePath.isPresent()) {
-                row.setTableId(tablePath.toString());
+                row.setTableId(tablePath.get().toString());
             }
             out.collect(row);
         }

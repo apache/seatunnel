@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Format: `tableId` of a configured table is the plain table path
+
+- **Behavior change: seven format deserializers stamp `database.schema.table` instead of `Optional[database.schema.table]`**
+  - **Affected component**: `seatunnel-formats` — the Avro, JSON, CSV, Text and Protobuf `DeserializationSchema` classes, and the Kafka Connect native and compatible `DeserializationSchema` classes of `seatunnel-format-compatible-connect-json` (#12901)
+  - **Description**: Rows with a configured catalog table now receive the actual `TablePath` text, such as `database.schema.table`, instead of the malformed `Optional[database.schema.table]` string. For JSON this applies to collected rows; direct `deserialize(byte[])` calls retain their existing metadata behavior.
+  - **Impact**: Decoded field values, no-catalog behavior and connector routing priority are unchanged. Connectors that assign their own table identifiers still override the format's value. Downstream sinks and CDC encoders that derive database and table names from the row's `tableId` now read the correct plain table path, so the metadata they generate may change. Consumers matching the malformed `Optional[...]` string need to update their expectations.
+  - **Migration Guide**: Match the plain `database.schema.table` value, or `TablePath#getFullName()`, wherever the old `Optional[...]` text was matched.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**

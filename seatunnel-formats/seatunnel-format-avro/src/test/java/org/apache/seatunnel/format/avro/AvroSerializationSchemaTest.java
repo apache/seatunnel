@@ -324,6 +324,28 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(42, ((SeaTunnelRow) result.getField(0)).getField(0));
     }
 
+    /** A deserialized row must carry the plain table path of the configured catalog table. */
+    @Test
+    public void testDeserializeStampsPlainTablePathAsTableId() throws IOException {
+        SeaTunnelRowType rowType = buildSeaTunnelRowType();
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "avro_catalog", "avro_database", "avro_schema", "avro_table", rowType);
+        SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(seaTunnelRow);
+
+        SeaTunnelRow deserialize = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(catalogTable.getTablePath().toString(), deserialize.getTableId());
+        Assertions.assertEquals("avro_database.avro_schema.avro_table", deserialize.getTableId());
+        // Stamping the tableId must not disturb the deserialized data fields.
+        Assertions.assertArrayEquals(
+                (String[]) seaTunnelRow.getField(1), (String[]) deserialize.getField(1));
+        Assertions.assertEquals(seaTunnelRow.getField(2), deserialize.getField(2));
+        SeaTunnelRow subRow = (SeaTunnelRow) deserialize.getField(14);
+        Assertions.assertEquals(123.456, (double) subRow.getField(9));
+    }
+
     @Test
     public void testDeserializeConfluentSchemaRegistryHeader() throws IOException {
         SeaTunnelRowType rowType =
