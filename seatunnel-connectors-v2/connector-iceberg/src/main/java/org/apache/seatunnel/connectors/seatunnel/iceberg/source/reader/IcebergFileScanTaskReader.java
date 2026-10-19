@@ -20,9 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergInternalRecordWrapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 
+import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.Schema;
@@ -30,7 +34,6 @@ import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.data.GenericDeleteFilter;
 import org.apache.iceberg.data.IdentityPartitionConverters;
-import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
 import org.apache.iceberg.data.orc.GenericOrcReader;
@@ -43,7 +46,10 @@ import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.orc.ORC;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.DateTimeUtil;
 import org.apache.iceberg.util.PartitionUtil;
 
 import lombok.Builder;
@@ -70,7 +76,13 @@ public class IcebergFileScanTaskReader implements Closeable {
 
     private CloseableIterable<Record> icebergGenericRead(FileScanTask task) {
         DeleteFilter<Record> deletes =
-                new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema);
+                new GenericDeleteFilter(fileIO, task, tableSchema, projectedSchema) {
+                    @Override
+                    protected InputFile loadInputFile(DeleteFile deleteFile) {
+                        return parquetInputFile(
+                                deleteFile.format(), super.loadInputFile(deleteFile));
+                    }
+                };
         Schema readSchema = deletes.requiredSchema();
 
         CloseableIterable<Record> records = openFile(task, readSchema);
@@ -94,7 +106,8 @@ public class IcebergFileScanTaskReader implements Closeable {
     private CloseableIterable<Record> applyResidual(
             CloseableIterable<Record> records, Schema recordSchema, Expression residual) {
         if (residual != null && residual != Expressions.alwaysTrue()) {
-            InternalRecordWrapper wrapper = new InternalRecordWrapper(recordSchema.asStruct());
+            IcebergInternalRecordWrapper wrapper =
+                    new IcebergInternalRecordWrapper(recordSchema.asStruct());
             Evaluator filter = new Evaluator(recordSchema.asStruct(), residual, caseSensitive);
             return CloseableIterable.filter(records, record -> filter.eval(wrapper.wrap(record)));
         }
@@ -102,14 +115,21 @@ public class IcebergFileScanTaskReader implements Closeable {
         return records;
     }
 
+    /** Parquet files are read through Iceberg's streams on old Hadoop, see HadoopStreamFileIO. */
+    private static InputFile parquetInputFile(FileFormat format, InputFile file) {
+        return format == FileFormat.PARQUET ? HadoopStreamFileIO.wrap(file) : file;
+    }
+
     private CloseableIterable<Record> openFile(FileScanTask task, Schema fileProjection) {
         if (task.isDataTask()) {
             throw new IcebergConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Cannot read data task.");
         }
-        InputFile input = fileIO.newInputFile(task.file().path().toString());
+        InputFile input =
+                parquetInputFile(
+                        task.file().format(), fileIO.newInputFile(task.file().path().toString()));
         Map<Integer, ?> partition =
-                PartitionUtil.constantsMap(task, IdentityPartitionConverters::convertConstant);
+                PartitionUtil.constantsMap(task, IcebergFileScanTaskReader::convertConstant);
 
         switch (task.file().format()) {
             case AVRO:
@@ -162,6 +182,19 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 "Cannot read %s file: %s",
                                 task.file().format().name(), task.file().path()));
         }
+    }
+
+    /**
+     * Converts identity partition values to generic values. Iceberg 1.10 leaves {@code
+     * timestamp_ns} / {@code timestamptz_ns} values as nanoseconds.
+     */
+    private static Object convertConstant(Type type, Object value) {
+        if (value != null && type.typeId() == Type.TypeID.TIMESTAMP_NANO) {
+            return ((Types.TimestampNanoType) type).shouldAdjustToUTC()
+                    ? DateTimeUtil.timestamptzFromNanos((Long) value)
+                    : DateTimeUtil.timestampFromNanos((Long) value);
+        }
+        return IdentityPartitionConverters.convertConstant(type, value);
     }
 
     @Override
