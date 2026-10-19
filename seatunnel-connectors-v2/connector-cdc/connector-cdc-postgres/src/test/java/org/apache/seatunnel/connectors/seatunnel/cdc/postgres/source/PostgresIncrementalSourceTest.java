@@ -75,6 +75,15 @@ public class PostgresIncrementalSourceTest {
     }
 
     @Test
+    public void shouldExposeHeartbeatIntervalMsInOptionRule() {
+        Assertions.assertTrue(
+                new PostgresIncrementalSourceFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS));
+    }
+
+    @Test
     public void testDialectEnforcesReplicaIdentityFullByDefault() throws Exception {
         PostgresDialect dialect = buildDialect(new HashMap<>());
 

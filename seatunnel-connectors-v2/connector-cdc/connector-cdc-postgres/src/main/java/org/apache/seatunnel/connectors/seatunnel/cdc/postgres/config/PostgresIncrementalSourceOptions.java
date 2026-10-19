@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
+import java.time.Duration;
 import java.util.List;
 
 public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
@@ -59,4 +60,39 @@ public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
                                     + "but UPDATE/DELETE events may not contain the previous state. "
                                     + "This should only be used for append-only tables (e.g., outbox pattern). "
                                     + "Default is true for backward compatibility.");
+
+    public static final Option<String> SSL_MODE =
+            Options.key("sslmode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "SSL mode for the PostgreSQL logical replication connection. "
+                                    + "Valid values: disable, allow, prefer, require, verify-ca, verify-full. "
+                                    + "If unset, sslmode in the JDBC url query parameters is used when present; "
+                                    + "otherwise it defaults to prefer.");
+
+    public static final Option<String> PUBLICATION_NAME =
+            Options.key("publication.name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The PostgreSQL publication name used for pgoutput logical replication "
+                                    + "(defaults to dbz_publication when unset).");
+
+    public static final Option<Long> HEARTBEAT_INTERVAL_MS =
+            Options.key("heartbeat.interval.ms")
+                    .longType()
+                    .defaultValue(Duration.ofSeconds(30).toMillis())
+                    .withDescription(
+                            "The interval in milliseconds for sending heartbeat events to advance replication slot offsets. Set to 0 to disable. Default is 30000.");
+
+    public static final Option<String> PUBLICATION_AUTOCREATE_MODE =
+            Options.key("publication.autocreate.mode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Controls how the publication specified by publication.name is created when using pgoutput. "
+                                    + "Valid values: all_tables (default, creates FOR ALL TABLES), "
+                                    + "filtered (creates FOR TABLE for monitored tables only), "
+                                    + "disabled (uses an existing publication without creating or altering it).");
 }
