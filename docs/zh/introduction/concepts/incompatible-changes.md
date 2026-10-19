@@ -55,7 +55,8 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
     - 十进制精度上限为 38 的 Sink（如 Oracle、SQL Server）会建为 `DECIMAL(38,0)`，并输出精度被缩减的警告。39 位的值仍无法写入这类列，但 38 位以内的值现在可以写入，而旧类型只能容纳 20 位。
     - Doris 到 Doris 自动建表时，`ARRAY<LARGEINT>` 列以及 MAP 中的 `LARGEINT` 键和值会保留为 `LARGEINT`，此前会建为 `DECIMALV3(20, 0)`。标量 `LARGEINT` 列此前已经保留为 `LARGEINT`。
     - 下游已存在的表不会被修改。
-  - **迁移指南**：写入已有表的作业无需修改。如需向已按 `DECIMAL(20,0)` 建好的列写入超过 20 位的值，请在 Sink 数据库中加宽该列。如需在 schema 中保留原来的 `DECIMAL(20, 0)` 类型（例如用于自动建表），请添加 SQL Transform，使用 `CAST(col AS DECIMAL(20, 0))`。
+    - **Spark**：Spark 的十进制精度最多 38 位。顶层的 `LARGEINT` 列以及 `ROW` 内的 `LARGEINT` 字段会以十进制文本在 Spark 中传递，并在 Transform 和 Sink 中还原为 `DECIMAL(39, 0)`。`ARRAY` 或 `MAP` 中的 `LARGEINT`（例如 `ARRAY<LARGEINT>`、`MAP<SMALLINT, LARGEINT>`）现在会在作业启动时报错 `SPARK-TRANSLATION-01`，错误信息包含表名和列路径。此前这类列在 Spark 上按 `DECIMAL(20, 0)` 可以运行。
+  - **迁移指南**：写入已有表的作业无需修改。如需向已按 `DECIMAL(20,0)` 建好的列写入超过 20 位的值，请在 Sink 数据库中加宽该列。如需在 schema 中保留原来的 `DECIMAL(20, 0)` 类型（例如用于自动建表），请添加 SQL Transform，使用 `CAST(col AS DECIMAL(20, 0))`。Spark 作业如果读取含 `LARGEINT` 的 `ARRAY` 或 `MAP` 列，请用 `doris.read.field` 去掉这些列，或改用 Zeta、Flink 运行；这种情况下 SQL Transform 无效，因为作业在 Spark 构建源 schema 时就会失败。
 
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 

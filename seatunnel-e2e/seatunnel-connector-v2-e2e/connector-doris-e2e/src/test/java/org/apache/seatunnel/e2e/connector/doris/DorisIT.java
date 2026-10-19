@@ -369,13 +369,10 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult = container.executeJob(confFile);
         Assertions.assertNotEquals(0, execResult.getExitCode());
         String output = execResult.getStdout() + execResult.getStderr();
+        // Match the error code, column path and table, not the wording of the message.
         Assertions.assertTrue(output.contains("SPARK-TRANSLATION-01"), output);
-        Assertions.assertTrue(
-                output.contains(
-                        String.format(
-                                "Column `%s` of table `%s` has type DECIMAL(39, 0)",
-                                columnPath, tablePath)),
-                output);
+        Assertions.assertTrue(output.contains("`" + columnPath + "`"), output);
+        Assertions.assertTrue(output.contains(tablePath), output);
     }
 
     private void checkAllTypeSinkData(TestContainer container) {
