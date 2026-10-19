@@ -165,7 +165,7 @@ class JobInfoServiceNullSafetyTest {
     }
 
     @Test
-    void shouldReturnJobIdOnlyWhenFinishedMetricsIsMissing() {
+    void shouldReturnFinishedPayloadWithEmptyMetricsWhenMetricsAreMissing() {
         JobHistoryService.JobState jobState = buildJobState(jobId, 1000L, 2000L);
 
         when(runningJobInfoMap.get(jobId)).thenReturn(null);
@@ -176,6 +176,7 @@ class JobInfoServiceNullSafetyTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+        Assertions.assertNull(result.get(RestConstant.FOUND));
     }
 
     @Test
@@ -199,10 +200,11 @@ class JobInfoServiceNullSafetyTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
         Assertions.assertEquals(dagJson.toString(), result.get(RestConstant.JOB_DAG).toString());
+        Assertions.assertNull(result.get(RestConstant.FOUND));
     }
 
     @Test
-    void shouldReturnJobIdOnlyWhenFinishedStateDoesNotExist() {
+    void shouldMarkUnknownJobAsNotFound() {
         when(runningJobInfoMap.get(jobId)).thenReturn(null);
         when(finishedJobStateMap.get(jobId)).thenReturn(null);
         when(finishedJobMetricsMap.get(jobId)).thenReturn(null);
@@ -211,6 +213,31 @@ class JobInfoServiceNullSafetyTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+        Assertions.assertFalse(result.getBoolean(RestConstant.FOUND, true));
+        Assertions.assertNull(result.get(RestConstant.JOB_STATUS));
+    }
+
+    @Test
+    void shouldNotAddFoundMarkerToRunningJobPayload() {
+        JobInfo runningJob = mock(JobInfo.class);
+        when(runningJobInfoMap.get(jobId)).thenReturn(runningJob);
+        // The full running payload depends on the coordinator and DAG subsystems; stub only the
+        // conversion so the test can assert that the running branch adds no marker of its own.
+        JobInfoService service =
+                new JobInfoService(nodeEngine) {
+                    @Override
+                    protected JsonObject convertToJson(JobInfo jobInfo, long id) {
+                        return new JsonObject()
+                                .add(RestConstant.JOB_ID, String.valueOf(id))
+                                .add(RestConstant.JOB_STATUS, JobStatus.RUNNING.name());
+                    }
+                };
+
+        JsonObject result = service.getJobInfoJson(jobId);
+
+        Assertions.assertEquals(
+                JobStatus.RUNNING.name(), result.getString(RestConstant.JOB_STATUS, null));
+        Assertions.assertNull(result.get(RestConstant.FOUND));
     }
 
     @Test

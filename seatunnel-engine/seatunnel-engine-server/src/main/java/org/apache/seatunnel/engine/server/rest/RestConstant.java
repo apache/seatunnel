@@ -22,6 +22,8 @@ public class RestConstant {
 
     public static final String JOB_ID = "jobId";
 
+    public static final String FOUND = "found";
+
     public static final String JOB_NAME = "jobName";
 
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";

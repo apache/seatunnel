@@ -378,7 +378,7 @@ curl http://<master>:8080/overview | \
 |---|---|---|
 | 任意端点返回 `HTTP 404` | REST API 未启用或端口不对 | 设置 `enable-http: true` 并检查端口 |
 | `Connection refused` | Master 未启动或防火墙拦截 | 确认 Master 进程在运行；检查防火墙 |
-| `job-info` 中找不到 `jobId` | 作业已完成或未启动 | 按预期终态改用 `/finished-jobs/:state` 查询 |
+| `job-info` 返回 `found: false`（或无状态的 200） | id 不存在，或作业已从已完成作业历史中过期 | 按预期终态改用 `/finished-jobs/:state` 查询 |
 | 提交返回 `400 Bad Request` | JSON 格式错误或缺少必填字段 | 验证 JSON；检查 `plugin_name` 拼写 |
 | `The job id ... has already been submitted and is not starting with a savepoint` | 使用固定 `job.id` 重复提交，而该 ID 的历史记录仍被保留（取消作业不会清除） | 换一个新的 `job.id` 重新提交作业；或按文档中的 Savepoint/恢复流程有意地进行恢复 |
 | `Unauthorized 401` | 已启用 Basic Auth 但未提供凭据 | 添加 `-u user:pass` |
