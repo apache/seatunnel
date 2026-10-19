@@ -523,6 +523,38 @@ sink {
 }
 ```
 
+### Ingres
+
+JDBC Source 会为以 `jdbc:ingres:` 开头的 URL 选择 Ingres 方言。驱动类为
+`com.ingres.jdbc.IngresDriver`，需要按照适用许可自行从 Actian 获取 `iijdbc.jar`；
+SeaTunnel 不随附此驱动。请按照上文对应引擎的说明安装驱动。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:ingres://ingres.example.com:II7/sales"
+    driver = "com.ingres.jdbc.IngresDriver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    table_path = "sales_owner.orders"
+  }
+}
+```
+
+请为 `table_path` 使用 `owner.table` 格式，将 JDBC 元数据查询限定到目标所有者。
+多个所有者存在同名表时，仅填写表名可能产生有歧义的元数据。
+数据库由 JDBC URL 指定。请在 `table_path` 中填写实际标识符名称，不要添加 SQL 引号；
+生成的 SQL 会分别为所有者和表名添加双引号，并保留大小写。
+如果名称本身包含点号，请使用带有显式 SQL 引用的自定义 `query`，而不是 `table_path`。
+
+此方言复用通用 JDBC 类型映射和行转换，仅覆盖标准 JDBC 类型，未覆盖 `INGRESDATE`、
+`MONEY` 和 interval 等 Ingres 专有类型。由于尚未实现 Ingres 字符串哈希或范围分片，
+字符串键使用单个分片。此方言不添加 catalog、建表能力、CDC 或原生 upsert SQL。
+
+`connector-jdbc-e2e-part-7` 中的 `JdbcIngresIT` 是需要手动启用的测试，要求提供已获许可的
+Ingres 实例和自行获取的驱动。验证步骤见该模块的 `README-ingres.md`；
+仅通过离线方言测试并不能证明特定服务端与驱动版本的兼容性。
+
 ## 故障排查
 
 ### 找不到 JDBC 驱动类

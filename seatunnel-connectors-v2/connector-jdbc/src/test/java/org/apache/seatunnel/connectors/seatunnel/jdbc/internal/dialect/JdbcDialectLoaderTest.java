@@ -27,6 +27,34 @@ import org.junit.jupiter.api.Test;
 /** Test for {@link JdbcDialectLoader} */
 public class JdbcDialectLoaderTest {
     @Test
+    public void shouldFindIngresDialect() {
+        Assertions.assertEquals(
+                "Ingres",
+                JdbcDialectLoader.load("jdbc:ingres://localhost:II7/test", null, "").dialectName());
+        Assertions.assertEquals(
+                "Ingres",
+                JdbcDialectLoader.load(
+                                "jdbc:ingres://localhost:21064/test;date_alias=ansidate", null, "")
+                        .dialectName());
+    }
+
+    @Test
+    public void shouldFindIngresDialectByName() {
+        Assertions.assertEquals(
+                "Ingres", JdbcDialectLoader.load("jdbc:custom:test", "ingres", "").dialectName());
+    }
+
+    @Test
+    public void shouldKeepOtherUrlDialects() {
+        Assertions.assertEquals(
+                "Generic",
+                JdbcDialectLoader.load("jdbc:ingresql://localhost/test", null, "").dialectName());
+        Assertions.assertInstanceOf(
+                PostgresDialect.class,
+                JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, ""));
+    }
+
+    @Test
     public void shouldFindGenericDialect() throws Exception {
         JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:someting:", null, "");
         Assertions.assertInstanceOf(GenericDialect.class, jdbcDialect);

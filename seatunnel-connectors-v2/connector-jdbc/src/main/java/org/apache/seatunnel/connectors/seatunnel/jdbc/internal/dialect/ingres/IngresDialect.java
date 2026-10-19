@@ -1,0 +1,79 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ingres;
+
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.GenericDialect;
+
+import java.util.Optional;
+
+public class IngresDialect extends GenericDialect {
+    public IngresDialect() {}
+
+    public IngresDialect(String fieldIde) {
+        super(fieldIde);
+    }
+
+    @Override
+    public String dialectName() {
+        return DatabaseIdentifier.INGRES;
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        return quoteDatabaseIdentifier(getFieldIde(identifier, fieldIde));
+    }
+
+    @Override
+    public String quoteDatabaseIdentifier(String identifier) {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        // 数据库由 JDBC URL 指定，SQL 中只使用 owner.table。
+        String owner = tablePath.getSchemaName();
+        String table = quoteDatabaseIdentifier(tablePath.getTableName());
+        return owner == null || owner.isEmpty()
+                ? table
+                : quoteDatabaseIdentifier(owner) + "." + table;
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        return tableIdentifier(parse(tableName));
+    }
+
+    @Override
+    public Optional<String> getUpsertStatement(
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean supportHashSplitter() {
+        // 通用 MD5 取模表达式未经 Ingres 验证，使用现有的单分片回退。
+        return false;
+    }
+}

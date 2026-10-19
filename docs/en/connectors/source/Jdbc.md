@@ -568,6 +568,40 @@ sink {
 }
 ```
 
+### Ingres
+
+The JDBC source selects the Ingres dialect for URLs starting with `jdbc:ingres:`. Use
+`com.ingres.jdbc.IngresDriver` and obtain `iijdbc.jar` from Actian under its applicable license;
+SeaTunnel does not bundle this driver. Install it using the engine-specific instructions above.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:ingres://ingres.example.com:II7/sales"
+    driver = "com.ingres.jdbc.IngresDriver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    table_path = "sales_owner.orders"
+  }
+}
+```
+
+Use `owner.table` for `table_path` so JDBC metadata discovery is restricted to the intended owner.
+An unqualified table name can produce ambiguous metadata when multiple owners have the same table name.
+The database is selected by the JDBC URL. Write the actual identifier names without SQL quotation marks in
+`table_path`; generated SQL quotes the owner and table separately with double quotes, preserving
+their case. For names containing a dot, use a custom `query` with explicit SQL quoting instead
+of `table_path`.
+
+This dialect reuses the generic JDBC type mapping and row conversion for standard JDBC types.
+Ingres-specific types such as `INGRESDATE`, `MONEY`, and intervals are not covered. String keys
+use a single split because an Ingres hash/range splitting implementation is not provided.
+The dialect does not add a catalog, schema creation, CDC, or native upsert SQL.
+
+The opt-in `JdbcIngresIT` test in `connector-jdbc-e2e-part-7` requires a licensed Ingres instance
+and a user-supplied driver. See that module's `README-ingres.md` for the validation procedure;
+offline dialect tests alone do not establish compatibility with a particular server/driver version.
+
 ## Troubleshooting
 
 ### JDBC driver class cannot be found
