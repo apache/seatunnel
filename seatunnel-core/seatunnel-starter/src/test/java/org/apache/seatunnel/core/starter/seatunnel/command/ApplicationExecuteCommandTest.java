@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -352,6 +353,20 @@ class ApplicationExecuteCommandTest {
         assertEquals(0, statusCode);
     }
 
+    @Test
+    void submitWithoutApplicationConfigExitsThroughUsagePath() throws Exception {
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                CommandLineUtils.parse(
+                                        new String[] {"submit", "-t", "kubernetes"},
+                                        new ApplicationCommandArgs(),
+                                        "seatunnel-application.sh",
+                                        false,
+                                        ApplicationCommandArgs::validateCommandOptions));
+        assertEquals(USAGE_EXIT_CODE, statusCode);
+    }
+
     private void executeStatus(ApplicationStatus status, boolean wait) throws Exception {
         ClusterDescriptor<String> descriptor = mock(ClusterDescriptor.class);
         ApplicationClusterDescriptorFactory<String> factory =
@@ -465,6 +480,17 @@ class ApplicationExecuteCommandTest {
         verify(descriptor).cancelApplication("native-id");
         verify(descriptor, never()).retrieve(any());
         verify(descriptor, times(2)).close();
+    }
+
+    @Test
+    void submitRequiresApplicationConfig() {
+        ApplicationCommandArgs missing = parse("submit", "-t", "kubernetes");
+        ParameterException failure = assertThrows(ParameterException.class, missing::buildCommand);
+        assertTrue(failure.getMessage().contains("--application-config"));
+
+        ApplicationCommandArgs overridesOnly =
+                parse("submit", "-t", "kubernetes", "-Dkubernetes.image=example");
+        assertThrows(ParameterException.class, overridesOnly::buildCommand);
     }
 
     @Test

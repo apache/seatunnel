@@ -75,7 +75,7 @@ public class ApplicationCommandArgs extends CommandArgs {
     @Parameter(
             names = {"-a", "--application-config"},
             description =
-                    "Optional HOCON deployment file, e.g. application.config (not the job file)")
+                    "HOCON deployment file (required for submit), e.g. application.config (not the job file)")
     private String applicationConfig;
 
     @Parameter(names = "--id", description = "Platform application ID (required for status/cancel)")
@@ -118,24 +118,27 @@ public class ApplicationCommandArgs extends CommandArgs {
         if (applicationConfig != null) {
             requireFile(applicationConfig, "--application-config");
         }
-        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
-            throw new ParameterException("--wait-timeout must not be negative");
-        }
-        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
-            throw new ParameterException("--wait-interval must be positive");
-        }
-        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
-            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
-        }
+        validateWaitOptions();
         if (operation == ApplicationOperation.SUBMIT) {
-            if (config != null) {
-                requireFile(config, "--config");
-            }
-            if (id != null) {
-                throw new ParameterException("submit does not accept --id");
-            }
-            return;
+            validateSubmitOptions();
+        } else {
+            validateStatusOrCancelOptions();
         }
+    }
+
+    private void validateSubmitOptions() {
+        if (config != null) {
+            requireFile(config, "--config");
+        }
+        if (id != null) {
+            throw new ParameterException("submit does not accept --id");
+        }
+        if (applicationConfig == null) {
+            throw new ParameterException("submit requires --application-config");
+        }
+    }
+
+    private void validateStatusOrCancelOptions() {
         if (id == null || id.trim().isEmpty()) {
             throw new ParameterException("status/cancel require --id");
         }
@@ -148,6 +151,18 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
         if (wait && operation == ApplicationOperation.CANCEL) {
             throw new ParameterException("--wait is supported only with submit or status");
+        }
+    }
+
+    private void validateWaitOptions() {
+        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
+            throw new ParameterException("--wait-timeout must not be negative");
+        }
+        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
+            throw new ParameterException("--wait-interval must be positive");
+        }
+        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
+            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
         }
     }
 

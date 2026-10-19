@@ -27,7 +27,7 @@ bin/seatunnel-application.sh -h
 ```text
 Usage: seatunnel-application.sh [options] submit | status | cancel
   Options:
-    -a, --application-config Optional HOCON deployment file, e.g.
+    -a, --application-config HOCON deployment file (required for submit), e.g.
                              application.config (not the job file)
     -c, --config             SeaTunnel job configuration file (required for
                              submit unless the provider supplies it, for
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | all | Operation, the first positional argument |
 | `-t`, `--target` | all | Resource platform that runs the application |
 | `-c`, `--config` | submit | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf` |
-| `-a`, `--application-config` | all | Optional deployment file with common and platform options |
+| `-a`, `--application-config` | all | Deployment file with common and platform options; required for submit |
 | `-Dkey=value` | all | Override one non-sensitive `application.*` or `kubernetes.*` deployment option, for example `-Dapplication.worker-count=4`; repeatable. Job `${...}` variables are resolved inside the Pod, not on the submitting host |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
 | `--wait` | submit, status | Poll until a terminal status |
