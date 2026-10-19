@@ -372,6 +372,44 @@ class WideDecimalTest {
                         SeaTunnelRuntimeException.class,
                         () -> TypeConverterUtils.convert(arrayOf(DECIMAL_39_0)));
         Assertions.assertTrue(e.getMessage().contains("`element`"), e.getMessage());
+        SeaTunnelRowType rowInArray =
+                new SeaTunnelRowType(new String[] {"v"}, new SeaTunnelDataType<?>[] {DECIMAL_39_0});
+        e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                TypeConverterUtils.convert(
+                                        new MapType<>(
+                                                BasicType.STRING_TYPE,
+                                                new ArrayType<>(
+                                                        SeaTunnelRow[].class, rowInArray))));
+        Assertions.assertEquals(
+                SparkTranslationErrorCode.WIDE_DECIMAL_IN_COLLECTION, e.getSeaTunnelErrorCode());
+    }
+
+    @Test
+    void valueErrorNamesFullPathOfDeeplyNestedColumn() {
+        SeaTunnelRowType outerType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "outer"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"info"}, new SeaTunnelDataType<?>[] {INFO_TYPE})
+                        });
+        BigDecimal fortyDigits = new BigDecimal("1" + repeat('0', 39));
+        SeaTunnelRow info = new SeaTunnelRow(new Object[] {fortyDigits, "n"});
+        SeaTunnelRow row =
+                new SeaTunnelRow(new Object[] {1, new SeaTunnelRow(new Object[] {info})});
+        row.setTableId("db.t");
+        assertInvalidValue(
+                () -> new InternalRowConverter(outerType).convert(row),
+                "`outer.info.inner_big`",
+                "more than 39 digits");
+        assertInvalidValue(
+                () -> new SeaTunnelRowConverter(outerType).convert(row),
+                "`outer.info.inner_big`",
+                "more than 39 digits");
     }
 
     @Test
