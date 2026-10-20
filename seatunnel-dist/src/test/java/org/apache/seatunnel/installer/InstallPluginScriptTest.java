@@ -195,12 +195,12 @@ public class InstallPluginScriptTest {
 
         int exitCode =
                 runInstaller(
-                        distribution, fakeBinaryDirectory, "3.0.0-SNAPSHOT", capturedArguments);
+                        distribution, fakeBinaryDirectory, "3.0.1-SNAPSHOT", capturedArguments);
 
         Assertions.assertEquals(0, exitCode);
         String arguments =
                 new String(Files.readAllBytes(capturedArguments), StandardCharsets.UTF_8);
-        Assertions.assertTrue(arguments.contains("-Dversion=3.0.0-SNAPSHOT"));
+        Assertions.assertTrue(arguments.contains("-Dversion=3.0.1-SNAPSHOT"));
         Assertions.assertTrue(arguments.contains("-DartifactId=connector-fake"));
     }
 

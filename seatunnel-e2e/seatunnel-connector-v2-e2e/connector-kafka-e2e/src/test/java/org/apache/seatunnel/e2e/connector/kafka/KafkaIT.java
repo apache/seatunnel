@@ -2799,7 +2799,6 @@ public class KafkaIT extends AbstractKafkaIT {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
-            Set<Long> seenOffsets = new HashSet<>();
             consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
@@ -2811,6 +2810,7 @@ public class KafkaIT extends AbstractKafkaIT {
                             .get(topicPartition);
             long nextOffset = startOffset;
             int consecutiveEmptyPolls = 0;
+            Set<Long> seenOffsets = new HashSet<>();
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 if (records.isEmpty()) {

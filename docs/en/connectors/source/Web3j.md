@@ -38,6 +38,8 @@ of the configured provider.
 |------|--------|----------|---------|-------------|
 | url  | String | Yes      | -       | Web3 provider endpoint used to communicate with the Ethereum network, for example an Infura URL. |
 
+The required `url` must not be empty or whitespace-only.
+
 ## Output Schema
 
 | Field | Type   | Description |
