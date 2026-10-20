@@ -92,6 +92,16 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
+    /**
+     * Rows each of the three fake-source sink jobs writes, asserted after the sink completes.
+     *
+     * <p>Must stay in sync with {@code row.num = 10} in rocketmq-sink_fake_to_rocketmq.conf,
+     * rocketmq-text-sink_fake_to_rocketmq.conf and rocketmq-sink_fake_to_rocketmq_message_tag.conf.
+     * The visibility wait and the count assertion both read it, so changing one without the other
+     * would make the wait pass early or never finish.
+     */
+    private static final int EXPECTED_SINK_ROWS = 10;
+
     private static final String IMAGE = "apache/rocketmq:4.9.4";
     private static final String ROCKETMQ_GROUP = "SeaTunnel-rocketmq-group";
     private static final String HOST = "rocketmq-e2e";
@@ -185,39 +195,50 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkRocketMq(TestContainer container) throws IOException, InterruptedException {
-        waitForTopicRoute("test_topic");
+        final String topicName = "test_topic_" + uniqueTestSuffix();
+        waitForTopicRoute(topicName);
 
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-sink_fake_to_rocketmq.conf");
+                container.executeJob(
+                        "/rocketmq-sink_fake_to_rocketmq.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        String topicName = "test_topic";
+        awaitSinkRowsVisible(topicName);
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
     }
 
     @TestTemplate
     public void testTextFormatSinkRocketMq(TestContainer container)
             throws IOException, InterruptedException {
-        waitForTopicRoute("test_text_topic");
+        final String topicName = "test_text_topic_" + uniqueTestSuffix();
+        waitForTopicRoute(topicName);
 
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-text-sink_fake_to_rocketmq.conf");
+                container.executeJob(
+                        "/rocketmq-text-sink_fake_to_rocketmq.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        String topicName = "test_text_topic";
+
+        awaitSinkRowsVisible(topicName);
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
     }
 
     @TestTemplate
     public void testSourceRocketMqTextTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "tag_test";
 
         DefaultSeaTunnelRowSerializer serializer =
@@ -225,14 +246,18 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
     public void testSourceRocketMqTextErrorTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_error_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_error_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "test_error_tag";
 
         DefaultSeaTunnelRowSerializer serializer =
@@ -240,7 +265,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_error_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_error_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -402,19 +429,31 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSinkRocketMqMessageTag(TestContainer container)
             throws IOException, InterruptedException {
+        final String topicName = "test_topic_message_tag_" + uniqueTestSuffix();
+        // Warm the route before the job, not after. With the previous fixed topic a later
+        // template invocation always found the topic already created; a per-invocation topic
+        // does not exist yet, so the sink would otherwise depend on broker auto-creation
+        // racing the name server, which is the "No topic route info in name server" failure
+        // this file has hit before.
+        waitForTopicRoute(topicName);
+
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-sink_fake_to_rocketmq_message_tag.conf");
+                container.executeJob(
+                        "/rocketmq-sink_fake_to_rocketmq_message_tag.conf",
+                        Arrays.asList("sinkTopic=" + topicName));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        String topicName = "test_topic_message_tag";
         String tag = "test_tag";
+
+        awaitSinkRowsVisible(topicName);
+
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
-        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(EXPECTED_SINK_ROWS, data.size());
         Assertions.assertEquals(tag, data.get(key).getTag());
     }
 
@@ -523,12 +562,27 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                                     exception -> exception instanceof RocketMqConnectorException,
                                     Constant.OPERATION_RETRY_SLEEP));
             consumer.assign(queueOffsets.keySet());
-            // seek to offset
+            // seek to offset. Retry-wrapped like the offsetTopics lookup above, since both read
+            // broker metadata that can be briefly unavailable. currentOffsets raises
+            // RocketMqConnectorException when the lookup itself fails, and returns an empty map
+            // only when the group has legitimately committed nothing, so matching that exception
+            // here retries transient metadata failures without masking a genuine cold start. The
+            // empty-map case is what the getMinOffset() fallback below covers.
+            // shouldThrowException is true here, unlike the lookup above, because RetryUtils
+            // returns null once retries are exhausted when it is false, and a null map would
+            // surface as a bare NPE on the next line with the real cause discarded.
             Map<MessageQueue, Long> currentOffsets =
-                    RocketMqAdminUtil.currentOffsets(
-                            newConfiguration(),
-                            Lists.newArrayList(topicName),
-                            queueOffsets.keySet());
+                    RetryUtils.retryWithException(
+                            () ->
+                                    RocketMqAdminUtil.currentOffsets(
+                                            newConfiguration(),
+                                            Lists.newArrayList(topicName),
+                                            queueOffsets.keySet()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception -> exception instanceof RocketMqConnectorException,
+                                    Constant.OPERATION_RETRY_SLEEP));
             for (MessageQueue mq : queueOffsets.keySet()) {
                 long currentOffset =
                         currentOffsets.containsKey(mq)
@@ -613,6 +667,16 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {
         RocketMqBaseConfiguration config = newConfiguration();
         config.setGroupId(consumerGroup);
+        // Confirms the route for the offsetTopics read below. currentOffsets resolves
+        // %RETRY%<group> rather than this topic, which the call does not create or check, but the
+        // name server drops routes per broker rather than per topic, so a resolvable route here
+        // means the broker registration is live and the retry topic's route with it. That topic
+        // exists by this point because the job has already consumed with this group.
+        // This covers a brief gap, not a long one: waitForTopicRoute gives up after a minute, so
+        // the 4m24s outage measured in CI would still fail, just with a route message instead of
+        // an opaque assertion timeout. The 30 second assertion window is deliberately left alone
+        // so a genuine offset mismatch keeps failing fast.
+        waitForTopicRoute(topicName);
         Awaitility.await()
                 .ignoreExceptions()
                 .atMost(30, TimeUnit.SECONDS)
@@ -885,6 +949,22 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             log.warn("Failed to poll messages from {}: {}", topicName, e.getMessage(), e);
         }
         return new ArrayList<>(bodyByPosition.values());
+    }
+
+    /**
+     * Waits until every row a sink job wrote is visible to an admin offset read, before the single
+     * consuming read that follows.
+     *
+     * <p>Each sink test uses a topic of its own, so every queue starts at offset 0 and the summed
+     * max offset is exactly the number of rows stored. Without this wait the read can poll before
+     * the last rows are readable and the count assertion fails low. Retrying the read instead is
+     * not an option, because {@link #getRocketMqConsumerData(String)} commits offsets as it reads,
+     * so a second call would resume past what the first consumed.
+     *
+     * @param topicName the per-invocation topic the job just wrote to
+     */
+    private void awaitSinkRowsVisible(String topicName) {
+        awaitTopicMaxOffset(topicName, EXPECTED_SINK_ROWS, Duration.ofMinutes(1));
     }
 
     /**

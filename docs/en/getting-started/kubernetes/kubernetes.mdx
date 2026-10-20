@@ -74,7 +74,7 @@ Before deployment, prepare:
 
 - A Kubernetes cluster.
 - A client environment that can run `kubectl`.
-- A SeaTunnel image, for example `seatunnel:3.0.0`.
+- A SeaTunnel image, for example `seatunnel:3.0.1`.
 - An image registry reachable by the cluster. Configure `imagePullSecrets` for private images.
 - Shared storage or object storage for checkpoint and IMap MapStore in production.
 
@@ -89,7 +89,7 @@ minikube start --kubernetes-version=v1.23.3
 For production environments, pin the SeaTunnel image tag and build commonly used connectors, dependencies, and base configuration into the image. This avoids uncertainty caused by downloading dependencies at runtime.
 
 ```Dockerfile
-FROM seatunnelhub/openjdk:8u342
+FROM eclipse-temurin:11-jdk
 
 ARG SEATUNNEL_VERSION
 ENV SEATUNNEL_HOME="/opt/seatunnel"

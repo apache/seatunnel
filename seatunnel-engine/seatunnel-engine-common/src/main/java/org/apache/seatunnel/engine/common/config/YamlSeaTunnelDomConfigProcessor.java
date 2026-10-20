@@ -235,6 +235,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setStateCleanupDelayMillis(Long.parseLong(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setHealthMetricsTimeoutSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .HEALTH_METRICS_TIMEOUT_SECONDS
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
@@ -674,6 +683,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions
                                         .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setLogResponseMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .LOG_RESPONSE_MAX_SIZE_MB
                                         .key(),
                                 getTextContent(node)));
             } else {
