@@ -6,9 +6,9 @@
 
 ### SQL Transform：`CAST ... AS DECIMAL` 按四舍五入（远离零方向）舍入
 
-- **行为变更：`CAST(value AS DECIMAL(p,s))` 对 DECIMAL、STRING 或整数类型来源按四舍五入（远离零方向）舍入**
+- **行为变更：`CAST(value AS DECIMAL(p,s))` 对 DECIMAL 或 STRING 来源按四舍五入（远离零方向）舍入**
   - **影响组件**：`Sql` Transform（Zeta SQL 引擎）
-  - **描述**：此前 DECIMAL、STRING 或整数类型来源按 `CEILING` 舍入到目标精度，被舍弃的位会让正数向上取、负数向零取：`CAST(1.21 AS DECIMAL(10,1))` 得到 `1.3`，`CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.2`。而 FLOAT 或 DOUBLE 来源已经按四舍五入（远离零方向）处理，得到 `1.2` 和 `-1.3`，同一个值会因来源类型不同而得到不同的 DECIMAL。现在所有来源类型都按四舍五入（远离零方向）舍入，与 MySQL、PostgreSQL、H2 中的 `CAST` 一致。
+  - **描述**：此前 DECIMAL 或 STRING 来源按 `CEILING` 舍入到目标精度，被舍弃的位会让正数向上取、负数向零取：`CAST(1.21 AS DECIMAL(10,1))` 得到 `1.3`，`CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.2`。而 FLOAT 或 DOUBLE 来源已经按四舍五入（远离零方向）处理，得到 `1.2` 和 `-1.3`，同一个值会因来源类型不同而得到不同的 DECIMAL。现在所有来源类型都按四舍五入（远离零方向）舍入，与 MySQL、PostgreSQL、H2 中的 `CAST` 一致。
   - **影响**：将 DECIMAL 或 STRING 列转换为更小精度的作业可能得到不同的值：被舍弃部分小于一半的正数现在向下舍入，被舍弃部分大于等于一半的负数现在向远离零的方向舍入。不舍弃位数的转换不受影响。
   - **迁移指南**：无需修改配置。请检查将 DECIMAL 或 STRING 列转换为更小小数位数的作业；升级前后写出的值在最后一位上可能不同。
 

@@ -7,9 +7,9 @@ You need to check this document before you upgrade to related version.
 
 ### SQL transform: `CAST ... AS DECIMAL` rounds half away from zero
 
-- **Behavior change: `CAST(value AS DECIMAL(p,s))` rounds a DECIMAL, STRING or integral source half away from zero**
+- **Behavior change: `CAST(value AS DECIMAL(p,s))` rounds a DECIMAL or STRING source half away from zero**
   - **Affected component**: the `Sql` transform (Zeta SQL engine)
-  - **Description**: A DECIMAL, STRING or integral source was rounded to the target scale with `CEILING`, so every dropped digit rounded a positive value up and a negative value towards zero: `CAST(1.21 AS DECIMAL(10,1))` gave `1.3` and `CAST(-1.25 AS DECIMAL(10,1))` gave `-1.2`. A FLOAT or DOUBLE source already rounded half away from zero and gave `1.2` and `-1.3`, so the same value produced a different DECIMAL depending on its source type. Every source type now rounds half away from zero, like `CAST` in MySQL, PostgreSQL and H2.
+  - **Description**: A DECIMAL or STRING source was rounded to the target scale with `CEILING`, so every dropped digit rounded a positive value up and a negative value towards zero: `CAST(1.21 AS DECIMAL(10,1))` gave `1.3` and `CAST(-1.25 AS DECIMAL(10,1))` gave `-1.2`. A FLOAT or DOUBLE source already rounded half away from zero and gave `1.2` and `-1.3`, so the same value produced a different DECIMAL depending on its source type. Every source type now rounds half away from zero, like `CAST` in MySQL, PostgreSQL and H2.
   - **Impact**: Jobs that cast a DECIMAL or STRING column to a smaller scale can produce different values: positive values whose dropped digits are below one half are now rounded down, and negative values whose dropped digits are one half or more are now rounded away from zero. Casts that do not drop digits are unchanged.
   - **Migration Guide**: No configuration change is needed. Review casts of DECIMAL or STRING columns to a smaller scale; values written by earlier versions may differ in the last digit from values written after the upgrade.
 
