@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.file.fstp;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.connectors.seatunnel.file.sftp.system.SFTPFileSystem;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -29,10 +30,16 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.Path;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -43,9 +50,14 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -68,6 +80,74 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "pass";
 
     private GenericContainer<?> sftpContainer;
+
+    @Test
+    public void testConcurrentDirectoryCreationAndWrites() throws Exception {
+        int writers = 8;
+        String root = "/tmp/seatunnel/concurrent-" + System.nanoTime();
+        List<SFTPFileSystem> fileSystems = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(writers);
+        try {
+            // Open sessions sequentially so SSH MaxStartups does not mask the mkdir race.
+            for (int i = 0; i < writers; i++) {
+                Configuration config = new Configuration(false);
+                String host = sftpContainer.getHost();
+                config.set(SFTPFileSystem.FS_SFTP_USER_PREFIX + host, USERNAME);
+                config.set(
+                        SFTPFileSystem.FS_SFTP_PASSWORD_PREFIX + host + "." + USERNAME, PASSWORD);
+                SFTPFileSystem fs = new SFTPFileSystem();
+                fileSystems.add(fs);
+                fs.initialize(
+                        new URI(
+                                "sftp",
+                                null,
+                                host,
+                                sftpContainer.getMappedPort(SFTP_PORT),
+                                null,
+                                null,
+                                null),
+                        config);
+                Assertions.assertTrue(fs.mkdirs(new Path(root)));
+            }
+            for (int round = 0; round < 3; round++) {
+                Path directory = new Path(root + "/round-" + round);
+                CyclicBarrier barrier = new CyclicBarrier(writers);
+                List<Future<Void>> futures = new ArrayList<>();
+                for (int i = 0; i < writers; i++) {
+                    final int writer = i;
+                    futures.add(
+                            executor.submit(
+                                    () -> {
+                                        barrier.await(30, TimeUnit.SECONDS);
+                                        SFTPFileSystem fs = fileSystems.get(writer);
+                                        Assertions.assertTrue(fs.mkdirs(directory));
+                                        try (FSDataOutputStream output =
+                                                fs.create(
+                                                        new Path(directory, "writer-" + writer))) {
+                                            output.writeUTF("writer-" + writer);
+                                        }
+                                        return null;
+                                    }));
+                }
+                for (Future<Void> future : futures) {
+                    future.get(60, TimeUnit.SECONDS);
+                }
+                Assertions.assertEquals(writers, fileSystems.get(0).listStatus(directory).length);
+                for (int i = 0; i < writers; i++) {
+                    try (FSDataInputStream input =
+                            fileSystems.get(0).open(new Path(directory, "writer-" + i))) {
+                        Assertions.assertEquals("writer-" + i, input.readUTF());
+                    }
+                }
+            }
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(30, TimeUnit.SECONDS);
+            for (SFTPFileSystem fs : fileSystems) {
+                fs.close();
+            }
+        }
+    }
 
     @BeforeAll
     @Override

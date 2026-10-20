@@ -12,6 +12,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 |------------------------| ------ | -------- |-------------|
 | model_provider         | enum   | yes      |             |
 | output_data_type       | enum   | no       | String      |
+| strict_boolean_output  | boolean | no      | false       |
 | output_column_name     | string | no       | llm_output   |
 | prompt                 | string | yes      |             |
 | inference_columns      | list   | no       |             |
@@ -36,9 +37,24 @@ OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 默认值为 STRING。
 
+### strict_boolean_output
+
+`output_data_type = BOOLEAN` 时的可选校验。默认值为 `false`，保持现有转换行为：
+只有 `true`（不区分大小写）转换为 `true`；其他值（包括空字符串和 null 元素）转换为 `false`。
+
+设置 `strict_boolean_output = true` 后，每条输入记录对应的模型结果必须且只能包含一个非 null 的
+`true` 或 `false` 值。匹配不区分大小写，但不会去除首尾空白。`"unknown"`、`""`、`" true "`、
+`1`、null、空结果或多个结果都会使转换失败，而不是输出布尔值。校验错误不会包含输入记录或模型响应。
+该选项不增加跳过记录或路由到错误表的功能，对其他输出数据类型没有影响。
+
+```hocon
+output_data_type = BOOLEAN
+strict_boolean_output = true
+```
+
 ### output_column_name
 
-自定义输出数据字段名称。自定义字段名称与现有字段名称相同时,将替换为`llm_output`。
+自定义输出数据字段名称。该名称不能与输入数据中已有的字段名重复，否则转换插件会抛出错误：`llm inference field name ... already exists`。
 
 ### prompt
 
@@ -95,6 +111,8 @@ transform {
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
+当 `model_provider` 为 `CUSTOM` 时，不会使用此选项，此时请求完全由 `custom_config` 描述。
+
 ### api_path
 
 用于模型提供者的 API 路径。在大多数情况下，您不需要更改此配置。如果使用 API 代理的服务，您可能需要将其配置为代理的 API 地址。
@@ -102,6 +120,9 @@ transform {
 ### custom_config
 
 `custom_config` 选项允许您为模型提供额外的自定义配置。这是一个 Map，您可以在其中定义特定模型可能需要的各种设置。
+
+`custom_response_parse`、`custom_request_headers` 和 `custom_request_body` 只会从 `custom_config`
+块内部读取（见下方示例），写在 Transform 顶层不会生效。
 
 ### custom_response_parse
 

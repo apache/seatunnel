@@ -39,4 +39,13 @@ public class TestCopyIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/copy_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testCopyTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/copy_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
