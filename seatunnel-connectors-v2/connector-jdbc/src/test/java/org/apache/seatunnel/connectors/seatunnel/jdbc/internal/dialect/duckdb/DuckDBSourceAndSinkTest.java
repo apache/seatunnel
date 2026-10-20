@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
@@ -62,6 +63,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1405,6 +1407,214 @@ public class DuckDBSourceAndSinkTest {
                         }
                     }
                 }
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    /**
+     * Regression pin for the timestamp parameters the sink binds in the generated UPDATE and DELETE
+     * statements of a table whose primary key is a timestamp column.
+     *
+     * <p>Every native DuckDB fractional-second precision is covered with digits that are exact in
+     * that precision, so a lost or rounded fraction cannot match the expectations below. The
+     * updated key is a wall clock inside the America/New_York spring-forward gap of 2024-03-10
+     * (02:00 -> 03:00), which a zone-aware binding cannot represent; the sink runs with that zone
+     * as the JVM default, while every expectation is verified afterwards with DuckDB's own literals
+     * and text rendering instead of the converter under test.
+     */
+    @ResourceLock("java.util.TimeZone.default")
+    @Test
+    public void testSinkTimestampPrimaryKeyUpdateAndDeleteBindExactWallClocks() throws Exception {
+        String[] suffixes = {"timestamp_s", "timestamp_ms", "timestamp", "timestamp_ns"};
+        String[] nativeTypes = {
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_S,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_MS,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP,
+            DuckDBTypeConverter.DUCKDB_TIMESTAMP_NS
+        };
+        Integer[] nativeScales = {
+            DuckDBTypeConverter.TIMESTAMP_S_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_MS_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_SCALE,
+            DuckDBTypeConverter.TIMESTAMP_NS_SCALE
+        };
+        // Fractions the destination precision stores unchanged: seconds have none, the other
+        // precisions keep exactly three, six and nine digits.
+        String[] seedFractions = {"", ".123", ".123456", ".123456789"};
+        String[] updatedFractions = {"", ".456", ".654321", ".987654321"};
+        // 02:30 on 2024-03-10 does not exist in America/New_York, so a binding that interpreted the
+        // wall clock through that zone would move it forward by an hour.
+        String updateKey = "2024-03-10 02:30:00";
+        String deleteKey = "2024-03-11 09:15:00";
+        String controlKey = "2024-03-12 18:45:30";
+        String seedUpdateValue = "2024-03-10 01:15:00";
+        String seedDeleteValue = "2024-03-11 10:15:00";
+        String updatedValue = "2024-03-10 03:45:15";
+        String controlValue = "2024-03-12 19:45:30";
+        String seedUpdateNote = "seed-update";
+        String seedDeleteNote = "seed-delete";
+        String updatedNote = "updated-note";
+        String controlNote = "control-note";
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (int index = 0; index < suffixes.length; index++) {
+                String table = "ts_dml_" + suffixes[index];
+                String typed = nativeTypes[index];
+                String seedFraction = seedFractions[index];
+                String updatedFraction = updatedFractions[index];
+                String updateKeyLiteral = typed + " '" + updateKey + seedFraction + "'";
+                String deleteKeyLiteral = typed + " '" + deleteKey + seedFraction + "'";
+                String controlKeyLiteral = typed + " '" + controlKey + seedFraction + "'";
+                String updatedValueLiteral = typed + " '" + updatedValue + updatedFraction + "'";
+                String controlValueLiteral = typed + " '" + controlValue + seedFraction + "'";
+
+                // 1. The target table and its rows come from independent SQL, so the seeded keys
+                // are exactly the literals asserted below and never pass through the connector.
+                try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(
+                            String.format(
+                                    "DROP TABLE IF EXISTS \"%s\".\"%s\"", SCHEMA_NAME, table));
+                    statement.execute(
+                            String.format(
+                                    "CREATE TABLE \"%s\".\"%s\" "
+                                            + "(id INTEGER, key_ts %s, value %s, note VARCHAR)",
+                                    SCHEMA_NAME, table, typed, typed));
+                    String[] seedKeys = {updateKey, deleteKey, controlKey};
+                    String[] seedValues = {seedUpdateValue, seedDeleteValue, controlValue};
+                    String[] seedNotes = {seedUpdateNote, seedDeleteNote, controlNote};
+                    for (int row = 0; row < seedKeys.length; row++) {
+                        statement.execute(
+                                String.format(
+                                        "INSERT INTO \"%s\".\"%s\" VALUES "
+                                                + "(%d, %s '%s', %s '%s', '%s')",
+                                        SCHEMA_NAME,
+                                        table,
+                                        row + 1,
+                                        typed,
+                                        seedKeys[row] + seedFraction,
+                                        typed,
+                                        seedValues[row] + seedFraction,
+                                        seedNotes[row]));
+                    }
+                }
+
+                // 2. The sink sees the same four columns as the created table and derives its
+                // UPDATE / DELETE parameters from `primary_keys`, not from a fixed SQL statement.
+                CatalogTable sinkTable =
+                        CatalogTable.of(
+                                TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, SCHEMA_NAME, table),
+                                TableSchema.builder()
+                                        .column(
+                                                PhysicalColumn.builder()
+                                                        .name("id")
+                                                        .dataType(BasicType.INT_TYPE)
+                                                        .build())
+                                        .column(timestampColumn("key_ts", nativeScales[index]))
+                                        .column(timestampColumn("value", nativeScales[index]))
+                                        .column(
+                                                PhysicalColumn.builder()
+                                                        .name("note")
+                                                        .dataType(BasicType.STRING_TYPE)
+                                                        .build())
+                                        .build(),
+                                new HashMap<>(),
+                                new ArrayList<>(),
+                                null);
+                Map<String, Object> sinkOptions = new HashMap<>();
+                sinkOptions.put("url", jdbcUrl);
+                sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+                sinkOptions.put("database", DATABASE_NAME);
+                sinkOptions.put("table", SCHEMA_NAME + "." + table);
+                sinkOptions.put("primary_keys", Arrays.asList("key_ts"));
+                sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+                sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+                ReadonlyConfig sinkConfig = ReadonlyConfig.fromMap(sinkOptions);
+
+                // 3. One UPDATE_AFTER that keeps the key and changes value and note, and one DELETE
+                // of another key, both through the real sink factory.
+                SeaTunnelRow updateRow =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    1,
+                                    LocalDateTime.parse(
+                                            (updateKey + seedFraction).replace(' ', 'T')),
+                                    LocalDateTime.parse(
+                                            (updatedValue + updatedFraction).replace(' ', 'T')),
+                                    updatedNote
+                                });
+                updateRow.setRowKind(RowKind.UPDATE_AFTER);
+                SeaTunnelRow deleteRow =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    2,
+                                    LocalDateTime.parse(
+                                            (deleteKey + seedFraction).replace(' ', 'T')),
+                                    LocalDateTime.parse(
+                                            (seedDeleteValue + seedFraction).replace(' ', 'T')),
+                                    seedDeleteNote
+                                });
+                deleteRow.setRowKind(RowKind.DELETE);
+                List<SeaTunnelRow> rows = new ArrayList<>();
+                rows.add(updateRow);
+                rows.add(deleteRow);
+
+                // 4. The zone that cannot represent the updated key is the JVM default exactly
+                // while the sink binds its parameters, and is restored before anything is verified.
+                TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
+                try {
+                    SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                            sinkTable, sinkConfig, new JdbcSinkFactory(), rows);
+                } finally {
+                    TimeZone.setDefault(original);
+                }
+
+                // 5. Verified with DuckDB literals only: the updated key stays and is unique, value
+                // and note changed, the value text is the exact stored fraction, the delete target
+                // is gone by id and by key, the control row is untouched and two rows remain.
+                Assertions.assertEquals(
+                        2, countTimestampRows(table, "TRUE"), table + ", remaining rows");
+                Assertions.assertEquals(
+                        1,
+                        countTimestampRows(table, "key_ts = " + updateKeyLiteral),
+                        table + ", updated key must stay unique");
+                Assertions.assertEquals(
+                        1,
+                        countTimestampRows(
+                                table,
+                                "id = 1 AND key_ts = "
+                                        + updateKeyLiteral
+                                        + " AND value = "
+                                        + updatedValueLiteral
+                                        + " AND note = '"
+                                        + updatedNote
+                                        + "'"),
+                        table + ", updated row");
+                Assertions.assertEquals(
+                        updatedValue + updatedFraction,
+                        readTimestampText(table, 1),
+                        table + ", updated value text");
+                Assertions.assertEquals(
+                        0, countTimestampRows(table, "id = 2"), table + ", deleted id");
+                Assertions.assertEquals(
+                        0,
+                        countTimestampRows(table, "key_ts = " + deleteKeyLiteral),
+                        table + ", deleted key");
+                Assertions.assertEquals(
+                        1,
+                        countTimestampRows(
+                                table,
+                                "id = 3 AND key_ts = "
+                                        + controlKeyLiteral
+                                        + " AND value = "
+                                        + controlValueLiteral
+                                        + " AND note = '"
+                                        + controlNote
+                                        + "'"),
+                        table + ", control row");
             }
         } finally {
             TimeZone.setDefault(original);
