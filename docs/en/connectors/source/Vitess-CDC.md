@@ -82,6 +82,11 @@ separately.
 
 ## Notes
 
+- The schema metadata contract is validated when the job is submitted: a `schema` block must declare
+  `columns` or `metadata_table_id`, every `tables_configs` entry must contain its own `schema` block,
+  and `table-names` / `table-pattern` are mutually exclusive.
+- Checks that need the catalog - a declared table missing from the schema metadata, or a pattern that
+  matches no table - still run when the source is created.
 - The first delivery does not read an initial table snapshot.
 - Dynamic discovery of newly added tables is out of scope.
 - Schema evolution events are not emitted in this first delivery.
