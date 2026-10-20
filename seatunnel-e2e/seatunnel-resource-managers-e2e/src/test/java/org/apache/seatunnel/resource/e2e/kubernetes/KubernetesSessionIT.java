@@ -63,6 +63,16 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                 SeatunnelApplicationConfig.load(
                         suiteFile("suite.config").toPath(), Collections.emptyMap());
         image = suite.get(KubernetesOptions.IMAGE.key());
+        Container.ExecResult dns =
+                execInCluster(
+                        "kubectl",
+                        "-n",
+                        "kube-system",
+                        "rollout",
+                        "status",
+                        "deployment/coredns",
+                        "--timeout=120s");
+        Assertions.assertEquals(0, dns.getExitCode(), dns.getStderr());
         applySessionManifests();
         awaitPods(MASTER_SELECTOR, 2);
         awaitPods(WORKER_SELECTOR, 2);
@@ -70,14 +80,33 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
 
     @Override
     protected void stopScenarioFixtures() throws Exception {
-        execInCluster(
-                "kubectl",
-                "delete",
-                "statefulset",
-                SESSION_NAME + "-master",
-                "--namespace",
-                namespace,
-                "--ignore-not-found=true");
+        Container.ExecResult deleted =
+                execInCluster(
+                        "kubectl",
+                        "delete",
+                        "--namespace",
+                        namespace,
+                        "--ignore-not-found=true",
+                        "statefulset/" + SESSION_NAME + "-master",
+                        "configmap/" + SESSION_NAME + "-meta",
+                        "configmap/" + SESSION_NAME + "-config",
+                        "service/" + SESSION_NAME + "-headless",
+                        "service/" + SESSION_NAME + "-rest",
+                        "service/" + SESSION_NAME + "-client",
+                        "pdb/" + SESSION_NAME + "-master",
+                        "serviceaccount/" + SESSION_NAME + "-master",
+                        "role/" + SESSION_NAME + "-master",
+                        "rolebinding/" + SESSION_NAME + "-master");
+        Assertions.assertEquals(0, deleted.getExitCode(), deleted.getStderr());
+        awaitNoPods(MASTER_SELECTOR);
+        awaitNoPods(WORKER_SELECTOR);
+    }
+
+    private void awaitNoPods(String selector) {
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(pods(selector).isEmpty()));
     }
 
     @Test
@@ -114,14 +143,25 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                         "-sS",
                         "-X",
                         "POST",
+                        "-H",
+                        "Content-Type: text/plain",
                         "http://127.0.0.1:8080/submit-job?format=hocon",
                         "--data-binary",
                         "@" + remoteJob);
         Assertions.assertEquals(
                 0, result.getExitCode(), () -> result.getStdout() + result.getStderr());
-        Assertions.assertTrue(
-                result.getStdout().contains("jobId"),
-                () -> "REST submit failed: " + result.getStdout() + result.getStderr());
+        if (!result.getStdout().contains("jobId")) {
+            Container.ExecResult logs =
+                    execInCluster(
+                            "kubectl", "logs", "--namespace", namespace, master, "--tail=200");
+            Assertions.fail(
+                    "REST submit failed: "
+                            + result.getStdout()
+                            + result.getStderr()
+                            + "\n"
+                            + logs.getStdout()
+                            + logs.getStderr());
+        }
     }
 
     private void applySessionManifests() throws Exception {

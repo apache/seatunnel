@@ -189,24 +189,44 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     /**
-     * Waits for the initial worker set before scheduling can observe an empty cluster.
+     * Waits for the initial worker set before coordinator activation.
      *
-     * <p>Without this wait a job submitted immediately after the master starts can see zero
-     * registered workers and provision extra workers that are no longer needed once the min-workers
-     * finish starting. A failed initial set is logged and left to the normal provisioning/retry
-     * path rather than failing coordinator startup.
+     * <p>The wait is based on the driver-created worker set, not on worker heartbeats: worker
+     * heartbeats call back into the coordinator service, which is not active until this method
+     * returns. Waiting for heartbeats here would deadlock startup until the timeout.
      */
     private void awaitMinWorkers() {
-        if (workerCount(Collections.emptyMap()) >= specification.getMinWorkers()) {
+        if (workers.size() >= specification.getMinWorkers()) {
             return;
         }
         try {
-            awaitRegistration(specification.getMinWorkers());
+            awaitWorkerPods(specification.getMinWorkers());
         } catch (NoEnoughResourceException failure) {
             log.warn(
-                    "Session min-workers did not register within {} ms; leaving provisioning to the pending-job path",
+                    "Session min-workers did not start within {} ms; leaving provisioning to the pending-job path",
                     specification.getStartupTimeoutMillis(),
                     failure);
+        }
+    }
+
+    private void awaitWorkerPods(int target) {
+        long deadline =
+                System.nanoTime()
+                        + TimeUnit.MILLISECONDS.toNanos(specification.getStartupTimeoutMillis());
+        while (workers.size() < target) {
+            if (System.nanoTime() >= deadline) {
+                throw new NoEnoughResourceException(
+                        String.format(
+                                "Timed out waiting for session worker Pods: expected=%d, current=%d, timeoutMs=%d",
+                                target, workers.size(), specification.getStartupTimeoutMillis()));
+            }
+            try {
+                TimeUnit.MILLISECONDS.sleep(Math.min(200L, specification.getRetryIntervalMillis()));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new NoEnoughResourceException(
+                        "Interrupted while waiting for session worker Pods", interrupted);
+            }
         }
     }
 
