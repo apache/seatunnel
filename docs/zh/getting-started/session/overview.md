@@ -51,12 +51,12 @@ manifest，也可以自行创建 Service、ConfigMap、Secret、RBAC，只保留
 - Kubernetes 集群和 `kubectl`。
 - 包含 Session 启动脚本和 Kubernetes resource-manager provider 的 SeaTunnel 镜像。
 - 一个用于 Session 资源的 namespace。
-- 用户自有的 worker ConfigMap，包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、
-  `log4j2.properties`、`jvm_worker_options`。
-- 用户自有的 master ConfigMap，包含 `seatunnel.yaml`、`hazelcast-master.yaml`、
-  `hazelcast-client.yaml`、`log4j2.properties`、`jvm_master_options`。
-- 独立的 `session.yaml`。示例 `kustomization.yaml` 会根据它生成 ConfigMap，master StatefulSet
-  将它挂载到 `/opt/seatunnel/config/session.yaml`。
+- master 配置目录，包含 `seatunnel.yaml`、`hazelcast-master.yaml`、`hazelcast-client.yaml`、
+  `log4j2.properties`、`jvm_master_options`。
+- worker 配置目录，包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、
+  `jvm_worker_options`。
+- 独立的 `session.yaml`。示例 `kustomization.yaml` 会根据这些文件生成独立 ConfigMap，master
+  StatefulSet 将 `session.yaml` 挂载到 `/opt/seatunnel/config/session.yaml`。
 - 所有 Pod 都能访问 checkpoint 和 IMap 存储。示例使用 `file:///tmp/` 便于本地单节点验证；
   生产环境应使用 HDFS、S3 或 PVC。
 
@@ -91,7 +91,9 @@ session:
 
 示例将配置保留为独立文件 `deploy/kubernetes/session/session.yaml`。`kustomization.yaml` 使用
 `configMapGenerator` 生成单独的 ConfigMap，`statefulset-master.yaml` 再把它挂载到
-`/opt/seatunnel/config/session.yaml`，不再嵌入 `configmap-master.yaml`。
+`/opt/seatunnel/config/session.yaml`。其他 master 配置文件位于
+`deploy/kubernetes/session/config/master/`，worker 配置位于 `config/worker/`，直接编辑这些文件，
+由 Kustomize 生成两个 ConfigMap。
 
 `min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
 slot 缺口扩容，且不超过 `max-workers`。
@@ -193,9 +195,9 @@ seatunnel:
       port: 8080
 ```
 
-Master 不提供 slot，只运行 coordinator 和 REST 服务。master ConfigMap 必须包含 `session.yaml`、
-`seatunnel.yaml`、`hazelcast-master.yaml`、`hazelcast-client.yaml`、`log4j2.properties`、
-`jvm_master_options`；示例 StatefulSet 会以只读方式挂载整个 config 目录。
+Master 不提供 slot，只运行 coordinator 和 REST 服务。master ConfigMap 包含 `seatunnel.yaml`、
+`hazelcast-master.yaml`、`hazelcast-client.yaml`、`log4j2.properties`、`jvm_master_options`；
+`session.yaml` 由单独的 ConfigMap 生成并以单文件挂载。示例 StatefulSet 会以只读方式挂载配置目录。
 
 ## 启动
 

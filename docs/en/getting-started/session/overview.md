@@ -54,12 +54,13 @@ keep only the objects they need.
 - A Kubernetes cluster and `kubectl`.
 - A SeaTunnel image containing the session entrypoint and the Kubernetes resource-manager provider.
 - A namespace for the session resources.
-- A user-owned worker ConfigMap with `seatunnel.yaml`, `hazelcast-worker.yaml`,
-  `log4j2.properties`, and `jvm_worker_options`.
-- A user-owned master ConfigMap with `seatunnel.yaml`, `hazelcast-master.yaml`,
+- A master configuration directory with `seatunnel.yaml`, `hazelcast-master.yaml`,
   `hazelcast-client.yaml`, `log4j2.properties`, and `jvm_master_options`.
-- A standalone `session.yaml`. The sample `kustomization.yaml` generates a ConfigMap from it and
-  the master StatefulSet mounts it at `/opt/seatunnel/config/session.yaml`.
+- A worker configuration directory with `seatunnel.yaml`, `hazelcast-worker.yaml`,
+  `log4j2.properties`, and `jvm_worker_options`.
+- A standalone `session.yaml`. The sample `kustomization.yaml` generates separate ConfigMaps from
+  these files and the master StatefulSet mounts `session.yaml` at
+  `/opt/seatunnel/config/session.yaml`.
 - Checkpoint and IMap storage reachable by every Pod. The sample uses `file:///tmp/` for a local
   single-node test; use HDFS, S3, or a PVC in production.
 
@@ -94,7 +95,9 @@ session:
 
 The sample keeps this file as `deploy/kubernetes/session/session.yaml`. `kustomization.yaml` uses
 `configMapGenerator` to create a separate ConfigMap from it, and `statefulset-master.yaml` mounts
-that key at `/opt/seatunnel/config/session.yaml`; it is not embedded in `configmap-master.yaml`.
+that key at `/opt/seatunnel/config/session.yaml`. The other master files live under
+`deploy/kubernetes/session/config/master/` and worker files under `config/worker/`; edit those
+files individually and let Kustomize generate the two ConfigMaps.
 
 `min-workers` defaults to `2`. `dynamic-worker.enabled` defaults to `false`; when enabled, workers
 are created only from pending-job slot demand up to `max-workers`.
@@ -199,9 +202,9 @@ seatunnel:
 ```
 
 The master Pods do not provide slots. They run the coordinator and REST service. The master
-ConfigMap must contain `session.yaml`, `seatunnel.yaml`, `hazelcast-master.yaml`,
-`hazelcast-client.yaml`, `log4j2.properties`, and `jvm_master_options`; the sample master
-StatefulSet mounts the whole directory read-only.
+ConfigMap contains `seatunnel.yaml`, `hazelcast-master.yaml`, `hazelcast-client.yaml`,
+`log4j2.properties`, and `jvm_master_options`; `session.yaml` is generated as a separate ConfigMap
+and mounted as one file. The sample master StatefulSet mounts the configuration directory read-only.
 
 ## Start
 

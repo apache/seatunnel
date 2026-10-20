@@ -123,12 +123,29 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
         Path directory = Paths.get(PROJECT_ROOT_PATH, "deploy/kubernetes/session");
         List<String> manifests = new ArrayList<>();
         manifests.add(sessionConfigMap(directory));
+        manifests.add(
+                configMap(
+                        directory,
+                        "seatunnel-session-cluster-master-config",
+                        "config/master",
+                        "seatunnel.yaml",
+                        "hazelcast-master.yaml",
+                        "hazelcast-client.yaml",
+                        "log4j2.properties",
+                        "jvm_master_options"));
+        manifests.add(
+                configMap(
+                        directory,
+                        "seatunnel-session-cluster-worker",
+                        "config/worker",
+                        "seatunnel.yaml",
+                        "hazelcast-worker.yaml",
+                        "log4j2.properties",
+                        "jvm_worker_options"));
         for (String name :
                 new String[] {
                     "root-configmap.yaml",
                     "rbac.yaml",
-                    "configmap-master.yaml",
-                    "configmap-worker.yaml",
                     "services.yaml",
                     "statefulset-master.yaml"
                 }) {
@@ -138,21 +155,36 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
     }
 
     private String sessionConfigMap(Path directory) throws Exception {
-        String session =
-                render(Files.readString(directory.resolve("session.yaml"), StandardCharsets.UTF_8));
-        String indented =
-                session.lines().map(line -> "    " + line).collect(Collectors.joining("\n"));
-        return "apiVersion: v1\n"
-                + "kind: ConfigMap\n"
-                + "metadata:\n"
-                + "  name: seatunnel-session-cluster-session\n"
-                + "  namespace: "
-                + namespace
-                + "\n"
-                + "data:\n"
-                + "  session.yaml: |\n"
-                + indented
-                + "\n";
+        return configMap(directory, "seatunnel-session-cluster-session", "", "session.yaml");
+    }
+
+    private String configMap(Path directory, String name, String subdirectory, String... files)
+            throws Exception {
+        StringBuilder yaml =
+                new StringBuilder()
+                        .append("apiVersion: v1\n")
+                        .append("kind: ConfigMap\n")
+                        .append("metadata:\n")
+                        .append("  name: ")
+                        .append(name)
+                        .append("\n")
+                        .append("  namespace: ")
+                        .append(namespace)
+                        .append("\n")
+                        .append("  labels:\n")
+                        .append("    seatunnel.apache.org/session: seatunnel-session-cluster\n")
+                        .append("data:\n");
+        for (String file : files) {
+            String content =
+                    render(
+                            Files.readString(
+                                    directory.resolve(subdirectory).resolve(file),
+                                    StandardCharsets.UTF_8));
+            String indented =
+                    content.lines().map(line -> "    " + line).collect(Collectors.joining("\n"));
+            yaml.append("  ").append(file).append(": |\n").append(indented).append("\n");
+        }
+        return yaml.toString();
     }
 
     private String render(String content) {
