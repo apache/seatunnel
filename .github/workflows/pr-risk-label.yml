@@ -15,37 +15,47 @@
 # limitations under the License.
 #
 
+# First half of the ASF-compliant pair (pull_request + workflow_run). This run has a read-only token:
+# it reports the risk level in its own job summary and records the PR number for the labelling run
+# (pr-risk-label-apply.yml), which recomputes everything from trusted code before writing the label.
 name: PR risk label
 
 on:
-  # Runs from the base branch with a write token and NEVER checks out PR code: the script only reads
-  # the PR through the GitHub API. `edited` covers title, body and base-branch changes.
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize, ready_for_review, edited]
 
-# Labels and comments are issue-level writes. The workflow cannot approve, request changes or merge.
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
+  pull-requests: read
 
-# Only the latest head matters: a newer run replaces the label and the comment of an older one.
 concurrency:
   group: pr-risk-label-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  label:
-    if: github.repository == 'apache/seatunnel'
-    name: Compute risk label
+  evaluate:
+    # Activation is a separate decision: nothing runs until the repository variable PR_RISK_ENABLED is 'true'.
+    if: github.repository == 'apache/seatunnel' && vars.PR_RISK_ENABLED == 'true'
+    name: Evaluate risk
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # The default checkout of pull_request_target is the base branch, which is what we want: its poms
-      # tell the script which artifacts and versions are already in use.
+      # The base commit, not the PR merge commit: its poms define which artifacts and versions are already in
+      # use, and its copy of the script is the one that runs. Nothing from the PR is executed.
       - uses: actions/checkout@v4
-      - name: Compute the risk level, post the comment and set the label
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Report the risk level in the job summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_RISK_DEFAULT_BASE: ${{ vars.PR_RISK_DEFAULT_BASE }}
-        run: python3 -I tools/pr_risk_label.py evaluate --pr ${{ github.event.pull_request.number }} --apply
+        run: python3 -I tools/pr_risk_label.py evaluate --pr ${{ github.event.pull_request.number }}
+      - name: Record the PR number for the labelling run
+        run: |
+          mkdir -p pr-risk
+          echo "${{ github.event.pull_request.number }}" > pr-risk/number
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-risk
+          path: pr-risk/
+          retention-days: 1

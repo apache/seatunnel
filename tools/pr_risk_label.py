@@ -17,52 +17,65 @@
 """
 Risk triage labels for pull requests.
 
-Every PR gets exactly one label `risk: <1..5>-<name>` and one structured comment that shows how the
-level was computed, so committers can process the review queue sorted by risk. Nothing here approves,
-blocks or merges a PR: merge permission stays with committers.
+Every PR gets exactly one label `risk: <1..5>-<name>`, and the reasoning is written to the Actions
+job summary, so committers can process the review queue sorted by risk. Nothing here approves,
+blocks, merges or comments on a PR: merge permission stays with committers.
 
 How the level is computed (see compute_level):
 
-  level = base                         when the base is 5 (platform code, fixed)
+  level = 5                            when the base is 5 (platform code) or a critical fact is present
   level = min(4, base + adjustments)   otherwise
 
   base (who is affected if the PR is wrong)
-    1  nothing at runtime: docs, examples, labeler metadata, tests
+    1  nothing at runtime: docs (including .github templates), examples, labeler metadata, tests
     2  a brand-new connector, or one existing connector unit, or a registration-only change
     3  an unclassified path, or tooling around the runtime (CLI, benchmarks, examples, deploy)
     4  a shared connector module (connector-common, *-base, JDBC core, fake/assert/console),
        edge agent, build wrapper and repository settings
-    5  platform: engine, api, core, common, config, formats, transforms, translation, dist, build,
-       CI, tools, license files, root or non-connector pom.xml
+    5  platform: engine, api, core, common, config, formats, transforms, translation, dist, CI
+       workflows and actions, tools, license files, root or non-connector pom.xml
+
+  critical facts (level 5 regardless of base)
+    credential handling changed in existing production code (password, secret, token, keytab, ...;
+    option declarations that only name such an option do not count)
 
   adjustments (each rule counts once per PR, computed from the whole PR, not from single lines)
     +2  option key removed, or default/type changed (a key that only moved between files is neutral)
     +2  existing checkpoint/split/state/commit-info class or serialVersionUID modified
-    +2  new supply chain: an artifact or (artifact, version) pair no pom of the base branch uses,
-        repositories/profiles/antrun/exec in a pom
-    +2  existing tests weakened (assertion removed, test disabled, timeout loosened, test file deleted)
+    +2  new supply chain: an artifact, (artifact, version) pair or version property value that no
+        pom of the base branch uses; repositories/profiles/antrun/exec in a pom
+    +2  existing tests weakened (fewer assertions, test disabled, tolerance loosened, file deleted)
     +2  registration entry removed (module, dist dependency, plugin mapping, service, plugin_config)
     +2  diff cannot be inspected (binary or oversized), or text addressed to a reviewer/AI
-    +1  security/concurrency/classloading words in modified existing code
+    +1  TLS/auth, concurrency or classloading words in modified existing code
     +1  production code larger than 250 lines (1500 for a brand-new connector)
-    +1  production code changed without any added test method
+    +1  production code changed without any added or changed test (method, assertion or fixture)
     +1  several connector units, or production file deleted/renamed
     +1  new connector without docs, or new option without docs
-    +1  pom dependency change that reuses already-known artifacts
-    +1  author is not an owner/member/collaborator/previous contributor
+    +1  dependency or version line of an existing pom changed (known values)
   A PR to a branch other than the default branch gets a floor of 3.
 
-Keyword findings that are only suggestive (hot-path readers/writers, type mapping, empty catch,
-removed throw, credentials in a brand-new connector) are notes in the comment and never change the
-level.
+The author's association with the project is reported as a note so reviewers can offer support; it
+never changes the level. Keyword findings that are only suggestive (hot-path readers/writers, type
+mapping, empty catch, removed throw, credentials in a brand-new connector) are notes too.
 
-SECURITY MODEL: the script only reads the PR through the GitHub API. It never checks out or executes
-PR code, so it is safe under `pull_request_target`. Run it from the base branch.
+The five levels are provisional: a replay of 150 merged PRs separated level 5 from the rest on
+review effort, but not levels 1 to 4 from each other.
+
+SECURITY MODEL: the script only reads the PR through the GitHub API; it never checks out or executes
+PR code. The workflows follow the ASF policy for untrusted PRs: `pull_request` (read-only token,
+report in the job summary) followed by `workflow_run` on the default branch (trusted code, the only
+run with `pull-requests: write`), which recomputes everything from the API and binds the label to
+the commit the first run was triggered for. Every PR-controlled string in the summary is escaped.
 
 Sub-commands:
-  evaluate --pr N [--apply]   Print the comment for PR N. With --apply, also create the five labels
-                              if missing, upsert the comment and replace the PR's risk label.
+  evaluate --pr N [--expect-head SHA] [--apply]
+                 Print the report (and write it to $GITHUB_STEP_SUMMARY when set). With --apply,
+                 replace the PR's risk label; with --expect-head, do nothing unless the PR head is
+                 still that commit.
   classify --files-json F     Offline evaluation of a saved `pulls/N/files` payload.
+  labels                      Print the `gh label create` commands for the five labels (one-time
+                              committer step; the workflow does not create labels).
 
 Configuration (env):
   GITHUB_TOKEN, GITHUB_REPOSITORY
@@ -80,7 +93,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-MARKER = "pr-risk"
 LABEL_PREFIX = "risk: "
 LEVEL_NAMES = {1: "trivial", 2: "low", 3: "medium", 4: "high", 5: "critical"}
 LEVEL_META = {
@@ -88,10 +100,10 @@ LEVEL_META = {
     2: ("7bc043", "Contained: new connector or one existing connector unit"),
     3: ("fbca04", "Needs a focused read: sizeable change or missing evidence"),
     4: ("f9841c", "Touches a contract, shared module, supply chain or several units"),
-    5: ("d73a4a", "Platform, build, CI or license files"),
+    5: ("d73a4a", "Platform code, CI workflows, credential handling, build or license files"),
 }
 
-# Author associations that raise no trust adjustment.
+# Author associations that need no "offer support" note.
 TRUSTED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"}
 
 # ------------------------------------------------------------------------------------------
@@ -102,7 +114,7 @@ TRUSTED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"}
 # build itself; lower levels are tooling around the runtime (CLI, benchmarks, examples, Helm, wrappers).
 PLATFORM_BLOCKS = [
     (r"(^|/)pom\.xml$", "root or non-connector pom.xml (build and dependency graph)", 5),
-    (r"^\.github/", "CI and repository automation", 5),
+    (r"^\.github/", "CI workflows, actions and repository automation", 5),
     (r"^tools/", "CI, release and compatibility tooling", 5),
     (r"^seatunnel-engine/", "engine runtime (Zeta): scheduling, checkpoint, state, RPC", 5),
     (r"^seatunnel-api/", "public API / SPI contract", 5),
@@ -138,7 +150,11 @@ REGISTRATION_FILES = {
     "plugin-mapping.properties": "mapping",
     "config/plugin_config": "plugin_config",
 }
+# The labeler config only drives display labels: no workflow gates on them, so it is metadata.
 METADATA_FILES = {".github/workflows/labeler/label-scope-conf.yml"}
+# Templates and Markdown under .github are documentation, not CI behavior.
+GITHUB_DOC_RE = re.compile(r"^\.github/ISSUE_TEMPLATE/[^/]+$")
+GITHUB_CI_RE = re.compile(r"^\.github/(workflows|actions|scripts)/")
 EXAMPLE_RE = re.compile(r"^seatunnel-examples/.*/src/main/resources/examples/[^/]+\.conf$")
 DOCS_CONNECTOR_RE = re.compile(r"^docs/en/(connectors|connector-v2)/")
 DOC_RE = re.compile(r"(\.md$)|(^docs/.*\.(png|jpe?g|gif)$)")
@@ -151,6 +167,9 @@ SERVICES_RE = re.compile(r"^seatunnel-connectors-v2/.*/src/main/resources/META-I
 MODULE_LINE_RE = re.compile(r"<module>")
 ARTIFACT_RE = re.compile(r"<artifactId>\s*([^<\s]+)\s*</artifactId>")
 PAIR_RE = re.compile(r"<artifactId>\s*([^<\s]+)\s*</artifactId>\s*<version>\s*([^<\s$][^<\s]*)\s*</version>")
+# `<activemq.version>5.15.16</activemq.version>`: most connector poms pin third-party jars this way.
+# The bare `<version>` tag is excluded: dependency pairs are handled by PAIR_RE.
+VERSION_PROPERTY_RE = re.compile(r"<((?!version>)[A-Za-z0-9_.-]*[vV]ersion[A-Za-z0-9_.-]*)>\s*([^<$\s]+)\s*</\1>")
 # Anything in a pom that can execute code at build time or pull from another registry.
 POM_DANGER_RE = re.compile(r"<repositor|<pluginRepositor|<profile|antrun|exec-maven|<systemPath|<scope>system")
 
@@ -179,10 +198,12 @@ CONCURRENCY_RE = re.compile(
     r"ScheduledExecutor\w*|Executors|ThreadPool\w*|CompletableFuture|BlockingQueue|ConcurrentHashMap|"
     r"Atomic(Reference|Long|Integer|Boolean)|Thread|ThreadLocal)\b|\.wait\(|notifyAll"
 )
-SECURITY_RE = re.compile(
+# Credential handling in existing code is a critical fact; the rest of the security vocabulary is +1.
+CREDENTIAL_RE = re.compile(
     r"(?i)password|passwd|secret|credential|keytab|kerberos|truststore|keystore|jaas|sasl|token|principal"
-    r"|(?<![a-z])(ssl|tls)|authenticat|authoriz"
+    r"|api[_-]?key|access[_-]?key"
 )
+SENSITIVE_RE = re.compile(r"(?i)(?<![a-z])(ssl|tls)|authenticat|authoriz")
 CLASSLOAD_RE = re.compile(
     r"Class\.forName|ClassLoader|ServiceLoader|setAccessible|\.getDeclared\w+\(|java\.lang\.reflect|MethodHandles"
     r"|Proxy\.newProxyInstance|System\.(exit|setProperty|getenv)|Runtime\.getRuntime|ProcessBuilder"
@@ -199,6 +220,15 @@ ASSERT_RE = re.compile(
 DECLARATION_RE = re.compile(
     r"\.(required|optional|exclusive|conditional|bundled)\(|Options\.key\(|^\s*(public |private |protected )?static final"
 )
+# A line that is only a list of option constants (`TDengineSinkOptions.PASSWORD,`, `Arrays.asList(URL, SECRET_KEY);`),
+# as produced by multi-line option rules: it names credential options but handles no value.
+CONSTANT_LIST_RE = re.compile(
+    r"^\s*(?:(?:Arrays\.asList|List\.of|ImmutableList\.of|\.\w+)\()?\s*(?:[\w.]*\b[A-Z][A-Z0-9_]+\b\s*,?\s*)+\)*\s*[;,]?\s*$"
+)
+
+
+def is_declaration(text):
+    return bool(DECLARATION_RE.search(text) or CONSTANT_LIST_RE.match(text))
 DISABLE_RE = re.compile(r"@Disabled|@Ignore|@DisabledOnContainer|@DisabledOnOs|@DisabledIf|Assumptions\.|assumeTrue|assumeFalse")
 # Longer timeouts do not reduce what a test can detect (a hang still fails), so they are only a note.
 TIMING_RE = re.compile(r"(?i)timeout|atMost|pollInterval|Duration\.|retry|retries")
@@ -235,9 +265,10 @@ class Config(object):
 class Known(object):
     """Artifacts and (artifact, version) pairs already used by poms of the base branch."""
 
-    def __init__(self, artifacts=(), pairs=()):
+    def __init__(self, artifacts=(), pairs=(), props=()):
         self.artifacts = set(artifacts)
         self.pairs = set(pairs)
+        self.props = set(props)  # (property name, value) of version properties
 
 
 def load_known(root):
@@ -249,6 +280,7 @@ def load_known(root):
                 text = fh.read()
             known.artifacts.update(ARTIFACT_RE.findall(text))
             known.pairs.update(PAIR_RE.findall(text))
+            known.props.update(VERSION_PROPERTY_RE.findall(text))
     return known
 
 
@@ -291,7 +323,7 @@ def classify_path(path):
 
     kind is one of doc|metadata|registration|pom|services|test|main|shared|platform|other.
     """
-    if DOC_RE.search(path) and not path.startswith(".github/"):
+    if GITHUB_DOC_RE.match(path) or (DOC_RE.search(path) and not GITHUB_CI_RE.match(path)):
         return "doc", None, None, None
     if path in METADATA_FILES or EXAMPLE_RE.match(path):
         return "metadata", None, None, None
@@ -365,10 +397,11 @@ class Scorer(object):
         self.adjustments = {}
         self.notes = {}
 
-    def adjust(self, points, rule, path, detail):
+    def adjust(self, points, rule, path, detail, critical=False):
         entry = self.adjustments.get(rule)
         if entry is None:
-            self.adjustments[rule] = {"points": points, "rule": rule, "file": path, "detail": detail, "more": 0}
+            self.adjustments[rule] = {"points": points, "rule": rule, "file": path, "detail": detail, "more": 0,
+                                      "critical": critical}
         else:
             entry["more"] += 1
 
@@ -405,7 +438,7 @@ def evaluate(pr, files, cfg=None, known=None):
     platform, other, shared_units, units = [], [], set(), set()
     registration_touched = False
     total_lines = main_code_lines = 0
-    added_test_annotation = has_e2e_test = False
+    test_evidence = has_e2e_test = False
     option_removed, option_added = {}, set()
     option_tokens = {}  # path -> (removed tokens, added tokens, keys on both sides)
     new_option_in_existing = False
@@ -452,8 +485,11 @@ def evaluate(pr, files, cfg=None, known=None):
         elif kind == "test":
             tests.append(path)
             _test_facts(sc, path, status, added, removed, gone)
-            if any(TEST_ANNOTATION_RE.search(x) for x in added):
-                added_test_annotation = True
+            # Evidence is an added test method or assertion, or a changed fixture of the same kind of test:
+            # the project guideline is to extend an existing test class rather than add a new one.
+            if any(TEST_ANNOTATION_RE.search(x) or ASSERT_RE.search(x) for x in added) \
+                    or (path.endswith(TEST_RESOURCE_EXT) and (added or removed)):
+                test_evidence = True
                 has_e2e_test = has_e2e_test or path.startswith(E2E_ROOT)
         elif kind in ("main", "shared"):
             if module in new_modules and unit.startswith("shared:"):
@@ -521,16 +557,17 @@ def evaluate(pr, files, cfg=None, known=None):
     limit = SIZE_LIMIT_NEW_CONNECTOR if new_modules else SIZE_LIMIT
     if main_code_lines > limit:
         sc.adjust(1, "size", "-", "%d production code lines (limit %d)" % (main_code_lines, limit))
-    if main_code_lines > 0 and not added_test_annotation:
-        sc.adjust(1, "no-regression-test", "-", "production code changed but no test method was added or changed")
+    if main_code_lines > 0 and not test_evidence:
+        sc.adjust(1, "no-regression-test", "-", "production code changed but no test method, assertion or fixture was added or changed")
     if new_modules and not added_docs:
         sc.adjust(1, "no-docs", "-", "a new connector should add its page under docs/en/connectors/")
     if new_option_in_existing and not docs:
         sc.adjust(1, "option-without-docs", "-", "new option added to an existing connector but no docs changed")
-    if pr.get("author_association") not in cfg.trusted_associations:
-        sc.adjust(1, "new-contributor", "-", "author association %s" % pr.get("author_association"))
 
     # ---- notes (never change the level)
+    if pr.get("author_association") not in cfg.trusted_associations:
+        sc.note("new-contributor", "-", "author association %s: consider offering support; this is not a risk"
+                % pr.get("author_association"))
     if new_modules and not has_e2e_test:
         sc.note("no-e2e", "-", "new connector has no added E2E test method")
     if shared_units:
@@ -560,9 +597,9 @@ def evaluate(pr, files, cfg=None, known=None):
 
 
 def compute_level(base, adjustments):
-    """base 5 is fixed; otherwise base plus adjustments, capped at 4 (only platform code is critical)."""
-    adjustments = sorted(adjustments, key=lambda a: (-a["points"], a["rule"]))
-    if base >= 5:
+    """5 when the base is 5 or a critical fact is present; otherwise base plus adjustments, capped at 4."""
+    adjustments = sorted(adjustments, key=lambda a: (not a["critical"], -a["points"], a["rule"]))
+    if base >= 5 or any(a["critical"] for a in adjustments):
         return 5, adjustments
     return min(4, base + sum(a["points"] for a in adjustments)), adjustments
 
@@ -586,7 +623,11 @@ def _pom_facts(sc, path, status, added, removed, known):
         sc.adjust(2, "registration-removed", path, "a <module> entry was removed")
     other_added = [x for x in added if "<module>" not in x]
     _supply_facts(sc, path, other_added, known)
-    if status != "added" and any(ARTIFACT_RE.search(x) or "<version>" in x for x in other_added + removed):
+    for name, value in VERSION_PROPERTY_RE.findall("\n".join(other_added)):
+        if (name, value) not in known.props:
+            sc.adjust(2, "new-supply-chain", path, "%s=%s is not a version used by any existing pom" % (name, value))
+    if status != "added" and any(ARTIFACT_RE.search(x) or "<version>" in x or VERSION_PROPERTY_RE.search(x)
+                                 for x in other_added + removed):
         sc.adjust(1, "dependency-change", path, "dependency or version lines of an existing pom changed")
 
 
@@ -652,17 +693,25 @@ def _main_facts(sc, path, status, fresh, added, removed, moved):
             sc.adjust(2, "persisted-format", path, "checkpoint / split / state / commit-info class modified")
         if any(SERIAL_RE.search(x) for x in code):
             sc.adjust(2, "persisted-format", path, "serialVersionUID touched")
+        # Credential handling in existing code is critical; declarations that only name an option are not.
+        for text in code:
+            if CREDENTIAL_RE.search(text) and not is_declaration(text):
+                sc.adjust(0, "credential-handling", path, "existing credential handling changed: %s" % text.strip(),
+                          critical=True)
+                break
         for name, regex, detail in (
             ("concurrency", CONCURRENCY_RE, "threading / locking / async primitive touched"),
-            ("security", SECURITY_RE, "security-sensitive identifier touched"),
+            ("security", SENSITIVE_RE, "TLS / authentication identifier touched"),
             ("classloading", CLASSLOAD_RE, "reflection / classloading / process-level API touched"),
         ):
             for text in code:
-                if regex.search(text) and not (name == "security" and DECLARATION_RE.search(text)):
+                if regex.search(text) and not (name == "security" and is_declaration(text)):
                     sc.adjust(1, "sensitive-code", path, "%s (%s): %s" % (detail, name, text.strip()))
                     break
     else:
-        for name, regex in (("concurrency", CONCURRENCY_RE), ("security", SECURITY_RE), ("classloading", CLASSLOAD_RE)):
+        if any(CREDENTIAL_RE.search(x) and not is_declaration(x) for x in code):
+            sc.note("credential-handling", path, "credential words in new code; check logging and serialization by eye")
+        for name, regex in (("concurrency", CONCURRENCY_RE), ("security", SENSITIVE_RE), ("classloading", CLASSLOAD_RE)):
             if any(regex.search(x) for x in code):
                 sc.note(name, path, "%s words in new code; check by eye" % name)
         if any(PROCESS_RE.search(x) for x in code):
@@ -677,13 +726,22 @@ def _main_facts(sc, path, status, fresh, added, removed, moved):
         sc.note("removed-throw", path, "fewer throw statements: confirm this is not a silent degradation")
 
 
+def _md(value, limit=120):
+    """Make a PR-controlled string inert inside Markdown: one line, bounded, no table/code/link/mention syntax."""
+    text = re.sub(r"\s+", " ", str(value)).strip()
+    if len(text) > limit:
+        text = text[:limit] + "..."
+    text = text.replace("\\", "\\\\").replace("`", "\\`").replace("|", "\\|").replace("[", "\\[")
+    text = text.replace("<", "&lt;").replace(">", "&gt;").replace("@", "@\u200b")
+    return text
+
+
 def render_report(result, head_sha):
     lines = [
-        "<!-- %s sha=%s level=%d -->" % (MARKER, head_sha, result["level"]),
         "### PR risk: `%s`" % result["label"],
         "",
         "Head commit `%s`. Class: `%s`. Units: %s. Files: %d, changed lines: %d, production code lines: %d."
-        % (head_sha[:12], result["class"], ", ".join(result["units"]) or "-", result["stats"]["files"],
+        % (_md(head_sha)[:12], result["class"], _md(", ".join(result["units"]) or "-"), result["stats"]["files"],
            result["stats"]["lines"], result["stats"]["main_code_lines"]),
         "",
         "| Step | Points | Why |",
@@ -691,18 +749,19 @@ def render_report(result, head_sha):
         "| base | %d | %s |" % (result["base"], BASE_REASON[result["class"]]),
     ]
     for a in result["adjustments"]:
-        where = "" if a["file"] == "-" else "`%s`: " % a["file"]
+        where = "" if a["file"] == "-" else "%s: " % _md(a["file"])
         more = " (and %d more)" % a["more"] if a["more"] else ""
-        lines.append("| %s | %s | %s%s%s |" % (a["rule"], "+%d" % a["points"] if a["points"] else "floor", where, a["detail"], more))
-    lines.append("| **result** | **%d** | capped at 4 unless the base is 5 |" % result["level"])
+        points = "critical" if a["critical"] else ("+%d" % a["points"] if a["points"] else "floor")
+        lines.append("| %s | %s | %s%s%s |" % (a["rule"], points, where, _md(a["detail"]), more))
+    lines.append("| **result** | **%d** | 5 for platform code or a critical fact, otherwise capped at 4 |" % result["level"])
     if result["notes"]:
         lines += ["", "Notes for the reviewer (they do not change the level):"]
         for n in result["notes"]:
-            where = "" if n["file"] == "-" else "`%s`: " % n["file"]
+            where = "" if n["file"] == "-" else "%s: " % _md(n["file"])
             more = " (and %d more)" % n["more"] if n["more"] else ""
-            lines.append("- [%s] %s%s%s" % (n["rule"], where, n["detail"], more))
-    lines += ["", "This is a triage aid computed from the diff only; no PR code is executed. It does not approve, block "
-              "or merge anything. Merge decisions stay with committers."]
+            lines.append("- [%s] %s%s%s" % (n["rule"], where, _md(n["detail"]), more))
+    lines += ["", "This is a triage aid computed from the diff only; no PR code is executed. It does not approve, block, "
+              "merge or comment on anything. Merge decisions stay with committers."]
     return "\n".join(lines)
 
 
@@ -767,6 +826,13 @@ class GitHub(object):
             raise ApiError("GET %s -> %s %s" % (path, status, data))
         return data
 
+    def write(self, method, path, body=None, tolerate=()):
+        """Write call that fails the run on any error, so a missing label never passes silently."""
+        status, data = self.call(method, path, body)
+        if status >= 300 and status not in tolerate:
+            raise ApiError("%s %s -> %s %s" % (method, path, status, data))
+        return status
+
     def paginate(self, path):
         items, page = [], 1
         sep = "&" if "?" in path else "?"
@@ -788,20 +854,19 @@ def evaluate_pr(gh, number, cfg):
     return pr, evaluate(view, files, cfg, known)
 
 
-def ensure_labels(gh):
-    for level, (color, description) in LEVEL_META.items():
-        status, data = gh.call("POST", "/repos/%s/labels" % gh.repo,
-                               {"name": label_name(level), "color": color, "description": description})
-        if status not in (201, 422):  # 422 means the label already exists
-            raise ApiError("create label %s -> %s %s" % (label_name(level), status, data))
+def label_commands(repo):
+    """One-time committer step: the workflow only needs `pull-requests: write`, not label creation rights."""
+    return ["gh label create %s --repo %s --color %s --description %s --force"
+            % (json.dumps(label_name(level)), repo, color, json.dumps(description))
+            for level, (color, description) in sorted(LEVEL_META.items())]
 
 
-def upsert_report(gh, number, body):
-    for c in gh.paginate("/repos/%s/issues/%d/comments" % (gh.repo, number)):
-        if "<!-- %s " % MARKER in (c.get("body") or "") and c["user"]["type"] == "Bot":
-            gh.call("PATCH", "/repos/%s/issues/comments/%d" % (gh.repo, c["id"]), {"body": body})
-            return
-    gh.call("POST", "/repos/%s/issues/%d/comments" % (gh.repo, number), {"body": body})
+def write_summary(report, env=None):
+    """Append the report to the Actions job summary when running in a workflow."""
+    path = (os.environ if env is None else env).get("GITHUB_STEP_SUMMARY")
+    if path:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(report + "\n")
 
 
 def apply_label(gh, number, level):
@@ -809,17 +874,36 @@ def apply_label(gh, number, level):
     to_add, to_remove = plan_label_changes(existing, level)
     # Add before removing so the PR never has zero risk labels in between.
     if to_add:
-        gh.call("POST", "/repos/%s/issues/%d/labels" % (gh.repo, number), {"labels": to_add})
+        gh.write("POST", "/repos/%s/issues/%d/labels" % (gh.repo, number), {"labels": to_add})
     for name in to_remove:
-        gh.call("DELETE", "/repos/%s/issues/%d/labels/%s" % (gh.repo, number, urllib.parse.quote(name, safe="")))
+        gh.write("DELETE", "/repos/%s/issues/%d/labels/%s" % (gh.repo, number, urllib.parse.quote(name, safe="")),
+                 tolerate=(404,))
+
+
+def run_evaluate(gh, number, cfg, expect_head=None, apply=False):
+    """Evaluate one PR; return 'stale' when the head moved past `expect_head`, else 'applied' or 'reported'."""
+    pr, result = evaluate_pr(gh, number, cfg)
+    head = pr["head"]["sha"]
+    if expect_head and head != expect_head:
+        # The labelling run was triggered for an older commit; a newer run will handle the current head.
+        print("PR #%d head is %s, expected %s: nothing applied" % (number, head[:12], expect_head[:12]))
+        return "stale"
+    report = render_report(result, head)
+    print(report)
+    write_summary(report)
+    if apply:
+        apply_label(gh, number, result["level"])
+        return "applied"
+    return "reported"
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="PR risk triage labels")
-    parser.add_argument("command", choices=["evaluate", "classify"])
+    parser.add_argument("command", choices=["evaluate", "classify", "labels"])
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY"))
     parser.add_argument("--pr", type=int)
-    parser.add_argument("--apply", action="store_true", help="evaluate: create labels, upsert the comment, set the label")
+    parser.add_argument("--apply", action="store_true", help="evaluate: replace the PR's risk label")
+    parser.add_argument("--expect-head", help="evaluate: do nothing unless the PR head is still this commit")
     parser.add_argument("--files-json", help="classify: saved pulls/N/files payload")
     parser.add_argument("--title", default="")
     parser.add_argument("--body", default="")
@@ -828,6 +912,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     cfg = Config()
 
+    if args.command == "labels":
+        print("\n".join(label_commands(args.repo or "apache/seatunnel")))
+        return 0
     if args.command == "classify":
         with open(args.files_json) as fh:
             files = json.load(fh)
@@ -837,13 +924,7 @@ def main(argv=None):
         return 0
 
     gh = GitHub(args.repo, os.environ["GITHUB_TOKEN"])
-    pr, result = evaluate_pr(gh, args.pr, cfg)
-    report = render_report(result, pr["head"]["sha"])
-    print(report)
-    if args.apply:
-        ensure_labels(gh)
-        upsert_report(gh, args.pr, report)
-        apply_label(gh, args.pr, result["level"])
+    run_evaluate(gh, args.pr, cfg, expect_head=args.expect_head, apply=args.apply)
     return 0
 
 
