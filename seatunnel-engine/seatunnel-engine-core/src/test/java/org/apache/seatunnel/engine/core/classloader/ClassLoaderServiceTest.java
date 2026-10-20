@@ -51,18 +51,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
