@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -117,10 +118,17 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
+    private final Map<String, Object> envOptions;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
-    protected List<FlowLifeCycle> allCycles;
+    // Volatile and copy-on-write: cancel() iterates this list from the engine cancel thread while
+    // init() may still be filling it on the task thread.
+    protected volatile List<FlowLifeCycle> allCycles;
+
+    // Set by cancel() when it ran before the life cycles were built; init() replays the cancel in
+    // that case so no flow keeps blocking in an external system.
+    private volatile boolean cancelRequested;
 
     protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
@@ -139,11 +147,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private transient boolean observabilityEnabled;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public SeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.envOptions = envOptions;
         this.currState = SeaTunnelTaskState.CREATED;
+    }
+
+    public Map<String, Object> getEnvOptions() {
+        return envOptions;
     }
 
     /**
@@ -171,10 +189,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
         observabilityEnabled = resolveObservabilityEnabled();
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
-        allCycles = new ArrayList<>();
+        allCycles = new CopyOnWriteArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
         for (FlowLifeCycle cycle : allCycles) {
             cycle.init();
+        }
+        // A cancel that raced with this init() may have missed cycles that were still being built;
+        // replay it so no reader keeps blocking in an external system after cancellation.
+        if (cancelRequested) {
+            cancel();
         }
         CompletableFuture.allOf(flowFutures.toArray(new CompletableFuture[0]))
                 .whenComplete((s, e) -> closeCalled = true);
@@ -184,41 +207,36 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return observabilityEnabled;
     }
 
-    private boolean resolveObservabilityEnabled() {
+    public Map<String, Object> getJobEnvOptions() {
         try {
-            if (executionContext == null) {
-                return false;
-            }
-            if (executionContext.getTaskExecutionService() == null) {
-                return false;
+            if (executionContext == null
+                    || executionContext.getTaskExecutionService() == null
+                    || executionContext.getTaskExecutionService().getNodeEngine() == null) {
+                return Collections.emptyMap();
             }
             NodeEngineImpl nodeEngine = executionContext.getTaskExecutionService().getNodeEngine();
-            if (nodeEngine == null) {
-                return false;
-            }
             IMap<Long, JobInfo> jobInfoMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
             JobInfo jobInfo = jobInfoMap.get(jobID);
             if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
-                return false;
+                return Collections.emptyMap();
             }
             JobImmutableInformation immutable =
                     nodeEngine
                             .getSerializationService()
                             .toObject(jobInfo.getJobImmutableInformation());
             if (immutable == null || immutable.getJobConfig() == null) {
-                return false;
+                return Collections.emptyMap();
             }
-            Map<String, Object> envOptions = immutable.getJobConfig().getEnvOptions();
-            return ObservabilityConfig.resolveEnabled(envOptions);
+            return immutable.getJobConfig().getEnvOptions();
         } catch (Throwable t) {
-            log.debug(
-                    "Resolve observability enabled failed, jobId={}, taskLocation={}, err={}",
-                    jobID,
-                    taskLocation,
-                    t.getMessage());
-            return false;
+            log.debug("Resolve job env options failed, jobId={}", jobID, t);
+            return Collections.emptyMap();
         }
+    }
+
+    private boolean resolveObservabilityEnabled() {
+        return ObservabilityConfig.resolveEnabled(getJobEnvOptions());
     }
 
     /**
@@ -397,6 +415,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected abstract void collect() throws Exception;
 
+    /**
+     * Cancels external blocking resources owned by every flow life cycle of this task.
+     *
+     * <p>Called from the engine cancel thread, potentially while {@link #init()} is still building
+     * {@code allCycles} on the task thread, so the request is recorded in {@code cancelRequested}
+     * and replayed at the end of {@link #init()}. Must stay cheap, idempotent and lock-free.
+     */
+    @Override
+    public void cancel() {
+        cancelRequested = true;
+        if (allCycles != null) {
+            allCycles.forEach(FlowLifeCycle::cancel);
+        }
+    }
+
     @Override
     public Set<URL> getJarsUrl() {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
@@ -434,14 +467,19 @@ public abstract class SeaTunnelTask extends AbstractTask {
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is logged but does not prevent the
-     * remaining lifecycles from being closed (first-exception-wins logging).
+     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
+     * remaining lifecycles from being closed.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} fails
+     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
      */
     @Override
     public void close() throws IOException {
-        super.close();
+        IOException[] closeException = {null};
+        try {
+            super.close();
+        } catch (IOException e) {
+            closeException[0] = e;
+        }
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
@@ -449,8 +487,16 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 flowLifeCycle.close();
                             } catch (IOException e) {
                                 log.error("Close FlowLifeCycle error.", e);
+                                if (closeException[0] == null) {
+                                    closeException[0] = e;
+                                } else {
+                                    closeException[0].addSuppressed(e);
+                                }
                             }
                         });
+        if (closeException[0] != null) {
+            throw closeException[0];
+        }
     }
 
     /**

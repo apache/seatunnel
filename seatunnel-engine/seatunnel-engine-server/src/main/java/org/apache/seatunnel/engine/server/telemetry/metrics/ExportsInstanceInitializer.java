@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
+import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreLogicalMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreMetricExports;
@@ -32,34 +33,32 @@ import io.prometheus.client.hotspot.DefaultExports;
 
 public final class ExportsInstanceInitializer {
 
-    private static boolean initialized = false;
-
     private ExportsInstanceInitializer() {}
 
-    public static synchronized void init(Node node) {
-        if (!initialized) {
-            // initialize jvm collector
-            DefaultExports.initialize();
+    /** Initializes process-wide JVM metrics and registers SeaTunnel metrics for the node. */
+    public static void init(Node node) {
+        NodeExtension nodeExtension = (NodeExtension) node.getNodeExtension();
+        CollectorRegistry collectorRegistry = nodeExtension.getCollectorRegistry();
 
-            // register collectors
-            CollectorRegistry collectorRegistry = CollectorRegistry.defaultRegistry;
-            // Job info detail
-            new JobMetricExports(node).register(collectorRegistry);
-            // Thread pool status
-            new JobThreadPoolStatusExports(node).register(collectorRegistry);
-            // Node metrics
-            new NodeMetricExports(node).register(collectorRegistry);
-            // ReportMetricsOperation metrics
-            new ReportMetricsOperationExports(node).register(collectorRegistry);
-            // RequestSlotOperation metrics
-            new RequestSlotOperationExports(node).register(collectorRegistry);
-            // Engine state store metrics
-            new EngineStateStoreMetricExports(node).register(collectorRegistry);
-            // Engine state store logical metrics
-            new EngineStateStoreLogicalMetricExports(node).register(collectorRegistry);
-            // Cluster metrics
-            new ClusterMetricExports(node).register(collectorRegistry);
-            initialized = true;
-        }
+        // initialize process-wide JVM collectors once
+        DefaultExports.initialize();
+
+        // register collectors
+        // Job info detail
+        new JobMetricExports(node).register(collectorRegistry);
+        // Thread pool status
+        new JobThreadPoolStatusExports(node).register(collectorRegistry);
+        // Node metrics
+        new NodeMetricExports(node).register(collectorRegistry);
+        // ReportMetricsOperation metrics
+        new ReportMetricsOperationExports(node).register(collectorRegistry);
+        // RequestSlotOperation metrics
+        new RequestSlotOperationExports(node).register(collectorRegistry);
+        // Engine state store metrics
+        new EngineStateStoreMetricExports(node).register(collectorRegistry);
+        // Engine state store logical metrics
+        new EngineStateStoreLogicalMetricExports(node).register(collectorRegistry);
+        // Cluster metrics
+        new ClusterMetricExports(node).register(collectorRegistry);
     }
 }

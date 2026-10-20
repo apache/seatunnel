@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -52,8 +52,10 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | save_mode_create_template   | string  | 否    | 参见表下方的说明                     | 自动建表模板，详见表下方说明                                                                                                      |
 | starrocks.config            | map     | 否    | -                            | Stream Load `data_desc` 参数                                                                                           |
 | http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
+| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。 |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
+| table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
 | custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
 
 ### save_mode_create_template
@@ -103,9 +105,9 @@ StarRocks数据接收器根据上游数据自动获取相应的信息来填充�
 
 ### table [string]
 
-使用选项参数`database`和`table-name`自动生成SQL，并接收上游输入数据写入StarRocks中。
+选项参数 `database` 和 `table` 共同确定接收上游数据的目标 StarRocks 表。
 
-此选项与 `query` 是互斥的，具具有更高的优先级。
+如果未设置 `table`，则使用上游表名。
 
 table选项参数可以填入一任意表名，这个名字最终会被用作目标表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
@@ -163,6 +165,18 @@ sink {
   }
 }
 ```
+
+### 非终态 Stream Load 结果
+
+当 Stream Load 返回 `Publish Timeout`、`Label Already Exists`、复用 label 的失败或无法识别的状态时，事务结果尚未确认：发布超时的导入之后仍可能被中止（例如前端重启后）。接收器不会立即释放该批数据，而是持续查询该批次 label 的 `get_load_state`，直到状态变为终态：
+
+- `VISIBLE`/`COMMITTED`：事务已确认，释放该批数据。
+- `ABORTED`：该批数据未持久化，使用新 label 重新发送。
+- 其他状态（`PREPARE`、`UNKNOWN`、响应不可读）：持续轮询直到超过 `label_state_timeout_ms`，随后刷新失败，作业从上一个 checkpoint 重放该批数据。
+
+该轮询在 checkpoint 路径上同步执行，且 sink 的重试循环最多会重复 `max_retries + 1` 次，最坏阻塞时间约为 `(max_retries + 1) * label_state_timeout_ms`。请将 `label_state_timeout_ms` 配置为小于作业的 checkpoint 超时时间，使未决事务尽早以 checkpoint 失败的形式暴露，而不是长时间阻塞 barrier。
+
+由于失败的刷新会从 checkpoint 重放，同一窗口内先前已可见的批次可能被再次提交。Sink 保持至少一次语义：DUPLICATE KEY 表在重放后可能出现重复行，Primary Key 表可以吸收这些重复。
 
 ### Zeta 定时刷新
 

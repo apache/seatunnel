@@ -16,8 +16,6 @@
  */
 package org.apache.seatunnel.e2e.connector.graphql;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -94,7 +92,6 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
                         .withEnv("HASURA_GRAPHQL_DATABASE_URL", getPgUrl())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
-        genericContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 18080, 8080)));
         Startables.deepStart(Stream.of(genericContainer)).join();
     }
 
