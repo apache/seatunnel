@@ -40,7 +40,8 @@ directory and replace every `seatunnel-session-cluster` occurrence that belongs 
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
 # Edit /tmp/payments-session:
-#   resource names, labels, session.name/cluster-name, and Hazelcast/client service DNS.
+#   resource names, labels, session.yaml, kustomization configMapGenerator,
+#   and Hazelcast/client service DNS.
 kubectl apply -k /tmp/payments-session
 ```
 
@@ -55,8 +56,10 @@ keep only the objects they need.
 - A namespace for the session resources.
 - A user-owned worker ConfigMap with `seatunnel.yaml`, `hazelcast-worker.yaml`,
   `log4j2.properties`, and `jvm_worker_options`.
-- A user-owned master ConfigMap with `session.yaml`, `seatunnel.yaml`, `hazelcast-master.yaml`,
+- A user-owned master ConfigMap with `seatunnel.yaml`, `hazelcast-master.yaml`,
   `hazelcast-client.yaml`, `log4j2.properties`, and `jvm_master_options`.
+- A standalone `session.yaml`. The sample `kustomization.yaml` generates a ConfigMap from it and
+  the master StatefulSet mounts it at `/opt/seatunnel/config/session.yaml`.
 - Checkpoint and IMap storage reachable by every Pod. The sample uses `file:///tmp/` for a local
   single-node test; use HDFS, S3, or a PVC in production.
 
@@ -88,6 +91,10 @@ session:
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
 ```
+
+The sample keeps this file as `deploy/kubernetes/session/session.yaml`. `kustomization.yaml` uses
+`configMapGenerator` to create a separate ConfigMap from it, and `statefulset-master.yaml` mounts
+that key at `/opt/seatunnel/config/session.yaml`; it is not embedded in `configmap-master.yaml`.
 
 `min-workers` defaults to `2`. `dynamic-worker.enabled` defaults to `false`; when enabled, workers
 are created only from pending-job slot demand up to `max-workers`.

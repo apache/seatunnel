@@ -23,3 +23,9 @@ resources:
   - configmap-worker.yaml
   - services.yaml
   - statefulset-master.yaml
+configMapGenerator:
+  - name: seatunnel-session-cluster-session
+    files:
+      - session.yaml
+generatorOptions:
+  disableNameSuffixHash: true

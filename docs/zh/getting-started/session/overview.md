@@ -38,7 +38,8 @@ Session 的所有 `seatunnel-session-cluster` 名称：
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
 # 编辑 /tmp/payments-session：
-#   资源名、标签、session.name/cluster-name、Hazelcast/client Service DNS。
+#   资源名、标签、session.yaml、kustomization configMapGenerator、
+#   Hazelcast/client Service DNS。
 kubectl apply -k /tmp/payments-session
 ```
 
@@ -52,8 +53,10 @@ manifest，也可以自行创建 Service、ConfigMap、Secret、RBAC，只保留
 - 一个用于 Session 资源的 namespace。
 - 用户自有的 worker ConfigMap，包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、
   `log4j2.properties`、`jvm_worker_options`。
-- 用户自有的 master ConfigMap，包含 `session.yaml`、`seatunnel.yaml`、`hazelcast-master.yaml`、
+- 用户自有的 master ConfigMap，包含 `seatunnel.yaml`、`hazelcast-master.yaml`、
   `hazelcast-client.yaml`、`log4j2.properties`、`jvm_master_options`。
+- 独立的 `session.yaml`。示例 `kustomization.yaml` 会根据它生成 ConfigMap，master StatefulSet
+  将它挂载到 `/opt/seatunnel/config/session.yaml`。
 - 所有 Pod 都能访问 checkpoint 和 IMap 存储。示例使用 `file:///tmp/` 便于本地单节点验证；
   生产环境应使用 HDFS、S3 或 PVC。
 
@@ -85,6 +88,10 @@ session:
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
 ```
+
+示例将配置保留为独立文件 `deploy/kubernetes/session/session.yaml`。`kustomization.yaml` 使用
+`configMapGenerator` 生成单独的 ConfigMap，`statefulset-master.yaml` 再把它挂载到
+`/opt/seatunnel/config/session.yaml`，不再嵌入 `configmap-master.yaml`。
 
 `min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
 slot 缺口扩容，且不超过 `max-workers`。

@@ -2,6 +2,8 @@
 
 This directory contains a minimal Kubernetes Session Cluster. The two masters are a StatefulSet;
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
+`session.yaml` is a standalone configuration file; `kustomization.yaml` generates a ConfigMap from
+it and the master StatefulSet mounts it at `/opt/seatunnel/config/session.yaml`.
 
 ## Multiple Sessions in one namespace
 
@@ -11,7 +13,8 @@ the same namespace, copy the directory and give every session-scoped resource a 
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
 # Edit /tmp/payments-session: replace seatunnel-session-cluster with payments in
-# resource names, labels, session.name/cluster-name, and Hazelcast/client service DNS.
+# resource names, labels, session.yaml, kustomization configMapGenerator, and
+# Hazelcast/client service DNS.
 kubectl apply -k /tmp/payments-session
 ```
 

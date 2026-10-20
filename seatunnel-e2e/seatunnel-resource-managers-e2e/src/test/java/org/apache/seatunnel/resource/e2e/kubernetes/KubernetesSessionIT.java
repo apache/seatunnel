@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -121,6 +122,7 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
     private void applySessionManifests() throws Exception {
         Path directory = Paths.get(PROJECT_ROOT_PATH, "deploy/kubernetes/session");
         List<String> manifests = new ArrayList<>();
+        manifests.add(sessionConfigMap(directory));
         for (String name :
                 new String[] {
                     "root-configmap.yaml",
@@ -130,26 +132,45 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                     "services.yaml",
                     "statefulset-master.yaml"
                 }) {
-            String content = Files.readString(directory.resolve(name), StandardCharsets.UTF_8);
-            content =
-                    content.replace("namespace: seatunnel", "namespace: " + namespace)
-                            .replace(
-                                    "." + MANIFEST_NAMESPACE + ".svc.cluster.local",
-                                    "." + namespace + ".svc.cluster.local")
-                            .replace("apache/seatunnel:3.0.1", image)
-                            .replace("-Xms3g -Xmx3g", "-Xms512m -Xmx512m")
-                            .replace("-Xms3g", "-Xms512m")
-                            .replace("-Xmx3g", "-Xmx512m")
-                            .replace("memory-mb: 4096", "memory-mb: 768")
-                            .replace("heap-mb: 3072", "heap-mb: 512")
-                            .replace("cpu-cores: 2", "cpu-cores: 1")
-                            .replace("memory: 6Gi", "memory: 768Mi")
-                            .replace("cpu: \"2\"", "cpu: \"500m\"")
-                            .replace("cpu: \"4\"", "cpu: \"1\"")
-                            .replace("max-workers: 32", "max-workers: 3");
-            manifests.add(content);
+            manifests.add(render(Files.readString(directory.resolve(name), StandardCharsets.UTF_8)));
         }
         applyYaml(String.join("\n---\n", manifests));
+    }
+
+    private String sessionConfigMap(Path directory) throws Exception {
+        String session =
+                render(Files.readString(directory.resolve("session.yaml"), StandardCharsets.UTF_8));
+        String indented =
+                session.lines().map(line -> "    " + line).collect(Collectors.joining("\n"));
+        return "apiVersion: v1\n"
+                + "kind: ConfigMap\n"
+                + "metadata:\n"
+                + "  name: seatunnel-session-cluster-session\n"
+                + "  namespace: "
+                + namespace
+                + "\n"
+                + "data:\n"
+                + "  session.yaml: |\n"
+                + indented
+                + "\n";
+    }
+
+    private String render(String content) {
+        return content.replace("namespace: seatunnel", "namespace: " + namespace)
+                .replace(
+                        "." + MANIFEST_NAMESPACE + ".svc.cluster.local",
+                        "." + namespace + ".svc.cluster.local")
+                .replace("apache/seatunnel:3.0.1", image)
+                .replace("-Xms3g -Xmx3g", "-Xms512m -Xmx512m")
+                .replace("-Xms3g", "-Xms512m")
+                .replace("-Xmx3g", "-Xmx512m")
+                .replace("memory-mb: 4096", "memory-mb: 768")
+                .replace("heap-mb: 3072", "heap-mb: 512")
+                .replace("cpu-cores: 2", "cpu-cores: 1")
+                .replace("memory: 6Gi", "memory: 768Mi")
+                .replace("cpu: \"2\"", "cpu: \"500m\"")
+                .replace("cpu: \"4\"", "cpu: \"1\"")
+                .replace("max-workers: 32", "max-workers: 3");
     }
 
     private void applyYaml(String content) throws Exception {

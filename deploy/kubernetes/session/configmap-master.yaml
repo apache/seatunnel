@@ -21,31 +21,6 @@ metadata:
   labels:
     seatunnel.apache.org/session: seatunnel-session-cluster
 data:
-  session.yaml: |
-    session:
-      name: seatunnel-session-cluster
-      cluster-name: seatunnel-session-cluster
-      root-config-map: seatunnel-session-cluster-meta
-      master:
-        port: 5801
-      worker:
-        min-workers: 2
-        max-workers: 32
-        slots: 8
-        cpu-cores: 2
-        memory-mb: 4096
-        heap-mb: 3072
-        image: apache/seatunnel:3.0.1
-        image-pull-policy: IfNotPresent
-        service-account: default
-        config-map: seatunnel-session-cluster-worker
-        jvm-options: "-Xms3g -Xmx3g"
-      dynamic-worker:
-        enabled: true
-        startup-timeout-millis: 120000
-        retry-interval-millis: 3000
-    kubernetes:
-      namespace: seatunnel
   seatunnel.yaml: |
     seatunnel:
       engine:
