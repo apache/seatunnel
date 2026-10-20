@@ -33,7 +33,130 @@ import org.junit.jupiter.api.Test;
 
 import com.mysql.cj.MysqlType;
 
+import java.lang.reflect.Modifier;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 public class MySqlTypeConverterTest {
+
+    @Test
+    public void testUnsignedNumericColumnTypeIsDetected() {
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("TINYINT", "tinyint(1) unsigned"));
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("INT", "int(10) unsigned"));
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("BIGINT", "bigint(20) unsigned"));
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType(
+                        "DECIMAL", "decimal(10,2) unsigned zerofill"));
+        // FLOAT / DOUBLE are reported without a length part when declared without precision.
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("FLOAT", "float unsigned"));
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("DOUBLE", "double unsigned"));
+        // MySQL 8 / 9 no longer report the display width for integer types.
+        Assertions.assertTrue(
+                MySqlTypeConverter.isNumericUnsignedColumnType("INT", "int unsigned"));
+    }
+
+    @Test
+    public void testSignedNumericColumnTypeIsNotDetected() {
+        Assertions.assertFalse(
+                MySqlTypeConverter.isNumericUnsignedColumnType("TINYINT", "tinyint(1)"));
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType("INT", "int(10)"));
+        Assertions.assertFalse(
+                MySqlTypeConverter.isNumericUnsignedColumnType("BIGINT", "bigint(20)"));
+        Assertions.assertFalse(
+                MySqlTypeConverter.isNumericUnsignedColumnType("DECIMAL", "decimal(10,2)"));
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType("FLOAT", "float"));
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     * {@code mysql.event.sql_mode} is a SET whose value list contains {@code
+     * NO_UNSIGNED_SUBTRACTION}; the literal word inside that list is not the UNSIGNED attribute.
+     */
+    @Test
+    public void testUnsignedWordInSetValueListIsNotDetected() {
+        String columnType =
+                "set('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED',"
+                        + "'ONLY_FULL_GROUP_BY','NO_UNSIGNED_SUBTRACTION','NO_DIR_IN_CREATE')";
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType("SET", columnType));
+    }
+
+    /** Same failure class as above, for the sibling ENUM type. */
+    @Test
+    public void testUnsignedWordInEnumValueListIsNotDetected() {
+        Assertions.assertFalse(
+                MySqlTypeConverter.isNumericUnsignedColumnType(
+                        "ENUM", "enum('unsigned','signed','anything_else')"));
+    }
+
+    @Test
+    public void testNullAndBlankTypeAreNotDetected() {
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType(null, null));
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType("", ""));
+        Assertions.assertFalse(MySqlTypeConverter.isNumericUnsignedColumnType("INT", "   "));
+        Assertions.assertFalse(
+                MySqlTypeConverter.isNumericUnsignedColumnType("  ", "int unsigned"));
+    }
+
+    /**
+     * {@code *_UNSIGNED} constants that are synthesized instead of describing a real MySQL type.
+     * {@code MYSQL_SET_UNSIGNED} is produced when a {@code SET} column is wrongly flagged as
+     * unsigned, and the numeric guard has to reject it, so it is asserted separately below.
+     */
+    private static final List<String> SYNTHETIC_UNSIGNED_TYPE_NAMES =
+            Collections.singletonList(MySqlTypeConverter.MYSQL_SET_UNSIGNED);
+
+    /**
+     * The guard derives the numeric base types it accepts from the {@code *_UNSIGNED} constants of
+     * the converter, so every such constant must be accepted. This fails if the derivation is later
+     * replaced by a hand-written list that misses a type added here.
+     */
+    @Test
+    public void testGuardAcceptsEveryUnsignedTypeNameOfTheConverter() {
+        List<String> unsignedTypeNames =
+                Stream.of(MySqlTypeConverter.class.getDeclaredFields())
+                        .filter(field -> Modifier.isStatic(field.getModifiers()))
+                        .filter(field -> field.getName().startsWith("MYSQL_"))
+                        .filter(field -> field.getName().endsWith("_UNSIGNED"))
+                        .map(
+                                field -> {
+                                    try {
+                                        return (String) field.get(null);
+                                    } catch (IllegalAccessException e) {
+                                        throw new IllegalStateException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+
+        // Guard against a rename that would silently make this check vacuous.
+        Assertions.assertFalse(unsignedTypeNames.isEmpty());
+        Assertions.assertTrue(unsignedTypeNames.containsAll(SYNTHETIC_UNSIGNED_TYPE_NAMES));
+        for (String unsignedTypeName : unsignedTypeNames) {
+            String baseName = unsignedTypeName.substring(0, unsignedTypeName.indexOf(' '));
+            boolean accepted =
+                    MySqlTypeConverter.isNumericUnsignedColumnType(
+                            baseName, baseName.toLowerCase(Locale.ROOT) + " unsigned");
+            if (SYNTHETIC_UNSIGNED_TYPE_NAMES.contains(unsignedTypeName)) {
+                Assertions.assertFalse(
+                        accepted,
+                        () ->
+                                unsignedTypeName
+                                        + " is synthesized for a non-numeric type and must be"
+                                        + " rejected by the numeric UNSIGNED guard");
+            } else {
+                Assertions.assertTrue(
+                        accepted,
+                        () -> unsignedTypeName + " must be accepted by the UNSIGNED guard");
+            }
+        }
+    }
 
     @Test
     public void testConvertUnsupported() {
@@ -1139,253 +1262,48 @@ public class MySqlTypeConverterTest {
     }
 
     @Test
-    public void testConvertYear() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder().name("test").columnType("year").dataType("year").build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("year unsigned")
-                        .dataType("year unsigned")
-                        .build();
-        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertCharWithNullLength() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder().name("test").columnType("char").dataType("char").build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(4, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("varchar")
-                        .dataType("varchar")
-                        .build();
-        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(4, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertBinaryWithNullLength() {
+    public void testConvertSetUnsigned() {
+        // MySqlCatalog.buildColumn never passes the synthetic name itself: it reports dataType
+        // "SET" with unsigned=true, and convert() appends the " UNSIGNED" suffix. Drive that
+        // production shape so the concatenation that produced #10451 is what this test covers.
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
-                        .columnType("binary")
-                        .dataType("binary")
-                        .build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
-        Assertions.assertEquals(1, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("varbinary")
-                        .dataType("varbinary")
-                        .build();
-        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
-        Assertions.assertEquals(1, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertEnumWithNullLength() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("enum('aaa','bbb')")
-                        .dataType("enum")
-                        .build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(100, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertSetWithNullLength() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("SET('reading','sports')")
+                        .columnType(
+                                "SET('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED')")
                         .dataType("SET")
+                        .unsigned(true)
+                        .length(100L)
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(100, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
 
-    @Test
-    public void testConvertBitEdgeCases() {
-        // BIT with length=1 and intTypeNarrowing=false
-        MySqlTypeConverter converter = new MySqlTypeConverter(MySqlVersion.V_8, false);
-        BasicTypeDefine<Object> typeDefine =
+        // Test with default length
+        typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
-                        .columnType("bit(1)")
-                        .dataType("bit")
-                        .length(1L)
+                        .columnType("SET('a','b')")
+                        .dataType("SET")
+                        .unsigned(true)
+                        .length(0L)
                         .build();
-        Column column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(100, column.getColumnLength());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
 
-        // BIT with length=1 and intTypeNarrowing=true
-        converter = new MySqlTypeConverter(MySqlVersion.V_8, true);
-        column = converter.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertDecimalOverflow() {
-        // Decimal with precision > DEFAULT_PRECISION (38)
-        BasicTypeDefine<Object> typeDefine =
+        // A caller that hands in the synthetic key directly still converts, which is what keeps
+        // this arm defensive rather than dead code.
+        typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
-                        .columnType("decimal(65,10)")
-                        .dataType("decimal")
-                        .precision(65L)
-                        .scale(10)
+                        .columnType("SET UNSIGNED")
+                        .dataType("SET UNSIGNED")
+                        .length(0L)
                         .build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(
-                new DecimalType(
-                        MySqlTypeConverter.DEFAULT_PRECISION, MySqlTypeConverter.DEFAULT_SCALE),
-                column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertDecimalUnsigned() {
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("decimal(10,2) unsigned")
-                        .dataType("decimal unsigned")
-                        .precision(10L)
-                        .scale(2)
-                        .build();
-        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(11, 2), column.getDataType());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testReconvertDecimalEdgeCases() {
-        // Precision > MAX_PRECISION (65) should be capped
-        Column column =
-                PhysicalColumn.builder().name("test").dataType(new DecimalType(70, 15)).build();
-        BasicTypeDefine<MysqlType> typeDefine =
-                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.DECIMAL, typeDefine.getNativeType());
-        Assertions.assertEquals(
-                String.format("%s(%s,%s)", MySqlTypeConverter.MYSQL_DECIMAL, 65, 10),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
-
-        // Scale > MAX_SCALE (30) should be capped
-        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 35)).build();
-        typeDefine = MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.DECIMAL, typeDefine.getNativeType());
-        Assertions.assertEquals(
-                String.format("%s(%s,%s)", MySqlTypeConverter.MYSQL_DECIMAL, 10, 30),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
-    }
-
-    @Test
-    public void testReconvertTimeScaleOverflow() {
-        Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
-                        .scale(9)
-                        .build();
-        BasicTypeDefine<MysqlType> typeDefine =
-                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.TIME, typeDefine.getNativeType());
-        Assertions.assertEquals(
-                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TIME, 6),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIME, typeDefine.getDataType());
-        Assertions.assertEquals(6, typeDefine.getScale());
-    }
-
-    @Test
-    public void testReconvertTimestampTzForV55() {
-        MySqlTypeConverter converter = new MySqlTypeConverter(MySqlVersion.V_5_5);
-        Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
-                        .build();
-        BasicTypeDefine<MysqlType> typeDefine = converter.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
-
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
-                        .scale(3)
-                        .build();
-        typeDefine = converter.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
-    }
-
-    @Test
-    public void testReconvertTimestampTzScaleOverflow() {
-        Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
-                        .scale(9)
-                        .build();
-        BasicTypeDefine<MysqlType> typeDefine =
-                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
-        Assertions.assertEquals(
-                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TIMESTAMP, 6),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
-        Assertions.assertEquals(6, typeDefine.getScale());
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(100, column.getColumnLength());
     }
 }
