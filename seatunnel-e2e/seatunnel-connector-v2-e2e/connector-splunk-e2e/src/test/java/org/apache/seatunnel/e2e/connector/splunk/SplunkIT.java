@@ -58,6 +58,8 @@ public class SplunkIT extends TestSuiteBase implements TestResource {
     private static final String SPLUNK_HOST = "splunk-e2e";
     private static final int HEC_PORT = 8088;
     private static final int MANAGEMENT_PORT = 8089;
+    /** Upper bound for the Splunk first boot on CI; see the container setup for the reasoning. */
+    private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(30);
 
     private static final String SPLUNK_PASSWORD = "SeaTunnel@2026";
     /** Must match the token configured in fake_to_splunk.conf. */
@@ -85,8 +87,12 @@ public class SplunkIT extends TestSuiteBase implements TestResource {
                         .withEnv("SPLUNK_START_ARGS", "--accept-license")
                         .withEnv("SPLUNK_PASSWORD", SPLUNK_PASSWORD)
                         .withEnv("SPLUNK_HEC_TOKEN", HEC_TOKEN)
-                        .withStartupAttempts(2)
-                        .withStartupTimeout(Duration.ofMinutes(10))
+                        // Splunk's first boot (Ansible provisioning plus splunkd start) is slow
+                        // on shared CI runners: two 10-minute attempts both expired before the
+                        // HEC endpoint opened. A single long attempt gives splunkd the whole
+                        // budget instead of restarting provisioning from scratch halfway through.
+                        .withStartupAttempts(1)
+                        .withStartupTimeout(STARTUP_TIMEOUT)
                         // The collector runs behind the self-signed certificate generated at
                         // install time, which is exactly the deployment shape the sink's
                         // tls_verify_certificate option exists for.
@@ -96,7 +102,7 @@ public class SplunkIT extends TestSuiteBase implements TestResource {
                                         .usingTls()
                                         .allowInsecure()
                                         .forStatusCode(200)
-                                        .withStartupTimeout(Duration.ofMinutes(10)))
+                                        .withStartupTimeout(STARTUP_TIMEOUT))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SPLUNK_DOCKER_IMAGE)));
