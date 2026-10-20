@@ -110,13 +110,18 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                         namespace,
                         master,
                         "--",
-                        "/opt/seatunnel/bin/seatunnel.sh",
-                        "--config",
-                        remoteJob,
-                        "-m",
-                        "cluster");
+                        "curl",
+                        "-sS",
+                        "-X",
+                        "POST",
+                        "http://127.0.0.1:8080/submit-job?format=hocon",
+                        "--data-binary",
+                        "@" + remoteJob);
         Assertions.assertEquals(
                 0, result.getExitCode(), () -> result.getStdout() + result.getStderr());
+        Assertions.assertTrue(
+                result.getStdout().contains("jobId"),
+                () -> "REST submit failed: " + result.getStdout() + result.getStderr());
     }
 
     private void applySessionManifests() throws Exception {
@@ -132,16 +137,15 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                         "conf/hazelcast-client.yaml",
                         "conf/log4j2.properties",
                         "conf/jvm_master_options",
+                        "conf/jvm_client_options",
                         "conf/jvm_worker_options",
                         "conf/session.yaml"));
         for (String name :
                 new String[] {
-                    "root-configmap.yaml",
-                    "rbac.yaml",
-                    "services.yaml",
-                    "statefulset-master.yaml"
+                    "root-configmap.yaml", "rbac.yaml", "services.yaml", "statefulset-master.yaml"
                 }) {
-            manifests.add(render(Files.readString(directory.resolve(name), StandardCharsets.UTF_8)));
+            manifests.add(
+                    render(Files.readString(directory.resolve(name), StandardCharsets.UTF_8)));
         }
         applyYaml(String.join("\n---\n", manifests));
     }
@@ -163,8 +167,8 @@ public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
                         .append("data:\n");
         for (String entry : entries) {
             int separator = entry.indexOf('=');
-            String key = separator < 0 ? entry : entry.substring(0, separator);
             String path = separator < 0 ? entry : entry.substring(separator + 1);
+            String key = Paths.get(path).getFileName().toString();
             String content =
                     render(Files.readString(directory.resolve(path), StandardCharsets.UTF_8));
             String indented =

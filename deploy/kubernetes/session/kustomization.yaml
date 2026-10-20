@@ -31,6 +31,7 @@ configMapGenerator:
       - conf/hazelcast-client.yaml
       - conf/log4j2.properties
       - conf/jvm_master_options
+      - conf/jvm_client_options
       - conf/jvm_worker_options
       - conf/session.yaml
     options:

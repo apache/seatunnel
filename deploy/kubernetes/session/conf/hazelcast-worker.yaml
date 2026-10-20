@@ -33,6 +33,7 @@ hazelcast:
         enabled: true
         service-dns: seatunnel-session-cluster-headless.seatunnel.svc.cluster.local
         service-dns-timeout: 10
+        service-port: 5801
   member-attributes:
     rule:
       type: string
