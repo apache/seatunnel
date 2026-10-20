@@ -694,6 +694,12 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .LOG_RESPONSE_MAX_SIZE_MB
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PUBLIC_URL
+                    .key()
+                    .equals(name)) {
+                // Without this branch the option would be dropped as "Unrecognized element" and
+                // LogService would keep building log links from the member host:port.
+                httpConfig.setPublicUrl(getTextContent(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

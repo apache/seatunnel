@@ -78,7 +78,10 @@ public class HttpConfig implements Serializable {
     private String basicAuthPassword =
             ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
 
-    /** The public base URL for the HTTP server, used when the server is behind a reverse proxy or Ingress. */
+    /**
+     * The public base URL for the HTTP server, used when the server is behind a reverse proxy or
+     * Ingress.
+     */
     private String publicUrl =
             ServerConfigOptions.MasterServerConfigOptions.PUBLIC_URL.defaultValue();
     /** The maximum size in MB of a single uploaded file. A value <= 0 means unlimited. */

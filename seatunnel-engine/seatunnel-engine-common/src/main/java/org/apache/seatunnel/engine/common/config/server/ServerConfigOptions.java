@@ -391,7 +391,6 @@ public class ServerConfigOptions {
                                         + "When set, this URL is used to generate absolute log links in the Web UI instead of the member pod IP. "
                                         + "Example: https://seatunnel.example.com");
 
-
         public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
                 Options.key("upload-max-file-size-mb")
                         .intType()
