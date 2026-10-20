@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.avro;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -32,6 +34,8 @@ import org.apache.avro.io.EncoderFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -231,5 +235,56 @@ class AvroConverterTest {
         converter.getWriter().write(record, encoder);
         encoder.flush();
         Assertions.assertTrue(out.size() > 0);
+    }
+
+    // Two ROW fields sit under different parents but share the same leaf ROW field name, and the
+    // two nested records differ structurally: one carries a STRING and one an INT. With the opt-in
+    // nullable layout the nested record name is derived from the field name, so both nested
+    // records are named "detail" while describing different fields. The public binary round trip
+    // still has to read every value back through its own parent branch, both for a present and for
+    // a null nested row.
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testSameLeafRowNameUnderDifferentParentsRoundTripsNullableRow(boolean present)
+            throws IOException {
+        SeaTunnelRowType leftDetailType =
+                new SeaTunnelRowType(
+                        new String[] {"code"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType rightDetailType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType leftParentType =
+                new SeaTunnelRowType(
+                        new String[] {"detail"}, new SeaTunnelDataType<?>[] {leftDetailType});
+        SeaTunnelRowType rightParentType =
+                new SeaTunnelRowType(
+                        new String[] {"detail"}, new SeaTunnelDataType<?>[] {rightDetailType});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"left_parent", "right_parent"},
+                        new SeaTunnelDataType<?>[] {leftParentType, rightParentType});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+
+        SeaTunnelRow leftDetail = new SeaTunnelRow(new Object[] {"left-code"});
+        SeaTunnelRow rightDetail = new SeaTunnelRow(new Object[] {7});
+        SeaTunnelRow leftParent = new SeaTunnelRow(new Object[] {present ? leftDetail : null});
+        SeaTunnelRow rightParent = new SeaTunnelRow(new Object[] {present ? rightDetail : null});
+        SeaTunnelRow sourceRow = new SeaTunnelRow(new Object[] {leftParent, rightParent});
+
+        byte[] bytes = new AvroSerializationSchema(rowType, true).serialize(sourceRow);
+        SeaTunnelRow result =
+                new AvroDeserializationSchema(catalogTable, null, false, true).deserialize(bytes);
+
+        SeaTunnelRow leftResult = (SeaTunnelRow) result.getField(0);
+        SeaTunnelRow rightResult = (SeaTunnelRow) result.getField(1);
+        if (present) {
+            SeaTunnelRow leftDetailResult = (SeaTunnelRow) leftResult.getField(0);
+            SeaTunnelRow rightDetailResult = (SeaTunnelRow) rightResult.getField(0);
+            Assertions.assertEquals("left-code", leftDetailResult.getField(0));
+            Assertions.assertEquals(7, rightDetailResult.getField(0));
+        } else {
+            Assertions.assertNull(leftResult.getField(0));
+            Assertions.assertNull(rightResult.getField(0));
+        }
     }
 }

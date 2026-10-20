@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.avro;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+/** Options that control how the Avro format serializes and deserializes SeaTunnel rows. */
 public class AvroFormatOptions {
 
     public static final Option<Boolean> AVRO_ROW_NULLABLE =
