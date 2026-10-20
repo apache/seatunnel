@@ -57,7 +57,7 @@ GET http://<master-host>:8080/logs?format=json
 GET http://<node-host>:5801/log
 ```
 
-第一个接口从所有 Zeta 节点获取匹配的日志，最后一个接口读取单个节点的日志。如果配置了 context path 或动态 HTTP 端口，接口地址也会变化。完整行为请参阅 [RESTful API V2](rest-api-v2.md#get-logs-from-all-nodes)。
+第一个接口从所有 Zeta 节点获取匹配的日志，最后一个接口读取单个节点的日志。如果配置了 context path 或动态 HTTP 端口，接口地址也会变化。完整行为请参阅 [RESTful API V2](rest-api-v2.md#获取所有节点日志内容)。
 
 在 Kubernetes 环境中，需要保留所有相关 Master 和 Worker Pod 的日志。先收集故障时间窗口；如果 Pod 发生过重启，还需要收集上一个容器的日志：
 

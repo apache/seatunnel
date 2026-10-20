@@ -4,10 +4,19 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase Source Connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Apache HBase tables. The source supports normal scans, row key range scans, timestamp
 range scans, binary row keys, custom namespaces, and parallel batch reading.
+
+The source runs in batch mode and reads the current state of the scanned range. It is not a CDC
+source: changes that happen after the scan starts are not delivered.
 
 ## Key Features
 
@@ -108,7 +117,7 @@ End timestamp (exclusive) for scan time range. Unit: milliseconds since epoch. T
 
 **Notes:**
 
-- `start_timestamp` / `end_timestamp` must be >= 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
+- `start_timestamp` must be >= 0 and `end_timestamp` must be > 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
 - When `start_rowkey` / `end_rowkey` and `start_timestamp` / `end_timestamp` are configured together, both the rowkey range and the time range constraints are applied (intersection).
 
 ### common-options
@@ -119,14 +128,14 @@ Common parameters for Source plugins, refer to [Common Source Options](../common
 
 ### Read by Row Key and Time Range
 
-```bash
+```hocon
 source {
   Hbase {
-    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181" 
-    table = "seatunnel_test" 
-    caching = 1000 
-    batch = 100 
-    cache_blocks = false 
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "seatunnel_test"
+    caching = 1000
+    batch = 100
+    cache_blocks = false
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
@@ -134,16 +143,16 @@ source {
     end_timestamp = 1700003600000
     schema = {
       columns = [
-        { 
-          name = "rowkey" 
-          type = string 
+        {
+          name = "rowkey"
+          type = string
         },
         {
           name = "columnFamily1:column1"
           type = boolean
         },
         {
-          name = "columnFamily1:column2" 
+          name = "columnFamily1:column2"
           type = double
         },
         {
@@ -172,6 +181,30 @@ source {
   }
 }
 ```
+
+### Read with a Binary Row Key
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "binary_rowkey_table"
+    is_binary_rowkey = true
+    caching = 500
+    batch = 100
+    schema = {
+      columns = [
+        { name = rowkey, type = bytes },
+        { name = "info:name", type = string },
+        { name = "info:score", type = double }
+      ]
+    }
+  }
+}
+```
+
+When `is_binary_rowkey = true`, declare the row key column as `bytes` in the schema and let the
+downstream transform handle decoding.
 
 ## Kerberos Example
 
