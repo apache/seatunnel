@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
-import java.time.Duration;
 import java.util.List;
 
 public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
@@ -78,13 +77,6 @@ public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
                     .withDescription(
                             "The PostgreSQL publication name used for pgoutput logical replication "
                                     + "(defaults to dbz_publication when unset).");
-
-    public static final Option<Long> HEARTBEAT_INTERVAL_MS =
-            Options.key("heartbeat.interval.ms")
-                    .longType()
-                    .defaultValue(Duration.ofSeconds(30).toMillis())
-                    .withDescription(
-                            "The interval in milliseconds for sending heartbeat events to advance replication slot offsets. Set to 0 to disable. Default is 30000.");
 
     public static final Option<String> PUBLICATION_AUTOCREATE_MODE =
             Options.key("publication.autocreate.mode")

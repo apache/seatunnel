@@ -109,7 +109,6 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑复制槽名称，用于记录当前任务的 WAL 消费进度并阻止数据库提前回收尚未消费的 WAL。同一个复制槽同一时刻只能被一个任务使用；若同一个 PostgreSQL 实例上有多个 CDC 任务（即使采集同一张表），也必须为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
-| heartbeat.interval.ms                     | Long     | 否   | 30000    | 发送心跳事件的间隔（毫秒），默认 `30000`（30 秒），设为 `0` 表示关闭。当同库其他表有写入、但当前任务监控的表无写入时，心跳事件可推动复制槽消费位点（LSN）持续前进，防止 WAL 堆积。若整个数据库完全没有任何写入，还需配置 `debezium.heartbeat.action.query` 定期向心跳表写入数据。同时兼容 `debezium.heartbeat.interval.ms`，两者同时配置时以当前顶层参数为准。 |
 | sslmode                                   | String   | 否   | -        | 逻辑复制连接的 SSL 模式，可选值：`disable`、`allow`、`prefer`、`require`、`verify-ca`、`verify-full`。未配置时，若 JDBC `url` 查询参数中带有 `sslmode` 则自动沿用，否则默认为 `prefer`。                                                                                                                                                                                                                                                              |
 | publication.name                          | String   | 否   | -        | 使用 `pgoutput` 插件时的 PostgreSQL 发布（Publication）名称，未配置时默认为 `dbz_publication`。Publication 用于在数据库服务端定义允许逻辑复制输出的表名单（仅作表范围过滤，不记录消费进度）。仅当 `decoding.plugin.name = "pgoutput"`（默认）时生效。                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | publication.autocreate.mode               | String   | 否   | -        | 控制连接器如何创建或使用 `publication.name` 指定的发布（仅 `pgoutput` 插件生效，默认 `all_tables`）：<br/> `all_tables`：若发布不存在，自动执行 `CREATE PUBLICATION ... FOR ALL TABLES`（需要数据库 Superuser 权限），数据库会输出全库所有表的变更。<br/> `filtered`：若发布不存在，仅针对当前任务监控的表自动执行 `CREATE PUBLICATION ... FOR TABLE ...`（需要当前库 `CREATE` 权限及监控表的 Owner 权限），数据库仅输出监控表的变更。多个任务使用 `filtered` 时请配置不同的 `publication.name`，避免互相覆盖表清单。<br/> `disabled`：不自动创建或修改发布，直接使用数据库中已存在的 `publication.name`（不存在则报错）。适合生产环境由管理员预先建好 `FOR TABLE` 发布的最小权限场景；多个任务可安全共用同一个已包含所需表的发布。 |
@@ -250,7 +249,7 @@ source {
 
 PostgreSQL 复制槽的消费位点只有在收到 WAL 事件时才会推进：
 
-- **同库有其他表写入，但当前任务监控的表低频写入**：连接器默认开启 `heartbeat.interval.ms = 30000`（30 秒），会自动借助同库其他表的 WAL 事件定期推进复制槽位点，防止 WAL 堆积。如需关闭可设为 `0`。
+- **同库有其他表写入，但当前任务监控的表低频写入**：Debezium 心跳事件会借助同库其他表的 WAL 事件定期推进复制槽位点，防止 WAL 堆积。如需调整间隔，可配置 `debezium.heartbeat.interval.ms`。
 - **整个数据库长时间完全没有写入**：还需额外配置 `debezium.heartbeat.action.query`，定期向一张预先创建的心跳表写入数据以主动产生 WAL 事件（若使用 `publication.autocreate.mode = "disabled"` 或 `filtered`，请确保心跳表也包含在发布中）。
 
 ```hocon
@@ -262,8 +261,8 @@ source {
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://localhost:5432/postgres_cdc"
     slot.name = "seatunnel_postgres_cdc"
-    heartbeat.interval.ms = 30000
     debezium {
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO inventory.heartbeat (ts) VALUES (NOW())"
     }
   }
@@ -441,7 +440,7 @@ source task 会失败；Zeta 引擎会按照 `job.retry.times`（默认 `3`）�
 重试次数是 pipeline 生命周期内的累计值，请按需要承受的最长断网时间设置。
 
 从 checkpoint 恢复会从最近提交的 LSN 继续，不会重新执行快照；恢复后写入的数据会继续被消费。
-`heartbeat.interval.ms` 和 `status.update.interval.ms` 可以让复制连接和元数据连接保持活跃，
+`debezium.heartbeat.interval.ms` 和 `status.update.interval.ms` 可以让复制连接和元数据连接保持活跃，
 同时建议在 JDBC URL 中设置 `tcpKeepAlive=true`。
 
 ## 另请参阅

@@ -72,7 +72,6 @@ public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourc
                         PostgresIncrementalSourceOptions.SSL_MODE,
                         PostgresIncrementalSourceOptions.PUBLICATION_NAME,
                         PostgresIncrementalSourceOptions.PUBLICATION_AUTOCREATE_MODE,
-                        PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS,
                         PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,

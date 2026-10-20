@@ -277,16 +277,15 @@ public class PostgresSourceConfigFactoryTest {
     }
 
     @Test
-    public void shouldDefaultHeartbeatIntervalMsToThirtySeconds() {
+    public void shouldNotSetHeartbeatIntervalMsByDefault() {
         PostgresSourceConfigFactory factory = baseFactory();
 
-        Assertions.assertEquals(
-                "30000",
+        Assertions.assertNull(
                 factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
     }
 
     @Test
-    public void shouldLetLegacyDebeziumHeartbeatIntervalOverrideDefault() {
+    public void shouldPassThroughDebeziumHeartbeatIntervalMs() {
         PostgresSourceConfigFactory factory = baseFactory();
         Properties dbzProperties = new Properties();
         dbzProperties.setProperty("heartbeat.interval.ms", "10000");
@@ -295,45 +294,6 @@ public class PostgresSourceConfigFactoryTest {
         Assertions.assertEquals(
                 "10000",
                 factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
-    }
-
-    @Test
-    public void shouldLetTopLevelHeartbeatIntervalWinOverDefaultAndDebezium() {
-        Map<String, Object> options = new HashMap<>();
-        options.put(PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS.key(), 5000L);
-        PostgresSourceConfigFactory factory = factoryFromReadonlyConfig(options);
-        Properties dbzProperties = new Properties();
-        dbzProperties.setProperty("heartbeat.interval.ms", "10000");
-        factory.debeziumProperties(dbzProperties);
-
-        Assertions.assertEquals(
-                "5000", factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
-    }
-
-    @Test
-    public void shouldAllowTopLevelHeartbeatIntervalZeroToDisable() {
-        Map<String, Object> options = new HashMap<>();
-        options.put(PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS.key(), 0L);
-        PostgresSourceConfigFactory factory = factoryFromReadonlyConfig(options);
-        Properties dbzProperties = new Properties();
-        dbzProperties.setProperty("heartbeat.interval.ms", "10000");
-        factory.debeziumProperties(dbzProperties);
-
-        Assertions.assertEquals(
-                "0", factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
-    }
-
-    @Test
-    public void shouldRejectNegativeHeartbeatInterval() {
-        Map<String, Object> options = new HashMap<>();
-        options.put(PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS.key(), -1L);
-
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class, () -> factoryFromReadonlyConfig(options));
-
-        Assertions.assertTrue(exception.getMessage().contains("heartbeat.interval.ms"));
-        Assertions.assertTrue(exception.getMessage().contains("-1"));
     }
 
     @Test

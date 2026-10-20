@@ -71,12 +71,6 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
 
     private String publicationAutocreateMode;
 
-    /**
-     * Explicit top-level {@code heartbeat.interval.ms}. {@code null} means the user did not set it,
-     * so a legacy {@code debezium.heartbeat.interval.ms} may still override the 30s default.
-     */
-    private Long heartbeatIntervalMs;
-
     @Override
     public PostgresSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         super.fromReadonlyConfig(config);
@@ -95,10 +89,6 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
         this.publicationAutocreateMode =
                 config.getOptional(PostgresIncrementalSourceOptions.PUBLICATION_AUTOCREATE_MODE)
                         .map(PostgresSourceConfigFactory::validatePublicationAutocreateMode)
-                        .orElse(null);
-        this.heartbeatIntervalMs =
-                config.getOptional(PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS)
-                        .map(PostgresSourceConfigFactory::validateHeartbeatIntervalMs)
                         .orElse(null);
         return this;
     }
@@ -128,13 +118,12 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
     }
 
     /**
-     * Writes sslmode, publication, and heartbeat options after {@code debezium{}} is merged so the
-     * SeaTunnel options stay authoritative.
+     * Writes sslmode and publication options after {@code debezium{}} is merged so the SeaTunnel
+     * options stay authoritative.
      *
      * <p>sslmode resolution: SeaTunnel {@code sslmode} if set, else the JDBC URL {@code sslmode}
      * query parameter, else the property is left unset. Publication properties are written only
-     * when the matching SeaTunnel option is set. {@code heartbeat.interval.ms} resolves as:
-     * explicit top-level option, else {@code debezium.heartbeat.interval.ms}, else {@code 30000}.
+     * when the matching SeaTunnel option is set.
      */
     @Override
     protected void applyAuthoritativeConnectorProperties(Properties props) {
@@ -147,14 +136,6 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
         }
         if (StringUtils.isNotEmpty(publicationAutocreateMode)) {
             props.setProperty("publication.autocreate.mode", publicationAutocreateMode);
-        }
-        if (heartbeatIntervalMs != null) {
-            props.setProperty("heartbeat.interval.ms", String.valueOf(heartbeatIntervalMs));
-        } else {
-            props.putIfAbsent(
-                    "heartbeat.interval.ms",
-                    String.valueOf(
-                            PostgresIncrementalSourceOptions.HEARTBEAT_INTERVAL_MS.defaultValue()));
         }
     }
 
@@ -209,17 +190,6 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
                             + "'. Valid values: disable, allow, prefer, require, verify-ca, verify-full.");
         }
         return normalized;
-    }
-
-    private static Long validateHeartbeatIntervalMs(Long intervalMs) {
-        if (intervalMs == null) {
-            return null;
-        }
-        if (intervalMs < 0) {
-            throw new IllegalArgumentException(
-                    "heartbeat.interval.ms must be >= 0, but was " + intervalMs);
-        }
-        return intervalMs;
     }
 
     private static String validatePublicationAutocreateMode(String mode) {
