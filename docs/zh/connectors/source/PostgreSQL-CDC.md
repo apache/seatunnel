@@ -429,6 +429,21 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
 
+### PostgreSQL CDC 在连接被重置或网络中断后如何恢复？
+
+在流式读取阶段，连接器会按 `status.update.interval.ms`（Debezium 默认 10 秒，可通过 `debezium {}` 配置）
+探测 JDBC 元数据连接。探测失败时，连接器会关闭并原地重连该连接一次；数据库恢复可达后继续读取。
+
+如果重连时数据库或网络仍不可用，或者逻辑复制（walsender）连接已断开，原地重连无法恢复，
+source task 会失败；Zeta 引擎会按照 `job.retry.times`（默认 `3`）和
+`job.retry.interval.seconds`（默认 `3`）从最近一次成功的 checkpoint 恢复 pipeline。
+流式 CDC 任务请保持 `checkpoint.interval` 开启，不要设置 `job.retry.times = 0`。
+重试次数是 pipeline 生命周期内的累计值，请按需要承受的最长断网时间设置。
+
+从 checkpoint 恢复会从最近提交的 LSN 继续，不会重新执行快照；恢复后写入的数据会继续被消费。
+`heartbeat.interval.ms` 和 `status.update.interval.ms` 可以让复制连接和元数据连接保持活跃，
+同时建议在 JDBC URL 中设置 `tcpKeepAlive=true`。
+
 ## 另请参阅
 
 若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。

@@ -442,8 +442,7 @@ public class PostgresStreamingChangeEventSource
             connection.commit();
         } catch (SQLException e) {
             LOGGER.warn(
-                    "Postgres JDBC data connection probe failed; reconnecting in-place once",
-                    e);
+                    "Postgres JDBC data connection probe failed; reconnecting in-place once", e);
             try {
                 connection.close();
             } catch (Exception closeEx) {

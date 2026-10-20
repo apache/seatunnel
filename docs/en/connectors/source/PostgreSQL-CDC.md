@@ -443,6 +443,25 @@ may replay a row at an ambiguous boundary to avoid losing it.
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
 
+### How does PostgreSQL CDC recover from a connection reset or network interruption?
+
+While streaming, the connector probes the JDBC metadata connection every `status.update.interval.ms`
+(Debezium default: 10 seconds, configurable through `debezium {}`). If the probe fails, it closes and
+reopens that connection once and continues when the database is reachable again.
+
+The probe reconnect cannot succeed while the database or network is still unavailable, and it does
+not cover a lost logical replication (walsender) connection. In those cases the source task fails;
+the Zeta engine restores the pipeline from the last completed checkpoint according to
+`job.retry.times` (default `3`) and `job.retry.interval.seconds` (default `3`). Keep
+`checkpoint.interval` enabled and do not set `job.retry.times = 0` for streaming CDC jobs. The retry
+budget is cumulative for the lifetime of the pipeline, so size it for the longest outage the job
+must survive.
+
+Checkpoint restore resumes from the last committed LSN; it does not re-run the snapshot, and rows
+written after recovery continue to be consumed. `heartbeat.interval.ms` and
+`status.update.interval.ms` keep the replication and metadata connections active, and
+`tcpKeepAlive=true` in the JDBC URL is recommended.
+
 ## See Also
 
 For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
