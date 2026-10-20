@@ -19,11 +19,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer;
 
+import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergInternalRecordWrapper;
+
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.io.FileIO;
@@ -33,7 +34,7 @@ import org.apache.iceberg.io.PartitionedFanoutWriter;
 public class PartitionedAppendWriter extends PartitionedFanoutWriter<Record> {
 
     private final PartitionKey partitionKey;
-    private final InternalRecordWrapper wrapper;
+    private final IcebergInternalRecordWrapper wrapper;
 
     public PartitionedAppendWriter(
             PartitionSpec spec,
@@ -45,7 +46,7 @@ public class PartitionedAppendWriter extends PartitionedFanoutWriter<Record> {
             Schema schema) {
         super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
         this.partitionKey = new PartitionKey(spec, schema);
-        this.wrapper = new InternalRecordWrapper(schema.asStruct());
+        this.wrapper = new IcebergInternalRecordWrapper(schema.asStruct());
     }
 
     @Override

@@ -42,7 +42,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | name                                  | type    | required | default value  | description |
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
-| metastore_uri                         | string  | yes      | -              | Hive metastore URI. Comma-separated values enable HA failover. |
+| metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
 | compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
@@ -67,6 +67,31 @@ Target Hive table name eg: db1.table1, and if the source is multiple mode, you c
 ### metastore_uri [string]
 
 Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
+
+This option can be omitted when `hive.metastore.client.factory.class` selects an external metastore client through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. SeaTunnel does not fall back to an embedded metastore when neither a URI nor a client factory is configured.
+
+### AWS Glue Data Catalog
+
+AWS Glue Data Catalog can be used through the standard Hive metastore client factory:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.seatunnel_parquet"
+    hive.hadoop.conf = {
+      "hive.metastore.client.factory.class" = "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+      # Optional when accessing a catalog in another AWS account
+      # "hive.metastore.glue.catalogid" = "123456789012"
+    }
+  }
+}
+```
+
+The AWS Glue Data Catalog client and a compatible patched Hive runtime must be available on every SeaTunnel process that creates or uses the Hive sink. Amazon EMR distributions that support Glue include these components, but they must still be visible to the SeaTunnel runtime classpath. For other deployments, install a mutually compatible Hive runtime and AWS Glue Data Catalog client.
+
+Authentication is handled by the AWS SDK default credential provider chain. Use the IAM role, web identity, container credentials, instance profile, environment, or shared configuration supported by the runtime instead of placing access keys in the SeaTunnel job configuration.
+
+If the configured factory class or its compatible Hive classes are missing, sink initialization fails without falling back to a local metastore.
 
 ### hdfs_site_path [string]
 
