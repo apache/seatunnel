@@ -66,6 +66,17 @@ Use `generate_sink_sql = true` with `database`, `table`, and usually `primary_ke
 ## Does SeaTunnel support exactly-once consistency?
 SeaTunnel supports exactly-once consistency for some data sources, such as MySQL and PostgreSQL, ensuring data consistency during integration. Note that exactly-once consistency depends on the capabilities of the underlying database.
 
+## Why does an Oracle JDBC job fail during login with `Connection reset by peer` and `Authentication lapse`?
+On some Java 8 hosts, the Oracle JDBC driver can block while obtaining secure random data for login authentication. If the operating system entropy supply is low, the client may not send the final authentication response before Oracle or an intermediate network device closes the connection.
+
+This is usually an environment problem rather than a SeaTunnel configuration error. For Zeta jobs, add the following option to the JVM that opens the Oracle connection:
+
+```text
+-Djava.security.egd=file:/dev/./urandom
+```
+
+For a job submitted with `seatunnel.sh`, start with `$SEATUNNEL_HOME/config/jvm_client_options`; if the connection is opened by an engine process, also update the corresponding server JVM options. See [Configure The JVM Options](./engines/zeta/user-command.md#configure-the-jvm-options). Restoring the host entropy supply, for example with the operating system's `rngd` service, is also recommended. `connection_check_timeout_sec` does not control this login phase.
+
 ## Can SeaTunnel execute scheduled tasks?
 You can use Linux cron jobs to achieve periodic data integration, or leverage scheduling tools like Apache DolphinScheduler or Apache Airflow to manage complex scheduled tasks.
 
