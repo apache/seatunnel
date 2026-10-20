@@ -53,9 +53,12 @@ public class MultiTableWriterRunnable implements Runnable {
     private final int tableRetryTimes;
     /** Sleep interval between write retries for continue-other-tables mode. */
     private final int tableRetryIntervalSeconds;
-    /** First fatal worker failure surfaced back to the coordinator. */
+    /** The failure that stopped this worker, surfaced back to the coordinator. */
     private volatile Throwable throwable;
-    /** Table currently being written, used in fail-fast diagnostics. */
+    /**
+     * Table identifier of the most recent write on this worker, used in failure diagnostics. It
+     * stays set after a successful write and is only cleared when a table is quarantined.
+     */
     private volatile String currentTableId;
     /** Handles row-level write errors before the worker escalates to table failure. */
     private volatile MultiTableRowErrorHandler rowErrorHandler;
@@ -69,11 +72,13 @@ public class MultiTableWriterRunnable implements Runnable {
     private final AtomicInteger pendingRowRequests = new AtomicInteger();
 
     /**
-     * Creates a queue worker using the historical single-writer fallback behavior.
+     * Creates a fail-fast queue worker: no table-failure isolation, a no-op failure handler and no
+     * write retries.
      *
-     * <p>The worker owns the supplied queue and dispatches rows to the writer selected by table
-     * identifier. When exactly one writer is present, rows without a matching table identifier
-     * may fall back to that writer for backward compatibility.
+     * <p>The worker consumes the supplied queue (which is created and fed by {@code
+     * MultiTableSinkWriter}) and dispatches each row to the writer selected by table identifier.
+     * Like the other constructors, when exactly one writer is present, rows without a matching
+     * table identifier fall back to that writer for backward compatibility.
      *
      * @param tableIdWriterMap writers keyed by logical source-table identifier
      * @param queue ordered requests consumed by this worker
@@ -106,16 +111,20 @@ public class MultiTableWriterRunnable implements Runnable {
     /**
      * Creates the queue worker with table-failure handling and bounded write retries.
      *
-     * <p>Rows are processed in queue order under this runnable's monitor so schema-change barriers
-     * cannot overtake earlier writes. Retry settings apply only when table-failure continuation is
-     * enabled.
+     * <p>Elements are handled one at a time in queue order, so schema-change barriers cannot
+     * overtake earlier writes. Each element is processed while holding this runnable's monitor so
+     * that the coordinator can take the same lock to snapshot, flush or close the sub-writers
+     * without racing an in-flight write. Retry settings apply only when table-failure continuation
+     * is enabled.
      *
      * @param tableIdWriterMap writers keyed by logical source-table identifier
      * @param queue ordered requests consumed by this worker
      * @param continueOnTableFailure whether one table failure may be isolated from other tables
      * @param failureHandler callback invoked when a table is quarantined after a write failure
-     * @param tableRetryTimes maximum number of retries after the initial write attempt
-     * @param tableRetryIntervalSeconds delay between retry attempts
+     * @param tableRetryTimes maximum number of retries after the initial write attempt; negative
+     *     values are clamped to 0
+     * @param tableRetryIntervalSeconds delay between retry attempts, in seconds; negative values
+     *     are clamped to 0
      */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
@@ -144,10 +153,15 @@ public class MultiTableWriterRunnable implements Runnable {
     /**
      * Continuously drains this worker's queue and processes rows or schema-change barriers.
      *
-     * <p>Queue elements are processed while holding this runnable's monitor so {@link
-     * #writeRow(SeaTunnelRow)} and schema-change barriers remain ordered. An interruption or
-     * unrecoverable failure records the throwable, fails pending schema-change requests, and stops
-     * the worker.
+     * <p>Elements are handled one at a time in queue order; ordering comes from the FIFO queue
+     * consumed by this single worker thread. Each element is processed while holding this
+     * runnable's monitor so that the coordinator can take the same lock to snapshot, flush or close
+     * the sub-writers without racing an in-flight {@code writeRow} or schema change.
+     *
+     * <p>An interruption or unrecoverable failure records the throwable, fails pending
+     * schema-change requests, and stops the worker. The one exception is a table failure that is
+     * successfully handed to the failure handler in continue-on-table-failure mode: that table is
+     * quarantined and the loop keeps draining the queue for the remaining tables.
      */
     @Override
     public void run() {
@@ -396,7 +410,7 @@ public class MultiTableWriterRunnable implements Runnable {
     }
 
     /**
-     * Returns the first fatal failure that stopped this worker, if any.
+     * Returns the failure that stopped this worker, if any.
      *
      * @return the worker failure, or {@code null} while the worker has not recorded one
      */
@@ -405,12 +419,14 @@ public class MultiTableWriterRunnable implements Runnable {
     }
 
     /**
-     * Returns the table identifier currently associated with the worker's write operation.
+     * Returns the table identifier of the most recent write on this worker, for diagnostics (for
+     * example in failure messages).
      *
-     * <p>The value is intended for diagnostics and may be {@code null} while the worker is idle
-     * or between rows.
+     * <p>The value is not cleared after a successful write, so it keeps pointing at the last table
+     * written. It is {@code null} until the first row is written and after a table has been
+     * quarantined.
      *
-     * @return the current table identifier, or {@code null} when no table is active
+     * @return the most recently written table identifier, or {@code null} as described above
      */
     public String getCurrentTableId() {
         return currentTableId;
