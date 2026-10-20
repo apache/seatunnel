@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-pulsar.md';
 
 > Apache Pulsar source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Source connector for Apache Pulsar.
@@ -41,7 +47,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         | Stop position mode. Options: `NEVER` (streaming), `LATEST` (batch), `TIMESTAMP` (batch)                         |
 | cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
-| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json and avro. **Multi-table mode only supports JSON, CANAL_JSON and AVRO**                            |
+| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json, avro and text. **Text is supported only in single-table mode; multi-table mode supports JSON, CANAL_JSON and AVRO** |
 | field_delimiter          | String  | No       | ,             | Field delimiter for `text` format.                                                                               |
 | common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
@@ -163,7 +169,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json and avro. The `schema` option is required when using avro format. See [formats](../formats) for more details.
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details.
 
 ### field_delimiter [String]
 
@@ -200,6 +206,31 @@ source {
         c_bigint = bigint
         c_double = double
         c_timestamp = timestamp
+      }
+    }
+  }
+}
+```
+
+### Read Text Messages
+
+Use `format = text` in single-table mode to split each message into schema fields with `field_delimiter`.
+
+```hocon
+source {
+  Pulsar {
+    topic = "text-events"
+    subscription.name = "seatunnel-text-sub"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = text
+    field_delimiter = "|"
+    schema = {
+      fields {
+        id = int
+        name = string
       }
     }
   }
@@ -360,6 +391,20 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### How does Pulsar source handle partitioned topics and dynamic partition discovery?
+
+When subscribing to partitioned topics or topic patterns (`topic-pattern`), SeaTunnel automatically discovers partitions and dynamically assigns topic splits across reader subtasks. You can tune `topic-discovery.interval` to control how frequently new partitions are detected.
+
+### Which cursor reset strategies and subscription modes are supported?
+
+The source supports `EARLIEST` and `LATEST` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
+
+### How do I configure authentication for secure Pulsar clusters?
+
+Configure `auth.plugin-class` (e.g. `org.apache.pulsar.client.impl.auth.AuthenticationToken`) and provide required credentials or token values via `auth.params`. TLS connections are enabled by providing `pulsar+ssl://` service URLs.
 
 ## Changelog
 
