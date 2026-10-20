@@ -149,14 +149,6 @@ kubernetes:
   namespace: seatunnel
 ```
 
-:::caution Fixed slots
-
-`session.worker.slots` must equal the shared `seatunnel.yaml` `slot-service.slot-num`, and
-`session.worker.config-map` must contain `seatunnel.yaml`, `hazelcast-worker.yaml`,
-`log4j2.properties`, and `jvm_worker_options`.
-
-:::
-
 :::tip Session identity
 
 `session.name` is a DNS-1123 label of at most 40 characters and must be unique when Sessions share
