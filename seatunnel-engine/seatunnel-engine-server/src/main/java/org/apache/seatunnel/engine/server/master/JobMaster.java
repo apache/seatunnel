@@ -273,6 +273,8 @@ public class JobMaster {
             logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
         }
         try {
+            // Restore jobs intentionally skip cluster-side save-mode handling; changing this
+            // behavior requires a separate decision and regression test.
             if (!restart
                     && !jobImmutableInformation.isRestoreJob()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())

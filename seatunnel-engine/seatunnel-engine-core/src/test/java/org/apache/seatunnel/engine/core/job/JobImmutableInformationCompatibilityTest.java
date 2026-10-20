@@ -63,6 +63,8 @@ class JobImmutableInformationCompatibilityTest {
         Assertions.assertTrue(jobImmutableInformation.isStartWithSavePoint());
         Assertions.assertEquals(createTime, jobImmutableInformation.getCreateTime());
         Assertions.assertEquals(RestoreMode.SAVEPOINT, jobImmutableInformation.getRestoreMode());
+        Assertions.assertTrue(jobImmutableInformation.isRestoreJob());
+        Assertions.assertTrue(jobImmutableInformation.isSavepointRestore());
         Assertions.assertEquals(jobId, jobImmutableInformation.getRestoreSourceJobId());
     }
 
