@@ -2,6 +2,16 @@
 
 If you want to develop your own connector for the new SeaTunnel connector API (Connector V2), please check [here](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.md).
 
+## Start Here
+
+If you are building a new connector, use this page as the index and then branch to the relevant implementation guide:
+
+- [Source Connector Development](./source-connector-development.md) for source-side design and implementation flow
+- [Sink Connector Development](./sink-connector-development.md) for sink-side commit and recovery design
+- [Plugin Discovery and Class Loading](../architecture/plugin-discovery-and-class-loading.md) for packaging, SPI, and dependency isolation concerns
+- [Configuration And Option System](../architecture/configuration-and-option-system.md) for stable user-facing options
+- [CDC Pipeline Architecture](../architecture/cdc-pipeline-architecture.md) if the connector participates in CDC-style pipelines
+
 ## Architecture Reference
 
 For detailed information on SeaTunnel's API design and engine architecture, see:

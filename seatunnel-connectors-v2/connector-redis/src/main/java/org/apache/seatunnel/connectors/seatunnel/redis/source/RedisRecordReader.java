@@ -19,11 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,35 +33,59 @@ import java.util.Map;
 
 public abstract class RedisRecordReader {
     protected final RedisParameters redisParameters;
+    protected final RedisTableConfig tableConfig;
     protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    protected final TablePath tablePath;
     protected RedisClient redisClient;
 
     protected RedisRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            RedisClient redisClient) {
+            RedisClient redisClient,
+            TablePath tablePath) {
         this.redisParameters = redisParameters;
+        this.tableConfig = tableConfig;
         this.deserializationSchema = deserializationSchema;
         this.redisClient = redisClient;
+        this.tablePath = tablePath;
+    }
+
+    /**
+     * Helper method to create SeaTunnelRow with tableId set. This is required for multi-table mode
+     * to work correctly.
+     */
+    protected SeaTunnelRow createRowWithTableId(Object[] fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setTableId(tablePath.toString());
+        return row;
+    }
+
+    /** Helper method to set tableId for a SeaTunnelRow. */
+    protected void setTableId(SeaTunnelRow row) {
+        row.setTableId(tablePath.toString());
     }
 
     public void pollHashMapToNext(List<String> keys, Collector<SeaTunnelRow> output)
             throws IOException {
-        List<Map<String, String>> values = redisClient.batchGetHash(keys);
+        List<Map<String, String>> values = redisClient.batchGetHash(keys, tableConfig);
         if (deserializationSchema == null) {
             for (Map<String, String> value : values) {
-                output.collect(new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(value)}));
+                output.collect(createRowWithTableId(new Object[] {JsonUtils.toJsonString(value)}));
             }
             return;
         }
+        RedisSourceOptions.HashKeyParseMode hashKeyParseMode = tableConfig.getHashKeyParseMode();
         for (Map<String, String> recordsMap : values) {
-            if (redisParameters.getHashKeyParseMode() == RedisSourceOptions.HashKeyParseMode.KV) {
-                deserializationSchema.deserialize(
-                        JsonUtils.toJsonString(recordsMap).getBytes(), output);
+            if (hashKeyParseMode == RedisSourceOptions.HashKeyParseMode.KV) {
+                SeaTunnelRow row =
+                        deserializationSchema.deserialize(
+                                JsonUtils.toJsonString(recordsMap).getBytes());
+                setTableId(row);
+                output.collect(row);
             } else {
-                SeaTunnelRow seaTunnelRow =
-                        new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(recordsMap)});
-                output.collect(seaTunnelRow);
+                output.collect(
+                        createRowWithTableId(new Object[] {JsonUtils.toJsonString(recordsMap)}));
             }
         }
     }

@@ -91,6 +91,7 @@ public class LocalModeIT {
             Map<String, String> clusterHealthMetrics = engineClient.getClusterHealthMetrics();
             Assertions.assertEquals(1, clusterHealthMetrics.size());
             Assertions.assertTrue(clusterHealthMetrics.containsKey("[localhost]:9999"));
+            Assertions.assertNotNull(engineClient.getHealthMetrics("[localhost]:9999"));
         } finally {
             if (engineClient != null) {
                 engineClient.close();

@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.api.metalake;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.options.table.ColumnOptions;
 import org.apache.seatunnel.api.options.table.FieldOptions;
@@ -35,51 +35,37 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.common.constants.MetaLakeType;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.GET_META_LAKE_TABLE_SCHEMA_FAILED;
 
 @Slf4j
 public class TableSchemaDiscoverer implements AutoCloseable {
 
-    private final ReadonlyConfig envOptions;
+    private final MetadataConfig metaDataConfig;
     private final ReadonlyConfig sourceOptions;
     private final String catalogName;
-    private MetalakeClient metalakeClient;
-    private final MetaLakeTableSchemaConvertor metaLakeTableSchemaConvertor;
 
     public TableSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
-        this.envOptions = context.getEnvOptions();
+        this.metaDataConfig = context.getMetadataConfig();
         this.sourceOptions = context.getOptions();
         this.catalogName = catalogName;
-        if (enableMetaLakeClient(context.getOptions())) {
-            this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
-        }
-        this.metaLakeTableSchemaConvertor = MetaLakeFactory.createTypeMapper(getMetaLakeType());
     }
 
     @VisibleForTesting
     protected TableSchemaDiscoverer(
-            ReadonlyConfig envOptions,
-            ReadonlyConfig sourceOptions,
-            String catalogName,
-            MetalakeClient metalakeClient,
-            MetaLakeTableSchemaConvertor convertor) {
-        this.envOptions = envOptions;
+            MetadataConfig metaDataConfig, ReadonlyConfig sourceOptions, String catalogName) {
         this.sourceOptions = sourceOptions;
         this.catalogName = catalogName;
-        this.metalakeClient = metalakeClient;
-        this.metaLakeTableSchemaConvertor = convertor;
+        this.metaDataConfig = metaDataConfig;
     }
 
     public List<CatalogTable> discoverTableSchemas() {
@@ -112,10 +98,10 @@ public class TableSchemaDiscoverer implements AutoCloseable {
                 || sourceOptions.getOptional(FieldOptions.FIELDS).isPresent()) {
             return discoverTableSchemaFromConfig(sourceOptions);
         }
-        // schema_url
-        if (schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent()) {
+        // metadata_table_id
+        if (schemaConfig.getOptional(ColumnOptions.METADATA_TABLE_ID).isPresent()) {
             return discoverTableSchemaFromMetaLake(
-                    schemaConfig.get(ColumnOptions.SCHEMA_URL),
+                    schemaConfig.get(ColumnOptions.METADATA_TABLE_ID),
                     schemaConfig.get(TableIdentifierOptions.TABLE));
         }
         return buildSimpleTextTable(schemaConfig);
@@ -125,33 +111,26 @@ public class TableSchemaDiscoverer implements AutoCloseable {
         return CatalogTableUtil.buildWithConfig(catalogName, readonlyConfig);
     }
 
-    private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl, String configTablePath) {
-        try {
-            JsonNode schemaNode = metalakeClient.getTableSchema(schemaUrl);
-            final TablePath tableSchemaPath;
-            if (StringUtils.isNotEmpty(configTablePath)) {
-                tableSchemaPath = TablePath.of(configTablePath);
-            } else {
-                tableSchemaPath = metalakeClient.getTableSchemaPath(schemaUrl);
-            }
-            final TableSchema tableSchema = metaLakeTableSchemaConvertor.convertor(schemaNode);
-            return metaLakeTableSchemaConvertor.buildCatalogTable(
-                    catalogName, tableSchemaPath, tableSchema);
-        } catch (IOException e) {
-            String errorMsg =
-                    String.format(
-                            "Failed to get table schema from MetaLake. "
-                                    + "Schema URL: %s, "
-                                    + "Configured table path: %s, "
-                                    + "Catalog name: %s, "
-                                    + "Error: %s",
-                            schemaUrl,
-                            configTablePath != null ? configTablePath : "not configured",
-                            catalogName,
-                            e.getMessage());
-            throw new SeaTunnelRuntimeException(
-                    GET_META_LAKE_TABLE_SCHEMA_FAILED, new IOException(errorMsg, e));
+    private CatalogTable discoverTableSchemaFromMetaLake(
+            String metaDataTableId, String schemaConfigTable) {
+        Optional<TableSchema> tableSchema =
+                MetadataProviderManager.resolveTableSchema(metaDataTableId, metaDataConfig);
+        if (!tableSchema.isPresent()) {
+            return CatalogTableUtil.buildSimpleTextTable();
         }
+        TableIdentifier tableIdentifier;
+        if (StringUtils.isEmpty(schemaConfigTable)) {
+            tableIdentifier = TableIdentifier.of(catalogName, TablePath.of(metaDataTableId));
+        } else {
+            tableIdentifier = TableIdentifier.of(catalogName, TablePath.of(schemaConfigTable));
+        }
+        return CatalogTable.of(
+                tableIdentifier,
+                tableSchema.get(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                null,
+                catalogName);
     }
 
     private CatalogTable buildSimpleTextTable(ReadonlyConfig schemaConfig) {
@@ -165,41 +144,12 @@ public class TableSchemaDiscoverer implements AutoCloseable {
     }
 
     @VisibleForTesting
-    protected MetaLakeType getMetaLakeType() {
-        // first source
-        if (sourceOptions.getOptional(TableSchemaOptions.METALAKE_TYPE).isPresent()) {
-            return sourceOptions.get(TableSchemaOptions.METALAKE_TYPE);
-        }
-        // second env
-        if (envOptions != null) {
-            if (envOptions.getOptional(EnvCommonOptions.METALAKE_TYPE).isPresent()) {
-                return envOptions.get(EnvCommonOptions.METALAKE_TYPE);
-            }
-        }
-        // third system
-        if (StringUtils.isNotEmpty(
-                System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()))) {
-            try {
-                return MetaLakeType.valueOf(
-                        System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()));
-            } catch (Exception e) {
-                log.warn(
-                        "The environment variable configuration is incorrect and automatically downgraded to GRAVITINO.",
-                        e);
-                return MetaLakeType.GRAVITINO;
-            }
-        }
-        // default
-        return MetaLakeType.GRAVITINO;
-    }
-
-    @VisibleForTesting
     protected boolean enableMetaLakeClient(ReadonlyConfig sourceOptions) {
         // schema
         if (sourceOptions.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             final Map<String, Object> schemaMap = sourceOptions.get(ConnectorCommonOptions.SCHEMA);
             ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
-            if (schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent()) {
+            if (schemaConfig.getOptional(ColumnOptions.METADATA_TABLE_ID).isPresent()) {
                 return true;
             }
         }
@@ -223,7 +173,7 @@ public class TableSchemaDiscoverer implements AutoCloseable {
             if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
                 final Map<String, Object> schemaMap = config.get(ConnectorCommonOptions.SCHEMA);
                 ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
-                return schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent();
+                return schemaConfig.getOptional(ColumnOptions.METADATA_TABLE_ID).isPresent();
             }
             return false;
         };
@@ -231,9 +181,5 @@ public class TableSchemaDiscoverer implements AutoCloseable {
 
     /** Close the metalake client and release resources. */
     @Override
-    public void close() {
-        if (metalakeClient != null) {
-            metalakeClient.close();
-        }
-    }
+    public void close() {}
 }

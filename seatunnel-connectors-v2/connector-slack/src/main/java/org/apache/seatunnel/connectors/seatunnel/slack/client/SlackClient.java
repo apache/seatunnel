@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
@@ -26,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorE
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.SlackApiException;
+import com.slack.api.methods.request.chat.ChatPostMessageRequest;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.conversations.ConversationsListResponse;
 import com.slack.api.model.Conversation;
@@ -39,10 +39,10 @@ import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOp
 
 @Slf4j
 public class SlackClient {
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
     private final MethodsClient methodsClient;
 
-    public SlackClient(Config pluginConfig) {
+    public SlackClient(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
         this.methodsClient = Slack.getInstance().methods();
     }
@@ -58,10 +58,10 @@ public class SlackClient {
                             r ->
                                     r
                                             // The Token used to initialize app
-                                            .token(pluginConfig.getString(OAUTH_TOKEN.key())));
+                                            .token(pluginConfig.get(OAUTH_TOKEN)));
             channels = conversationsListResponse.getChannels();
             for (Conversation channel : channels) {
-                if (channel.getName().equals(pluginConfig.getString(SLACK_CHANNEL.key()))) {
+                if (channel.getName().equals(pluginConfig.get(SLACK_CHANNEL))) {
                     conversionId = channel.getId();
                     // Break from for loop
                     break;
@@ -81,17 +81,30 @@ public class SlackClient {
         try {
             ChatPostMessageResponse chatPostMessageResponse =
                     methodsClient.chatPostMessage(
-                            r ->
-                                    r
-                                            // The Token used to initialize app
-                                            .token(pluginConfig.getString(SLACK_CHANNEL.key()))
-                                            .channel(channelId)
-                                            .text(text));
+                            createMessageRequest(pluginConfig.get(OAUTH_TOKEN), channelId, text));
             publishMessageSuccess = chatPostMessageResponse.isOk();
         } catch (IOException | SlackApiException e) {
             log.error("error: {}", ExceptionUtils.getMessage(e));
         }
         return publishMessageSuccess;
+    }
+
+    /**
+     * Builds a chat.postMessage request authenticated with the configured OAuth token, not the
+     * channel name.
+     *
+     * @param oauthToken OAuth token used to authenticate the request
+     * @param channelId resolved ID of the destination channel
+     * @param text message text to publish
+     * @return the request with authentication and message fields populated
+     */
+    static ChatPostMessageRequest createMessageRequest(
+            String oauthToken, String channelId, String text) {
+        return ChatPostMessageRequest.builder()
+                .token(oauthToken)
+                .channel(channelId)
+                .text(text)
+                .build();
     }
 
     /** Close Conversion */

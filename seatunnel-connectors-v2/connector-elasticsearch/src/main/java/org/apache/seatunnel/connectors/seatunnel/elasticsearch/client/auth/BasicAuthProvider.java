@@ -60,38 +60,14 @@ public class BasicAuthProvider extends AbstractAuthenticationProvider {
         return AUTH_TYPE;
     }
 
+    /**
+     * No-op. Username/password presence and pairing are now enforced declaratively via {@code
+     * OptionRule} (see {@code ElasticsearchSourceFactory} / {@code ElasticsearchSinkFactory} /
+     * {@code ElasticSearchCatalogFactory}). This method is kept to honor the {@link
+     * AuthenticationProvider} contract.
+     */
     @Override
     public void validate(ReadonlyConfig config) {
-        Optional<String> username = config.getOptional(ElasticsearchBaseOptions.USERNAME);
-        Optional<String> password = config.getOptional(ElasticsearchBaseOptions.PASSWORD);
-
-        // For backward compatibility, we allow basic auth to be optional
-        // If username is provided, password must also be provided
-        if (username.isPresent() && !password.isPresent()) {
-            throw new IllegalArgumentException(
-                    "Password is required when username is provided for basic authentication");
-        }
-
-        if (!username.isPresent() && password.isPresent()) {
-            throw new IllegalArgumentException(
-                    "Username is required when password is provided for basic authentication");
-        }
-
-        if (username.isPresent()) {
-            String usernameValue = username.get();
-            if (usernameValue == null || usernameValue.trim().isEmpty()) {
-                throw new IllegalArgumentException("Username cannot be null or empty");
-            }
-
-            String passwordValue = password.get();
-            if (passwordValue == null || passwordValue.trim().isEmpty()) {
-                throw new IllegalArgumentException("Password cannot be null or empty");
-            }
-
-            log.debug("Basic authentication configuration validated for user: {}", usernameValue);
-        } else {
-            log.debug(
-                    "No basic authentication credentials provided - authentication will be skipped");
-        }
+        // intentionally empty - validation handled by OptionRule
     }
 }

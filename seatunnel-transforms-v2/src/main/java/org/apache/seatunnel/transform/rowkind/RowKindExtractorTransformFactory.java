@@ -37,8 +37,10 @@ public class RowKindExtractorTransformFactory implements TableTransformFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(RowKindExtractorTransformConfig.CUSTOM_FIELD_NAME)
+                .optional(RowKindExtractorTransformConfig.TRANSFORM_TYPE)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

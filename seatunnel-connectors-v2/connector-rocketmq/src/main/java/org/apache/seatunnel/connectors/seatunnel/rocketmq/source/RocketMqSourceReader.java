@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -43,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -50,13 +50,23 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     private static final long THREAD_WAIT_TIME = 500L;
 
+    // Extra headroom added to a single poll timeout when bounding how long close() waits for
+    // every consumer thread to shut down concurrently.
+    private static final long CLOSE_GRACE_MILLIS = 500L;
+
+    // Fallback when the configured poll timeout is unset (ConsumerMetadata#getBaseConfig()'s
+    // pollTimeoutMillis is a boxed Long with no default): close() still needs a concrete, finite
+    // bound to wait for concurrent consumer thread shutdown, so fall back to the connector's own
+    // documented default poll timeout instead of risking an NPE from unboxing a null value.
+    private static final long DEFAULT_POLL_TIMEOUT_MILLIS = 5000L;
+
     private final Context context;
     private final ConsumerMetadata metadata;
     private final Set<RocketMqSourceSplit> sourceSplits;
     private final Map<Long, Map<MessageQueue, Long>> checkpointOffsets;
     private final Map<MessageQueue, RocketMqConsumerThread> consumerThreads;
     private final ExecutorService executorService;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final Map<String, TopicTableConfig> topicConfigs;
 
     private final LinkedBlockingQueue<RocketMqSourceSplit> pendingPartitionsQueue;
 
@@ -64,12 +74,12 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     public RocketMqSourceReader(
             ConsumerMetadata metadata,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            Map<String, TopicTableConfig> topicConfigs,
             Context context) {
         this.metadata = metadata;
         this.context = context;
         this.sourceSplits = new HashSet<>();
-        this.deserializationSchema = deserializationSchema;
+        this.topicConfigs = topicConfigs;
         this.consumerThreads = new ConcurrentHashMap<>();
         this.checkpointOffsets = new ConcurrentHashMap<>();
         this.executorService =
@@ -87,8 +97,46 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     @Override
     public void close() throws IOException {
-        if (executorService != null) {
-            executorService.shutdownNow();
+        running = false;
+        // DefaultLitePullConsumer's shutdown() is internally synchronized and can block for up
+        // to one poll cycle behind an in-flight poll(). Close every consumer thread concurrently
+        // instead of one at a time so the calling (task-cancellation) thread waits at most one
+        // poll timeout in total rather than pollTimeoutMillis * partitionCount, and isolate each
+        // thread's failure so one partition's shutdown exception can't abort the rest: a plain
+        // forEach here would stop at the first exception, leaking every remaining consumer
+        // thread and skipping executorService.shutdownNow() below entirely.
+        List<CompletableFuture<Void>> closeFutures =
+                consumerThreads.values().stream()
+                        .map(
+                                thread ->
+                                        CompletableFuture.runAsync(
+                                                () -> closeQuietly(thread), executorService))
+                        .collect(Collectors.toList());
+        try {
+            CompletableFuture.allOf(closeFutures.toArray(new CompletableFuture[0]))
+                    .get(pollTimeoutMillisOrDefault() + CLOSE_GRACE_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.warn("Timed out waiting for RocketMQ consumer threads to close", e);
+        } finally {
+            if (executorService != null) {
+                executorService.shutdownNow();
+            }
+        }
+    }
+
+    private long pollTimeoutMillisOrDefault() {
+        Long pollTimeoutMillis =
+                metadata.getBaseConfig() == null
+                        ? null
+                        : metadata.getBaseConfig().getPollTimeoutMillis();
+        return pollTimeoutMillis == null ? DEFAULT_POLL_TIMEOUT_MILLIS : pollTimeoutMillis;
+    }
+
+    private void closeQuietly(RocketMqConsumerThread thread) {
+        try {
+            thread.close();
+        } catch (Exception e) {
+            log.warn("Failed to close a RocketMQ consumer thread", e);
         }
     }
 
@@ -146,18 +194,25 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                                 .collect(Collectors.toList());
                                                 long lastOffset = -1;
                                                 for (MessageExt record : messages) {
-                                                    // Check if the tags are specified and match the
-                                                    // record's tag
+                                                    TopicTableConfig topicConfig =
+                                                            topicConfigs.get(record.getTopic());
+                                                    if (topicConfig == null) {
+                                                        throw new RocketMqConnectorException(
+                                                                RocketMqConnectorErrorCode
+                                                                        .CONSUME_DATA_FAILED,
+                                                                "No config found for topic: "
+                                                                        + record.getTopic());
+                                                    }
+                                                    List<String> tags = topicConfig.getTags();
                                                     boolean shouldProcess =
-                                                            metadata.getTags() == null
-                                                                    || metadata.getTags().isEmpty()
-                                                                    || metadata.getTags()
-                                                                            .contains(
-                                                                                    record
-                                                                                            .getTags());
+                                                            tags.isEmpty()
+                                                                    || tags.contains(
+                                                                            record.getTags());
                                                     if (shouldProcess) {
-                                                        deserializationSchema.deserialize(
-                                                                record.getBody(), output);
+                                                        topicConfig
+                                                                .getDeserializationSchema()
+                                                                .deserialize(
+                                                                        record.getBody(), output);
                                                         lastOffset = record.getQueueOffset();
                                                     }
                                                     if (Boundedness.BOUNDED.equals(

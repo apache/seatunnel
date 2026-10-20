@@ -44,83 +44,27 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 
 ### 2.1 检查点架构
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              JobMaster（每个作业一个，内部按 pipeline 管理）        │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         CheckpointCoordinator                         │     │
-│   │                                                         │     │
-│   │  • 触发检查点（定期/手动）                             │     │
-│   │  • 生成检查点 ID                                       │     │
-│   │  • 跟踪待处理的检查点                                  │     │
-│   │  • 收集任务确认                                        │     │
-│   │  • 持久化完成的检查点                                  │     │
-│   │  • 清理旧检查点                                        │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                            │                                      │
-│                            │ (触发屏障)                           │
-│                            ▼                                      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (CheckpointBarrier)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         工作节点                                  │
-│                                                                   │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ SourceTask 1 │      │ SourceTask 2 │      │ SourceTask N │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 快照      │      │ 2. 快照      │      │ 2. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   │ 4. 转发      │      │ 4. 转发      │      │ 4. 转发      │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          │ (屏障传播)           │                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │ Transform 1  │      │ Transform 2  │      │ Transform N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 快照      │      │ 2. 快照      │      │ 2. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 3. ACK       │      │ 3. ACK       │      │ 3. ACK       │ │
-│   │ 4. 转发      │      │ 4. 转发      │      │ 4. 转发      │ │
-│   └──────┬───────┘      └──────┬───────┘      └──────┬───────┘ │
-│          │                     │                     │          │
-│          ▼                     ▼                     ▼          │
-│   ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│   │  SinkTask 1  │      │  SinkTask 2  │      │  SinkTask N  │ │
-│   │              │      │              │      │              │ │
-│   │ 1. 接收      │      │ 1. 接收      │      │ 1. 接收      │ │
-│   │    屏障      │      │    屏障      │      │    屏障      │ │
-│   │ 2. 准备      │      │ 2. 准备      │      │ 2. 准备      │ │
-│   │    提交      │      │    提交      │      │    提交      │ │
-│   │ 3. 快照      │      │ 3. 快照      │      │ 3. 快照      │ │
-│   │    状态      │      │    状态      │      │    状态      │ │
-│   │ 4. ACK       │      │ 4. ACK       │      │ 4. ACK       │ │
-│   └──────────────┘      └──────────────┘      └──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (收到所有 ACK)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    CheckpointStorage                             │
-│            （例如 localfile/hdfs 等，取决于插件与配置）              │
-│                                                                   │
-│   CompletedCheckpoint {                                          │
-│     checkpointId: 123                                            │
-│     taskStates: {                                                │
-│       SourceTask-1: { splits: [...], offsets: [...] }           │
-│       SinkTask-1: { commitInfo: XidInfo(...) }                  │
-│       ...                                                        │
-│     }                                                            │
-│   }                                                              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    coordinator["CheckpointCoordinator<br/>触发检查点 / 生成 checkpointId / 跟踪 PendingCheckpoint<br/>收集 ACK / 持久化 CompletedCheckpoint / 清理旧检查点"]
+    source["SourceTask<br/>接收屏障 / 快照状态 / ACK / 转发屏障"]
+    transform["TransformTask<br/>接收屏障 / 快照状态 / ACK / 转发屏障"]
+    sink["SinkTask<br/>接收屏障 / prepareCommit / 快照状态 / ACK"]
+    storage["CheckpointStorage<br/>CompletedCheckpoint<br/>checkpointId + taskStates"]
+
+    coordinator -->|触发屏障| source
+    source -->|屏障传播| transform
+    transform -->|屏障传播| sink
+    sink -->|收到所有 ACK 后持久化| storage
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class coordinator,storage layerBlue;
+    class source,transform layerCyan;
+    class sink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 关键数据结构

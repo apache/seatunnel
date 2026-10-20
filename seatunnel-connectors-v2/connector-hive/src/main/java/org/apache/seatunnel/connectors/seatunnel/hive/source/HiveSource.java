@@ -19,11 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
@@ -35,7 +37,10 @@ import org.apache.seatunnel.connectors.seatunnel.hive.source.split.MultipleTable
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class HiveSource extends BaseHdfsFileSource {
+public class HiveSource
+        implements SeaTunnelSource<SeaTunnelRow, FileSourceSplit, FileSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
     private final MultipleTableHiveSourceConfig multipleTableHiveSourceConfig;
 

@@ -45,7 +45,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.io.input.BOMInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -53,8 +52,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -106,13 +103,14 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 currentFileName,
                 split.getStart(),
                 split.getLength());
-        try (BOMInputStream bomIn = new BOMInputStream(wrapInputStream(inputStream, split));
-                BufferedReader reader =
-                        new BufferedReader(new InputStreamReader(bomIn, getCharset(bomIn)));
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        try (BufferedReader reader =
+                        createBomAwareBufferedReader(
+                                wrapInputStream(inputStream, split), encoding);
                 CSVParser csvParser = new CSVParser(reader, getCSVFormat(split))) {
             // skip lines
-            // if enableSplitFile is true,no need to skip
-            if (!enableSplitFile) {
+            // if split range is used, no need to skip
+            if (!useSplitRead) {
                 for (int i = 0; i < skipHeaderNumber; i++) {
                     if (reader.readLine() == null) {
                         throw new IOException(
@@ -197,16 +195,14 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile && split.getLength() > -1) {
+        if (isSplitReadEnabled(split)) {
             resultStream = safeSlice(resultStream, split.getStart(), split.getLength());
         }
         return resultStream;
     }
 
-    private Charset getCharset(BOMInputStream bomIn) throws IOException {
-        return bomIn.getBOM() == null
-                ? Charset.forName(encoding)
-                : Charset.forName(bomIn.getBOM().getCharsetName());
+    private boolean isSplitReadEnabled(FileSourceSplit split) {
+        return enableSplitFile && split.getLength() > -1;
     }
 
     private CSVFormat getCSVFormat(FileSourceSplit split) {
@@ -221,8 +217,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             builder.setEscape(escapeChar.charAt(0));
         }
         CSVFormat csvFormat = builder.build();
-        // if enableSplitFile is true,no need to skip
-        if (firstLineAsHeader && (!enableSplitFile || split.getStart() == 0)) {
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        // if split range is used, header should only be read in the first split
+        if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
             csvFormat = csvFormat.withFirstRecordAsHeader();
         }
         return csvFormat;
@@ -230,7 +227,8 @@ public class CsvReadStrategy extends AbstractReadStrategy {
 
     private List<String> getHeaders(CSVParser csvParser, FileSourceSplit split) {
         List<String> headers;
-        if (firstLineAsHeader && (!enableSplitFile || split.getStart() == 0)) {
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
             headers = new ArrayList<>(csvParser.getHeaderNames());
         } else {
             headers =

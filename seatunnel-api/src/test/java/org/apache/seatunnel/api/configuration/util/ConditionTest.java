@@ -34,7 +34,7 @@ public class ConditionTest {
     @Test
     public void testToString() {
         Assertions.assertEquals(
-                "('option.mode' == EARLIEST || 'option.mode' == LATEST) && 'option.num' == 1000",
+                "'option.mode' == EARLIEST || ('option.mode' == LATEST && 'option.num' == 1000)",
                 TEST_CONDITION.toString());
     }
 

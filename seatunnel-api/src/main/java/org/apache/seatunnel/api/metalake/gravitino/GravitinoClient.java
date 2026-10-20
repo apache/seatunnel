@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -60,7 +61,19 @@ public class GravitinoClient implements MetalakeClient {
     private final CloseableHttpClient httpClient;
 
     public GravitinoClient() {
-        this.httpClient = HttpClients.createDefault();
+        RequestConfig config =
+                RequestConfig.custom()
+                        .setConnectTimeout(5000)
+                        .setConnectionRequestTimeout(5000)
+                        .setSocketTimeout(30000)
+                        .build();
+
+        this.httpClient =
+                HttpClients.custom()
+                        .setDefaultRequestConfig(config)
+                        .setMaxConnTotal(50)
+                        .setMaxConnPerRoute(20)
+                        .build();
     }
 
     @VisibleForTesting
@@ -70,6 +83,9 @@ public class GravitinoClient implements MetalakeClient {
 
     @Override
     public JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException {
+        if (!metalakeUrl.endsWith("/")) {
+            metalakeUrl = metalakeUrl + "/";
+        }
         JsonNode rootNode = executeGetRequest(metalakeUrl + sourceId);
         JsonNode catalogNode = getRequiredNode(rootNode, JSON_FIELD_CATALOG);
         return getRequiredNode(catalogNode, JSON_FIELD_PROPERTIES);
@@ -146,7 +162,7 @@ public class GravitinoClient implements MetalakeClient {
                 }
                 // Exponential backoff delay before retry
                 long delayMs = RETRY_DELAY_MS;
-                log.debug(
+                log.warn(
                         "HTTP request to {} failed on attempt {}/{}, retrying in {}ms: {}",
                         url,
                         attempt,

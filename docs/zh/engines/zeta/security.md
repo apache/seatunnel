@@ -1,8 +1,9 @@
 ---
 sidebar_position: 16
+title: 安全配置
 ---
 
-# Security
+# 安全配置
 
 ## Basic 认证
 

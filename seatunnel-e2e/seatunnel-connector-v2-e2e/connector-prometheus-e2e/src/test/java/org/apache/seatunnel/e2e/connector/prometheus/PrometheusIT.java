@@ -16,8 +16,6 @@
  */
 package org.apache.seatunnel.e2e.connector.prometheus;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -46,7 +44,6 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +74,6 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
                         .waitingFor(
                                 new HostPortWaitStrategy()
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-        prometheusContainer.setPortBindings(Lists.newArrayList(String.format("%s:9090", "9090")));
         Startables.deepStart(Stream.of(prometheusContainer)).join();
         log.info("Prometheus container started");
     }
@@ -99,8 +95,13 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
 
-        String host = InetAddress.getLocalHost().getHostAddress();
-        HttpGet httpGet = new HttpGet("http://" + host + ":9090/api/v1/query?query=metric_1");
+        HttpGet httpGet =
+                new HttpGet(
+                        "http://"
+                                + prometheusContainer.getHost()
+                                + ":"
+                                + prometheusContainer.getMappedPort(9090)
+                                + "/api/v1/query?query=metric_1");
         CloseableHttpResponse response = httpClient.execute(httpGet);
         String responseContent = EntityUtils.toString(response.getEntity());
         List<Metric> metrics =

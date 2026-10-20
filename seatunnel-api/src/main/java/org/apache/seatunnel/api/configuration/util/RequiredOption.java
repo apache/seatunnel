@@ -125,6 +125,13 @@ public interface RequiredOption {
             this.requiredOption = requiredOption;
         }
 
+        /**
+         * Creates conditional required options from the legacy expression wrapper.
+         *
+         * @deprecated Use {@link #of(Condition, List)} for new code. This overload is retained
+         *     temporarily for source compatibility with downstream extensions.
+         */
+        @Deprecated
         public static ConditionalRequiredOptions of(
                 Expression expression, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(expression, requiredOption);

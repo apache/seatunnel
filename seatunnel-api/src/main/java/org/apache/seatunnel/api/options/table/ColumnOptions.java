@@ -76,10 +76,10 @@ public interface ColumnOptions {
                     .noDefaultValue()
                     .withDescription("SeaTunnel Schema Column Comment");
 
-    Option<String> SCHEMA_URL =
-            Options.key("schema_url")
+    Option<String> METADATA_TABLE_ID =
+            Options.key("metadata_table_id")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The http path of the schema, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type");
+                            "The table id of the metadata center. When using Gravitino as the metadata center, the corresponding value is ${catalog}.${schema}.${table}, for example: 221-pgsql.ykw.all_type");
 }

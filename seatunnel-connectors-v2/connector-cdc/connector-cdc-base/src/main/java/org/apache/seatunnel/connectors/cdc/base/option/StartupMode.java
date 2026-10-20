@@ -25,8 +25,17 @@ public enum StartupMode {
     LATEST,
     /** Synchronize historical data at startup, and then synchronize incremental data. */
     INITIAL,
+    /** Read historical data only and finish without entering incremental reading. */
+    SNAPSHOT_ONLY,
+    /** Startup from the committed offset of a database-managed replication position. */
+    COMMITTED_OFFSET,
     /** Start from user-supplied timestamp. */
     TIMESTAMP,
     /** Startup from user-supplied specific offsets. */
-    SPECIFIC
+    SPECIFIC;
+
+    @Override
+    public String toString() {
+        return name().toLowerCase().replace('_', '-');
+    }
 }

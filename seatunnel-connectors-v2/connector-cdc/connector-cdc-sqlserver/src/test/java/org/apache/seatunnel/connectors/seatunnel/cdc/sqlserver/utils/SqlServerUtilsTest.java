@@ -20,11 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.relational.TableId;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SqlServerUtilsTest {
     @Test
@@ -69,5 +74,33 @@ public class SqlServerUtilsTest {
                         true);
         Assertions.assertEquals(
                 "SELECT * FROM [db1].[schema1].[table1] WHERE [id] >= ?", splitScanSQL);
+    }
+
+    @Test
+    public void testLsnStringToOffset() {
+        String lsnString = "00000027:00000a80:0003";
+        LsnOffset offset = SqlServerUtils.lsnStringToOffset(lsnString);
+        Assertions.assertEquals(lsnString, offset.getCommitLsn().toString());
+
+        String invalidLsn = "invalid_lsn";
+        Assertions.assertThrows(
+                RuntimeException.class, () -> SqlServerUtils.lsnStringToOffset(invalidLsn));
+    }
+
+    @Test
+    public void testGetLsnPositionPreservesCompleteSqlServerOffset() {
+        Map<String, Object> sourceOffset = new HashMap<>();
+        sourceOffset.put(SourceInfo.COMMIT_LSN_KEY, "00000027:00000a80:0003");
+        sourceOffset.put(SourceInfo.CHANGE_LSN_KEY, "00000027:00000a80:0004");
+        sourceOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, 2L);
+
+        LsnOffset offset = SqlServerUtils.getLsnPosition(sourceOffset);
+
+        Assertions.assertEquals("00000027:00000a80:0003", offset.getCommitLsn().toString());
+        Assertions.assertEquals("00000027:00000a80:0004", offset.getChangeLsn().toString());
+        Assertions.assertEquals("2", offset.getEventSerialNo());
+
+        sourceOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, 3L);
+        Assertions.assertTrue(SqlServerUtils.getLsnPosition(sourceOffset).isAfter(offset));
     }
 }

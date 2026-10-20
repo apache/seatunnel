@@ -49,6 +49,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -68,8 +69,11 @@ public class ZetaSQLEngine implements SQLEngine {
     private ZetaSQLFunction zetaSQLFunction;
     private ZetaSQLFilter zetaSQLFilter;
     private ZetaSQLType zetaSQLType;
+    private List<ZetaUDF> udfList = Collections.emptyList();
+    private ZetaUDFContext udfContext;
 
     private Integer allColumnsCount = null;
+    private boolean udfOpened;
 
     public ZetaSQLEngine() {}
 
@@ -84,15 +88,58 @@ public class ZetaSQLEngine implements SQLEngine {
         this.inputRowType = inputRowType;
         this.sql = sql;
 
-        List<ZetaUDF> udfList = new ArrayList<>();
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        ServiceLoader.load(ZetaUDF.class, classLoader).forEach(udfList::add);
+        udfList = loadUDFs();
+        udfContext = new ZetaUDFContext();
 
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
-        this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
+        this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList, udfContext);
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
+    }
+
+    protected List<ZetaUDF> loadUDFs() {
+        List<ZetaUDF> loadedUdfs = new ArrayList<>();
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        ServiceLoader.load(ZetaUDF.class, classLoader).forEach(loadedUdfs::add);
+        return loadedUdfs;
+    }
+
+    private void openUDFs() {
+        for (int i = 0; i < udfList.size(); i++) {
+            ZetaUDF udf = udfList.get(i);
+            try {
+                udf.open();
+            } catch (Exception e) {
+                try {
+                    udf.close();
+                } catch (Exception closeException) {
+                    log.warn(
+                            "Best-effort close failed for udf {}",
+                            udf.functionName(),
+                            closeException);
+                }
+                closeUDFs(i - 1);
+                log.error("Open udf {} failed", udf.functionName(), e);
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Open udf %s failed: %s", udf.functionName(), e.getMessage()));
+            }
+        }
+    }
+
+    private void ensureUdfOpened() {
+        if (udfOpened || CollectionUtils.isEmpty(udfList)) {
+            return;
+        }
+        synchronized (this) {
+            if (udfOpened) {
+                return;
+            }
+            openUDFs();
+            udfOpened = true;
+        }
     }
 
     private void parseSQL() {
@@ -236,9 +283,11 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outRowType) {
+        ensureUdfOpened();
         // ------Physical Query Plan Execution------
         // Scan Table
         Object[] inputFields = scanTable(inputRow);
+        zetaSQLFunction.updateUDFContext(inputFields, inputRow);
 
         // Filter
         try {
@@ -312,5 +361,24 @@ public class ZetaSQLEngine implements SQLEngine {
                         + inputRowType.getFieldNames().length * allColumnsCnt
                         - allColumnsCnt;
         return allColumnsCount;
+    }
+
+    @Override
+    public void close() {
+        if (CollectionUtils.isEmpty(udfList) || !udfOpened) {
+            return;
+        }
+        closeUDFs(udfList.size() - 1);
+        udfOpened = false;
+    }
+
+    private void closeUDFs(int lastIndex) {
+        for (int i = lastIndex; i >= 0; i--) {
+            try {
+                udfList.get(i).close();
+            } catch (Exception e) {
+                log.warn("Close udf {} failed", udfList.get(i).functionName(), e);
+            }
+        }
     }
 }

@@ -85,9 +85,9 @@ public class MysqlCreateTableSqlBuilder {
 
         return new MysqlCreateTableSqlBuilder(tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
-                // todo: set charset and collate
-                .engine(null)
-                .charset(null)
+                .engine(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE))
+                .charset(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET))
+                .collate(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_COLLATE))
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())
@@ -152,7 +152,7 @@ public class MysqlCreateTableSqlBuilder {
             sqls.add("COLLATE = " + collate);
         }
         if (comment != null) {
-            sqls.add("COMMENT = '" + comment + "'");
+            sqls.add("COMMENT = '" + escapeComment(comment) + "'");
         }
         return String.join(" ", sqls) + ";";
     }
@@ -201,21 +201,28 @@ public class MysqlCreateTableSqlBuilder {
         }
         columnSqls.add(type);
         columnTypeMap.put(column.getName(), type);
-        // nullable
-        if (column.isNullable()) {
+        // Primary key columns must be NOT NULL for MySQL to accept the generated DDL.
+        if (column.isNullable() && !isPrimaryKeyColumn(column)) {
             columnSqls.add("NULL");
         } else {
             columnSqls.add("NOT NULL");
         }
 
         if (column.getComment() != null) {
-            columnSqls.add(
-                    "COMMENT '"
-                            + column.getComment().replace("'", "''").replace("\\", "\\\\")
-                            + "'");
+            columnSqls.add("COMMENT '" + escapeComment(column.getComment()) + "'");
         }
 
         return String.join(" ", columnSqls);
+    }
+
+    private boolean isPrimaryKeyColumn(Column column) {
+        return createIndex
+                && primaryKey != null
+                && primaryKey.getColumnNames().contains(column.getName());
+    }
+
+    private String escapeComment(String comment) {
+        return comment.replace("'", "''").replace("\\", "\\\\");
     }
 
     private String buildPrimaryKeySql() {
@@ -265,9 +272,14 @@ public class MysqlCreateTableSqlBuilder {
                 keyName = "UNIQUE KEY";
                 break;
             case FOREIGN_KEY:
-                keyName = "FOREIGN KEY";
-                // todo:
-                break;
+                // Foreign key constraints require referenced table/column info which is
+                // not available in ConstraintKey. Skip generation to avoid producing
+                // invalid DDL.
+                return null;
+            case VECTOR_INDEX_KEY:
+                // VECTOR INDEX is MySQL 8.0+ specific, not supported in generic CREATE
+                // TABLE.
+                return null;
             default:
                 throw new UnsupportedOperationException(
                         "Unsupported constraint type: " + constraintType);

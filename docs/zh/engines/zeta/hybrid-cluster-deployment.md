@@ -128,6 +128,22 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel 还会在分布式 Map 中短暂保留终态作业状态，然后再统一删除。这个保留窗口由 `state-cleanup-delay-ms` 控制，默认值是 `60000` 毫秒。短暂保留终态 tombstone 可以让晚到的异步回调读到终态，而不是直接遇到缺失的状态项。将它设置为 `0` 会恢复更激进的清理策略，但也会缩小终态竞态的保护窗口。
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
+`/system-monitoring-information` REST API 会向每个集群成员收集健康指标。所有成员共享一个由 `health-metrics-timeout-seconds` 控制的统一截止时间，默认值为 `3` 秒。在截止时间内未应答的成员会以带地址和 `timeout` 标记的条目返回，而不是一直阻塞整个响应，因此该 API 的总耗时不会随失联成员数量而增长。
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
@@ -307,6 +323,11 @@ map:
            fs.defaultFS: file:///
 ```
 
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
+配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
+WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
+report 重新构建。
+
 如果您使用 OSS，可以像这样配置：
 
 ```yaml
@@ -328,15 +349,45 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
-注意：使用OSS 时，确保 lib目录下有这几个jar.
+注意：使用OSS 时，确保 lib目录下有这几个jar。
+
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
 ```
 aliyun-sdk-oss-3.13.2.jar
 hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
+netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
+
+如果您使用 GCS，可以像这样配置：
+
+```yaml
+map:
+  engine*:
+    map-store:
+      enabled: true
+      initial-mode: EAGER
+      factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+      properties:
+        type: hdfs
+        namespace: /seatunnel/imap
+        clusterName: seatunnel-cluster
+        storage.type: gcs
+        gcs.bucket: gs://your-bucket
+        # 可选，未配置时使用 Application Default Credentials（例如 GKE Workload Identity）
+        fs.gs.auth.service.account.json.keyfile: /path/to/service-account-key.json
+```
+
+注意：IMap 的 WAL 写入器每次更新都会重写当前对象（与 S3、OSS 相同），而 GCS 对同一对象名的写入频率限制约为每秒一次，因此 GCS 作为 IMap 持久化存储更适合 IMap 更新频率较低或中等的场景。
+
+注意：使用 GCS 时，确保 lib 目录下有这几个jar。
+
+```
+gcs-connector-hadoop3-2.2.33-shaded.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端

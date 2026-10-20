@@ -44,6 +44,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -58,6 +61,16 @@ public class CsvSerializationSchema implements SerializationSchema {
     private final Charset charset;
     private final String nullValue;
     private final CsvStringQuoteMode quoteMode;
+    /** When true, TIMESTAMP_TZ is serialized as wall-clock (no offset) for DB sinks like Doris. */
+    private final boolean wallClockTimestampTz;
+
+    /**
+     * Zone used when {@link #wallClockTimestampTz} is true to drop the offset and emit a wall-clock
+     * {@code LocalDateTime}. Defaults to {@link ZoneId#systemDefault()} for backward compatibility;
+     * callers that know the target session zone (for example the Doris sink session timezone)
+     * should pass it explicitly so the JVM default is not silently relied on.
+     */
+    private final ZoneId wallClockTimestampTzZoneId;
 
     private CsvSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -67,7 +80,9 @@ public class CsvSerializationSchema implements SerializationSchema {
             TimeUtils.Formatter timeFormatter,
             Charset charset,
             String nullValue,
-            CsvStringQuoteMode quoteMode) {
+            CsvStringQuoteMode quoteMode,
+            boolean wallClockTimestampTz,
+            ZoneId wallClockTimestampTzZoneId) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
@@ -76,6 +91,11 @@ public class CsvSerializationSchema implements SerializationSchema {
         this.charset = charset;
         this.nullValue = nullValue;
         this.quoteMode = quoteMode;
+        this.wallClockTimestampTz = wallClockTimestampTz;
+        this.wallClockTimestampTzZoneId =
+                wallClockTimestampTzZoneId == null
+                        ? ZoneId.systemDefault()
+                        : wallClockTimestampTzZoneId;
     }
 
     public static Builder builder() {
@@ -92,6 +112,8 @@ public class CsvSerializationSchema implements SerializationSchema {
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
         private CsvStringQuoteMode quoteMode = CsvStringQuoteMode.MINIMAL;
+        private boolean wallClockTimestampTz = false;
+        private ZoneId wallClockTimestampTzZoneId = null;
 
         private Builder() {}
 
@@ -140,6 +162,25 @@ public class CsvSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        /**
+         * When set to true, TIMESTAMP_TZ fields are serialized as wall-clock local datetime
+         * (without offset) for timezone-unaware DB sinks such as Doris.
+         */
+        public Builder wallClockTimestampTz(boolean wallClockTimestampTz) {
+            this.wallClockTimestampTz = wallClockTimestampTz;
+            return this;
+        }
+
+        /**
+         * Sets the target zone used when {@link #wallClockTimestampTz(boolean)} is true. Pass the
+         * actual session zone (for example the Doris sink session timezone) so the JVM default is
+         * not silently relied on. If unset, {@link ZoneId#systemDefault()} is used.
+         */
+        public Builder wallClockTimestampTzZoneId(ZoneId wallClockTimestampTzZoneId) {
+            this.wallClockTimestampTzZoneId = wallClockTimestampTzZoneId;
+            return this;
+        }
+
         public CsvSerializationSchema build() {
             return new CsvSerializationSchema(
                     seaTunnelRowType,
@@ -149,7 +190,9 @@ public class CsvSerializationSchema implements SerializationSchema {
                     timeFormatter,
                     charset,
                     nullValue,
-                    quoteMode);
+                    quoteMode,
+                    wallClockTimestampTz,
+                    wallClockTimestampTzZoneId);
         }
     }
 
@@ -194,6 +237,20 @@ public class CsvSerializationSchema implements SerializationSchema {
                 return TimeUtils.toString((LocalTime) field, timeFormatter);
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
+            case TIMESTAMP_TZ:
+                OffsetDateTime odt = (OffsetDateTime) field;
+                if (wallClockTimestampTz) {
+                    // Preserve the instant and convert to the target zone (the Doris
+                    // session zone when supplied, otherwise the JVM default for backward
+                    // compatibility). A plain toLocalDateTime() would emit the wall-clock
+                    // of the value's own offset (e.g. UTC), which shifts TIMESTAMP_TZ
+                    // columns by the timezone delta once a sink such as Doris parses the
+                    // wall-clock in its session timezone (issue #10795).
+                    return DateTimeUtils.toString(
+                            odt.atZoneSameInstant(wallClockTimestampTzZoneId).toLocalDateTime(),
+                            dateTimeFormatter);
+                }
+                return odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             case NULL:
                 return "";
             case BYTES:

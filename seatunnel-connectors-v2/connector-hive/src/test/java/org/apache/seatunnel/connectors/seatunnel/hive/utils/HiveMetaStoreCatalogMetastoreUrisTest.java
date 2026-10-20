@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 
 import org.apache.hadoop.hive.conf.HiveConf;
 
@@ -106,7 +106,7 @@ class HiveMetaStoreCatalogMetastoreUrisTest {
     @Test
     void testGetHiveServer2JdbcUrlDerivesFromFirstMetastoreUri() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
-        when(cfg.get(HiveOptions.METASTORE_URI))
+        when(cfg.get(HiveBaseOptions.METASTORE_URI))
                 .thenReturn(" thrift://namenode001:9084, thrift://namenode001:9083");
         HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
         HiveConf hiveConf = new HiveConf();

@@ -32,6 +32,7 @@
     <properties>
         <hadoop-huaweicloud.version>3.1.1.29</hadoop-huaweicloud.version>
         <esdk.version>3.19.7.3</esdk.version>
+        <okio.version>3.6.0</okio.version>
     </properties>
 
     <dependencies>
@@ -67,6 +68,11 @@
             <groupId>com.huawei.storage</groupId>
             <artifactId>esdk-obs-java</artifactId>
             <version>${esdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio</artifactId>
+            <version>${okio.version}</version>
         </dependency>
 
     </dependencies>

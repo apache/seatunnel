@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -55,6 +57,7 @@ public class ElasticsearchSourceSplitEnumerator
     private final List<ElasticsearchConfig> elasticsearchConfigs;
 
     private volatile boolean shouldEnumerate;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public ElasticsearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
@@ -105,15 +108,25 @@ public class ElasticsearchSourceSplitEnumerator
 
     private void addPendingSplit(Collection<ElasticsearchSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (ElasticsearchSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<ElasticsearchSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(ElasticsearchSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (ElasticsearchSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private void addPendingSplit(Collection<ElasticsearchSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
+    }
+
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -148,12 +161,21 @@ public class ElasticsearchSourceSplitEnumerator
                             .filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
                             .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount))
                             .collect(Collectors.toList());
+            int sliceMax = Math.max(1, elasticsearchConfig.getSliceMax());
+            if (SearchTypeEnum.SQL.equals(elasticsearchConfig.getSearchType()) && sliceMax > 1) {
+                log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
+                sliceMax = 1;
+            }
             for (IndexDocsCount indexDocsCount : indexDocsCounts) {
-                ElasticsearchConfig cloneCfg = elasticsearchConfig.clone();
-                cloneCfg.setIndex(indexDocsCount.getIndex());
-                splits.add(
-                        new ElasticsearchSourceSplit(
-                                String.valueOf(indexDocsCount.getIndex().hashCode()), cloneCfg));
+                String indexName = indexDocsCount.getIndex();
+                for (int sliceId = 0; sliceId < sliceMax; sliceId++) {
+                    ElasticsearchConfig cloneCfg = elasticsearchConfig.clone();
+                    cloneCfg.setIndex(indexName);
+                    cloneCfg.setSliceId(sliceId);
+                    cloneCfg.setSliceMax(sliceMax);
+                    String splitId = sliceMax > 1 ? indexName + "#" + sliceId : indexName;
+                    splits.add(new ElasticsearchSourceSplit(splitId, cloneCfg));
+                }
             }
         }
         return splits;
@@ -167,7 +189,7 @@ public class ElasticsearchSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<ElasticsearchSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
+            addPendingSplit(splits, subtaskId);
             assignSplit(Collections.singletonList(subtaskId));
         }
     }

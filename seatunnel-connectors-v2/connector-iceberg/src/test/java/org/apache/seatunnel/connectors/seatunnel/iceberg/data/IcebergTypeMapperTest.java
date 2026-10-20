@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -30,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -79,5 +82,148 @@ public class IcebergTypeMapperTest {
                 () -> {
                     IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
                 });
+    }
+
+    @Test
+    void timestampNtzMapsToWithoutZone() {
+        // TIMESTAMP (NTZ) → Iceberg withoutZone()
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn(null);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.LOCAL_DATE_TIME_TYPE);
+
+        Type result = IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
+        assertEquals(Types.TimestampType.withoutZone(), result);
+    }
+
+    @Test
+    void timestampTzMapsToWithZone() {
+        // TIMESTAMP_TZ (LTZ) → Iceberg withZone()
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn(null);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.OFFSET_DATE_TIME_TYPE);
+
+        Type result = IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
+        assertEquals(Types.TimestampType.withZone(), result);
+    }
+
+    @Test
+    void icebergWithoutZoneMapsToLocalDateTimeType() {
+        // Iceberg withoutZone() → SeaTunnel LOCAL_DATE_TIME_TYPE (TIMESTAMP / NTZ)
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("ts_ntz", Types.TimestampType.withoutZone());
+        assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, result);
+    }
+
+    @Test
+    void icebergWithZoneMapsToOffsetDateTimeType() {
+        // Iceberg withZone() → SeaTunnel OFFSET_DATE_TIME_TYPE (TIMESTAMP_TZ / LTZ)
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("ts_ltz", Types.TimestampType.withZone());
+        assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, result);
+    }
+
+    /**
+     * Upgrade-path regression: old SeaTunnel (before SEATUNNEL-10685) incorrectly wrote SeaTunnel
+     * TIMESTAMP columns to Iceberg as {@code withZone()}. After the fix, reading such a legacy
+     * column back must return {@code TIMESTAMP_TZ} (OFFSET_DATE_TIME_TYPE), not TIMESTAMP
+     * (LOCAL_DATE_TIME_TYPE).
+     *
+     * <p>This is a documented breaking change — see incompatible-changes.md.
+     */
+    @Test
+    void upgradePath_legacyWithZoneColumnIsReadAsTimestampTz() {
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("legacy_ts_col", Types.TimestampType.withZone());
+        assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                result,
+                "Existing Iceberg withZone() column (written by old SeaTunnel as TIMESTAMP) "
+                        + "must be read as TIMESTAMP_TZ after upgrade");
+    }
+
+    /**
+     * Upgrade-path regression: new SeaTunnel writes SeaTunnel TIMESTAMP columns to Iceberg as
+     * {@code withoutZone()} (NTZ). Reading them back must return TIMESTAMP (LOCAL_DATE_TIME_TYPE).
+     */
+    @Test
+    void upgradePath_newTimestampWrittenAsWithoutZoneIsReadAsTimestamp() {
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("new_ts_col", Types.TimestampType.withoutZone());
+        assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                result,
+                "New Iceberg withoutZone() column (written by new SeaTunnel as TIMESTAMP) "
+                        + "must be read as TIMESTAMP (NTZ)");
+    }
+
+    @Test
+    void icebergTimestampNanosMapsToTimestampTypes() {
+        assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                IcebergTypeMapper.mapping("ts_ns", Types.TimestampNanoType.withoutZone()));
+        assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                IcebergTypeMapper.mapping("tstz_ns", Types.TimestampNanoType.withZone()));
+    }
+
+    @Test
+    void icebergUnknownMapsToNullType() {
+        assertEquals(BasicType.VOID_TYPE, IcebergTypeMapper.mapping("u", Types.UnknownType.get()));
+    }
+
+    @Test
+    void icebergVariantAndGeospatialTypesAreRejected() {
+        for (Type type :
+                new Type[] {
+                    Types.VariantType.get(), Types.GeometryType.crs84(), Types.GeographyType.crs84()
+                }) {
+            SeaTunnelRuntimeException exception =
+                    assertThrows(
+                            SeaTunnelRuntimeException.class,
+                            () -> IcebergTypeMapper.mapping("col", type));
+            assertTrue(exception.getMessage().contains(type.toString()), exception.getMessage());
+        }
+    }
+
+    @Test
+    void nanosecondTimestampColumnMapsToTimestampNanosOnFormatVersion3() {
+        Column column = mock(Column.class);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.LOCAL_DATE_TIME_TYPE);
+        when(column.getScale()).thenReturn(9);
+
+        assertEquals(
+                Types.TimestampNanoType.withoutZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1), 3));
+        assertEquals(
+                Types.TimestampType.withoutZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1), 2));
+        assertEquals(
+                Types.TimestampType.withoutZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1)));
+
+        when(column.getScale()).thenReturn(6);
+        assertEquals(
+                Types.TimestampType.withoutZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1), 3));
+    }
+
+    @Test
+    void nanosecondTimestampTzColumnMapsToTimestampTzNanosOnFormatVersion3() {
+        Column column = mock(Column.class);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.OFFSET_DATE_TIME_TYPE);
+        when(column.getScale()).thenReturn(9);
+        assertEquals(
+                Types.TimestampNanoType.withZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1), 3));
+
+        // scale 7 and 8 keep the wider value range of microsecond timestamps
+        when(column.getScale()).thenReturn(7);
+        assertEquals(
+                Types.TimestampType.withZone(),
+                IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1), 3));
     }
 }

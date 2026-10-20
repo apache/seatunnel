@@ -21,17 +21,31 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbJdbcRowConverter;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +62,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
     private static final int DM_PORT = 5336;
+    private static final int DM_CONTAINER_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -79,8 +94,10 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     + "\n"
                     + "    DM_CHAR             CHAR,\n"
                     + "    DM_CHARACTER        CHARACTER,\n"
+                    + "    DM_NCHAR            NCHAR(50),\n"
                     + "    DM_VARCHAR          VARCHAR,\n"
                     + "    DM_VARCHAR2         VARCHAR2,\n"
+                    + "    DM_NVARCHAR2        NVARCHAR2(50),\n"
                     + "    DM_TEXT             TEXT,\n"
                     + "    DM_LONG             LONG,\n"
                     + "    DM_LONGVARCHAR      LONGVARCHAR,\n"
@@ -113,7 +130,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(DM_PORT)
+                .port(DM_CONTAINER_PORT)
                 .localPort(DM_PORT)
                 .jdbcTemplate(DM_URL)
                 .jdbcUrl(jdbcUrl)
@@ -128,11 +145,6 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .testData(testDataSet)
                 .tablePathFullName(String.format("%s.%s", DM_DATABASE, DM_SOURCE))
                 .build();
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
     }
 
     @Override
@@ -157,8 +169,10 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     "DM_DOUBLE",
                     "DM_CHAR",
                     "DM_CHARACTER",
+                    "DM_NCHAR",
                     "DM_VARCHAR",
                     "DM_VARCHAR2",
+                    "DM_NVARCHAR2",
                     "DM_TEXT",
                     "DM_LONG",
                     "DM_LONGVARCHAR",
@@ -197,8 +211,14 @@ public class JdbcDmIT extends AbstractJdbcIT {
                                 Double.parseDouble("1.1"),
                                 'f',
                                 'f',
+                                // DM_NCHAR: multi-byte content exercises the national
+                                // character path
+                                String.format("达梦_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
+                                // DM_NVARCHAR2: multi-byte content exercises the national
+                                // character path
+                                String.format("达梦_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
@@ -219,6 +239,81 @@ public class JdbcDmIT extends AbstractJdbcIT {
         return Pair.of(fieldNames, rows);
     }
 
+    @Test
+    public void testLocalTimeZoneAndIntervalTypeConversion() throws Exception {
+        String tableName = "E2E_DM_LOCAL_TZ_INTERVAL";
+        String tableInfo = DM_USERNAME + "." + tableName;
+        // Build a local catalog scoped to this test so we don't inadvertently
+        // enable the inherited testCreateIndex (which fires whenever catalog != null).
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        DamengCatalog localCatalog =
+                new DamengCatalog(
+                        "dameng",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        DM_USERNAME,
+                        DRIVER_CLASS);
+        localCatalog.open();
+        try {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE "
+                                + tableInfo
+                                + " (LTZ_VALUE TIMESTAMP(6) WITH LOCAL TIME ZONE,"
+                                + " IYM_VALUE INTERVAL YEAR TO MONTH,"
+                                + " IDS_VALUE INTERVAL DAY TO SECOND)");
+                statement.execute(
+                        "INSERT INTO "
+                                + tableInfo
+                                + " VALUES (TIMESTAMP '2024-05-06 07:08:09.123456 +08:00',"
+                                + " INTERVAL '2-3' YEAR TO MONTH,"
+                                + " INTERVAL '4 05:06:07.123456' DAY TO SECOND)");
+                connection.commit();
+
+                CatalogTable catalogTable =
+                        localCatalog.getTable(TablePath.of(DM_DATABASE, DM_USERNAME, tableName));
+                Assertions.assertEquals(
+                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                        catalogTable.getTableSchema().getColumn("LTZ_VALUE").getDataType());
+                Assertions.assertEquals(
+                        "TIMESTAMP WITH LOCAL TIME ZONE",
+                        catalogTable.getTableSchema().getColumn("LTZ_VALUE").getSourceType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE,
+                        catalogTable.getTableSchema().getColumn("IYM_VALUE").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE,
+                        catalogTable.getTableSchema().getColumn("IDS_VALUE").getDataType());
+
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT LTZ_VALUE, IYM_VALUE, IDS_VALUE FROM " + tableInfo)) {
+                    Assertions.assertTrue(resultSet.next());
+                    String iymDriverString = resultSet.getString("IYM_VALUE");
+                    String idsDriverString = resultSet.getString("IDS_VALUE");
+                    SeaTunnelRow row =
+                            new DmdbJdbcRowConverter()
+                                    .toInternal(resultSet, catalogTable.getTableSchema());
+                    OffsetDateTime convertedTimestamp = (OffsetDateTime) row.getField(0);
+                    Assertions.assertEquals(
+                            OffsetDateTime.parse("2024-05-06T07:08:09.123456+08:00").toInstant(),
+                            convertedTimestamp.toInstant());
+                    Assertions.assertEquals(iymDriverString, row.getField(1));
+                    Assertions.assertEquals(idsDriverString, row.getField(2));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            } finally {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE " + tableInfo);
+                    connection.commit();
+                }
+            }
+        } finally {
+            localCatalog.close();
+        }
+    }
+
     protected String buildTableInfoWithSchema(String database, String schema, String table) {
         return buildTableInfoWithSchema(schema, table);
     }
@@ -233,9 +328,11 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
+        container.addExposedPort(DM_CONTAINER_PORT);
 
         return container;
     }

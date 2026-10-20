@@ -9,10 +9,10 @@ title: 架构概览
 
 ### 1.1 设计目标
 
-SeaTunnel 设计为分布式数据集成平台，具有以下核心目标：
+SeaTunnel 设计为分布式多模态数据集成工具，具有以下核心目标：
 
 - **引擎独立性**：将连接器逻辑尽量与执行引擎解耦；连接器可通过转换层适配到不同引擎，具体可用性以连接器能力与引擎支持为准
-- **高性能**：支持高吞吐、低延迟的大规模数据同步
+- **超高性能**：支持高吞吐、低延迟的大规模数据同步
 - **容错性**：在启用 checkpoint 且外部系统支持事务/幂等提交等前提下，通过分布式快照与提交协议提供可验证的一致性语义
 - **易用性**：提供简单的配置方式和丰富的连接器生态系统
 - **可扩展性**：基于插件的架构，便于添加新的连接器和转换组件
@@ -24,53 +24,44 @@ SeaTunnel 设计为分布式数据集成平台，具有以下核心目标：
 - **数据湖/仓入库**：高效加载数据到数据湖（Iceberg、Hudi、Delta Lake）和数据仓库
 - **多表同步**：在单个作业中同步多个表，支持模式演化
 
+### 1.3 推荐阅读路径
+
+如果你希望通过架构章节建立整体认知，建议按下面顺序阅读：
+
+- 先阅读本页，建立分层视图
+- 再看 [配置与 Option 系统](./configuration-and-option-system.md)，理解插件配置是如何定义、校验和暴露的
+- 再看 [Transform 插件体系](./transform-plugin-system.md)，理解 transform 如何位于 source、sink、schema 与引擎适配之间
+- 再看 [表模型与类型系统](./table-schema-and-type-system.md)，理解表元数据和可移植类型如何贯穿整条链路
+- 如果你关注 CDC 链路，再看 [CDC Pipeline 架构概览](./cdc-pipeline-architecture.md)
+- 再看 [Checkpoint 机制](./fault-tolerance/checkpoint-mechanism.md) 和 [Exactly-Once](./fault-tolerance/exactly-once.md)，理解一致性语义
+- 再看 [资源管理](./engine/resource-management.md)，理解 slot 分配与 worker 协调
+- 再看 [插件发现与类加载](./plugin-discovery-and-class-loading.md)，理解插件打包、发现与依赖隔离
+- 如果要理解多引擎适配，再看 [转换层](./api-design/translation-layer.md)
+
 ## 2. 整体架构
 
 SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        用户配置层                                 │
-│                  (HOCON 配置 / SQL)                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SeaTunnel API 层                            │
-│         (数据源 API / 数据 Sink  API / 转换 API / 表 API)             │
-│                                                                   │
-│  • SeaTunnelSource        • CatalogTable                         │
-│  • SeaTunnelSink          • TableSchema                          │
-│  • SeaTunnelTransform     • SchemaChangeEvent                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       连接器生态系统                              │
-│                                                                   │
-│  [Jdbc] [Kafka] [MySQL-CDC] [Elasticsearch] [Iceberg] ...       │
-│                    (连接器生态)                                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        转换层                                     │
-│          (将 SeaTunnel API 适配到引擎特定 API)                    │
-│                                                                   │
-│  • FlinkSource/FlinkSink     • SparkSource/SparkSink            │
-│  • 上下文适配器                • 序列化适配器                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  SeaTunnel   │      │    Apache    │      │    Apache    │
-│ Engine (Zeta)│      │     Flink    │      │     Spark    │
-│              │      │              │      │              │
-│ • 主节点      │      │ • JobManager │      │ • Driver     │
-│ • 工作节点    │      │ • TaskManager│      │ • Executor   │
-│ • 检查点      │      │ • State      │      │ • RDD/DS     │
-└──────────────┘      └──────────────┘      └──────────────┘
+```mermaid
+flowchart TD
+    config["用户配置层<br/>HOCON 配置 / SQL / Web UI"]
+    api["SeaTunnel API 层<br/>数据源 API / 数据 Sink API / 转换 API / 表 API"]
+    connectors["连接器生态系统<br/>JDBC / Kafka / MySQL-CDC / Elasticsearch / Iceberg / ..."]
+    translation["转换层<br/>Flink 适配器 / Spark 适配器 / 上下文包装器 / 序列化适配器"]
+
+    config --> api --> connectors --> translation
+    translation --> zeta["SeaTunnel Engine (Zeta)<br/>主节点 / 工作节点 / 检查点"]
+    translation --> flink["Apache Flink<br/>JobManager / TaskManager / State"]
+    translation --> spark["Apache Spark<br/>Driver / Executor / RDD / Dataset"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,api layerBlue;
+    class connectors,translation layerCyan;
+    class zeta,flink,spark layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.1 层级职责
@@ -98,10 +89,10 @@ API 层提供引擎独立的抽象：
 **关键设计**：协调（枚举器）与执行（读取器）分离，实现高效的并行处理和容错。
 
 #### 数据 Sink  API
-- **SeaTunnelSink**：创建写入器和提交器的工厂接口
+- **SeaTunnelSink**：创建写入器和可选提交策略的工厂接口
 - **SinkWriter**：工作节点侧组件，负责写入数据
-- **SinkCommitter**：多个写入器的提交操作协调器
-- **SinkAggregatedCommitter**：聚合提交的全局协调器
+- **SinkCommitter**：工作节点侧的可选提交器，负责独立提交单个 writer 的变更
+- **SinkAggregatedCommitter**：协调端聚合提交路径上的可选全局提交器
 
 **关键设计**：两阶段提交协议（prepareCommit → commit）在外部系统支持事务/幂等提交且启用 checkpoint 的前提下，可提供一致性语义。
 
@@ -131,8 +122,16 @@ API 层提供引擎独立的抽象：
 - **FlowLifeCycle**：管理数据源 Source/转换/数据 Sink 组件的生命周期
 
 #### 执行模型
-```
-LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGroup → SeaTunnelTask
+```mermaid
+flowchart LR
+    logical["LogicalDag"] --> plan["PhysicalPlan"] --> pipeline["SubPlan<br/>（管道）"] --> vertex["PhysicalVertex"] --> taskGroup["TaskGroup"] --> task["SeaTunnelTask"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class logical,plan,pipeline layerBlue;
+    class vertex,taskGroup,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.3 转换层
@@ -148,20 +147,12 @@ LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGrou
 
 所有连接器遵循标准化结构：
 
-```
-connector-[name]/
-├── src/main/java/.../
-│   ├── [Name]Source.java          # 实现 SeaTunnelSource
-│   ├── [Name]SourceReader.java    # 实现 SourceReader
-│   ├── [Name]SourceSplitEnumerator.java
-│   ├── [Name]SourceSplit.java
-│   ├── [Name]Sink.java            # 实现 SeaTunnelSink
-│   ├── [Name]SinkWriter.java      # 实现 SinkWriter
-│   └── config/[Name]Config.java
-└── src/main/resources/META-INF/services/
-    ├── org.apache.seatunnel.api.table.factory.TableSourceFactory
-    └── org.apache.seatunnel.api.table.factory.TableSinkFactory
-```
+| 区域 | 典型文件 | 职责 |
+|------|----------|------|
+| Source 入口 | `[Name]Source.java`、`[Name]SourceReader.java`、`[Name]SourceSplitEnumerator.java`、`[Name]SourceSplit.java` | 读取数据、切分任务并暴露统一的 Source 契约 |
+| Sink 入口 | `[Name]Sink.java`、`[Name]SinkWriter.java` | 缓冲、写入并向目标系统提交数据 |
+| 配置定义 | `config/[Name]Config.java` | 定义连接器参数、校验规则和默认值 |
+| SPI 注册 | `META-INF/services/TableSourceFactory`、`META-INF/services/TableSinkFactory` | 注册工厂，供运行时发现和装载 |
 
 **发现机制**：Java SPI（服务提供者接口）用于动态连接器加载。
 
@@ -169,47 +160,28 @@ connector-[name]/
 
 ### 4.1 数据读取 Source 端数据流
 
-```
-数据源 Source
-    │
-    ▼
-┌─────────────────────┐
-│ SourceSplitEnumerator│ (主节点侧)
-│  • 生成分片          │
-│  • 分配给读取器      │
-└─────────────────────┘
-    │ (分片分配)
-    ▼
-┌─────────────────────┐
-│   SourceReader      │ (工作节点侧)
-│  • 从分片读取       │
-│  • 发送记录         │
-└─────────────────────┘
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
- 转换链（可选）
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
-┌─────────────────────┐
-│    SinkWriter       │ (工作节点侧)
-│  • 缓冲记录         │
-│  • 准备提交         │
-└─────────────────────┘
-    │ (CommitInfo)
-    ▼
-┌─────────────────────┐
-│   SinkCommitter     │ (协调器)
-│  • 提交变更         │
-└─────────────────────┘
-    │
-    ▼
-数据 Sink 
+```mermaid
+flowchart TD
+    source["数据源 Source"] --> enumerator["SourceSplitEnumerator<br/>主节点侧<br/>生成分片 / 分配读取器"]
+    enumerator -->|分片分配| reader["SourceReader<br/>工作节点侧<br/>从分片读取 / 发送记录"]
+    reader --> rowIn["SeaTunnelRow"]
+    rowIn --> transform["转换链<br/>（可选）"]
+    transform --> rowOut["SeaTunnelRow"]
+    rowOut --> writer["SinkWriter<br/>工作节点侧<br/>缓冲记录 / 准备提交"]
+    writer -->|"可选的工作节点本地提交"| committer["SinkCommitter<br/>工作节点侧<br/>独立提交各 writer 的变更"]
+    writer -. "可选的聚合提交路径" .-> aggregatedTask["SinkAggregatedCommitterTask<br/>协调器侧<br/>收集各 writer 的 CommitInfo"]
+    aggregatedTask --> aggregated["SinkAggregatedCommitter<br/>协调器侧<br/>执行一次全局提交"]
+    committer --> sink["数据 Sink"]
+    aggregated --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink,rowIn,rowOut layerBlue;
+    class enumerator,reader,transform layerCyan;
+    class writer,committer,aggregatedTask,aggregated layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 基于分片的并行度
@@ -223,10 +195,28 @@ connector-[name]/
 
 作业被划分为**管道**（SubPlan）：
 
-```
-管道 1: [数据 Source A] → [转换 1] → [数据 Sink  A]
-                                ↓
-管道 2: [数据 Source B] ───────→ [转换 2] → [数据 Sink  B]
+下图表示同一个作业中的两个独立子计划，它们之间不存在直接的数据记录流转。
+
+```mermaid
+flowchart TB
+    subgraph pipeline1["管道 1"]
+        direction LR
+        sourceA["数据 Source A"] --> transformA["转换 1"] --> sinkA["数据 Sink A"]
+    end
+
+    subgraph pipeline2["管道 2"]
+        direction LR
+        sourceB["数据 Source B"] --> transformB["转换 2"] --> sinkB["数据 Sink B"]
+    end
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class sourceA,sourceB,transformA,transformB layerCyan;
+    class sinkA,sinkB layerPurple;
+    style pipeline1 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    style pipeline2 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 每个管道：
@@ -274,25 +264,48 @@ sequenceDiagram
 
 4. **提交阶段**
    - SinkWriter 准备提交信息
-   - SinkCommitter 协调提交
+   - 默认由工作节点侧 `SinkCommitter` 独立提交各 writer 的变更；如果启用聚合提交，则改由协调端执行一次全局提交
    - 状态持久化到检查点存储
 
 ### 5.3 状态机
 
 **任务状态转换**：
-```
-CREATED → INIT → WAITING_RESTORE → READY_START → STARTING → RUNNING
-                                                                ↓
-                    FAILED ← ─────────────────────── → PREPARE_CLOSE → CLOSED
-                                                                ↓
-                                                             CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE: 恢复路径
+    INIT --> READY_START: 无需恢复
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE: 正常完成
+    PREPARE_CLOSE --> CLOSED
+    INIT --> CANCELLING: 外部取消
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
+**失败说明**：
+- `FAILED` 是运行时对不可恢复错误的结果标记，但“失败后是否重启”由更高层的恢复逻辑决定，不应在这个任务状态机图里画成 `FAILED → ...` 的直接边。
+
 **作业状态转换**：
-```
-CREATED → SCHEDULED → RUNNING → FINISHED
-            ↓            ↓
-          FAILED      CANCELING → CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> SCHEDULED
+    SCHEDULED --> RUNNING
+    RUNNING --> FINISHED
+    SCHEDULED --> FAILED
+    RUNNING --> FAILED
+    RUNNING --> CANCELING
+    CANCELING --> CANCELED
 ```
 
 ## 6. 关键特性
@@ -314,10 +327,10 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 
 **两阶段提交协议**：
 1. **准备阶段**：SinkWriter 在检查点期间准备提交信息
-2. **提交阶段**：SinkCommitter 在检查点完成后提交
+2. **提交阶段**：默认由工作节点侧 `SinkCommitter` 独立提交各 writer 的变更；如果启用聚合提交，则在 checkpoint 成功后由协调端执行一次全局提交
 3. **中止处理**：在提交前失败时回滚
 
-**幂等性**：SinkCommitter 操作必须是幂等的以处理重试
+**幂等性**：`SinkCommitter` 与 `SinkAggregatedCommitter` 的提交操作都必须保持幂等，以便在重试场景下不重复生效
 
 ### 6.3 动态资源管理
 
@@ -342,49 +355,23 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 
 ## 7. 模块结构
 
-```
-seatunnel/
-├── seatunnel-api/                 # 核心 API 定义
-│   ├── source/                    # 数据源 API
-│   ├── sink/                      # 数据 Sink  API
-│   ├── transform/                 # 转换 API
-│   └── table/                     # 表和模式 API
-│
-├── seatunnel-connectors-v2/       # 连接器实现
-│   ├── connector-jdbc/            # JDBC 连接器
-│   ├── connector-kafka/           # Kafka 连接器
-│   ├── connector-cdc/             # CDC 连接器集合
-│   │   ├── connector-cdc-mysql/   # MySQL CDC 连接器
-│   └── ...                        # 更多连接器
-│
-├── seatunnel-transforms-v2/       # 转换实现
-│   ├── src/                       # Transform 实现源码（如：SQL、Filter 等）
-│   └── ...
-│
-├── seatunnel-engine/              # SeaTunnel Engine (Zeta)
-│   ├── seatunnel-engine-core/     # 核心执行逻辑
-│   ├── seatunnel-engine-server/   # 服务器组件（主节点/工作节点）
-│   └── seatunnel-engine-storage/  # 检查点存储
-│
-├── seatunnel-translation/         # 引擎转换层
-│   ├── seatunnel-translation-flink/
-│   └── seatunnel-translation-spark/
-│
-├── seatunnel-formats/             # 数据格式处理器
-│   ├── seatunnel-format-json/
-│   ├── seatunnel-format-avro/
-│   └── ...
-│
-├── seatunnel-core/                # 作业提交和 CLI
-└── seatunnel-e2e/                 # 端到端测试
-```
+| 模块 | 代表子目录 | 职责 |
+|------|------------|------|
+| `seatunnel-api` | `source`、`sink`、`transform`、`table` | 定义核心 API、表模型与跨引擎抽象 |
+| `seatunnel-connectors-v2` | `connector-jdbc`、`connector-kafka`、`connector-cdc-mysql` | 提供各类数据源与目标端连接器实现 |
+| `seatunnel-transforms-v2` | `src`（SQL、Filter 等） | 提供通用转换能力 |
+| `seatunnel-engine` | `seatunnel-engine-core`、`seatunnel-engine-server`、`seatunnel-engine-storage` | 承载 Zeta 执行、调度和检查点存储 |
+| `seatunnel-translation` | `seatunnel-translation-flink`、`seatunnel-translation-spark` | 负责多引擎适配层 |
+| `seatunnel-formats` | `seatunnel-format-json`、`seatunnel-format-avro` | 处理不同数据格式 |
+| `seatunnel-core` | CLI 与提交入口 | 负责作业提交和命令行能力 |
+| `seatunnel-e2e` | 端到端测试套件 | 保障关键链路回归 |
 
 ## 8. 设计原则
 
 ### 8.1 关注点分离
 
 - **API vs 实现**：清晰的 API 边界支持多种实现
-- **协调 vs 执行**：枚举器/提交器（主节点）与读取器/写入器（工作节点）分离
+- **协调 vs 执行**：枚举器与聚合提交编排负责协调，读取器与写入器负责工作节点上的实际执行
 - **逻辑 vs 物理**：LogicalDag（用户意图）与 PhysicalPlan（执行细节）分离
 
 ### 8.2 插件架构
@@ -416,8 +403,12 @@ seatunnel/
 深入了解特定架构组件：
 
 - [设计理念](design-philosophy.md) - 核心设计原则和权衡
+- [Transform 插件体系](transform-plugin-system.md) - 理解 transform 插件如何组织、发现，并承担行数据与 schema 改写职责
+- [表模型与类型系统](table-schema-and-type-system.md) - 理解 schema、元数据和可移植类型如何在 connector 与引擎之间流动
+- [CDC Pipeline 架构概览](cdc-pipeline-architecture.md) - 理解快照、增量变更捕获与 sink 落地如何协同
 - [数据 Source 架构](api-design/source-architecture.md) - 数据源 API 设计深入探讨
 - [数据 Sink 架构](api-design/sink-architecture.md) - 数据 Sink  API 设计深入探讨
+- [插件发现与类加载](plugin-discovery-and-class-loading.md) - 理解 factory、jar 与依赖隔离在运行时如何被解析
 - [引擎架构](engine/engine-architecture.md) - SeaTunnel Engine 内部机制
 - [检查点机制](fault-tolerance/checkpoint-mechanism.md) - 容错实现
 

@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -64,10 +66,10 @@ public class SapHanaDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .collect(Collectors.toList());
         String valuesBinding =
                 Arrays.stream(fieldNames)
@@ -76,7 +78,7 @@ public class SapHanaDialect implements JdbcDialect {
 
         String usingClause = String.format("SELECT %s FROM DUMMY", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 fieldName ->
                                         String.format(
@@ -102,19 +104,26 @@ public class SapHanaDialect implements JdbcDialect {
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
 
+        // When there are no non-unique-key fields to update (e.g. all fields are unique keys),
+        // the "WHEN MATCHED THEN UPDATE SET" clause must be omitted, otherwise the database reports
+        // a syntax error because "UPDATE SET" would have an empty body.
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s ", updateSetClause)
+                        : "";
+
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s AS TARGET"
                                 + " USING (%s) AS SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         tableIdentifier(database, tableName),
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 

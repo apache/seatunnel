@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.source.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSourceOptions;
 
 import lombok.experimental.UtilityClass;
 
@@ -35,7 +35,7 @@ import java.util.regex.PatternSyntaxException;
 public class HiveSourceTableDiscovery {
 
     public static boolean isEnabled(ReadonlyConfig config) {
-        return config != null && config.get(HiveOptions.USE_REGEX);
+        return config != null && config.get(HiveSourceOptions.USE_REGEX);
     }
 
     public static List<TablePath> discoverTablePaths(ReadonlyConfig config, Catalog catalog) {
@@ -43,11 +43,11 @@ public class HiveSourceTableDiscovery {
             return Collections.emptyList();
         }
 
-        if (!config.get(HiveOptions.USE_REGEX)) {
+        if (!config.get(HiveSourceOptions.USE_REGEX)) {
             return Collections.emptyList();
         }
 
-        String patternStr = config.getOptional(HiveOptions.TABLE_NAME).orElse(null);
+        String patternStr = config.getOptional(HiveSourceOptions.TABLE_NAME).orElse(null);
         if (patternStr == null || patternStr.trim().isEmpty()) {
             throw new IllegalArgumentException(
                     "When `use_regex` is enabled, `table_name` must be configured");

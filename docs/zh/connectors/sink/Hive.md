@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -36,12 +36,13 @@ import ChangeLog from '../changelog/connector-hive.md';
 | 名称                                    | 类型      | 必需 | 默认值            |
 |---------------------------------------|---------|----|----------------|
 | table_name                            | string  | 是  | -              |
-| metastore_uri                         | string  | 是  | -              |
+| metastore_uri                         | string  | 否  | -              |
 | compress_codec                        | string  | 否  | none           |
 | hdfs_site_path                        | string  | 否  | -              |
 | hive_site_path                        | string  | 否  | -              |
 | hive.hadoop.conf                      | Map     | 否  | -              |
 | hive.hadoop.conf-path                 | string  | 否  | -              |
+| remote_user                           | string  | 否  | -              |
 | krb5_path                             | string  | 否  | /etc/krb5.conf |
 | kerberos_principal                    | string  | 否  | -              |
 | kerberos_keytab_path                  | string  | 否  | -              |
@@ -49,7 +50,6 @@ import ChangeLog from '../changelog/connector-hive.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
 | overwrite                             | boolean | 否  | false          |
 | data_save_mode                        | enum    | 否  | APPEND_DATA    |
-
 | schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | 否  | -              |
 | common-options                        |         | 否  | -              |
@@ -61,6 +61,31 @@ import ChangeLog from '../changelog/connector-hive.md';
 ### metastore_uri [string]
 
 Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
+
+通过 `hive_site_path`、`hive.hadoop.conf-path` 或 `hive.hadoop.conf` 配置 `hive.metastore.client.factory.class` 时，可以省略此选项。如果 URI 和客户端工厂均未配置，SeaTunnel 不会回退到内嵌 metastore。
+
+### AWS Glue Data Catalog
+
+可以通过 Hive 标准的 metastore 客户端工厂使用 AWS Glue Data Catalog：
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.seatunnel_parquet"
+    hive.hadoop.conf = {
+      "hive.metastore.client.factory.class" = "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+      # 跨 AWS 账号访问 Data Catalog 时可配置
+      # "hive.metastore.glue.catalogid" = "123456789012"
+    }
+  }
+}
+```
+
+所有创建或使用 Hive Sink 的 SeaTunnel 进程都必须能够从运行时 classpath 加载 AWS Glue Data Catalog 客户端和兼容的已修补 Hive 运行时。支持 Glue 的 Amazon EMR 发行版包含这些组件，但仍需确保 SeaTunnel 进程能够加载它们。其他部署需要安装相互兼容的 Hive 运行时和 AWS Glue Data Catalog 客户端。
+
+认证使用 AWS SDK 默认凭据提供链。请使用运行环境支持的 IAM Role、Web Identity、容器凭据、实例配置文件、环境变量或共享配置，不要在 SeaTunnel 作业配置中填写访问密钥。
+
+如果无法加载配置的工厂类或其兼容 Hive 类，Sink 初始化会直接失败，不会回退到本地 metastore。
 
 ### hdfs_site_path [string]
 
@@ -77,6 +102,10 @@ Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`�
 ### hive.hadoop.conf-path [string]
 
 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径
+
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
 
 ### krb5_path [string]
 
@@ -95,6 +124,8 @@ Kerberos 的 keytab 文件路径
 ### abort_drop_partition_metadata [boolean]
 
 在中止操作期间是否从 Hive Metastore 中删除分区元数据的标志。注意：这只影响元存储中的元数据，分区中的数据将始终被删除（同步过程中生成的数据）。
+
+默认值为 `false`。
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -116,6 +147,8 @@ Kerberos 的 keytab 文件路径
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
 
 注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+批处理作业中，如果希望本次运行替换目标 Hive 表里的已有数据，可以使用 `overwrite = true` 或 `data_save_mode = "DROP_DATA"`。普通追加写入场景保持默认的 `data_save_mode = "APPEND_DATA"` 即可。
 
 ### schema_save_mode [枚举]
 
@@ -577,6 +610,54 @@ sink {
   }
 }
 ```
+## 常见问题
+
+### Hive Sink 支持哪些文件格式？
+
+Hive Sink 支持 `ORC`、`PARQUET`、`TEXT`、`JSON` 和 `SEQUENCE` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
+
+### Hive Sink 是否支持分区表？
+
+支持。对于分区表，通过 `partition_by` 指定分区字段，SeaTunnel 会自动将数据写入正确的分区目录：
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.sales"
+    metastore_uri = "thrift://hive-metastore:9083"
+    partition_by = ["dt", "region"]
+  }
+}
+```
+
+### 如何连接已启用 Kerberos 的 Hadoop 集群？
+
+在连接器配置中提供 Kerberos keytab 和 principal：
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.events"
+    metastore_uri = "thrift://hive-metastore:9083"
+    kerberos_principal = "hive/host@REALM.COM"
+    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+### 为什么 Hive 表中产生了大量小文件？
+
+当任务并行度较高或批次较小时会产生大量小文件。减少小文件的方法：
+
+- 降低 `env` 块中的 `parallelism`。
+- 增大 `batch_size`，使每个 task 写入更大的文件。
+- 定期运行 `ALTER TABLE ... CONCATENATE` 或使用 Spark merge 任务合并小文件。
+
+### Hive Sink 是否支持 Schema 演变？
+
+Hive Sink 从 Hive Metastore 读取当前表 schema。若上游新增了列，需先手动执行 `ALTER TABLE` 更新 Hive 表结构，SeaTunnel 不会自动修改 Hive schema。
+
 ## 变更日志
 
 <ChangeLog />

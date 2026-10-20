@@ -21,9 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import org.junit.jupiter.api.Assertions;
@@ -310,9 +308,9 @@ class HiveSinkAggregatedCommitterOverwriteStreamingTest {
     private static ReadonlyConfig minimalHiveReadonlyConfig(boolean overwrite) {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
         // Required by HiveMetaStoreCatalog ctor
-        map.put(HiveOptions.METASTORE_URI.key(), "thrift://dummy:9083");
-        map.put(HiveConfig.HADOOP_CONF_PATH.key(), "/tmp");
-        map.put(HiveConfig.HIVE_SITE_PATH.key(), "/tmp/hive-site.xml");
+        map.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://dummy:9083");
+        map.put(HiveSinkOptions.HADOOP_CONF_PATH.key(), "/tmp");
+        map.put(HiveSinkOptions.HIVE_SITE_PATH.key(), "/tmp/hive-site.xml");
 
         // Used by HiveSinkAggregatedCommitter
         map.put(HiveSinkOptions.OVERWRITE.key(), overwrite);

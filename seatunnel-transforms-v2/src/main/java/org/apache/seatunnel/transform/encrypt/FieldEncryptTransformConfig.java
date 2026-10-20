@@ -19,7 +19,7 @@ package org.apache.seatunnel.transform.encrypt;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.transform.encrypt.encryptor.AesCbcEncryptor;
+import org.apache.seatunnel.transform.encrypt.encryptor.AesGcmEncryptor;
 
 import java.util.List;
 
@@ -33,8 +33,9 @@ public class FieldEncryptTransformConfig {
     public static final Option<String> ALGORITHM =
             Options.key("algorithm")
                     .stringType()
-                    .defaultValue(AesCbcEncryptor.IDENTIFIER)
-                    .withDescription("The encryption algorithm, support AES_CBC.");
+                    .defaultValue(AesGcmEncryptor.IDENTIFIER)
+                    .withDescription(
+                            "The encryption algorithm, Supported values: AES_CBC (default), AES_GCM");
 
     public static final Option<String> KEY =
             Options.key("key").stringType().noDefaultValue().withDescription("The encryption key.");

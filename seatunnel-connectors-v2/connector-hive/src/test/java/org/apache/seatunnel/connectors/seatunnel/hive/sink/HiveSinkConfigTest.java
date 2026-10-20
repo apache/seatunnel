@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -51,7 +51,7 @@ public class HiveSinkConfigTest {
     void testDefaultFileNameExpressionAppliedWhenAbsent() throws Exception {
         // Build minimal input config without file_name_expression
         Map<String, Object> options = new HashMap<>();
-        options.put(HiveOptions.TABLE_NAME.key(), "default.test_table");
+        options.put(HiveSinkOptions.TABLE_NAME.key(), "default.test_table");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(options);
 
         // Mock Hive table metadata and file format
@@ -84,7 +84,7 @@ public class HiveSinkConfigTest {
     void testRespectUserProvidedFileNameExpression() throws Exception {
         // Provide custom file_name_expression and disable transaction to pass validation
         Map<String, Object> options = new HashMap<>();
-        options.put(HiveOptions.TABLE_NAME.key(), "default.test_table");
+        options.put(HiveSinkOptions.TABLE_NAME.key(), "default.test_table");
         options.put(FileBaseSinkOptions.FILE_NAME_EXPRESSION.key(), "orders_${uuid}");
         options.put(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key(), false);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(options);

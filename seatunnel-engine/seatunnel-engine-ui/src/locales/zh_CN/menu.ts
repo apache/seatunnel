@@ -18,6 +18,9 @@
 export default {
   overview: '概览',
   jobs: '任务',
-  managers: '管理',
+  managers: {
+    workers: '工作节点',
+    master: '主节点'
+  },
   synchronization_instance: '同步任务实例',
 }

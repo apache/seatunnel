@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.spark.utils;
 import org.apache.spark.sql.types.DecimalType;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -29,22 +28,28 @@ public class OffsetDateTimeUtils {
     public static final String LOGICAL_TIMESTAMP_WITH_OFFSET_TYPE_FLAG =
             "logical_timestamp_with_offset_type";
 
-    // epochMilli length 13, timezone offset length 5
-    public static final DecimalType OFFSET_DATETIME_WITH_DECIMAL = new DecimalType(18, 5);
+    // Shift applied to totalSeconds so the fractional part is always positive.
+    // Offset range: [-43200, +50400] seconds → shifted range: [56800, 150400] (6 digits, always >
+    // 0)
+    static final int OFFSET_SHIFT = 100_000;
+
+    // scale=6 to hold the 6-digit shifted offset; precision=20 for 13-digit epochMilli + 6 decimal
+    public static final DecimalType OFFSET_DATETIME_WITH_DECIMAL = new DecimalType(20, 6);
 
     public static BigDecimal toBigDecimal(OffsetDateTime time) {
-        return new BigDecimal(
-                time.toInstant().toEpochMilli() + "." + time.getOffset().getTotalSeconds());
+        long epochMilli = time.toInstant().toEpochMilli();
+        int shiftedOffset = time.getOffset().getTotalSeconds() + OFFSET_SHIFT;
+        // epochMilli may be negative; shiftedOffset is always a positive 6-digit integer.
+        // String.format guarantees no sign in the fractional part.
+        return new BigDecimal(epochMilli + "." + String.format("%06d", shiftedOffset));
     }
 
     public static OffsetDateTime toOffsetDateTime(BigDecimal timeWithDecimal) {
-        BigInteger epochMilli =
-                timeWithDecimal.unscaledValue().divide(BigInteger.TEN.pow(timeWithDecimal.scale()));
-        BigInteger offset =
-                timeWithDecimal
-                        .unscaledValue()
-                        .remainder(BigInteger.TEN.pow(timeWithDecimal.scale()));
-        return Instant.ofEpochMilli(epochMilli.longValue())
-                .atOffset(ZoneOffset.ofTotalSeconds(offset.intValue()));
+        BigDecimal normalized = timeWithDecimal.setScale(6);
+        long epochMilli = normalized.longValue(); // truncates toward zero — correct for ±epoch
+        BigDecimal fractional = normalized.subtract(BigDecimal.valueOf(epochMilli)).abs();
+        int shiftedOffset = fractional.movePointRight(6).intValue();
+        return Instant.ofEpochMilli(epochMilli)
+                .atOffset(ZoneOffset.ofTotalSeconds(shiftedOffset - OFFSET_SHIFT));
     }
 }

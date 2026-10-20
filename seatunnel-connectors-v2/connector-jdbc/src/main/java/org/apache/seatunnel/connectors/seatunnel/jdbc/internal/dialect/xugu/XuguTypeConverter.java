@@ -187,12 +187,21 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 break;
             case XUGU_DATETIME:
-            case XUGU_DATETIME_WITH_TIME_ZONE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 break;
+            case XUGU_DATETIME_WITH_TIME_ZONE:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                break;
             case XUGU_TIMESTAMP:
-            case XUGU_TIMESTAMP_WITH_TIME_ZONE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                if (typeDefine.getScale() == null) {
+                    builder.scale(TIMESTAMP_DEFAULT_SCALE);
+                } else {
+                    builder.scale(typeDefine.getScale());
+                }
+                break;
+            case XUGU_TIMESTAMP_WITH_TIME_ZONE:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 if (typeDefine.getScale() == null) {
                     builder.scale(TIMESTAMP_DEFAULT_SCALE);
                 } else {
@@ -372,6 +381,28 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.scale(timestampScale);
                 }
                 builder.dataType(XUGU_TIMESTAMP);
+                break;
+            case TIMESTAMP_TZ:
+                if (column.getScale() == null || column.getScale() <= 0) {
+                    builder.columnType(XUGU_TIMESTAMP_WITH_TIME_ZONE);
+                } else {
+                    int timestampTzScale = column.getScale();
+                    if (column.getScale() > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp_tz({}) is out of"
+                                        + " range, which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp_tz({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(
+                            String.format("TIMESTAMP(%s) WITH TIME ZONE", timestampTzScale));
+                    builder.scale(timestampTzScale);
+                }
+                builder.dataType(XUGU_TIMESTAMP_WITH_TIME_ZONE);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(

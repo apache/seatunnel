@@ -33,7 +33,7 @@ public class EncryptConfigService extends BaseService {
     }
 
     public JsonObject encryptConfig(byte[] requestBody) {
-        Config config = RestUtil.buildConfig(requestHandle(requestBody), true);
+        Config config = RestUtil.buildConfig(requestHandle(requestBody));
         Config encryptConfig = ConfigShadeUtils.encryptConfig(config);
         String encryptString =
                 encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));

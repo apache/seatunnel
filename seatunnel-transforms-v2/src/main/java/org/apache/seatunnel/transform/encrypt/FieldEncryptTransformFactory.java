@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.transform.encrypt;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -37,13 +39,41 @@ public class FieldEncryptTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the fields to encrypt and the encryption key, optionally with
+        // the algorithm, the mode and a maximum field length.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                FieldEncryptTransformConfig.FIELDS,
+                                Conditions.notEmpty(FieldEncryptTransformConfig.FIELDS))
+                        .required(
+                                FieldEncryptTransformConfig.KEY,
+                                Conditions.notBlank(FieldEncryptTransformConfig.KEY))
+                        .optional(FieldEncryptTransformConfig.ALGORITHM)
+                        .optional(FieldEncryptTransformConfig.MODE)
+                        .optional(
+                                FieldEncryptTransformConfig.MAX_FIELD_LENGTH,
+                                Conditions.greaterThan(
+                                        FieldEncryptTransformConfig.MAX_FIELD_LENGTH, 0))
+                        .build();
         return OptionRule.builder()
-                .required(FieldEncryptTransformConfig.FIELDS)
-                .required(FieldEncryptTransformConfig.KEY)
-                .optional(FieldEncryptTransformConfig.ALGORITHM)
-                .optional(FieldEncryptTransformConfig.MODE)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        FieldEncryptTransformConfig.FIELDS,
+                        FieldEncryptTransformConfig.KEY,
+                        FieldEncryptTransformConfig.ALGORITHM,
+                        FieldEncryptTransformConfig.MODE,
+                        FieldEncryptTransformConfig.MAX_FIELD_LENGTH)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

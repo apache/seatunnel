@@ -17,28 +17,20 @@
 
 package org.apache.seatunnel.transform.replace;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-
-import java.io.Serializable;
 import java.util.List;
 
-@Getter
-@Setter
-public class ReplaceTransformConfig implements Serializable {
+public class ReplaceTransformConfig {
 
-    public static final Option<String> KEY_REPLACE_FIELD =
-            Options.key("replace_field")
-                    .stringType()
+    public static final Option<List<String>> KEY_REPLACE_FIELDS =
+            Options.key("replace_fields")
+                    .listType()
                     .noDefaultValue()
-                    .withDescription("The field you want to replace");
+                    .withDescription(
+                            "The field(s) you want to replace. Accepts a single field name or a list of field names.")
+                    .withFallbackKeys("replace_field");
 
     public static final Option<String> KEY_PATTERN =
             Options.key("pattern")
@@ -61,49 +53,6 @@ public class ReplaceTransformConfig implements Serializable {
     public static final Option<Boolean> KEY_REPLACE_FIRST =
             Options.key("replace_first")
                     .booleanType()
-                    .noDefaultValue()
+                    .defaultValue(false)
                     .withDescription("Replace the first match string");
-
-    public static final Option<List<TableTransforms>> MULTI_TABLES =
-            Options.key("table_transform")
-                    .listType(TableTransforms.class)
-                    .noDefaultValue()
-                    .withDescription("");
-
-    private String replaceField;
-    private String pattern;
-    private String replacement;
-    private Boolean isRegex;
-    private Boolean replaceFirst;
-
-    @Data
-    public static class TableTransforms implements Serializable {
-        @JsonAlias("table_path")
-        private String tablePath;
-
-        @JsonAlias("replace_field")
-        private String replaceField;
-
-        @JsonAlias("pattern")
-        private String pattern;
-
-        @JsonAlias("replacement")
-        private String replacement;
-
-        @JsonAlias("is_regex")
-        private Boolean isRegex;
-
-        @JsonAlias("replace_first")
-        private Boolean replaceFirst;
-    }
-
-    public static ReplaceTransformConfig of(ReadonlyConfig config) {
-        ReplaceTransformConfig replaceTransformConfig = new ReplaceTransformConfig();
-        replaceTransformConfig.setReplaceField(config.get(KEY_REPLACE_FIELD));
-        replaceTransformConfig.setPattern(config.get(KEY_PATTERN));
-        replaceTransformConfig.setReplacement(config.get(KEY_REPLACEMENT));
-        replaceTransformConfig.setIsRegex(config.get(KEY_IS_REGEX));
-        replaceTransformConfig.setReplaceFirst(config.get(KEY_REPLACE_FIRST));
-        return replaceTransformConfig;
-    }
 }
