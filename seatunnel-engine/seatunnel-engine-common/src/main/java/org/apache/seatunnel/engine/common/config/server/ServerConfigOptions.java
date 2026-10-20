@@ -224,6 +224,15 @@ public class ServerConfigOptions {
          */
         public static final int MAX_CHECKPOINT_MONITOR_HISTORY_SIZE = 4096;
 
+        /**
+         * Above this, {@link #CHECKPOINT_MONITOR_HISTORY_SIZE} is legal but worth a word at
+         * startup. The hard cap stops the pathological case; this catches the merely expensive one,
+         * where an operator has chosen a window large enough to be felt on a cluster with many
+         * pipelines or a short checkpoint interval. A warning rather than a rejection, because
+         * whether the cost is acceptable depends on the cluster, not on the number.
+         */
+        public static final int CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD = 256;
+
         public static final Option<Integer> CHECKPOINT_MONITOR_HISTORY_SIZE =
                 Options.key("monitor-history-size")
                         .intType()

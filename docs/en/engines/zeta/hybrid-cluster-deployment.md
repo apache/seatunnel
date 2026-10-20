@@ -95,7 +95,7 @@ The minimum pause (in milliseconds) between consecutive checkpoints. This ensure
 
 **monitor-history-size**
 
-How many checkpoint history entries the monitor keeps per pipeline for the `/jobs/checkpoints/{jobId}` REST endpoint, between 1 and 4096, defaulting to 32. Completed and failed checkpoints share the window.
+How many checkpoint history entries the monitor keeps per pipeline for the `/jobs/checkpoints/{jobId}` REST endpoint, between 1 and 4096, defaulting to 32. Values above 256 are accepted but log a warning at master startup, since the cost below is paid on every checkpoint event. Completed and failed checkpoints share the window.
 
 This is a count rather than a duration, so how much time it covers depends on each job's own `checkpoint.interval` while this option is cluster-wide: 32 entries cover about 2.5 hours at the default interval of 300000ms, but only about 5 minutes at an interval of 10000ms. Raise it if you run jobs with short intervals and want to compare a job against a longer stretch of its own past.
 
