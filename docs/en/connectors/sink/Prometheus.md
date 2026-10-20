@@ -50,11 +50,10 @@ downloaded from Maven Central.
 | key_value                   | String | Yes      | -       | Name of the upstream field that contains the Prometheus sample value. A `double` field is recommended. |
 | key_timestamp               | String | No       | -       | Name of the upstream field that contains the Prometheus sample timestamp. If omitted, the sink uses the current system time. |
 | headers                     | Map    | No       | -       | HTTP request headers. |
-| retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
+| retry                       | Int    | No       | 3       | Maximum retry attempts for a failed remote-write request. Retries transport `IOException`s and retryable HTTP statuses (`5xx` and `429`); other `4xx` responses fail fast. Set to `0` to disable retries. |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
-| batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
-| flush_interval              | Long   | No       | 300000  | Maximum flush interval in milliseconds. |
+| batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
 | multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
@@ -79,6 +78,59 @@ Supported timestamp field types:
 
 Replica count for multi-table sink writers. It applies to each table in a multi-table job. Keep the
 default value `1` unless one table needs more writer parallelism.
+
+### Timer Flush
+
+The sink can flush its buffer on a timer so that buffered samples are sent even when the upstream
+flow is idle and fewer than `batch_size` rows have been buffered. This timer is driven by the
+engine, not by the connector, and is currently supported only by **SeaTunnel Zeta**.
+
+Enable it by setting `sink.flush.interval` (milliseconds) in the job `env` block:
+
+```hocon
+env {
+  sink.flush.interval = 10000
+}
+```
+
+The engine then triggers the flush on the normal sink input-processing path, so there is no
+connector-owned background thread and no concurrency between the timer flush and the write,
+checkpoint, or close paths. A flush that fails is propagated to the engine instead of being silently
+dropped.
+
+> On Spark and Flink there is no sub-checkpoint timer flush: `sink.flush.interval` is a Zeta engine
+> primitive, and the Spark/Flink sink writer context does not implement it. On those engines the
+> buffer is flushed when it reaches `batch_size`, on checkpoint (`PrometheusWriter` flushes in
+> `prepareCommit()`), and when the writer is closed. Buffered samples are therefore bounded by the
+> checkpoint interval rather than held until `batch_size` or close. For lower latency between
+> checkpoints on Spark or Flink, tune `batch_size` accordingly.
+
+The checkpoint flush runs on all engines, including Zeta. So on Zeta the buffer is flushed by both
+`sink.flush.interval` and each checkpoint: if the checkpoint interval is shorter than
+`sink.flush.interval`, flushes happen more often (in smaller batches) than the timer alone. This is
+expected; tune `sink.flush.interval` and the checkpoint interval together if request cadence matters.
+
+### Checkpoint Flush and Failure Handling
+
+The checkpoint flush is a single remote-write request, and a failed flush fails the checkpoint rather
+than dropping the batch. The sink retries transient failures before giving up, and tolerates the
+replay case:
+
+- **Transient failures are retried.** A transport error (connection refused, reset, timeout) or a
+  retryable HTTP status (`5xx` or `429`) is retried up to `retry` times with exponential backoff
+  (`retry_backoff_multiplier_ms`, capped at `retry_backoff_max_ms`); only once the retries are
+  exhausted does the flush fail the checkpoint. Other `4xx` responses are not retryable and fail fast.
+  On Flink the default `tolerableCheckpointFailureNumber` is `0`, so an exhausted-retry failure
+  restarts the job; for a low-throughput job on Spark or Flink you may also want to raise that engine
+  setting.
+- **Replay after a failed checkpoint is tolerated.** After a failed checkpoint the job restarts and
+  the source replays from the last successful checkpoint, so the buffered samples are re-sent. If the
+  remote-write receiver rejects a re-sent sample as a duplicate (same labels and timestamp) or as
+  out-of-order (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for
+  these), the sink treats that `400` as delivered rather than failing, so a replay does not loop the
+  job. The delivery guarantee remains at-least-once. This is a best-effort match on receiver-specific
+  error wording; a receiver that returns `400` with different wording is not recognized and the flush
+  fails as with any other `4xx`, and each tolerated rejection is logged at `WARN`.
 
 ## Example
 
@@ -141,15 +193,16 @@ sink {
 ## Streaming Remote Write With Batched Flush
 
 This example reads from Kafka in streaming mode and writes to a Prometheus remote
-write endpoint. The sink buffers up to `batch_size` rows or waits up to
-`flush_interval` milliseconds before issuing the HTTP write, which keeps network
-overhead low when the upstream flow is bursty.
+write endpoint. The sink buffers up to `batch_size` rows before issuing the HTTP
+write, and the engine-level `sink.flush.interval` (Zeta only) flushes the buffer
+every 10 seconds so that samples are still sent when the upstream flow is idle.
 
 ```hocon
 env {
   parallelism = 2
   job.mode = "STREAMING"
   checkpoint.interval = 30000
+  sink.flush.interval = 10000
 }
 
 source {
@@ -176,7 +229,6 @@ sink {
     key_value = "c_double"
     key_timestamp = "c_timestamp"
     batch_size = 2048
-    flush_interval = 10000
     retry = 5
     retry_backoff_multiplier_ms = 200
     retry_backoff_max_ms = 10000

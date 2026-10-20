@@ -29,21 +29,21 @@ import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.LatestMutationAccumulator.SerializedKey;
+
 public class WALReader {
     private final Serializer serializer;
-    private final IFileReader fileReader;
+    private final IFileReader<IMapFileData> fileReader;
 
     public WALReader(FileSystem fs, FileConfiguration configuration, Serializer serializer)
             throws IOException {
@@ -52,64 +52,58 @@ public class WALReader {
         this.fileReader.initialize(fs, serializer);
     }
 
-    private List<IMapFileData> readAllData(Path parentPath) throws IOException {
-        return this.fileReader.readAllData(parentPath);
-    }
-
     public Set<Object> loadAllKeys(Path parentPath) throws IOException {
-        List<IMapFileData> allData = readAllData(parentPath);
-        if (CollectionUtils.isEmpty(allData)) {
-            return new HashSet<>();
-        }
-        Collections.sort(allData);
-        Set<Object> result = new HashSet<>(allData.size());
-        Map<Object, Long> deleteMap = new HashMap<>();
-        for (IMapFileData data : allData) {
-            Object key = deserializeData(data.getKey(), data.getKeyClassName());
-            if (deleteMap.containsKey(key)) {
-                continue;
+        LatestMutationAccumulator accumulator = readLatestMutations(parentPath, null);
+        Set<Object> result = new HashSet<>(accumulator.size());
+        Iterator<IMapFileData> mutations = accumulator.iterator();
+        while (mutations.hasNext()) {
+            IMapFileData mutation = mutations.next();
+            mutations.remove();
+            if (!mutation.isDeleted()) {
+                result.add(deserializeData(mutation.getKey(), mutation.getKeyClassName()));
             }
-            if (data.isDeleted()) {
-                deleteMap.put(key, data.getTimestamp());
-                continue;
-            }
-            if (result.contains(key)) {
-                continue;
-            }
-            result.add(key);
         }
         return result;
     }
 
     public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys)
             throws IOException {
-        List<IMapFileData> allData = readAllData(parentPath);
-        if (CollectionUtils.isEmpty(allData)) {
-            return new HashMap<>();
-        }
-        Collections.sort(allData);
-        Map<Object, Object> result = new HashMap<>(allData.size());
-        Map<Object, Long> deleteMap = new HashMap<>();
-        boolean searchByKeys = CollectionUtils.isNotEmpty(searchKeys);
-        for (IMapFileData data : allData) {
-            Object key = deserializeData(data.getKey(), data.getKeyClassName());
-            if (searchByKeys && !searchKeys.contains(data.getKey())) {
+        Set<SerializedKey> serializedSearchKeys = serializeSearchKeys(searchKeys);
+        LatestMutationAccumulator accumulator =
+                readLatestMutations(parentPath, serializedSearchKeys);
+        Map<Object, Object> result = new HashMap<>(accumulator.size());
+        Iterator<IMapFileData> mutations = accumulator.iterator();
+        while (mutations.hasNext()) {
+            IMapFileData mutation = mutations.next();
+            mutations.remove();
+            if (mutation.isDeleted()) {
                 continue;
             }
-            if (deleteMap.containsKey(key)) {
-                continue;
-            }
-            if (data.isDeleted()) {
-                deleteMap.put(key, data.getTimestamp());
-                continue;
-            }
-            if (result.containsKey(key)) {
-                continue;
-            }
-            Object value = deserializeData(data.getValue(), data.getValueClassName());
+            Object key = deserializeData(mutation.getKey(), mutation.getKeyClassName());
+            Object value = deserializeData(mutation.getValue(), mutation.getValueClassName());
             result.put(key, value);
         }
         return result;
+    }
+
+    private LatestMutationAccumulator readLatestMutations(
+            Path parentPath, Set<SerializedKey> serializedSearchKeys) throws IOException {
+        LatestMutationAccumulator accumulator = new LatestMutationAccumulator(serializedSearchKeys);
+        fileReader.forEachData(parentPath, accumulator::accept);
+        return accumulator;
+    }
+
+    private Set<SerializedKey> serializeSearchKeys(Set<Object> searchKeys) throws IOException {
+        if (searchKeys == null || searchKeys.isEmpty()) {
+            return null;
+        }
+
+        Set<SerializedKey> serializedKeys = new HashSet<>(searchKeys.size());
+        for (Object key : searchKeys) {
+            serializedKeys.add(
+                    SerializedKey.of(serializer.serialize(key), key.getClass().getName()));
+        }
+        return serializedKeys;
     }
 
     private Object deserializeData(byte[] data, String className) {
