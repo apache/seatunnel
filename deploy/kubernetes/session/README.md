@@ -3,6 +3,12 @@
 This directory contains a minimal Kubernetes Session Cluster. The two masters are a StatefulSet;
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
 
+## Namespace scope
+
+The manifests use fixed resource names, so a namespace hosts exactly one Session. Run another
+Session in a separate namespace. Parameterized manifests for multiple Sessions in one namespace are
+outside this experimental scope.
+
 ## Start
 
 ```bash

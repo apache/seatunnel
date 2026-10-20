@@ -32,6 +32,12 @@ kubectl apply -k deploy/kubernetes/session
   `ceil(missingSlots / slotsPerWorker)` workers, capped by `max-workers`.
 - Automatic scale-down: not supported in this experimental release.
 
+### Namespace scope
+
+The sample manifests use fixed resource names, so a namespace hosts exactly one Session. Run each
+additional Session in a separate namespace. Parameterized manifests for multiple Sessions in one
+namespace are outside this experimental scope.
+
 ## Requirements
 
 - A Kubernetes cluster and `kubectl`.
@@ -172,8 +178,6 @@ User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.
 
 ## Limitations
 
-- The sample manifests use fixed resource names, so a namespace hosts one session. Use a separate
-  namespace for each additional session; parameterized multi-session manifests are future work.
 - Worker template changes are not supported in place. Create a new session for a new image, slot
   count, CPU, or memory configuration.
 - No automatic scale-down.

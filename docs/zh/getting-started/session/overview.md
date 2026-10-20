@@ -30,6 +30,11 @@ kubectl apply -k deploy/kubernetes/session
   `ceil(missingSlots / slotsPerWorker)` 创建 worker，上限为 `max-workers`。
 - 自动缩容：实验版本不支持。
 
+### Namespace 范围
+
+示例 manifest 使用固定资源名，因此一个 namespace 只能运行一个 Session。新增 Session 请使用
+独立 namespace；同 namespace 多 Session 的参数化 manifest 不在本次实验性范围内。
+
 ## 前置条件
 
 - Kubernetes 集群和 `kubectl`。
@@ -168,8 +173,6 @@ kubectl delete -k deploy/kubernetes/session
 
 ## 实验性限制
 
-- 示例 manifest 使用固定资源名，因此一个 namespace 只能运行一个 Session。需要多个 Session 时，
-  请为每个 Session 使用独立 namespace；同 namespace 多 Session 的参数化 manifest 属于后续工作。
 - Worker 模板不支持原地修改；修改镜像、slot、CPU、内存需要新建 Session。
 - 不支持自动缩容。
 - 实验版本不提供手动 scale/spec API。
