@@ -59,6 +59,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_18;
@@ -110,11 +111,71 @@ public final class ContainerUtil {
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
 
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
-        connectorFiles.forEach(
-                jar ->
-                        container.copyFileToContainer(
-                                MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+        connectorFiles.forEach(jar -> copyConnectorJar(container, jar, seatunnelHome));
+    }
+
+    /** Publish a complete JAR without exposing an incomplete archive to running classloaders. */
+    static void copyConnectorJar(GenericContainer<?> container, File jar, String seatunnelHome) {
+        String target = (seatunnelHome + "/connectors/" + jar.getName()).replace('\\', '/');
+        String staged = target + "." + UUID.randomUUID() + ".tmp";
+        Throwable failure = null;
+        boolean published = false;
+        try {
+            // The staging name is not a .jar, and rename stays on the target filesystem.
+            container.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()), staged);
+            Container.ExecResult result = container.execInContainer("mv", "-f", staged, target);
+            if (result.getExitCode() != 0) {
+                throw new IllegalStateException(
+                        "Could not publish connector JAR " + target + ": " + result.getStderr());
+            }
+            published = true;
+        } catch (IOException e) {
+            failure = new IllegalStateException("Could not publish connector JAR " + target, e);
+            throw (IllegalStateException) failure;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            failure =
+                    new IllegalStateException(
+                            "Interrupted while publishing connector JAR " + target, e);
+            throw (IllegalStateException) failure;
+        } catch (RuntimeException | Error e) {
+            failure = e;
+            throw e;
+        } finally {
+            if (!published) {
+                // Clear only while cleaning up; callers must still observe the interruption.
+                boolean interrupted = Thread.interrupted();
+                try {
+                    Container.ExecResult cleanup = container.execInContainer("rm", "-f", staged);
+                    if (cleanup.getExitCode() != 0) {
+                        throw new IOException(
+                                "Could not remove staged connector JAR "
+                                        + staged
+                                        + ": "
+                                        + cleanup.getStderr());
+                    }
+                } catch (IOException | RuntimeException e) {
+                    if (failure != null) {
+                        failure.addSuppressed(e);
+                    } else {
+                        throw new IllegalStateException(
+                                "Could not remove staged connector JAR " + staged, e);
+                    }
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                    if (failure != null) {
+                        failure.addSuppressed(e);
+                    } else {
+                        throw new IllegalStateException(
+                                "Interrupted while cleaning staged connector JAR " + staged, e);
+                    }
+                } finally {
+                    if (interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        }
     }
 
     public static void copyAllConnectorJarToContainer(
