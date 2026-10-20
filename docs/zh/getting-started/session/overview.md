@@ -65,97 +65,85 @@ Kubernetes 集群、namespace、ConfigMap/Secret、镜像拉取和 Hazelcast 发
 
 ```yaml
 session:
+  # 必填，DNS-1123 label，最长 40 个字符；同 namespace 多个 Session 时必须唯一。
   name: seatunnel-session-cluster
+
+  # 默认 seatunnel-session-<name>，master 和 worker 共享。
   cluster-name: seatunnel-session-cluster
+
+  # 默认 seatunnel-session-<name>-meta；必须已存在且有 UID。
   root-config-map: seatunnel-session-cluster-meta
 
+  master:
+    # 默认 5801；修改时要同步 Service、StatefulSet 和客户端配置。
+    port: 5801
+
   worker:
+    # 必填；master 镜像在 StatefulSet 中单独配置。
+    image: apache/seatunnel:3.0.1
+
+    # 默认 min-workers=2、max-workers=32。
     min-workers: 2
     max-workers: 32
+
+    # 每个 Worker 的固定 slot 数，必须等于 seatunnel.yaml 的 slot-service.slot-num。
     slots: 8
-    cpu-cores: 8
-    memory-mb: 24576
-    heap-mb: 16384
-    image: apache/seatunnel:3.0.1
+
+    # 默认 cpu-cores=1、memory-mb=1024。
+    cpu-cores: 2
+    memory-mb: 4096
+
+    # 默认 memory-mb 的 3/4；必须大于 0 且小于 memory-mb。
+    heap-mb: 3072
+
+    # 默认 -Xms<heap>m -Xmx<heap>m。
+    jvm-options: "-Xms3g -Xmx3g"
+
+    # 默认 IfNotPresent、default、/opt/seatunnel。
     image-pull-policy: IfNotPresent
     service-account: default
+    seatunnel-home: /opt/seatunnel
+
+    # 已存在的 ConfigMap，包含 seatunnel.yaml、hazelcast-worker.yaml、
+    # log4j2.properties、jvm_worker_options。
     config-map: seatunnel-session-cluster-config
-    jvm-options: "-Xms16g -Xmx16g"
+
+    # 可选 Worker Pod 元数据。
+    # labels: {}
+    # annotations: {}
+
+    # 可选环境变量。引用格式为 secret:name/key 或 configmap:name/key；
+    # env-from 会注入指定对象的所有 key。
+    # env:
+    #   AWS_REGION: us-east-1
+    #   S3_SECRET: secret:s3-credentials/secret-key
+    # env-from:
+    #   secret: s3-credentials
+    #   configmap: shared-settings
+
+    # 可选 Secret 挂载。
+    # secret-ref: session-secret
+    # secret-directory: /etc/seatunnel-secrets/session
 
   dynamic-worker:
+    # 默认 false；开启后根据 pending job 的 slot 缺口自动创建 Worker。
     enabled: true
+    # 默认 120000 和 3000，均必须大于 0。
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
+
+kubernetes:
+  # 默认 default；必须包含所有 Session 资源。
+  namespace: seatunnel
 ```
 
 示例将配置保留为 `deploy/kubernetes/session/conf/session.yaml`。`kustomization.yaml` 使用
 `configMapGenerator` 从整个 `conf/` 目录生成一个 `<session-name>-config` ConfigMap。master
-StatefulSet 挂载整个 ConfigMap，worker Pod 从同一个对象挂载自己需要的 key；`session.yaml` 不再
-嵌入其他 ConfigMap。
-
-`min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
-slot 缺口扩容，且不超过 `max-workers`。
-
-### 配置项参考
-
-master 启动时解析该文件；未知字段会被忽略，非法值会在 coordinator 发布前导致启动失败。
-
-#### Session 与 Kubernetes
-
-| 配置项 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `session.name` | 是 | — | DNS-1123 label，最长 40 个字符。用于 Session 标签以及默认 worker/root 资源名；同 namespace 多个 Session 时必须唯一。 |
-| `session.cluster-name` | 否 | `seatunnel-session-<name>` | master 和 worker 共享的 Hazelcast 集群名。 |
-| `session.root-config-map` | 否 | `seatunnel-session-<name>-meta` | 已存在的 root ConfigMap，master 启动前必须存在且有 UID；Worker Pod 以它为 owner。 |
-| `session.master.port` | 否 | `5801` | master Hazelcast 端口。修改时要同步 Service、StatefulSet 和客户端配置。 |
-| `kubernetes.namespace` | 否 | `default` | master Kubernetes 客户端使用的 namespace；Session 资源必须部署在这里。 |
+StatefulSet 挂载整个 ConfigMap，worker Pod 从同一个对象挂载自己需要的 key。master 启动时解析
+该文件；未知字段会被忽略，非法值会在 coordinator 发布前导致启动失败。
 
 master StatefulSet、Service、PDB、生成的 ConfigMap 名称由 manifest 定义，运行时不会根据
 `session.name` 自动改名。复制示例部署另一个 Session 时，要一起修改这些资源名和 DNS。
-
-#### Worker 模板
-
-| 配置项 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `session.worker.image` | 是 | — | Worker 容器镜像。master 镜像在 StatefulSet 中单独配置。 |
-| `session.worker.min-workers` | 否 | `2` | active master 初始化时创建的 Worker 数，至少为 1。 |
-| `session.worker.max-workers` | 否 | `32` | 自动扩容的上限，必须不小于 `min-workers`。 |
-| `session.worker.slots` | 否 | `1` | 每个 Worker 的固定 slot 数，必须等于 worker `seatunnel.yaml` 的 `slot-service.slot-num`。 |
-| `session.worker.cpu-cores` | 否 | `1` | 每个 Worker 容器的 CPU request/limit。 |
-| `session.worker.memory-mb` | 否 | `1024` | 每个 Worker 容器的内存 request/limit，单位 MiB。 |
-| `session.worker.heap-mb` | 否 | `memory-mb * 3 / 4` | JVM heap，单位 MiB；必须大于 0 且小于 `memory-mb`。 |
-| `session.worker.jvm-options` | 否 | `-Xms<heap>m -Xmx<heap>m` | 传给 Worker 启动脚本的额外 JVM 参数。 |
-| `session.worker.image-pull-policy` | 否 | `IfNotPresent` | Kubernetes 镜像拉取策略：`Always`、`IfNotPresent`、`Never`。 |
-| `session.worker.service-account` | 否 | `default` | Worker Pod 使用的 ServiceAccount；普通作业不需要 Kubernetes API 权限。 |
-| `session.worker.config-map` | 否 | `seatunnel-session-<name>-config` | 已存在的 Worker ConfigMap，必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、`jvm_worker_options`。 |
-| `session.worker.seatunnel-home` | 否 | `/opt/seatunnel` | 容器内 SeaTunnel 安装目录。 |
-| `session.worker.labels` | 否 | 空 | 附加到 Worker Pod 的标签；Session 和 role 标签始终会添加。 |
-| `session.worker.annotations` | 否 | 空 | 附加到 Worker Pod 的 annotation。 |
-| `session.worker.env` | 否 | 空 | 环境变量 map；值是字面量，或 `secret:<name>/<key>` / `configmap:<name>/<key>` 引用。 |
-| `session.worker.env-from` | 否 | 空 | 用 `secret:` 或 `configmap:` 指定逗号分隔的对象名，对象的所有 key 注入为环境变量。 |
-| `session.worker.secret-ref` | 否 | — | 挂载到 Worker Pod 的已有 Secret 名称。 |
-| `session.worker.secret-directory` | 否 | `/etc/seatunnel-secrets/session` | `secret-ref` 的挂载目录。 |
-
-#### 动态 Worker
-
-| 配置项 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `session.dynamic-worker.enabled` | 否 | `false` | 开启后，pending job slot 不足时自动创建 Worker。 |
-| `session.dynamic-worker.startup-timeout-millis` | 否 | `120000` | 等待新 Worker 注册的超时时间，必须大于 0。 |
-| `session.dynamic-worker.retry-interval-millis` | 否 | `3000` | 检查 Worker 注册的间隔，必须大于 0。 |
-
-例如：
-
-```yaml
-session:
-  worker:
-    env:
-      AWS_REGION: us-east-1
-      S3_SECRET: secret:s3-credentials/secret-key
-    env-from:
-      secret: s3-credentials
-      configmap: shared-settings
-```
 
 ### Engine 与 Hazelcast 配置
 

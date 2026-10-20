@@ -69,99 +69,88 @@ image-pull, and Hazelcast discovery practices. Session-specific requirements are
 
 ```yaml
 session:
+  # Required DNS-1123 label, at most 40 characters. It must be unique when
+  # several Sessions share a namespace.
   name: seatunnel-session-cluster
+
+  # Default: seatunnel-session-<name>. Shared by masters and workers.
   cluster-name: seatunnel-session-cluster
+
+  # Default: seatunnel-session-<name>-meta. Must already exist and have a UID.
   root-config-map: seatunnel-session-cluster-meta
 
+  master:
+    # Default: 5801. Keep Services and the client config aligned.
+    port: 5801
+
   worker:
+    # Required. The master image is configured separately in the StatefulSet.
+    image: apache/seatunnel:3.0.1
+
+    # Defaults: min-workers=2, max-workers=32.
     min-workers: 2
     max-workers: 32
+
+    # Fixed slots per worker. Must equal seatunnel.yaml slot-service.slot-num.
     slots: 8
-    cpu-cores: 8
-    memory-mb: 24576
-    heap-mb: 16384
-    image: apache/seatunnel:3.0.1
+
+    # Defaults: cpu-cores=1, memory-mb=1024.
+    cpu-cores: 2
+    memory-mb: 4096
+
+    # Default: 3/4 of memory-mb. Must be greater than 0 and less than memory-mb.
+    heap-mb: 3072
+
+    # Default: -Xms<heap>m -Xmx<heap>m.
+    jvm-options: "-Xms3g -Xmx3g"
+
+    # Defaults: IfNotPresent, default, /opt/seatunnel.
     image-pull-policy: IfNotPresent
     service-account: default
+    seatunnel-home: /opt/seatunnel
+
+    # Existing ConfigMap containing seatunnel.yaml, hazelcast-worker.yaml,
+    # log4j2.properties, and jvm_worker_options.
     config-map: seatunnel-session-cluster-config
-    jvm-options: "-Xms16g -Xmx16g"
+
+    # Optional worker Pod metadata.
+    # labels: {}
+    # annotations: {}
+
+    # Optional environment values. References use secret:name/key or
+    # configmap:name/key; env-from injects every key of the named object.
+    # env:
+    #   AWS_REGION: us-east-1
+    #   S3_SECRET: secret:s3-credentials/secret-key
+    # env-from:
+    #   secret: s3-credentials
+    #   configmap: shared-settings
+
+    # Optional Secret mount.
+    # secret-ref: session-secret
+    # secret-directory: /etc/seatunnel-secrets/session
 
   dynamic-worker:
+    # Default: false. When enabled, workers are created from pending-job demand.
     enabled: true
+    # Defaults: 120000 and 3000. Both values must be greater than 0.
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
+
+kubernetes:
+  # Default: default. Must contain all Session resources.
+  namespace: seatunnel
 ```
 
 The sample keeps this file as `deploy/kubernetes/session/conf/session.yaml`. `kustomization.yaml`
 uses `configMapGenerator` to create one `<session-name>-config` ConfigMap from the whole `conf/`
 directory. The master StatefulSet mounts the whole ConfigMap, and worker Pods mount their required
-keys from the same object; `session.yaml` is not embedded in another ConfigMap.
+keys from the same object. The master parses this file at startup; unknown keys are ignored and
+invalid values fail startup before the coordinator is published.
 
-`min-workers` defaults to `2`. `dynamic-worker.enabled` defaults to `false`; when enabled, workers
-are created only from pending-job slot demand up to `max-workers`.
-
-### Configuration reference
-
-The master parses this file at startup. Unknown keys are ignored; invalid values fail master
-startup before the coordinator is published.
-
-#### Session and Kubernetes keys
-
-| Key | Required | Default | Description |
-| --- | --- | --- | --- |
-| `session.name` | yes | — | DNS-1123 label, at most 40 characters. Used for Session labels and default worker/root names. It must be unique when several Sessions share a namespace. |
-| `session.cluster-name` | no | `seatunnel-session-<name>` | Hazelcast cluster name shared by masters and workers. |
-| `session.root-config-map` | no | `seatunnel-session-<name>-meta` | Existing root ConfigMap. It must exist before the master starts and has a server-assigned UID; worker Pods use it as their owner reference. |
-| `session.master.port` | no | `5801` | Master Hazelcast port. Keep the Services, StatefulSet, and client configuration aligned when changing it. |
-| `kubernetes.namespace` | no | `default` | Namespace for the Kubernetes client used by the master and the default worker/root names. It must contain the Session resources. |
-
-The master StatefulSet, Services, PDB, and generated ConfigMap name are defined by the manifests,
+The master StatefulSet, Services, PDB, and generated ConfigMap names are defined by the manifests,
 not derived from `session.name` at runtime. When copying the sample for another Session, rename
 those resources and their DNS references together.
-
-#### Worker template keys
-
-| Key | Required | Default | Description |
-| --- | --- | --- | --- |
-| `session.worker.image` | yes | — | Worker container image. The master image is configured separately in the StatefulSet. |
-| `session.worker.min-workers` | no | `2` | Workers created when the active master initializes. Must be at least 1. |
-| `session.worker.max-workers` | no | `32` | Upper bound for automatic worker creation. Must be at least `min-workers`. |
-| `session.worker.slots` | no | `1` | Fixed slots per worker. Must equal the worker `seatunnel.yaml` `slot-service.slot-num`. |
-| `session.worker.cpu-cores` | no | `1` | CPU resource requested and limited for each worker container. |
-| `session.worker.memory-mb` | no | `1024` | Container memory request and limit, in MiB. |
-| `session.worker.heap-mb` | no | `memory-mb * 3 / 4` | JVM heap in MiB. Must be greater than 0 and less than `memory-mb`. |
-| `session.worker.jvm-options` | no | `-Xms<heap>m -Xmx<heap>m` | Additional JVM options passed by the worker entrypoint. |
-| `session.worker.image-pull-policy` | no | `IfNotPresent` | Kubernetes image pull policy: `Always`, `IfNotPresent`, or `Never`. |
-| `session.worker.service-account` | no | `default` | Service account for worker Pods. It does not need Kubernetes API permissions for normal jobs. |
-| `session.worker.config-map` | no | `seatunnel-session-<name>-config` | Existing worker ConfigMap. It must contain `seatunnel.yaml`, `hazelcast-worker.yaml`, `log4j2.properties`, and `jvm_worker_options`. |
-| `session.worker.seatunnel-home` | no | `/opt/seatunnel` | SeaTunnel installation directory inside the container. |
-| `session.worker.labels` | no | empty | Additional worker Pod labels. The Session and role labels are always applied. |
-| `session.worker.annotations` | no | empty | Additional worker Pod annotations. |
-| `session.worker.env` | no | empty | Map of literal environment values or references using `secret:<name>/<key>` or `configmap:<name>/<key>`. |
-| `session.worker.env-from` | no | empty | `secret:` or `configmap:` with comma-separated object names; every key becomes an environment variable. |
-| `session.worker.secret-ref` | no | — | Existing Secret mounted into worker Pods. |
-| `session.worker.secret-directory` | no | `/etc/seatunnel-secrets/session` | Mount directory for `secret-ref`. |
-
-#### Dynamic worker keys
-
-| Key | Required | Default | Description |
-| --- | --- | --- | --- |
-| `session.dynamic-worker.enabled` | no | `false` | Enables worker creation after a pending job cannot acquire enough slots. |
-| `session.dynamic-worker.startup-timeout-millis` | no | `120000` | Maximum wait for requested workers to register. Must be greater than 0. |
-| `session.dynamic-worker.retry-interval-millis` | no | `3000` | Delay between registration checks. Must be greater than 0. |
-
-For example, `env` and `env-from` can be written as:
-
-```yaml
-session:
-  worker:
-    env:
-      AWS_REGION: us-east-1
-      S3_SECRET: secret:s3-credentials/secret-key
-    env-from:
-      secret: s3-credentials
-      configmap: shared-settings
-```
 
 ### Engine and Hazelcast configuration
 
