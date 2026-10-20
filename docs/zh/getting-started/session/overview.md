@@ -5,10 +5,24 @@ title: Session 集群
 
 # Session 集群
 
-Session 集群是一个长期存活的 Zeta 集群，多个 job 共享同一组 master 和 worker。两个 master
-组成 Hazelcast active/standby；active master 创建 worker，job 通过 REST 或原生客户端提交。
+Session 集群是长期存活的 Zeta 集群，多个 job 共享一组 master 和 worker。两个 master 组成
+Hazelcast active/standby；active master 创建 worker，job 通过 REST 或原生客户端提交。
 
-[Application Mode](../application/overview.md) 不同：它为一个 job 创建专属的 master 和 worker。
+与 [Application Mode](../application/overview.md) 不同，Session 模式不会为每个 job 单独创建
+master 和 worker。
+
+## 适用场景
+
+- 多个批作业或流作业共享一个长期存活的集群，避免每个 job 都启动一套 master。
+- 团队需要一个统一的 REST 或原生客户端入口，用于临时和定时提交。
+- 多个作业可以共享 worker 池，并在 `min-workers` 到 `max-workers` 之间扩容。
+
+## 提供的能力
+
+- 两个 master 副本进行 active/standby 选举。
+- active master 创建 bare Worker Pod；master 故障切换后由新 master 接管。
+- 固定 slot 调度，按 slot 缺口扩容，并受 `max-workers` 上限约束。
+- 沿用现有 REST API 和原生客户端，使用普通 Kubernetes YAML 部署。
 
 ## 拓扑
 

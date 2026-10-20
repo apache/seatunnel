@@ -6,11 +6,24 @@ title: Session Cluster
 # Session Cluster
 
 A Session Cluster is a long-running Zeta cluster shared by multiple jobs. Two masters form a
-Hazelcast active/standby pair; the active master creates workers, and jobs submit through REST or
-the native client.
+Hazelcast active/standby pair; the active master creates workers, and jobs are submitted through
+REST or the native client.
 
-[Application Mode](../application/overview.md) is different: it creates a dedicated master and
-worker set for one job.
+Unlike [Application Mode](../application/overview.md), Session mode does not create a dedicated
+master and worker set for each job.
+
+## When to use Session mode
+
+- Multiple batch or streaming jobs share one long-running cluster, avoiding per-job master startup.
+- A team needs one REST or native-client endpoint for ad-hoc and scheduled submissions.
+- Workloads can share a worker pool and grow within `min-workers` and `max-workers`.
+
+## What Session mode provides
+
+- Active/standby master election with two master replicas.
+- Bare worker Pods created by the active master and adopted after master failover.
+- Fixed-slot scheduling with slot-deficit scale-up and a configurable worker cap.
+- Existing REST API and native client submission, with plain Kubernetes YAML deployment.
 
 ## Topology
 
