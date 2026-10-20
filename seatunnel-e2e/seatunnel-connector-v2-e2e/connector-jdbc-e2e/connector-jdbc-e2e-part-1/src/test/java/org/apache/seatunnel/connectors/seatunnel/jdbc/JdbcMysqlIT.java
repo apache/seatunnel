@@ -52,11 +52,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -86,6 +89,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
@@ -113,6 +122,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_mysql_source_and_sink.sql",
                     "/jdbc_mysql_source_and_sink_parallel.sql");
+    private static final String CANCEL_CONFIG_FILE = "/jdbc_mysql_source_cancel.conf";
+    private static final String CANCEL_QUERY_MARKER = "seatunnel-jdbc-cancel-e2e";
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -472,6 +483,79 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         testTinyInt1AsBooleanOrTINYINT(false, BasicType.BYTE_TYPE);
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "TestContainer.executeJob/cancelJob/getJobStatus are only implemented by the "
+                            + "Zeta engine, and the tested cancel hook is Zeta only")
+    public void testCancelJdbcSourceQuery(TestContainer container) throws Exception {
+        // The Zeta client requires --set-job-id to be numeric, and the job status/cancel REST
+        // calls address the job by the same id.
+        String jobId = String.valueOf(System.nanoTime());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Container.ExecResult> jobFuture =
+                executor.submit(() -> container.executeJob(CANCEL_CONFIG_FILE, jobId));
+
+        try {
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", container.getJobStatus(jobId)));
+            given().await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(hasRunningCancelQuery()));
+
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            given().await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertFalse(hasRunningCancelQuery()));
+
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", container.getJobStatus(jobId)));
+            jobFuture.get(30, TimeUnit.SECONDS);
+        } finally {
+            if (!jobFuture.isDone()) {
+                container.cancelJob(jobId);
+            }
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Checks the MySQL process list for the in-flight source query, identified by the marker
+     * comment in {@code jdbc_mysql_source_cancel.conf}. Excludes this control connection itself so
+     * the helper cannot match its own {@code PROCESSLIST} statement. Connection errors are
+     * propagated so they fail with their message instead of a blind timeout.
+     */
+    private boolean hasRunningCancelQuery() throws SQLException {
+        String processListQuery =
+                "SELECT INFO FROM information_schema.PROCESSLIST "
+                        + "WHERE ID <> CONNECTION_ID() AND INFO LIKE '%"
+                        + CANCEL_QUERY_MARKER
+                        + "%'";
+        try (Connection controlConnection =
+                        DriverManager.getConnection(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()),
+                                jdbcCase.getUserName(),
+                                jdbcCase.getPassword());
+                Statement statement = controlConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(processListQuery)) {
+            return resultSet.next();
+        }
+    }
+
     private void testTinyInt1AsBooleanOrTINYINT(boolean intTypeNarrowing, BasicType<?> exceptType)
             throws SQLException {
         try (MySqlCatalog catalogWithIntTypeNarrowing =
@@ -496,6 +580,51 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Assertions.assertEquals(
                     exceptType,
                     tableFromSQL.getTableSchema().getColumn("c_tinyint_1").getDataType());
+        }
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>A SET or ENUM value list containing the word "unsigned" - MySQL's own {@code
+     * mysql.event.sql_mode} holds {@code NO_UNSIGNED_SUBTRACTION} - used to be read as the UNSIGNED
+     * attribute of the column. The type converters then appended a " UNSIGNED" suffix, producing a
+     * type that does not exist in MySQL and failing table discovery for the whole job.
+     */
+    @Test
+    public void testSetAndEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "set_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + MYSQL_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_set` set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
         }
     }
 

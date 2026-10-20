@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.common;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
@@ -45,10 +46,13 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     protected Map<String, SeaTunnelTransform<SeaTunnelRow>> transformMap;
 
+    protected final ReadonlyConfig transformLevelConfig;
+
     public AbstractMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         this.inputCatalogTables = inputCatalogTables;
         this.transformMap = new HashMap<>();
+        this.transformLevelConfig = config;
         Pattern tableMatchRegex =
                 Pattern.compile(config.get(TransformCommonOptions.TABLE_MATCH_REGEX));
         boolean ruleMatchModeConfigured =
@@ -63,6 +67,16 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         if (!ruleMatchModeConfigured) {
             rejectDuplicateTablePaths(singleTableConfigs);
         }
+
+        // Backward compatibility of the transform-level rule:
+        // - single-table mode (no 'table_transform'): the rule is mandatory and applies to every
+        //   matched table, as before;
+        // - 'table_transform' plus a configured rule: the rule still applies to the tables matched
+        //   by 'table_match_regex', so existing mixed configurations keep their behaviour;
+        // - 'table_transform' only: tables without an entry stay unchanged, which 2.3.x accepted
+        //   and 3.0.0 rejected by mistake.
+        boolean hasTransformLevelRule =
+                isSingleTableMode(config) || hasTransformLevelRuleConfigured(config);
 
         inputCatalogTables.forEach(
                 inputCatalogTable -> {
@@ -82,7 +96,8 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
                                 buildTransform(
                                         inputCatalogTable,
                                         selectTableConfigs(tableConfigs, ruleMatchMode)));
-                    } else if (tableMatchRegex.matcher(tableId).matches()) {
+                    } else if (hasTransformLevelRule
+                            && tableMatchRegex.matcher(tableId).matches()) {
                         transformMap.put(
                                 tableId,
                                 buildTransform(
@@ -147,6 +162,35 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         }
         throw new UnsupportedOperationException(
                 String.format("%s does not support chained transforms", getPluginName()));
+    }
+
+    /**
+     * Whether the transform-level rule is configured in the multi-table mode. Transforms that
+     * declare per-table rules override this method, because only they know which options build
+     * their transform-level rule. Transforms without per-table rules keep the default.
+     */
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return true;
+    }
+
+    /**
+     * Whether the transform runs in the single-table mode, i.e. without any {@code table_transform}
+     * entry.
+     */
+    protected boolean isSingleTableMode(ReadonlyConfig config) {
+        return config.getOptional(TransformCommonOptions.MULTI_TABLES)
+                .filter(tableTransforms -> !tableTransforms.isEmpty())
+                .isEmpty();
+    }
+
+    /** Whether any of the given options is configured. */
+    protected boolean hasAnyOptionConfigured(ReadonlyConfig config, Option<?>... options) {
+        for (Option<?> option : options) {
+            if (config.getOptional(option).isPresent()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected abstract SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
