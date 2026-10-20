@@ -48,8 +48,11 @@ public class ReportMetricsOperationExports extends AbstractCollector {
         CounterMetricFamily totalMetricFamily =
                 new CounterMetricFamily(
                         "report_metrics_operation",
-                        "The total number of ReportMetricsOperation invocations attempted by a "
-                                + "worker, by outcome",
+                        "Count of final-metrics reporting attempts, by outcome. 'success', "
+                                + "'failure', and 'interrupted' count ReportMetricsOperation "
+                                + "invocations sent by a worker. 'rejected' counts terminal "
+                                + "reports dropped before any invocation because the dedicated "
+                                + "bounded final-metrics pool was saturated.",
                         clusterLabelNames(ADDRESS, "result"));
         totalMetricFamily.addMetric(labelValues(address, "success"), stats.getSuccessCount());
         totalMetricFamily.addMetric(labelValues(address, "failure"), stats.getFailureCount());
