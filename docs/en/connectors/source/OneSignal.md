@@ -29,7 +29,7 @@ Use this connector to ingest OneSignal resources such as apps, players, segments
 | headers                     | Map     | No       | -       | Extra HTTP headers. Do not put `Authorization` here unless you want to override the header generated from `password`. |
 | params                      | Map     | No       | -       | HTTP query parameters, such as `limit`, `offset`, or other OneSignal API parameters. |
 | body                        | String  | No       | -       | HTTP request body. Useful for endpoints that accept a JSON payload. |
-| format                      | String  | No       | json    | Response format. Use `json` with `schema` to read OneSignal JSON as SeaTunnel rows with named fields. Use `text` to keep the raw response. |
+| format                      | String  | No       | text    | Response format. Use `json` with `schema` to read OneSignal JSON as SeaTunnel rows with named fields. Use `text` to keep the raw response. |
 | schema                      | Config  | No       | -       | Output row structure. Required when `format = "json"`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when each output field lives at a different JSON path. |

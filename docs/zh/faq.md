@@ -72,6 +72,17 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 ## SeaTunnel 是否支持精确一致性管理？
 SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、PostgreSQL 等数据库的事务写入，确保数据在同步过程中的一致性，另外精确一致性也要看数据库本身是否可以支持
 
+## 为什么 Oracle JDBC 任务登录时报 `Connection reset by peer` 和 `Authentication lapse`？
+在部分 Java 8 主机上，Oracle JDBC 驱动会在登录认证阶段等待安全随机数。如果操作系统熵供给不足，客户端可能迟迟没有发出最终认证响应，直到 Oracle 或中间网络设备关闭连接。
+
+这通常是运行环境问题，不是 SeaTunnel 任务配置错误。对于 Zeta 任务，可以在实际建立 Oracle 连接的 JVM 中加入：
+
+```text
+-Djava.security.egd=file:/dev/./urandom
+```
+
+使用 `seatunnel.sh` 提交任务时，优先检查 `$SEATUNNEL_HOME/config/jvm_client_options`；如果连接由引擎服务进程建立，还需要同步调整对应的服务端 JVM 参数。详见[配置 JVM 参数](./engines/zeta/user-command.md#配置jvm参数)。同时建议按操作系统方式恢复主机熵供给，例如启用 `rngd`。`connection_check_timeout_sec` 不控制这个登录认证阶段。
+
 ## SeaTunnel 可以定期执行任务吗？
 您可以通过使用 linux 自带 cron 能力来实现定时数据同步任务，也可以结合 DolphinScheduler 等调度工具实现复杂的定时任务管理。
 
@@ -99,7 +110,7 @@ transform {
 ```bash
 $SEATUNNEL_HOME/bin/seatunnel.sh \
 -c $SEATUNNEL_HOME/config/your_app.conf \
--m local[2] \
+-m local \
 -i city=Singapore \
 -i date=20231110
 ```
@@ -136,4 +147,4 @@ SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码�
 
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？
 不需要，您只需要关注 source、sink、transform 对应的接口即可。
-如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](../../seatunnel-connectors-v2/README.zh.md)** 。
+如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)** 。

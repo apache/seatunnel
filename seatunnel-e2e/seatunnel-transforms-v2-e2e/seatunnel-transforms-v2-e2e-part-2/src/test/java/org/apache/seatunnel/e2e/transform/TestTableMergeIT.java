@@ -33,4 +33,20 @@ public class TestTableMergeIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/table_merge_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testMergeSingleTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/table_merge_single_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testMergeTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/table_merge_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

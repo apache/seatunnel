@@ -59,8 +59,9 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | remote_verification_enabled | boolean | 否    | true                |
 | control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
-| row_delimiter               | string  | 否    | \n                  | 读取 `text` 文件时使用的行分隔符。默认值为 `\n`。 |
+| row_delimiter               | string  | 否    | \n                  |
 | read_columns                | list    | 否    | -                   |
+| read_partitions | list | 否 | - |
 | parse_partition_from_path   | boolean | 否    | true                |
 | date_format                 | string  | 否    | yyyy-MM-dd          |
 | datetime_format             | string  | 否    | yyyy-MM-dd HH:mm:ss |
@@ -74,7 +75,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | xml_use_attr_format         | boolean | 否    | -                   |
 | csv_use_header_line         | boolean | 否    | false               |
 | file_filter_pattern         | string  | 否    | -                   |
-| filename_extension          | string  | 否    | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| filename_extension          | string  | 否    | -                   |
 | compress_codec              | string  | 否    | none                |
 | archive_compress_codec      | string  | 否    | none                |
 | encoding                    | string  | 否    | UTF-8               |
@@ -102,7 +103,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | escape_char                 | string  | 否    | -                   |
 | metalake_type               | string  | 否    | gravitino           |
 | recursive_file_scan         | boolean | 否    | true                |
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| sort_files_by_modification_time | boolean | 否 | false               |
 
 ### host [string]
 

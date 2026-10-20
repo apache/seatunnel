@@ -58,6 +58,41 @@ class CopyFieldMultiCatalogTransformTest {
         Assertions.assertEquals("name-value", output.getField(3));
     }
 
+    /** Tables without a matching {@code table_transform} entry must stay unchanged. */
+    @Test
+    void rulesOnlyConfigAppliesToListedTableAndLeavesUnlistedTableUnchanged() {
+        CatalogTable listed = catalogTable("orders");
+        CatalogTable unlisted = catalogTable("customers");
+        String listedPath = listed.getTableId().toTablePath().toString();
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), listedPath);
+        entry.put(CopyTransformConfig.SRC_FIELD.key(), "name");
+        entry.put(CopyTransformConfig.DEST_FIELD.key(), "name2");
+        Map<String, Object> config = new HashMap<>();
+        config.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+
+        CopyFieldMultiCatalogTransform transform =
+                new CopyFieldMultiCatalogTransform(
+                        Arrays.asList(listed, unlisted), ReadonlyConfig.fromMap(config));
+
+        List<CatalogTable> produced = transform.getProducedCatalogTables();
+        Assertions.assertEquals(Arrays.asList("id", "name", "name2"), fieldNames(produced.get(0)));
+        Assertions.assertEquals(Arrays.asList("id", "name"), fieldNames(produced.get(1)));
+
+        SeaTunnelRow listedRow = new SeaTunnelRow(new Object[] {1, "listed"});
+        listedRow.setTableId(listedPath);
+        SeaTunnelRow listedOutput = transform.map(listedRow);
+        Assertions.assertEquals(3, listedOutput.getArity());
+        Assertions.assertEquals("listed", listedOutput.getField(2));
+
+        SeaTunnelRow unlistedRow = new SeaTunnelRow(new Object[] {2, "unlisted"});
+        unlistedRow.setTableId(unlisted.getTableId().toTablePath().toString());
+        SeaTunnelRow unlistedOutput = transform.map(unlistedRow);
+        Assertions.assertEquals(2, unlistedOutput.getArity());
+        Assertions.assertEquals("unlisted", unlistedOutput.getField(1));
+    }
+
     private static ReadonlyConfig allMatchConfig(String tablePath) {
         Map<String, Object> firstRule = copyRule(tablePath, "name", "name2");
         Map<String, Object> secondRule = copyRule(tablePath, "name2", "name3");
@@ -79,15 +114,24 @@ class CopyFieldMultiCatalogTransformTest {
     }
 
     private static CatalogTable catalogTable() {
+        return catalogTable("orders");
+    }
+
+    private static CatalogTable catalogTable(String tableName) {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "name"},
                         new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
-        return CatalogTableUtil.getCatalogTable("catalog", "database", "schema", "orders", rowType);
+        return CatalogTableUtil.getCatalogTable(
+                "catalog", "database", "schema", tableName, rowType);
     }
 
     private static List<String> fieldNames(CopyFieldMultiCatalogTransform transform) {
-        return transform.getProducedCatalogTable().getTableSchema().getColumns().stream()
+        return fieldNames(transform.getProducedCatalogTable());
+    }
+
+    private static List<String> fieldNames(CatalogTable catalogTable) {
+        return catalogTable.getTableSchema().getColumns().stream()
                 .map(Column::getName)
                 .collect(Collectors.toList());
     }

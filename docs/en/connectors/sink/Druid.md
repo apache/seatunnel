@@ -36,7 +36,7 @@ Write data to Apache Druid through the Druid indexing task API.
 |----------------|--------|----------|---------------|-------------|
 | coordinatorUrl | string | yes      | -             | Druid coordinator or router host and port. |
 | datasource     | string | yes      | -             | Druid datasource name. Supports placeholders such as `${table_name}`. |
-| batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. |
+| batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. Must be greater than `0`. |
 | common-options |        | no       | -             | Sink common options. |
 
 ### coordinatorUrl [string]
@@ -53,7 +53,7 @@ When the upstream source has multiple tables, you can use placeholders such as `
 
 ### batchSize [int]
 
-The number of rows buffered before SeaTunnel sends one indexing task to Druid. The default value is `10000`.
+The number of rows buffered before SeaTunnel sends one indexing task to Druid. The default value is `10000`, and the configured value must be greater than `0`.
 
 SeaTunnel also flushes the remaining buffered rows when the writer closes.
 

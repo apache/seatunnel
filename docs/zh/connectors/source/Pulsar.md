@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-pulsar.md';
 
 > Apache Pulsar 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Apache Pulsar 的源连接器。
@@ -378,6 +384,20 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### Pulsar 源连接器如何处理分区 Topic 与动态分区发现？
+
+当订阅分区 Topic 或使用正则表达式匹配 Topic 时（`topic-pattern`），SeaTunnel 会自动感知分区信息并将分片均匀分配给并发任务。可通过 `topic-discovery.interval` 调整新分区检测的探测频率。
+
+### 支持哪些消费游标（Cursor）位点恢复与订阅模式？
+
+通过 `cursor.startup.mode` 支持配置为 `EARLIEST`（从最早未消费位点）或 `LATEST`（从最新位点开始消费）。消费者以配置的订阅类型（如 `Failover` 或 `Exclusive`）注册，并在 Checkpoint 时同步保存消息 ID，确保故障时精准回溯。
+
+### 如何在连接受安全防护的 Pulsar 集群时配置身份认证？
+
+可通过 `auth.plugin-class`（如 `org.apache.pulsar.client.impl.auth.AuthenticationToken`）声明认证插件实现类，并在 `auth.params` 中传入对应凭据或 Token。如果启用了 TLS 加密传输，则需将服务地址指定为 `pulsar+ssl://`。
 
 ## 变更日志
 
