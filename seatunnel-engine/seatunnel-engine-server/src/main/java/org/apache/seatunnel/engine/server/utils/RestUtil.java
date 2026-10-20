@@ -31,6 +31,7 @@ import scala.Tuple2;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -65,6 +66,29 @@ public class RestUtil {
         } catch (UnsupportedEncodingException e) {
             throw new IllegalArgumentException("Unsupported encoding exists in the parameter.");
         }
+        checkStartWithSavePoint(requestParams);
+    }
+
+    /**
+     * Fills the request parameters of one job of a {@code /submit-jobs} request from its {@code
+     * params} object, with the same defaults and checks as {@link #buildRequestParams(Map,
+     * String)}. The values are used as they are: they are not URL-encoded, so they are not decoded
+     * either.
+     *
+     * @param requestParams the map to fill
+     * @param params the {@code params} object of the job, may be {@code null} when it is omitted
+     */
+    public static void buildRequestParams(
+            Map<String, String> requestParams, Map<String, String> params) {
+        requestParams.put(RestConstant.JOB_ID, null);
+        requestParams.put(RestConstant.IS_START_WITH_SAVE_POINT, String.valueOf(false));
+        if (params != null) {
+            requestParams.putAll(params);
+        }
+        checkStartWithSavePoint(requestParams);
+    }
+
+    private static void checkStartWithSavePoint(Map<String, String> requestParams) {
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
@@ -83,10 +107,34 @@ public class RestUtil {
                         node -> {
                             Map<String, Object> nodeMap = JsonUtils.toMap(node);
                             Map<String, String> params =
-                                    (Map<String, String>) nodeMap.remove(REST_SUBMIT_JOBS_PARAMS);
+                                    toStringParams(nodeMap.remove(REST_SUBMIT_JOBS_PARAMS));
                             Config config = ConfigBuilder.of(nodeMap);
                             return new Tuple2<>(params, config);
                         })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Converts the optional {@code params} object of a {@code /submit-jobs} entry to string values,
+     * so that a number such as {@code "jobId": 123} is accepted like {@code "jobId": "123"}.
+     * Entries with a {@code null} value are skipped.
+     */
+    private static Map<String, String> toStringParams(Object params) {
+        Map<String, String> stringParams = new HashMap<>();
+        if (params == null) {
+            return stringParams;
+        }
+        if (!(params instanceof Map)) {
+            throw new IllegalArgumentException(
+                    "'" + REST_SUBMIT_JOBS_PARAMS + "' must be a JSON object, but was: " + params);
+        }
+        ((Map<?, ?>) params)
+                .forEach(
+                        (key, value) -> {
+                            if (value != null) {
+                                stringParams.put(String.valueOf(key), String.valueOf(value));
+                            }
+                        });
+        return stringParams;
     }
 }
