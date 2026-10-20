@@ -145,9 +145,9 @@ services:
       retries: 30
 
   minio:
-    # Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls;
-    # quay.io is MinIO's own registry and mirrors the same tags publicly.
-    image: quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z
+    # minio/minio on Docker Hub and quay.io/minio/minio no longer serve anonymous pulls. Use
+    # the same digest-pinned mirror of MinIO RELEASE.2025-04-22T22-12-26Z as the S3 E2E tests.
+    image: ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     container_name: st-bench-minio
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -163,7 +163,8 @@ services:
       retries: 30
 
   minio-init:
-    image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+    # minio/mc on Docker Hub no longer serves anonymous pulls; the MinIO image above ships mc.
+    image: ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     container_name: st-bench-minio-init
     depends_on:
       minio:

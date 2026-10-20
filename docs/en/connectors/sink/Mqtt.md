@@ -41,7 +41,7 @@ from job restarts, rely on upstream replay and MQTT QoS rather than a stable sin
 | password              | string  | no       | -             | MQTT broker password. Leave unset for anonymous access.                                                              |
 | qos                   | int     | no       | 1             | MQTT Quality of Service level. `0` is at-most-once, `1` is at-least-once.                                            |
 | format                | string  | no       | json          | Serialization format. `json` serializes each row as a JSON object; `text` serializes each row as delimited text.     |
-| field_delimiter       | string  | no       | ,             | Field delimiter used when `format = "text"`, for example `,`, `|`, or `\t`.                                          |
+| field_delimiter       | string  | no       | ,             | Field delimiter used when `format = "text"`, for example `,`, `\|`, or `\t`.                                          |
 | batch_size            | int     | no       | 1             | Number of messages to buffer before sending to the broker. The buffer is also flushed at each checkpoint.            |
 | retry_timeout         | int     | no       | 5000          | Maximum time in milliseconds to retry publishing on transient network failures before failing the task.             |
 | connection_timeout    | int     | no       | 30            | MQTT connection establishment timeout in seconds.                                                                    |
