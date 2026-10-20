@@ -31,8 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
-
 public class TestSparkStarterJarContentIT {
 
     private static final String ARTIFACT_ID = "seatunnel-spark-3-starter";
@@ -66,7 +64,7 @@ public class TestSparkStarterJarContentIT {
         }
         String output = readOutput(process);
         Assertions.assertTrue(finished, output);
-        Assertions.assertEquals(USAGE_EXIT_CODE, process.exitValue(), output);
+        Assertions.assertEquals(0, process.exitValue(), output);
         Assertions.assertTrue(output.contains("Usage:"), output);
     }
 
