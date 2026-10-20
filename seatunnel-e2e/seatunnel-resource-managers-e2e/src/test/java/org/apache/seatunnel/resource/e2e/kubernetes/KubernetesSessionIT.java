@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 /** End-to-end coverage for a two-master session cluster and its master-created workers. */
-class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
+public class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
 
     private static final String SESSION_NAME = "seatunnel-session-cluster";
     private static final String MANIFEST_NAMESPACE = "seatunnel";
