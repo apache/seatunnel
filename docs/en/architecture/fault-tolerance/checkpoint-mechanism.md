@@ -522,14 +522,21 @@ seatunnel:
       monitor-history-size: 32   # default
 ```
 
-This is how many completed checkpoints are kept per pipeline for the
-`/jobs/checkpoints/{jobId}` REST endpoint. The window bounds how far back a
-client can compare a job against its own past, which matters for spotting a
-gradual slowdown: at the default interval of 300000ms the default of 32 covers
-roughly 2.5 hours, but on a job checkpointing every 10000ms it covers only
-about 5 minutes. Raise it for jobs with a short interval. The history is held
-in memory per pipeline, so the cost of a larger window scales with the number
-of running pipelines.
+This is how many checkpoint history entries are kept per pipeline for the
+`/jobs/checkpoints/{jobId}` REST endpoint; completed and failed checkpoints
+share the window. Valid values are 1 to 4096.
+
+It bounds how far back a client can compare a job against its own past, which
+matters for spotting a gradual slowdown. Note that it is a count, not a
+duration: how much time it covers depends on each job's own
+`checkpoint.interval`, while the option itself is cluster-wide. At the default
+interval of 300000ms, 32 entries cover roughly 2.5 hours; on a job
+checkpointing every 10000ms they cover only about 5 minutes.
+
+The history is stored in the cluster-wide checkpoint overview map, and every
+checkpoint event rewrites that whole entry, so a larger window costs master
+CPU, network and backup traffic as well as heap — not heap alone. The value is
+read once at master startup, so changing it requires a restart.
 
 ### 5.2 Tuning Guidelines
 

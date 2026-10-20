@@ -365,11 +365,17 @@ seatunnel:
       monitor-history-size: 32   # 默认值
 ```
 
-它表示为 `/jobs/checkpoints/{jobId}` REST 端点每个 pipeline 保留多少条已完成的
-checkpoint 记录。这个窗口决定了客户端最多能把作业和自己多久之前的历史做对比，
-对发现"逐渐变慢"尤为关键：按默认 300000ms 的间隔，32 条约覆盖 2.5 小时；但若
-作业每 10000ms 做一次 checkpoint，就只覆盖约 5 分钟。间隔短的作业应调大该值。
-历史按 pipeline 保存在内存中，因此窗口越大，开销随运行中的 pipeline 数量增长。
+它表示为 `/jobs/checkpoints/{jobId}` REST 端点按 pipeline 保留多少条 checkpoint
+历史记录，已完成和失败的 checkpoint 共用这个窗口，取值范围 1 到 4096。
+
+这个窗口决定了客户端最多能把作业和自己多久之前的历史做对比，对发现"逐渐变慢"
+尤为关键。注意它是**条数**而不是时长：覆盖多长时间取决于每个作业自己的
+`checkpoint.interval`，而本选项是集群级的。按默认 300000ms 的间隔，32 条约覆盖
+2.5 小时；若作业每 10000ms 做一次 checkpoint，则只覆盖约 5 分钟。
+
+历史保存在集群级的 checkpoint overview map 中，每次 checkpoint 事件都会重写整条
+记录，因此窗口越大，除堆内存外还会增加 master 的 CPU、网络与副本复制开销——不只是
+堆内存。该值只在 master 启动时读取一次，修改后需要重启。
 
 说明：
 - BATCH 模式下如果作业 env 未配置 `checkpoint.interval`，当前实现会禁用 checkpoint（以源码实现为准）。

@@ -55,8 +55,25 @@ public class CheckpointConfig implements Serializable {
     }
 
     public void setMonitorHistorySize(int monitorHistorySize) {
+        // Bounded on both sides. The upper bound is not cosmetic: the history
+        // lives in the cluster-wide checkpoint overview IMap, and
+        // HazelcastCheckpointOverviewStateStore.updateOverview rewrites that
+        // whole entry through IMap.compute on every checkpoint event, with the
+        // entry listener registered includeValue=true. So an oversized window
+        // multiplies master CPU, replication and listener traffic on every
+        // trigger and acknowledgement, not just heap -- and it would do so
+        // silently.
         checkArgument(
-                monitorHistorySize >= 1, "The checkpoint monitor history size must be at least 1.");
+                monitorHistorySize >= 1
+                        && monitorHistorySize
+                                <= ServerConfigOptions.MasterServerConfigOptions
+                                        .MAX_CHECKPOINT_MONITOR_HISTORY_SIZE,
+                "The checkpoint monitor history size must be between 1 and "
+                        + ServerConfigOptions.MasterServerConfigOptions
+                                .MAX_CHECKPOINT_MONITOR_HISTORY_SIZE
+                        + ", but was "
+                        + monitorHistorySize
+                        + ".");
         this.monitorHistorySize = monitorHistorySize;
     }
 
