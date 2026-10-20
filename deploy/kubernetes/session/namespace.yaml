@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The sample uses fixed Session resource names: run one Session per namespace.
+# This sample uses one Session name. Copy and rename session-scoped resources to run another Session.
 apiVersion: v1
 kind: Namespace
 metadata:

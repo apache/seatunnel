@@ -40,7 +40,6 @@
             <includes>
                 <include>README.md</include>
                 <include>config/**</include>
-                <include>deploy/kubernetes/session/*.yaml</include>
                 <include>plugins/**</include>
             </includes>
         </fileSet>

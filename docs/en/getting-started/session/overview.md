@@ -34,18 +34,19 @@ kubectl apply -k deploy/kubernetes/session
 
 ### Multiple Sessions in one namespace
 
-`kubectl apply -k` applies the sample Session named `seatunnel-session-cluster`. To run another
-Session in the same namespace, use the client-side deployer with a unique name:
+The manifests are plain external YAML. To run another Session in the same namespace, copy the
+directory and replace every `seatunnel-session-cluster` occurrence that belongs to that Session:
 
 ```bash
-bin/seatunnel-session.sh --session-name payments
+cp -R deploy/kubernetes/session /tmp/payments-session
+# Edit /tmp/payments-session:
+#   resource names, labels, session.name/cluster-name, and Hazelcast/client service DNS.
+kubectl apply -k /tmp/payments-session
 ```
 
-The deployer reads `session.yaml` from `configmap-master.yaml`, renders that name into every
-resource name, label, ConfigMap name, and Hazelcast/client service DNS entry, then calls
-`kubectl apply`. It does not require an Operator. Each Session in a namespace must use a different
-`session.name`; `--manifests deploy/kubernetes/session` is available when running from the source
-tree, and `RENDER_ONLY=1` prints the YAML without applying it.
+Every session-scoped resource name must be unique. There is no deployer script or Operator; users
+own the manifests and may create Services, ConfigMaps, Secrets, or RBAC resources themselves and
+keep only the objects they need.
 
 ## Requirements
 
@@ -131,8 +132,8 @@ The master Pods do not provide slots. They run the coordinator and REST service.
 # The sample Session.
 kubectl apply -k deploy/kubernetes/session
 
-# Another Session in the same namespace.
-bin/seatunnel-session.sh --session-name payments
+# Another Session copied and renamed as described above.
+kubectl apply -k /tmp/payments-session
 
 kubectl -n seatunnel get pods -w
 ```
@@ -185,7 +186,7 @@ cannot replace workers while they are being removed. Do not use `kubectl delete 
 namespace hosts multiple Sessions, because the kustomization contains the shared namespace.
 
 ```bash
-SESSION_NAME=seatunnel-session-cluster  # or the --session-name value
+SESSION_NAME=seatunnel-session-cluster  # or the name used in the copied manifests
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
 kubectl -n seatunnel delete configmap \

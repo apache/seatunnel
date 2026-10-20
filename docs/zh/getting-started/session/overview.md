@@ -32,17 +32,18 @@ kubectl apply -k deploy/kubernetes/session
 
 ### 同 namespace 多 Session
 
-`kubectl apply -k` 使用示例 Session 名 `seatunnel-session-cluster`。要在同一 namespace 运行
-另一个 Session，使用客户端部署器并传入唯一名称：
+这些 manifest 是普通的外部 YAML。要在同一 namespace 运行另一个 Session，复制目录并替换该
+Session 的所有 `seatunnel-session-cluster` 名称：
 
 ```bash
-bin/seatunnel-session.sh --session-name payments
+cp -R deploy/kubernetes/session /tmp/payments-session
+# 编辑 /tmp/payments-session：
+#   资源名、标签、session.name/cluster-name、Hazelcast/client Service DNS。
+kubectl apply -k /tmp/payments-session
 ```
 
-部署器从 `configmap-master.yaml` 读取 `session.yaml`，把名称渲染到所有资源名、标签、ConfigMap
-名以及 Hazelcast/client Service DNS，再调用 `kubectl apply`。它不依赖 Operator。每个 Session 的
-`session.name` 必须唯一；从源码目录运行时使用 `--manifests deploy/kubernetes/session`，
-`RENDER_ONLY=1` 可以只渲染不提交。
+每个 Session 作用域内的资源名必须唯一。这里没有部署脚本，也没有 Operator；用户完全拥有这些
+manifest，也可以自行创建 Service、ConfigMap、Secret、RBAC，只保留自己需要的资源。
 
 ## 前置条件
 
@@ -128,8 +129,8 @@ Master 不提供 slot，只运行 coordinator 和 REST 服务。
 # 示例 Session。
 kubectl apply -k deploy/kubernetes/session
 
-# 同一个 namespace 中的另一个 Session。
-bin/seatunnel-session.sh --session-name payments
+# 复制并改名后的另一个 Session。
+kubectl apply -k /tmp/payments-session
 
 kubectl -n seatunnel get pods -w
 ```
@@ -180,7 +181,7 @@ curl -X POST http://127.0.0.1:8080/submit-job \
 包含共享的 namespace 资源。
 
 ```bash
-SESSION_NAME=seatunnel-session-cluster  # 或 --session-name 的值
+SESSION_NAME=seatunnel-session-cluster  # 或复制后的 manifest 中使用的名称
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
 kubectl -n seatunnel delete configmap \
