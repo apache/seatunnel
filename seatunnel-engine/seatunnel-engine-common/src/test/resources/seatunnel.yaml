@@ -46,3 +46,4 @@ seatunnel:
              hocon-environment-variable-allowlist:
                - JOB_NAME
                - SOURCE_URL
+             log-response-max-size-mb: 32

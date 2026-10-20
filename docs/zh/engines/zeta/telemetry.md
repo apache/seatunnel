@@ -134,6 +134,8 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 ### 线程池状态
 
+以下指标仅由 active master 输出；采集 worker 节点的接口不会返回这些指标。
+
 | MetricName                          | Type    | Labels                                  | 描述                             |
 |-------------------------------------|---------|-----------------------------------------|--------------------------------|
 | job_thread_pool_activeCount         | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的活动线程数  |
@@ -146,6 +148,12 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | job_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的拒绝任务总数 |
 
 ### ReportMetricsOperation 指标
+
+指标快照写入和删除对同一个分桶最多尝试 10 次竞争更新。持续发生竞争时，操作会抛出
+`Failed to update metrics partition ... after 10 concurrent modifications`。Worker 上报失败会记录日志，
+并计入 `report_metrics_operation_total{result="failure"}`；任务上下文仍保留时，后续定时上报可以再次尝试。
+待处理 Pipeline 清理在指标删除失败时会保留清理记录。这个上限限制的是竞争重试次数，单次 Hazelcast
+调用的等待时间仍由其超时设置决定。指标格式和 checkpoint/savepoint 状态保持不变。
 
 | MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
 |---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
@@ -176,6 +184,8 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 
 ### 作业信息详细
 
+该指标仅由 active master 输出，且只能按状态统计聚合数量，不带按作业区分的标签，因此无法用于针对某个具体作业（按 ID 或名称）的告警，只能用于类似 `job_count{type="failed"}` 这种集群级别的总量告警。
+
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|
 | job_count  | Gauge | **type**，作业的类型，包括："canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | seatunnel 集群的所有作业计数 |
@@ -197,7 +207,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**，包括："Code Cache" "PS Eden Space" "PS Old Gen" "PS Survivor Space" "Compressed Class Space" "Metaspace" | 在给定 JVM 内存池中分配的总字节数。仅在垃圾收集后更新，而不是持续更新。 |
 | jvm_gc_collection_seconds_count            | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             
-| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“1.8.0_212-b10”    | VM 版本信息                                |
+| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“11.0.22+7”       | VM 版本信息                                |
 | process_cpu_seconds_total                  | Counter | -                                                                                                             | 用户和系统 CPU 时间总计，以秒为单位                   |
 | process_start_time_seconds                 | Gauge   | -                                                                                                             | 进程自 Unix 纪元以来的启动时间，以秒为单位               |
 | process_open_fds                           | Gauge   | -                                                                                                             | 打开的文件描述符数量                             |

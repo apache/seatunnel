@@ -44,6 +44,13 @@ public class CopyFieldMultiCatalogTransform extends AbstractMultiCatalogMapTrans
         return new CopyFieldTransform(CopyTransformConfig.of(config), inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(
+                config, CopyTransformConfig.FIELDS, CopyTransformConfig.SRC_FIELD);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

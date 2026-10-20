@@ -17,9 +17,17 @@
 
 package org.apache.seatunnel.core.starter.spark.command;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+
+import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigValidationUtils;
 
 import org.apache.spark.SparkFiles;
 
@@ -44,6 +52,16 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
         Path configPath =
                 SparkTaskExecuteCommand.resolveConfigPath(sparkCommandArgs, SparkFiles::get);
         checkConfigExist(configPath);
-        // TODO: validate the config by new api
+        Config config =
+                MetalakeConfigUtils.getMetalakeConfig(
+                        ConfigBuilder.of(configPath, sparkCommandArgs.getVariables()));
+        if (!sparkCommandArgs.getJobName().equals(Constants.LOGO)) {
+            config =
+                    config.withValue(
+                            ConfigUtil.joinPath("env", "job.name"),
+                            ConfigValueFactory.fromAnyRef(sparkCommandArgs.getJobName()));
+        }
+        ConfigValidationUtils.validate(config);
+        log.info("Config validation succeeded: {}", configPath);
     }
 }

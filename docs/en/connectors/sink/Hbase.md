@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Writes SeaTunnel rows to Apache HBase. The sink can create or reuse target tables, write one or
@@ -33,6 +39,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 | schema_save_mode         | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing. |
 | data_save_mode           | enum    | no       | APPEND_DATA                  | How to handle existing data before writing. |
 | hbase_extra_config       | config  | no       | -                            | Extra HBase or Hadoop client configuration. |
+| ttl                      | long    | no       | -1                           | Expiration time in milliseconds for written HBase cells; `-1` means cells never expire. |
 | multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. |
 | common-options           |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`. |
 
@@ -144,16 +151,21 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 ### Write One Table
 
 ```hocon
-
-Hbase {
-  zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
-  table = "seatunnel_test"
-  rowkey_column = ["name"]
-  family_name {
-    all_columns = seatunnel
-  }
+env {
+  parallelism = 1
+  job.mode = "BATCH"
 }
 
+sink {
+  Hbase {
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "seatunnel_test"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = "seatunnel"
+    }
+  }
+}
 ```
 
 ### Create Table When It Does Not Exist
@@ -169,6 +181,26 @@ sink {
     }
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### Recreate the Target Table Before Writing
+
+Use `schema_save_mode = "RECREATE_SCHEMA"` when the job is allowed to drop and re-create the
+target table on every run. Combine it with `data_save_mode = "DROP_DATA"` to wipe any previous
+rows, or keep `APPEND_DATA` if you only want the table structure refreshed.
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_recreate_schema"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "RECREATE_SCHEMA"
   }
 }
 ```
@@ -215,49 +247,49 @@ env {
 source {
   FakeSource {
     tables_configs = [
-       {
+      {
         schema = {
           table = "hbase_sink_1"
-         fields {
-                    name = STRING
-                    c_string = STRING
-                    c_double = DOUBLE
-                    c_bigint = BIGINT
-                    c_float = FLOAT
-                    c_int = INT
-                    c_smallint = SMALLINT
-                    c_boolean = BOOLEAN
-                    time = BIGINT
-           }
+          fields {
+            name = STRING
+            c_string = STRING
+            c_double = DOUBLE
+            c_bigint = BIGINT
+            c_float = FLOAT
+            c_int = INT
+            c_smallint = SMALLINT
+            c_boolean = BOOLEAN
+            time = BIGINT
+          }
         }
-            rows = [
-              {
-                kind = INSERT
-                fields = ["label_1", "sink_1", 4.3, 200, 2.5, 2, 5, true, 1627529632356]
-              }
-              ]
-       },
-       {
-       schema = {
-         table = "hbase_sink_2"
-              fields {
-                    name = STRING
-                    c_string = STRING
-                    c_double = DOUBLE
-                    c_bigint = BIGINT
-                    c_float = FLOAT
-                    c_int = INT
-                    c_smallint = SMALLINT
-                    c_boolean = BOOLEAN
-                    time = BIGINT
-              }
-       }
-           rows = [
-             {
-               kind = INSERT
-               fields = ["label_2", "sink_2", 4.3, 200, 2.5, 2, 5, true, 1627529632357]
-             }
-             ]
+        rows = [
+          {
+            kind = INSERT
+            fields = ["label_1", "sink_1", 4.3, 200, 2.5, 2, 5, true, 1627529632356]
+          }
+        ]
+      },
+      {
+        schema = {
+          table = "hbase_sink_2"
+          fields {
+            name = STRING
+            c_string = STRING
+            c_double = DOUBLE
+            c_bigint = BIGINT
+            c_float = FLOAT
+            c_int = INT
+            c_smallint = SMALLINT
+            c_boolean = BOOLEAN
+            time = BIGINT
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = ["label_2", "sink_2", 4.3, 200, 2.5, 2, 5, true, 1627529632357]
+          }
+        ]
       }
     ]
   }
@@ -269,7 +301,7 @@ sink {
     table = "${table_name}"
     rowkey_column = ["name"]
     family_name {
-      all_columns = info
+      all_columns = "info"
     }
   }
 }

@@ -32,6 +32,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | table_list                 | array  | 否      | -                            |
 | schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode             | enum   | 否      | APPEND_DATA                  |
+| multi_table_sink_replica   | int    | 否      | 1                            |
 | common-options             | config | 否      | -                            |
 
 表清单配置:
@@ -56,7 +57,9 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | record_byte_size           | int    | 否       | 1024          |
 | cdc_enabled                | boolean| 否       | false         |
 
-注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。
+注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
+
+`record_key_fields` 在 `UPSERT` 模式下必填（启动时校验），在 `BULK_INSERT` 模式下也必填（当前未校验——缺少该配置会在写入时抛出 `NullPointerException`，而不是配置期错误）。对于 CDC 输入，上游记录必须包含 `record_key_fields` 引用的字段；仅当需要 Hudi CDC 变更日志时才设置 `cdc_enabled = true`。
 
 ### table_name [string]
 
@@ -108,7 +111,8 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` 两次刷新到 Hudi 的最大时间间隔，单位为毫秒。
+`batch_interval_ms` 为兼容性保留。在 Zeta 上需要定时刷新时，请在作业 `env` 中配置
+`sink.flush.interval`。
 
 ### batch_size [Int]
 
@@ -153,6 +157,22 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 ### 通用选项
 
 Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
+
+## 定时刷新
+
+定时刷新是仅由 Zeta 支持的引擎级能力。在作业的 `env` 中配置 `sink.flush.interval` 后，即使尚未达到
+`batch_size`，Hudi Sink 也会写出待处理的记录。Spark 和 Flink 不会注入 `FlushSignal`，因此不会触发这种
+定时刷新。
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+Hudi 定时刷新复用连接器现有的同步批量刷新和 Hudi 客户端 auto-commit 行为。Hudi Sink 没有 2PC 精确一次
+写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 时，自动生成的
+record key 还可能在恢复后产生重复行；使用具有稳定 `record_key_fields` 的 `UPSERT` 可以减少逻辑记录重复。
 
 ## 示例
 
@@ -253,6 +273,22 @@ sink {
     op_type = "UPSERT"
     record_key_fields = "id"
     cdc_enabled = true
+  }
+}
+```
+
+### S3 存储
+
+sink 可以写入 S3 兼容路径。`connector-hudi` 模块不依赖 `hadoop-aws`/`aws-java-sdk`，因此要解析 `s3a://` 协议，需要先将 `hadoop-aws` 和匹配的 AWS SDK 包（或 SeaTunnel 的 `seatunnel-hadoop-aws` jar）放入 `$SEATUNNEL_HOME/lib`（或连接器的插件 lib 目录），下面的示例才能运行。之后通过 `conf_files_path`（或运行时 classpath）提供所需的 Hadoop 文件系统配置，再使用 `s3a://` 表路径。
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "s3a://hudi/"
+    conf_files_path = "/etc/hadoop/core-site.xml;/etc/hadoop/hdfs-site.xml"
+    table_name = "st_test"
+    op_type = "UPSERT"
+    record_key_fields = "id"
   }
 }
 ```
