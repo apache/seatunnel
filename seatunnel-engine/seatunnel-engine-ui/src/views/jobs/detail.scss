@@ -15,11 +15,163 @@
  * limitations under the License.
  */
 
- .n-data-table .n-data-table-tr.focused-row {
+.job-detail-page {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: calc(100dvh - 101px);
+  container-type: inline-size;
+  padding: clamp(16px, 1.667vw, 32px) clamp(16px, 3.333vw, 80px) clamp(24px, 3.333vw, 64px);
+}
+
+.job-detail-title,
+.job-detail-meta,
+.job-detail-meta-item,
+.live-metrics-header {
+  display: flex;
+  align-items: center;
+}
+
+.job-detail-title {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.job-detail-meta {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.job-detail-meta-item {
+  flex: 0 0 auto;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.job-detail-meta-divider {
+  margin: 0;
+}
+
+.live-metrics-header {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.job-detail-overview {
+  display: grid;
+  height: max(576px, calc(90dvh - 225px));
+  min-height: 0;
+  gap: 8px;
+}
+
+.job-detail-overview.has-pinned-metrics {
+  grid-template-rows: minmax(220px, 4fr) minmax(180px, 3fr) minmax(140px, 3fr);
+}
+
+.job-detail-overview.has-no-pinned-metrics {
+  grid-template-rows: minmax(220px, 5fr) minmax(72px, 1fr) minmax(140px, 4fr);
+}
+
+.job-detail-overview .dag-wrapper {
+  height: 100%;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.job-detail-pinned-metrics {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.job-detail-pinned-metrics .live-metrics-board,
+.job-detail-pinned-metrics .live-metrics-group {
+  min-height: 0;
+}
+
+.job-detail-pinned-metrics .live-metrics-board,
+.job-detail-pinned-metrics .live-metrics-board-empty {
+  flex: 1;
+}
+
+.job-detail-pinned-metrics .live-metrics-board-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.job-detail-pinned-metrics .live-metrics-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.job-detail-pinned-metrics .live-metrics-chart-container {
+  min-height: 0;
+  flex: 1;
+}
+
+.job-detail-table {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.n-data-table .n-data-table-tr.focused-row {
   &,
   &:hover {
     td.n-data-table-td {
       background-color: #e6f7ff;
     }
   }
- }
+}
+
+@container (max-width: 720px) {
+  .job-detail-overview {
+    display: block;
+    height: auto;
+  }
+
+  .job-detail-overview .dag-wrapper {
+    height: 220px;
+    margin-bottom: 8px;
+  }
+
+  .job-detail-pinned-metrics {
+    min-height: 180px;
+    margin-bottom: 8px;
+  }
+
+  .job-detail-pinned-metrics .live-metrics-chart {
+    height: 140px !important;
+    min-height: 140px !important;
+  }
+
+  .job-detail-pinned-metrics .live-metrics-board-single {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .job-detail-table {
+    height: auto;
+    overflow: visible;
+  }
+
+  .job-detail-meta {
+    align-items: flex-start;
+  }
+
+  .job-detail-meta-divider {
+    display: none;
+  }
+
+  .live-metrics-header > :last-child {
+    flex-basis: 100%;
+  }
+
+  .job-detail-drawer {
+    width: 92% !important;
+  }
+}

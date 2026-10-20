@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorException;
@@ -62,10 +63,12 @@ public class DatabendSinkAggregatedCommitter
     private volatile boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
+    private SeaTunnelRowType runtimeRowType;
 
     // Add a setter for catalogTable
     public void setCatalogTable(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
+        this.runtimeRowType = catalogTable == null ? null : catalogTable.getSeaTunnelRowType();
     }
 
     public DatabendSinkAggregatedCommitter(
@@ -172,8 +175,12 @@ public class DatabendSinkAggregatedCommitter
         sql.append("USING (SELECT ");
 
         // Add all columns from raw_data
-        if (catalogTable != null && catalogTable.getSeaTunnelRowType() != null) {
-            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        SeaTunnelRowType rowType =
+                runtimeRowType != null
+                        ? runtimeRowType
+                        : catalogTable == null ? null : catalogTable.getSeaTunnelRowType();
+        if (rowType != null) {
+            String[] fieldNames = rowType.getFieldNames();
             for (int i = 0; i < fieldNames.length; i++) {
                 if (i > 0) {
                     sql.append(", ");
@@ -214,6 +221,13 @@ public class DatabendSinkAggregatedCommitter
 
     @Override
     public DatabendSinkAggregatedCommitInfo combine(List<DatabendSinkCommitterInfo> commitInfos) {
+        if (commitInfos != null) {
+            commitInfos.stream()
+                    .map(DatabendSinkCommitterInfo::getRuntimeRowType)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce((left, right) -> right)
+                    .ifPresent(rowType -> this.runtimeRowType = rowType);
+        }
         // Just combine all commit infos into one aggregated commit info
         // In the new approach, rawTableName and streamName are not needed here
         return new DatabendSinkAggregatedCommitInfo(commitInfos, null, null);

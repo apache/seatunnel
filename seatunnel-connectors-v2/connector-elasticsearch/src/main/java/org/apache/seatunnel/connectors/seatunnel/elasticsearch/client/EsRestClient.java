@@ -345,6 +345,48 @@ public class EsRestClient implements Closeable {
         }
     }
 
+    /**
+     * Close SQL cursor to release server-side resources.
+     *
+     * @param cursor The SQL cursor to close
+     * @return True if the cursor was successfully closed
+     */
+    public boolean closeSqlCursor(String cursor) {
+        if (StringUtils.isEmpty(cursor)) {
+            log.debug("SQL cursor is empty; skip closing.");
+            return false;
+        }
+
+        String endpoint = "/_sql/close";
+        Request request = new Request("POST", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("cursor", cursor);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                log.warn("POST {} response null for cursor: {}", endpoint, cursor);
+                return false;
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("succeeded").asBoolean();
+            } else {
+                log.warn(
+                        "POST {} response status code={} for cursor: {}",
+                        endpoint,
+                        response.getStatusLine().getStatusCode(),
+                        cursor);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to close SQL cursor: {}", cursor, ex);
+            return false;
+        }
+    }
+
     private ScrollResult getDocsFromSqlResult(
             String endpoint, String requestBody, JsonNode columnNodes) {
         Request request = new Request("POST", endpoint);
@@ -1110,7 +1152,7 @@ public class EsRestClient implements Closeable {
         String updatedPitId = rootNode.has("pit_id") ? rootNode.get("pit_id").asText() : pitId;
 
         // Determine if there are more results
-        boolean hasMore = docs.size() > 0 && totalHits > 0 && docs.size() < totalHits;
+        boolean hasMore = !docs.isEmpty();
 
         return new PointInTimeResult(updatedPitId, docs, totalHits, searchAfter, hasMore);
     }

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.parser;
 
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
@@ -40,7 +40,7 @@ public class CustomOracleAntlrDdlParserListener extends BaseParserListener
     private final Collection<ParsingException> errors = new ArrayList<>();
 
     public CustomOracleAntlrDdlParserListener(
-            CustomOracleAntlrDdlParser parser, LinkedList<AlterTableColumnEvent> parsedEvents) {
+            CustomOracleAntlrDdlParser parser, LinkedList<AlterTableEvent> parsedEvents) {
         // Currently only DDL statements that modify the table structure are supported, so add
         // custom listeners to handle these events.
         listeners.add(new CustomAlterTableParserListener(parser, listeners, parsedEvents));

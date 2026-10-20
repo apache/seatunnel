@@ -32,8 +32,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.Path;
 
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 /** Used to read file to binary stream */
@@ -51,6 +54,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
     private boolean completeFileMode =
             FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
+    private transient String lastReadFingerprint;
 
     @Override
     public void init(HadoopConf conf) {
@@ -90,7 +94,10 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
-        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+        MessageDigest digest = createSha256Digest();
+        lastReadFingerprint = null;
+        try (InputStream inputStream =
+                new DigestTrackingInputStream(hadoopFileSystemProxy.getInputStream(path), digest)) {
             String relativePath = resolveBinaryRelativePath(path);
 
             if (completeFileMode) {
@@ -106,7 +113,13 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             endRow.setTableId(tableId);
             MetadataUtil.setBinaryRowComplete(endRow);
             output.collect(endRow);
+            lastReadFingerprint = sha256Hex(digest.digest());
         }
+    }
+
+    @Override
+    public String getLastReadFingerprint() {
+        return lastReadFingerprint;
     }
 
     private String resolveBinaryRelativePath(String filePath) {
@@ -166,5 +179,51 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
         return binaryRowType;
+    }
+
+    private static MessageDigest createSha256Digest() throws IOException {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is not supported by this JVM", e);
+        }
+    }
+
+    private static String sha256Hex(byte[] bytes) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int current = bytes[i] & 0xff;
+            encoded[i * 2] = digits[current >>> 4];
+            encoded[i * 2 + 1] = digits[current & 0x0f];
+        }
+        return new String(encoded);
+    }
+
+    private static final class DigestTrackingInputStream extends FilterInputStream {
+        private final MessageDigest digest;
+
+        private DigestTrackingInputStream(InputStream in, MessageDigest digest) {
+            super(in);
+            this.digest = digest;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int result = super.read();
+            if (result >= 0) {
+                digest.update((byte) result);
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int read = super.read(b, off, len);
+            if (read > 0) {
+                digest.update(b, off, read);
+            }
+            return read;
+        }
     }
 }

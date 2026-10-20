@@ -29,13 +29,15 @@ For each non-empty row, Console prints the subtask index, row index, table id, r
 
 Console can receive rows from multiple upstream tables and can apply schema change events for display. Because it writes to logs, it does not provide exactly-once delivery or CDC writes to an external system.
 
+> The Console sink always enables schema-evolution handling (`ADD_COLUMN`, `DROP_COLUMN`, `RENAME_COLUMN`, `UPDATE_COLUMN`) so changes to the upstream schema are reflected in the printed row types.
+
 ## Options
 
 | Name                     | Type    | Required | Default | Description                                                                                                  |
 |--------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------|
 | common-options           |         | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md) for details. |
 | log.print.data           | boolean | No       | true    | Whether to print row data to the task log. Set it to `false` when you only want to keep the sink in the job graph without printing every row. |
-| log.print.delay.ms       | int     | No       | 0       | Delay in milliseconds after each row is processed. It can slow down printing during debugging.                |
+| log.print.delay.ms       | int     | No       | 0       | Non-negative delay in milliseconds after each row is processed. It can slow down printing during debugging.   |
 | multi_table_sink_replica | int     | No       | 1       | Writer replica count for each table in a multi-table sink job.                                                |
 
 ## Output Format

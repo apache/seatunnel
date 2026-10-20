@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.doris.sink.writer;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisSchemaChangeException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
@@ -36,6 +38,7 @@ import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import java.util.ArrayList;
@@ -59,6 +62,69 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class DorisSinkWriterTest {
+
+    @Test
+    void testTimerFlushRegisteredAndReopensLoadForNonTwoPhaseCommit() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        when(frontendLoad.stopLoad()).thenReturn(successRespContent(1L));
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+
+        DorisSinkWriter writer = null;
+        try {
+            writer =
+                    new DorisSinkWriter(
+                            context,
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, false),
+                            "job_1",
+                            factory);
+
+            ArgumentCaptor<RunnableWithException> flushAction =
+                    ArgumentCaptor.forClass(RunnableWithException.class);
+            verify(context).registerFlushAction(flushAction.capture());
+
+            flushAction.getValue().run();
+
+            verify(frontendLoad, times(1)).stopLoad();
+            verify(frontendLoad, times(2)).startLoad(anyString());
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
+
+    @Test
+    void testTimerFlushNotRegisteredForTwoPhaseCommit() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        doNothing().when(frontendLoad).abortPreCommit(anyString(), anyLong());
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+
+        DorisSinkWriter writer = null;
+        try {
+            writer =
+                    new DorisSinkWriter(
+                            context,
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true),
+                            "job_1",
+                            factory);
+
+            verify(context, never()).registerFlushAction(any());
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
 
     @Test
     void testInitializeLoadUsesFrontendWhenDirectToBeDisabled() throws Exception {
