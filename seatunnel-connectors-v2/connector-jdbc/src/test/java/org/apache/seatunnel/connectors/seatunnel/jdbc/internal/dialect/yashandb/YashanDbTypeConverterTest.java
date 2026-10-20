@@ -257,6 +257,62 @@ public class YashanDbTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(200L, column.getColumnLength());
+
+        // VARCHAR2 is an alias of VARCHAR and must behave identically.
+        // YashanDbCatalog always feeds BasicTypeDefine#length from cols.data_length, which is a
+        // byte count, so a declared VARCHAR2(200) arrives as length=200 -> 200 * 4.
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VARCHAR2(200)")
+                        .dataType("VARCHAR2")
+                        .length(200L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(800L, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        // NVARCHAR2 is an alias of NVARCHAR and must behave identically.
+        // A declared NVARCHAR2(100) holds 100 characters at 2 bytes each, so data_length is 200
+        // and the double-byte rule yields 200 * 2 = 400, i.e. 100 characters at 4 bytes.
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("NVARCHAR2(100)")
+                        .dataType("NVARCHAR2")
+                        .length(200L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        // VARCHAR2(100) -> STRING with columnLength = 100 * 4 (byte-length semantics, same as
+        // VARCHAR)
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VARCHAR2(100)")
+                        .dataType("VARCHAR2")
+                        .length(100L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+
+        // NVARCHAR2(100) -> STRING with columnLength = 100 * 2 (char-length semantics, same as
+        // NVARCHAR)
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("NVARCHAR2(100)")
+                        .dataType("NVARCHAR2")
+                        .length(100L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(200L, column.getColumnLength());
     }
 
     @Test
@@ -457,6 +513,18 @@ public class YashanDbTypeConverterTest {
                         .length(3L)
                         .build();
         Column column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals(3, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VECTOR(3,FLOAT64)")
+                        .dataType("VECTOR")
+                        .scale(3)
+                        .length(3L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
         Assertions.assertEquals(3, column.getScale());
     }
@@ -733,7 +801,7 @@ public class YashanDbTypeConverterTest {
 
     @Test
     public void testReconvertArrayToVector() {
-        // ARRAY<INT> -> VECTOR
+        // ARRAY<INT> -> VECTOR FLOAT32
         Column column =
                 PhysicalColumn.builder()
                         .name("test")
@@ -742,7 +810,19 @@ public class YashanDbTypeConverterTest {
                         .nullable(true)
                         .build();
         BasicTypeDefine<?> typeDefine = INSTANCE.reconvert(column);
-        Assertions.assertEquals("VECTOR(10)", typeDefine.getColumnType());
+        Assertions.assertEquals("VECTOR(10,FLOAT32)", typeDefine.getColumnType());
+        Assertions.assertEquals("VECTOR", typeDefine.getDataType());
+
+        // ARRAY<DOUBLE> -> VECTOR FLOAT64
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(ArrayType.DOUBLE_ARRAY_TYPE)
+                        .columnLength(10L)
+                        .nullable(true)
+                        .build();
+        typeDefine = INSTANCE.reconvert(column);
+        Assertions.assertEquals("VECTOR(10,FLOAT64)", typeDefine.getColumnType());
         Assertions.assertEquals("VECTOR", typeDefine.getDataType());
 
         // ARRAY<STRING> -> unsupported

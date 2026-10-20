@@ -29,13 +29,15 @@ import ChangeLog from '../changelog/connector-console.md';
 
 Console 可以接收多个上游表的数据，也可以处理 Schema 变更事件并用于日志展示。由于它写入的是日志，不向外部系统持久化数据，因此不提供精确一次写入语义，也不属于真正的 CDC 写入目标。
 
+> Console sink 默认启用 schema 演进处理（`ADD_COLUMN`、`DROP_COLUMN`、`RENAME_COLUMN`、`UPDATE_COLUMN`），上游 schema 的变化会反映在打印出的行类型中。
+
 ## 接收器选项
 
 | 名称                       | 类型      | 是否必须 | 默认值  | 描述                                                                 |
 |--------------------------|---------|------|------|--------------------------------------------------------------------|
 | common-options           |         | 否    | -    | Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | log.print.data           | boolean | 否    | true | 是否将行数据打印到任务日志。如果只想保留 Console 节点但不打印每行数据，可以设置为 `false`。       |
-| log.print.delay.ms       | int     | 否    | 0    | 每处理一行后的等待时间，单位为毫秒。调试时可以用它放慢打印速度。                              |
+| log.print.delay.ms       | int     | 否    | 0    | 每处理一行后的非负等待时间，单位为毫秒。调试时可以用它放慢打印速度。                           |
 | multi_table_sink_replica | int     | 否    | 1    | 多表写入时每张表对应的 Sink Writer 副本数。                                  |
 
 ## 输出格式

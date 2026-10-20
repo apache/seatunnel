@@ -65,6 +65,13 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
     private volatile BigtableSourceSplit currentSplit = null;
 
     /**
+     * Guards compound reader-state transitions so a concurrent {@link #snapshotState(long)} never
+     * observes a half-updated view of {@code pendingSplits} and {@code currentSplit}. The actual
+     * {@code readRows} network scan is intentionally kept outside this lock.
+     */
+    private final Object stateLock = new Object();
+
+    /**
      * Set of field names that map to the Bigtable row key. Populated from {@code rowkey_column}
      * config; falls back to the literal field name {@value ROW_KEY_FIELD} when not configured.
      */
@@ -109,13 +116,23 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        final BigtableSourceSplit split = pendingSplits.poll();
+        final BigtableSourceSplit split;
+        synchronized (stateLock) {
+            // Poll and assign currentSplit atomically so a concurrent snapshotState() always sees a
+            // consistent (pendingSplits, currentSplit) pair, and the in-flight split can be
+            // re-enqueued on restore.
+            split = pendingSplits.poll();
+            if (Objects.nonNull(split)) {
+                currentSplit = split;
+            }
+        }
         if (Objects.nonNull(split)) {
-            // Assign currentSplit before reading so checkpoints taken during readSplit()
-            // include it and can re-enqueue it on restore.
-            currentSplit = split;
+            // The network scan runs outside stateLock; only output.collect() takes the checkpoint
+            // lock inside readSplit().
             readSplit(split, output);
-            currentSplit = null;
+            synchronized (stateLock) {
+                currentSplit = null;
+            }
         } else if (noMoreSplits && pendingSplits.isEmpty()) {
             log.info("Closed the bounded Bigtable source");
             context.signalNoMoreElement();
@@ -234,18 +251,22 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
 
     @Override
     public List<BigtableSourceSplit> snapshotState(long checkpointId) {
-        List<BigtableSourceSplit> state = new ArrayList<>();
-        // Include the split currently being read so it can be re-enqueued on restore.
-        if (currentSplit != null) {
-            state.add(currentSplit);
+        synchronized (stateLock) {
+            List<BigtableSourceSplit> state = new ArrayList<>();
+            // Include the split currently being read so it can be re-enqueued on restore.
+            if (currentSplit != null) {
+                state.add(currentSplit);
+            }
+            state.addAll(pendingSplits);
+            return state;
         }
-        state.addAll(pendingSplits);
-        return state;
     }
 
     @Override
     public void addSplits(List<BigtableSourceSplit> splits) {
-        pendingSplits.addAll(splits);
+        synchronized (stateLock) {
+            pendingSplits.addAll(splits);
+        }
     }
 
     @Override

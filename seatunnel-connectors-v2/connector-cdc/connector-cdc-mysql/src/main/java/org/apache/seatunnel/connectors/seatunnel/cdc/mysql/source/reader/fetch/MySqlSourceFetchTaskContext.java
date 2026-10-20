@@ -301,7 +301,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private Offset getInitOffset(SourceSplitBase mySqlSplit) {
         StartupMode startupMode = getSourceConfig().getStartupConfig().getStartupMode();
-        if (startupMode.equals(StartupMode.TIMESTAMP)) {
+        Offset splitStartupOffset = mySqlSplit.asIncrementalSplit().getStartupOffset();
+        if (shouldResolveTimestampStartupOffset(startupMode, splitStartupOffset)) {
             long timestamp = getSourceConfig().getStartupConfig().getTimestamp();
             try (JdbcConnection jdbcConnection =
                     getDataSourceDialect().openJdbcConnection(getSourceConfig())) {
@@ -310,8 +311,15 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 throw new SeaTunnelException(e);
             }
         } else {
-            return mySqlSplit.asIncrementalSplit().getStartupOffset();
+            return splitStartupOffset;
         }
+    }
+
+    static boolean shouldResolveTimestampStartupOffset(
+            StartupMode startupMode, Offset startupOffset) {
+        return startupMode.equals(StartupMode.TIMESTAMP)
+                && startupOffset instanceof BinlogOffset
+                && ((BinlogOffset) startupOffset).isTimestampOffset();
     }
 
     private boolean isBinlogAvailable(MySqlOffsetContext offset) {

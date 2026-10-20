@@ -107,6 +107,10 @@ public class EngineConfig {
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
 
+    private int healthMetricsTimeoutSeconds =
+            ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                    .defaultValue();
+
     /**
      * Stain trace sampling and persistence knobs used by source, transform, sink, and reporters.
      */
@@ -158,6 +162,14 @@ public class EngineConfig {
         this.printJobMetricsInfoInterval = printJobMetricsInfoInterval;
     }
 
+    public void setHealthMetricsTimeoutSeconds(int healthMetricsTimeoutSeconds) {
+        checkPositive(
+                healthMetricsTimeoutSeconds,
+                ServerConfigOptions.MasterServerConfigOptions.HEALTH_METRICS_TIMEOUT_SECONDS
+                        + " must be > 0");
+        this.healthMetricsTimeoutSeconds = healthMetricsTimeoutSeconds;
+    }
+
     public void setJobMetricsBackupInterval(int jobMetricsBackupInterval) {
         checkPositive(
                 jobMetricsBackupInterval,
@@ -169,7 +181,7 @@ public class EngineConfig {
     public void setJobMetricsPartitionCount(int jobMetricsPartitionCount) {
         checkPositive(
                 jobMetricsPartitionCount,
-                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT.key()
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }

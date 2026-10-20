@@ -30,6 +30,24 @@ public class ReturnRetryTimesOperation extends Operation
 
     private static final AtomicInteger retryTimes = new AtomicInteger(0);
 
+    /**
+     * Reset the static retry counter before starting a new retry-focused test.
+     *
+     * <p>The operation is reused across Hazelcast retries in the same test JVM.
+     */
+    public static void resetRetryTimes() {
+        retryTimes.set(0);
+    }
+
+    /**
+     * Return the number of operation attempts observed by the current test.
+     *
+     * <p>The terminal assertion uses this value to verify retry exhaustion.
+     */
+    public static int getRetryTimes() {
+        return retryTimes.get();
+    }
+
     @Override
     public void run() {
         retryTimes.getAndIncrement();

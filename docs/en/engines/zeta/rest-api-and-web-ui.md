@@ -2,37 +2,31 @@
 sidebar_position: 1
 ---
 
-# REST API And Web UI
+# REST API and Web UI
 
-SeaTunnel Engine exposes two operational interfaces on top of the same HTTP service:
+SeaTunnel Engine provides REST API and Web UI as the primary interfaces for remote operations and visual monitoring. This page explains how the two interfaces relate, how to enable the shared HTTP service, and where to find detailed reference pages.
 
-- a **REST API** for programmatic integration, automation, and inspection
-- a **Web UI** for visual monitoring of jobs, workers, and master status
+## Which Page Should I Read?
 
-This page is the entry point for operators. Use it to understand when to enable HTTP access, how the REST API and Web UI relate to each other, and where to find the detailed references.
+| Need | Go to |
+|------|-------|
+| Enable the HTTP service, choose a port, or use `context-path` | This page, then [RESTful API V2](./rest-api-v2.md) |
+| Build automation, scripts, an operations portal, or a platform integration | [RESTful API V2](./rest-api-v2.md) |
+| Submit, stop, cancel, savepoint, or restore jobs through HTTP | [Job Lifecycle API](./rest-api-job-lifecycle.md) |
+| Visually inspect cluster health, jobs, DAG metrics, and logs | [Web UI](./web-ui.md) |
+| Configure HTTPS or HTTP Basic authentication | [Security](./security.md) |
+| Maintain an old Hazelcast REST client | [RESTful API V1](./rest-api-v1.md) |
 
-## When To Use This Page
+## How REST API and Web UI Fit Together
 
-Read this page if you need to:
+REST API and Web UI are not separate services. Both depend on the same SeaTunnel Engine HTTP capability:
 
-- monitor running and finished jobs without using the CLI
-- integrate SeaTunnel Engine with an external platform or internal tooling
-- expose connector metadata to a UI or automation workflow
-- secure operational endpoints with basic authentication or HTTPS
+- **REST API** is the complete HTTP interface for automation and integration. It covers metadata discovery, job submission, job status, job lifecycle operations, logs, checkpoints, worker information, and realtime metrics.
+- **Web UI** is the built-in visual console. It is optimized for human inspection of overview data, running and finished jobs, job details, DAG metrics, logs, worker status, and master status.
 
-## How The Two Interfaces Fit Together
+Use the Web UI when you need a quick operational view. Use REST API or the command line when you need lifecycle control such as job submission, stop, cancel, savepoint, restore, or batch automation.
 
-The REST API and Web UI are not separate products. They are two interfaces built on the same HTTP capability of SeaTunnel Engine:
-
-- the REST API is designed for scripts, automation, and system integration
-- the Web UI is designed for visual inspection and day-to-day operations
-
-In practice, many production environments use both:
-
-- external systems call REST endpoints
-- operators troubleshoot and observe jobs through the Web UI
-
-## Enable HTTP Access
+## Enable the HTTP Service
 
 Before using either interface, enable the HTTP service in `seatunnel.yaml`:
 
@@ -42,11 +36,9 @@ seatunnel:
     http:
       enable-http: true
       port: 8080
-      enable-dynamic-port: true
-      port-range: 100
 ```
 
-Optional settings you may care about early:
+Optional settings commonly used in production:
 
 - `context-path`: prefix all HTTP endpoints under a custom path
 - `enable-dynamic-port`: scan for an available port when the configured one is occupied
@@ -55,7 +47,7 @@ Optional settings you may care about early:
 
 For the full REST parameter details, see [RESTful API V2](./rest-api-v2.md). For HTTPS and authentication, see [Security](./security.md).
 
-## Access The Web UI
+## Access the Web UI
 
 Once HTTP is enabled, open:
 
@@ -63,15 +55,25 @@ Once HTTP is enabled, open:
 http://<host>:<port>/#/overview
 ```
 
-The Web UI helps you inspect:
+If `context-path` is configured, put the UI route under that prefix:
 
-- cluster overview
-- running jobs
-- finished jobs
-- worker health and resource usage
-- master status
+```text
+http://<host>:<port>/<context-path>/#/overview
+```
 
-See the detailed walkthrough in [Web UI](./web-ui.md).
+## Current Web UI Capabilities
+
+The current Web UI is an inspection console. It provides:
+
+| Area | What you can do |
+|------|-----------------|
+| Overview | View project version, cluster slots, worker count, and job counts |
+| Jobs | Browse running and finished jobs with pagination and open a job detail page |
+| Job Detail | Inspect job configuration, DAG, source and sink metrics, job logs, and realtime observability data when enabled |
+| Workers | View worker-node system monitoring information |
+| Master | View master-node system monitoring information |
+
+See the screen-level walkthrough in [Web UI](./web-ui.md).
 
 ## Common REST API Scenarios
 
@@ -85,6 +87,7 @@ The REST API is commonly used for:
 The most commonly referenced pages are:
 
 - [RESTful API V2](./rest-api-v2.md)
+- [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [RESTful API V1](./rest-api-v1.md)
 
 If you are building new integrations, prefer **V2** unless you have to maintain compatibility with an older client.
@@ -101,17 +104,23 @@ If you are building new integrations, prefer **V2** unless you have to maintain 
 - query overview and running jobs endpoints
 - confirm that the service is reachable from your operational environment
 
-### 3. Open the Web UI
+### 3. Open Web UI
 
 - use the UI to verify cluster health and inspect job details
 
-### 4. Lock down production access
+### 4. Use REST API for operational control
+
+- submit, stop, cancel, savepoint, and restore jobs through the lifecycle API when automation is required
+- use the Web UI as the visual inspection layer during or after those operations
+
+### 5. Lock down production access
 
 - enable HTTPS and authentication when exposing the endpoints beyond a trusted internal network
 
 ## Related Pages
 
 - [RESTful API V2](./rest-api-v2.md)
+- [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [RESTful API V1](./rest-api-v1.md)
 - [Security](./security.md)
 - [Web UI](./web-ui.md)
