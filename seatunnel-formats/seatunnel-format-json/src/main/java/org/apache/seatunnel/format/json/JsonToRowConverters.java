@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -450,7 +451,15 @@ public class JsonToRowConverters implements Serializable {
                                 && defaultValues != null
                                 && i < defaultValues.length
                                 && defaultValues[i] != null) {
-                            convertedField = defaultValues[i];
+                            // The catalog default is a literal (usually a String from the DDL),
+                            // so run it through the same field converter instead of storing the
+                            // raw object: an INT column must end up with an Integer, a DECIMAL
+                            // column with a BigDecimal, and so on.
+                            convertedField =
+                                    convertField(
+                                            fieldConverters[i],
+                                            fieldName,
+                                            TextNode.valueOf(String.valueOf(defaultValues[i])));
                         }
                         row.setField(i, convertedField);
                     } catch (Throwable t) {

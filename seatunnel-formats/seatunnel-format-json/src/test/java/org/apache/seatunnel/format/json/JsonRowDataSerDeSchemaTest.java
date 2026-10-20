@@ -26,6 +26,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -53,6 +57,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalQueries;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
@@ -905,5 +910,55 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(
                 LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
                 fractionalPrecisionRow.getField(0));
+    }
+
+    /**
+     * Regression for #11632: a catalog column default must be applied through the field converter
+     * when the JSON field is missing or null, so the row carries the typed value (Integer,
+     * BigDecimal, String) and not the raw DDL literal; an explicit value still wins.
+     */
+    @Test
+    public void testCatalogColumnDefaultsAreTypedWhenFieldMissingOrNull() throws IOException {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
+                        .column(PhysicalColumn.of("qty", BasicType.INT_TYPE, 0, true, "7", null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "price", new DecimalType(10, 2), 0, true, "1.50", null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "note", BasicType.STRING_TYPE, 0, true, "n/a", null))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("json", "db", "t"),
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow missing =
+                deserializationSchema.deserialize("{\"id\":1}".getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals(Integer.valueOf(7), missing.getField(1));
+        Assertions.assertEquals(new BigDecimal("1.50"), missing.getField(2));
+        Assertions.assertEquals("n/a", missing.getField(3));
+
+        SeaTunnelRow explicitNull =
+                deserializationSchema.deserialize(
+                        "{\"id\":2,\"qty\":null,\"price\":null,\"note\":null}"
+                                .getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals(Integer.valueOf(7), explicitNull.getField(1));
+        Assertions.assertEquals(new BigDecimal("1.50"), explicitNull.getField(2));
+
+        SeaTunnelRow present =
+                deserializationSchema.deserialize(
+                        "{\"id\":3,\"qty\":9,\"price\":2.25,\"note\":\"x\"}"
+                                .getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals(Integer.valueOf(9), present.getField(1));
+        Assertions.assertEquals(new BigDecimal("2.25"), present.getField(2));
+        Assertions.assertEquals("x", present.getField(3));
     }
 }
