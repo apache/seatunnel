@@ -28,14 +28,54 @@ master and worker set for each job.
 ## Topology
 
 ```mermaid
-flowchart LR
-  U[User] -->|kubectl apply -k| M[Kubernetes manifests]
-  M --> A[Active master<br/>StatefulSet]
-  M --> S[Standby master<br/>StatefulSet]
-  A <-->|Hazelcast active/standby| S
-  A -->|create / adopt| W[Bare worker Pods<br/>min-workers..max-workers]
-  W -->|register slots| A
-  U -->|REST / native client| A
+flowchart TB
+  client["SeaTunnel Client / REST Client"]
+
+  subgraph ns["Kubernetes Namespace"]
+    restSvc["ClusterIP Service<br/>seatunnel-session-cluster-rest<br/>REST API: 8080"]
+    discoverySvc["Headless Service<br/>seatunnel-session-cluster-headless<br/>Hazelcast discovery: 5801"]
+
+    subgraph masterSet["StatefulSet: seatunnel-session-cluster-master"]
+      master0["seatunnel-session-cluster-master-0<br/>active master"]
+      master1["seatunnel-session-cluster-master-1<br/>standby master"]
+    end
+
+    subgraph workerPods["Bare Pods: created by active master"]
+      worker0["worker Pod<br/>role: worker"]
+      workerN["worker Pod N<br/>role: worker"]
+    end
+
+    configMap["ConfigMap: seatunnel-session-cluster-config"]
+  end
+
+  client --> restSvc
+  restSvc --> master0
+  restSvc --> master1
+
+  discoverySvc -. "DNS records" .-> master0
+  discoverySvc -. "DNS records" .-> master1
+  discoverySvc -. "DNS records" .-> worker0
+  discoverySvc -. "DNS records" .-> workerN
+
+  configMap -. "read-only mount" .-> master0
+  configMap -. "read-only mount" .-> master1
+  configMap -. "required keys" .-> worker0
+  configMap -. "required keys" .-> workerN
+
+  master0 <-->|Hazelcast active/standby| master1
+  master0 -->|create / adopt| worker0
+  master0 -->|create / adopt| workerN
+  worker0 -->|register slots| master0
+  workerN -->|register slots| master0
+
+  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+  class ns,masterSet,workerPods,master0,master1,worker0,workerN layerBlue;
+  class client,restSvc,discoverySvc layerCyan;
+  class configMap layerPurple;
+  linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Masters run as a two-replica StatefulSet. Workers are bare Pods owned by the root ConfigMap.
