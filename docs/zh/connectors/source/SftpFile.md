@@ -91,13 +91,14 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | file_filter_pattern        | String  | 否    | -                   | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                       |
 | filename_extension         | string  | 否    | -                   | 过滤文件名扩展名，用于过滤具有特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`。                                                                                                                                                                                             |
 | delimiter/field_delimiter  | String  | 否    | \001                | **delimiter**参数将在2.3.5版本后弃用，请使用**field_delimiter**代替。<br/> 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。<br/> 默认`\001`，与hive的默认分隔符相同                                                                                                                                |
-| row_delimiter              | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。<br/> 默认`\n`。                                                                                                                                                                                                            |                                                                                                                                                                                                           |
+| row_delimiter              | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。<br/> 默认`\n`。                                                                                                                                                                                                            |
 | parse_partition_from_path  | Boolean | 否    | true                | 控制是否从文件路径解析分区键和值<br/> 例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件<br/> 文件中的每条记录数据都将添加这两个字段：<br/>      name       age  <br/> tyrantlucifer  26   <br/> 提示：**不要在schema选项中定义分区字段**                            |
 | date_format                | String  | 否    | yyyy-MM-dd          | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：<br/> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` <br/> 默认`yyyy-MM-dd`                                                                                                                                                 |
 | datetime_format            | String  | 否    | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：<br/> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` <br/> 默认`yyyy-MM-dd HH:mm:ss`                                                                                        |
 | time_format                | String  | 否    | HH:mm:ss            | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：<br/> `HH:mm:ss` `HH:mm:ss.SSS` <br/> 默认`HH:mm:ss`                                                                                                                                                                |
 | skip_header_row_number     | Long    | 否    | 0                   | 跳过前几行，但仅适用于txt和csv。<br/> 例如，设置如下：<br/> `skip_header_row_number = 2` <br/> 然后SeaTunnel将跳过源文件的前2行                                                                                                                                                    |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。                                                                                                                                                                                                                          |
+| read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | sheet_name                 | String  | 否    | -                   | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                                                                                                                  |
 | excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                                                |
@@ -106,8 +107,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | csv_use_header_line        | boolean | 否    | false               | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                                                                                                                             |
 | schema                     | Config  | 否    | -                   | 请查看下面的#schema                                                                                                                                                                                                                                      |
 | compress_codec             | String  | 否    | None                | 文件的压缩编解码器，支持的详细信息如下所示：<br/> - txt: `lzo` `None` <br/> - json: `lzo` `None` <br/> - csv: `lzo` `None` <br/> - orc: `lzo` `snappy` `lz4` `zlib` `None` <br/> - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `None` <br/> 提示：excel类型不支持任何压缩格式 |
-| archive_compress_codec     | string  | 否    | none                |
-| encoding                   | string  | 否    | UTF-8               |
+| archive_compress_codec     | string  | 否    | none                | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
+| encoding                   | string  | 否    | UTF-8               | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
 | null_format                | string  | 否    | -                   | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                                                                                                                   |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                               |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                                                                                                   |
@@ -191,6 +192,13 @@ abc.*
 
 文件类型，支持以下文件类型：
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
+
 如果您将文件类型指定为`json`，您还应该指定schema选项来告诉连接器如何将数据解析为您想要的行。
 例如：
 上游数据如下：
@@ -278,6 +286,19 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
 
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
+当 `markdown_rag_metadata_enabled=true` 时，每个 Markdown 行还会在 row options 中携带四个 Knowledge Sync 逻辑元数据值，source 也会在 metadata schema 中声明相同 Key：
+
+- `SourceUri`：不含凭据的逻辑来源路径或 URI
+- `DocumentId`：`doc_` 加逻辑 `SourceUri` 的 UTF-8 字节的小写 SHA-256
+- `DocumentHash`：UTF-8 解码前实际读取到的精确来源字节的小写 SHA-256
+- `ChunkHash`：当前 Markdown 输出行 `text` 的 UTF-8 字节的小写 SHA-256（null 按空字符串处理）；其值等于物理 `content_hash`
+
+本地路径和有效 `file:` URI 沿用现有的本地路径归一化。对于分层远程 URI，逻辑 `SourceUri` 保留 scheme、host、显式端口和 path，移除 user info、完整 query 和 fragment，并将 scheme 与 host 转为小写。仅通过 query 区分资源时，必须改用稳定且不敏感的 path。
+
+五个物理 RAG 字段、现有计算公式和路由行为均保持不变。因此，对于带签名或凭据的远程 URI，逻辑与物理 `document_id` 可能不同。请通过 [Metadata transform](../../transforms/metadata.md) 将逻辑 `SourceUri` 和 `DocumentId` 投影到 `ks_source_uri`、`ks_document_id` 等不冲突的别名。
+
+逻辑 `ChunkHash` 只描述 Markdown source 直接输出的当前行。如果下游 transform 修改文本或把一行展开为多个 chunk，则必须在 lifecycle sink 前重新计算最终 `ChunkHash`、`ChunkId` 和 `ChunkIndex`。该 bridge 不实现增量比较、writer affinity、过期 chunk 删除或 tombstone。
 
 注意：Markdown 格式仅支持读取，不支持写入。
 

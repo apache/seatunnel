@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 或更新版本
 
-## 支持的引擎
+## 引擎支持
 
 > Spark<br/>
 > Flink<br/>
@@ -276,6 +276,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### RocketMQ 源连接器如何支持多 Topic 不同 Schema 的读取？
+
+可以通过配置 `tables_configs` 数组来实现。每个配置项可独立定义该 Topic 的 `topics`、`schema`、`format` 以及 `tags`，SeaTunnel 将并发消费并独立解析为对应的表数据流。
+
+### RocketMQ 源连接器支持哪些起始消费位点模式？
+
+通过 `start.mode` 参数支持从最早位点（`CONSUME_FROM_FIRST_OFFSET`）、最新位点（`CONSUME_FROM_LAST_OFFSET`）或指定时间戳位点（`CONSUME_FROM_TIMESTAMP`）开始读取数据。
+
+### 作业发生故障恢复时如何保证消费位点一致性？
+
+SeaTunnel 会周期性对消费者队列位点进行 Checkpoint 状态持久化。当任务发生异常或节点故障重启时，源连接器将严格从上一次成功提交的 Checkpoint 位点重新恢复消费。
 
 ## 变更日志
 

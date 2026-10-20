@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -33,13 +35,22 @@ import org.apache.hadoop.util.Progressable;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-class BaseFileSourceTest {
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+
+public class BaseFileSourceTest {
+
+    @TempDir private java.nio.file.Path tempDir;
 
     private static final String EMPTY_FILE_SYSTEM_URI = "empty:///";
     private static final String EMPTY_PATH = "empty:///empty-dir";
@@ -78,6 +89,7 @@ class BaseFileSourceTest {
 
         Assertions.assertArrayEquals(
                 MARKDOWN_FIELD_NAMES, catalogTable.getSeaTunnelRowType().getFieldNames());
+        Assertions.assertTrue(catalogTable.getMetadataSchema().getColumns().isEmpty());
     }
 
     @Test
@@ -89,6 +101,56 @@ class BaseFileSourceTest {
         Assertions.assertArrayEquals(
                 concat(MARKDOWN_FIELD_NAMES, MARKDOWN_RAG_METADATA_FIELD_NAMES),
                 catalogTable.getSeaTunnelRowType().getFieldNames());
+        assertMarkdownKnowledgeSyncMetadata(catalogTable);
+    }
+
+    @Test
+    void testMarkdownSourceDiscoversKnowledgeSyncMetadataFromExistingFile() throws Exception {
+        java.nio.file.Path markdownFile = tempDir.resolve("document.md");
+        Files.write(markdownFile, java.util.Arrays.asList("# Title"), StandardCharsets.UTF_8);
+        BaseFileSource source =
+                new LocalTestFileSource(createMarkdownConfig(markdownFile.toString(), true));
+
+        CatalogTable catalogTable = source.getProducedCatalogTables().get(0);
+
+        Assertions.assertArrayEquals(
+                concat(MARKDOWN_FIELD_NAMES, MARKDOWN_RAG_METADATA_FIELD_NAMES),
+                catalogTable.getSeaTunnelRowType().getFieldNames());
+        assertMarkdownKnowledgeSyncMetadata(catalogTable);
+    }
+
+    @Test
+    void testMarkdownSourceRejectsUnsafeUriWithoutExposingIt() {
+        String unsafeUri = "https://user:secret@example.com/%zz?X-Amz-Signature=value#part";
+
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> new TestFileSource(createMarkdownConfig(unsafeUri, true)));
+
+        Assertions.assertFalse(exception.getMessage().contains("user"));
+        Assertions.assertFalse(exception.getMessage().contains("secret"));
+        Assertions.assertFalse(exception.getMessage().contains("X-Amz-Signature"));
+        Assertions.assertFalse(exception.getMessage().contains("value"));
+        Assertions.assertFalse(exception.getMessage().contains("part"));
+    }
+
+    @Test
+    void testMarkdownSourceRetainsSanitizedDiscoveryCause() {
+        String source = "failing:///docs/a.md?token=secret-value#part";
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> new FailingTestFileSource(createMarkdownConfig(source, true)));
+
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains(IOException.class.getName()));
+        Assertions.assertTrue(exception.getCause().getStackTrace().length > 0);
+        Assertions.assertNotNull(exception.getCause().getCause());
+        Assertions.assertTrue(exception.getCause().getCause().getStackTrace().length > 0);
+        assertDoesNotExposeSensitiveSource(exception);
     }
 
     @Test
@@ -99,6 +161,7 @@ class BaseFileSourceTest {
 
         Assertions.assertArrayEquals(
                 PDF_FIELD_NAMES, catalogTable.getSeaTunnelRowType().getFieldNames());
+        Assertions.assertTrue(catalogTable.getMetadataSchema().getColumns().isEmpty());
     }
 
     @Test
@@ -110,11 +173,16 @@ class BaseFileSourceTest {
         Assertions.assertArrayEquals(
                 concat(PDF_FIELD_NAMES, PDF_RAG_METADATA_FIELD_NAMES),
                 catalogTable.getSeaTunnelRowType().getFieldNames());
+        Assertions.assertTrue(catalogTable.getMetadataSchema().getColumns().isEmpty());
     }
 
     private ReadonlyConfig createMarkdownConfig(boolean ragMetadataEnabled) {
+        return createMarkdownConfig(EMPTY_PATH, ragMetadataEnabled);
+    }
+
+    private ReadonlyConfig createMarkdownConfig(String path, boolean ragMetadataEnabled) {
         Map<String, Object> map = new HashMap<>();
-        map.put(FileBaseSourceOptions.FILE_PATH.key(), EMPTY_PATH);
+        map.put(FileBaseSourceOptions.FILE_PATH.key(), path);
         map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
         map.put(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key(), ragMetadataEnabled);
         return ReadonlyConfig.fromMap(map);
@@ -135,6 +203,31 @@ class BaseFileSourceTest {
         return result;
     }
 
+    private static void assertMarkdownKnowledgeSyncMetadata(CatalogTable catalogTable) {
+        List<String> metadataNames =
+                catalogTable.getMetadataSchema().getColumns().stream()
+                        .map(org.apache.seatunnel.api.table.catalog.Column::getName)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(
+                java.util.Arrays.asList(
+                        KnowledgeSyncMetadataField.SOURCE_URI.getName(),
+                        KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
+                        KnowledgeSyncMetadataField.DOCUMENT_HASH.getName(),
+                        KnowledgeSyncMetadataField.CHUNK_HASH.getName()),
+                metadataNames);
+    }
+
+    private static void assertDoesNotExposeSensitiveSource(Throwable throwable) {
+        StringBuilder rendered = new StringBuilder();
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            rendered.append(current.getMessage()).append('\n');
+        }
+        String message = rendered.toString();
+        Assertions.assertFalse(message.contains("secret-value"));
+        Assertions.assertFalse(message.contains("token="));
+        Assertions.assertFalse(message.contains("#part"));
+    }
+
     private static class TestFileSource extends BaseFileSource {
 
         private TestFileSource(ReadonlyConfig pluginConfig) {
@@ -149,6 +242,40 @@ class BaseFileSourceTest {
         @Override
         public String getPluginName() {
             return "TestFileSource";
+        }
+    }
+
+    private static class LocalTestFileSource extends BaseFileSource {
+
+        private LocalTestFileSource(ReadonlyConfig pluginConfig) {
+            super(pluginConfig);
+        }
+
+        @Override
+        protected HadoopConf initHadoopConf() {
+            return new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        }
+
+        @Override
+        public String getPluginName() {
+            return "LocalTestFileSource";
+        }
+    }
+
+    private static class FailingTestFileSource extends BaseFileSource {
+
+        private FailingTestFileSource(ReadonlyConfig pluginConfig) {
+            super(pluginConfig);
+        }
+
+        @Override
+        protected HadoopConf initHadoopConf() {
+            return new FailingConf("failing:///");
+        }
+
+        @Override
+        public String getPluginName() {
+            return "FailingTestFileSource";
         }
     }
 
@@ -168,6 +295,40 @@ class BaseFileSourceTest {
         @Override
         public String getSchema() {
             return SCHEMA;
+        }
+    }
+
+    private static class LocalConf extends HadoopConf {
+
+        private LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return "org.apache.hadoop.fs.LocalFileSystem";
+        }
+
+        @Override
+        public String getSchema() {
+            return "file";
+        }
+    }
+
+    private static class FailingConf extends HadoopConf {
+
+        private FailingConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return FailingFileSystem.class.getName();
+        }
+
+        @Override
+        public String getSchema() {
+            return "failing";
         }
     }
 
@@ -241,8 +402,16 @@ class BaseFileSourceTest {
         }
 
         @Override
-        public FileStatus getFileStatus(Path path) {
+        public FileStatus getFileStatus(Path path) throws IOException {
             return new FileStatus(0, true, 1, 0, 0, path.makeQualified(uri, workingDirectory));
+        }
+    }
+
+    public static class FailingFileSystem extends EmptyFileSystem {
+
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            throw new IOException("Access denied for " + path + " token=secret-value#part");
         }
     }
 }

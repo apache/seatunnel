@@ -35,6 +35,8 @@ Web3j 源连接器用于通过 Web3 服务端点读取区块链数据。目前�
 |--------|------|------|--------|------|
 | url | String | 是 | - | 用于和以太坊网络通信的 Web3 服务端点，例如 Infura URL。 |
 
+必填项 `url` 不能为空字符串或仅包含空白字符。
+
 ## 输出字段
 
 | 字段 | 类型 | 描述 |
@@ -124,6 +126,21 @@ sink {
 }
 ```
 
+## 常见问题
+
+### 轮询节奏是怎么控制的？
+
+连接器每次轮询都会发一次 HTTP `eth_blockNumber` RPC，等到 provider 返回结果后再把这一条数据发出来。因此实际的发数据节奏取决于所配置 provider 的响应速度——无法用一个独立的配置项直接设定。如果需要可重放的背压，请让 Source 配合一个会做 checkpoint 的下游 Sink；Web3j Source 自身没有限流或节流配置。
+
+### `value` 字段里到底装了什么？
+
+一个结构固定的 JSON 对象：`{"blockNumber": <number>, "timestamp": "<ISO-8601 UTC>"}`。`blockNumber` 是 provider 最新返回的区块号，`timestamp` 是连接器在拿到响应那一刻生成的时间戳。连接器不会解析 `value` 的内容；如果还需要交易数、Gas、节点元信息等更多字段，请改用其它 RPC 或在下游通过 SQL Transform 处理。
+
+### Web3j Source 除了 URL 之外还支持别的鉴权方式吗？
+
+不支持。连接器只会把配置的 `url` 原样传给底层的 HTTP 客户端。所以鉴权也只能是 URL 里能承载的那种——通常是 hosted 服务（Infura / Alchemy 等）直接嵌在 URL 里的 API Key。连接器没有基于 Header 的鉴权路径，请不要把需要频繁轮换的密钥写在 URL 里；直接使用一个长期的 provider Key，并通过你们平时的密钥管理系统托管。
+
 ## 变更日志
 
 <ChangeLog />
+
