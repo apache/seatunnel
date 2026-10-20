@@ -33,6 +33,31 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
+## 连接器声明的元数据字段
+
+连接器可以通过 `CatalogTable.MetadataSchema` 暴露各自的元数据，而不必把每个 Key 都注册到全局元数据表中。`Metadata` 转换会接受满足以下任一条件的逻辑 Key：
+
+1. 本文档表格中已列出的全局元数据 Key
+2. 输入表 `MetadataSchema` 中显式声明的 Key
+
+对于连接器声明的 Key，输出物理列会保留声明的数据类型、可空性、长度、默认值和注释。运行时的值从 `SeaTunnelRow.options` 读取。
+
+这**不会**放开任意 row option。一个 Key 如果只出现在 `SeaTunnelRow.options` 中，但既不在全局注册表、也不在 `MetadataSchema` 中，仍然会被拒绝。匹配区分大小写。该转换不会读取碰巧同名的物理列。
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "source_rows"
+    plugin_output = "rows_with_source_metadata"
+    metadata_fields {
+      KafkaOffset = kafka_offset
+    }
+  }
+}
+```
+
+上游 Source 或 Transform 必须先在 `CatalogTable.metadataSchema` 中声明 `KafkaOffset`，并把对应值写入 `SeaTunnelRow.options`。`Metadata` 转换本身不会生成连接器特有的元数据。
+
 ## Knowledge Sync 元数据字段
 
 Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 chunk 身份信息。这些 Key 只有通过 `Metadata` 转换显式投影后，才会成为真实的物理列。
@@ -54,20 +79,62 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 
 ### 重要说明
 
-1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
+1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind`），或输入表 `MetadataSchema` 中声明的精确名称。
 2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
 5. **Knowledge Sync 投影需要显式配置**：Knowledge Sync 元数据字段只有在 `metadata_fields` 中配置、输入表 metadata schema 中声明了对应 Key，并且行 options 中存在对应值时才会被投影。该转换读取的是逻辑行元数据，不会读取同名的已有物理列。
-6. **兼容 Markdown RAG 物理字段**：现有 Markdown RAG 输出当前以物理字段暴露 `source_uri`、`document_id`、`chunk_id`、`chunk_index` 和 `content_hash`。该转换不会把这些物理字段迁移为逻辑 Knowledge Sync 元数据，本次变更也不会重命名这些字段。
-7. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。属于稳定资源标识且不敏感的查询参数可以保留。
+6. **兼容 Markdown RAG 物理字段**：当 `markdown_rag_metadata_enabled=true` 时，Markdown 除现有物理列 `source_uri`、`document_id`、`chunk_id`、`chunk_index`、`content_hash` 外，还会声明并输出逻辑 `SourceUri`、`DocumentId`、`DocumentHash`、`ChunkHash`。物理字段的名称、顺序、值、公式和路由行为均保持不变。
+7. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。通用 Markdown bridge 会移除分层远程 URI 的完整 query 和 fragment；如果来源身份依赖 query，则必须提供稳定且不敏感的 path。
 8. **Knowledge Sync 可空语义**：`DocumentId` 用于标识每个文档生命周期事件。声明 `Deleted` 后，producer 必须为普通行写入 `false`，为文档 tombstone 写入 `true`，不能使用 `null`。普通 chunk 行必须包含 `ChunkId`、`ChunkHash` 和 `ChunkIndex`；紧凑的文档 tombstone 可以将这些 chunk 字段留为 `null`。
+9. **投影冲突**：输出字段名不能与已有物理字段重复。启用 Markdown RAG metadata 后已经存在物理 `source_uri` 和 `document_id`，因此应把逻辑值投影为 `ks_source_uri`、`ks_document_id` 等别名。
+
+### Markdown Source Bridge
+
+当 `file_format_type=markdown` 且 `markdown_rag_metadata_enabled=true` 时，Markdown source 会成为 Knowledge Sync 元数据 producer。
+
+| 逻辑 Key | Markdown 值 |
+|:---:|:---|
+| SourceUri | 本地路径沿用现有归一化。分层远程 URI 保留转为小写的 scheme 和 host、显式端口及 path，同时移除 user info、query 和 fragment。 |
+| DocumentId | `doc_` 加逻辑 `SourceUri` 的 UTF-8 字节的小写 SHA-256。 |
+| DocumentHash | UTF-8 解码和 Markdown 解析前实际读取到的精确来源字节的小写 SHA-256。 |
+| ChunkHash | 当前输出行 `text` 的 UTF-8 字节的小写 SHA-256，null 按空字符串处理。在 Markdown source 边界，其值等于物理 `content_hash`。 |
+
+逻辑身份与兼容身份相互独立。对于带签名或凭据的远程 URL，逻辑 `SourceUri`、`DocumentId` 可能与物理 `source_uri`、`document_id` 不同；物理值和 split 路由公式保持不变。
+
+请为两个发生冲突的身份字段配置别名：
+
+```hocon
+source {
+  LocalFile {
+    plugin_output = "markdown_rows"
+    path = "/data/knowledge"
+    file_format_type = "markdown"
+    markdown_rag_metadata_enabled = true
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "markdown_rows"
+    plugin_output = "markdown_rows_with_logical_metadata"
+    metadata_fields = {
+      SourceUri = "ks_source_uri"
+      DocumentId = "ks_document_id"
+      DocumentHash = "document_hash"
+      ChunkHash = "chunk_hash"
+    }
+  }
+}
+```
+
+`ChunkHash` 只对 Markdown 直接输出的当前行有效。如果下游 transform 修改 `text` 或把一行展开为多个 chunk，则必须在把行发送到 lifecycle sink 前重新计算最终 `ChunkHash`、`ChunkId` 和 `ChunkIndex`。该 bridge 仅完成 producer 集成，不实现增量比较、writer affinity、过期 chunk 删除或 tombstone。
 
 ## 配置选项
 
 |      参数名       | 类型 | 是否必填 | 默认值 | 说明       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
-| metadata_fields | map  |    否     |   空映射   | 元数据字段与输出字段的映射关系，格式为 `元数据Key = 输出字段名` |
+| metadata_fields | map  |    是     |   -   | 元数据字段与输出字段的映射关系，格式为 `元数据Key = 输出字段名`。至少需要配置一个映射项。 |
 
 ### metadata_fields [map]
 
@@ -95,7 +162,7 @@ metadata_fields {
 ```
 
 **注意事项：**
-- 左侧必须是支持的元数据 Key（见上表），且严格区分大小写
+- 左侧必须是全局支持的元数据 Key（见上表），或输入表 `MetadataSchema` 中声明的 Key，且严格区分大小写
 - 右侧是自定义的输出字段名，不能与原有字段重名
 - 可以只选择需要的元数据字段，不必全部配置
 

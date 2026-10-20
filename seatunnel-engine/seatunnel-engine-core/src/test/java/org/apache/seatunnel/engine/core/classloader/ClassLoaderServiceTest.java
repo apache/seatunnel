@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.core.classloader;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.engine.common.exception.ClassLoaderException;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
@@ -55,9 +57,41 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
+    @TempDir private Path jarDirectory;
+
+    @Test
+    void testLoadsTheSerializedJarUrl() throws Exception {
+        Path jar = jarDirectory.resolve("unchanged.jar");
+        createJar(jar);
+        URL original = jar.toUri().toURL();
+        DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
+        try {
+            SeaTunnelChildFirstClassLoader loader =
+                    (SeaTunnelChildFirstClassLoader)
+                            service.getClassLoader(8L, Collections.singletonList(original));
+            Assertions.assertEquals(original, loader.getURLs()[0]);
+        } finally {
+            service.close();
+        }
+    }
+
+    private void createJar(Path jar) throws IOException {
+        Files.createDirectories(jar.getParent());
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry("resolver-marker.txt"));
+            output.write("worker-local-resource".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+    }
 
     @Override
     boolean cacheMode() {

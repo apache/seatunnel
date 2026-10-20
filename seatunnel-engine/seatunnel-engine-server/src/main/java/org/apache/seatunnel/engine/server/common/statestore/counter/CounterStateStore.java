@@ -56,6 +56,16 @@ public interface CounterStateStore<K> {
     Long incrementAndGet(K key);
 
     /**
+     * Adds the given delta to the counter and returns the updated value.
+     *
+     * @param key key to update
+     * @param delta value to add
+     * @return updated value, or {@code null} if absent
+     * @implSpec Implementations must not auto-initialize absent counters.
+     */
+    Long addAndGet(K key, long delta);
+
+    /**
      * Overwrites the counter with a specific value.
      *
      * @param key key to store

@@ -57,6 +57,12 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
     private final boolean deepCleanEnabled;
 
+    /**
+     * Creates the classloader service of one node.
+     *
+     * @param cacheMode whether loaders with equal jar identities are shared across jobs
+     * @param nodeEngine owning node for local artifact checks, or null when no node is available
+     */
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;

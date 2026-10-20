@@ -22,6 +22,22 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 将 Rows 内容发送到 Kafka topic
 
+## 连通性 Dry Run
+
+`--dry-run connect` 先校验上游 schema 和本地序列化配置，再通过 AdminClient 检查 Kafka 元数据。即使配置 `semantics = EXACTLY_ONCE`，也不会创建 producer、写入记录、创建主题或初始化事务。
+
+对于固定 `topic`，校验主题是否存在，以及显式 `partition` 是否在有效范围内。对于 `${field}` 主题，仅校验引用字段和 broker 连通性：运行时第一个匹配字段的值作为完整主题名，因此没有记录时无法检查目标主题是否存在或分区上界。此类主题的 `VALIDATED` 结果仅覆盖上述有限检查。显式负分区会被拒绝，但 `NATIVE` 忽略顶层 `partition`，使用记录中的分区。
+
+校验复用 writer 的本地序列化构造逻辑，包括字段和格式检查。它无法验证记录值、动态主题、记录中的分区、基于内容的 `assign_partitions` 路由、自定义 producer 行为、Produce 权限或事务权限。能够读取元数据不代表作业一定能成功写入。
+
+与 writer 一致，顶层 `bootstrap.servers` 优先于 `kafka.config` 中的同名配置。元数据操作共用最多 30 秒的截止时间，并遵守较小且有效的 Kafka API/请求超时。主题不存在时校验失败，不会自动创建主题；请在校验前创建目标主题。
+
+即使 broker 启用了运行时自动创建主题，dry-run 也不会创建缺失的主题。
+每个上游表分别执行校验、元数据请求和客户端清理；超时按表计算，并非整个多表作业的总时限。
+
+Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${field}`）及已知的元数据失败类别，
+不回显配置值或原始客户端异常。通用客户端失败及未知失败使用脱敏诊断，并提示检查 broker 连通性和 Kafka 客户端配置。
+
 ## 支持的数据源信息
 
 为了使用 Kafka 连接器，需要以下依赖项
@@ -41,6 +57,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                                    |
 | partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                                                |
 | kafka_headers_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的headers。字段值将被转换为字符串并用作 header 值                                                                                                                                                                                                                   |
+| kafka_message_value_fields | Array  | 否    | -    | 配置哪些字段作为 kafka 消息的 value。如果没有指定，则将使用行中的所有字段（除了 `kafka_headers_fields` 中的字段）。 注意：此选项不支持 `native`, `compatible_debezium_json` 和 `compatible_kafka_connect_json` 格式。                                                                                      |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
 | transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |

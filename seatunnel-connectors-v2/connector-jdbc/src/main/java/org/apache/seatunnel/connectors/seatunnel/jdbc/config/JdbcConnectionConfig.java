@@ -52,6 +52,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     private boolean decimalTypeNarrowing = JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
     private boolean intTypeNarrowing = JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue();
+    private boolean numericSpecialValueAsNull =
+            JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
 
     private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
 
@@ -112,6 +114,8 @@ public class JdbcConnectionConfig implements Serializable {
                 .ifPresent(builder::decimalTypeNarrowing);
         config.getOptional(JdbcCommonOptions.INT_TYPE_NARROWING)
                 .ifPresent(builder::intTypeNarrowing);
+        config.getOptional(JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL)
+                .ifPresent(builder::numericSpecialValueAsNull);
         config.getOptional(JdbcCommonOptions.DIALECT).ifPresent(builder::dialect);
         config.getOptional(JdbcCommonOptions.ACCESS_KEY_ID).ifPresent(builder::accessKeyId);
         config.getOptional(JdbcCommonOptions.SECRET_ACCESS_KEY).ifPresent(builder::secretAccessKey);
@@ -154,6 +158,8 @@ public class JdbcConnectionConfig implements Serializable {
         private boolean decimalTypeNarrowing =
                 JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
         private boolean intTypeNarrowing = JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue();
+        private boolean numericSpecialValueAsNull =
+                JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
         private boolean handleBlobAsString = JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue();
         private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
@@ -198,6 +204,11 @@ public class JdbcConnectionConfig implements Serializable {
 
         public Builder intTypeNarrowing(boolean intTypeNarrowing) {
             this.intTypeNarrowing = intTypeNarrowing;
+            return this;
+        }
+
+        public Builder numericSpecialValueAsNull(boolean numericSpecialValueAsNull) {
+            this.numericSpecialValueAsNull = numericSpecialValueAsNull;
             return this;
         }
 
@@ -336,6 +347,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
             jdbcConnectionConfig.decimalTypeNarrowing = this.decimalTypeNarrowing;
             jdbcConnectionConfig.intTypeNarrowing = this.intTypeNarrowing;
+            jdbcConnectionConfig.numericSpecialValueAsNull = this.numericSpecialValueAsNull;
             jdbcConnectionConfig.handleBlobAsString = this.handleBlobAsString;
             jdbcConnectionConfig.useKerberos = this.useKerberos;
             jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
