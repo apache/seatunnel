@@ -64,10 +64,21 @@ public class KingbaseCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.baseCatalogRule().build();
+        return JdbcCommonOptions.baseCatalogRule()
+                .optional(JdbcCommonOptions.COMPATIBLE_MODE)
+                .build();
     }
 
+    /**
+     * Resolves the KingbaseES compatibility mode. An explicitly configured {@code compatible_mode}
+     * wins and skips the live probe, mirroring {@code KingbaseDialectFactory}; only when it is
+     * absent is the mode read from the driver connection.
+     */
     private String detectCompatibleMode(ReadonlyConfig config) {
+        String configuredMode = config.get(JdbcCommonOptions.COMPATIBLE_MODE);
+        if (configuredMode != null && !configuredMode.trim().isEmpty()) {
+            return configuredMode.trim();
+        }
         JdbcConnectionConfig jdbcConnectionConfig = JdbcConnectionConfig.of(config);
         SimpleJdbcConnectionProvider provider =
                 new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
@@ -77,7 +88,11 @@ public class KingbaseCatalogFactory implements CatalogFactory {
                 return ((com.kingbase8.jdbc.KbConnection) connection).getCompatibleLevel();
             }
         } catch (Exception e) {
-            LOG.error("Failed to detect compatible mode", e);
+            // Same fallback as KingbaseDialectFactory: an undetectable mode means the native
+            // Kingbase (PostgreSQL-compatible) catalog, which is the pre-existing behavior.
+            LOG.warn(
+                    "Failed to detect KingbaseES compatible mode from connection, fallback to default.",
+                    e);
         } finally {
             provider.closeConnection();
         }

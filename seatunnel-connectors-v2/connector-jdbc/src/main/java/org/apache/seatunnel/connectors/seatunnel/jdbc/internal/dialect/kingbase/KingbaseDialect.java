@@ -99,7 +99,10 @@ public class KingbaseDialect implements JdbcDialect {
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {
         if (isMySQL()) {
-            return new MysqlDialect().getUpsertStatement(database, tableName, fieldNames, pkNames);
+            // Propagate the configured field_ide so the MySQL-style statement quotes identifiers
+            // the same way the rest of this dialect does instead of silently using ORIGINAL.
+            return new MysqlDialect(fieldIde)
+                    .getUpsertStatement(database, tableName, fieldNames, pkNames);
         }
         String uniqueColumns =
                 Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(", "));

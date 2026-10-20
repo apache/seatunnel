@@ -87,6 +87,23 @@ public class KingbaseDialectTest {
         Assertions.assertTrue(sql.contains("ON DUPLICATE KEY UPDATE"));
     }
 
+    /**
+     * The MySQL-compatible upsert must honor the configured field_ide; before the fix the branch
+     * built a MysqlDialect with the default ORIGINAL strategy and dropped the setting.
+     */
+    @Test
+    public void testMySQLCompatibleUpsertStatementKeepsFieldIde() {
+        KingbaseDialect dialect = new KingbaseDialect("mysql", FieldIdeEnum.UPPERCASE.getValue());
+        String[] fieldNames = {"id", "name"};
+        String[] pkNames = {"id"};
+
+        String sql = dialect.getUpsertStatement("db", "table", fieldNames, pkNames).get();
+
+        Assertions.assertTrue(sql.contains("`ID`"), sql);
+        Assertions.assertTrue(sql.contains("`NAME`"), sql);
+        Assertions.assertFalse(sql.contains("`id`"), sql);
+    }
+
     @Test
     public void testKingbaseUpsertStatement() {
         KingbaseDialect dialect = new KingbaseDialect();
