@@ -50,6 +50,7 @@ Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上
 | namespace_ids                      | list      | 否       | []             | 解析目标表 namespace 时使用的 namespace 路径片段。    |
 | root_namespace_path                | string    | 否       | /tmp           | Lance namespace 的根路径。                           |
 | table                              | string    | 否       | test           | 目标 Lance 表名。设置后会覆盖上游表名。               |
+| lance.write.batch-size             | int       | 否       | 10000          | Writer 内存攒批行数，满批后落成一个 fragment。       |
 | lance.write.max-rows-per-file      | int       | 否       | 10             | 单个 Lance 文件最多写入的行数。                      |
 | lance.write.max-rows-per-group     | int       | 否       | 20             | 单个 Lance row group 最多写入的行数。                |
 | lance.write.max-bytes-per-file     | long      | 否       | 20480          | 单个 Lance 文件最多写入的字节数。                    |
@@ -62,9 +63,13 @@ Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上
 
 Lance 数据的目录或数据集路径。使用本地目录模式时，请确保 SeaTunnel 运行环境有权限创建并写入该路径。
 
+显式配置时，该值不能为空字符串或仅包含空白字符。省略时仍使用默认值 `/test.lance`。
+
 ### namespace_type
 
 Lance namespace 类型。当前连接器支持 `dir`。
+
+显式配置时，该值不能为空字符串或仅包含空白字符。省略时仍使用默认值 `dir`。
 
 ### namespace_id
 
@@ -81,6 +86,14 @@ Lance namespace 的根目录。SeaTunnel 运行用户需要有权限在该目录
 ### table
 
 目标 Lance 表名。不设置时，如果上游存在表名，连接器会使用上游表名；该配置本身的默认值是 `test`。
+
+### lance.write.batch-size
+
+Writer 在内存中攒多少行后再转换成 **一个** Lance fragment 并 append。默认值是 `10000`（此前 Writer 固定攒 `1000` 行），取值必须不小于 `1`。
+
+Lance 是列存格式，`10000` 行一个 fragment 可能仍然偏小。每个 fragment 行数过少，会产生大量小列存文件，增加后续的读写放大。调大后 fragment 更少、更大，但每个 Writer flush 前在内存里攒的行也更多。资源充足时可以调大这个值，资源紧张时（例如宽表或向量列）应调小。
+
+即使未凑满该行数，checkpoint（`prepareCommit`）和 sink close 时也会 flush。
 
 ### lance.write.mode
 
@@ -128,11 +141,12 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | TIMESTAMP          | timestamp（微秒精度，Asia/Shanghai 时区） |
 | STRING             | utf8                   |
 | ARRAY              | list                   |
-| MAP                | map                    |
+
+暂不支持 Map 列。Lance 原生格式会拒绝 Arrow Map 值，因此 sink 在构建 schema 时会直接报错。请在写入 Lance 之前将 Map 序列化为字符串，或展开成多个列。
 
 :::tip
 
-Sink 不会按 `UPDATE` / `DELETE` 行类型执行 CDC 语义 —— 每条上游记录都会按 `lance.write.mode` 追加到 Lance 数据集中。在流式模式下，Writer 会在每个 checkpoint 把内存中的行缓冲写入 Lance。
+Sink 不会按 `UPDATE` / `DELETE` 行类型执行 CDC 语义 —— 每条上游记录都会按 `lance.write.mode` 追加到 Lance 数据集中。在流式模式下，Writer 会在达到 `lance.write.batch-size` 以及每个 checkpoint 时把内存中的行缓冲写入 Lance。
 
 :::
 
@@ -181,7 +195,7 @@ sink {
 
 ### 使用 APPEND 模式并调大文件分片
 
-`APPEND` 模式会保留已有数据集并写入新行。把 `lance.write.max-rows-per-file` 和 `lance.write.max-bytes-per-file` 调大，可以减少追加大批量数据时产生的 Lance fragment 数量。
+`APPEND` 模式会保留已有数据集并写入新行。追加大批量数据、并且可以接受更大内存缓冲时，调大 `lance.write.batch-size` 可以减少产生的 Lance fragment 数量。
 
 ```hocon
 env {
@@ -209,6 +223,7 @@ sink {
     namespace_id = "root"
     table = "lance_sink_table"
     lance.write.mode = "APPEND"
+    lance.write.batch-size = 100000
     lance.write.max-rows-per-file = 100000
     lance.write.max-rows-per-group = 5000
     lance.write.max-bytes-per-file = 134217728

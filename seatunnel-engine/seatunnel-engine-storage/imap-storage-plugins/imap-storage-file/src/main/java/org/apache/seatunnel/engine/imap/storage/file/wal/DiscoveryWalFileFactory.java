@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.wal;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.DefaultReader;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.GcsWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.HdfsWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.OssWriter;
@@ -35,6 +36,7 @@ public class DiscoveryWalFileFactory {
             case HDFS:
             case S3:
             case OSS:
+            case GCS:
                 return new DefaultReader();
         }
         throw new UnsupportedOperationException("Unsupported type " + type);
@@ -49,6 +51,8 @@ public class DiscoveryWalFileFactory {
                 return new S3Writer();
             case OSS:
                 return new OssWriter();
+            case GCS:
+                return new GcsWriter();
         }
         throw new UnsupportedOperationException("Unsupported type " + type);
     }

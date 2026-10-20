@@ -85,6 +85,27 @@ public class SQLNumericFunctionsTest {
     }
 
     @Test
+    public void testModWithTinyIntAndSmallIntDivisors() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "tiny", "small"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.BYTE_TYPE, BasicType.SHORT_TYPE
+                        });
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select MOD(a, tiny) as tiny_remainder, MOD(a, small) as small_remainder from dual",
+                        rowType,
+                        100,
+                        (byte) 7,
+                        (short) 30);
+
+        Assertions.assertEquals((byte) 2, outRow.getField(0));
+        Assertions.assertEquals((short) 10, outRow.getField(1));
+    }
+
+    @Test
     public void testModByZero() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(

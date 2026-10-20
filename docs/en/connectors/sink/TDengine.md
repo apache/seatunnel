@@ -98,6 +98,8 @@ Sink plugin common parameters, please refer to
 For multi-table writes, `multi_table_sink_replica` can be used with the common
 sink options.
 
+All required string options listed above must contain a nonblank value (not empty or whitespace-only). This validation does not check server connectivity or timestamp format.
+
 ## Input Row Shape
 
 The connector expects every input row to follow the super-table write shape:
