@@ -62,7 +62,6 @@
         <!-- SingleStore JDBC: 1.2.8 chosen for MySQL wire compatibility and JDBC 4.2 support.
              See docs (SingleStore connector) for version policy; check for security updates periodically. -->
         <singlestore.jdbc.version>1.2.8</singlestore.jdbc.version>
-        <yashandb.jdbc.version>1.9.24</yashandb.jdbc.version>
         <yashandb.jdbc.version>1.10.7</yashandb.jdbc.version>
     </properties>
 
