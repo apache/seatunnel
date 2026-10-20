@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
@@ -35,7 +36,12 @@ public class HubSpotSource extends HttpSource {
         super(HubSpotSourceParameter.buildRuntimeConfig(config));
         hubSpotSourceParameter.buildWithConfig(config);
 
-        if (!config.getOptional(HttpSourceOptions.CONTENT_FIELD).isPresent()) {
+        // Only JSON responses carry the HubSpot `results` array; for `text` and `binary` the base
+        // HttpSource deliberately leaves content_field unset, so forcing "$.results" there would
+        // either fail JSON parsing on a non-JSON body or silently emit an empty array as the row.
+        if (!config.getOptional(HttpSourceOptions.CONTENT_FIELD).isPresent()
+                && HubSpotSourceParameter.resolveResponseFormat(config)
+                        == HttpConfig.ResponseFormat.JSON) {
             this.contentField = HubSpotSourceParameter.DEFAULT_CONTENT_FIELD;
         }
     }

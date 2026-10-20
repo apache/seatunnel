@@ -38,19 +38,30 @@ public class HubSpotSourceParameter extends HttpParameter {
     public static ReadonlyConfig buildRuntimeConfig(ReadonlyConfig pluginConfig) {
         // Preserve nested config objects such as `pageing`; `toMap()` stringifies them.
         Map<String, Object> configMap = new HashMap<>(pluginConfig.getSourceMap());
-        HttpConfig.ResponseFormat responseFormat =
-                pluginConfig
-                        .getOptional(HttpSourceOptions.FORMAT)
-                        .orElse(HttpConfig.ResponseFormat.JSON);
+        HttpConfig.ResponseFormat responseFormat = resolveResponseFormat(pluginConfig);
         configMap.putIfAbsent(HttpSourceOptions.FORMAT.key(), responseFormat.name());
         configMap.putIfAbsent(HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key(), Boolean.TRUE);
-        if (responseFormat != HttpConfig.ResponseFormat.BINARY) {
+        if (responseFormat == HttpConfig.ResponseFormat.JSON) {
+            // The `$.results` default only makes sense for HubSpot's JSON envelope; `text`
+            // responses have no JSON path to extract and must keep content_field unset.
             configMap.putIfAbsent(HttpSourceOptions.CONTENT_FIELD.key(), DEFAULT_CONTENT_FIELD);
+        }
+        if (responseFormat != HttpConfig.ResponseFormat.BINARY) {
             configMap.put(
                     HttpSourceOptions.PAGEING.key(),
                     mergePagingDefaults(configMap.get(HttpSourceOptions.PAGEING.key())));
         }
         return ReadonlyConfig.fromMap(configMap);
+    }
+
+    /**
+     * Resolves the effective response format of a HubSpot source config, defaulting to JSON like
+     * the shared HTTP source does when `format` is not set.
+     */
+    public static HttpConfig.ResponseFormat resolveResponseFormat(ReadonlyConfig pluginConfig) {
+        return pluginConfig
+                .getOptional(HttpSourceOptions.FORMAT)
+                .orElse(HttpConfig.ResponseFormat.JSON);
     }
 
     /**

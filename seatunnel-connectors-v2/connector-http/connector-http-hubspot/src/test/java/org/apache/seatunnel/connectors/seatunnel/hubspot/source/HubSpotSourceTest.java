@@ -140,6 +140,29 @@ public class HubSpotSourceTest {
     }
 
     /**
+     * A `format = text` job must not inherit the JSON-only `$.results` content_field default: the
+     * base HttpSource leaves content_field unset for non-JSON responses, and forcing it would
+     * either fail JSON parsing on a plain-text body or emit an empty array as the row.
+     */
+    @Test
+    public void testTextFormatDoesNotForceResultsContentField() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("access_token", "test_secret_token");
+        configMap.put("format", "TEXT");
+        configMap.put("url", "https://api.hubapi.com/crm/v3/objects/companies");
+
+        HubSpotSource source = new HubSpotSource(ReadonlyConfig.fromMap(configMap));
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        Mockito.when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+
+        HttpSourceReader reader =
+                (HttpSourceReader) source.createReader(new SingleSplitReaderContext(context));
+
+        Assertions.assertNull(getField(reader, "contentJson"));
+        Assertions.assertEquals(Boolean.FALSE, getField(reader, "binaryMode"));
+    }
+
+    /**
      * Reads a private field so the test can assert the exact runtime object passed into the real
      * HTTP source reader.
      */
