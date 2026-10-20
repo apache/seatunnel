@@ -149,7 +149,8 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | TIMESTAMP           | timestamp (microsecond, Asia/Shanghai timezone) |
 | STRING              | utf8                    |
 | ARRAY               | list                    |
-| MAP                 | map                     |
+
+Map columns are not supported. Lance's native format rejects Arrow Map values, so the sink fails during schema creation. Serialize the Map to a string or flatten it into columns before writing to Lance.
 
 :::tip
 
