@@ -220,8 +220,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
      * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
      * -Infinity} (supported since PostgreSQL 14), which have no {@code BigDecimal} representation.
      * The pgjdbc driver fails to convert them with {@code PSQLException: Bad value for type
-     * BigDecimal : NaN} (text protocol) or with a {@code ClassCastException} (binary protocol,
-     * where the driver returns a {@code Double}). When {@code numeric_special_value_as_null} is
+     * BigDecimal : NaN} (text protocol), or in the binary protocol with a {@code
+     * ClassCastException} for {@code NaN} (the driver returns a {@code Double}) and an {@code
+     * IllegalArgumentException} for the infinities. When {@code numeric_special_value_as_null} is
      * enabled, such values are read as {@code null} and a warning is logged for the first
      * occurrence per column, so that a single special value does not abort the whole job. Otherwise
      * the original error is rethrown, which keeps the default behavior unchanged.
