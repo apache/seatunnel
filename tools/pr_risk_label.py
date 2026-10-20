@@ -157,7 +157,8 @@ GITHUB_DOC_RE = re.compile(r"^\.github/ISSUE_TEMPLATE/[^/]+$")
 GITHUB_CI_RE = re.compile(r"^\.github/(workflows|actions|scripts)/")
 EXAMPLE_RE = re.compile(r"^seatunnel-examples/.*/src/main/resources/examples/[^/]+\.conf$")
 DOCS_CONNECTOR_RE = re.compile(r"^docs/en/(connectors|connector-v2)/")
-DOC_RE = re.compile(r"(\.md$)|(^docs/.*\.(png|jpe?g|gif)$)")
+# Everything under docs/ is documentation (pages, images, sidebars.js, i18n json), plus Markdown anywhere.
+DOC_RE = re.compile(r"(\.md$)|(^docs/)")
 # pom of a connector module or of its E2E module; a freshly added one defines a new module.
 MODULE_POM_RE = re.compile(
     r"^seatunnel-connectors-v2/(connector-[^/]+/)?connector-[^/]+/pom\.xml$"

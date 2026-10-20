@@ -82,6 +82,12 @@ class BaseLevelTest(unittest.TestCase):
             result = score([f(path, "@@ -1 +1 @@\n-old\n+new\n", dele=1)])
             self.assertEqual((result["level"], result["class"]), (1, "docs"), path)
 
+    def test_every_file_under_docs_is_documentation(self):
+        # Found on a real PR: docs/sidebars.js was "unclassified" and would have made a docs-only PR medium.
+        for path in ("docs/sidebars.js", "docs/en/images/a.png", "docs/zh/i18n.json"):
+            result = score([f(path)])
+            self.assertEqual((result["level"], result["class"]), (1, "docs"), path)
+
     def test_github_templates_and_markdown_are_docs_but_workflows_and_actions_are_critical(self):
         # A documentation change that mentions CI must not be classified as a CI change.
         for path in (".github/PULL_REQUEST_TEMPLATE.md", ".github/ISSUE_TEMPLATE/bug-report.yml", ".github/CONTRIBUTING.md"):
