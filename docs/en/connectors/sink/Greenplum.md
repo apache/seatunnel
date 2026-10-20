@@ -30,6 +30,7 @@ Write data to Greenplum using the [Jdbc connector](Jdbc.md). Greenplum uses the 
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
@@ -61,6 +62,11 @@ Only Greenplum-specific commonly used options are listed here. Other JDBC sink o
 | generate_sink_sql | Boolean | No | false | Generate the insert SQL automatically from `database` and `table`. When `true`, the column order must match the upstream schema. |
 | database | String | No | - | Database name used when `generate_sink_sql = true`. |
 | table | String | No | - | Target table name used when `generate_sink_sql = true`. |
+| primary_keys | Array | No | - | Primary key fields used for upsert semantics when the sink SQL is generated automatically. |
+| connection_check_timeout_sec | Int | No | 30 | The time (seconds) to wait for database operation used to validate the connection. |
+| max_commit_attempts | Int | No | 3 | Retry times when a transaction commit fails. |
+| transaction_timeout_sec | Int | No | -1 | Transaction timeout in seconds. `-1` means unlimited. |
+| enable_upsert | Boolean | No | true | Enable upsert write by primary keys. |
 | common-options | | No | - | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 :::tip

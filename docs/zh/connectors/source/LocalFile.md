@@ -56,6 +56,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | path                       | string  | 是    | -                   |
 | file_format_type           | string  | 是    | -                   |
 | read_columns               | list    | 否    | -                   |
+| read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
 | row_delimiter              | string  | 否    | \n                  |
 | parse_partition_from_path  | boolean | 否    | true                |
@@ -66,6 +67,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | schema                     | config  | 否    | -                   |
 | sheet_name                 | string  | 否    | -                   |
 | excel_engine               | string  | 否    | POI                 |
+| excel_use_header_line      | boolean | 否    | false               |
 | poi_excel_max_file_size    | long    | 否    | 52428800            |
 | xml_row_tag                | string  | 否    | -                   |
 | xml_use_attr_format        | boolean | 否    | -                   |
@@ -93,16 +95,16 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | retention_max_age          | string  | 否    | -                   |
 | retention_check_interval   | string  | 否    | 1H                  |
 | common-options             |         | 否    | -                   |
-| tables_configs             | list    | 否    | 用于定义多表任务            |
+| tables_configs             | list    | 否    | -                   |
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
 | file_split_size            | long    | 否    | 134217728           | 
 | quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
-| metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
+| metalake_type              | string  | 否    | gravitino          |
 | recursive_file_scan        | boolean | 否    | true                |
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| sort_files_by_modification_time | boolean | 否 | false               |
 
 ### path [string]
 
@@ -313,7 +315,7 @@ PDF 特有的解析行为如下：
 
 ### skip_header_row_number [long]
 
-跳过前几行，但仅适用于 txt 和 csv。
+跳过 text、CSV 或 Excel 文件的前几行。
 
 例如，设置如下：
 
@@ -355,6 +357,12 @@ PDF 特有的解析行为如下：
 默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### excel_use_header_line [boolean]
+
+仅用于 `file_format_type` 为 `excel` 的源。默认值为 `false`，因此即使设置了 `skip_header_row_number`，Excel 仍按列位置读取。
+
+设置 `excel_use_header_line = true` 后，第一行作为表头，按列名映射到 schema 字段，并跳过第一行。如果同时设置了 `skip_header_row_number`，则以 `excel_use_header_line` 为准。表头中缺少的字段将产生 null 值并记录警告。
 
 ### poi_excel_max_file_size [long]
 
@@ -639,6 +647,10 @@ compare_mode = "len_mtime"
 启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
+
+### metalake_type [string]
+
+Metalake 服务类型，目前支持 `gravitino`。
 
 ### 通用选项
 

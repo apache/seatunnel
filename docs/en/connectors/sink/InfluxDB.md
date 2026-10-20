@@ -58,7 +58,7 @@ Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 | epoch                       | string | no       | n                     | Time precision used by the client. Uppercase values `H`, `M`, `S`, `MS`, `U`, and `NS` are recognized for write precision. |
 | connect_timeout_ms          | long   | no       | 15000                 | Timeout for connecting to InfluxDB, in milliseconds.                                          |
 | query_timeout_sec           | int    | no       | 3                     | Read timeout used by the InfluxDB client, in seconds.                                         |
-| multi_table_sink_replica    | int    | no       | -                     | Replica count for multi-table sink writers.                                                   |
+| multi_table_sink_replica    | int    | no       | 1                     | Replica count for multi-table sink writers.                                                   |
 | common-options              | config | no       | -                     | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [string]

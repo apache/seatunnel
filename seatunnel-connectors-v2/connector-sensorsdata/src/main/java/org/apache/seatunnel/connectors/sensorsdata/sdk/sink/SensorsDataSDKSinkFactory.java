@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.sensorsdata.sdk.config.SensorsDataSDKSink
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SensorsDataSDKSinkFactory implements TableSinkFactory {
     @Override
@@ -41,9 +43,13 @@ public class SensorsDataSDKSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return SensorsDataBaseOptionRules.getBaseOptionRuleBuilder()
+                .required(
+                        SensorsDataSDKSinkOptions.SERVER_URL,
+                        notBlank(SensorsDataSDKSinkOptions.SERVER_URL))
                 .optional(
                         SensorsDataSDKSinkOptions.BULK_SIZE,
                         SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE,
+                        SensorsDataSDKSinkOptions.CONSUMER,
                         SensorsDataOptions.SKIP_ERROR_RECORD,
                         SensorsDataSDKSinkOptions.INSTANT_EVENT_LIST)
                 .build();
