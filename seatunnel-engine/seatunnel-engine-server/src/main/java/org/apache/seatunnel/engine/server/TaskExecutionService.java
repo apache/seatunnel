@@ -322,11 +322,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new ThreadPoolExecutor(
                         FINAL_METRICS_MAX_CONCURRENT_REPORTS,
                         FINAL_METRICS_MAX_CONCURRENT_REPORTS,
-                        0L,
-                        TimeUnit.MILLISECONDS,
+                        30L,
+                        TimeUnit.SECONDS,
                         new ArrayBlockingQueue<>(FINAL_METRICS_QUEUE_CAPACITY),
                         namedFactory,
                         new ThreadPoolExecutor.AbortPolicy());
+        // Let idle workers exit after 30 s so the container E2E harness does not flag a thread
+        // leak after every job. Keep-alive was previously 0, which pinned all 4 core threads for
+        // the process lifetime.
+        pool.allowCoreThreadTimeOut(true);
         return MDCTracer.tracing(pool);
     }
 
@@ -355,6 +359,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             }
                         });
         scheduler.setRemoveOnCancelPolicy(true);
+        // Let the scheduler thread exit after 30 s idle so the container E2E harness does not flag
+        // a thread leak after every job. Without this, the single core fallback thread would live
+        // for the process lifetime once the first terminal task group submitted a fallback.
+        scheduler.setKeepAliveTime(30, TimeUnit.SECONDS);
+        scheduler.allowCoreThreadTimeOut(true);
         return scheduler;
     }
 
@@ -427,10 +436,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
-        // Use shutdownNow so in-flight final-metrics reports do not block server shutdown if
-        // their Hazelcast invocation hangs. The reports run on their own daemon threads but would
-        // otherwise keep the cached pool alive indefinitely. This mirrors the shutdownNow() used
-        // for executorService, which originally ran the same report inline on task workers.
         finalMetricsExecutorService.shutdownNow();
         finalMetricsFallbackExecutorService.shutdownNow();
         timerFlushWorker.shutdown();
@@ -1818,7 +1823,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // even when the periodic run is blocked inside an un-timed invoke.
                 fallbackFutureRef.set(
                         finalMetricsFallbackExecutorService.schedule(
-                                () -> future.complete(terminalState),
+                                () -> {
+                                    if (logger.isInfoEnabled()) {
+                                        logger.info(
+                                                "final metrics report for taskGroup {} timed out "
+                                                        + "after {} ms; completing terminal state {} directly",
+                                                taskGroupLocation,
+                                                finalMetricsFallbackTimeoutMs,
+                                                executionState);
+                                    }
+                                    future.complete(terminalState);
+                                },
                                 finalMetricsFallbackTimeoutMs,
                                 TimeUnit.MILLISECONDS));
                 try {
@@ -1841,16 +1856,34 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             });
                 } catch (RejectedExecutionException e) {
                     reportMetricsOperationRejectedCount.incrementAndGet();
-                    throw e;
+                    if (logger.isWarnEnabled()) {
+                        logger.warning(
+                                "final metrics report queue exhausted for taskGroup "
+                                        + taskGroupLocation
+                                        + " (count="
+                                        + reportMetricsOperationRejectedCount.get()
+                                        + "); completing terminal state "
+                                        + executionState
+                                        + " directly");
+                    }
+                    // RejectedExecutionException is a saturation signal, not a bug: no stack
+                    // trace needed. Cancel the already-scheduled fallback so we don't wait out
+                    // the full 15 s for something that is never going to complete.
+                    ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
+                    if (fallbackFuture != null) {
+                        fallbackFuture.cancel(false);
+                    }
+                    future.complete(terminalState);
                 }
             } catch (Throwable t) {
+                // This catch covers errors thrown before submit (e.g. fallback scheduler failure).
+                // Fallback cancellation is still best-effort because completion may have been
+                // published concurrently on the fallback thread — future.complete is idempotent.
                 logger.warning(
                         "failed to schedule final metrics report for taskGroup "
                                 + taskGroupLocation
                                 + "; completing terminal state directly",
                         t);
-                // Cancel the already-scheduled fallback if submit threw — it holds the terminal
-                // state and failure throwable so we don't want it lingering for the full timeout.
                 ScheduledFuture<?> fallbackFuture = fallbackFutureRef.get();
                 if (fallbackFuture != null) {
                     fallbackFuture.cancel(false);
