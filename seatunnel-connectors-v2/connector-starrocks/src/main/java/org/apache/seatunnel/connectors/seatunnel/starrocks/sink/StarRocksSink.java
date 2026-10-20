@@ -85,7 +85,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             log.warn("Failed to load JDBC driver {}", "com.mysql.cj.jdbc.Driver", e);
         }
         TablePath sinkTablePath = catalogTable.getTablePath();
-        return new StarRocksSinkWriter(sinkConfig, tableSchema, sinkTablePath);
+        return new StarRocksSinkWriter(context, sinkConfig, tableSchema, sinkTablePath);
     }
 
     @Override

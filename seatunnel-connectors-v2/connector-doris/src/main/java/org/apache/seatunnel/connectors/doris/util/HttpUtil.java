@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.util;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -27,6 +28,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HttpRequestExecutor;
 import org.apache.http.protocol.RequestContent;
 
 import java.io.IOException;
@@ -35,19 +37,64 @@ import java.util.List;
 
 /** util to build http client. */
 public class HttpUtil {
+    // Stream load upload sends "Expect: 100-continue" and relies on FE's 307 redirect to reach
+    // BE. The default waitForContinue timeout of HttpRequestExecutor is only 3s: when FE is busy
+    // (heavy load / FullGC), the client stops waiting, sends the non-repeatable request body to
+    // FE, and can no longer follow the late 307 redirect. Wait 60s for upload traffic instead,
+    // aligned with doris-flink-connector. Only the stream-load upload client needs this - the
+    // empty-entity control requests (commit / abort / pre-commit) keep the default, so a slow FE
+    // does not stretch checkpoint completion / transaction cleanup.
+    private static final int WAIT_FOR_CONTINUE_TIMEOUT_MS = 60 * 1000;
+
+    // Control requests (commit / abort / pre-commit / get_load_state polling) are small
+    // latency-bound calls. Without an explicit RequestConfig, a hung or half-open FE connection
+    // (network partition, GC-paused FE that accepted the socket but never answers) blocks
+    // httpClient.execute() indefinitely - a single stuck get_load_state poll would bypass
+    // DorisCommitter.waitUntilLoadVisible's visibility-timeout deadline entirely. 30s connect and
+    // socket timeouts match the source-side defaults (DorisSourceOptions) and stay well below the
+    // default 5-minute sink.visibility-timeout-ms, so one hung request is retried while the outer
+    // deadline stays meaningful. The stream-load upload client deliberately keeps no socket
+    // timeout: uploads stream large bodies and must not be cut off mid-transfer.
+    private static final int CONTROL_CONNECT_TIMEOUT_MS = 30 * 1000;
+    private static final int CONTROL_SOCKET_TIMEOUT_MS = 30 * 1000;
+
+    private static final DefaultRedirectStrategy REDIRECT_STRATEGY =
+            new DefaultRedirectStrategy() {
+                @Override
+                protected boolean isRedirectable(String method) {
+                    return true;
+                }
+            };
+
     private final HttpClientBuilder httpClientBuilder =
             HttpClients.custom()
-                    .setRedirectStrategy(
-                            new DefaultRedirectStrategy() {
-                                @Override
-                                protected boolean isRedirectable(String method) {
-                                    return true;
-                                }
-                            })
+                    .setRedirectStrategy(REDIRECT_STRATEGY)
+                    .addInterceptorLast(new RequestContent(true))
+                    .setDefaultRequestConfig(
+                            RequestConfig.custom()
+                                    .setConnectTimeout(CONTROL_CONNECT_TIMEOUT_MS)
+                                    .setSocketTimeout(CONTROL_SOCKET_TIMEOUT_MS)
+                                    .build());
+
+    // Separate builder for the stream-load upload path, which sends a non-repeatable body and
+    // needs a longer waitForContinue window than the default 3s.
+    private final HttpClientBuilder streamLoadHttpClientBuilder =
+            HttpClients.custom()
+                    .setRequestExecutor(new HttpRequestExecutor(WAIT_FOR_CONTINUE_TIMEOUT_MS))
+                    .setRedirectStrategy(REDIRECT_STRATEGY)
                     .addInterceptorLast(new RequestContent(true));
 
     public CloseableHttpClient getHttpClient() {
         return httpClientBuilder.build();
+    }
+
+    /**
+     * Client for the stream-load upload path. Raises the waitForContinue timeout so a slow FE 307
+     * redirect does not force the non-repeatable request body to be sent to FE before the redirect
+     * arrives.
+     */
+    public CloseableHttpClient getStreamLoadHttpClient() {
+        return streamLoadHttpClientBuilder.build();
     }
 
     public static CloseableHttpResponse executeWithRedirectTracking(

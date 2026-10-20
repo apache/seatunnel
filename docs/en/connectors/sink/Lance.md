@@ -13,7 +13,11 @@ import ChangeLog from '../changelog/connector-lance.md';
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -48,6 +52,7 @@ It provides a sink only; there is no Lance source connector.
 | namespace_ids                      | list    | no       | []            | Lance namespace path segments used when resolving the target table namespace.                     |
 | root_namespace_path                | string  | no       | /tmp          | Root path used by the Lance namespace.                                                           |
 | table                              | string  | no       | test          | Target Lance table name. If set, it overrides the upstream table name.                            |
+| lance.write.batch-size             | int     | no       | 10000         | Rows buffered in the writer before flushing one Lance fragment.                                   |
 | lance.write.max-rows-per-file      | int     | no       | 10            | Maximum number of rows written to one Lance file.                                                 |
 | lance.write.max-rows-per-group     | int     | no       | 20            | Maximum number of rows written to one Lance row group.                                            |
 | lance.write.max-bytes-per-file     | long    | no       | 20480         | Maximum number of bytes written to one Lance file.                                                |
@@ -60,9 +65,13 @@ It provides a sink only; there is no Lance source connector.
 
 The directory or dataset path where Lance data is stored. In local directory mode, make sure the SeaTunnel runtime can create and write to this path.
 
+If specified, this value must not be empty or contain only whitespace. Omitting it keeps the default `/test.lance`.
+
 ### namespace_type
 
 The Lance namespace type. Currently the connector supports `dir`.
+
+If specified, this value must not be empty or contain only whitespace. Omitting it keeps the default `dir`.
 
 ### namespace_id
 
@@ -83,10 +92,22 @@ to create and write files under this path.
 
 The target Lance table name. When it is not set, the connector uses the upstream table name if one is available. The default option value is `test`.
 
+### lance.write.batch-size
+
+Number of SeaTunnel rows buffered in memory before the writer converts them into **one** Lance fragment and appends it. The default is `10000` (the writer previously used a fixed buffer of `1000` rows), and the value must be at least `1`.
+
+Lance stores data by column, so a fragment of `10000` rows can still be small. Too few rows per fragment produces many small columnar files and increases read and write amplification later. A larger value means fewer, larger fragments, but each writer holds more rows in memory before flushing. Raise this value when the job has enough memory, and lower it when memory is tight, for example with wide rows or vector columns.
+
+The writer also flushes on checkpoint (`prepareCommit`) and when the sink closes, even if the buffer has not reached this size.
+
 ### lance.write.mode
 
 Controls how Lance writes the dataset. The default is `CREATE`. Use a value
 supported by Lance `WriteParams.WriteMode`: `CREATE`, `APPEND`, or `OVERWRITE`.
+
+### lance.write.enable.stable.row.ids
+
+Whether to enable stable row IDs when writing Lance data. The connector reads this option into `LanceSinkConfig.enableStableRowIds` and exposes it via `getEnableStableRowIds()`, but **the value is currently parsed but not yet applied to the underlying Lance `WriteParams`** in `LanceSinkWriter.initializeDataset()` — toggling it has no observable effect on the write path today. This is a known gap pending a follow-up connector change.
 
 ### lance.write.storage.options
 
@@ -101,9 +122,15 @@ lance.write.storage.options = {
 }
 ```
 
+### multi_table_sink_replica
+
+Replica count used by the multi-table sink routing mechanism. Increase it when
+a single multi-table job writes to many Lance tables and the default single
+replica becomes a bottleneck. See [Sink Common Options](../common-options/sink-common-options.md).
+
 ## Data Type Mapping
 
-Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema.
+Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema. The current mapping narrows every integer SeaTunnel type (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) to Arrow `int32`, so `BIGINT` values outside the signed 32-bit range are truncated.
 
 | SeaTunnel Data Type | Lance / Arrow Data Type |
 |---------------------|-------------------------|
@@ -111,18 +138,25 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | TINYINT             | int32                   |
 | SMALLINT            | int32                   |
 | INT                 | int32                   |
-| BIGINT              | int32                   |
+| BIGINT              | int32 (values outside the signed 32-bit range are truncated) |
 | FLOAT               | float32                 |
 | DOUBLE              | float64                 |
 | DECIMAL             | decimal128              |
 | NULL                | null                    |
 | BYTES               | binary                  |
 | DATE                | date32                  |
-| TIME                | time32                  |
-| TIMESTAMP           | timestamp               |
+| TIME                | time32 (millisecond precision) |
+| TIMESTAMP           | timestamp (microsecond, Asia/Shanghai timezone) |
 | STRING              | utf8                    |
 | ARRAY               | list                    |
-| MAP                 | map                     |
+
+Map columns are not supported. Lance's native format rejects Arrow Map values, so the sink fails during schema creation. Serialize the Map to a string or flatten it into columns before writing to Lance.
+
+:::tip
+
+The sink does not interpret `UPDATE` / `DELETE` row kinds as CDC operations — every upstream row is appended to the Lance dataset using the configured `lance.write.mode`. In streaming mode, the writer flushes the in-memory row buffer to Lance when `lance.write.batch-size` is reached and on every checkpoint.
+
+:::
 
 ## Task Example
 
@@ -163,6 +197,80 @@ sink {
     namespace_type = "dir"
     namespace_id = "root"
     table = "lance_sink_table"
+  }
+}
+```
+
+### Append Mode With Larger File Fragments
+
+`APPEND` mode keeps the existing dataset and adds new rows. Increase
+`lance.write.batch-size` to reduce the number of Lance fragments when appending
+large batches and a larger in-memory buffer is acceptable.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 1000000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake"
+  }
+}
+
+sink {
+  Lance {
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
+    lance.write.batch-size = 100000
+    lance.write.max-rows-per-file = 100000
+    lance.write.max-rows-per-group = 5000
+    lance.write.max-bytes-per-file = 134217728
+  }
+}
+```
+
+### Streaming Append With Checkpoint Flush
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake_stream"
+  }
+}
+
+sink {
+  Lance {
+    plugin_input = "fake_stream"
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
   }
 }
 ```

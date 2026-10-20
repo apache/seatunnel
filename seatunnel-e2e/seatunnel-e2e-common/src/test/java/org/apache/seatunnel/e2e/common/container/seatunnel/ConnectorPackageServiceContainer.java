@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -52,7 +53,9 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @NoArgsConstructor
 @Slf4j
 public class ConnectorPackageServiceContainer extends AbstractTestContainer {
-    private static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
+    // Keep a full JDK image, matching the JDK baseline this container ran on before, so JVM
+    // diagnostic tools stay available to the cluster tests running inside it.
+    private static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jdk";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server1;
@@ -82,10 +85,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server1-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server1.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server2 =
                 new GenericContainer<>(getDockerImage())
@@ -108,10 +109,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server2-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server2.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server3 =
                 new GenericContainer<>(getDockerImage())
@@ -134,10 +133,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/connector-package-service-test-server3-resources"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
         server3.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         Startables.deepStart(Stream.of(server1)).join();
         Startables.deepStart(Stream.of(server2)).join();

@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.api.table.schema.handler;
 
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
@@ -57,6 +60,9 @@ public class DataTypeChangeEventDispatcher implements DataTypeChangeEventHandler
 
     @Override
     public SeaTunnelRowType apply(SchemaChangeEvent event) {
+        if (event instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) event).getRestoredTable().getSeaTunnelRowType();
+        }
         DataTypeChangeEventHandler handler = handlers.get(event.getClass());
         if (handler == null) {
             log.warn("No DataTypeChangeEventHandler for event: {}", event.getClass());
@@ -76,6 +82,8 @@ public class DataTypeChangeEventDispatcher implements DataTypeChangeEventHandler
         handlers.put(AlterTableModifyColumnEvent.class, alterTableEventHandler);
         handlers.put(AlterTableDropColumnEvent.class, alterTableEventHandler);
         handlers.put(AlterTableChangeColumnEvent.class, alterTableEventHandler);
+        handlers.put(AlterTableCommentEvent.class, alterTableEventHandler);
+        handlers.put(AlterColumnCommentEvent.class, alterTableEventHandler);
         return handlers;
     }
 }

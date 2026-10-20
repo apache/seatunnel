@@ -15,19 +15,19 @@ different API endpoints.
 | Name                           | Type   | Required | Default Value | Description                                                                                                                                                             |
 |--------------------------------|--------|----------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | model_provider                 | enum   | yes      | -             | The model provider for embedding. Options may include `AMAZON`, `QIANFAN`, `OPENAI`, etc.                                                                               |
-| api_key                        | string | yes      | -             | The API key required to authenticate with the embedding service.                                                                                                        |
-| secret_key                     | string | yes      | -             | The secret key required for additional authentication with the embedding service.                                                                                       |
+| api_key                        | string | no       | -             | The API key required to authenticate with the embedding service. Required by `AMAZON`, `OPENAI`, `DOUBAO`, `QIANFAN` and `ZHIPU`; not used by `CUSTOM`. Note that `ZHIPU` reads it at runtime even though the option rule only validates `dimension`. |
+| secret_key                     | string | no       | -             | The secret key required for additional authentication with the embedding service. Only required by `AMAZON` and `QIANFAN`.                                               |
 | aws_region                     | string | no       |               | AWS Region. Required for use Amazon Bedrock model.                                                                                                                      |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
 | api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider.                                                                                   |
-| dimension                      | int    | no       | -             | TThe vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
+| dimension                      | int    | no       | 2048          | The vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
 | oauth_path                     | string | no       | -             | The API endpoint for the oauth service.                                                                                                                                 |
 | custom_config                  | map    | no       |               | Custom configurations for the model.                                                                                                                                    |
-| custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`.                                                             |
-| custom_request_headers         | map    | no       |               | Custom headers for the request to the model.                                                                                                                            |
-| custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`.                                                                                         |
+| custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`. Only read from inside the `custom_config` block; setting it at the top level has no effect. |
+| custom_request_headers         | map    | no       |               | Custom headers for the request to the model. Only read from inside the `custom_config` block; setting it at the top level has no effect.                                 |
+| custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`. Only read from inside the `custom_config` block; setting it at the top level has no effect. |
 | model_retry_max_attempts       | int    | no       | 1             | Maximum attempts for one remote model request. The default value `1` keeps the previous no-retry behavior.                                                              |
 | model_retry_backoff_ms         | long   | no       | 1000          | Initial backoff in milliseconds before retrying a remote model request.                                                                                                  |
 | model_retry_max_backoff_ms     | long   | no       | 10000         | Maximum backoff in milliseconds before retrying a remote model request.                                                                                                  |
@@ -85,8 +85,13 @@ The runtime records safe diagnostic context such as provider, model, batch size,
 retryable flag, and elapsed time. It does not log API keys, secret keys, full source text chunks, binary payloads, or full
 provider response bodies.
 
-Bedrock now uses the same common runtime path as the other embedding providers, so retry, timeout, response parsing,
+Bedrock uses the same common runtime path as the other embedding providers, so retry, response parsing,
 and response-count validation behave consistently across providers.
+
+For `AMAZON`, `model_retry_max_attempts` counts SeaTunnel attempts. The AWS SDK can perform its own HTTP retries within
+each attempt; its retry policy is unchanged. Configured retry and backoff options now reach the Bedrock runtime instead
+of being ignored by the transform. The default remains one SeaTunnel attempt. `model_request_timeout_ms` is not currently
+applied to Bedrock SDK calls; this change preserves the existing SDK timeout behavior.
 
 The runtime also has a cache boundary. When a cache implementation is wired in, keys are built from provider, model,
 output configuration, modality, format, normalized metadata, and a SHA-256 digest of normalized input content. The

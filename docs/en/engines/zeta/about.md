@@ -62,7 +62,7 @@ If you are starting from zero, read these pages in order:
 2. [Download & Install](download-seatunnel.md)
 3. [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md)
 4. [Job Configuration Guide](../../getting-started/job-configuration-guide.md)
-5. [REST API And Web UI](rest-api-and-web-ui.md)
+5. [REST API and Web UI](rest-api-and-web-ui.md)
 
 If you want to understand the internals after your first successful run, continue with:
 

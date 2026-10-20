@@ -67,12 +67,9 @@ public class XaGroupOpsImpl implements XaGroupOps {
             }
         }
         result.getForRetry().addAll(xids);
-        // TODO At present, it is impossible to distinguish whether
-        // the repeated Commit failure caused by restore (exception should not be thrown) or
-        // the failure of normal process Commit (exception should be thrown).
-        // So currently the exception is not thrown.
-
-        // result.throwIfAnyFailed("commit");
+        // A permanent or unknown commit failure must fail the checkpoint instead of being reported
+        // as a successful commit.
+        result.throwIfAnyFailed("commit");
         throwIfAnyReachedMaxAttempts(result, maxCommitAttempts);
         result.getTransientFailure()
                 .ifPresent(

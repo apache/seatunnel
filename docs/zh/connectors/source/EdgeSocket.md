@@ -88,6 +88,51 @@ sink {
 }
 ```
 
+### 常见下游模式
+
+EdgeSocket 输出的是 `STRING`（或声明 schema 后的结构化类型）记录。生产环境最常见的组合是先
+用 `Sql` 转换把单行字符串处理一下，再写入数据库 Sink，这样每个批次最终都会落到目标表的多条
+记录中。下面这段配置和仓库自带 e2e 中的用法保持一致：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 3000
+}
+
+source {
+  EdgeSocket {
+    port = 10091
+    auth_type = "TOKEN"
+    token = "edge-token"
+    packet_mode = "RAW"
+    max_retries = 3
+    reconnect_interval_ms = 2000
+    accept_timeout_ms = 5000
+  }
+}
+
+transform {
+  Sql {
+    query = "SELECT CONCAT(value, '_transformed') AS value_text FROM source_table"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&allowPublicKeyRetrieval=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "mysqlpw"
+    query = "insert into edge_socket_sink(value_text) values (?)"
+  }
+}
+```
+
+其它数据库 Sink（例如 `Postgres`、`ClickHouse`、`Kafka` 等）都可以按同样方式接在 EdgeSocket
+后面；Source 与具体 Sink 之间并不存在强绑定关系，请按业务需要选择目标。
+
 ## Schema 模式
 
 默认输出单个 STRING 字段（字段名 value），内容为 payload 原始文本。
