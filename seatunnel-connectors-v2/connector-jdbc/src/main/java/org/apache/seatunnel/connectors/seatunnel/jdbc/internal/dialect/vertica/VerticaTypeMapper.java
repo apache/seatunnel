@@ -117,8 +117,10 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
                 return new DecimalType(20, 0);
             case VERTICA_NUMERIC:
             case VERTICA_DECIMAL:
+                // The Vertica JDBC driver reports every exact numeric alias (DECIMAL, NUMERIC,
+                // NUMBER, MONEY) as "NUMERIC", so both labels share one mapping.
                 if (precision > 38) {
-                    LOG.warn("{} will probably cause value overflow.", VERTICA_DECIMAL);
+                    LOG.warn("{} will probably cause value overflow.", type);
                     return new DecimalType(38, 18);
                 }
                 return new DecimalType(precision, scale);
@@ -164,7 +166,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
             case VERTICA_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
 
-            // Doesn't support yet
+                // Doesn't support yet
             case VERTICA_GEOMETRY:
             case VERTICA_UNKNOWN:
             default:
