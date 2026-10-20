@@ -92,8 +92,8 @@ session:
 示例将配置保留为独立文件 `deploy/kubernetes/session/session.yaml`。`kustomization.yaml` 使用
 `configMapGenerator` 生成单独的 ConfigMap，`statefulset-master.yaml` 再把它挂载到
 `/opt/seatunnel/config/session.yaml`。其他 master 配置文件位于
-`deploy/kubernetes/session/config/master/`，worker 配置位于 `config/worker/`，直接编辑这些文件，
-由 Kustomize 生成两个 ConfigMap。
+`deploy/kubernetes/session/conf/master/`，worker 配置位于 `conf/worker/`，公共日志和 JVM 配置位于
+`conf/common/`；直接编辑这些文件，由 Kustomize 生成 ConfigMap。
 
 `min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
 slot 缺口扩容，且不超过 `max-workers`。

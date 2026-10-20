@@ -25,20 +25,20 @@ resources:
 configMapGenerator:
   - name: seatunnel-session-cluster-master-config
     files:
-      - config/master/seatunnel.yaml
-      - config/master/hazelcast-master.yaml
-      - config/master/hazelcast-client.yaml
-      - config/master/log4j2.properties
-      - config/master/jvm_master_options
+      - conf/master/seatunnel.yaml
+      - conf/master/hazelcast-master.yaml
+      - conf/master/hazelcast-client.yaml
+      - log4j2.properties=conf/common/log4j2.properties
+      - jvm_master_options=conf/common/jvm_options
     options:
       labels:
         seatunnel.apache.org/session: seatunnel-session-cluster
   - name: seatunnel-session-cluster-worker
     files:
-      - config/worker/seatunnel.yaml
-      - config/worker/hazelcast-worker.yaml
-      - config/worker/log4j2.properties
-      - config/worker/jvm_worker_options
+      - conf/worker/seatunnel.yaml
+      - conf/worker/hazelcast-worker.yaml
+      - log4j2.properties=conf/common/log4j2.properties
+      - jvm_worker_options=conf/common/jvm_options
     options:
       labels:
         seatunnel.apache.org/session: seatunnel-session-cluster

@@ -4,8 +4,8 @@ This directory contains a minimal Kubernetes Session Cluster. The two masters ar
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
 `session.yaml` is a standalone configuration file; `kustomization.yaml` generates a ConfigMap from
 it and the master StatefulSet mounts it at `/opt/seatunnel/config/session.yaml`. Master and worker
-configuration files are also split under `config/master/` and `config/worker/`; Kustomize generates
-their ConfigMaps from those individual files.
+configuration files are split under `conf/master/` and `conf/worker/`; common logging and JVM
+options are in `conf/common/`. Kustomize generates the ConfigMaps from those individual files.
 
 ## Multiple Sessions in one namespace
 

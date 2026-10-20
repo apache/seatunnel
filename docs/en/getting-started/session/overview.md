@@ -96,8 +96,9 @@ session:
 The sample keeps this file as `deploy/kubernetes/session/session.yaml`. `kustomization.yaml` uses
 `configMapGenerator` to create a separate ConfigMap from it, and `statefulset-master.yaml` mounts
 that key at `/opt/seatunnel/config/session.yaml`. The other master files live under
-`deploy/kubernetes/session/config/master/` and worker files under `config/worker/`; edit those
-files individually and let Kustomize generate the two ConfigMaps.
+`deploy/kubernetes/session/conf/master/` and worker files under `conf/worker/`; shared logging and
+JVM files live under `conf/common/`. Edit those files individually and let Kustomize generate the
+ConfigMaps.
 
 `min-workers` defaults to `2`. `dynamic-worker.enabled` defaults to `false`; when enabled, workers
 are created only from pending-job slot demand up to `max-workers`.
