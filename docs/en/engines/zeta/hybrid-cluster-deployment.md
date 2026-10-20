@@ -188,14 +188,16 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 **max-thread-num**
 
-The max job count can be executed at same time
+The maximum number of threads in the coordinator service executor (the `maximumPoolSize` of its thread pool). The default is `Integer.MAX_VALUE`.
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 Job Metrics Partition Count (This parameter is invalid on the Worker node)

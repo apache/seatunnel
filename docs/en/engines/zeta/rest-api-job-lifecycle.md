@@ -149,7 +149,7 @@ Response fields:
 |---|---|
 | `jobId` | Unique job identifier |
 | `jobName` | Human-readable job name |
-| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELLED` |
+| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELED` |
 | `envOptions` | Env configuration applied |
 | `createTime` | Job creation timestamp |
 | `jobDag` | DAG structure |
@@ -225,11 +225,14 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log and returned in the job final state:
+The savepoint path is printed in the job log. The `/job-info/:jobId` response has no
+`savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
+`restoreSourceJobId`), which picks up the latest savepoint of that job:
 
 ```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
+curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
+  -H "Content-Type: application/json" \
+  -d @fake_to_console.conf
 ```
 
 ### 5.3 Cancel (force)
@@ -325,22 +328,14 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 Restart from a specific savepoint path
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+### 6.3 Restoring from an explicit savepoint path
+
+The REST API does not support pointing at a specific savepoint path. There are no env options such
+as `restore.mode` or `savepoint.path`; restore is driven only by the `restoreMode` and
+`restoreSourceJobId` request parameters, and `restoreMode=SAVEPOINT` always picks up the **latest**
+savepoint of the referenced job. If you must restore from an older savepoint, copy or move the
+savepoint directories in checkpoint storage so that the desired one is the latest, then submit with
+`restoreMode=SAVEPOINT` as in section 6.2.
 
 ---
 

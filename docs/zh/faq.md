@@ -30,7 +30,7 @@ SeaTunnel 支持自定义数据清洗规则。可以在 `transform` 模块中配
 SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据库的增量同步，适用于需要实时捕获数据变更的场景。
 
 ## SeaTunnel 目前支持哪些数据源的 CDC ？
-目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](./connectors/source)。
+目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC、DB2 CDC、OceanBase CDC、Vitess CDC等，更多请查阅[Source](./connectors/source)。
 
 ## SeaTunnel CDC 同步需要的权限如何开启？
 这样就可以了。
@@ -40,9 +40,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 支持，是通过订阅 MySQL binlog 日志方式到同步服务器上解析 binlog 日志方式进行
 
 ## SeaTunnel 是否支持无主键表的 CDC 同步？
-不支持无主键表的 cdc 同步。原因如下：
-比如上游有 2 条一模一样的数据，然后上游删除或修改了一条，下游由于无法区分到底是哪条需要删除或修改，会出现这 2 条都被删除或修改的情况。
-没主键要类似去重的效果本身有点儿自相矛盾，就像辨别西游记里的真假悟空，到底哪个是真的
+支持。对于没有主键的表，基于 JDBC 的 CDC 连接器（MySQL、PostgreSQL、Oracle、SQL Server、DB2）会回退使用非空的唯一键列作为快照切分列；如果没有合适的键列，则整张表作为一个快照分片读取。也可以通过 `table-names-config.primaryKeys` 或 `snapshotSplitColumn` 显式指定切分列。需要注意两点限制：并行读取快照需要有这样的键列；开启 `exactly_once = true` 时必须存在主键或非空唯一键，否则作业在启动时报错。另外，没有唯一键时下游无法区分两条完全相同的记录，更新和删除可能同时影响这两条记录。
 
 ## SeaTunnel 是否支持自动建表？
 在同步任务启动之前，可以为目标端已有的表结构选择不同的处理方案。是通过 `schema_save_mode` 参数来控制的。

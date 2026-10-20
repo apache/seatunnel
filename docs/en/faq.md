@@ -29,7 +29,7 @@ Yes, SeaTunnel supports custom data cleansing rules. You can configure custom ru
 SeaTunnel supports incremental data integration. For example, the CDC connector allows real-time capture of data changes, which is ideal for scenarios requiring real-time data integration.
 
 ## What CDC data sources are currently supported by SeaTunnel?
-SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, and more. For more details, refer to the [Source List](./connectors/source).
+SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, DB2 CDC, OceanBase CDC, Vitess CDC, and more. For more details, refer to the [Source List](./connectors/source).
 
 ## How do I enable permissions required for SeaTunnel CDC integration?
 Please refer to the official SeaTunnel documentation for the necessary steps to enable permissions for each connector’s CDC functionality.
@@ -38,7 +38,7 @@ Please refer to the official SeaTunnel documentation for the necessary steps to 
 Yes, SeaTunnel supports CDC from MySQL replicas by subscribing to binlog logs, which are then parsed on the SeaTunnel server.
 
 ## Does SeaTunnel support CDC integration for tables without primary keys?
-SeaTunnel does not support CDC integration for tables without primary keys. The reason is that if two identical records exist in the upstream and one is deleted or modified, the downstream cannot determine which record to delete or modify, leading to potential issues. Primary keys are essential to ensure data uniqueness.
+Yes. For a table without a primary key, the JDBC-based CDC connectors (MySQL, PostgreSQL, Oracle, SQL Server, DB2) fall back to a non-nullable unique-key column as the snapshot split column; when no suitable key column exists, the table is read as a single snapshot split. You can also point the splitter at a column explicitly with `table-names-config.primaryKeys` or `snapshotSplitColumn`. Two limitations remain: parallel snapshot reading needs such a key column, and `exactly_once = true` requires a primary key or a non-nullable unique key, otherwise the job fails at startup. Also note that without a unique key the downstream sink cannot tell apart two identical rows, so updates and deletes may affect both of them.
 
 ## Does SeaTunnel support automatic table creation?
 Before starting an integration task, you can select different handling schemes for existing table structures on the target side, controlled via the `schema_save_mode` parameter. Available options include:

@@ -111,6 +111,25 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### Helm Chart：默认关闭 Zeta REST API v1
+
+- **行为变更：Kubernetes Helm chart 不再默认开启未鉴权的 Zeta REST API v1**
+  - **影响组件**：Helm chart `deploy/kubernetes/seatunnel`（`conf/hazelcast-master.yaml`、
+    `conf/hazelcast-worker.yaml`、`values.yaml`）
+  - **描述**：此前 chart 将 `hazelcast.network.rest-api.enabled` 设为 `true`，在 Hazelcast 成员端口（5801）上
+    无鉴权地暴露了已废弃的 Zeta REST API v1（包括 `submit-job`、`stop-job`、`encrypt-config`、日志和线程
+    dump）。现在该项为 `false`，与独立部署的 `config/hazelcast.yaml` 默认值和 v1 文档保持一致。默认的
+    Prometheus Pod 注解也从 `5801`（`/hazelcast/rest/instance/metrics`）改为指向 `8080` 上的 REST API v2 /
+    Jetty 监听（`/metrics`），两者返回相同的采样数据。
+  - **影响**：通过 5801 端口调用 REST API v1 的部署必须切换到 8080 端口的 REST API v2。直接抓取
+    `5801/hazelcast/rest/instance/metrics`（而非通过 Pod 注解）的 Prometheus 配置必须把目标改为
+    `8080/metrics`。通过 Hazelcast 客户端协议提交作业以及 8080 上的 REST API v2 不受影响。由于 ConfigMap 使用
+    `subPath` 挂载且 Deployment 没有配置校验和注解，运行中的 Pod 在重启前会继续使用旧设置，因此在
+    `helm upgrade` 之后请重启 master/worker Pod。
+  - **迁移指南**：使用 8080 端口上的 REST API v2（chart 文档中的接口）。如果确实需要 Zeta REST API v1，请在自定义
+    ConfigMap（`existingConfigMap`）中设置 `rest-api.enabled: true`，并通过 `NetworkPolicy` 限制成员端口
+    （5801）的访问。升级后重启 Pod 以应用新配置。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
