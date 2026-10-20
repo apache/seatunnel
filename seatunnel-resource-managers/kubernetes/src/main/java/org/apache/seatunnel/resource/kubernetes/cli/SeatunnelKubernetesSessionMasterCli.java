@@ -19,6 +19,7 @@ package org.apache.seatunnel.resource.kubernetes.cli;
 
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.KubernetesSessionResourceManagerDriver;
@@ -26,9 +27,6 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesSessionConfig;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
-import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
-
-import org.yaml.snakeyaml.Yaml;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 /** Starts one Kubernetes session master and keeps it alive until the process is stopped. */
@@ -70,11 +67,11 @@ public final class SeatunnelKubernetesSessionMasterCli {
                             Collections.singletonMap(
                                     KubernetesOptions.NAMESPACE.key(), config.getNamespace()),
                             true);
-            validateFixedSlots(client, config);
+            SeaTunnelConfig engineConfiguration = configureEngine(config);
+            validateFixedSlots(config, engineConfiguration);
             driver =
                     new KubernetesSessionResourceManagerDriver(
                             client, config, config.getSessionSpecification().getName());
-            SeaTunnelConfig engineConfiguration = configureEngine(config);
             master =
                     SeaTunnelServerStarter.createMasterHazelcastInstance(
                             engineConfiguration,
@@ -147,6 +144,30 @@ public final class SeatunnelKubernetesSessionMasterCli {
         }
     }
 
+    /**
+     * Checks the fixed-slot contract against the engine configuration shared by master and workers.
+     *
+     * <p>The sample uses one {@code seatunnel.yaml} for both roles. Keep the worker slot settings
+     * aligned if a deployment provides a separate worker ConfigMap.
+     */
+    private static void validateFixedSlots(
+            KubernetesSessionConfig config, SeaTunnelConfig engineConfiguration) {
+        SlotServiceConfig slotService =
+                engineConfiguration.getEngineConfig().getSlotServiceConfig();
+        if (slotService.isDynamicSlot()) {
+            throw new IllegalArgumentException(
+                    "Session Cluster supports fixed slots only; set "
+                            + "seatunnel.engine.slot-service.dynamic-slot=false");
+        }
+        int configuredSlots = config.getSessionSpecification().getWorkerSpecification().getSlots();
+        if (slotService.getSlotNum() != configuredSlots) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "session.worker.slots=%d must equal seatunnel.yaml slot-num=%d",
+                            configuredSlots, slotService.getSlotNum()));
+        }
+    }
+
     private static void closeQuietly(
             HazelcastInstanceImpl master,
             KubernetesSessionResourceManagerDriver driver,
@@ -176,57 +197,5 @@ public final class SeatunnelKubernetesSessionMasterCli {
 
     private static String masterAddress(String host, int port) {
         return (host.contains(":") ? "[" + host + "]" : host) + ":" + port;
-    }
-
-    /**
-     * Enforces the MVP fixed-slot contract before the master starts.
-     *
-     * <p>The worker ConfigMap is the source used by the worker processes, while {@code
-     * session.worker.slots} drives worker-count calculation. They must agree, and dynamic slots are
-     * not supported by the MVP because they have no stable per-worker capacity.
-     */
-    private static void validateFixedSlots(
-            KubernetesClient client, KubernetesSessionConfig config) {
-        KubernetesConfigMap workerConfig = client.getConfigMap(config.getWorkerConfigMap());
-        Map<String, String> data = workerConfig.getInternalResource().getData();
-        if (data == null || !data.containsKey("seatunnel.yaml")) {
-            throw new IllegalArgumentException(
-                    "Session worker ConfigMap "
-                            + config.getWorkerConfigMap()
-                            + " must contain seatunnel.yaml");
-        }
-        Map<String, Object> root =
-                map(new Yaml().load(data.get("seatunnel.yaml")), "seatunnel.yaml");
-        Map<String, Object> seatunnel = map(root.get("seatunnel"), "seatunnel");
-        Map<String, Object> engine = map(seatunnel.get("engine"), "seatunnel.engine");
-        Map<String, Object> slotService =
-                map(engine.get("slot-service"), "seatunnel.engine.slot-service");
-        Object dynamicSlot = slotService.get("dynamic-slot");
-        if (dynamicSlot == null || Boolean.parseBoolean(String.valueOf(dynamicSlot))) {
-            throw new IllegalArgumentException(
-                    "Session Cluster MVP supports fixed slots only; set "
-                            + "seatunnel.engine.slot-service.dynamic-slot=false");
-        }
-        Object slotNumValue = slotService.get("slot-num");
-        if (slotNumValue == null) {
-            throw new IllegalArgumentException(
-                    "seatunnel.engine.slot-service.slot-num is required for a session worker");
-        }
-        int slotNum = Integer.parseInt(String.valueOf(slotNumValue));
-        int configuredSlots = config.getSessionSpecification().getWorkerSpecification().getSlots();
-        if (slotNum != configuredSlots) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "session.worker.slots=%d must equal worker seatunnel.yaml slot-num=%d",
-                            configuredSlots, slotNum));
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> map(Object value, String path) {
-        if (!(value instanceof Map)) {
-            throw new IllegalArgumentException(path + " must be a YAML object");
-        }
-        return (Map<String, Object>) value;
     }
 }
