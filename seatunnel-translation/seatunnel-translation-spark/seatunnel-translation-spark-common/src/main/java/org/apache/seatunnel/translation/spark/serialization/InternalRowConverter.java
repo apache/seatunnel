@@ -178,11 +178,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         values[0] = new MutableByte();
         values[0].update(seaTunnelRow.getRowKind().toByteValue());
         values[1] = new MutableAny();
-        // Defensive guard: tableId is expected to be non-null (SeaTunnelRow defaults it to ""),
-        // but a misbehaving source may leave it null. Normalize to "" so we never pass null to
-        // UTF8String.fromString, which would otherwise throw NPE in the generated Spark writer.
-        String tableId = seaTunnelRow.getTableId();
-        values[1].update(UTF8String.fromString(tableId == null ? "" : tableId));
+        values[1].update(UTF8String.fromString(seaTunnelRow.getTableId()));
         // Fill any remaining null values with MutableAny
         for (int i = 0; i < values.length; i++) {
             if (values[i] == null) {
