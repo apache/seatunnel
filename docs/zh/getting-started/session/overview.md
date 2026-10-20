@@ -30,10 +30,19 @@ kubectl apply -k deploy/kubernetes/session
   `ceil(missingSlots / slotsPerWorker)` 创建 worker，上限为 `max-workers`。
 - 自动缩容：实验版本不支持。
 
-### Namespace 范围
+### 同 namespace 多 Session
 
-示例 manifest 使用固定资源名，因此一个 namespace 只能运行一个 Session。新增 Session 请使用
-独立 namespace；同 namespace 多 Session 的参数化 manifest 不在本次实验性范围内。
+`kubectl apply -k` 使用示例 Session 名 `seatunnel-session-cluster`。要在同一 namespace 运行
+另一个 Session，使用客户端部署器并传入唯一名称：
+
+```bash
+bin/seatunnel-session.sh --session-name payments
+```
+
+部署器从 `configmap-master.yaml` 读取 `session.yaml`，把名称渲染到所有资源名、标签、ConfigMap
+名以及 Hazelcast/client Service DNS，再调用 `kubectl apply`。它不依赖 Operator。每个 Session 的
+`session.name` 必须唯一；从源码目录运行时使用 `--manifests deploy/kubernetes/session`，
+`RENDER_ONLY=1` 可以只渲染不提交。
 
 ## 前置条件
 
@@ -116,7 +125,12 @@ Master 不提供 slot，只运行 coordinator 和 REST 服务。
 ## 启动
 
 ```bash
+# 示例 Session。
 kubectl apply -k deploy/kubernetes/session
+
+# 同一个 namespace 中的另一个 Session。
+bin/seatunnel-session.sh --session-name payments
+
 kubectl -n seatunnel get pods -w
 ```
 
@@ -162,11 +176,18 @@ curl -X POST http://127.0.0.1:8080/submit-job \
 ## 停止
 
 先停止 job，再删除 Session。建议先删 Master StatefulSet，避免 active master 在 Worker 被删除时
-继续补 Worker：
+继续补 Worker。namespace 中有多个 Session 时不要使用 `kubectl delete -k`，因为 kustomization
+包含共享的 namespace 资源。
 
 ```bash
-kubectl -n seatunnel delete statefulset seatunnel-session-cluster-master
-kubectl delete -k deploy/kubernetes/session
+SESSION_NAME=seatunnel-session-cluster  # 或 --session-name 的值
+
+kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
+kubectl -n seatunnel delete configmap \
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+kubectl -n seatunnel delete service \
+  "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
+kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 ```
 
 用户自有的 checkpoint、PVC、被引用的 ConfigMap/Secret 不会被删除。

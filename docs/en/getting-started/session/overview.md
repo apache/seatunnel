@@ -32,11 +32,20 @@ kubectl apply -k deploy/kubernetes/session
   `ceil(missingSlots / slotsPerWorker)` workers, capped by `max-workers`.
 - Automatic scale-down: not supported in this experimental release.
 
-### Namespace scope
+### Multiple Sessions in one namespace
 
-The sample manifests use fixed resource names, so a namespace hosts exactly one Session. Run each
-additional Session in a separate namespace. Parameterized manifests for multiple Sessions in one
-namespace are outside this experimental scope.
+`kubectl apply -k` applies the sample Session named `seatunnel-session-cluster`. To run another
+Session in the same namespace, use the client-side deployer with a unique name:
+
+```bash
+bin/seatunnel-session.sh --session-name payments
+```
+
+The deployer reads `session.yaml` from `configmap-master.yaml`, renders that name into every
+resource name, label, ConfigMap name, and Hazelcast/client service DNS entry, then calls
+`kubectl apply`. It does not require an Operator. Each Session in a namespace must use a different
+`session.name`; `--manifests deploy/kubernetes/session` is available when running from the source
+tree, and `RENDER_ONLY=1` prints the YAML without applying it.
 
 ## Requirements
 
@@ -119,7 +128,12 @@ The master Pods do not provide slots. They run the coordinator and REST service.
 ## Start
 
 ```bash
+# The sample Session.
 kubectl apply -k deploy/kubernetes/session
+
+# Another Session in the same namespace.
+bin/seatunnel-session.sh --session-name payments
+
 kubectl -n seatunnel get pods -w
 ```
 
@@ -167,11 +181,18 @@ keeps the job pending. A worker that registers after the timeout is still used f
 ## Stop
 
 Stop jobs before deleting the session. Delete the master StatefulSet first so the active master
-cannot replace workers while they are being removed:
+cannot replace workers while they are being removed. Do not use `kubectl delete -k` when the
+namespace hosts multiple Sessions, because the kustomization contains the shared namespace.
 
 ```bash
-kubectl -n seatunnel delete statefulset seatunnel-session-cluster-master
-kubectl delete -k deploy/kubernetes/session
+SESSION_NAME=seatunnel-session-cluster  # or the --session-name value
+
+kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
+kubectl -n seatunnel delete configmap \
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+kubectl -n seatunnel delete service \
+  "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
+kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 ```
 
 User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.

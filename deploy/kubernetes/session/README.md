@@ -3,16 +3,31 @@
 This directory contains a minimal Kubernetes Session Cluster. The two masters are a StatefulSet;
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
 
-## Namespace scope
+## Multiple Sessions in one namespace
 
-The manifests use fixed resource names, so a namespace hosts exactly one Session. Run another
-Session in a separate namespace. Parameterized manifests for multiple Sessions in one namespace are
-outside this experimental scope.
+`kubectl apply -k` applies the sample Session named `seatunnel-session-cluster`. To run another
+Session in the same namespace, use the deployment helper with a unique session name:
+
+```bash
+bin/seatunnel-session.sh --session-name payments
+```
+
+The script reads `session.yaml` from `configmap-master.yaml`, renders its name into every resource
+name, label, ConfigMap name, and Hazelcast/client service DNS entry, then calls `kubectl apply`.
+It is a deployment helper, not a Session lifecycle CLI. Every Session in a namespace must use a
+different `session.name`; `--session-name` overrides the value from the YAML. Use
+`--manifests deploy/kubernetes/session` when running from the source tree, and `RENDER_ONLY=1` to
+print the rendered manifests without applying them.
 
 ## Start
 
 ```bash
+# The sample Session.
 kubectl apply -k deploy/kubernetes/session
+
+# Another Session in the same namespace.
+bin/seatunnel-session.sh --session-name payments
+
 kubectl -n seatunnel get pods -w
 ```
 
@@ -26,8 +41,11 @@ curl -X POST http://127.0.0.1:8080/submit-job \
   -d @job.json
 ```
 
+For another Session, replace `seatunnel-session-cluster` with the `session.name` used by
+`seatunnel-session.sh`.
+
 For the native Hazelcast client, create a client configuration that points at
-`seatunnel-session-cluster-client.seatunnel.svc.cluster.local:5801`, then use:
+`<session-name>-client.<namespace>.svc.cluster.local:5801`, then use:
 
 ```bash
 HAZELCAST_CLIENT_CONFIG=/path/to/hazelcast-client.yaml \
@@ -37,11 +55,20 @@ HAZELCAST_CLIENT_CONFIG=/path/to/hazelcast-client.yaml \
 ## Stop
 
 Stop jobs first, then delete the master StatefulSet before deleting the root ConfigMap. This
-prevents the still-running master from replacing workers while their Pods are being removed:
+prevents the still-running master from replacing workers while their Pods are being removed.
+
+Delete one Session by its name. Do not use `kubectl delete -k deploy/kubernetes/session` in a
+namespace that hosts multiple Sessions: the kustomization contains the shared namespace resource.
 
 ```bash
-kubectl -n seatunnel delete statefulset seatunnel-session-cluster-master
-kubectl delete -k deploy/kubernetes/session
+SESSION_NAME=seatunnel-session-cluster  # or the name passed to --session-name
+
+kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
+kubectl -n seatunnel delete configmap \
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+kubectl -n seatunnel delete service \
+  "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
+kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
 ```
 
 Checkpoint storage and user-owned PVCs are not deleted by the session manifests.

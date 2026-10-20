@@ -665,7 +665,11 @@ public class CoordinatorService {
         }
 
         reschedulePendingJobCleanup();
-        resourceManagerFactory.initializeWorkerPoolOnCoordinatorStart(this::getResourceManager);
+        if (resourceManagerFactory.isSessionDeployment()) {
+            // Session clusters own a long-lived worker pool, so the active master must initialize
+            // the manager and its min-workers even when no job is waiting to restore.
+            getResourceManager();
+        }
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
                         CompletableFuture.runAsync(
