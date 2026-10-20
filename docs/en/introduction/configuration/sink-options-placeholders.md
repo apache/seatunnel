@@ -37,8 +37,6 @@ The placeholders are mainly controlled by the following expressions:
   - Used to get the table unique-key fields in the upstream catalog table
 - `${field_names}`
   - Used to get the table field keys in the upstream catalog table
-- `${comment}`
-  - Used to get the table comment in the upstream catalog table
 - `${partition_keys}`
   - Used to get the table partition keys in the upstream catalog table
 
@@ -106,6 +104,39 @@ sink {
   }
 }
 ```
+## Primary Key Placeholder Behavior
+
+The `${primary_key}` placeholder expands to all primary key columns defined in the upstream table metadata.
+
+For example, if the upstream table primary key is:
+
+```text
+(f1, f2)
+```
+
+then:
+
+```hocon
+primary_keys = ["${primary_key}"]
+```
+
+will be expanded to:
+
+```hocon
+primary_keys = ["f1", "f2"]
+```
+
+Mixing `${primary_key}` with static column names is currently not supported.
+
+For example, the following configuration is **not supported**:
+
+```hocon
+primary_keys = ["${primary_key}", "tenant_id"]
+```
+
+The placeholder replacement for list values is only applied when `${primary_key}` is the only element in the list.
+
+The behavior is the same for both single-table and multi-table jobs.
 
 We will complete the placeholder replacement before the connector is started, ensuring that the sink options is ready before use.
 If the variable is not replaced, it may be that the upstream table metadata is missing this option, for example:

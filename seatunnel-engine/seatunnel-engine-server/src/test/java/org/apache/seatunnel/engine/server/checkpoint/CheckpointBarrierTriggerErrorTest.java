@@ -51,6 +51,7 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
     @Test
     public void testCheckpointBarrierTriggerError()
             throws NoSuchFieldException, IllegalAccessException {
+        COUNTER.set(0);
         long jobId = System.currentTimeMillis();
         startJob(jobId, CONF_PATH);
 
@@ -62,11 +63,10 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
                                         JobStatus.RUNNING));
 
         CheckpointManager spiedCheckpointManager = spy(getCheckpointManager(jobId));
-        setCheckpointManager(spiedCheckpointManager);
-
         doAnswer(this::mockException)
                 .when(spiedCheckpointManager)
                 .sendOperationToMemberNode(Mockito.any(CheckpointBarrierTriggerOperation.class));
+        setCheckpointManager(spiedCheckpointManager);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -56,6 +57,21 @@ public class ClusterFailureNoRestoreIT {
     private static final String TEST_TEMPLATE_FILE_NAME =
             "cluster_batch_fake_to_localfile_no_restore_template.conf";
 
+    /**
+     * Keep the bounded fake source busy long enough to observe worker shutdown before the batch job
+     * converges on its own.
+     */
+    private static final long NO_RESTORE_BATCH_ROW_NUM_PER_PARALLELISM = 20_000L;
+
+    /** Wait for the batch job to enter the steady RUNNING state before shutting a worker down. */
+    private static final long PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS = 30L;
+
+    /**
+     * Wait for job metrics to show that the bounded fake source has started consuming records but
+     * has not yet drained its full input before shutting a worker down.
+     */
+    private static final long PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS = 30L;
+
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
     private static final String DYNAMIC_TEST_ROW_NUM_PER_PARALLELISM =
@@ -68,8 +84,9 @@ public class ClusterFailureNoRestoreIT {
             throws Exception {
         String testCaseName = "testBatchJobWithoutCheckpointAndRetryConvergesAfterWorkerShutdown";
         String testClusterName = "ClusterFailureNoRestoreIT_batch_no_restore";
-        long testRowNumber = 10000;
+        long testRowNumber = NO_RESTORE_BATCH_ROW_NUM_PER_PARALLELISM;
         int testParallelism = 6;
+        long expectedSourceReadCount = testRowNumber * testParallelism;
 
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
@@ -108,21 +125,13 @@ public class ClusterFailureNoRestoreIT {
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .atMost(PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
-                            () -> {
-                                Long lineNumberFromDir =
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-                                JobStatus status = clientJobProxy.getJobStatus();
-                                log.warn(
-                                        "\n====================={}=====================\n",
-                                        lineNumberFromDir);
-                                Assertions.assertTrue(lineNumberFromDir > 1);
-                                Assertions.assertFalse(
-                                        status.isEndState(),
-                                        "job finished before worker shutdown: " + status);
-                            });
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+            awaitSourceProgressBeforeShutdown(
+                    engineClient, clientJobProxy.getJobId(), expectedSourceReadCount);
 
             CompletableFuture<JobResult> waitForCompleteFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
@@ -166,6 +175,28 @@ public class ClusterFailureNoRestoreIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Wait until the runtime metrics confirm that the batch source is actively producing data and
+     * has not already consumed the full bounded input before the worker shutdown is injected.
+     */
+    private void awaitSourceProgressBeforeShutdown(
+            SeaTunnelClient engineClient, long jobId, long expectedSourceReadCount) {
+        Awaitility.await()
+                .atMost(PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobMetricsSummary jobMetricsSummary =
+                                    engineClient.getJobMetricsSummary(jobId);
+                            Assertions.assertTrue(
+                                    jobMetricsSummary.getSourceReadCount() > 0,
+                                    "Expected the fake source to emit records before worker shutdown");
+                            Assertions.assertTrue(
+                                    jobMetricsSummary.getSourceReadCount()
+                                            < expectedSourceReadCount,
+                                    "The bounded fake source finished before worker shutdown was injected");
+                        });
     }
 
     private ImmutablePair<String, String> createTestResources(

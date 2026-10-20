@@ -41,6 +41,18 @@ public class IMapData implements Serializable, Comparable<IMapData> {
 
     @Override
     public int compareTo(IMapData o) {
-        return o.timestamp - this.timestamp > 0 ? 1 : -1;
+        return IMapDataComparator.compare(
+                this.deleted,
+                this.key,
+                this.keyClassName,
+                this.value,
+                this.valueClassName,
+                this.timestamp,
+                o.deleted,
+                o.key,
+                o.keyClassName,
+                o.value,
+                o.valueClassName,
+                o.timestamp);
     }
 }

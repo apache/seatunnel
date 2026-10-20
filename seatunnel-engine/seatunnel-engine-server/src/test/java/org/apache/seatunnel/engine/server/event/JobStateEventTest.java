@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.seatunnel.engine.server.checkpoint.CheckpointErrorRestoreEndTest.RESTORE_TO_FAILED_TIMEOUT_SECONDS;
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointErrorRestoreEndTest.STREAM_CONF_WITH_ERROR_PATH;
 import static org.awaitility.Awaitility.await;
 
@@ -90,7 +91,7 @@ class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         long jobIdFailed = System.currentTimeMillis();
         startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
-        await().atMost(60, TimeUnit.SECONDS)
+        await().atMost(RESTORE_TO_FAILED_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -161,7 +162,7 @@ class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         long jobIdFailed = System.currentTimeMillis();
         startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
-        await().atMost(60, TimeUnit.SECONDS)
+        await().atMost(RESTORE_TO_FAILED_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(

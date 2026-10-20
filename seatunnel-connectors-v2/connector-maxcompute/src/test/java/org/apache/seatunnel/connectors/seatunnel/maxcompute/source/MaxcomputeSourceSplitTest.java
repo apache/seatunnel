@@ -17,13 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class MaxcomputeSourceSplitTest {
 
@@ -33,42 +41,131 @@ public class MaxcomputeSourceSplitTest {
         long recordCount = 105000;
         int splitRow = 10000;
 
-        int splitRowNum = (int) Math.ceil((double) recordCount / numReaders); // 21000
         TablePath tablePath = TablePath.of("test_db", "test_schema", "test_table");
+
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
+        tableRecordCounts.put(tablePath, recordCount);
+
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        when(catalogTable.getTablePath()).thenReturn(tablePath);
+
+        SourceTableInfo tableInfo = new SourceTableInfo(catalogTable, null, splitRow);
+        List<SourceTableInfo> tableInfos = new ArrayList<>();
+        tableInfos.add(tableInfo);
+
+        Set<MaxcomputeSourceSplit> splits =
+                MaxcomputeSourceSplitEnumerator.computeSplits(
+                        numReaders, tableInfos, tableRecordCounts);
 
         Set<String> splitIds = new HashSet<>();
         int[] indexCounts = new int[numReaders];
-        int totalSplits = 0;
 
-        // Simulate the inner logic of MaxcomputeSourceSplitEnumerator.discoverySplits
-        for (int i = 0; i < numReaders; i++) {
-            int readerStart = i * splitRowNum;
-            int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
-            for (int num = readerStart; num < readerEnd; num += splitRow) {
-                MaxcomputeSourceSplit split =
-                        new MaxcomputeSourceSplit(
-                                num, Math.min(splitRow, readerEnd - num), tablePath, i);
+        for (MaxcomputeSourceSplit split : splits) {
+            Assertions.assertTrue(
+                    splitIds.add(split.splitId()), "Duplicate splitId found: " + split.splitId());
+            indexCounts[split.getIndex()]++;
+        }
 
-                // Verify splitId uniqueness
+        Assertions.assertEquals(11, splits.size());
+
+        // Verify index distribution (round-robin):
+        // 11 splits / 5 readers = 2 splits each, plus 1 remainder for reader 0.
+        Assertions.assertEquals(3, indexCounts[0], "Reader 0 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[1], "Reader 1 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[2], "Reader 2 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[3], "Reader 3 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[4], "Reader 4 split count mismatch!");
+    }
+
+    @Test
+    public void testMultiTableRoundRobinDistribution() {
+        int numReaders = 3;
+        int numTables = 5;
+        long recordCountPerTable = 15000;
+        int splitRow = 10000;
+
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
+        List<SourceTableInfo> tableInfos = new ArrayList<>();
+
+        for (int t = 0; t < numTables; t++) {
+            TablePath tablePath = TablePath.of("test_db", "test_schema", "test_table_" + t);
+            tableRecordCounts.put(tablePath, recordCountPerTable);
+
+            CatalogTable catalogTable = mock(CatalogTable.class);
+            when(catalogTable.getTablePath()).thenReturn(tablePath);
+
+            SourceTableInfo tableInfo = new SourceTableInfo(catalogTable, null, splitRow);
+            tableInfos.add(tableInfo);
+        }
+
+        Set<MaxcomputeSourceSplit> splits =
+                MaxcomputeSourceSplitEnumerator.computeSplits(
+                        numReaders, tableInfos, tableRecordCounts);
+
+        int[] indexCounts = new int[numReaders];
+
+        for (MaxcomputeSourceSplit split : splits) {
+            indexCounts[split.getIndex()]++;
+        }
+
+        Assertions.assertEquals(10, splits.size());
+
+        // 10 splits / 3 readers = 3 splits each, plus 1 remainder for reader 0.
+        Assertions.assertEquals(4, indexCounts[0], "Reader 0 split count mismatch!");
+        Assertions.assertEquals(3, indexCounts[1], "Reader 1 split count mismatch!");
+        Assertions.assertEquals(3, indexCounts[2], "Reader 2 split count mismatch!");
+    }
+
+    @Test
+    public void testComputeSplitsAscendingRowStartOrder() {
+        int numReaders = 3;
+        int numTables = 2;
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
+        List<SourceTableInfo> tableInfos = new ArrayList<>();
+
+        for (int i = 0; i < numTables; i++) {
+            TablePath path = TablePath.of("db", "schema", "table" + i);
+            // 105,000 rows / 10,000 splitRow = 11 splits per table.
+            // With 3 readers, each reader gets 3-4 splits PER TABLE.
+            tableRecordCounts.put(path, 105000L);
+
+            CatalogTable catalogTable = mock(CatalogTable.class);
+            when(catalogTable.getTablePath()).thenReturn(path);
+
+            SourceTableInfo tableInfo = new SourceTableInfo(catalogTable, null, 10000);
+            tableInfos.add(tableInfo);
+        }
+
+        // Drive the actual production logic
+        Set<MaxcomputeSourceSplit> splits =
+                MaxcomputeSourceSplitEnumerator.computeSplits(
+                        numReaders, tableInfos, tableRecordCounts);
+
+        // Guard against HashSet regression: splits iterated from the Set MUST be in insertion
+        // order,
+        // which means for any given reader and table, the rowStart must be strictly ascending.
+        Map<Integer, Map<TablePath, Long>> lastRowStarts = new HashMap<>();
+
+        for (MaxcomputeSourceSplit split : splits) {
+            int reader = split.getIndex();
+            TablePath path = split.getTablePath();
+            long rowStart = split.getRowStart();
+
+            lastRowStarts.computeIfAbsent(reader, r -> new HashMap<>());
+            Long lastStart = lastRowStarts.get(reader).get(path);
+
+            if (lastStart != null) {
                 Assertions.assertTrue(
-                        splitIds.add(split.splitId()),
-                        "Duplicate splitId found: " + split.splitId());
-
-                // Verify index assigned to the split matches the reader index
-                Assertions.assertEquals(i, split.getIndex());
-
-                indexCounts[i]++;
-                totalSplits++;
+                        rowStart > lastStart,
+                        "HashSet Regression! Splits for reader "
+                                + reader
+                                + " and table "
+                                + path
+                                + " are not in ascending order!");
             }
+            lastRowStarts.get(reader).put(path, rowStart);
         }
 
-        Assertions.assertTrue(totalSplits == 15);
-
-        // Verify index distribution:
-        // Record count 105000 / 5 readers = 21000 splits per reader.
-        // Split row is 10000. Loop steps: 0, 10000, 20000. So 3 splits per reader.
-        for (int i = 0; i < numReaders; i++) {
-            Assertions.assertEquals(3, indexCounts[i], "Reader " + i + " split count mismatch!");
-        }
+        Assertions.assertEquals(22, splits.size(), "Should have exactly 22 splits total");
     }
 }

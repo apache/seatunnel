@@ -20,6 +20,10 @@ package org.apache.seatunnel.translation.flink.sink;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,7 +32,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 class FlinkSinkWriterTest {
@@ -83,13 +89,54 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals("state-3", states.get(0).getState());
     }
 
+    @Test
+    void testSchemaChangeEventDoesNotForceCommit() throws Exception {
+        SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
+        RecordingContext context = new RecordingContext();
+
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context);
+
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "added_col",
+                                org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE,
+                                64L,
+                                true,
+                                null,
+                                null));
+        event.setJobId("job-under-test");
+        SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("schema_change_event", event);
+        options.put("schema_subtask_id", 0L);
+        schemaEvent.setOptions(options);
+        flinkSinkWriter.write(schemaEvent, null);
+
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        row.setField(0, "value");
+        flinkSinkWriter.write(row, null);
+
+        // Schema change should apply without forcing commit - commits happen via normal Flink
+        // lifecycle
+        Assertions.assertEquals(1, delegate.writtenRows.size());
+        Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
+        Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
+        Assertions.assertEquals(event, delegate.appliedSchemaChanges.get(0));
+    }
+
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
 
-        private final List<Long> prepareCommitCalls = new ArrayList<>();
-        private final List<Long> snapshotCalls = new ArrayList<>();
+        protected final List<Long> prepareCommitCalls = new ArrayList<>();
+        protected final List<Long> snapshotCalls = new ArrayList<>();
+        protected final List<SeaTunnelRow> writtenRows = new ArrayList<>();
 
         @Override
-        public void write(SeaTunnelRow element) throws IOException {}
+        public void write(SeaTunnelRow element) throws IOException {
+            writtenRows.add(element);
+        }
 
         @Override
         public Optional<String> prepareCommit() {
@@ -114,6 +161,19 @@ class FlinkSinkWriterTest {
 
         @Override
         public void close() throws IOException {}
+    }
+
+    private static class SchemaAwareRecordingSinkWriter extends RecordingSinkWriter
+            implements SupportSchemaEvolutionSinkWriter {
+
+        private final List<org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent>
+                appliedSchemaChanges = new ArrayList<>();
+
+        @Override
+        public void applySchemaChange(
+                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+            appliedSchemaChanges.add(event);
+        }
     }
 
     private static class RecordingContext implements SinkWriter.Context {

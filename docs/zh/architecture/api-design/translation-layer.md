@@ -29,29 +29,34 @@ SeaTunnel 的转换层旨在:
 
 ### 1.3 架构概览
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                   SeaTunnel API 层                            │
-│         (引擎独立的连接器接口)                                │
-│                                                                │
-│  SeaTunnelSource    SeaTunnelSink    SeaTunnelTransform      │
-└──────────────────────────────────────────────────────────────┘
-                              │
-                              │ 转换层
-                ┌─────────────┼─────────────┐
-                ▼             ▼             ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Flink 适配器    │  │  Spark 适配器    │  │ Zeta (原生)      │
-│                  │  │                  │  │                  │
-│ FlinkSource      │  │ SparkSource      │  │ 直接             │
-│ FlinkSink        │  │ SparkSink        │  │ 执行             │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Apache Flink    │  │  Apache Spark    │  │ SeaTunnel Engine │
-│     运行时       │  │     运行时       │  │      (Zeta)      │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
+```mermaid
+flowchart TB
+    api["SeaTunnel API 层<br/>引擎无关的连接器接口<br/>SeaTunnelSource / SeaTunnelSink / SeaTunnelTransform"]
+
+    flinkAdapter["Flink 适配器<br/>FlinkSource / FlinkSink"]
+    sparkAdapter["Spark 适配器<br/>SparkSource / SparkSink"]
+    zetaAdapter["Zeta（原生）<br/>直接执行"]
+
+    flinkRuntime["Apache Flink 运行时"]
+    sparkRuntime["Apache Spark 运行时"]
+    zetaRuntime["SeaTunnel Engine (Zeta)"]
+
+    api --> flinkAdapter
+    api --> sparkAdapter
+    api --> zetaAdapter
+
+    flinkAdapter --> flinkRuntime
+    sparkAdapter --> sparkRuntime
+    zetaAdapter --> zetaRuntime
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class api layerBlue;
+    class flinkAdapter,sparkAdapter,zetaAdapter layerCyan;
+    class flinkRuntime,sparkRuntime,zetaRuntime layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 1.4 推荐阅读路径

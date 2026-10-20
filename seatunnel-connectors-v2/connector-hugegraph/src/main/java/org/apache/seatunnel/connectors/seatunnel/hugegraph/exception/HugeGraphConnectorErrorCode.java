@@ -27,6 +27,7 @@ public enum HugeGraphConnectorErrorCode implements SeaTunnelErrorCode {
     BUFFER_ADD_FAILED("HUGEGRAPH-05", "BatchBuffer is already closed."),
     INVALID_GRAPH_SCHEMA("HUGEGRAPH-06", "Invalid Graph Schema"),
     ILLEGAL_CONFIG_ARGUMENT("HUGEGRAPH-07", "Illegal argument"),
+    SCHEMA_CREATION_FAILED("HUGEGRAPH-08", "Schema auto-creation failed"),
     ;
 
     private final String code;

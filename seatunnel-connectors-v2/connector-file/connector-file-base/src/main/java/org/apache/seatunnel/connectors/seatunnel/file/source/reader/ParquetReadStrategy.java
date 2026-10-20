@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileSystemInputFile;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Conversions;
@@ -43,15 +44,17 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.HadoopReadOptions;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -91,8 +94,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
     private static final String PARQUET = "Parquet";
 
-    private int[] indexes;
-
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
@@ -130,10 +131,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        HadoopInputFile hadoopInputFile =
+        InputFile hadoopInputFile =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) ->
-                                HadoopInputFile.fromPath(filePath, configuration));
+                                FileSystemInputFile.fromPath(
+                                        hadoopFileSystemProxy.getFileSystem(), filePath));
         int fieldsCount = seaTunnelRowType.getTotalFields();
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
@@ -145,6 +147,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         AvroParquetReader.Builder<GenericData.Record> builder =
                 AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
                         .withDataModel(dataModel);
+        // HadoopConf carries READ_INT96_AS_FIXED / ADD_LIST_ELEMENT_RECORDS. ParquetReader lifts
+        // those automatically only from a HadoopInputFile, so set them explicitly here. withConf()
+        // rebuilds the read options, so it must run before withFileRange() below.
+        builder.withConf(hadoopFileSystemProxy.getConfiguration());
         if (useSplitRange) {
             long start = split.getStart();
             long end = start + split.getLength();
@@ -163,7 +169,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
-                    Object data = record.get(indexes[i]);
+                    String fieldName = seaTunnelRowType.getFieldName(i);
+                    Object data = record.hasField(fieldName) ? record.get(fieldName) : null;
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -185,9 +192,18 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         ParquetReader<Group> reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
+                            // ParquetReader.builder(ReadSupport, Path) resolves its own
+                            // FileSystem inside build() (twice: path.getFileSystem plus
+                            // HadoopInputFile.fromStatus), which leaks with the FS cache
+                            // disabled. Bind to the connector's FileSystem instead.
                             ParquetReader.Builder<Group> builder =
-                                    ParquetReader.builder(new GroupReadSupport(), filePath)
-                                            .withConf(configuration);
+                                    new GroupParquetReaderBuilder(
+                                            FileSystemInputFile.fromPath(
+                                                    hadoopFileSystemProxy.getFileSystem(),
+                                                    filePath));
+                            // withConf() rebuilds the read options, so it must precede
+                            // withFileRange() below.
+                            builder.withConf(hadoopFileSystemProxy.getConfiguration());
                             if (useSplitRange) {
                                 long start = split.getStart();
                                 long end = start + split.getLength();
@@ -198,6 +214,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         try (ParquetReader<Group> closeableReader = reader) {
             Group record;
             while ((record = closeableReader.read()) != null) {
+                GroupType recordType = record.getType();
                 Object[] fields;
                 if (isMergePartition) {
                     int index = fieldsCount;
@@ -209,11 +226,17 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
+                    String fieldName = seaTunnelRowType.getFieldName(i);
+                    if (!recordType.containsField(fieldName)) {
+                        fields[i] = null;
+                        continue;
+                    }
+                    int fieldIndex = recordType.getFieldIndex(fieldName);
                     fields[i] =
                             resolveGroupObject(
                                     record,
-                                    record.getType().getType(indexes[i]),
-                                    indexes[i],
+                                    recordType.getType(fieldIndex),
+                                    fieldIndex,
                                     seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -744,9 +767,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         try (ParquetFileReader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         ((configuration, userGroupInformation) -> {
-                            HadoopInputFile hadoopInputFile =
-                                    HadoopInputFile.fromPath(new Path(path), configuration);
-                            return ParquetFileReader.open(hadoopInputFile);
+                            return ParquetFileReader.open(
+                                    FileSystemInputFile.fromPath(
+                                            hadoopFileSystemProxy.getFileSystem(), new Path(path)),
+                                    HadoopReadOptions.builder(configuration).build());
                         }))) {
             metadata = reader.getFooter();
         } catch (IOException e) {
@@ -765,15 +789,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         String[] fields = new String[readColumns.size()];
         SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
-        indexes = new int[readColumns.size()];
         buildColumnsWithErrorCheck(
                 TablePath.DEFAULT,
                 IntStream.range(0, readColumns.size()).iterator(),
                 i -> {
                     fields[i] = readColumns.get(i);
                     Type type = originalSchema.getType(fields[i]);
-                    int fieldIndex = originalSchema.getFieldIndex(fields[i]);
-                    indexes[i] = fieldIndex;
                     SeaTunnelDataType<?> configDataType =
                             getConfigFieldType(configRowType, fields[i]);
                     types[i] = parquetType2SeaTunnelType(type, configDataType, fields[i]);
@@ -781,6 +802,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+
+        log.debug(
+                "get seatunnel row type with user config: {}. path: {}",
+                getActualSeaTunnelRowTypeInfo(),
+                path);
         return getActualSeaTunnelRowTypeInfo();
     }
 
@@ -988,5 +1014,23 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         int fieldIndex = Arrays.asList(configRowType.getFieldNames()).indexOf(fieldName);
 
         return fieldIndex == -1 ? null : configRowType.getFieldType(fieldIndex);
+    }
+
+    /**
+     * Binds the native (Group) Parquet reader to an already-open {@link
+     * org.apache.hadoop.fs.FileSystem}. {@code ParquetReader.Builder(InputFile)} is protected and
+     * there is no public {@code builder(ReadSupport, InputFile)}, so this mirrors what {@code
+     * AvroParquetReader.Builder} does for the Avro path.
+     */
+    private static final class GroupParquetReaderBuilder extends ParquetReader.Builder<Group> {
+
+        private GroupParquetReaderBuilder(InputFile file) {
+            super(file);
+        }
+
+        @Override
+        protected ReadSupport<Group> getReadSupport() {
+            return new GroupReadSupport();
+        }
     }
 }

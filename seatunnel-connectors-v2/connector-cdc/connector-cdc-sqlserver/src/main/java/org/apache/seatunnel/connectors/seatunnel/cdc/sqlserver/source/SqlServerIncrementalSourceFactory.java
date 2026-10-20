@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -55,8 +56,10 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
         return SqlServerIncrementalSourceOptions.getBaseRule()
                 .required(
                         SqlServerIncrementalSourceOptions.USERNAME,
-                        SqlServerIncrementalSourceOptions.PASSWORD,
-                        SqlServerIncrementalSourceOptions.URL)
+                        SqlServerIncrementalSourceOptions.PASSWORD)
+                .required(
+                        SqlServerIncrementalSourceOptions.URL,
+                        Conditions.notBlank(SqlServerIncrementalSourceOptions.URL))
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         SqlServerIncrementalSourceOptions.DATABASE_NAMES,
@@ -72,7 +75,9 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         SqlServerIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         SqlServerIncrementalSourceOptions.STOP_MODE)

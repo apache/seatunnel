@@ -46,15 +46,10 @@ public final class ConditionEvaluators {
             throw new OptionValidationException(
                     "Condition for option '%s' has a null operator", condition.getOption().key());
         }
-        try {
-            Object value = config.get(condition.getOption());
-            Evaluator evaluator = REGISTRY.get(operator);
-            return evaluator.evaluate(value, condition, config);
-        } catch (OptionValidationException e) {
-            throw new OptionValidationException(
-                    "Failed to evaluate constraint '%s' on option '%s': %s",
-                    condition.toString(), condition.getOption().key(), e.getRawMessage());
-        }
+
+        Object value = config.get(condition.getOption());
+        Evaluator evaluator = REGISTRY.get(operator);
+        return evaluator.evaluate(value, condition, config);
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -167,6 +162,14 @@ public final class ConditionEvaluators {
                     Object other = cfg.get(c.getCompareOption());
                     if (other == null) return false;
                     return compareNumbers(v, other) >= 0;
+                });
+
+        // Extension (custom logic delegated to ConditionExtension)
+        m.put(
+                ConditionOperator.EXTENSION,
+                (v, c, cfg) -> {
+                    ConditionExtension<Object> ext = (ConditionExtension<Object>) c.getExtension();
+                    return ext.evaluate(cfg, v);
                 });
 
         for (ConditionOperator op : ConditionOperator.values()) {

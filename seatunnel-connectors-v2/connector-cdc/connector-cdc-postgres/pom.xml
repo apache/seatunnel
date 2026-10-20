@@ -29,6 +29,10 @@
     <artifactId>connector-cdc-postgres</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : Postgres</name>
 
+    <properties>
+        <debezium.version>1.9.8.Final</debezium.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -41,6 +45,12 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>connector-cdc-base</artifactId>
+                <version>${project.version}</version>
+                <scope>compile</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-cdc-pg-base</artifactId>
                 <version>${project.version}</version>
                 <scope>compile</scope>
             </dependency>
@@ -60,6 +70,10 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-pg-base</artifactId>
         </dependency>
 
         <dependency>

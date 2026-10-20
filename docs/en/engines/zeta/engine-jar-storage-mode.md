@@ -11,7 +11,7 @@ We are committed to ongoing efforts to enhance and stabilize this functionality,
 
 :::
 
-We can enable the optimization job submission process, which is configured in the `seatunel.yaml`. After enabling the optimization of the Seatunnel job submission process configuration item,
+We can enable the optimization job submission process, which is configured in the `seatunnel.yaml`. After enabling the optimization of the Seatunnel job submission process configuration item,
 users can use the Seatunnel engine(Zeta) as the execution engine without placing the connector jar packages required for task execution or the third-party jar packages that the connector relies on in each engine `connector` directory.
 Users only need to place all the jar packages for task execution on the client that submits the job, and the client will automatically upload the jars required for task execution to the Zeta engine. It is necessary to enable this configuration item when submitting jobs in Docker or k8s mode,
 which can fundamentally solve the problem of large container images caused by the heavy weight of the Seatunnel Zeta engine. In the image, only the core framework package of the Zeta engine needs to be provided,
@@ -45,7 +45,7 @@ Two different storage strategies provide a more flexible storage mode for jar fi
 
 ## IsolatedConnectorJarStorageStrategy
 
-Before the job is submitted, the connector Jjr package will be uploaded to an independent file storage path on the Master node.
+Before the job is submitted, the connector jar package will be uploaded to an independent file storage path on the Master node.
 The connector jar packages of different jobs are in different storage paths, so the connector jar packages of different jobs are isolated from each other.
 The jar package files required for the execution of a job have no influence on other jobs. When the current job execution ends, the jar package file in the storage path generated based on the JobId will be deleted.
 
@@ -89,6 +89,5 @@ Detailed explanation of configuration parameters:
 - connector-jar-storage-enable: Enable uploading the connector jar package before executing the job.
 - connector-jar-storage-mode: Connector jar package storage mode, two storage modes are available: shared mode (SHARED) and isolation mode (ISOLATED).
 - connector-jar-storage-path: The local storage path of the user-defined connector jar package on the Zeta engine.
-- connector-jar-cleanup-task-interval: Zeta engine connector Jjr package scheduled cleanup task interval, the default is 3600 seconds.
+- connector-jar-cleanup-task-interval: Zeta engine connector jar package scheduled cleanup task interval, the default is 3600 seconds.
 - connector-jar-expiry-time: The expiration time of the connector jar package. The default is 600 seconds.
-

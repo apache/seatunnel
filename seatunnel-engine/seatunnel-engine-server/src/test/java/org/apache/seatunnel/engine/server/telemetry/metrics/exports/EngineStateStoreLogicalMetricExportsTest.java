@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
@@ -84,58 +85,75 @@ class EngineStateStoreLogicalMetricExportsTest {
         seedFinishedJobStores();
         seedConnectorJarRefCounters();
 
-        List<MetricFamilySamples> metrics =
-                new EngineStateStoreLogicalMetricExports(instance.node).collect();
+        // Logical counters are updated asynchronously by Hazelcast entry listeners.
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<MetricFamilySamples> metrics =
+                                    new EngineStateStoreLogicalMetricExports(instance.node)
+                                            .collect();
 
-        Assertions.assertEquals(
-                3d,
-                findSampleValue(
-                        metrics, "engine_state_store_running_job_metrics_task_contexts", null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_running_job_metrics_active_partition_keys",
-                        null));
-        Assertions.assertEquals(
-                1d, findSampleValue(metrics, "engine_state_store_checkpoint_monitor_jobs", null));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_checkpoint_monitor_in_progress_checkpoints",
-                        null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_checkpoint_monitor_retained_history_entries",
-                        null));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_STATE));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_METRICS));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(
-                        metrics,
-                        "engine_state_store_finished_job_records",
-                        Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
-        Assertions.assertEquals(
-                1d,
-                findSampleValue(metrics, "engine_state_store_connector_jar_tracked_jars", null));
-        Assertions.assertEquals(
-                2d,
-                findSampleValue(
-                        metrics, "engine_state_store_connector_jar_total_references", null));
+                            Assertions.assertEquals(
+                                    3d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_running_job_metrics_task_contexts",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_running_job_metrics_active_partition_keys",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_jobs",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_in_progress_checkpoints",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_checkpoint_monitor_retained_history_entries",
+                                            null));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_STATE));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_METRICS));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_finished_job_records",
+                                            Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
+                            Assertions.assertEquals(
+                                    1d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_connector_jar_tracked_jars",
+                                            null));
+                            Assertions.assertEquals(
+                                    2d,
+                                    findSampleValue(
+                                            metrics,
+                                            "engine_state_store_connector_jar_total_references",
+                                            null));
+                        });
     }
 
     @Test
@@ -187,7 +205,7 @@ class EngineStateStoreLogicalMetricExportsTest {
 
     private void seedRunningJobMetrics() {
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                instance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                instance.getMap(EngineStateStoreNames.RUNNING_JOB_METRICS);
         HashMap<TaskLocation, SeaTunnelMetricsContext> partitionZero = new HashMap<>();
         partitionZero.put(new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 0, 0), metricCtx());
         partitionZero.put(new TaskLocation(new TaskGroupLocation(1L, 1, 2L), 0, 0), metricCtx());
@@ -312,9 +330,6 @@ class EngineStateStoreLogicalMetricExportsTest {
         String yaml =
                 "seatunnel:\n"
                         + "  engine:\n"
-                        + "    telemetry:\n"
-                        + "      metric:\n"
-                        + "        enabled: true\n"
                         + "    history-job-expire-minutes: 1\n"
                         + "    jar-storage:\n"
                         + "      enable: true\n"

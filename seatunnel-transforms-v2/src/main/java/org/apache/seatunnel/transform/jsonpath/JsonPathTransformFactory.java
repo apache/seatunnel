@@ -17,14 +17,22 @@
 
 package org.apache.seatunnel.transform.jsonpath;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.util.List;
+import java.util.Map;
 
 @AutoService(Factory.class)
 public class JsonPathTransformFactory implements TableTransformFactory {
@@ -35,11 +43,33 @@ public class JsonPathTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the JSON path extraction columns, optionally combined with an
+        // error handling policy.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                JsonPathTransformConfig.COLUMNS,
+                                Conditions.notEmpty(JsonPathTransformConfig.COLUMNS)
+                                        .and(
+                                                Conditions.extension(
+                                                        JsonPathTransformConfig.COLUMNS,
+                                                        new ColumnsValidator())))
+                        .build();
         return OptionRule.builder()
-                .optional(JsonPathTransformConfig.COLUMNS)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        JsonPathTransformConfig.COLUMNS,
+                        TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
-                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 
@@ -47,5 +77,45 @@ public class JsonPathTransformFactory implements TableTransformFactory {
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
                 new JsonPathMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
+    }
+
+    static class ColumnsValidator implements ConditionExtension<List<Map<String, Object>>> {
+        @Override
+        public String description() {
+            return "each column entry must contain non-empty 'path' and 'dest_field'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value)
+                throws OptionValidationException {
+            if (value == null) {
+                return false;
+            }
+            for (int i = 0; i < value.size(); i++) {
+                Map<String, Object> entry = value.get(i);
+                Object path = entry.get("path");
+                if (path == null
+                        || (path instanceof String && ((String) path).trim().isEmpty())
+                        || (path instanceof List && ((List<?>) path).isEmpty())) {
+                    throw new OptionValidationException(
+                            String.format("columns[%d]: 'path' must not be null or empty", i));
+                }
+                Object srcField = entry.get("src_field");
+                if (srcField == null
+                        || (srcField instanceof String && ((String) srcField).trim().isEmpty())) {
+                    throw new OptionValidationException(
+                            String.format("columns[%d]: 'src_field' must not be null or empty", i));
+                }
+                Object destField = entry.get("dest_field");
+                if (destField == null
+                        || (destField instanceof String && ((String) destField).trim().isEmpty())
+                        || (destField instanceof List && ((List<?>) destField).isEmpty())) {
+                    throw new OptionValidationException(
+                            String.format(
+                                    "columns[%d]: 'dest_field' must not be null or empty", i));
+                }
+            }
+            return true;
+        }
     }
 }

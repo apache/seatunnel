@@ -46,14 +46,14 @@ public class BigQueryClientFactory {
     public static BigQueryWriteClient getWriteClient(ReadonlyConfig config) {
         try {
             if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
-                log.info(
-                        "Using BigQuery Emulator at {}",
-                        config.get(BigQuerySinkOptions.EMULATOR_HOST));
-                String emulatorHost = config.get(BigQuerySinkOptions.EMULATOR_HOST);
+                String emulatorGrpcHost =
+                        config.getOptional(BigQuerySinkOptions.EMULATOR_GRPC_HOST)
+                                .orElse(config.get(BigQuerySinkOptions.EMULATOR_HOST));
+                log.info("Using BigQuery emulator Storage Write API at {}", emulatorGrpcHost);
 
                 BigQueryWriteSettings settings =
                         BigQueryWriteSettings.newBuilder()
-                                .setEndpoint(emulatorHost)
+                                .setEndpoint(emulatorGrpcHost)
                                 .setTransportChannelProvider(
                                         BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
                                                 .setChannelConfigurator(
@@ -64,18 +64,22 @@ public class BigQueryClientFactory {
                                 .build();
 
                 BigQueryWriteClient bigQueryWriteClient = BigQueryWriteClient.create(settings);
-                log.info("Created BigQueryWriteClient for emulator at {}", emulatorHost);
+                log.info("Created BigQueryWriteClient for emulator at {}", emulatorGrpcHost);
 
                 return bigQueryWriteClient;
             }
 
             GoogleCredentials credentials = getCredentials(config);
 
-            BigQueryWriteSettings settings =
+            BigQueryWriteSettings.Builder settingsBuilder =
                     BigQueryWriteSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                            .build();
-            return BigQueryWriteClient.create(settings);
+                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials));
+
+            if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
+                settingsBuilder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+            }
+
+            return BigQueryWriteClient.create(settingsBuilder.build());
         } catch (IOException e) {
             throw new BigQueryConnectorException(
                     BigQueryConnectorErrorCode.CLIENT_CREATE_FAILED,
@@ -97,11 +101,14 @@ public class BigQueryClientFactory {
 
         GoogleCredentials credentials = getCredentials(config);
 
-        return BigQueryOptions.newBuilder()
-                .setProjectId(projectId)
-                .setCredentials(credentials)
-                .build()
-                .getService();
+        BigQueryOptions.Builder builder =
+                BigQueryOptions.newBuilder().setProjectId(projectId).setCredentials(credentials);
+
+        if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
+            builder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+        }
+
+        return builder.build().getService();
     }
 
     public static GoogleCredentials getCredentials(ReadonlyConfig config) {

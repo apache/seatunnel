@@ -27,6 +27,13 @@ If you are evaluating SeaTunnel for the first time, start with the built-in **Se
 
 For a broader comparison, see [Engine Overview](../engines/overview.md).
 
+## Choose A Zeta Deployment Mode
+
+- **Long-running cluster**: deploy and maintain a shared Zeta cluster, then submit jobs to it. Start with [Zeta Deployment](../engines/zeta/deployment.md).
+- **Application Mode (experimental)**: run one job with its own master and fixed workers on Kubernetes, releasing compute resources when the application ends. Start with the [Application Mode Overview](./application/overview.md).
+
+If you already operate Kubernetes, follow the [Kubernetes Quick Start](./application/kubernetes/quick-start.md). Application Mode is a Zeta deployment mode, not a separate execution engine.
+
 ## Recommended First Run
 
 If you want to validate your installation in the shortest path:
@@ -50,6 +57,7 @@ If you want to validate your installation in the shortest path:
 - [Source Connectors](../connectors/source)
 - [Sink Connectors](../connectors/sink)
 - [Transforms](../transforms)
+- [Scenario Recipes](./recipes/overview.md)
 
 ### Path C: I need to understand architecture first
 
@@ -59,7 +67,7 @@ If you want to validate your installation in the shortest path:
 
 ## What You Need Before Using SeaTunnel
 
-- Java 8 or Java 11 with `JAVA_HOME` configured
+- Java 11 or Java 17 with `JAVA_HOME` configured
 - A SeaTunnel binary package from the [download page](https://seatunnel.apache.org/download)
 - Required connector plugins installed under `${SEATUNNEL_HOME}/connectors/`
 - Any third-party driver jars required by your chosen connectors
@@ -77,5 +85,8 @@ Once the sample job is working, the next step is usually one of these:
 Use these pages next:
 
 - [Job Configuration Guide](./job-configuration-guide.md)
+- [Scenario Recipes](./recipes/overview.md)
 - [SeaTunnel Engine(Zeta) Deployment](../engines/zeta/deployment.md)
-- [REST API And Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [Application Mode on Kubernetes](./application/overview.md)
+- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [Submitting Jobs to a Remote Zeta Cluster](../getting-started/submit-job-to-remote-zeta-cluster.md)

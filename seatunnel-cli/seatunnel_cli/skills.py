@@ -273,6 +273,31 @@ def _collect_required_options(
     return result
 
 
+def _transform_connector_name(transform: object) -> str:
+    """Return the transform plugin name from a structured or string plan field."""
+    if not transform:
+        return ""
+    if isinstance(transform, dict):
+        for key in ("connector", "name", "type"):
+            value = transform.get(key)
+            if value:
+                return str(value)
+        return ""
+    return str(transform)
+
+
+def _metadata_targets_for_pipeline(pipeline: PipelineSlot) -> list[tuple[str, str]]:
+    """Return source, sink, and transform metadata targets for a pipeline."""
+    targets = [
+        (pipeline.source_connector, "source"),
+        (pipeline.sink_connector, "sink"),
+    ]
+    transform_name = _transform_connector_name(pipeline.transform)
+    if transform_name:
+        targets.append((transform_name, "transform"))
+    return [(name, ctype) for name, ctype in targets if name]
+
+
 def llm_check_missing_info(
     client,
     user_request: str,
@@ -516,10 +541,7 @@ class SkillExecutor:
         all_required: list[dict] = []
         seen_keys: set[str] = set()
         for p in self.plan.pipelines:
-            for connector, ctype in [
-                (p.source_connector, "source"),
-                (p.sink_connector, "sink"),
-            ]:
+            for connector, ctype in _metadata_targets_for_pipeline(p):
                 for opt in _collect_required_options(connector, ctype):
                     if opt["key"] not in seen_keys:
                         seen_keys.add(opt["key"])
@@ -539,7 +561,7 @@ class SkillExecutor:
         seen: set[tuple[str, str]] = set()
         sections: list[str] = []
         for p in self.plan.pipelines:
-            for name, ctype in [(p.source_connector, "source"), (p.sink_connector, "sink")]:
+            for name, ctype in _metadata_targets_for_pipeline(p):
                 if (name, ctype) in seen:
                     continue
                 seen.add((name, ctype))

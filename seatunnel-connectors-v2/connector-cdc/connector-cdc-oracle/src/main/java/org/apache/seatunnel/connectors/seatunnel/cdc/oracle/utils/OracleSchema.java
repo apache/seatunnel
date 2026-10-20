@@ -66,6 +66,8 @@ public class OracleSchema {
         Tables tables = new Tables();
 
         try {
+            // In a CDB/PDB deployment the schema lives in the PDB; without switching the session
+            // the data dictionary lookup runs against the root container and finds nothing.
             setSessionToPdbIfNeeded(oracleConnection);
             oracleConnection.readSchema(
                     tables,
@@ -75,8 +77,8 @@ public class OracleSchema {
                     null,
                     false);
             for (TableId id : tables.tableIds()) {
-                TableId tableMapId = getTableMapId(tableId, id);
-                if (tableMapId != null) {
+                TableId tableMapId = resolveTableId(id, tableId, tableMap);
+                if (tableMap.containsKey(tableMapId)) {
                     Table table =
                             CatalogTableUtils.mergeCatalogTableConfig(
                                     tables.forTable(id), tableMap.get(tableMapId));
@@ -101,26 +103,13 @@ public class OracleSchema {
         return schemasByTableId.get(tableId);
     }
 
-    private void setSessionToPdbIfNeeded(OracleConnection oracleConnection) throws SQLException {
-        String pdbName = connectorConfig.getPdbName();
-        if (pdbName != null) {
-            oracleConnection.setSessionToPdb(pdbName);
-        }
-    }
-
-    private Tables.TableFilter getSchemaReadTableFilter(TableId requestedTableId) {
-        Tables.TableFilter dataCollectionFilter =
-                connectorConfig.getTableFilters().dataCollectionFilter();
-        if (!tableMap.containsKey(requestedTableId)) {
-            return dataCollectionFilter;
-        }
-
-        return tableId ->
-                dataCollectionFilter.isIncluded(tableId)
-                        || hasSameSchemaAndTable(requestedTableId, tableId);
-    }
-
-    private TableId getTableMapId(TableId requestedTableId, TableId readTableId) {
+    /**
+     * Maps a table id read from the Oracle data dictionary back to the configured table id. The
+     * dictionary may report a different catalog (CDB vs PDB name, or none) and a different
+     * identifier case than the user configured, so the lookup tolerates both before giving up.
+     */
+    static TableId resolveTableId(
+            TableId readTableId, TableId requestedTableId, Map<TableId, ?> tableMap) {
         if (tableMap.containsKey(readTableId)) {
             return readTableId;
         }
@@ -136,15 +125,38 @@ public class OracleSchema {
             return readTableIdWithRequestedCatalog;
         }
 
-        return null;
+        return readTableId;
     }
 
-    private boolean hasSameSchemaAndTable(TableId left, TableId right) {
+    private void setSessionToPdbIfNeeded(OracleConnection oracleConnection) throws SQLException {
+        String pdbName = connectorConfig.getPdbName();
+        if (pdbName != null) {
+            oracleConnection.setSessionToPdb(pdbName);
+        }
+    }
+
+    /**
+     * Widens the connector's table filter so the requested table is read even when the dictionary
+     * reports it under another catalog or identifier case that the configured filter rejects.
+     */
+    private Tables.TableFilter getSchemaReadTableFilter(TableId requestedTableId) {
+        Tables.TableFilter dataCollectionFilter =
+                connectorConfig.getTableFilters().dataCollectionFilter();
+        if (!tableMap.containsKey(requestedTableId)) {
+            return dataCollectionFilter;
+        }
+
+        return tableId ->
+                dataCollectionFilter.isIncluded(tableId)
+                        || hasSameSchemaAndTable(requestedTableId, tableId);
+    }
+
+    private static boolean hasSameSchemaAndTable(TableId left, TableId right) {
         return equalsIgnoreCase(left.schema(), right.schema())
                 && equalsIgnoreCase(left.table(), right.table());
     }
 
-    private boolean equalsIgnoreCase(String left, String right) {
+    private static boolean equalsIgnoreCase(String left, String right) {
         if (left == null || right == null) {
             return left == right;
         }

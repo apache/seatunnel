@@ -41,6 +41,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Local coordinator for schema change synchronization. This coordinator only manages temporary
  * communication between SchemaOperator and sink subtasks. All persistent state is managed by
  * BroadcastSchemaSinkOperator in Flink State.
+ *
+ * <p>Schema changes (DDL like ALTER TABLE) are database-level operations that only need to be
+ * executed once. In Flink's parallel execution model, SchemaOperator sends schema change events via
+ * output.collect() which routes to only ONE downstream subtask based on partitioning. Therefore,
+ * this coordinator completes schema change requests when ANY single subtask successfully applies
+ * the change, rather than waiting for all subtasks.
  */
 @Slf4j
 public class LocalSchemaCoordinator {
@@ -138,24 +144,27 @@ public class LocalSchemaCoordinator {
                 remaining,
                 jobId);
 
+        // Check if any pending requests can now be completed
+        // (Since we only need 1 ACK for DDL, this typically won't change anything,
+        // but we keep it for edge cases where all subtasks close before any ACK)
         for (Map.Entry<String, TimestampedPendingRequest> entry : pendingRequests.entrySet()) {
             String key = entry.getKey();
             TimestampedPendingRequest request = entry.getValue();
             Set<Integer> applied = receivedAcks.get(key);
 
-            int expectedActive = Math.max(remaining, 1);
-            if (applied != null && applied.size() >= expectedActive) {
+            // If we already have at least 1 ACK, complete the request
+            if (applied != null && !applied.isEmpty()) {
                 if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
-                    boolean allSuccess = request.allSuccess.get();
-                    request.future.complete(allSuccess);
+                    boolean success = request.allSuccess.get();
+                    request.future.complete(success);
                     log.info(
-                            "After subtask {} unregistered, all {} active subtasks have applied "
-                                    + "schema change for table {} (epoch {}). Completing request with result: {}",
+                            "After subtask {} unregistered, completing schema change request for "
+                                    + "table {} (epoch {}) with {} ACK(s). Result: {}",
                             subtaskId,
-                            expectedActive,
                             request.tableId,
                             request.epoch,
-                            allSuccess);
+                            applied.size(),
+                            success);
                 }
             }
         }
@@ -218,8 +227,8 @@ public class LocalSchemaCoordinator {
     public boolean requestSchemaChange(TableIdentifier tableId, long epoch, long timeoutMs)
             throws InterruptedException, SchemaCoordinationException {
         String key = tableId.toString() + "#" + epoch;
-        int expectedAcks = activeSinkSubtasks.size();
-        if (expectedAcks == 0) {
+        int totalSubtasks = activeSinkSubtasks.size();
+        if (totalSubtasks == 0) {
             log.warn(
                     "No active sink subtasks. Cannot coordinate schema change for table {} (epoch {}). "
                             + "Assuming success to avoid deadlock.",
@@ -227,11 +236,25 @@ public class LocalSchemaCoordinator {
                     epoch);
             return true;
         }
+        // Schema changes (DDL) are database-level operations that only need to execute once.
+        // Due to Flink's partitioning, only one subtask receives the schema change event,
+        // so we only need 1 ACK to confirm the DDL was applied successfully.
+        //
+        // Precondition: sink subtasks that do NOT receive the schema-change event directly
+        // (because Flink's partitioning routed it elsewhere) must have their local schema
+        // view refreshed through BroadcastSchemaSinkOperator's broadcast/state path.
+        // If that broadcast path is incomplete, those subtasks will silently apply the old
+        // schema to new-format rows — a data-corruption risk. Any change to the broadcast
+        // path must preserve this invariant, and a multi-table (≥2 tables, parallelism ≥2)
+        // E2E test should guard it so regressions are caught immediately.
+        int expectedAcks = 1;
         log.info(
-                "Requesting schema change for table {} (epoch {}). Waiting for all {} sink subtasks to apply after checkpoint completion.",
+                "Requesting schema change for table {} (epoch {}). Waiting for at least {} of {} "
+                        + "sink subtasks to apply the DDL (database-level operation).",
                 tableId,
                 epoch,
-                expectedAcks);
+                expectedAcks,
+                totalSubtasks);
 
         long now = System.currentTimeMillis();
         TimestampedPendingRequest request =
@@ -312,31 +335,42 @@ public class LocalSchemaCoordinator {
         }
 
         appliedSubtasks.add(subtaskId);
-        int currentExpected = Math.min(request.expectedAcks, activeSinkSubtasks.size());
-        currentExpected = Math.max(currentExpected, 1);
+        // Schema changes only need 1 successful application since they're database-level operations
+        int requiredAcks = request.expectedAcks; // This is now 1
         log.info(
-                "Subtask {} applied schema change for table {} (epoch {}), success: {}. {}/{} subtasks applied.",
+                "Subtask {} applied schema change for table {} (epoch {}), success: {}. "
+                        + "{} subtask(s) applied (need {} for completion).",
                 subtaskId,
                 tableId,
                 epoch,
                 success,
                 appliedSubtasks.size(),
-                currentExpected);
+                requiredAcks);
 
         if (!success) {
             request.allSuccess.set(false);
         }
 
-        if (appliedSubtasks.size() >= currentExpected) {
+        // Complete when we have at least 1 successful ACK (DDL only needs to run once)
+        if (appliedSubtasks.size() >= requiredAcks && success) {
             if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
-                boolean allSuccess = request.allSuccess.get();
-                request.future.complete(allSuccess);
+                request.future.complete(true);
                 log.info(
-                        "All {} active subtasks have applied schema change for table {} (epoch {}). Completing request with result: {}",
-                        currentExpected,
+                        "Schema change for table {} (epoch {}) successfully applied by subtask {}. "
+                                + "DDL execution complete (database-level operation).",
                         tableId,
                         epoch,
-                        allSuccess);
+                        subtaskId);
+            }
+        } else if (appliedSubtasks.size() >= requiredAcks && !success) {
+            // If the only ACK we got was a failure, complete with failure
+            if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
+                request.future.complete(false);
+                log.error(
+                        "Schema change for table {} (epoch {}) failed on subtask {}.",
+                        tableId,
+                        epoch,
+                        subtaskId);
             }
         }
     }
