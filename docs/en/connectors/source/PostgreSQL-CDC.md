@@ -27,6 +27,10 @@ Some PostgreSQL-compatible databases (for example HighGo) return the same physic
 once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
 qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
 
+On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
+visible on the source connection's `search_path`. This does not change cached names or add source
+type namespaces to downstream `ADD COLUMN` statements.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -300,7 +304,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 source {

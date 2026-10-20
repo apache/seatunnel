@@ -12,7 +12,7 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 |-----------------|--------|----------|--------|
 | row_error_handle_way| enum   | 否       | FAIL   |
 | row_error_handle_way.error_table     | string | 否       |        |
-| field_rules     | array  | 是       |        |
+| field_rules     | array  | 否       |        |
 
 ### row_error_handle_way [enum]
 
@@ -58,6 +58,8 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 ### field_rules [array]
 
 字段验证规则数组。每个规则定义特定字段的验证条件。
+
+单表配置必须设置 `field_rules`。使用 `table_transform` 时每个条目自己声明 `field_rules`，外层可选。
 
 #### 字段规则结构
 

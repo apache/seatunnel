@@ -25,6 +25,10 @@ PostgreSQL CDC 连接器允许从 PostgreSQL 数据库读取快照数据和增�
 部分 PostgreSQL 兼容数据库（例如 HighGo）在 `information_schema.tables` 中会对同一张物理表返回多行重复记录。
 连接器在表发现阶段会按完整的 `catalog.schema.table` 标识去重，这些重复行会被忽略，任务可正常启动。
 
+当类型名未命中缓存且多个 schema 中存在同名类型时，未限定 schema 的类型名会解析为源连接的
+`search_path` 中可见的类型。此改动不影响已缓存的类型名，也不会将源类型的 schema 传递到下游的
+`ADD COLUMN` 语句。
+
 ## 支持的数据源信息
 
 | 数据源      |                     支持的版本                      |        驱动        |                  Url                  |                                  Maven                                   |
@@ -291,7 +295,7 @@ sink {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 source {

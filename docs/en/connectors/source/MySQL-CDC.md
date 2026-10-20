@@ -484,7 +484,8 @@ Pick the path that matches what the source table guarantees:
   row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
 - **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
   set `exactly_once = true` so the snapshot and binlog phases both use the configured key for
-  consistent row identity.
+  consistent row identity. The column must be NOT NULL in the database: a nullable column is not
+  used to split the snapshot, and with `exactly_once = true` the job fails at startup.
 
 ```hocon
 env {
@@ -512,6 +513,8 @@ source {
 ```
 
 Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
+
+NULL values in a nullable unique key column, or in a nullable column configured in `table-names-config.primaryKeys`, are emitted as NULL in the snapshot and binlog phases. A NULL cannot identify a row, so choose a NOT NULL column as the key when UPDATE/DELETE events must be applied by key. With `exactly_once = true`, rows whose key is NULL cannot be told apart either, and only one of them is kept per snapshot split.
 
 ### Start From a Specific Binlog Offset
 
