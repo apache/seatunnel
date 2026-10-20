@@ -35,7 +35,7 @@ Pulsar Sink 用于将 SeaTunnel 数据写入 Apache Pulsar topic。它既可以�
 | admin.service-url        | String | 是       | -                   | Pulsar 管理端 HTTP 地址，例如 `http://localhost:8080`。               |
 | auth.plugin-class        | String | 否       | -                   | Pulsar 认证插件类名。                                                |
 | auth.params              | String | 否       | -                   | 认证插件参数。需要和 `auth.plugin-class` 一起配置。                   |
-| format                   | String | 否       | json                | 数据格式。支持 `json` 和 `text`。                                     |
+| format                   | String | 否       | json                | 数据格式。默认格式为 json。可选 text 和 avro 格式。                                    |
 | field_delimiter          | String | 否       | ,                   | 当 `format = "text"` 时使用的字段分隔符。                             |
 | semantics                | Enum   | 否       | AT_LEAST_ONCE       | 写入一致性语义。可选值：`NON`、`AT_LEAST_ONCE`、`EXACTLY_ONCE`。       |
 | transaction_timeout      | Int    | 否       | 600                 | Pulsar 事务超时时间，单位为秒。用于 `EXACTLY_ONCE`。                  |
@@ -77,7 +77,7 @@ Pulsar 管理端 HTTP 地址。
 
 ### format [String]
 
-数据格式。默认值为 `json`，也可以使用 `text`。使用 `text` 时，如果默认逗号分隔符不合适，请配置 `field_delimiter`。
+数据格式。默认格式为 json。可选 text 和 avro 格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。使用 avro 格式时，Avro schema 会从上游数据的 row type 自动推导，无需在 sink 侧单独配置 `schema`。
 
 ### field_delimiter [String]
 
@@ -211,6 +211,70 @@ sink {
   }
 }
 ```
+
+### 使用自定义分隔符写入文本消息
+
+将 `format` 设置为 `text`，并通过 `field_delimiter` 指定分隔符，把每行序列化成定界文本。下游消费者需要简单扁平格式时可以使用这种方式。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "text_events"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = text
+    field_delimiter = "|"
+  }
+}
+```
+
+### 写入 Avro 消息
+
+将 `format` 设置为 `avro` 即可。Avro schema 由上游行类型推导生成，不需要在 Sink 端额外配置 `schema`。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "test_avro_topic_fake_source"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = avro
+  }
+}
+```
+
+### 自定义 Pulsar Producer 属性
+
+通过 `pulsar.config` 传入额外的 producer 属性，这些配置会透传给 Pulsar producer 客户端，可以用来调整超时、批大小、压缩等参数。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "topic_test"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = json
+    pulsar.config = {
+      sendTimeoutMs = 30000
+      batchingMaxMessages = 1000
+    }
+  }
+}
+```
+
+## FAQ
+
+### Pulsar Sink 如何实现精确一次（Exactly-Once）与至少一次（At-Least-Once）写入？
+
+通过 `semantics` 参数进行配置：`EXACTLY_ONCE` 利用 Pulsar 事务协调器将数据写入与计算引擎 Checkpoint 屏障紧密绑定并协同提交；`AT_LEAST_ONCE` 则依赖 Producer 确认应答，具备更高的吞吐写入表现。
+
+### Pulsar Sink 是否支持动态多表/多 Topic 路由？
+
+支持。在整库或多表同步场景下，若未指定全局固定的单个 `topic`，SeaTunnel 将根据每条数据记录携带的表标识自动动态路由至对应的 Pulsar Topic。
+
+### 支持向 Pulsar 写入哪些数据序列化格式？
+
+Pulsar Sink 支持通过 `format` 参数指定 `json`、`text` 以及 `avro` 格式，方便与下游消费者或 Schema Registry 系统无缝对接。
 
 ## 变更日志
 

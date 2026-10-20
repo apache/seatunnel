@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.apache.seatunnel.api.configuration.util.OptionMark;
 
 import lombok.Data;
@@ -24,8 +27,18 @@ import lombok.Data;
 @Data
 public class NodePassConfig {
 
+    // The documented config key is snake_case ("node_pass.node_address"), while
+    // ReadonlyConfig converts the value with a plain ObjectMapper that has no
+    // snake_case naming strategy. Without the explicit mapping the conversion
+    // fails with an UnrecognizedPropertyException and the sink cannot be
+    // created (issue #9889).
     @OptionMark(description = "The address of Clickhouse server node")
+    @JsonProperty("node_address")
+    @JsonAlias("nodeAddress")
     private String nodeAddress;
+
+    @OptionMark(description = "Clickhouse server linux username")
+    private String username;
 
     @OptionMark(description = "Clickhouse server linux password")
     private String password;

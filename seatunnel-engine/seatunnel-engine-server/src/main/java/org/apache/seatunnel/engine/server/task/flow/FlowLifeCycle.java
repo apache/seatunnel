@@ -25,7 +25,11 @@ public interface FlowLifeCycle {
 
     default void open() throws Exception {}
 
+    default void cancel() {}
+
     default void close() throws IOException {}
+
+    default void hook() throws IOException {}
 
     default void prepareClose() throws IOException {}
 }
