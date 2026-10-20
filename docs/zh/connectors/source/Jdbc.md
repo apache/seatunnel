@@ -168,6 +168,7 @@ driver = "org.mariadb.jdbc.Driver"
 | partition_num                              | Int     | 否    | 10      | 顶层 `query` 与 `partition_column` 触发 fixed splitter 时的分片数，无论是否同时配置 `table_path`。动态 `table_path` 和 `table_list` 布局改用 `split.size`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | decimal_type_narrowing                     | Boolean | 否    | true    | 十进制类型缩小，如果为 true，十进制类型将缩小为 int 或 long 类型（如果没有精度损失）。目前仅支持 Oracle。请参考下面的 `decimal_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | 否    | true    | Int 类型缩小，如果为 true，tinyint(1) 类型将缩小为布尔类型（如果没有精度损失）。目前支持 MySQL。请参考下面的 `int_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| numeric_special_value_as_null              | Boolean | 否    | false   | 数值特殊值按 null 读取，如果为 true，无法表示为 BigDecimal 的数值特殊值（NaN、Infinity、-Infinity）将按 null 读取。目前仅支持 PostgreSQL。请参考下面的 `numeric_special_value_as_null`                                                                                                                                                                                                                                                                                                                                                                                                       |
 | handle_blob_as_string                      | Boolean | 否    | false   | 如果为 true，BLOB 类型将转换为 STRING 类型。**仅支持 Oracle 数据库**。这对于处理超过默认大小限制的 Oracle 中的大 BLOB 字段很有用。将 Oracle 的 BLOB 字段传输到 Doris 等系统时，将其设置为 true 可以使数据传输更高效。                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_kerberos                               | Boolean | 否    | false   | 是否为 JDBC 连接启用 Kerberos 认证。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | kerberos_principal                         | String  | 否    | -       | `use_kerberos = true` 时使用的 Kerberos principal。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -266,6 +267,16 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+数值特殊值按 null 读取，如果为 true，无法表示为 BigDecimal 的数值特殊值（NaN、Infinity、-Infinity）将按 null 读取。目前仅支持 PostgreSQL。
+
+注意：该选项仅在读取行数据时生效，不适用于分片范围查询，因此数值类型的分片列包含特殊值时仍可能导致任务失败。目前仅 PostgreSQL 及 `postgresLow` 兼容模式支持该选项。
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 指定的方言，如果不存在，仍然根据 url 获取，优先级高于 url。例如，使用 starrocks 时，需要将其设置为 `starrocks`。类似地，使用 mysql 时，需要将其值设置为 `mysql`。
@@ -285,6 +296,9 @@ int_type_narrowing = false
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
 | YashanDB  |          |          |
+
+达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
+达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
 
 ## 并行读取器
 

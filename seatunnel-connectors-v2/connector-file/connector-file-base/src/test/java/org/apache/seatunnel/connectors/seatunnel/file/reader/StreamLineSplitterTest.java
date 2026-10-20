@@ -84,6 +84,22 @@ class StreamLineSplitterTest {
     }
 
     @Test
+    void testCustomDelimiterWithRepeatedPrefix() throws IOException {
+        String input = "oneababtwoabab";
+        List<String> lines = new ArrayList<>();
+
+        TextReadStrategy.StreamLineSplitter splitter =
+                new TextReadStrategy.StreamLineSplitter("abab", 0, lines::add);
+        try (BufferedReader reader = new BufferedReader(new StringReader(input))) {
+            splitter.processStream(reader);
+        }
+
+        assertEquals(2, lines.size());
+        assertEquals("one", lines.get(0));
+        assertEquals("two", lines.get(1));
+    }
+
+    @Test
     void testCustomDelimiterWithSkipHeader() throws IOException {
         String input = "header1|||header2|||line1|||line2|||line3|||";
         List<String> lines = new ArrayList<>();

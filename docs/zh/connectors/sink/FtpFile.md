@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | user                                  | string  | 是    | -                                          |                                                                           |
 | password                              | string  | 是    | -                                          |                                                                           |
 | path                                  | string  | 是    | -                                          |                                                                           |
-| tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入一个临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要是一个FTP目录。                      |
+| tmp_path                              | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入一个临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要是一个FTP目录。                      |
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
 | control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | file_format_type                      | string  | 否    | "csv"                                      |                                                                           |
 | filename_extension                    | string  | 否    | -                                          | 用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype`                |
-| field_delimiter                       | string  | 否    | '\001'                                     | 仅在 `file_format_type` 为 `text` 时使用                                        |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 `file_format_type` 为 `text` 时使用                                        |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 `file_format_type` 为 `text`、`csv`、`json` 时使用                           |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                                 |
 | partition_by                          | array   | 否    | -                                          | 仅在 `have_partition` 为 `true` 时使用                                          |
@@ -70,7 +70,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | common-options                        | object  | 否    | -                                          |                                                                           |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
 | sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
-| sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
+| sheet_name                            | string  | 否    | Sheet0                                | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在 `file_format` 为 `csv` 时使用。                                             |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 `file_format` 为 `xml` 时使用。                                             |
 | xml_row_tag                           | string  | 否    | RECORD                                     | 仅在 `file_format` 为 `xml` 时使用。                                             |
@@ -297,7 +297,13 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 现有数据处理方法：
 - DROP_DATA（删除数据）：保留目录，删除数据文件。
-- APPEND_DATA（追加数据）：保留目录和数据文件。
+- APPEND_DATA（追加数据）：保留目录和数据文件。对于 FTP Sink，只有在作业配置中显式写出
+  `data_save_mode = "APPEND_DATA"` 时，才会把新数据追加到已有目标文件；如果省略该配置、
+  仅使用默认值，FTP Sink 会保持历史提交路径，不启用 FTP 字节级追加。字节级追加还要求目标
+  文件名在多次提交间保持稳定，即设置 `custom_filename = true` 且 `file_name_expression`
+  不随事务变化；使用默认表达式时每个检查点都会写出新文件，没有可追加的目标。FTP 追加为至少
+  一次语义：如果检查点在提交只完成一部分时被中止，该提交的数据行可能在目标文件中出现两次，
+  启用该模式前请确认这对目标场景可接受。
 - ERROR_WHEN_DATA_EXISTS（数据存在时报错）：当存在数据文件时，报告错误。
 
 ### schema_evolution_enabled [boolean]

@@ -138,6 +138,10 @@ Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configur
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source is a bounded source. It completes the snapshot read once and finishes; use a CDC source connector when the
+job must continue capturing later inserts, updates, and deletes.
+
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 Use `query` to select only the required columns.
@@ -168,6 +172,7 @@ Use `query` to select only the required columns.
 | partition_num                              | Int     | No        | 10              | Number of splits when top-level `query` and `partition_column` select the fixed splitter, whether or not `table_path` is also present. Dynamic `table_path` and `table_list` layouts use `split.size` instead.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | decimal_type_narrowing                     | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | No        | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| numeric_special_value_as_null              | Boolean | No        | false           | Numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now. Please refer to `numeric_special_value_as_null` below                                                                                                                                                                                                                                                                                                                                                                                    |
 | handle_blob_as_string                      | Boolean | No        | false           | If true, BLOB type will be converted to STRING type. **Only supported for Oracle database**. This is useful for handling large BLOB fields in Oracle that exceed the default size limit. When transmitting Oracle's BLOB fields to systems like Doris, setting this to true can make the data transfer more efficient.                                                                                                                                                                                                                                                                                                                             |
 | use_kerberos                               | Boolean | No        | false           | Whether to enable Kerberos authentication for JDBC connections.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | kerberos_principal                         | String  | No        | -               | Kerberos principal used when `use_kerberos = true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -266,6 +271,16 @@ int_type_narrowing = false
 |------------|-----------|
 | TINYINT(1) | TINYINT   |
 
+### numeric_special_value_as_null
+
+Numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.
+
+Note: this option only takes effect when reading row data. It does not apply to the split range query, so a numeric split column holding special values can still fail the job. Only PostgreSQL and the `postgresLow` compatible mode honour this option.
+
+eg:
+
+numeric_special_value_as_null = true
+
 ### dialect [string]
 
 The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
@@ -286,6 +301,8 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  |              |          |
 
+Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
+Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
 
 ## Parallel Reader
 
@@ -509,6 +526,45 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Read with explicit partition column and partition query
+
+Use `partition_column` together with `query` to split a single-table read into parallel chunks. `partition_lower_bound`
+and `partition_upper_bound` are optional; omitting them triggers a `MIN`/`MAX` discovery query before the read starts.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 

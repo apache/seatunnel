@@ -24,6 +24,25 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 用于将数据写入 Clickhouse。
 
+## 连通性 dry-run
+
+`--dry-run connect` 使用 sink 的连接配置检查第一个 `host`，并对 `system.tables`
+执行只读元数据查询。它不会创建 writer、读取业务数据、执行 `custom_sql` 或执行任何表结构/数据保存模式。
+
+- 当 `schema_save_mode = ERROR_WHEN_SCHEMA_NOT_EXIST` 时，目标表必须在 `system.tables`
+  中可见。表不存在或不可见都会导致校验失败。
+- 其他表结构保存模式允许目标表不存在。创建模式也允许数据库不存在；校验不会创建数据库或表，也不验证创建权限。
+- 连接和 socket 超时最多为 10 秒，保留更短的正值配置。服务端查询超时最多为 10 秒，
+  禁用重试和故障转移，不复用配置的 session。这些限制仅适用于 dry-run。
+- dry-run 不支持 `clickhouse.config.custom_http_params`，因为它可以在请求中附加 SQL。
+  也不支持自定义 `X-ClickHouse-Query-Id` 请求头，避免复用正在执行的查询标识。
+  空用户名或密码为空的非 default 用户也会被拒绝：当前 sink 无法解析这些凭据而不回退到驱动的默认账户。
+  支持密码为空的 default 用户。
+
+校验成功仅确认元数据连接可用，不保证字段/类型兼容性、写入或 DDL 权限、
+`ERROR_WHEN_DATA_EXISTS` 条件、自定义 SQL 的正确性，或 `split_mode` 下所有分片的连通性。
+Clickhouse source 和 ClickhouseFile sink 的行为不变。
+
 ## 支持的数据源信息
 
 为了使用 Clickhouse 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
@@ -47,6 +66,14 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
+### 带时区的时间戳
+
+标量 `TIMESTAMP_TZ` 值可以写入已存在的 `DateTime` 和 `DateTime64` 列，包括可空列。Sink 保留输入偏移量所表示的时间点。`DateTime` 存储整秒，`DateTime64` 按目标列的精度存储小数秒。ClickHouse 使用列级别的时区，不保留每行原始的时区偏移量。
+
+Sink 对这些字段使用显式 UTC 转换，包括更新和删除条件。包含这些字段的插入使用驱动的 SQL 批处理路径，而不是二进制输入路径。不包含这些字段的插入保持原有路径不变。
+
+运行作业前请先创建目标表。此映射不支持为 `TIMESTAMP_TZ` 自动建表，也不支持数组或 Map 中的带时区时间戳。
+
 ## Sink 选项
 
 |                  名称                   |   类型    | 是否必须 |  默认值  |                                                                                        描述                                                                                        |
@@ -67,6 +94,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | data_save_mode                        | Enum    | 否   | APPEND_DATA | 数据保存模式，请参考下面的 `data_save_mode`。 |
 | custom_sql                            | String  | 否   | -     | 当 `data_save_mode = CUSTOM_PROCESSING` 时必填。该 SQL 会在同步任务开始前执行。 |
 | save_mode_create_template             | String  | 否   | 见下文 | 当表结构保存模式需要创建表时使用的建表模板。 |
+| server_time_zone                      | String  | 否   | JVM 系统默认 | ClickHouse 服务器的会话时区。默认为 JVM 系统时区（`ZoneId.systemDefault()`）。 |
+| multi_table_sink_replica              | Int     | 否   | 1     | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。 |
 | common-options                        |         | 否   | -     | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### schema_save_mode [Enum]

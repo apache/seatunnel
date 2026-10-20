@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
@@ -88,6 +90,10 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile Boolean stainTracePropagateToAllSplits;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
+    private boolean dryRunSampleEnabled;
+    private boolean dryRunSamplePrintData;
+    private int dryRunSampleLimit;
+    private int[] dryRunSampleCounts;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -98,6 +104,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
+        this.dryRunSampleCounts = new int[transform.size()];
     }
 
     @Override
@@ -108,6 +115,10 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         // a fresh context which is not tracked/reported on the worker.)
         final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
                 runningTask.getMetricsContext();
+        Map<String, Object> jobEnvOptions = runningTask.getJobEnvOptions();
+        this.dryRunSampleEnabled = DryRunSampleConfig.isEnabled(jobEnvOptions);
+        this.dryRunSampleLimit = DryRunSampleConfig.getLimit(jobEnvOptions);
+        this.dryRunSamplePrintData = DryRunSampleConfig.isPrintData(jobEnvOptions);
         this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
         this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
         this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
@@ -115,6 +126,12 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
+                if (dryRunSampleEnabled) {
+                    log.info(
+                            "Dry-run sample [transform:{}] schemas: {}",
+                            t.getPluginName(),
+                            describeProducedSchemas(t.getProducedCatalogTables()));
+                }
             } catch (Exception e) {
                 log.error(
                         "Open transform: {} failed, cause: {}",
@@ -123,6 +140,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
+    }
+
+    static List<String> describeProducedSchemas(List<CatalogTable> catalogTables) {
+        List<String> schemas = new ArrayList<>(catalogTables.size());
+        for (CatalogTable catalogTable : catalogTables) {
+            schemas.add(catalogTable.getTablePath() + ": " + catalogTable.getSeaTunnelRowType());
+        }
+        return schemas;
     }
 
     @Override
@@ -265,7 +290,8 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         List<T> dataList = new ArrayList<>();
         dataList.add(inputData);
 
-        for (SeaTunnelTransform<T> transformer : transform) {
+        for (int transformIndex = 0; transformIndex < transform.size(); transformIndex++) {
+            SeaTunnelTransform<T> transformer = transform.get(transformIndex);
             List<T> nextInputDataList = new ArrayList<>();
             if (transformer instanceof SeaTunnelFlatMapTransform) {
                 SeaTunnelFlatMapTransform<T> transformDecorator =
@@ -300,6 +326,19 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
 
             dataList = nextInputDataList;
+            if (dryRunSampleEnabled && dryRunSamplePrintData) {
+                for (T output : dataList) {
+                    if (dryRunSampleCounts[transformIndex] >= dryRunSampleLimit) {
+                        break;
+                    }
+                    dryRunSampleCounts[transformIndex]++;
+                    log.info(
+                            "Dry-run sample [transform:{}] row {}: {}",
+                            transformer.getPluginName(),
+                            dryRunSampleCounts[transformIndex],
+                            output);
+                }
+            }
         }
 
         return dataList;
