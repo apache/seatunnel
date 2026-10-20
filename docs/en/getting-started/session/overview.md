@@ -26,11 +26,11 @@ kubectl apply -k deploy/kubernetes/session
 - Workers: bare Pods created by the active master. There is no Worker Deployment or StatefulSet.
 - Worker owner: the session root ConfigMap. Workers survive active-master failover and the next
   active master adopts them.
-- Slots: fixed slot mode only in this MVP. `session.worker.slots` must equal the worker
+- Slots: fixed slot mode only in this experimental release. `session.worker.slots` must equal the worker
   `seatunnel.yaml` `slot-service.slot-num`.
 - Automatic scale-up: when a pending job needs more slots, the master creates
   `ceil(missingSlots / slotsPerWorker)` workers, capped by `max-workers`.
-- Automatic scale-down: not supported in this MVP.
+- Automatic scale-down: not supported in this experimental release.
 
 ## Requirements
 
@@ -172,9 +172,11 @@ User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.
 
 ## Limitations
 
+- The sample manifests use fixed resource names, so a namespace hosts one session. Use a separate
+  namespace for each additional session; parameterized multi-session manifests are future work.
 - Worker template changes are not supported in place. Create a new session for a new image, slot
   count, CPU, or memory configuration.
 - No automatic scale-down.
-- No manual scale/spec API in this MVP.
+- No manual scale/spec API in this experimental release.
 - No master failover beyond the Hazelcast active/standby pair and StatefulSet restart.
 - No multi-tenant quotas, Kerberos, or CPU-aware slot scheduling.

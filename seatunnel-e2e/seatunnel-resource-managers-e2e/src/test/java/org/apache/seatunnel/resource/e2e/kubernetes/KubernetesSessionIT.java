@@ -44,6 +44,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
 
     private static final String SESSION_NAME = "seatunnel-session-cluster";
+    private static final String MANIFEST_NAMESPACE = "seatunnel";
     private static final String MASTER_SELECTOR =
             "seatunnel.apache.org/session="
                     + SESSION_NAME
@@ -133,7 +134,8 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
             content =
                     content.replace("namespace: seatunnel", "namespace: " + namespace)
                             .replace(
-                                    "seatunnel.svc.cluster.local", namespace + ".svc.cluster.local")
+                                    "." + MANIFEST_NAMESPACE + ".svc.cluster.local",
+                                    "." + namespace + ".svc.cluster.local")
                             .replace("apache/seatunnel:3.0.1", image)
                             .replace("-Xms3g -Xmx3g", "-Xms512m -Xmx512m")
                             .replace("-Xms3g", "-Xms512m")

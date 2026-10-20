@@ -24,6 +24,8 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.util.function.Supplier;
+
 /**
  * Creates the standalone, application or session resource manager owned by one Engine coordinator.
  */
@@ -81,6 +83,22 @@ public class ResourceManagerFactory {
     /** @return whether this deployment manages a long-lived worker pool itself */
     public boolean isSessionDeployment() {
         return DeployType.KUBERNETES_SESSION.equals(deployType);
+    }
+
+    /**
+     * Initializes deployments whose worker pool must exist before the first job is restored.
+     *
+     * <p>Session managers create their configured {@code min-workers} during initialization.
+     * Standalone managers stay lazy because their workers are already cluster members, and
+     * application managers stay lazy because their entrypoint owns the application lifecycle. The
+     * factory keeps this policy so the coordinator does not need deployment-specific branches.
+     *
+     * @param resourceManager lazy accessor for the coordinator-owned manager
+     */
+    public void initializeWorkerPoolOnCoordinatorStart(Supplier<ResourceManager> resourceManager) {
+        if (isSessionDeployment()) {
+            resourceManager.get();
+        }
     }
 
     /** Creates an uninitialized manager once its node is available; the coordinator owns it. */

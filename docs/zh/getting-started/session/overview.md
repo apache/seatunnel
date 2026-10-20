@@ -24,11 +24,11 @@ kubectl apply -k deploy/kubernetes/session
 - Master：StatefulSet，2 副本，`backup-count: 1`。
 - Worker：由 active master 创建的 bare Pod，不是 Deployment/StatefulSet。
 - Worker owner：Session root ConfigMap。master 故障切换后 Worker 继续存活，由新 active master 接管。
-- Slot：MVP 只支持固定 slot。`session.worker.slots` 必须等于 worker `seatunnel.yaml` 的
+- Slot：实验版本只支持固定 slot。`session.worker.slots` 必须等于 worker `seatunnel.yaml` 的
   `slot-service.slot-num`。
 - 自动扩容：pending job slot 不足时，master 按
   `ceil(missingSlots / slotsPerWorker)` 创建 worker，上限为 `max-workers`。
-- 自动缩容：MVP 不支持。
+- 自动缩容：实验版本不支持。
 
 ## 前置条件
 
@@ -166,10 +166,12 @@ kubectl delete -k deploy/kubernetes/session
 
 用户自有的 checkpoint、PVC、被引用的 ConfigMap/Secret 不会被删除。
 
-## MVP 限制
+## 实验性限制
 
+- 示例 manifest 使用固定资源名，因此一个 namespace 只能运行一个 Session。需要多个 Session 时，
+  请为每个 Session 使用独立 namespace；同 namespace 多 Session 的参数化 manifest 属于后续工作。
 - Worker 模板不支持原地修改；修改镜像、slot、CPU、内存需要新建 Session。
 - 不支持自动缩容。
-- MVP 不提供手动 scale/spec API。
+- 实验版本不提供手动 scale/spec API。
 - Master 只有 Hazelcast active/standby + StatefulSet 重建，不支持额外 HA 编排。
 - 不支持多租户配额、Kerberos、CPU 感知的 slot 调度。

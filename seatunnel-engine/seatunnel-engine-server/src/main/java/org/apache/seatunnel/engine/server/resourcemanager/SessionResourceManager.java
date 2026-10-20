@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -109,8 +110,27 @@ public class SessionResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     @Override
-    protected boolean supportDynamicWorker() {
+    public boolean supportDynamicWorker() {
         return specification.isDynamicWorkerEnabled();
+    }
+
+    /**
+     * Adds the session-specific "no workers at all" bootstrap to the common allocation path.
+     *
+     * <p>The common manager cannot create platform workers, so a session with no registered worker
+     * must provision the first worker set before delegating to {@link
+     * AbstractResourceManager#applyResources}. Once a worker exists, partial slot shortages are
+     * handled by {@link ResourceRequestHandler}, which calls {@link #findNewWorker} after its
+     * normal retries are exhausted.
+     */
+    @Override
+    public CompletableFuture<List<SlotProfile>> applyResources(
+            long jobId, List<ResourceProfile> resourceProfiles, Map<String, String> tagFilter)
+            throws NoEnoughResourceException {
+        if (supportDynamicWorker() && workerCount(tagFilter) == 0) {
+            findNewWorker(resourceProfiles, tagFilter);
+        }
+        return super.applyResources(jobId, resourceProfiles, tagFilter);
     }
 
     /**

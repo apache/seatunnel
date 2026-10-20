@@ -31,7 +31,7 @@ For a broader comparison, see [Engine Overview](../engines/overview.md).
 
 - **Long-running cluster**: deploy and maintain a shared Zeta cluster, then submit jobs to it. Start with [Zeta Deployment](../engines/zeta/deployment.md).
 - **Application Mode (experimental)**: run one job with its own master and fixed workers on Kubernetes, releasing compute resources when the application ends. Start with the [Application Mode Overview](./application/overview.md).
-- **Kubernetes Session Cluster (MVP)**: run a long-lived two-master session cluster whose active master creates workers on demand, then submit jobs through REST. Start with the [Session Cluster Overview](./session/overview.md).
+- **Kubernetes Session Cluster (Experimental)**: run a long-lived two-master session cluster whose active master creates workers on demand, then submit jobs through REST. Start with the [Session Cluster Overview](./session/overview.md).
 
 If you already operate Kubernetes, follow the [Kubernetes Quick Start](./application/kubernetes/quick-start.md). Application Mode and Session Cluster are Zeta deployment modes, not separate execution engines.
 

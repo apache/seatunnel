@@ -189,10 +189,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throws NoEnoughResourceException {
         waitingWorkerRegister();
         ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
-        if (matchedWorker.isEmpty() && supportDynamicWorker()) {
-            findNewWorker(resourceProfile, tagFilter);
-            matchedWorker = filterWorkerByTag(tagFilter);
-        }
         if (matchedWorker.isEmpty()) {
             log.error("No matched worker with tag filter {}.", tagFilter);
             throw new NoEnoughResourceException();
@@ -200,10 +196,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
         return new ResourceRequestHandler(
                         jobId, resourceProfile, matchedWorker, this, slotAllocationStrategy)
                 .request(tagFilter);
-    }
-
-    protected boolean supportDynamicWorker() {
-        return false;
     }
 
     /**

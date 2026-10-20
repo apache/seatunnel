@@ -20,28 +20,94 @@ package org.apache.seatunnel.resource.kubernetes.config;
 import java.util.List;
 import java.util.Map;
 
-/** Common Pod-template inputs shared by application and session workloads. */
+/**
+ * Read-only Pod-template inputs shared by application and session workload factories.
+ *
+ * <p>{@link org.apache.seatunnel.resource.kubernetes.kubeclient.factory.AbstractWorkloadFactory}
+ * uses this view to build the common container and Pod skeleton: image, service account, image pull
+ * secrets, node selectors, tolerations, and optional SeaTunnel/Log4j configuration paths. Role
+ * specific fields such as probes, commands, and owner references stay in the concrete factory.
+ *
+ * <p>Implementations are parsed deployment configurations. Collections may be empty when a feature
+ * is not configured; optional configuration paths may be {@code null}, in which case the factory
+ * omits the corresponding JVM system property.
+ */
 public interface KubernetesWorkloadConfig {
 
+    /**
+     * Returns the container image used for master and worker Pods.
+     *
+     * @return image reference
+     */
     String getImage();
 
+    /**
+     * Returns the Kubernetes image pull policy.
+     *
+     * @return pull policy such as {@code IfNotPresent} or {@code Never}
+     */
     String getImagePullPolicy();
 
+    /**
+     * Returns the SeaTunnel installation directory inside the container.
+     *
+     * @return absolute installation path
+     */
     String getSeatunnelHome();
 
+    /**
+     * Returns the service account used by workload Pods.
+     *
+     * @return service account name
+     */
     String getServiceAccount();
 
+    /**
+     * Returns image pull secret names attached to workload Pods.
+     *
+     * @return pull secret names, or an empty list when none are configured
+     */
     List<String> getImagePullSecrets();
 
+    /**
+     * Returns node selector labels applied to master Pods.
+     *
+     * @return label map, or an empty map when no selector is configured
+     */
     Map<String, String> getMasterNodeSelector();
 
+    /**
+     * Returns node selector labels applied to worker Pods.
+     *
+     * @return label map, or an empty map when no selector is configured
+     */
     Map<String, String> getWorkerNodeSelector();
 
+    /**
+     * Returns tolerations applied to master Pods.
+     *
+     * @return tolerations, or an empty list when none are configured
+     */
     List<KubernetesToleration> getMasterTolerations();
 
+    /**
+     * Returns tolerations applied to worker Pods.
+     *
+     * @return tolerations, or an empty list when none are configured
+     */
     List<KubernetesToleration> getWorkerTolerations();
 
+    /**
+     * Returns an optional SeaTunnel configuration file path for a JVM system property.
+     *
+     * @return configuration path, or {@code null} to use the image default
+     */
     String getSeatunnelConfigFile();
 
+    /**
+     * Returns an optional Log4j configuration file path for a JVM system property.
+     *
+     * @return configuration path, or {@code null} to use the image default
+     */
     String getLog4jConfigFile();
 }

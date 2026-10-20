@@ -1,4 +1,4 @@
-# SeaTunnel Kubernetes Session Cluster (MVP)
+# SeaTunnel Kubernetes Session Cluster (Experimental)
 
 This directory contains a minimal Kubernetes Session Cluster. The two masters are a StatefulSet;
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
@@ -45,7 +45,7 @@ Checkpoint storage and user-owned PVCs are not deleted by the session manifests.
 - The image must contain `seatunnel-session-cluster.sh` and the Kubernetes resource-manager provider.
 - Worker templates are immutable for the lifetime of a session. Create a new session to change
   slots, CPU, memory or the worker image.
-- Only fixed slots are supported in this MVP. The worker `seatunnel.yaml` must use
+- Only fixed slots are supported in this experimental release. The worker `seatunnel.yaml` must use
   `slot-service.dynamic-slot: false` and a `slot-num` equal to `session.worker.slots`.
 - The sample uses `file:///tmp/` for checkpoints and IMap persistence so it can run on a local
   single-node cluster. Replace it with HDFS, S3 or a PVC for production.

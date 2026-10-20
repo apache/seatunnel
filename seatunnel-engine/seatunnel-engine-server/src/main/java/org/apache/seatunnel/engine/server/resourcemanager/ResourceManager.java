@@ -90,6 +90,19 @@ public interface ResourceManager {
             throws NoEnoughResourceException;
 
     /**
+     * Returns whether this manager can create additional workers when demand cannot be met.
+     *
+     * <p>Most deployments use a fixed worker set, so the default is {@code false}. A manager that
+     * owns a platform worker pool overrides this method and provisions capacity internally before
+     * failing the request.
+     *
+     * @return {@code true} when dynamic worker provisioning is supported
+     */
+    default boolean supportDynamicWorker() {
+        return false;
+    }
+
+    /**
      * Releases a collection of job-owned slot assignments through their worker slot services.
      *
      * <p>Each release is attempted. The aggregate future fails if any individual release fails;
