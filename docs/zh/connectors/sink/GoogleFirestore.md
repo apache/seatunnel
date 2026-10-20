@@ -24,8 +24,9 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 
@@ -39,22 +40,22 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 
 | 名称           | 类型   | 必填 | 默认值 | 说明 |
 |----------------|--------|------|--------|------|
-| project_id     | string | 是   | -      | Firestore 数据库所在的 Google Cloud 项目 ID。 |
-| collection     | string | 是   | -      | 要写入的 Firestore 集合名称。 |
-| credentials    | string | 否   | -      | Base64 编码后的 Google Cloud 服务账号 JSON。 |
+| project_id     | string | 是   | -      | Firestore 数据库所在的非空白 Google Cloud 项目 ID。 |
+| collection     | string | 是   | -      | 要写入的非空白 Firestore 集合名称。 |
+| credentials    | string | 否   | -      | Base64 编码后的 Google Cloud 服务账号 JSON；配置时不能为空白。 |
 | common-options |        | 否   | -      | Sink 通用选项，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### project_id [string]
 
-Firestore 数据库所在的 Google Cloud 项目 ID。
+Firestore 数据库所在的 Google Cloud 项目 ID。此选项必填，且不能为空白。
 
 ### collection [string]
 
-要写入的 Firestore 集合名称。每个 sink 配置块写入一个集合。
+要写入的 Firestore 集合名称。此选项必填，且不能为空白。每个 sink 配置块写入一个集合。
 
 ### credentials [string]
 
-Base64 编码后的 Google Cloud 服务账号 JSON。
+可选的 Base64 编码 Google Cloud 服务账号 JSON。配置此选项时，值不能为空白。
 
 如果不配置该参数，连接器会使用 Google 应用默认凭证。此时需要确保 `GOOGLE_APPLICATION_CREDENTIALS` 指向服务账号 JSON 文件，或者运行环境已经提供默认凭证。
 
@@ -97,13 +98,16 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 ## 注意事项
 
 - 当前连接器只提供 sink，不提供 GoogleFirestore source。
-- 每个 sink 配置块只写入一个固定的 collection，不会按多表输入自动切换 collection。
+- 每个 sink 配置块只写入一个固定的 collection，不会按多表输入自动切换 collection；多 collection 场景需要为每个目标 collection 单独配置一个 sink 块。
 - Firestore 文档 ID 会自动生成。如果需要固定文档 ID，请在写入前使用其他连接器或转换处理。
-- sink 不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义。
+- sink 不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义 —— 每条记录都会触发一次 Firestore `add` 调用生成新文档。
 - `credentials` 不能直接填写服务账号 JSON 原文，需要先做 Base64 编码。
 - 上游 SeaTunnel schema 中的字段名会作为 Firestore 文档字段名。
+- 连接器同时支持 `BATCH` 与 `STREAMING` 两种作业模式。在当前实现中，`FirestoreSinkWriter.write()` 对每一条记录直接调用一次 Firestore 客户端的 `add(...)`，并不会缓冲或批量写入，因此并没有“checkpoint 前把内存写缓冲刷到 Firestore”这一行为；checkpoint 完成并不意味着之前调用过的所有写入都已真正到达 Firestore。
 
-## 示例
+## 任务示例
+
+### 批量写入带类型的记录
 
 ```hocon
 env {
@@ -145,6 +149,39 @@ sink {
   GoogleFirestore {
     project_id = "dummy-project"
     collection = "dummy-collection"
+    credentials = "base64-service-account-json"
+  }
+}
+```
+
+### 流式写入并启用 Checkpoint 间隔
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+        c_timestamp = timestamp
+      }
+    }
+    plugin_output = "firestore_stream"
+  }
+}
+
+sink {
+  GoogleFirestore {
+    plugin_input = "firestore_stream"
+    project_id = "my-gcp-project"
+    collection = "events"
     credentials = "base64-service-account-json"
   }
 }

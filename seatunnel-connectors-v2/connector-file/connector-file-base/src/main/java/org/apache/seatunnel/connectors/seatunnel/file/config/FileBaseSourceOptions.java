@@ -28,6 +28,7 @@ import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final long DEFAULT_POI_EXCEL_MAX_FILE_SIZE = 50L * 1024L * 1024L;
 
     public static final Option<FileDiscoveryMode> DISCOVERY_MODE =
             Options.key("discovery_mode")
@@ -96,6 +97,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .defaultValue(0L)
                     .withDescription("The number of rows to skip");
 
+    public static final Option<Boolean> EXCEL_USE_HEADER_LINE =
+            Options.key("excel_use_header_line")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Use the first Excel row as column headers for name-based mapping. "
+                                    + "Only used when file_format_type is excel.");
+
     public static final Option<List<String>> READ_PARTITIONS =
             Options.key("read_partitions")
                     .listType()
@@ -128,7 +137,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
                     .defaultValue(ExcelEngine.POI)
-                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
+                    .withDescription("To switch excel read engine, e.g. POI, EasyExcel");
+
+    public static final Option<Long> POI_EXCEL_MAX_FILE_SIZE =
+            Options.key("poi_excel_max_file_size")
+                    .longType()
+                    .defaultValue(DEFAULT_POI_EXCEL_MAX_FILE_SIZE)
+                    .withDescription(
+                            "Maximum Excel file size in bytes allowed by POI engine. Use EasyExcel for larger Excel files.");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")

@@ -19,22 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
-import org.junit.jupiter.api.Assertions;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -86,8 +80,8 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
     protected static final String SOURCE_TABLE1 = "FULL_TYPES";
 
     protected static final String SOURCE_TABLE2 = "FULL_TYPES2";
-    private static final String ORACLE_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Oracle-CDC/lib";
-    private static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
+    protected static final String ORACLE_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Oracle-CDC/lib";
+    protected static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
 
     protected static final OracleContainer ORACLE_CONTAINER =
             new OracleContainer(getImage())
@@ -112,61 +106,6 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
 
     static {
         System.setProperty("oracle.jdbc.timezoneAsRegion", "false");
-    }
-
-    protected void copyOracleDriverToContainer(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        copyDriverToContainer(container, ORACLE_CDC_PLUGIN_LIB, oracleDriverJarPath());
-    }
-
-    protected void copyMySQLDriverToJdbcContainer(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        copyDriverToContainer(container, JDBC_PLUGIN_LIB, mysqlDriverJarPath());
-    }
-
-    private void copyDriverToContainer(
-            GenericContainer<?> container, String pluginLibDir, Path driverJarPath)
-            throws IOException, InterruptedException {
-        Container.ExecResult mkdirResult =
-                container.execInContainer("bash", "-c", "mkdir -p " + pluginLibDir);
-        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
-        container.copyFileToContainer(
-                MountableFile.forHostPath(driverJarPath),
-                pluginLibDir + "/" + driverJarPath.getFileName());
-    }
-
-    private Path oracleDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            oracle.jdbc.driver.OracleDriver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve Oracle JDBC driver jar from the test classpath", e);
-        }
-    }
-
-    private Path mysqlDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            com.mysql.cj.jdbc.Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
     }
 
     protected static void createAndInitialize(String sqlFile, String username, String password)

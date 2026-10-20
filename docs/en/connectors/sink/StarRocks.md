@@ -52,6 +52,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | save_mode_create_template   | string  | no       | see below                    | see below                                                                                                                                                                                                         |
 | starrocks.config            | map     | no       | -                            | The parameter of the stream load `data_desc`                                                                                                                                                                      |
 | http_socket_timeout_ms      | int     | no       | 180000                       | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
+| label_state_timeout_ms      | long    | no       | 180000                       | Total time the sink polls `get_load_state` to resolve a non-final stream load outcome (`Publish Timeout`, `Label Already Exists`, reused-label failure) to `VISIBLE`/`COMMITTED`/`ABORTED` before failing the flush. Default is 3 minutes; keep it below the job's checkpoint timeout. |
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
 | table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
@@ -108,9 +109,9 @@ You can use the following placeholders
 
 ### table [string]
 
-Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
+Together with `database`, this option identifies the target StarRocks table that receives the upstream data.
 
-This option is mutually exclusive with `query` and has a higher priority.
+If `table` is not set, the upstream table name is used.
 
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
@@ -169,6 +170,18 @@ sink {
   }
 }
 ```
+
+### Non-final stream load outcomes
+
+A stream load response such as `Publish Timeout`, `Label Already Exists`, a reused-label failure, or an unrecognized status does not confirm the transaction outcome: a publish that timed out may still be aborted later (for example after a front-end restart). Instead of releasing the batch right away, the sink polls `get_load_state` for the batch label until the state is terminal:
+
+- `VISIBLE`/`COMMITTED`: the transaction is confirmed and the batch is released.
+- `ABORTED`: the batch never became durable and is resent under a new label.
+- anything else (`PREPARE`, `UNKNOWN`, unreadable response): polling continues until `label_state_timeout_ms` expires, then the flush fails and the job replays the batch from its last checkpoint.
+
+The poll runs synchronously on the checkpoint path, and the sink retry loop can repeat it up to `max_retries + 1` times, so the worst-case blocking time is roughly `(max_retries + 1) * label_state_timeout_ms`. Keep `label_state_timeout_ms` below the job's checkpoint timeout so an unresolved transaction surfaces as a checkpoint failure instead of holding the barrier for minutes.
+
+Because a failed flush is replayed from the checkpoint, batches that were already visible earlier in the same window can be submitted again. The sink remains at-least-once: DUPLICATE KEY tables may see duplicate rows after a replay, while Primary Key tables absorb them.
 
 ### Zeta Timer Flush
 
@@ -303,7 +316,7 @@ sink {
 
 ### Use JSON format to import data
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -319,12 +332,11 @@ sink {
     }
   }
 }
-
 ```
 
 ### Use CSV format to import data
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -345,7 +357,7 @@ sink {
 
 ### Use save_mode function
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -355,12 +367,109 @@ sink {
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    data_save_mode="APPEND_DATA"
+    data_save_mode = "APPEND_DATA"
     batch_max_rows = 10
     starrocks.config = {
       format = "CSV"
       column_separator = "\\x01"
       row_delimiter = "\\x02"
+    }
+  }
+}
+```
+
+### CDC With Schema Change
+
+This example shows MySQL-CDC streaming into StarRocks with `schema-changes.enabled = true` so that
+upstream MySQL DDL changes (column additions, type widening, etc.) are applied to the target
+StarRocks Primary Key table.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products", "shop.orders", "shop.customers"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_cdc_e2e:8040"]
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "${table_name}"
+    max_retries = 3
+    enable_upsert_delete = true
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    save_mode_create_template = """
+    CREATE TABLE IF NOT EXISTS shop.`${table_name}` (
+        ${rowtype_primary_key},
+        ${rowtype_fields}
+    ) ENGINE=OLAP
+    PRIMARY KEY (${rowtype_primary_key})
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES (
+        "replication_num" = "1",
+        "in_memory" = "false",
+        "enable_persistent_index" = "true",
+        "replicated_storage" = "true",
+        "compression" = "LZ4"
+    )
+    """
+  }
+}
+```
+
+### Timer Flush With MySQL-CDC
+
+This example wires `sink.flush.interval` into the streaming job so that the StarRocks sink flushes
+its buffer every 500 ms, independent of `batch_max_rows` and `batch_max_bytes`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5670
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_starrocks_timer_flush_e2e:3306/shop"
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_timer_flush_e2e:8030"]
+    base-url = "jdbc:mysql://starrocks_timer_flush_e2e:9030/timer_flush"
+    username = root
+    password = ""
+    database = "timer_flush"
+    table = "starrocks_timer_flush"
+    labelPrefix = "timer-flush-"
+    batch_max_rows = 100000
+    batch_max_bytes = 104857600
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    starrocks.config = {
+      format = "JSON"
     }
   }
 }
@@ -470,9 +579,9 @@ Yes. Enable upsert and DELETE propagation by setting `enable_upsert_delete = tru
 
 ### What is `labelPrefix` used for in StarRocks Sink?
 
-The current StarRocks Sink page does not list exactly-once as a supported connector capability.
-Use `labelPrefix` to control the prefix of the Stream Load labels generated by the sink.
-Keeping this prefix stable and unique helps reduce label collisions across retries or job restarts:
+`labelPrefix` controls the prefix of the Stream Load labels generated by the sink. StarRocks uses
+these labels to deduplicate ingestion requests, so keeping this prefix stable and unique per job
+helps avoid spurious "label already exists" errors across retries or restarts:
 
 ```hocon
 sink {
@@ -488,8 +597,9 @@ sink {
 }
 ```
 
-For the published connector contract, follow the **Key Features** matrix and the `labelPrefix`
-option entry on this page.
+Note that StarRocks Sink does not currently provide exactly-once delivery (see the **Key Features**
+matrix at the top of this page). Using a stable `labelPrefix` reduces label collisions but does not
+by itself give end-to-end exactly-once guarantees.
 
 ### Are StarRocks column names case-sensitive?
 

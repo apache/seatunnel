@@ -1,0 +1,35 @@
+{
+  "env": {
+    "parallelism": 1,
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "plugin_output": "first_table",
+      "row.num": 10,
+      "schema": {
+        "fields": {
+          "name": "string"
+        }
+      }
+    },
+    {
+      "plugin_name": "FakeSource",
+      "plugin_output": "second_table",
+      "row.num": 10,
+      "schema": {
+        "fields": {
+          "name": "string"
+        }
+      }
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "plugin_name": "InMemory",
+      "plugin_input": ["first_table", "second_table"]
+    }
+  ]
+}
