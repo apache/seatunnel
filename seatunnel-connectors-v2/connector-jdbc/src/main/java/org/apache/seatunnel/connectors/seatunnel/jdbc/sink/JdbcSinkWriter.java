@@ -241,8 +241,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     /**
      * Configures pool-level validation for JDBC drivers that cannot pass Hikari's default
-     * Connection.isValid(timeout) probe, and honors user-specified connection test queries
-     * from the {@code properties} configuration block.
+     * Connection.isValid(timeout) probe, and honors user-specified connection test queries from the
+     * {@code properties} configuration block.
      */
     static void applyConnectionValidation(
             HikariDataSource dataSource, JdbcConnectionConfig jdbcConnectionConfig) {

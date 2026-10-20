@@ -56,7 +56,9 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -250,6 +252,31 @@ class JdbcSinkWriterTest {
 
         Assertions.assertNull(dataSource.getConnectionTestQuery());
         dataSource.close();
+    }
+
+    /**
+     * Verifies that a user-supplied {@code connection-test-query} (or {@code connectionTestQuery})
+     * under the sink's {@code properties} block becomes HikariCP's pool-level test query instead of
+     * being forwarded only as a JDBC data-source property (#11769).
+     */
+    @Test
+    void testApplyConnectionValidationHonorsPropertiesConnectionTestQuery() {
+        for (String key : new String[] {"connection-test-query", "connectionTestQuery"}) {
+            HikariDataSource dataSource = new HikariDataSource();
+            Map<String, String> properties = new HashMap<>();
+            properties.put(key, "SELECT 42");
+            JdbcConnectionConfig jdbcConnectionConfig =
+                    JdbcConnectionConfig.builder()
+                            .driverName("org.postgresql.Driver")
+                            .url("jdbc:postgresql://localhost:5432/test")
+                            .properties(properties)
+                            .build();
+
+            JdbcSinkWriter.applyConnectionValidation(dataSource, jdbcConnectionConfig);
+
+            Assertions.assertEquals("SELECT 42", dataSource.getConnectionTestQuery(), key);
+            dataSource.close();
+        }
     }
 
     /** Oracle sink ignores user auto_commit=true at runtime to keep failed batches atomic. */
