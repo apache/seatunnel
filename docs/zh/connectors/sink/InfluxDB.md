@@ -85,8 +85,9 @@ InfluxDB 用户密码。
 ### key_time [string]
 
 指定 SeaTunnelRow 中作为 InfluxDB measurement 时间戳的字段名。
-如果未指定，则使用处理时间作为时间戳；该字段必须是 `BIGINT`（epoch 毫秒数值）、内容为数字的 `STRING`，
-或 `TIMESTAMP` 类型（按 UTC 时区转换为 epoch 毫秒），不支持 ISO-8601 时间戳字符串。
+如果未指定，则使用处理时间作为时间戳；该字段必须是 `BIGINT` 或内容为数字的 `STRING`
+（数值按 `epoch` 选项配置的精度解释，默认 `n` 即纳秒），或 `TIMESTAMP` 类型
+（按 UTC 时区转换为 epoch 毫秒，仅当 `epoch` 设为 `MS` 时与写入精度一致），不支持 ISO-8601 时间戳字符串。
 
 ### key_tags [array]
 
