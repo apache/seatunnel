@@ -1128,4 +1128,144 @@ public class JsonRowDataSerDeSchemaTest {
                         .deserialize("{\"label\":1.5}".getBytes(StandardCharsets.UTF_8))
                         .getField(0));
     }
+
+    @Test
+    public void testStringObjectAlongsideDecimalArrayKeepsNestedDigits() throws IOException {
+        // A JSON object captured as STRING is rendered from its nodes, so the document-wide decimal
+        // parser also keeps every digit of the numbers nested in it, both in nested objects and in
+        // nested arrays.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts", "raw"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)), STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":["
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"raw\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"history\":["
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"quoted\":\"1e-10\"}}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL)
+                        .compareTo(((BigDecimal[]) row.getField(0))[0]),
+                "the DECIMAL element keeps its exact value");
+        assertEquals(
+                "{\"pi\":"
+                        + HIGH_PRECISION_DECIMAL_LITERAL
+                        + ",\"history\":["
+                        + HIGH_PRECISION_DECIMAL_LITERAL
+                        + "],\"quoted\":\"1e-10\"}",
+                row.getField(1),
+                "an object captured as STRING keeps every digit of its nested numbers");
+    }
+
+    @Test
+    public void testStringArrayAlongsideDecimalArrayKeepsNestedDigits() throws IOException {
+        // A JSON array captured as STRING is rendered from its nodes as well. Small exponents are
+        // re-rendered in exponent notation: the decimal value of 1e-10 is written as 1E-10, whereas
+        // the double parser would write 1.0E-10.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts", "raw"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)), STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":[1e-10,"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"raw\":[1e-10,{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "},\"1e-10\"]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        BigDecimal[] amounts = (BigDecimal[]) row.getField(0);
+        assertEquals(
+                0,
+                new BigDecimal("1e-10").compareTo(amounts[0]),
+                "the small exponent keeps its exact decimal value");
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL).compareTo(amounts[1]),
+                "the high precision element keeps every digit");
+        assertEquals(
+                "[1E-10,{\"pi\":" + HIGH_PRECISION_DECIMAL_LITERAL + "},\"1e-10\"]",
+                row.getField(1),
+                "an array captured as STRING keeps the decimal rendering of its numbers");
+    }
+
+    @Test
+    public void testStringContainersWithoutDecimalKeepDoubleRendering() throws IOException {
+        // Control: without any DECIMAL column the mapper keeps parsing floats as double, so a JSON
+        // object or array captured as STRING keeps the double rendering it had before this fix.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"doubles", "raw_object", "raw_array"},
+                        new SeaTunnelDataType<?>[] {
+                            DOUBLE_ARRAY_TYPE, STRING_TYPE, STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"doubles\":[1.5,2.25],\"raw_object\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "},\"raw_array\":[1e-10]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertArrayEquals(new Double[] {1.5, 2.25}, (Double[]) row.getField(0));
+        assertEquals(
+                "{\"pi\":3.141592653589793}",
+                row.getField(1),
+                "without DECIMAL a nested number keeps the double rendering");
+        assertEquals(
+                "[1.0E-10]",
+                row.getField(2),
+                "without DECIMAL a nested small exponent keeps the double rendering");
+    }
+
+    @Test
+    public void testStringObjectAlongsideScalarDecimalKeepsNestedDigits() throws IOException {
+        // A scalar DECIMAL already enabled the document-wide decimal parser before this array fix,
+        // so this container rendering predates it and must stay identical.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount", "raw"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 20), STRING_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amount\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"raw\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "}}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL)
+                        .compareTo((BigDecimal) row.getField(0)),
+                "the scalar DECIMAL keeps its exact value");
+        assertEquals(
+                "{\"pi\":" + HIGH_PRECISION_DECIMAL_LITERAL + "}",
+                row.getField(1),
+                "a scalar DECIMAL renders the nested number exactly like an array DECIMAL does");
+    }
 }
