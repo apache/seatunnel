@@ -5,14 +5,14 @@ title: Session Cluster
 
 # Session Cluster
 
-A Session Cluster is a long-lived Zeta cluster shared by multiple jobs. Two masters provide
-Hazelcast active/standby election and the active master creates the workers. Jobs are submitted
-after the cluster is running and share the worker slots.
+A Session Cluster is a long-running Zeta cluster shared by multiple jobs. Two masters form a
+Hazelcast active/standby pair; the active master creates workers, and jobs submit through REST or
+the native client.
 
-This is different from [Application Mode](../application/overview.md), which creates a dedicated
-master and worker set for one job.
+[Application Mode](../application/overview.md) is different: it creates a dedicated master and
+worker set for one job.
 
-## Cluster shape
+## Topology
 
 ```text
 kubectl apply -k deploy/kubernetes/session
@@ -23,82 +23,69 @@ kubectl apply -k deploy/kubernetes/session
 ```
 
 - Masters: StatefulSet, 2 replicas, `backup-count: 1`.
-- Workers: bare Pods created by the active master. There is no Worker Deployment or StatefulSet.
-- Worker owner: the session root ConfigMap. Workers survive active-master failover and the next
-  active master adopts them.
-- Slots: fixed slot mode only in this experimental release. `session.worker.slots` must equal the worker
-  `seatunnel.yaml` `slot-service.slot-num`.
-- Automatic scale-up: when a pending job needs more slots, the master creates
-  `ceil(missingSlots / slotsPerWorker)` workers, capped by `max-workers`.
-- Automatic scale-down: not supported in this experimental release.
+- Workers: bare Pods owned by the root ConfigMap. There is no worker Deployment or StatefulSet.
+- Slots: fixed mode only; `session.worker.slots` must equal worker `slot-service.slot-num`.
+- Scale-up: `ceil(missingSlots / slotsPerWorker)`, capped by `max-workers`.
+- Scale-down: not supported.
 
-### Multiple Sessions in one namespace
+## Deploy
 
-The manifests are plain external YAML. To run another Session in the same namespace, copy the
-directory and replace every `seatunnel-session-cluster` occurrence that belongs to that Session:
+Read [Kubernetes Deployment](../kubernetes/kubernetes.mdx) and
+[Kubernetes Configuration](../kubernetes/configuration.md) first. The Session image must contain
+`seatunnel-session-cluster.sh` and the Kubernetes resource-manager provider.
+
+```bash
+kubectl apply -k deploy/kubernetes/session
+```
+
+The sample uses `conf/` for all master and worker configuration files. Kustomize generates one
+`<session-name>-config` ConfigMap; the master mounts it whole and workers mount their required keys.
+
+To run another Session in the same namespace, copy the directory and rename every session-scoped
+resource, label, `session.yaml` value, `configMapGenerator` name, and Hazelcast/client DNS entry:
 
 ```bash
 cp -R deploy/kubernetes/session /tmp/payments-session
-# Edit /tmp/payments-session:
-#   resource names, labels, session.yaml, kustomization configMapGenerator,
-#   and Hazelcast/client service DNS.
+# Edit /tmp/payments-session as described above.
 kubectl apply -k /tmp/payments-session
 ```
 
-Every session-scoped resource name must be unique. There is no deployer script or Operator; users
-own the manifests and may create Services, ConfigMaps, Secrets, or RBAC resources themselves and
-keep only the objects they need.
-
-## Requirements
-
-Read [Kubernetes Deployment](../kubernetes/kubernetes.mdx) for cluster prerequisites and
-[Kubernetes Configuration](../kubernetes/configuration.md) for namespace, ConfigMap/Secret,
-image-pull, and Hazelcast discovery practices. Session-specific requirements are:
-
-- A SeaTunnel image containing the session entrypoint and the Kubernetes resource-manager provider.
-- A `conf/` directory containing `session.yaml`, `seatunnel.yaml`, both role Hazelcast configs,
-  the client config, logging, and both JVM option files.
-- The sample `kustomization.yaml` generates one `<session-name>-config` ConfigMap from `conf/`.
-- Checkpoint and IMap storage reachable by every Pod. The sample uses `file:///tmp/` only for a
-  local single-node test; use the storage guidance in [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md)
-  for production.
-
 ## Configure
 
-### session.yaml
+`conf/session.yaml` is the Session-specific configuration. Unknown keys are ignored; invalid values
+fail master startup.
 
 ```yaml
 session:
-  # Required DNS-1123 label, at most 40 characters. It must be unique when
-  # several Sessions share a namespace.
+  # Required DNS-1123 label, max 40 chars; unique per namespace.
   name: seatunnel-session-cluster
 
-  # Default: seatunnel-session-<name>. Shared by masters and workers.
+  # Default: seatunnel-session-<name>.
   cluster-name: seatunnel-session-cluster
 
   # Default: seatunnel-session-<name>-meta. Must already exist and have a UID.
   root-config-map: seatunnel-session-cluster-meta
 
   master:
-    # Default: 5801. Keep Services and the client config aligned.
+    # Default: 5801. Keep Services and client config aligned.
     port: 5801
 
   worker:
-    # Required. The master image is configured separately in the StatefulSet.
+    # Required. The master image is configured in the StatefulSet.
     image: apache/seatunnel:3.0.1
 
     # Defaults: min-workers=2, max-workers=32.
     min-workers: 2
     max-workers: 32
 
-    # Fixed slots per worker. Must equal seatunnel.yaml slot-service.slot-num.
+    # Fixed slots; must equal seatunnel.yaml slot-service.slot-num.
     slots: 8
 
     # Defaults: cpu-cores=1, memory-mb=1024.
     cpu-cores: 2
     memory-mb: 4096
 
-    # Default: 3/4 of memory-mb. Must be greater than 0 and less than memory-mb.
+    # Default: 3/4 of memory-mb; must be < memory-mb.
     heap-mb: 3072
 
     # Default: -Xms<heap>m -Xmx<heap>m.
@@ -109,31 +96,29 @@ session:
     service-account: default
     seatunnel-home: /opt/seatunnel
 
-    # Existing ConfigMap containing seatunnel.yaml, hazelcast-worker.yaml,
-    # log4j2.properties, and jvm_worker_options.
+    # Must contain seatunnel.yaml, hazelcast-worker.yaml, log4j2.properties,
+    # and jvm_worker_options.
     config-map: seatunnel-session-cluster-config
 
-    # Optional worker Pod metadata.
+    # Optional Pod metadata.
     # labels: {}
     # annotations: {}
 
-    # Optional environment values. References use secret:name/key or
-    # configmap:name/key; env-from injects every key of the named object.
+    # Optional. Values are literals or secret:name/key and configmap:name/key.
     # env:
     #   AWS_REGION: us-east-1
-    #   S3_SECRET: secret:s3-credentials/secret-key
     # env-from:
     #   secret: s3-credentials
     #   configmap: shared-settings
 
-    # Optional Secret mount.
+    # Optional existing Secret mount.
     # secret-ref: session-secret
     # secret-directory: /etc/seatunnel-secrets/session
 
   dynamic-worker:
-    # Default: false. When enabled, workers are created from pending-job demand.
+    # Default: false. Creates workers from pending-job demand when true.
     enabled: true
-    # Defaults: 120000 and 3000. Both values must be greater than 0.
+    # Defaults: 120000 and 3000; both must be > 0.
     startup-timeout-millis: 120000
     retry-interval-millis: 3000
 
@@ -142,42 +127,18 @@ kubernetes:
   namespace: seatunnel
 ```
 
-The sample keeps this file as `deploy/kubernetes/session/conf/session.yaml`. `kustomization.yaml`
-uses `configMapGenerator` to create one `<session-name>-config` ConfigMap from the whole `conf/`
-directory. The master StatefulSet mounts the whole ConfigMap, and worker Pods mount their required
-keys from the same object. The master parses this file at startup; unknown keys are ignored and
-invalid values fail startup before the coordinator is published.
-
-The master StatefulSet, Services, PDB, and generated ConfigMap names are defined by the manifests,
-not derived from `session.name` at runtime. When copying the sample for another Session, rename
-those resources and their DNS references together.
-
-### Engine and Hazelcast configuration
-
-Use the master and worker engine/Hazelcast configuration described in [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md).
-The Session-specific requirements are:
-
-- Worker `seatunnel.yaml` must set `slot-service.dynamic-slot: false`; its `slot-num` must equal
-  `session.worker.slots`.
-- The master StatefulSet mounts the generated `<session-name>-config` ConfigMap read-only at
-  `/opt/seatunnel/config`; workers mount only their four required keys from the same ConfigMap.
-- The sample uses `file:///tmp/` for checkpoints and IMap persistence only for local validation.
-  Follow the storage guidance in Separated Cluster Mode for production.
+The worker `seatunnel.yaml` must set `slot-service.dynamic-slot: false`. Use the master/worker
+engine and Hazelcast configuration from [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md);
+the sample `file:///tmp/` storage is for local validation only.
 
 ## Start
 
 ```bash
-# The sample Session.
 kubectl apply -k deploy/kubernetes/session
-
-# Another Session copied and renamed as described above.
-kubectl apply -k /tmp/payments-session
-
 kubectl -n seatunnel get pods -w
 ```
 
-The active master creates the minimum worker set. Wait until the master StatefulSet and worker
-Pods are ready. For status, logs, and REST service access, see [Kubernetes Operations](../kubernetes/operations.md).
+For status, logs, and REST access, see [Kubernetes Operations](../kubernetes/operations.md).
 
 ## Submit jobs
 
@@ -190,39 +151,31 @@ curl -X POST http://127.0.0.1:8080/submit-job \
   -d @job.json
 ```
 
-Native client from inside the cluster:
+Native client:
 
 ```bash
 /opt/seatunnel/bin/seatunnel.sh --config job.conf -m cluster
 ```
 
-The master client configuration points at
+The client configuration points at
 `seatunnel-session-cluster-client.seatunnel.svc.cluster.local:5801`.
 
-## Worker provisioning
+## Scaling
 
-The scheduler requests one slot per task group. If the current workers cannot satisfy the request:
-
-1. `ResourceRequestHandler` asks the `SessionResourceManager` for capacity.
-2. The manager computes `neededWorkers = ceil(missingSlots / slotsPerWorker)`.
-3. It creates workers up to `max-workers`.
-4. It waits for registration and retries slot allocation.
-
-`REJECT` scheduling fails after the startup timeout when capacity is still insufficient. `WAIT`
-keeps the job pending. A worker that registers after the timeout is still used for later requests.
+The active master creates `min-workers` at startup. When a pending job cannot get enough slots, it
+creates `ceil(missingSlots / slotsPerWorker)` workers up to `max-workers`, waits for registration,
+and retries allocation. `REJECT` fails after the startup timeout; `WAIT` keeps the job pending.
 
 ## Stop
 
-Stop jobs before deleting the session. Delete the master StatefulSet first so the active master
-cannot replace workers while they are being removed. Do not use `kubectl delete -k` when the
-namespace hosts multiple Sessions, because the kustomization contains the shared namespace.
+Delete the master StatefulSet first, then the Session-scoped resources. Do not use
+`kubectl delete -k` if the namespace hosts multiple Sessions.
 
 ```bash
-SESSION_NAME=seatunnel-session-cluster  # or the name used in the copied manifests
+SESSION_NAME=seatunnel-session-cluster
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
-kubectl -n seatunnel delete configmap \
-  "${SESSION_NAME}-meta" "${SESSION_NAME}-config"
+kubectl -n seatunnel delete configmap "${SESSION_NAME}-meta" "${SESSION_NAME}-config"
 kubectl -n seatunnel delete service \
   "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
@@ -232,9 +185,7 @@ User-owned checkpoints, PVCs, and referenced ConfigMaps/Secrets are not deleted.
 
 ## Limitations
 
-- Worker template changes are not supported in place. Create a new session for a new image, slot
-  count, CPU, or memory configuration.
-- No automatic scale-down.
-- No manual scale/spec API in this experimental release.
-- No master failover beyond the Hazelcast active/standby pair and StatefulSet restart.
+- Worker template changes are not supported in place; create a new Session.
+- No automatic scale-down or manual scale/spec API.
+- No HA beyond the Hazelcast active/standby pair and StatefulSet restart.
 - No multi-tenant quotas, Kerberos, or CPU-aware slot scheduling.
