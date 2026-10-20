@@ -47,6 +47,7 @@ Before starting an integration task, you can select different handling schemes f
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**: Throws an error if the table does not exist.
 - **`IGNORE`**: Ignores table handling.
   Many connectors currently support automatic table creation. Refer to the specific connector documentation, such as [Jdbc sink](./connectors/sink/Jdbc.md#schema_save_mode-enum), for more information.
+  For cross-sink behavior and the relationship with `generate_sink_sql`, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
 
 ## Does SeaTunnel support handling existing data before starting a data integration task?
 Yes, you can specify different processing schemes for existing data on the target side before starting an integration task, controlled via the `data_save_mode` parameter. Available options include:
@@ -57,9 +58,24 @@ Yes, you can specify different processing schemes for existing data on the targe
 
   Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum).
   Note: for JDBC sink, when sink `query` is configured (custom write SQL), save mode handling is currently not applied, so `CUSTOM_PROCESSING`/`custom_sql` will not be executed.
+  For connector support boundaries and file/object-storage sink behavior, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
+
+## Should I use `generate_sink_sql` or `query` in JDBC Sink?
+Use `generate_sink_sql = true` with `database`, `table`, and usually `primary_keys` when you want SeaTunnel to generate INSERT, UPSERT, UPDATE, and DELETE statements and apply save mode handling. Use `query` only when you must fully control the per-row SQL statement. Do not configure both modes. For the complete decision table, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
 
 ## Does SeaTunnel support exactly-once consistency?
 SeaTunnel supports exactly-once consistency for some data sources, such as MySQL and PostgreSQL, ensuring data consistency during integration. Note that exactly-once consistency depends on the capabilities of the underlying database.
+
+## Why does an Oracle JDBC job fail during login with `Connection reset by peer` and `Authentication lapse`?
+On some Java 8 hosts, the Oracle JDBC driver can block while obtaining secure random data for login authentication. If the operating system entropy supply is low, the client may not send the final authentication response before Oracle or an intermediate network device closes the connection.
+
+This is usually an environment problem rather than a SeaTunnel configuration error. For Zeta jobs, add the following option to the JVM that opens the Oracle connection:
+
+```text
+-Djava.security.egd=file:/dev/./urandom
+```
+
+For a job submitted with `seatunnel.sh`, start with `$SEATUNNEL_HOME/config/jvm_client_options`; if the connection is opened by an engine process, also update the corresponding server JVM options. See [Configure The JVM Options](./engines/zeta/user-command.md#configure-the-jvm-options). Restoring the host entropy supply, for example with the operating system's `rngd` service, is also recommended. `connection_check_timeout_sec` does not control this login phase.
 
 ## Can SeaTunnel execute scheduled tasks?
 You can use Linux cron jobs to achieve periodic data integration, or leverage scheduling tools like Apache DolphinScheduler or Apache Airflow to manage complex scheduled tasks.
@@ -89,7 +105,7 @@ To start SeaTunnel in Zeta Local mode with variables:
 ```bash
 $SEATUNNEL_HOME/bin/seatunnel.sh \
 -c $SEATUNNEL_HOME/config/your_app.conf \
--m local[2] \
+-m local \
 -i city=Singapore \
 -i date=20231110
 ```
@@ -123,4 +139,4 @@ For more details, see: [lightbend/config#456](https://github.com/lightbend/confi
 SeaTunnel features a highly abstracted and well-structured architecture, making it an excellent choice for learning big data architecture. You can start by exploring and debugging the `seatunnel-examples` module: `SeaTunnelEngineLocalExample.java`. For more details, refer to the [SeaTunnel Contribution Guide](https://seatunnel.apache.org/docs/developer/setup).
 
 ## Do I need to understand all of SeaTunnel’s source code if I want to develop my own source, sink, or transform?
-No, you only need to focus on the interfaces for source, sink, and transform. If you want to develop your own connector (Connector V2) for the SeaTunnel API, refer to the **[Connector Development Guide](../../seatunnel-connectors-v2/README.md)**.
+No, you only need to focus on the interfaces for source, sink, and transform. If you want to develop your own connector (Connector V2) for the SeaTunnel API, refer to the **[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.md)**.

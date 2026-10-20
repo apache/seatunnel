@@ -28,8 +28,18 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
@@ -47,8 +57,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -321,6 +335,240 @@ public class SplitClusterFaultToleranceIT {
                 workerNode2.shutdown();
             }
         }
+    }
+
+    /**
+     * Regression test for the CANCELING-stuck-forever bug fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10729">#10729</a> ("[Fix][Zeta] prevent cancel
+     * stuck and downgrade tmp cleanup failure"). Before that fix, {@code
+     * PhysicalVertex#noticeTaskExecutionServiceCancel} sent a {@code CancelTaskOperation} to the
+     * worker owning the task and retried while that worker remained a cluster member, but once the
+     * worker actually left the cluster before acking the cancel, the retry loop simply exited
+     * without ever resolving the task's state: the vertex - and therefore its pipeline and job -
+     * stayed CANCELING forever, because nothing else in that method drove it to a terminal state.
+     * The fix added a fallback right after the retry loop: if the loop exits with the ack still
+     * missing and the vertex is still CANCELING, mark it CANCELED locally.
+     *
+     * <p>{@code CoordinatorService#failedTaskOnMemberRemoved} also matches CANCELING tasks when a
+     * member is lost, but it cannot be the one to save this race: {@code PhysicalVertex#cancel},
+     * {@code #updateTaskState} and {@code #stateProcess} are all {@code synchronized} on the vertex
+     * itself, and the whole call chain down into {@code noticeTaskExecutionServiceCancel} runs
+     * without releasing that lock. A competing {@code failedTaskOnMemberRemoved} call has to go
+     * through the same {@code synchronized updateTaskState}, so it can only run after the
+     * cancelling thread has already returned - by which point the fixed code has already resolved
+     * the vertex to CANCELED, and the end-state consistency check inside {@code updateTaskState}
+     * rejects any later attempt to move a terminal-state task to FAILED. So the fixed method's own
+     * fallback is the sole, deterministic mechanism that unsticks this specific race, which is why
+     * this test asserts CANCELED rather than FAILED as the outcome.
+     *
+     * <p>No existing fault-tolerance test combines "cancel requested" with "worker crashes before
+     * the cancel ack arrives": {@link #testStreamJobRunOk()} cancels a job on a fully healthy
+     * cluster, and {@link #testStreamJobRestoreInWorkerDown()} kills a worker on a job that is
+     * simply RUNNING with no cancel in flight, then cancels only after restore has completed. This
+     * test constructs the narrow race directly: it white-box polls {@code
+     * PhysicalVertex#getExecutionState()} (same in-JVM technique as {@code
+     * SplitClusterPendingJobLifecycleFailoverIT#getJobMaster}) in a tight loop right after issuing
+     * the cancel, and shuts the worker down the instant a task vertex is first observed CANCELING -
+     * landing squarely inside the RPC-in-flight window instead of guessing at timing.
+     */
+    @Test
+    public void testStreamJobCancelResolvesWhenWorkerCrashesBeforeCancelAck() throws Exception {
+        String testCaseName = "testStreamJobCancelResolvesWhenWorkerCrashesBeforeCancelAck";
+        String testClusterName = "SplitClusterFaultToleranceIT_" + testCaseName;
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            // waiting all node added to cluster
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            TestUtils.getResource("pending_jobs_streaming_lifecycle.conf"),
+                            jobConfig,
+                            seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+            // Wait for every task vertex to actually finish deploying before cancelling, so the
+            // CANCELING transition observed below is unambiguously caused by the cancel request,
+            // not mixed up with an in-flight DEPLOYING -> RUNNING transition.
+            assertAllVerticesRunning(masterNode, jobId, 60);
+
+            // CoordinatorService#cancelJob runs JobMaster#cancelJob synchronously on its own
+            // executor, and the client's cancelJob() blocks (PassiveCompletableFuture#join) until
+            // that whole per-vertex cancel resolves. Issue it on its own thread so this thread
+            // stays free to tight-poll for CANCELING and react to it immediately.
+            CompletableFuture<Void> cancelInvocation =
+                    CompletableFuture.runAsync(clientJobProxy::cancelJob);
+
+            boolean observedCanceling =
+                    awaitAnyVertexCanceling(masterNode, jobId, 10, TimeUnit.SECONDS);
+            Assertions.assertTrue(
+                    observedCanceling,
+                    "Should have observed a task vertex enter CANCELING before its cancel ack "
+                            + "could possibly arrive; otherwise this test never exercised the "
+                            + "race it targets");
+
+            // The vertex is CANCELING and still waiting on a CancelTaskOperation ack from
+            // workerNode. Kill workerNode right now, before that ack can arrive, landing inside
+            // the exact window PR #10729 fixed: cancel requested, CANCELING set, worker gone
+            // before the terminal callback.
+            workerNode.shutdown();
+
+            CompletableFuture<JobResult> waitForCompleteFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
+            assertEventuallyCanceled(clientJobProxy, waitForCompleteFuture);
+
+            Assertions.assertDoesNotThrow(
+                    () -> cancelInvocation.get(30, TimeUnit.SECONDS),
+                    "cancelJob() should return once the vertex resolves locally, not hang");
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Waits until every coordinator and task vertex of the job's single pipeline has itself
+     * reported RUNNING, not just the top-level job status.
+     */
+    private static void assertAllVerticesRunning(
+            HazelcastInstanceImpl masterNode, long jobId, long timeoutSeconds) {
+        Awaitility.await()
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobMaster jobMaster = getJobMaster(masterNode, jobId);
+                            Assertions.assertNotNull(
+                                    jobMaster,
+                                    "Job master should exist before checking task vertex states");
+                            PhysicalPlan physicalPlan = jobMaster.getPhysicalPlan();
+                            Assertions.assertEquals(JobStatus.RUNNING, physicalPlan.getJobStatus());
+                            physicalPlan
+                                    .getPipelineList()
+                                    .forEach(SplitClusterFaultToleranceIT::assertRunningSubPlan);
+                        });
+    }
+
+    private static void assertRunningSubPlan(SubPlan subPlan) {
+        Assertions.assertEquals(PipelineStatus.RUNNING, subPlan.getPipelineState());
+        subPlan.getCoordinatorVertexList()
+                .forEach(SplitClusterFaultToleranceIT::assertRunningVertex);
+        subPlan.getPhysicalVertexList().forEach(SplitClusterFaultToleranceIT::assertRunningVertex);
+    }
+
+    private static void assertRunningVertex(PhysicalVertex physicalVertex) {
+        Assertions.assertEquals(ExecutionState.RUNNING, physicalVertex.getExecutionState());
+    }
+
+    /**
+     * Tight-polls (no fixed sleep) every coordinator and task vertex of the job for CANCELING,
+     * returning as soon as any one is observed. The window between a task vertex entering CANCELING
+     * and its cancel ack arriving from a healthy worker can be sub-millisecond, well under
+     * Awaitility's default ~100ms poll interval, so this deliberately busy-spins instead.
+     */
+    private static boolean awaitAnyVertexCanceling(
+            HazelcastInstanceImpl masterNode, long jobId, long timeout, TimeUnit unit) {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (System.nanoTime() < deadline) {
+            JobMaster jobMaster = getJobMaster(masterNode, jobId);
+            if (jobMaster != null) {
+                PhysicalPlan physicalPlan = jobMaster.getPhysicalPlan();
+                if (physicalPlan != null) {
+                    for (SubPlan subPlan : physicalPlan.getPipelineList()) {
+                        if (isAnyVertexCanceling(subPlan.getCoordinatorVertexList())
+                                || isAnyVertexCanceling(subPlan.getPhysicalVertexList())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            Thread.yield();
+        }
+        return false;
+    }
+
+    private static boolean isAnyVertexCanceling(List<PhysicalVertex> vertices) {
+        for (PhysicalVertex vertex : vertices) {
+            if (ExecutionState.CANCELING.equals(vertex.getExecutionState())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Reads the current job master from the active SeaTunnel server embedded in the test cluster.
+     */
+    private static JobMaster getJobMaster(HazelcastInstanceImpl masterNode, long jobId) {
+        SeaTunnelServer server =
+                masterNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getCoordinatorService().getJobMaster(jobId);
+    }
+
+    /**
+     * Waits for the job to reach a terminal state and asserts it is CANCELED, using the
+     * already-in-flight {@code waitForJobCompleteV2()} future so this assertion cannot itself hang
+     * forever if the CANCELING-stuck regression this test guards against were to reappear.
+     */
+    private static void assertEventuallyCanceled(
+            ClientJobProxy clientJobProxy, CompletableFuture<JobResult> waitForCompleteFuture) {
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    waitForCompleteFuture.isDone(),
+                                    "Job should reach a terminal state instead of staying stuck "
+                                            + "in CANCELING after its worker crashed mid-cancel");
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED, waitForCompleteFuture.get().getStatus());
+                        });
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, clientJobProxy.getJobStatus()));
     }
 
     @Test
@@ -705,6 +953,181 @@ public class SplitClusterFaultToleranceIT {
         }
     }
 
+    /**
+     * Regression test for the deploy idempotency bug fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10567">#10567</a> ("[Fix][Zeta] Make
+     * deployTask idempotent during master failover recovery"). Before that fix, {@code
+     * TaskExecutionService#deployTask} threw {@code RuntimeException("TaskGroupLocation: ...
+     * already exists")} whenever it was invoked for a {@code TaskGroupLocation} already present in
+     * {@code executionContexts}, i.e. a task that is genuinely still executing on this worker.
+     *
+     * <p>That collision is reachable through only one narrow window. On master failover, {@code
+     * PhysicalVertex#initStateFuture()} restores each vertex's persisted {@link ExecutionState}
+     * from the running-job IMap and, for a persisted state of RUNNING or DEPLOYING, pings the
+     * worker via {@code checkTaskGroupIsExecuting} to self-heal a state that no longer matches
+     * reality. The restored state is then replayed per vertex through {@code
+     * PhysicalVertex#restoreExecutionState()}, which calls {@code PhysicalVertex#stateProcess()} —
+     * the vertex-level switch on {@link ExecutionState}, not the pipeline-level one in {@code
+     * SubPlan}. For RUNNING, a confirmed-alive task is simply left as RUNNING and {@code
+     * PhysicalVertex#stateProcess}'s {@code case RUNNING} does nothing, so no redeploy call is ever
+     * made. For DEPLOYING, that same confirmation still leaves the state as DEPLOYING (the check
+     * only ever downgrades to FAILING, it never upgrades to RUNNING), and {@code
+     * PhysicalVertex#stateProcess}'s {@code case DEPLOYING} unconditionally calls {@code deploy()}
+     * again — this is the exact pre-fix crash site. DEPLOYING only persists in the IMap for the
+     * duration of one worker deploy RPC round trip (typically low single-digit milliseconds), so
+     * hitting it needs a deliberately constructed trigger rather than a blind sleep.
+     *
+     * <p>This test builds that trigger directly instead of gambling on timing. It submits a bounded
+     * batch job with {@code testParallelism} FakeSource/LocalFile task groups and, on a dedicated
+     * watcher thread, tight-polls (1 millisecond between checks, no blind sleep) the active
+     * master's own in-JVM {@link JobMaster#getPhysicalPlan()} for any vertex reporting {@link
+     * ExecutionState#DEPLOYING}. {@code SubPlan#stateProcess}'s {@code case DEPLOYING} drives that
+     * fan-out one vertex at a time on a single thread — each vertex's {@code makeTaskGroupDeploy()}
+     * synchronously runs {@code PhysicalVertex#stateProcess} and its deploy RPC before the next
+     * vertex is touched. A vertex therefore becomes visibly DEPLOYING just before its RPC to the
+     * worker goes out, and stays that way until the ack returns, so raising the parallelism does
+     * not widen any single vertex's window — it multiplies how many independent windows the watcher
+     * gets to land in across the pipeline's whole deploy fan-out. The instant any vertex is caught
+     * mid-deploy, the watcher shuts the active master down, which is what a real master crash
+     * inside that window looks like to the rest of the cluster. The watcher's own poll is a plain
+     * in-JVM field read with no network cost, while the state it races against is gated by a real
+     * IMap write plus a real deploy RPC, so the watcher can sample many times inside a window it
+     * does not control. That asymmetry, not luck, is what makes the trigger reliable.
+     *
+     * <p>Observing DEPLOYING at kill time guarantees the persisted state driving restore is
+     * DEPLOYING, which is necessary to reach {@code PhysicalVertex#stateProcess}'s redeploy branch,
+     * but it does not by itself guarantee the worker had already finished deploying that vertex —
+     * the other ingredient the pre-fix crash needs. Both sub-cases are legitimate outcomes of this
+     * trigger, and this test's assertions are written to hold cleanly on either one: if the worker
+     * had already succeeded, the fixed code makes the redeploy a no-op and that vertex needs no
+     * restore at all; if it had not, the same self-heal check correctly drives it to FAILING and
+     * the pipeline restores exactly once, which is ordinary, expected recovery rather than a
+     * regression. What must never happen on either sub-case is a client-visible failure or more
+     * than one pipeline restore for the whole scenario. A pre-fix run instead throws on the worker,
+     * fails that one vertex, and — since a single failed vertex fails its whole pipeline — forces a
+     * full pipeline restart that redeploys every other already-fine vertex in it as collateral
+     * damage, which would show up here as {@link SubPlan#getPipelineRestoreNum()} exceeding 1.
+     */
+    @Test
+    public void testDeployNotDuplicatedWhenMasterKilledDuringDeploy() throws Exception {
+        String testCaseName = "testDeployNotDuplicatedWhenMasterKilledDuringDeploy";
+        String testClusterName =
+                "SplitClusterFaultToleranceIT_testDeployNotDuplicatedWhenMasterKilledDuringDeploy";
+        long testRowNumber = 20;
+        int testParallelism = 40;
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ExecutorService masterKillExecutor = Executors.newSingleThreadExecutor();
+
+        SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
+
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            // waiting all node added to cluster
+            HazelcastInstanceImpl finalNode = masterNode1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalNode.getCluster().getMembers().size()));
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode1, masterNode2);
+            HazelcastInstanceImpl standbyMaster =
+                    activeMaster == masterNode1 ? masterNode2 : masterNode1;
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+            CompletableFuture<JobStatus> jobCompleteFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            // Race the watcher against the master's own deploy fan-out: the instant it catches any
+            // vertex still DEPLOYING, it kills the active master right there, reproducing the exact
+            // pre-fix crash window on master failover restore.
+            HazelcastInstanceImpl finalActiveMaster = activeMaster;
+            Future<Boolean> deployingObserved =
+                    masterKillExecutor.submit(
+                            () ->
+                                    killActiveMasterWhileAnyVertexDeploying(
+                                            finalActiveMaster, jobId, 30));
+            // Wait past the watcher's own 30s deadline on purpose. Sharing that deadline here
+            // would race the watcher's normal `false` return and surface a bare TimeoutException
+            // instead of the diagnostic message below, which is what tells a future maintainer the
+            // trigger window was missed rather than the fix being broken.
+            Assertions.assertTrue(
+                    deployingObserved.get(60, TimeUnit.SECONDS),
+                    "Never observed any task vertex in DEPLOYING state before the job's initial "
+                            + "deploy fan-out completed; the deploy-idempotency trigger window was "
+                            + "missed on this run, so this test did not exercise the fix and needs "
+                            + "revisiting rather than being treated as a pass");
+
+            awaitCoordinatorActive(standbyMaster, 30);
+            assertRecoveredWithBoundedPipelineRestore(standbyMaster, jobId, 60);
+
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(jobCompleteFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, jobCompleteFuture.get());
+                            });
+
+            // A pre-fix regression either surfaces as a client-visible failure (already ruled out
+            // above) or, on the sub-case where the redeploy races ahead of the worker's real ack,
+            // as replayed FakeSource splits inflating the row count beyond a single clean run's
+            // worth of output. Assert the recovered output on the same terms this file already uses
+            // for its other master-down restores.
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
+        } finally {
+            masterKillExecutor.shutdownNow();
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (masterNode1 != null) {
+                masterNode1.shutdown();
+            }
+
+            if (masterNode2 != null) {
+                masterNode2.shutdown();
+            }
+
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+        }
+    }
+
     @Test
     public void testStreamJobRestoreInMasterDown() throws Exception {
         String testCaseName = "testStreamJobRestoreInMasterDown";
@@ -1080,5 +1503,451 @@ public class SplitClusterFaultToleranceIT {
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         return seaTunnelConfig;
+    }
+
+    /**
+     * Tight-polls the active master's own in-JVM physical plan for a task vertex sitting in {@link
+     * ExecutionState#DEPLOYING} and, the instant one is found, shuts the active master down right
+     * there. Used only by {@link #testDeployNotDuplicatedWhenMasterKilledDuringDeploy()} to
+     * construct a deterministic master crash inside the narrow window that the deploy-idempotency
+     * fix in <a href="https://github.com/apache/seatunnel/pull/10567">#10567</a> guards.
+     *
+     * @return true if a DEPLOYING vertex was observed and the active master was shut down; false if
+     *     no vertex was ever caught DEPLOYING before {@code timeoutSeconds} elapsed
+     */
+    private static boolean killActiveMasterWhileAnyVertexDeploying(
+            HazelcastInstanceImpl activeMaster, long jobId, long timeoutSeconds)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(timeoutSeconds);
+        while (System.currentTimeMillis() < deadline) {
+            if (activeMaster.getLifecycleService().isRunning()) {
+                JobMaster jobMaster = getJobMaster(activeMaster, jobId);
+                if (jobMaster != null && jobMaster.getPhysicalPlan() != null) {
+                    for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+                        if (isAnyVertexDeploying(subPlan)) {
+                            activeMaster.shutdown();
+                            return true;
+                        }
+                    }
+                }
+            }
+            // Deliberately un-sleepy: the vertex state we are racing is gated by a real IMap write
+            // plus a real deploy RPC, while this read is a plain in-JVM field access, so polling
+            // this tightly costs little and maximizes how many samples land inside the window.
+            TimeUnit.MILLISECONDS.sleep(1);
+        }
+        return false;
+    }
+
+    private static boolean isAnyVertexDeploying(SubPlan subPlan) {
+        return subPlan.getCoordinatorVertexList().stream()
+                        .anyMatch(
+                                vertex ->
+                                        ExecutionState.DEPLOYING.equals(vertex.getExecutionState()))
+                || subPlan.getPhysicalVertexList().stream()
+                        .anyMatch(
+                                vertex ->
+                                        ExecutionState.DEPLOYING.equals(
+                                                vertex.getExecutionState()));
+    }
+
+    /**
+     * Waits for the new active master to finish restoring the job after failover and asserts the
+     * recovery was clean: every coordinator and task vertex of every pipeline back to RUNNING, and
+     * no pipeline needed more than one restore to get there. A pre-fix deploy-idempotency bug would
+     * instead fail the redeployed vertex, which fails its whole pipeline and forces a full pipeline
+     * restart, pushing {@link SubPlan#getPipelineRestoreNum()} past 1.
+     */
+    private static void assertRecoveredWithBoundedPipelineRestore(
+            HazelcastInstanceImpl activeMaster, long jobId, long timeoutSeconds) {
+        Awaitility.await()
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobMaster jobMaster = getJobMaster(activeMaster, jobId);
+                            Assertions.assertNotNull(
+                                    jobMaster,
+                                    "Job master should exist on the new active master after "
+                                            + "failover");
+                            PhysicalPlan physicalPlan = jobMaster.getPhysicalPlan();
+                            Assertions.assertNotNull(
+                                    physicalPlan, "Physical plan should be rebuilt after failover");
+                            Assertions.assertEquals(JobStatus.RUNNING, physicalPlan.getJobStatus());
+                            physicalPlan
+                                    .getPipelineList()
+                                    .forEach(
+                                            subPlan -> {
+                                                assertAllVertexRunning(subPlan);
+                                                Assertions.assertTrue(
+                                                        subPlan.getPipelineRestoreNum() <= 1,
+                                                        String.format(
+                                                                "Pipeline %s required %d restores "
+                                                                        + "to recover, expected at "
+                                                                        + "most 1; a deploy "
+                                                                        + "redeploy race should "
+                                                                        + "either need none (worker "
+                                                                        + "already running) or "
+                                                                        + "exactly one clean "
+                                                                        + "restore (worker not yet "
+                                                                        + "running), not repeated "
+                                                                        + "restarts",
+                                                                subPlan.getPipelineLocation(),
+                                                                subPlan.getPipelineRestoreNum()));
+                                            });
+                        });
+    }
+
+    private static void assertAllVertexRunning(SubPlan subPlan) {
+        subPlan.getCoordinatorVertexList()
+                .forEach(SplitClusterFaultToleranceIT::assertVertexRunning);
+        subPlan.getPhysicalVertexList().forEach(SplitClusterFaultToleranceIT::assertVertexRunning);
+    }
+
+    private static void assertVertexRunning(PhysicalVertex physicalVertex) {
+        Assertions.assertEquals(ExecutionState.RUNNING, physicalVertex.getExecutionState());
+    }
+
+    private static HazelcastInstanceImpl waitAndFindActiveMaster(
+            HazelcastInstanceImpl masterNode1, HazelcastInstanceImpl masterNode2) {
+        final HazelcastInstanceImpl[] activeMasterRef = new HazelcastInstanceImpl[1];
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            activeMasterRef[0] = findActiveMaster(masterNode1, masterNode2);
+                            Assertions.assertNotNull(
+                                    activeMasterRef[0],
+                                    "Should find active master after coordinator initialization");
+                        });
+        return activeMasterRef[0];
+    }
+
+    private static HazelcastInstanceImpl findActiveMaster(
+            HazelcastInstanceImpl masterNode1, HazelcastInstanceImpl masterNode2) {
+        if (isCoordinatorActive(masterNode1)) {
+            return masterNode1;
+        }
+        if (isCoordinatorActive(masterNode2)) {
+            return masterNode2;
+        }
+        return null;
+    }
+
+    /** Waits until a standby master has taken over coordinator activity after a failover. */
+    private static void awaitCoordinatorActive(
+            HazelcastInstanceImpl masterNode, long timeoutSeconds) {
+        Awaitility.await()
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(masterNode.getLifecycleService().isRunning());
+                            Assertions.assertTrue(
+                                    isCoordinatorActive(masterNode),
+                                    "Standby master should become active after failover");
+                        });
+    }
+
+    private static boolean isCoordinatorActive(HazelcastInstanceImpl masterNode) {
+        if (masterNode == null || !masterNode.getLifecycleService().isRunning()) {
+            return false;
+        }
+        SeaTunnelServer server =
+                masterNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        try {
+            return server.getCoordinatorService().isCoordinatorActive();
+        } catch (SeaTunnelEngineException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Verified-fragile-architecture probe (not a fix regression test): {@link
+     * org.apache.seatunnel.engine.server.dag.physical.ResourceUtils#applyResourceForPipeline}
+     * throws {@code NoEnoughResourceException} synchronously and immediately if it cannot obtain
+     * every slot a pipeline needs in a single pass -- the method has an explicit {@code TODO}
+     * acknowledging there is no wait/backoff at that layer. {@link
+     * org.apache.seatunnel.engine.server.dag.physical.SubPlan#stateProcess()}'s {@code SCHEDULED}
+     * case turns that single exception into one consumed unit of the pipeline's fixed {@code
+     * pipelineMaxRestoreNum} (default 3, from {@code job.retry.times}) restore budget, sleeping
+     * {@code pipelineRestoreIntervalSeconds} (default 3, from {@code job.retry.interval.seconds})
+     * before every restore attempt. A pipeline that races several siblings for a
+     * momentarily-shrunken slot pool can therefore burn its entire retry budget on pure allocation
+     * timing and permanently fail, even though the contention would have resolved moments later.
+     *
+     * <p>This test engineers genuine (not lucky/racy) multi-pipeline contention rather than relying
+     * on placement luck: the job config declares 4 independent, unrelated FakeSource -> LocalFile
+     * chains, so the planner splits them into 4 separate pipelines (SubPlans), each with its own
+     * restore budget. Every simple 1-parallelism pipeline here needs exactly 3 slots (1
+     * source-enumerator coordinator + 1 sink-committer coordinator -- LocalFile's sink always
+     * registers an aggregated file-commit coordinator, independent of is_enable_transaction -- + 1
+     * fused reader/writer task group) -- 4 pipelines x 3 slots = 12 total slot demand. Both workers
+     * are pinned to a fixed pool (dynamic-slot=false) of 8 slots each: 16 total capacity
+     * comfortably admits the initial 12-slot demand (4 spare), but no single 8-slot worker can ever
+     * host all 4 pipelines (4 x 3 = 12 > 8: at most 2 full pipelines, using 6 of 8 slots, fit on
+     * one worker with only 2 spare -- not enough for a 3rd pipeline's 3 slots). So killing either
+     * worker is guaranteed, by construction rather than chance, to strand part of more than one
+     * pipeline at once and force them to restore-race the survivor's remaining fixed capacity.
+     * Every LocalFile sink also sets is_enable_transaction=true, so a canceled attempt's
+     * in-progress writes stay in an uncommitted temp location and never surface in the output
+     * directory this test counts -- without that, a stranded pipeline's aborted attempt could leak
+     * partial rows into the count and the exact-equality assertion below would be unsound
+     * regardless of the restore-budget outcome.
+     *
+     * <p>Whether today's fixed 9-second guaranteed-sleep budget (3 attempts x 3s, before any real
+     * cancel/checkpoint-cancel/resource-release/RPC overhead per attempt) is enough patience for
+     * that contention to resolve -- as the deliberately tiny, fast FakeSource pipelines finish and
+     * free their slots for whoever is still waiting -- is exactly the open question this test
+     * answers empirically: either the job finishes (today's behavior tolerates this contention
+     * level) or some pipeline permanently fails with its restore budget exhausted purely on
+     * allocation timing (the bug this item describes). Either outcome is a valid, honest finding;
+     * this test only documents production behavior and never modifies production code.
+     *
+     * <p>The assertions below accept both outcomes explicitly instead of hard-gating on {@code
+     * FINISHED} alone, so this probe cannot go red simply because the gap it exists to document
+     * actually manifested: a {@code FINISHED} job is verified by its exact row count, while a
+     * {@code FAILED} job is only accepted as the second finding once its recorded error confirms
+     * the failure is this specific {@code NoEnoughResourceException}-driven restore-budget
+     * exhaustion, not an unrelated regression. Any other terminal status, or a {@code FAILED} job
+     * whose error does not confirm that root cause, still fails the test.
+     *
+     * <p>Currently disabled, tracked by apache/seatunnel#12202. With {@code ScheduleStrategy.WAIT}
+     * set below, the job reliably reaches {@code RUNNING} and the worker kill happens as intended,
+     * but the job then never reaches a terminal state: the 5-minute post-kill wait on {@code
+     * objectCompletableFuture.isDone()} below times out with an Awaitility {@code
+     * ConditionTimeoutException}, and the client's {@code waitForJobCompleteV2()} only resolves
+     * minutes later with the job ending in {@code JobStatus.UNKNOWABLE} rather than {@code
+     * FINISHED} or {@code FAILED}, on both JDK 8 and JDK 11 (davidzollo/seatunnel CI run
+     * 34226272462, attempt 2, on head 40373e75c). That is the engine gap tracked by #12202 -- the
+     * CoordinatorService job-scheduling completion chain wedging on the
+     * pending-job-schedule-runner, which leaves the job absent from every tracking structure and
+     * therefore unknowable to the client -- surfacing inside this probe; it is not a defect of the
+     * test, and the test cannot go green until that gap is fixed. Before re-enabling, confirm
+     * #12202 is resolved on the target branch and that a run of this test then reaches one of the
+     * two accepted terminal outcomes described above within the existing budget.
+     */
+    @Test
+    @Disabled(
+            "Tracked by apache/seatunnel#12202: after the worker kill the job ends UNKNOWABLE instead of a terminal state (job-scheduling completion chain wedges); re-enable once #12202 is fixed")
+    public void testManyPipelinesRestoreContentionInWorkerDown() throws Exception {
+        String testCaseName = "testManyPipelinesRestoreContentionInWorkerDown";
+        String testClusterName =
+                "SplitClusterFaultToleranceIT_testManyPipelinesRestoreContentionInWorkerDown";
+        long testRowNumber = 5000;
+        int pipelineNum = 4;
+        // Fixed per-worker slot pool (dynamic-slot disabled below makes this a hard ceiling, not
+        // a hint). 8 < (pipelineNum * 3 slots-per-pipeline = 12), so a single worker can never
+        // host all 4 pipelines -- see the class-level Javadoc above for the full arithmetic.
+        int slotNumPerWorker = 8;
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode2Config = getSeaTunnelConfig(testClusterName);
+        for (SeaTunnelConfig workerConfig :
+                new SeaTunnelConfig[] {workerNode1Config, workerNode2Config}) {
+            workerConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+            workerConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(slotNumPerWorker);
+        }
+        // CoordinatorService binds its schedule strategy once, from the active master's own
+        // EngineConfig (see CoordinatorService#scheduleStrategy / #isWaitStrategy), so only
+        // masterNode1Config -- the only master this test starts -- needs this. The engine
+        // default is REJECT, under which a resource pre-application attempt that cannot obtain
+        // every slot a pipeline needs in one pass fails the job immediately with no retry (see
+        // CoordinatorService#pendingJobSchedule). This job's very first pre-application (12
+        // slots across both fresh workers) can transiently race the two workers still
+        // registering their slot pools with the master's ResourceManager right after cluster
+        // startup, so a partial grant here is possible under CI load. Switching to WAIT makes
+        // that first attempt retry (3s sleep + requeue, unconditionally, no attempt cap) instead
+        // of failing terminally, so the job reliably reaches RUNNING and this test can exercise
+        // its actual target scenario: post-worker-kill restore contention over the fixed 8-slot
+        // survivor pool, using the still-tight 12-of-16 slot budget described in the class-level
+        // Javadoc above. This is unrelated to, and does not fix or mask, the separate confirmed
+        // engine gap in CoordinatorService's job-scheduling epoch handling (silent job loss on
+        // scheduler-epoch changes under REJECT, see pendingJobSchedule's own Javadoc) -- that gap
+        // is tracked and handled independently of this test.
+        masterNode1Config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
+
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode2Config);
+
+            // waiting all node added to cluster (1 master + 2 workers)
+            HazelcastInstanceImpl finalNode = masterNode1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalNode.getCluster().getMembers().size()));
+
+            log.warn(
+                    "===================================All node is running==========================");
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createManyPipelineTestResources(testCaseName, testRowNumber, pipelineNum);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            // Catch the job genuinely mid-flight (all 4 pipelines deployed and running across
+            // both workers) before killing a worker. A tight poll minimizes the race against
+            // these deliberately tiny/fast pipelines finishing on their own before we can react;
+            // JobStatus only reaches RUNNING after every pipeline's own DEPLOYING step succeeds,
+            // so by the time this is observed all 12 slots are already assigned on real workers.
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+            CompletableFuture<JobResult> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
+
+            // Kill one worker while several pipelines are running on it: every pipeline that had
+            // any slot on this worker (coordinator or task group) must release ALL of its slots,
+            // not just the lost one, and restore-race the survivor's fixed 8-slot pool.
+            log.warn(
+                    "=====================================shutdown workerNode1=================================");
+            workerNode1.shutdown();
+
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            // Generous terminal-state budget: pipelineMaxRestoreNum(3) *
+            // pipelineRestoreIntervalSeconds(3) = 9s of guaranteed sleep alone is the theoretical
+            // floor; real cancel/checkpoint-cancel/resource-release/RPC overhead per attempt (plus
+            // this being a shared CI runner) makes the actual wall-clock budget considerably
+            // larger, so this timeout is generous on purpose in both directions.
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(objectCompletableFuture.isDone()));
+
+            JobResult jobResult = objectCompletableFuture.get();
+            JobStatus finalStatus = jobResult.getStatus();
+            Long fileLineNumberFromDir =
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            log.warn(
+                    "==================final job status: {}, output line count: {}, error: {}==================",
+                    finalStatus,
+                    fileLineNumberFromDir,
+                    jobResult.getError());
+
+            // Both terminal outcomes documented in the class-level Javadoc above are accepted as
+            // valid findings here -- this probe is not a hard regression gate on a single required
+            // outcome, so it must not go red simply because the gap it exists to document actually
+            // manifested:
+            // 1) FINISHED: today's restore budget tolerated this contention level. Every row from
+            //    every pipeline must be present, since every sink has is_enable_transaction=true,
+            //    which guarantees a stranded/canceled attempt cannot have leaked partial output
+            //    into this same count.
+            // 2) FAILED with a NoEnoughResourceException surfacing in the job's recorded error: the
+            //    documented gap actually manifested and some pipeline burned its entire restore
+            //    budget purely on ResourceUtils#applyResourceForPipeline's synchronous,
+            //    backoff-free allocation racing its siblings. This is only accepted once the error
+            //    confirms that exact root cause, so this probe can never silently swallow an
+            //    unrelated regression (e.g. a NullPointerException elsewhere) as if it were the
+            //    finding it documents.
+            // Any other terminal status, or a FAILED job whose error does not confirm the
+            // NoEnoughResourceException root cause, is not one of the two documented findings and
+            // still fails the test below.
+            if (finalStatus == JobStatus.FINISHED) {
+                log.warn(
+                        "==========Finding: contention resolved within the restore budget, job FINISHED==========");
+                Assertions.assertEquals(testRowNumber * pipelineNum, fileLineNumberFromDir);
+            } else if (finalStatus == JobStatus.FAILED
+                    && jobResult.getError() != null
+                    && jobResult.getError().contains("NoEnoughResourceException")) {
+                log.warn(
+                        "==========Finding: a pipeline permanently failed with its restore budget exhausted purely on allocation timing, as this probe documents==========");
+            } else {
+                Assertions.fail(
+                        "Unexpected terminal outcome, neither documented finding occurred: status="
+                                + finalStatus
+                                + ", error="
+                                + jobResult.getError());
+            }
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (masterNode1 != null) {
+                masterNode1.shutdown();
+            }
+
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Create the test job config file based on {@code
+     * cluster_batch_fake_to_localfile_slot_contention_template.conf}, which declares {@code
+     * pipelineNum} independent (unrelated) FakeSource -> LocalFile chains so the planner splits
+     * them into that many separate pipelines/SubPlans. It deletes the test sink target path before
+     * returning the final job config file path, matching the sibling {@code createTestResources}
+     * helpers in this class.
+     *
+     * @param testCaseName testCaseName, also used as the sink output directory name
+     * @param rowNumber row.num for every FakeSource (parallelism is fixed at 1 in the template)
+     * @param pipelineNum number of independent pipelines the template declares; must match the
+     *     template file's actual source/sink count since this method only substitutes values, it
+     *     does not generate the template's pipeline count
+     */
+    private ImmutablePair<String, String> createManyPipelineTestResources(
+            @NonNull String testCaseName, long rowNumber, int pipelineNum) throws IOException {
+        checkArgument(rowNumber > 0, "rowNumber must greater than 0");
+        checkArgument(pipelineNum > 0, "pipelineNum must greater than 0");
+        Map<String, String> valueMap = new HashMap<>();
+        valueMap.put(DYNAMIC_TEST_CASE_NAME, testCaseName);
+        valueMap.put(DYNAMIC_TEST_ROW_NUM_PER_PARALLELISM, String.valueOf(rowNumber));
+
+        String targetDir = "/tmp/hive/warehouse/" + testCaseName;
+        targetDir = targetDir.replace("/", File.separator);
+
+        // clear target dir before test
+        FileUtils.createNewDir(targetDir);
+
+        String targetConfigFilePath =
+                File.separator
+                        + "tmp"
+                        + File.separator
+                        + "test_conf"
+                        + File.separator
+                        + testCaseName
+                        + ".conf";
+        TestUtils.createTestConfigFileFromTemplate(
+                "cluster_batch_fake_to_localfile_slot_contention_template.conf",
+                valueMap,
+                targetConfigFilePath);
+
+        return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 }

@@ -217,7 +217,7 @@ CDC Pipeline 比 append-only batch 作业更敏感，常见运维关注点包括
 
 相关文档：
 
-- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [插件发现与类加载](./plugin-discovery-and-class-loading.md)
 - [Connector 依赖隔离加载机制](../connectors/connector-isolated-dependency.md)
 

@@ -6,6 +6,74 @@ sidebar_position: 4
 
 The AI CLI's accuracy is measured — not assumed — by a dedicated benchmark: 100 tasks in three complexity tiers, judged through layered verdict gates up to **real job execution** against Dockerized data sources, across 7 mainstream LLMs. This page summarizes the methodology, the results, and what they mean for choosing a model.
 
+## Comparing CLI Revisions
+
+### Optional alternative-wording checks
+
+The default 100-task benchmark is unchanged. To run the separate public
+paraphrase suite of 12 tasks:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --out benchmark/paraphrase-baseline
+```
+
+The suite covers routing, CDC prerequisites and connector options/mode selection,
+including one Chinese routing prompt. It runs only variants, without adding the
+original tasks to the denominator. `--tiers` filters inherited tiers; `--tasks`
+uses distinct IDs such as `t2_cdc_pg_kafka_p1`. Invalid or duplicate variant
+selections fail before provider setup. The usual generation, repair and gate
+pipeline applies: this command calls a model, even with `--level l1`.
+
+Each variant inherits all assertions and execution fixtures from a fingerprinted
+baseline task. Changed parents require review and explicit repinning, not silent
+expectation updates. Saved results retain parent provenance and fingerprint the
+complete expanded variant. Run the same suite in a separate candidate directory
+and use the comparison command below; do not compare parent IDs against variant
+IDs or combine their rates as independent evidence.
+New results record the run-level `suite`; cross-suite comparisons are rejected
+before task pairing. Older unmarked baseline results remain compatible, but
+unmarked paraphrase results need a fresh run. This initial corpus intentionally
+has one reviewed alternative wording per parent; additional wordings are a
+separate corpus expansion.
+
+This public suite is a regression tool, **not an unseen holdout**. Offline tests
+validate its harness contracts, not generation accuracy or full semantic
+equivalence of output data. Existing default prompts, scoring and report formats
+are unchanged. See the benchmark README for the corpus contract.
+
+### Saved-result comparison
+
+Save baseline and candidate benchmark runs in separate directories, then compare
+their `results.json` files without making additional model calls:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.compare benchmark/baseline/results.json benchmark/candidate/results.json \
+    --out benchmark/comparison.md
+```
+
+The Markdown report pairs model/task/trial identities and shows aggregate deltas
+alongside every first-attempt and repair-budget pass-to-fail/fail-to-pass transition.
+Matching recorded model configuration, requested gates, trial count, repair budget,
+CLI revision stamps, and task-definition fingerprints are required. Missing,
+incompatible, skipped, or incomplete results are visibly excluded from both
+denominators, not treated as improvements. Inspect exclusions before interpreting
+the paired subset as the full suite.
+
+New runs include `task_sha256`, covering the prompt, assertions, and execution
+probes. Older result files lack this evidence and are excluded; collect fresh runs
+with the fingerprint-enabled harness rather than backfilling hashes from current
+tasks. Existing single-run reports and inputs remain unchanged. The comparison
+refuses to overwrite an output file; omit `--out` to print to stdout. Exit code 0
+means a report was produced, not that an accuracy gate passed.
+
+This is an offline, descriptive comparison, not a statistical or CI acceptance
+gate. Keep provider environment variables, model serving state, validation code,
+connector metadata, engine version, and test data constant when isolating a CLI
+change. Task fingerprints alone do not establish that these other inputs match.
+
 > Results below were measured in July 2026 against seatunnel-cli v0.1.0 (commit `59ada4ec0`) with models served by AWS Bedrock. Accuracy drifts as models and the CLI evolve; treat the numbers as a snapshot and re-run the benchmark for current values.
 
 ## Methodology
@@ -77,3 +145,38 @@ These clusters are engineering targets, not permanent limits: they are being add
 ## Repair Loop: Measured Effectiveness
 
 Feeding **real engine errors** back to the repair agent recovered 47% of runtime failures (top-3 models combined). The same model repairs structured validation errors at ~2× the rate of raw Java stack traces — evidence that structured error parsing, not a smarter model, is the highest-leverage next improvement for the repair loop.
+
+## Running the Benchmark Yourself
+
+The benchmark harness ships in the main repository under
+[`seatunnel-cli/benchmark/`](https://github.com/apache/seatunnel/tree/dev/seatunnel-cli/benchmark) —
+100 declarative tasks, the layered verdict gates, the Docker data
+environment, and the report generator.
+
+```bash
+cd seatunnel-cli
+
+# Credentials via provider-standard environment variables
+export OPENAI_API_KEY=sk-...          # or ANTHROPIC_API_KEY / AWS credentials
+
+# One command: installs deps, preflights the environment, runs, reports
+./benchmark/run_benchmark.sh --provider openai --model gpt-4o
+
+# Multi-model comparison
+./benchmark/run_benchmark.sh --models benchmark/models.json
+
+# Optional deeper gates:
+#   L2 (engine dry-run)   — set SEATUNNEL_HOME to a dev-branch build
+#   L3 (real execution)   — docker compose -f benchmark/docker/docker-compose.yml up -d --wait
+```
+
+Missing infrastructure degrades gracefully: without an engine or Docker you
+get a static-gate (L1) report; trials whose requested gates could not execute
+are excluded from every pass metric and flagged in the summary, so results
+from differently-equipped machines are never silently compared.
+
+Every report is stamped with the CLI version and git commit under test —
+rerun the same model on a new CLI build to measure the impact of any prompt,
+metadata, or repair-logic change on identical tasks. See
+[`benchmark/README.md`](https://github.com/apache/seatunnel/blob/dev/seatunnel-cli/benchmark/README.md)
+for the full methodology, task-suite layout, and metric definitions.

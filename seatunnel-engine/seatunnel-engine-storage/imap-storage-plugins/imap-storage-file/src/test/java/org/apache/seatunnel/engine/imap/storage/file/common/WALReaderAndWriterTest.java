@@ -26,18 +26,23 @@ import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -58,6 +63,11 @@ public class WALReaderAndWriterTest {
         conf.set("fs.defaultFS", "file:///");
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
         FS = FileSystem.getLocal(conf);
+    }
+
+    @BeforeEach
+    void cleanWalDirectory() throws IOException {
+        FS.delete(PARENT_PATH, true);
     }
 
     @Test
@@ -114,6 +124,86 @@ public class WALReaderAndWriterTest {
         Assertions.assertEquals("Kristen", result.get("key511"));
         Assertions.assertEquals(511, result.size());
         Assertions.assertNull(result.get("key519"));
+    }
+
+    @Test
+    void shouldChooseLatestMutationsAcrossUnsortedFiles() throws IOException {
+        Path path = new Path(PARENT_PATH, "unsorted");
+        writeWalFile(
+                new Path(path, "region-a/older-wal.txt"),
+                mutation("updated", "old", 10, false),
+                mutation("deleted", "old", 10, false));
+        writeWalFile(
+                new Path(path, "region-b/newer-wal.txt"),
+                mutation("updated", "new", 20, false),
+                mutation("deleted", null, 20, true));
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> result = reader.loadAllData(path, Collections.emptySet());
+        Set<Object> keys = reader.loadAllKeys(path);
+
+        Assertions.assertEquals(Collections.singletonMap("updated", "new"), result);
+        Assertions.assertEquals(Collections.singleton("updated"), keys);
+    }
+
+    @Test
+    void shouldRetainOnlyRequestedKeysWhileScanning() throws IOException {
+        Path path = new Path(PARENT_PATH, "selective");
+        writeWalFile(
+                new Path(path, "region/selective-wal.txt"),
+                mutation("key-a", "value-a", 10, false),
+                mutation("key-b", "value-b", 20, false),
+                mutation("key-c", "value-c", 30, false));
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> result =
+                reader.loadAllData(path, new HashSet<>(Arrays.asList("key-a", "missing")));
+
+        Assertions.assertEquals(Collections.singletonMap("key-a", "value-a"), result);
+    }
+
+    @Test
+    void shouldIgnoreIncompleteTrailingRecord() throws IOException {
+        Path path = new Path(PARENT_PATH, "partial");
+        Path file = new Path(path, "region/partial-wal.txt");
+        FS.mkdirs(file.getParent());
+        byte[] complete = wrapped(mutation("complete", "value", 10, false));
+        byte[] incomplete = wrapped(mutation("partial", "ignored", 20, false));
+        try (FSDataOutputStream output = FS.create(file, true)) {
+            output.write(complete);
+            output.write(incomplete, 0, WALDataUtils.WAL_DATA_METADATA_LENGTH + 3);
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap("complete", "value"),
+                reader.loadAllData(path, Collections.emptySet()));
+    }
+
+    private static IMapFileData mutation(String key, String value, long timestamp, boolean deleted)
+            throws IOException {
+        return IMapFileData.builder()
+                .key(SERIALIZER.serialize(key))
+                .keyClassName(String.class.getName())
+                .value(deleted ? null : SERIALIZER.serialize(value))
+                .valueClassName(deleted ? null : String.class.getName())
+                .timestamp(timestamp)
+                .deleted(deleted)
+                .build();
+    }
+
+    private static void writeWalFile(Path file, IMapFileData... mutations) throws IOException {
+        FS.mkdirs(file.getParent());
+        try (FSDataOutputStream output = FS.create(file, true)) {
+            for (IMapFileData mutation : mutations) {
+                output.write(wrapped(mutation));
+            }
+        }
+    }
+
+    private static byte[] wrapped(IMapFileData mutation) throws IOException {
+        return WALDataUtils.wrapperBytes(SERIALIZER.serialize(mutation));
     }
 
     @Test
