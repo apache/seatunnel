@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 
 import org.awaitility.Awaitility;
@@ -61,8 +62,6 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
 
     private static final Path BIN_PATH = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path CONFIG_PATH = Paths.get(SEATUNNEL_HOME, "config");
-    private static final Path HADOOP_JAR_PATH =
-            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
     private static final String MULTIPORT_RESOURCES =
             PROJECT_ROOT_PATH
@@ -210,10 +209,8 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                 CONFIG_PATH.resolve("log4j2.properties").toString());
 
         container.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                HADOOP_JAR_PATH.toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         container.start();
         executeExtraCommands(container);

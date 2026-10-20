@@ -199,6 +199,11 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         return objectMapper.readTree(message);
     }
 
+    /** Returns the shared {@link ObjectMapper} used by this schema. */
+    public ObjectMapper getObjectMapper() {
+        return objectMapper;
+    }
+
     public SeaTunnelRow convertToRowData(JsonNode message) {
         return (SeaTunnelRow) runtimeConverter.convert(message, null);
     }

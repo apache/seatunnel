@@ -21,6 +21,7 @@ public enum StorageType {
     S3,
     OSS,
     COS,
+    BOS,
     FILE,
     HDFS
 }
