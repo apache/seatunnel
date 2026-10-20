@@ -15,46 +15,52 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Ingres JDBC 实例验证
+# Ingres JDBC instance validation
 
-`JdbcIngresIT` 默认跳过。它使用已有的、已获许可的 Ingres 实例和本地驱动，
-不下载数据库镜像、不接受商业许可，也不将驱动加入 Maven 依赖。
+`JdbcIngresIT` is skipped by default. It uses an existing, licensed Ingres instance
+and a locally supplied driver. It does not download a database image, accept a
+commercial license, or add the driver as a Maven dependency.
 
-没有现成实例时，可以申请 [Actian Ingres 12.1 的 30 天评估版](https://esd.actian.com/product/Ingres/12.1/Linux_X86_64-bit/Actian_Ingres_12.1_Evaluation_Edition)。
-官方要求先向 `eval@actian.com` 申请评估许可证才能激活。获取许可并启动实例后，再使用下列参数运行测试。
+If you need an instance, Actian offers a [30-day Ingres 12.1 evaluation](https://esd.actian.com/product/Ingres/12.1/Linux_X86_64-bit/Actian_Ingres_12.1_Evaluation_Edition).
+Obtain an evaluation license from Actian before activating the instance.
 
-运行前需要：
+Prerequisites:
 
-- 可运行 SeaTunnel E2E 的 Docker 环境，以及已构建的引擎和连接器。
-- 从测试 JVM 和引擎容器均可访问的 Ingres JDBC URL。
-- 对指定 owner 具有 CREATE TABLE、INSERT、SELECT、DROP TABLE 和元数据查询权限的测试账号。
-- 自行从 Actian 获取的 `iijdbc.jar`。候选驱动为 `com.ingres.jdbc:iijdbc:12.1-4.6.5`；
-  请在实际运行记录中填写服务端和驱动的准确版本，不能将候选版本视为已经验证。
+- Docker capable of running SeaTunnel E2E tests, with the engine and connectors built.
+- An Ingres JDBC URL reachable from both the test JVM and the engine container.
+- A test account with CREATE TABLE, INSERT, SELECT, DROP TABLE, and metadata access for the specified owner.
+- A user-supplied `iijdbc.jar` obtained from Actian. `com.ingres.jdbc:iijdbc:12.1-4.6.5` is a candidate driver, not a verified version. Record the actual server and driver versions with the results.
 
-通过环境变量配置以下参数，避免将密码写入命令行：
+Set these environment variables instead of putting the password on the command line:
 
-| 变量 | 内容 |
+| Variable | Value |
 | --- | --- |
-| `INGRES_E2E` | `true`，显式启用测试 |
-| `INGRES_E2E_URL` | 例如 `jdbc:ingres://ingres.example.com:II7/testdb` |
-| `INGRES_E2E_USER` | 测试账号 |
-| `INGRES_E2E_PASSWORD` | 测试密码 |
-| `INGRES_E2E_OWNER` | 已存在的 owner，填写实际大小写，不加 SQL 引号，不包含点号 |
-| `INGRES_E2E_DRIVER_JAR` | 本地 `iijdbc.jar` 的绝对路径 |
+| `INGRES_E2E` | `true` to explicitly enable the test |
+| `INGRES_E2E_URL` | For example, `jdbc:ingres://ingres.example.com:II7/testdb` |
+| `INGRES_E2E_USER` | Test account |
+| `INGRES_E2E_PASSWORD` | Test password |
+| `INGRES_E2E_OWNER` | Existing owner, in its actual stored case, without SQL quotes or dots |
+| `INGRES_E2E_DRIVER_JAR` | Absolute path to the local `iijdbc.jar` |
 | `RUN_ENGINES` | `zeta` |
 
-在仓库根目录执行：
+Run from the repository root:
 
 ```shell
 ./mvnw -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-7 -am \
   -DskipUT -DskipIT=false -Dit.test=JdbcIngresIT -Dfailsafe.failIfNoSpecifiedTests=false verify
 ```
 
-测试会创建具有随机名称的 `st_ingres_*` 表，插入两行数据，通过 JDBC Source 发现
-owner 表的元数据，分别按主键读取两行，由 Assert sink 检查每次的行数、主键值、NULL 和字段值。数据包含整数主键、
-带大小写且需要引用的 `Order` 字段、NULL 字符串和 `DECIMAL(10,2)`。
-测试结束时只删除此次创建的表。如果进程被强制终止，需要根据测试日志手动清理该测试表。
-连接配置仅复制到测试容器，驱动也仅在测试期间复制到容器。
+The test creates a randomly named `st_ingres_*` table and inserts two rows. JDBC
+Source discovers the owner-qualified table metadata and reads each row separately
+by primary key. The Assert sink checks the row count, primary-key value, NULL and
+field values. Data includes an integer key, a quoted mixed-case `Order` column,
+a NULL string and `DECIMAL(10,2)` values.
 
-这条路径验证标准 JDBC Source，不验证原生 upsert、Ingres 专有类型、CDC、catalog 或建表功能。
-未提供实例时，测试的 skipped 结果不能作为真实兼容性通过的证据。
+Cleanup drops only the table created by this test. If the process is forcibly
+terminated, use the test logs to identify and remove that test table manually.
+Connection configuration and the driver are copied into the test container only
+for the test.
+
+This path tests standard JDBC Source reads. It does not validate Ingres JDBC Sink
+execution, native upsert, Ingres-specific types, CDC, catalog or connector-managed
+schema creation. A skipped test is not evidence of real-server compatibility.

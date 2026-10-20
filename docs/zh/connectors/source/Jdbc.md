@@ -296,6 +296,7 @@ numeric_special_value_as_null = true
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
 | YashanDB  |          |          |
+| Ingres    |              |          |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
@@ -524,6 +525,12 @@ sink {
 ```
 
 ### Ingres
+
+Ingres 支持以 Source 读取为目标，真实服务器验证仍待完成。使用 `jdbc:ingres:` 的 Sink 也会选中该共享方言，但 Sink 执行和 `${schema_name}` 目标路由尚未验证，不能据此认定已支持 Ingres Sink。
+
+`owner.table` 应使用实际存储的大小写，`field_ide` 仅修改列名。生成 Sink SQL 时，`database` 不加入表标识符：数据库由 JDBC URL 选择，`table = "owner.table"` 提供 owner。当 `generate_sink_sql = true` 时，`database` 仍为必填配置。
+
+已有作业可设置 `dialect = "Generic"`，在迁移期间保留旧方言行为。详见[不兼容变更](../../introduction/concepts/incompatible-changes.md#dev)。
 
 JDBC Source 会为以 `jdbc:ingres:` 开头的 URL 选择 Ingres 方言。驱动类为
 `com.ingres.jdbc.IngresDriver`，需要按照适用许可自行从 Actian 获取 `iijdbc.jar`；

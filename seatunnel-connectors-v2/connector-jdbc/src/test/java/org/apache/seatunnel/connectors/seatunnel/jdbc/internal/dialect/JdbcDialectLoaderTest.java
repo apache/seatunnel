@@ -45,6 +45,14 @@ public class JdbcDialectLoaderTest {
     }
 
     @Test
+    public void shouldAllowGenericOverrideForIngresMigration() {
+        JdbcDialect dialect =
+                JdbcDialectLoader.load("jdbc:ingres://localhost:II7/test", "Generic", "");
+        Assertions.assertEquals("Generic", dialect.dialectName());
+        Assertions.assertEquals("Orders", dialect.quoteIdentifier("Orders"));
+    }
+
+    @Test
     public void shouldKeepOtherUrlDialects() {
         Assertions.assertEquals(
                 "Generic",

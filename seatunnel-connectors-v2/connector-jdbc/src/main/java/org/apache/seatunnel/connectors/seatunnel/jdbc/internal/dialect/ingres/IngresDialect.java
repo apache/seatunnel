@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.GenericDi
 
 import java.util.Optional;
 
+/** Quotes Ingres owner/table paths while reusing standard JDBC conversion. */
 public class IngresDialect extends GenericDialect {
     public IngresDialect() {}
 
@@ -61,17 +62,20 @@ public class IngresDialect extends GenericDialect {
 
     @Override
     public String tableIdentifier(String database, String tableName) {
+        // The JDBC URL selects the database; tableName supplies the owner and table.
         return tableIdentifier(parse(tableName));
     }
 
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {
+        // Use the existing query/insert/update executor instead of unverified native MERGE SQL.
         return Optional.empty();
     }
 
     @Override
     public boolean supportHashSplitter() {
+        // The generic hash expression is unverified for Ingres; use the single-split fallback.
         return false;
     }
 }

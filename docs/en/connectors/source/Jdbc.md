@@ -300,6 +300,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  |              |          |
+| Ingres    |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
@@ -569,6 +570,12 @@ sink {
 ```
 
 ### Ingres
+
+Ingres support targets source reads; real-server validation is pending. Sink jobs also select this shared dialect for `jdbc:ingres:`, but sink execution and `${schema_name}` target routing have not been validated. This does not establish Ingres sink support.
+
+Use `owner.table` with the exact stored case; `field_ide` changes columns only. For generated sink SQL, `database` is not included in the table identifier: the JDBC URL selects the database and `table = "owner.table"` supplies the owner. `database` remains required when `generate_sink_sql = true`.
+
+Existing jobs can set `dialect = "Generic"` to retain the previous dialect behavior while migrating. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#dev).
 
 The JDBC source selects the Ingres dialect for URLs starting with `jdbc:ingres:`. Use
 `com.ingres.jdbc.IngresDriver` and obtain `iijdbc.jar` from Actian under its applicable license;
