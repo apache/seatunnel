@@ -265,13 +265,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${junit5.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>junit-jupiter</artifactId>
                 <version>${testcontainer.version}</version>
@@ -283,6 +276,8 @@
                 <artifactId>postgresql</artifactId>
                 <version>${testcontainer.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.yashandb</groupId>
                 <artifactId>yashandb-jdbc</artifactId>
                 <version>${yashandb.jdbc.version}</version>
@@ -470,6 +465,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
