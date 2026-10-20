@@ -53,7 +53,9 @@ STUCK_SECONDS = 120
 
 # Restarting once is normal operation -- a transient connection drop costs one
 # restore and the job carries on. The signal is repetition, so the crash-loop
-# rule only fires from the second restore.
+# rule only fires from the second restore. The exhausted-budget finding is the
+# exception: it does not need repetition, because a spent budget means the next
+# failure is terminal whether that took one restore or ten.
 CRASH_LOOP_RESTORES = 2
 
 # ``restoreCount`` counts restores since submission, so on its own it says
@@ -210,6 +212,9 @@ def _crash_loop_findings(pipelines: list, now_ms: int) -> list[Finding]:
         if not isinstance(pipeline, dict):
             continue
         restores = as_int(pipeline.get("restoreCount"))
+        # Nothing to say about a pipeline that has never restored. Subsumed by
+        # the gate below, but kept so that case is explicit rather than an
+        # accident of how `exhausted` evaluates at zero.
         if restores is None or restores < 1:
             continue
         pipeline_id = pipeline.get("pipelineId", "?")

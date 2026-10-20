@@ -342,7 +342,9 @@ wrong hint costs more than a missing one:
   restores as history. A loop is only claimed when the pipeline is between
   attempts, or has been running for less than 10 minutes since its last
   restore — so a loop whose attempts each survive longer than that is reported
-  as history rather than as a live fault.
+  as history rather than as a live fault. One exception: a pipeline that has
+  used its whole restore budget is reported even after a single restore, which
+  you will see on a job with `job.retry.times = 1`.
 - the row-count rules wait until the job has been RUNNING for two minutes, and
   for a `job.mode = STREAMING` job an idle source is reported as a note rather
   than a warning -- a quiet topic and a misconfigured one read the same here.
