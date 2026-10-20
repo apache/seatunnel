@@ -31,7 +31,7 @@ session:
     image: apache/seatunnel:3.0.1
     image-pull-policy: IfNotPresent
     service-account: default
-    config-map: seatunnel-session-cluster-worker
+    config-map: seatunnel-session-cluster-config
     jvm-options: "-Xms3g -Xmx3g"
   dynamic-worker:
     enabled: true

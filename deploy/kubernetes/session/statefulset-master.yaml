@@ -95,17 +95,10 @@ spec:
             - name: master-config
               mountPath: /opt/seatunnel/config
               readOnly: true
-            - name: session-config
-              mountPath: /opt/seatunnel/config/session.yaml
-              subPath: session.yaml
-              readOnly: true
       volumes:
         - name: master-config
           configMap:
-            name: seatunnel-session-cluster-master-config
-        - name: session-config
-          configMap:
-            name: seatunnel-session-cluster-session
+            name: seatunnel-session-cluster-config
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

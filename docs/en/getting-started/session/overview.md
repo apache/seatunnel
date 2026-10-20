@@ -51,18 +51,17 @@ keep only the objects they need.
 
 ## Requirements
 
-- A Kubernetes cluster and `kubectl`.
+Read [Kubernetes Deployment](../kubernetes/kubernetes.mdx) for cluster prerequisites and
+[Kubernetes Configuration](../kubernetes/configuration.md) for namespace, ConfigMap/Secret,
+image-pull, and Hazelcast discovery practices. Session-specific requirements are:
+
 - A SeaTunnel image containing the session entrypoint and the Kubernetes resource-manager provider.
-- A namespace for the session resources.
-- A master configuration directory with `seatunnel.yaml`, `hazelcast-master.yaml`,
-  `hazelcast-client.yaml`, `log4j2.properties`, and `jvm_master_options`.
-- A worker configuration directory with `seatunnel.yaml`, `hazelcast-worker.yaml`,
-  `log4j2.properties`, and `jvm_worker_options`.
-- A standalone `session.yaml`. The sample `kustomization.yaml` generates separate ConfigMaps from
-  these files and the master StatefulSet mounts `session.yaml` at
-  `/opt/seatunnel/config/session.yaml`.
-- Checkpoint and IMap storage reachable by every Pod. The sample uses `file:///tmp/` for a local
-  single-node test; use HDFS, S3, or a PVC in production.
+- A `conf/` directory containing `session.yaml`, `seatunnel.yaml`, both role Hazelcast configs,
+  the client config, logging, and both JVM option files.
+- The sample `kustomization.yaml` generates one `<session-name>-config` ConfigMap from `conf/`.
+- Checkpoint and IMap storage reachable by every Pod. The sample uses `file:///tmp/` only for a
+  local single-node test; use the storage guidance in [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md)
+  for production.
 
 ## Configure
 
@@ -84,7 +83,7 @@ session:
     image: apache/seatunnel:3.0.1
     image-pull-policy: IfNotPresent
     service-account: default
-    config-map: seatunnel-session-cluster-worker
+    config-map: seatunnel-session-cluster-config
     jvm-options: "-Xms16g -Xmx16g"
 
   dynamic-worker:
@@ -93,12 +92,10 @@ session:
     retry-interval-millis: 3000
 ```
 
-The sample keeps this file as `deploy/kubernetes/session/session.yaml`. `kustomization.yaml` uses
-`configMapGenerator` to create a separate ConfigMap from it, and `statefulset-master.yaml` mounts
-that key at `/opt/seatunnel/config/session.yaml`. The other master files live under
-`deploy/kubernetes/session/conf/master/` and worker files under `conf/worker/`; shared logging and
-JVM files live under `conf/common/`. Edit those files individually and let Kustomize generate the
-ConfigMaps.
+The sample keeps this file as `deploy/kubernetes/session/conf/session.yaml`. `kustomization.yaml`
+uses `configMapGenerator` to create one `<session-name>-config` ConfigMap from the whole `conf/`
+directory. The master StatefulSet mounts the whole ConfigMap, and worker Pods mount their required
+keys from the same object; `session.yaml` is not embedded in another ConfigMap.
 
 `min-workers` defaults to `2`. `dynamic-worker.enabled` defaults to `false`; when enabled, workers
 are created only from pending-job slot demand up to `max-workers`.
@@ -118,9 +115,9 @@ startup before the coordinator is published.
 | `session.master.port` | no | `5801` | Master Hazelcast port. Keep the Services, StatefulSet, and client configuration aligned when changing it. |
 | `kubernetes.namespace` | no | `default` | Namespace for the Kubernetes client used by the master and the default worker/root names. It must contain the Session resources. |
 
-The master StatefulSet, Services, PDB, and master ConfigMap names are defined by the manifests, not
-derived from `session.name` at runtime. When copying the sample for another Session, rename those
-resources and their DNS references together.
+The master StatefulSet, Services, PDB, and generated ConfigMap name are defined by the manifests,
+not derived from `session.name` at runtime. When copying the sample for another Session, rename
+those resources and their DNS references together.
 
 #### Worker template keys
 
@@ -136,7 +133,7 @@ resources and their DNS references together.
 | `session.worker.jvm-options` | no | `-Xms<heap>m -Xmx<heap>m` | Additional JVM options passed by the worker entrypoint. |
 | `session.worker.image-pull-policy` | no | `IfNotPresent` | Kubernetes image pull policy: `Always`, `IfNotPresent`, or `Never`. |
 | `session.worker.service-account` | no | `default` | Service account for worker Pods. It does not need Kubernetes API permissions for normal jobs. |
-| `session.worker.config-map` | no | `seatunnel-session-<name>-worker` | Existing worker ConfigMap. It must contain `seatunnel.yaml`, `hazelcast-worker.yaml`, `log4j2.properties`, and `jvm_worker_options`. |
+| `session.worker.config-map` | no | `seatunnel-session-<name>-config` | Existing worker ConfigMap. It must contain `seatunnel.yaml`, `hazelcast-worker.yaml`, `log4j2.properties`, and `jvm_worker_options`. |
 | `session.worker.seatunnel-home` | no | `/opt/seatunnel` | SeaTunnel installation directory inside the container. |
 | `session.worker.labels` | no | empty | Additional worker Pod labels. The Session and role labels are always applied. |
 | `session.worker.annotations` | no | empty | Additional worker Pod annotations. |
@@ -166,46 +163,17 @@ session:
       configmap: shared-settings
 ```
 
-### Worker seatunnel.yaml
+### Engine and Hazelcast configuration
 
-```yaml
-seatunnel:
-  engine:
-    slot-service:
-      dynamic-slot: false
-      slot-num: 8
-    checkpoint:
-      interval: 30000
-      timeout: 60000
-      storage:
-        type: hdfs
-        max-retained: 3
-        plugin-config:
-          namespace: /seatunnel/checkpoint
-          storage.type: hdfs
-          fs.defaultFS: hdfs://namenode:8020
-```
+Use the master and worker engine/Hazelcast configuration described in [Separated Cluster Mode](../kubernetes/separated-cluster-mode.md).
+The Session-specific requirements are:
 
-The worker ConfigMap must also contain `hazelcast-worker.yaml`, `log4j2.properties`, and
-`jvm_worker_options`. Keep `slot-service.dynamic-slot: false` and set `slot-num` to the same value
-as `session.worker.slots`; the master rejects a Session when they differ.
-
-### Master seatunnel.yaml
-
-```yaml
-seatunnel:
-  engine:
-    backup-count: 1
-    history-job-expire-minutes: 1440
-    http:
-      enable-http: true
-      port: 8080
-```
-
-The master Pods do not provide slots. They run the coordinator and REST service. The master
-ConfigMap contains `seatunnel.yaml`, `hazelcast-master.yaml`, `hazelcast-client.yaml`,
-`log4j2.properties`, and `jvm_master_options`; `session.yaml` is generated as a separate ConfigMap
-and mounted as one file. The sample master StatefulSet mounts the configuration directory read-only.
+- Worker `seatunnel.yaml` must set `slot-service.dynamic-slot: false`; its `slot-num` must equal
+  `session.worker.slots`.
+- The master StatefulSet mounts the generated `<session-name>-config` ConfigMap read-only at
+  `/opt/seatunnel/config`; workers mount only their four required keys from the same ConfigMap.
+- The sample uses `file:///tmp/` for checkpoints and IMap persistence only for local validation.
+  Follow the storage guidance in Separated Cluster Mode for production.
 
 ## Start
 
@@ -219,14 +187,8 @@ kubectl apply -k /tmp/payments-session
 kubectl -n seatunnel get pods -w
 ```
 
-The active master creates the minimum worker set. Wait until the master StatefulSet and the worker
-Pods are ready.
-
-```bash
-kubectl -n seatunnel get statefulset
-kubectl -n seatunnel get pods -l seatunnel.apache.org/role=worker
-kubectl -n seatunnel logs -f statefulset/seatunnel-session-cluster-master
-```
+The active master creates the minimum worker set. Wait until the master StatefulSet and worker
+Pods are ready. For status, logs, and REST service access, see [Kubernetes Operations](../kubernetes/operations.md).
 
 ## Submit jobs
 
@@ -271,7 +233,7 @@ SESSION_NAME=seatunnel-session-cluster  # or the name used in the copied manifes
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
 kubectl -n seatunnel delete configmap \
-  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-config"
 kubectl -n seatunnel delete service \
   "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"

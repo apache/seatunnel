@@ -159,7 +159,7 @@ public final class KubernetesSessionConfig
         String serviceAccount = optionalString(worker, "service-account", "default");
         String imagePullPolicy = optionalString(worker, "image-pull-policy", "IfNotPresent");
         String workerConfigMap =
-                optionalString(worker, "config-map", "seatunnel-session-" + name + "-worker");
+                optionalString(worker, "config-map", "seatunnel-session-" + name + "-config");
         String seatunnelHome =
                 optionalString(
                         worker, "seatunnel-home", KubernetesConstants.DEFAULT_SEATUNNEL_HOME);

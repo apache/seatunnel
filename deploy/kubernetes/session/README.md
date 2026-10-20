@@ -2,10 +2,10 @@
 
 This directory contains a minimal Kubernetes Session Cluster. The two masters are a StatefulSet;
 workers are bare Pods created by the active master. There is no worker Deployment or StatefulSet.
-`session.yaml` is a standalone configuration file; `kustomization.yaml` generates a ConfigMap from
-it and the master StatefulSet mounts it at `/opt/seatunnel/config/session.yaml`. Master and worker
-configuration files are split under `conf/master/` and `conf/worker/`; common logging and JVM
-options are in `conf/common/`. Kustomize generates the ConfigMaps from those individual files.
+`conf/` contains the standalone master and worker configuration files, including `session.yaml`,
+`seatunnel.yaml`, the Hazelcast configs, logging, and JVM options. `kustomization.yaml` generates
+one `<session-name>-config` ConfigMap from those files; the master mounts the whole ConfigMap and
+workers mount their required keys from the same object.
 
 ## Multiple Sessions in one namespace
 
@@ -68,7 +68,7 @@ SESSION_NAME=seatunnel-session-cluster  # or the name used in the copied manifes
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
 kubectl -n seatunnel delete configmap \
-  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-config"
 kubectl -n seatunnel delete service \
   "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"

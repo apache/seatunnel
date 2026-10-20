@@ -122,24 +122,18 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
     private void applySessionManifests() throws Exception {
         Path directory = Paths.get(PROJECT_ROOT_PATH, "deploy/kubernetes/session");
         List<String> manifests = new ArrayList<>();
-        manifests.add(sessionConfigMap(directory));
         manifests.add(
                 configMap(
                         directory,
-                        "seatunnel-session-cluster-master-config",
-                        "conf/master/seatunnel.yaml",
-                        "conf/master/hazelcast-master.yaml",
-                        "conf/master/hazelcast-client.yaml",
-                        "log4j2.properties=conf/common/log4j2.properties",
-                        "jvm_master_options=conf/common/jvm_options"));
-        manifests.add(
-                configMap(
-                        directory,
-                        "seatunnel-session-cluster-worker",
-                        "conf/worker/seatunnel.yaml",
-                        "conf/worker/hazelcast-worker.yaml",
-                        "log4j2.properties=conf/common/log4j2.properties",
-                        "jvm_worker_options=conf/common/jvm_options"));
+                        "seatunnel-session-cluster-config",
+                        "conf/seatunnel.yaml",
+                        "conf/hazelcast-master.yaml",
+                        "conf/hazelcast-worker.yaml",
+                        "conf/hazelcast-client.yaml",
+                        "conf/log4j2.properties",
+                        "conf/jvm_master_options",
+                        "conf/jvm_worker_options",
+                        "conf/session.yaml"));
         for (String name :
                 new String[] {
                     "root-configmap.yaml",
@@ -150,10 +144,6 @@ class KubernetesSessionIT extends AbstractKubernetesApplicationIT {
             manifests.add(render(Files.readString(directory.resolve(name), StandardCharsets.UTF_8)));
         }
         applyYaml(String.join("\n---\n", manifests));
-    }
-
-    private String sessionConfigMap(Path directory) throws Exception {
-        return configMap(directory, "seatunnel-session-cluster-session", "session.yaml");
     }
 
     private String configMap(Path directory, String name, String... entries) throws Exception {

@@ -48,17 +48,16 @@ manifest，也可以自行创建 Service、ConfigMap、Secret、RBAC，只保留
 
 ## 前置条件
 
-- Kubernetes 集群和 `kubectl`。
+Kubernetes 集群、namespace、ConfigMap/Secret、镜像拉取和 Hazelcast 发现等通用要求，请先阅读
+[Kubernetes 部署](../kubernetes/kubernetes.mdx) 和
+[Kubernetes 配置](../kubernetes/configuration.md)。Session 特有的要求是：
+
 - 包含 Session 启动脚本和 Kubernetes resource-manager provider 的 SeaTunnel 镜像。
-- 一个用于 Session 资源的 namespace。
-- master 配置目录，包含 `seatunnel.yaml`、`hazelcast-master.yaml`、`hazelcast-client.yaml`、
-  `log4j2.properties`、`jvm_master_options`。
-- worker 配置目录，包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、
-  `jvm_worker_options`。
-- 独立的 `session.yaml`。示例 `kustomization.yaml` 会根据这些文件生成独立 ConfigMap，master
-  StatefulSet 将 `session.yaml` 挂载到 `/opt/seatunnel/config/session.yaml`。
-- 所有 Pod 都能访问 checkpoint 和 IMap 存储。示例使用 `file:///tmp/` 便于本地单节点验证；
-  生产环境应使用 HDFS、S3 或 PVC。
+- `conf/` 目录，包含 `session.yaml`、`seatunnel.yaml`、master/worker 的 Hazelcast 配置、
+  client 配置、日志配置和两份 JVM 参数文件。
+- 示例 `kustomization.yaml` 会从 `conf/` 生成一个 `<session-name>-config` ConfigMap。
+- 所有 Pod 都能访问 checkpoint 和 IMap 存储。示例使用 `file:///tmp/` 仅用于本地单节点验证；
+  生产存储请参考 [分离集群模式](../kubernetes/separated-cluster-mode.md)。
 
 ## 配置
 
@@ -80,7 +79,7 @@ session:
     image: apache/seatunnel:3.0.1
     image-pull-policy: IfNotPresent
     service-account: default
-    config-map: seatunnel-session-cluster-worker
+    config-map: seatunnel-session-cluster-config
     jvm-options: "-Xms16g -Xmx16g"
 
   dynamic-worker:
@@ -89,11 +88,10 @@ session:
     retry-interval-millis: 3000
 ```
 
-示例将配置保留为独立文件 `deploy/kubernetes/session/session.yaml`。`kustomization.yaml` 使用
-`configMapGenerator` 生成单独的 ConfigMap，`statefulset-master.yaml` 再把它挂载到
-`/opt/seatunnel/config/session.yaml`。其他 master 配置文件位于
-`deploy/kubernetes/session/conf/master/`，worker 配置位于 `conf/worker/`，公共日志和 JVM 配置位于
-`conf/common/`；直接编辑这些文件，由 Kustomize 生成 ConfigMap。
+示例将配置保留为 `deploy/kubernetes/session/conf/session.yaml`。`kustomization.yaml` 使用
+`configMapGenerator` 从整个 `conf/` 目录生成一个 `<session-name>-config` ConfigMap。master
+StatefulSet 挂载整个 ConfigMap，worker Pod 从同一个对象挂载自己需要的 key；`session.yaml` 不再
+嵌入其他 ConfigMap。
 
 `min-workers` 默认是 `2`。`dynamic-worker.enabled` 默认 `false`；开启后才会根据 pending job 的
 slot 缺口扩容，且不超过 `max-workers`。
@@ -112,7 +110,7 @@ master 启动时解析该文件；未知字段会被忽略，非法值会在 coo
 | `session.master.port` | 否 | `5801` | master Hazelcast 端口。修改时要同步 Service、StatefulSet 和客户端配置。 |
 | `kubernetes.namespace` | 否 | `default` | master Kubernetes 客户端使用的 namespace；Session 资源必须部署在这里。 |
 
-master StatefulSet、Service、PDB、master ConfigMap 的名称由 manifest 定义，运行时不会根据
+master StatefulSet、Service、PDB、生成的 ConfigMap 名称由 manifest 定义，运行时不会根据
 `session.name` 自动改名。复制示例部署另一个 Session 时，要一起修改这些资源名和 DNS。
 
 #### Worker 模板
@@ -129,7 +127,7 @@ master StatefulSet、Service、PDB、master ConfigMap 的名称由 manifest 定�
 | `session.worker.jvm-options` | 否 | `-Xms<heap>m -Xmx<heap>m` | 传给 Worker 启动脚本的额外 JVM 参数。 |
 | `session.worker.image-pull-policy` | 否 | `IfNotPresent` | Kubernetes 镜像拉取策略：`Always`、`IfNotPresent`、`Never`。 |
 | `session.worker.service-account` | 否 | `default` | Worker Pod 使用的 ServiceAccount；普通作业不需要 Kubernetes API 权限。 |
-| `session.worker.config-map` | 否 | `seatunnel-session-<name>-worker` | 已存在的 Worker ConfigMap，必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、`jvm_worker_options`。 |
+| `session.worker.config-map` | 否 | `seatunnel-session-<name>-config` | 已存在的 Worker ConfigMap，必须包含 `seatunnel.yaml`、`hazelcast-worker.yaml`、`log4j2.properties`、`jvm_worker_options`。 |
 | `session.worker.seatunnel-home` | 否 | `/opt/seatunnel` | 容器内 SeaTunnel 安装目录。 |
 | `session.worker.labels` | 否 | 空 | 附加到 Worker Pod 的标签；Session 和 role 标签始终会添加。 |
 | `session.worker.annotations` | 否 | 空 | 附加到 Worker Pod 的 annotation。 |
@@ -159,45 +157,16 @@ session:
       configmap: shared-settings
 ```
 
-### Worker seatunnel.yaml
+### Engine 与 Hazelcast 配置
 
-```yaml
-seatunnel:
-  engine:
-    slot-service:
-      dynamic-slot: false
-      slot-num: 8
-    checkpoint:
-      interval: 30000
-      timeout: 60000
-      storage:
-        type: hdfs
-        max-retained: 3
-        plugin-config:
-          namespace: /seatunnel/checkpoint
-          storage.type: hdfs
-          fs.defaultFS: hdfs://namenode:8020
-```
+master/worker 的 engine 和 Hazelcast 配置请参考
+[分离集群模式](../kubernetes/separated-cluster-mode.md)。Session 特有的要求是：
 
-Worker ConfigMap 还必须包含 `hazelcast-worker.yaml`、`log4j2.properties`、
-`jvm_worker_options`。`slot-service.dynamic-slot: false`，且 `slot-num` 必须等于
-`session.worker.slots`；不一致时 master 会拒绝启动 Session。
-
-### Master seatunnel.yaml
-
-```yaml
-seatunnel:
-  engine:
-    backup-count: 1
-    history-job-expire-minutes: 1440
-    http:
-      enable-http: true
-      port: 8080
-```
-
-Master 不提供 slot，只运行 coordinator 和 REST 服务。master ConfigMap 包含 `seatunnel.yaml`、
-`hazelcast-master.yaml`、`hazelcast-client.yaml`、`log4j2.properties`、`jvm_master_options`；
-`session.yaml` 由单独的 ConfigMap 生成并以单文件挂载。示例 StatefulSet 会以只读方式挂载配置目录。
+- Worker 的 `seatunnel.yaml` 必须设置 `slot-service.dynamic-slot: false`，且 `slot-num` 必须等于
+  `session.worker.slots`。
+- Master StatefulSet 以只读方式挂载生成的 `<session-name>-config` ConfigMap 到
+  `/opt/seatunnel/config`；worker 从同一个 ConfigMap 挂载自己需要的四个 key。
+- 示例使用 `file:///tmp/` 存储 checkpoint 和 IMap，仅用于本地验证；生产存储请参考分离集群模式。
 
 ## 启动
 
@@ -211,13 +180,8 @@ kubectl apply -k /tmp/payments-session
 kubectl -n seatunnel get pods -w
 ```
 
-等待 Master StatefulSet 和 Worker Pod 就绪：
-
-```bash
-kubectl -n seatunnel get statefulset
-kubectl -n seatunnel get pods -l seatunnel.apache.org/role=worker
-kubectl -n seatunnel logs -f statefulset/seatunnel-session-cluster-master
-```
+等待 Master StatefulSet 和 Worker Pod 就绪。状态查看、日志和 REST Service 访问方式请参考
+[Kubernetes 运维](../kubernetes/operations.md)。
 
 ## 提交 job
 
@@ -261,7 +225,7 @@ SESSION_NAME=seatunnel-session-cluster  # 或复制后的 manifest 中使用的�
 
 kubectl -n seatunnel delete statefulset "${SESSION_NAME}-master"
 kubectl -n seatunnel delete configmap \
-  "${SESSION_NAME}-meta" "${SESSION_NAME}-master-config" "${SESSION_NAME}-worker"
+  "${SESSION_NAME}-meta" "${SESSION_NAME}-config"
 kubectl -n seatunnel delete service \
   "${SESSION_NAME}-headless" "${SESSION_NAME}-rest" "${SESSION_NAME}-client"
 kubectl -n seatunnel delete pdb "${SESSION_NAME}-master"
